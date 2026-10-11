@@ -56,7 +56,7 @@ What's left over. It's shown, and neither typed nor stored:
 
 The flow is the change (cash) or the change minus the interest (savings), so this is **flow − money in + money out** for both kinds, and it can always be worked out from what's stored.
 
-- **The check-in review** adds it up across cash, savings and investment accounts. A trades account's part is its flow, so a transfer from the bank to the broker cancels out against the broker's deposit trade, and a buy paid from outside the account against the bank's. A debt's new money is in the sum when it's negative, so new borrowing (a loan or a mortgage paid out, a card's cash advance) cancels out against the account it lands in; repayments are money out, so they aren't. The review points out what doesn't cancel out.
+- **The check-in review** adds it up across cash, savings and investment accounts. A trades account's part is its flow, so a transfer from the bank to the broker cancels out against the broker's deposit trade, and a buy paid from outside the account against the bank's. A loan's or a mortgage's new money is in the sum when it's negative, so a loan or a mortgage paid out cancels out against the account it lands in; repayments are money out, so they aren't. Credit cards aren't in the sum, since a card's balance grows with purchases that go to shops, so a card's cash advance shows as not cancelling out. The review points out what doesn't cancel out.
 - **Interest on a current account** isn't asked for; it ends up in "moved".
 
 ### Pre-filled values
@@ -92,7 +92,8 @@ All existing accounts are migrated, in schema version 4, with a migration in Sto
 
 - The `moneyInOut` key goes from every account file.
 - Every account recorded as snapshots (`holdings`, written or by default) is converted to trades with `Library.conversionToTrades(of:)` ([TRADES.md](TRADES.md#converting-an-account)). Its values and new money stay the same. What the conversion estimated (its notes: prices, external settlement, a balance turned into cash) goes into the migration's report, which the app shows once after migrating and `retire validate` prints.
-- A brokerage, crypto or metals account recorded as a plain balance (`"valuation": "balance"`) becomes kind `other`, and its `valuation` key goes. It then moves to the *Other* group in lists, the check-in and the breakdown (`AccountGroup(kind:)`), takes `other`'s symbol, and its new money is asked for at check-ins (`defaultFlow` `.ask`), as for property.
+- A snapshot account whose values hold only balances (no positions) is set to record a balance (`"valuation": "balance"`), since it has nothing to convert.
+- A brokerage, crypto or metals account recorded as a plain balance (`"valuation": "balance"`), before the migration or by the step above, becomes kind `other`, and its `valuation` key goes. It then moves to the *Other* group in lists, the check-in and the breakdown (`AccountGroup(kind:)`), takes `other`'s symbol, and its new money is asked for at check-ins (`defaultFlow` `.ask`), as for property.
 - **Past values keep the `flow` they recorded.** Values of accounts that opted in to money in and out keep theirs, as `conto-fineco`'s do. Other cash and savings accounts' past values have none, since money in and out can't be split from a net change, so their savings rate starts at the next check-in.
 
 ## Downstream implications
@@ -119,7 +120,7 @@ The commit message of each change here says why ([CLAUDE.md](../CLAUDE.md), "Sha
 
 ### Storage: the migration and the load checks
 
-- **`Sources/Storage/Maintenance/Migrations.swift`:** the first step in `Migration.all`, `Migration(from: 3, …)`. A step works on raw JSON: dropping `moneyInOut` and turning balance-recorded investment accounts into `other` fit; converting snapshot accounts doesn't, since `conversionToTrades(of:)` is in Tracker and Storage depends only on Model, so the app and the CLI pass that step in ([Settled questions](#settled-questions), 1).
+- **`Sources/Storage/Maintenance/Migrations.swift`:** the first step in `Migration.all`, `Migration(from: 3, …)`. A step works on raw JSON: dropping `moneyInOut`, setting snapshot accounts that hold only balances to `balance`, and turning balance-recorded investment accounts into `other` fit; converting snapshot accounts doesn't, since `conversionToTrades(of:)` is in Tracker and Storage depends only on Model, so the app and the CLI pass that step in ([Settled questions](#settled-questions), 1).
 - **`Sources/Storage/Library/LibraryLoader.swift`:** `checkMoneyInOut` keeps pointing out money in and out on other kinds; `checkTrades` and a new check point out a `holdings` account.
 - **Tests:** `Tests/StorageTests/SchemaTests.swift` (`MigrationTests`, whose made-up step is `Migration(from: 3, …)` today, so it moves to version 4; and the real migration from a version-3 library: what each kind becomes, the backup, nothing written when a step fails). Tests that write `schemaVersion` 3 change with it: `BackupTests`, `UnknownKeysTests`, `GoldenRoundTripTests`, `NewLibraryTests`, `SaveMergeTests`, `JSONSchemaTests`, `LoaderTests`, `CloudSyncTests/ConflictMergerTests`, and in `RetireCLITests` `ImportTests`, `NetWorthTests` and `ValidateTests`.
 
@@ -206,11 +207,11 @@ In `Sources/TestSupport/Resources/ExampleLibrary/`:
 
 ## Settled questions
 
-These were settled before the sub-issues start: 1 to 8 by the owner, 9 to 11 in review.
+These were settled before the sub-issues start: 1 to 8 by the owner, 9 to 12 in review.
 
-1. **Where the migration converts snapshot accounts:** the steps come from the caller. `migrate(to:steps:date:)` already takes them. Storage's own step works on raw JSON: it drops `moneyInOut`, turns balance-recorded investment accounts into `other`, and sets the mode of a snapshot account that holds only balances to `balance`. The app and the CLI add a step that decodes the library and converts snapshot accounts with Tracker's `conversionToTrades(of:)`. Storage keeps depending only on Model.
+1. **Where the migration converts snapshot accounts:** the steps come from the caller. `migrate(to:steps:date:)` already takes them. Storage's own step works on raw JSON: it drops `moneyInOut`, sets a snapshot account that holds only balances to `balance`, and then turns balance-recorded investment accounts into `other`. The app and the CLI add a step that decodes the library and converts snapshot accounts with Tracker's `conversionToTrades(of:)`. Storage keeps depending only on Model.
 2. **Interest is stored:** an optional `interest` on the valuation (the schema and `knownKeys`). The flow is the change minus it, so correcting the value before keeps the interest and works the flow out again.
-3. **Accounts are migrated by their mode, not their kind:** every snapshot account becomes a trades account, whatever its kind, so its values and new money stay the same. A snapshot account whose values hold only balances becomes a balance account. Other kinds that already record trades keep them. A new account is offered trades only for brokerage, crypto and metals, and the importer still offers to switch an account of another kind to trades when a transactions file targets it.
+3. **Accounts are migrated by their mode, not their kind:** every snapshot account becomes a trades account, whatever its kind, so its values and new money stay the same. A snapshot account whose values hold only balances becomes a balance account, and a brokerage, crypto or metals one becomes `other` (12). Other kinds that already record trades keep them. A new account is offered trades only for brokerage, crypto and metals, and the importer still offers to switch an account of another kind to trades when a transactions file targets it.
 4. **A trades row waits:** it isn't done until you add a trade (*Add Trade…*) or say there were none (*No Trades*). Both are on the row.
 5. **"Doesn't cancel out"** is any amount of at least 1 in the base currency after the sum. Pension funds aren't in the sum: contributions taken from the payslip never pass through a tracked account. The review shows it as information, not as a warning.
 6. **The importer's snapshot targets convert:** a sheet of quantities imported into a trades account becomes an opening and a buy or a sale per change, as `conversionToTrades(of:)` does. *Quantity held*, *Purchase cost* and *Cash in an investment account* stay as targets.
@@ -218,7 +219,8 @@ These were settled before the sub-issues start: 1 to 8 by the owner, 9 to 11 in 
 8. **The Mac check-in table** shows *In*, *Out*, *Interest* and "moved" as lines under the account, as *Money in* and *Money out* are today. The columns stay as they are.
 9. **A balance-recorded investment account becomes `other`,** with the changes listed under [Migration](#migration): its group, its symbol and its new money.
 10. **The principal repaid counts for every loan and mortgage,** including those the plan leaves out, as pension contributions do.
-11. **The conversion's notes go into the migration's report** (`MigrationReport`), which the app shows once after migrating and `retire validate` prints.
+11. **The conversion's notes go into the migration's report.** A step can return notes along with its changes, and `MigrationReport` gets a new `notes` field next to `steps`: an additive change to Storage's public API. The app shows the report once after migrating, and `retire validate` prints it.
+12. **A brokerage, crypto or metals snapshot account that holds only balances becomes `other`,** as one recorded as a balance does: Storage's step sets it to `balance`, then renames its kind.
 
 ## Order of work
 
