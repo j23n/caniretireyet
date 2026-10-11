@@ -142,13 +142,15 @@ enum NeedsLibrary {
         }
         var library = Library(
             accounts: [
-                Account(id: "ibkr", name: "IBKR", kind: .brokerage, currency: .usd, opened: "2024-01-01"),
+                Account(id: "ibkr", name: "IBKR", kind: .brokerage, currency: .usd, opened: "2024-01-01",
+                        valuation: .holdings),
                 Account(id: "swiss-cash", name: "Swiss cash", kind: .cash, currency: .chf, opened: "2024-01-01"),
                 Account(id: "closed-broker", name: "Closed broker", kind: .brokerage, currency: .eur,
-                        opened: "2020-01-01", closed: "2026-01-31"),
-                Account(id: "future", name: "Opens later", kind: .brokerage, currency: .gbp, opened: "2026-10-15"),
+                        opened: "2020-01-01", closed: "2026-01-31", valuation: .holdings),
+                Account(id: "future", name: "Opens later", kind: .brokerage, currency: .gbp, opened: "2026-10-15",
+                        valuation: .holdings),
                 Account(id: "switched", name: "Switched to a balance", kind: .brokerage, currency: .eur,
-                        opened: "2024-01-01"),
+                        opened: "2024-01-01", valuation: .holdings),
             ],
             instruments: [
                 instrument("aapl", .usd, PriceSource(provider: .yahoo, symbol: "AAPL")),

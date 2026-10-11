@@ -46,7 +46,8 @@ func smallLibrary() -> Library {
             Account(id: "conto-fineco", name: "Conto Fineco", kind: .cash, currency: .eur, opened: "2020-01-01"),
             Account(id: "fondo-pensione", name: "Fondo pensione", kind: .pensionFund, currency: .eur,
                     opened: "2022-01-01"),
-            Account(id: "directa", name: "Directa", kind: .brokerage, currency: .eur, opened: "2021-03-01"),
+            Account(id: "directa", name: "Directa", kind: .brokerage, currency: .eur, opened: "2021-03-01",
+                    valuation: .holdings),
         ],
         instruments: [
             Instrument(id: "vwce", name: "Vanguard FTSE All-World", kind: .etf, currency: .eur, unit: .share,

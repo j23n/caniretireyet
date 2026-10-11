@@ -54,11 +54,10 @@ struct ExampleLibraryTests {
         #expect(close(fund.mix[.bonds], 0.4) && close(fund.mix[.equity], 0.6))
         #expect(fund.costBasis == fund.value)
         #expect(drawable.accounts == ["conto-deposito", "conto-fineco", "directa", "gold-coins", "ledger-wallet", "tfr"])
-        // Recorded purchase costs are used (the ETF's 48,200 and the gold's 8,236.03); the
-        // bitcoin has none, so the plan's 20% gain estimate applies; cash (the TFR, which has
-        // no asset mix, counts as cash) has no gain.
+        // Recorded purchase costs are used (the ETF's 48,200, the gold's 8,236.03 and the
+        // bitcoin's 40,660.43); cash (the TFR, which has no asset mix, counts as cash) has no gain.
         let cash = drawable.value * (drawable.mix[.cash] ?? 0)
-        #expect(close(drawable.costBasis, 48_200 + 8_236.03 + cash + 0.8 * 44_128.004913, 1e-9))
+        #expect(close(drawable.costBasis, 48_200 + 8_236.03 + 40_660.43 + cash, 1e-9))
         #expect(result.issues.contains { $0.code == "planner.noAssetMix" && $0.account == "tfr" })
 
         // The first year runs from October: a quarter of the year.

@@ -102,7 +102,7 @@ struct CheckInDraftTests {
         #expect(valuations["conto-deposito"] == Valuation(account: "conto-deposito", date: "2026-10-31",
                                                           balance: d("17365.55"), flow: 0))
         #expect(valuations["gold-coins"] == Valuation(
-            account: "gold-coins", date: "2026-10-31",
+            account: "gold-coins", date: "2026-10-31", cash: 0,
             positions: [Position(instrument: "gold", quantity: d("93.3"), costBasis: d("8236.03"))], flow: 0))
     }
 

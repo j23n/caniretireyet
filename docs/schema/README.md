@@ -73,7 +73,7 @@ An account that records trades (`"valuation": "trades"`) holds what its trades l
 **Change since the last check-in.** Each account's change is split into **market**, **new money** and **other**:
 
 - **The flow is known** (every valuation in the period has a `flow`, or there was no new valuation): new money is the flow, and market is the rest. A lower flow, e.g. for reinvested dividends, or a purchase below the check-in price counts as market.
-- **Positions, flow unknown:** market is the old quantity × price change, including FX; new money is everything else, meaning changes in quantity and in cash.
+- **Positions, flow unknown** (only in values recorded before format version 4, if any remain): market is the old quantity × price change, including FX; new money is everything else, meaning changes in quantity and in cash.
 - **Balance the check-in asks about, flow unknown** (pension fund, TFR, property, other): each value's flow where one was entered, else what the main plan pays into the account since the value before (its `contributions`), is new money, and market is the rest. The account's first value without a flow is other: what it held when its records start ([PROGRESS.md](../PROGRESS.md#data-this-needs-from-day-one)).
 - **Other balances, flow unknown** (an imported history, typically): each value's flow where one was entered, else what a check-in would have filled in, the whole change since the value before, is new money, and market is the rest, the FX movement ([PROGRESS.md](../PROGRESS.md#data-this-needs-from-day-one)). The account's first value without a flow is other. When a price or an exchange rate that needs is missing, only the FX movement of the old balance counts as market, and the rest is other.
 - **Trades:** new money is the account's deposits, withdrawals, transfers at market value, buys and sales paid from outside the account at their amount, and residuals (cash typed at a check-in that the trades don't explain), each at its date; market is the rest, including dividends, interest and fees ([TRADES.md](../TRADES.md#flows)).
@@ -94,8 +94,14 @@ The app writes every file the same way, so the same data always gives the same b
 
 ## Versioning
 
-- `schemaVersion` in `library.json` is 3. Adding optional fields doesn't change it; anything else is a new version, with a migration in the app.
+- `schemaVersion` in `library.json` is 4. Adding optional fields doesn't change it; anything else is a new version, with a migration in the app.
 - Versions 1 and 2 were the formats of test versions, before any library was kept (version 2 added trades, version 3 dropped the tax systems from plans, [PLANNER.md](../PLANNER.md#the-model-in-brief)). This app has no migration from them: such a library doesn't open, and the error says why.
+- Version 4 made each account kind record its money one way ([ACCOUNTS.md](../ACCOUNTS.md)). The upgrade from version 3, in this order:
+  1. drops `moneyInOut` from every account: cash and savings accounts record money in and out at every value after their first;
+  2. drops `valuation` from an account recorded as snapshots (`holdings`, written or by default) that has no values, so it records what its kind does now;
+  3. sets an account recorded as snapshots whose values hold only balances to `"valuation": "balance"`;
+  4. turns a brokerage, crypto or metals account recorded as a balance into kind `other`, without a `valuation` key;
+  5. converts the accounts recorded as snapshots that are left, those whose values hold positions, to trades ([TRADES.md](../TRADES.md#converting-an-account)): their values and new money stay the same. What the conversion had to estimate is in the upgrade's report, which `retire validate` prints.
 - Before migrating, the app copies the library into `backups/<yyyy-MM-dd>-v<old>/`. A migration works on the raw JSON of every file, and nothing is written unless every step succeeds.
 - An app older than the library opens it read-only: it loads, and every save is refused. A library older than the app is migrated before the app saves anything to it.
 
@@ -109,7 +115,8 @@ The app writes every file the same way, so the same data always gives the same b
 - A record dated outside its month file stays where it is, and the app points it out. When two records have the same key, the later one in the file is used.
 - Records dated before 1900, or more than a year after today, are loaded and pointed out: usually a mistyped year, or a placeholder such as `9999-12-31`.
 - JSON files whose names aren't IDs (`My Account.json`) are pointed out, and so are records that refer to accounts, instruments or plans that don't exist.
-- A valuation's `moneyIn` or `moneyOut` is loaded and pointed out, and left out of the money in and out summaries, when its account's kind isn't cash or savings, when it has only one of the two, or when either is negative ([PROGRESS.md](../PROGRESS.md#money-in-and-out)).
+- A valuation's `moneyIn` or `moneyOut` is loaded and pointed out, and left out of the money in and out summaries, when its account's kind isn't cash or savings, when it has only one of the two, or when either is negative ([PROGRESS.md](../PROGRESS.md#money-in-and-out)). A valuation's `interest` is pointed out, and not used, when its account isn't a savings account.
+- An account recorded as snapshots (`"valuation": "holdings"`) in a version-4 library is loaded and pointed out: its values still count, but nothing records it that way any more.
 
 ## CSV export
 
@@ -119,9 +126,9 @@ To open the library in a spreadsheet or take it to another app, Settings › Lib
 | --- | --- | --- |
 | `net-worth.csv` | month end | `date`, `currency` (the base currency), `net_worth`, `plan_assets`, `complete` |
 | `account-values.csv` | account and month end, while it's open | `date`, `account`, `name`, `currency`, `value` (in the account's currency), `base_currency`, `value_in_base_currency`, `complete` |
-| `accounts.csv` | account | `id`, `name`, `kind`, `currency`, `institution`, `country`, `opened`, `closed`, `valuation`, `available_from_age`, `in_net_worth`, `in_plans`, `asset_classes`, `money_in_out`, `successor`, `tags`, `notes` |
+| `accounts.csv` | account | `id`, `name`, `kind`, `currency`, `institution`, `country`, `opened`, `closed`, `valuation`, `available_from_age`, `in_net_worth`, `in_plans`, `asset_classes`, `successor`, `tags`, `notes` |
 | `instruments.csv` | instrument | `id`, `name`, `kind`, `currency`, `unit`, `isin`, `ticker`, `asset_classes`, `price_provider`, `price_symbol` |
-| `valuations.csv` | valuation | `date`, `account`, `balance`, `cash`, `positions` (how many, in `positions.csv`), `flow`, `money_in`, `money_out`, `note`, `source` |
+| `valuations.csv` | valuation | `date`, `account`, `balance`, `cash`, `positions` (how many, in `positions.csv`), `flow`, `money_in`, `money_out`, `interest`, `note`, `source` |
 | `positions.csv` | position in a valuation | `date`, `account`, `instrument`, `quantity`, `cost_basis` |
 | `trades.csv` | trade | `date`, `account`, `id`, `type`, `instrument`, `quantity`, `price`, `currency`, `amount`, `fees`, `tax`, `cost`, `ratio`, `settlement`, `note`, `source` |
 | `prices.csv` | price | `date`, `instrument`, `price`, `currency`, `source` |

@@ -22,6 +22,26 @@
       "quantity": "338",
       "source": "import",
       "type": "opening"
+    },
+    {
+      "account": "gold-coins",
+      "cost": "5210",
+      "date": "2025-10-31",
+      "id": "opening-gold",
+      "instrument": "gold",
+      "quantity": "62.2",
+      "source": "import",
+      "type": "opening"
+    },
+    {
+      "account": "ledger-wallet",
+      "cost": "38258.16",
+      "date": "2025-10-31",
+      "id": "opening-btc",
+      "instrument": "btc",
+      "quantity": "0.4215",
+      "source": "import",
+      "type": "opening"
     }
   ],
   "valuations": [
@@ -30,18 +50,8 @@
     { "account": "conto-fineco", "balance": "4820.3", "date": "2025-10-31", "source": "import" },
     { "account": "directa", "cash": "215.4", "date": "2025-10-31", "source": "import" },
     { "account": "fondo-pensione", "balance": "16120", "date": "2025-10-31", "source": "import" },
-    {
-      "account": "gold-coins",
-      "date": "2025-10-31",
-      "positions": [{ "costBasis": "5210", "instrument": "gold", "quantity": "62.2" }],
-      "source": "import"
-    },
-    {
-      "account": "ledger-wallet",
-      "date": "2025-10-31",
-      "positions": [{ "instrument": "btc", "quantity": "0.4215" }],
-      "source": "import"
-    },
+    { "account": "gold-coins", "cash": "0", "date": "2025-10-31", "source": "import" },
+    { "account": "ledger-wallet", "cash": "0", "date": "2025-10-31", "source": "import" },
     { "account": "mutuo-casa", "balance": "-148200", "date": "2025-10-31", "source": "import" },
     { "account": "old-bank", "balance": "850", "date": "2025-10-31", "source": "import" },
     { "account": "tfr", "balance": "8100", "date": "2025-10-31", "source": "import" }

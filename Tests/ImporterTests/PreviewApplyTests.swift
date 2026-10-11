@@ -14,7 +14,8 @@ struct PreviewApplyTests {
         var library = Library(
             accounts: [
                 Account(id: "cash", name: "Cash", kind: .cash, currency: .eur, opened: "2020-01-01"),
-                Account(id: "broker", name: "Broker", kind: .brokerage, currency: .eur, opened: "2020-01-01"),
+                Account(id: "broker", name: "Broker", kind: .brokerage, currency: .eur, opened: "2020-01-01",
+                        valuation: .holdings),
             ],
             instruments: [
                 Instrument(id: "etf", name: "ETF", kind: .etf, currency: .eur, unit: .share,
@@ -333,7 +334,7 @@ struct PreviewApplyTests {
         let once = session.preview(against: library).apply(to: library)
         let again = session.preview(against: once.library)
         #expect(again.summary.newRecords == 0)
-        #expect(again.summary.conflicts == 5)
+        #expect(again.summary.conflicts == 4)
         #expect(!again.apply(to: once.library).hasChanges)
     }
 }

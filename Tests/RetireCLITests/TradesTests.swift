@@ -202,8 +202,8 @@ struct TradesCommandTests {
         let unknown = await retire(["trades", "list", "nope", "--library", library.path])
         #expect(unknown.status == 1)
         #expect(unknown.errors.contains("There's no account \"nope\"."))
-        let holdings = await retire(["trades", "list", "ledger-wallet", "--library", library.path])
-        #expect(holdings.output.contains("ledger-wallet doesn't record trades, so its trades don't count."))
+        let holdings = await retire(["trades", "list", "fondo-pensione", "--library", library.path])
+        #expect(holdings.output.contains("fondo-pensione doesn't record trades, so its trades don't count."))
     }
 
     @Test func summaryOfAnAccountAndOfAll() async throws {
@@ -238,8 +238,8 @@ struct TradesCommandTests {
         #expect(both.status == 64)
         let neither = await retire(["trades", "summary", "--library", library.path])
         #expect(neither.status == 64)
-        let notTrades = await retire(["trades", "summary", "ledger-wallet", "--library", library.path])
+        let notTrades = await retire(["trades", "summary", "fondo-pensione", "--library", library.path])
         #expect(notTrades.status == 1)
-        #expect(notTrades.errors.contains("ledger-wallet doesn't record trades"))
+        #expect(notTrades.errors.contains("fondo-pensione doesn't record trades"))
     }
 }

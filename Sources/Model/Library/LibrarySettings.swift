@@ -13,7 +13,11 @@ public struct LibrarySettings: Codable, Hashable, Sendable, KnownKeysProviding {
     ///   income and pensions after tax and two tax rates set by hand
     ///   (PLANNER.md), and accounts say from what age plans can draw on them
     ///   (`availableFromAge`).
-    public static let currentSchemaVersion = 3
+    /// - 4: each account kind records its money one way (docs/ACCOUNTS.md).
+    ///   Accounts lose `moneyInOut`, brokerage, crypto and metals accounts
+    ///   record trades (no more `holdings`), and savings values can record
+    ///   their `interest`. Storage's migration upgrades version 3.
+    public static let currentSchemaVersion = 4
 
     /// The library's schema version. Adding optional fields doesn't change it.
     public var schemaVersion: Int

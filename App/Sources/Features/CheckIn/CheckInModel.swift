@@ -307,18 +307,17 @@ enum CheckInRowDisplay {
         return row.state == .notReviewed || row.state == .updated
     }
 
-    /// Whether a balance row shows money in and out: its kind records them,
-    /// and its account asks for them (``Model/Account/tracksMoneyInOut``) or
-    /// they were recorded on the date already; never for a row marked
+    /// Whether a balance row shows money in and out: its kind records them
+    /// (``Model/AccountKind/recordsMoneyInOut``); never for a row marked
     /// unchanged or skipped, or for an account's first value, which
     /// summaries don't count.
     static func showsMoneyInOut(_ row: CheckInRow, in library: Library) -> Bool {
         guard row.mode == .balance, !row.isTrades, row.state != .unchanged, row.state != .skipped,
-              row.previous != nil, let account = library.accounts[row.account], account.kind.recordsMoneyInOut
+              row.previous != nil, let account = library.accounts[row.account]
         else {
             return false
         }
-        return account.tracksMoneyInOut || row.moneyIn != nil || row.enteredMoneyOut != nil
+        return account.kind.recordsMoneyInOut
     }
 
     /// The style of a row's balance field: a debt's reads amounts as owed.

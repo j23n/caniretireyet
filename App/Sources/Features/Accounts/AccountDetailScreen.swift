@@ -1166,7 +1166,7 @@ private struct AccountMoneyInOutRows: View {
 
     var body: some View {
         let summary = library.valuator.moneyInOut(overYearEndingOn: .today(), accounts: [account.id])
-        AccountInfoRow(title: "Money in and out", text: account.tracksMoneyInOut ? "Asked at check-ins" : "Not tracked")
+        AccountInfoRow(title: "Money in and out", text: "Asked at check-ins")
         if !summary.isEmpty {
             AccountInfoRow(title: "In, last 12 months") {
                 AmountText(summary.moneyIn)

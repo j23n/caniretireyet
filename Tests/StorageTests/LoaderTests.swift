@@ -226,6 +226,7 @@ struct LoaderTests {
                 month.valuations[index].moneyOut = 0
             case "conto-deposito":
                 month.valuations[index].moneyIn = 500
+                month.valuations[index].moneyOut = nil
             case "conto-fineco":
                 month.valuations[index].moneyOut = -1
             default:

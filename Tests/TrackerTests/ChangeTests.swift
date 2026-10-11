@@ -108,7 +108,8 @@ struct ChangeRuleTests {
     private func library() -> Library {
         var library = Library(accounts: [
             Account(id: "dollars", name: "Dollars", kind: .cash, currency: .usd, opened: "2025-01-01"),
-            Account(id: "broker", name: "Broker", kind: .brokerage, currency: .eur, opened: "2025-01-01"),
+            Account(id: "broker", name: "Broker", kind: .brokerage, currency: .eur, opened: "2025-01-01",
+                    valuation: .holdings),
             Account(id: "fresh", name: "Fresh", kind: .savings, currency: .eur, opened: "2025-02-10"),
         ])
         library.upsert(Valuation(account: "dollars", date: "2025-01-31", balance: 1000))
@@ -150,7 +151,8 @@ struct ChangeRuleTests {
     /// it new money, as a check-in would have filled it in.
     @Test func importedBalancesCountTheirChangesAsNewMoney() throws {
         var library = Library(accounts: [
-            Account(id: "imported", name: "Imported", kind: .brokerage, currency: .eur, opened: "2025-01-01"),
+            Account(id: "imported", name: "Imported", kind: .brokerage, currency: .eur, opened: "2025-01-01",
+                    valuation: .holdings),
         ])
         library.upsert(Valuation(account: "imported", date: "2025-01-31", balance: 1000))
         library.upsert(Valuation(account: "imported", date: "2025-02-28", balance: 1200))

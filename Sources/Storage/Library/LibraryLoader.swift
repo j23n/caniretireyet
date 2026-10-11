@@ -380,13 +380,31 @@ struct LibraryLoader {
         }
         checkTrades(in: library)
         checkMoneyInOut(in: library)
+        checkSnapshotAccounts(in: library)
+    }
+
+    /// Warns about an account recorded as snapshots (`"valuation": "holdings"`)
+    /// in a library of format version 4 or later, whose upgrade converts
+    /// such accounts to trades (docs/ACCOUNTS.md). Its values still count.
+    mutating func checkSnapshotAccounts(in library: Library) {
+        guard library.settings.schemaVersion >= 4 else { return }
+        for account in library.accounts.values.sorted(by: { $0.id < $1.id }) where account.valuationMode == .holdings {
+            warn(LibraryFile.account(account.id).path, "\(account.id) is recorded as snapshots (\"valuation\": "
+                + "\"holdings\"), which nothing records any more: its values still count. Record trades "
+                + "(\"valuation\": \"trades\") or a balance instead.")
+        }
     }
 
     /// Warns about money in and out (`moneyIn`, `moneyOut`) that summaries
     /// leave out: on an account whose kind doesn't record it, only one of the
-    /// two, or negative.
-    /// Every value is still loaded.
+    /// two, or negative; and about interest on an account whose kind doesn't
+    /// record it. Every value is still loaded.
     mutating func checkMoneyInOut(in library: Library) {
+        for valuation in library.allValuations where valuation.interest != nil {
+            guard let account = library.accounts[valuation.account], !account.kind.recordsInterest else { continue }
+            warn(LibraryFile.month(valuation.date.yearMonth).path, "The valuation of \(account.id) on "
+                + "\(valuation.date) records interest, but only savings accounts do; it isn't used.")
+        }
         for valuation in library.allValuations where valuation.hasMoneyInOut {
             let path = LibraryFile.month(valuation.date.yearMonth).path
             if let account = library.accounts[valuation.account], !account.kind.recordsMoneyInOut {

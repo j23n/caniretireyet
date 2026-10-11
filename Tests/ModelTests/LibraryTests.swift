@@ -23,7 +23,10 @@ struct LibraryTests {
         let library = try Fixtures.exampleLibrary()
         let gold = library.valuations(for: "gold-coins")
         #expect(gold.map(\.date) == ["2025-10-31", "2026-03-31"])
-        #expect(gold[1].positions.first?.quantity == Decimal(fileString: "93.3"))
+        #expect(gold[1].cash == 0)
+        let trades = library.trades(for: "gold-coins")
+        #expect(trades.map(\.date) == ["2025-10-31", "2026-03-31"])
+        #expect(trades.last?.quantity == Decimal(fileString: "31.1"))
 
         let prices = library.prices(for: "vwce")
         #expect(prices.count == 12)

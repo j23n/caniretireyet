@@ -7,7 +7,7 @@ struct NetWorthTests {
     @Test func aTestVersionsLibraryIsntOpened() async throws {
         let library = try TemporaryFolder.exampleLibrary()
         try library.write("library.json", try library.text("library.json")
-            .replacingOccurrences(of: #""schemaVersion": 3"#, with: #""schemaVersion": 1"#))
+            .replacingOccurrences(of: #""schemaVersion": 4"#, with: #""schemaVersion": 1"#))
         let before = try library.snapshot()
         let run = await retire(["networth", "--library", library.path, "--date", "2026-09-30"])
         #expect(run.status == 1, "\(run.all)")

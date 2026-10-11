@@ -118,8 +118,9 @@ struct HoldingsTests {
         // BTC is priced in USD: the amount is in the account's currency (EUR).
         let btc = try #require(valuator.holdings(of: "ledger-wallet", on: "2026-09-30").first)
         #expect(btc.amount?.rounded(2) == d("44128"))
-        #expect(btc.costBasis == nil)
-        #expect(btc.unrealizedGain == nil)
+        // The opening's cost is its value then (an estimate), plus the buy.
+        #expect(btc.costBasis == d("40660.43"))
+        #expect(btc.unrealizedGain?.rounded(2) == d("3467.57"))
 
         #expect(valuator.holdings(of: "conto-fineco", on: "2026-09-30").isEmpty)
     }

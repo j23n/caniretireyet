@@ -44,7 +44,8 @@ struct MoneyInOutTests {
         library.months["2026-09"]?.valuations[september].moneyOut = d("4569.25")
         let summary = Valuator(library: library).moneyInOut(overYearEndingOn: "2026-09-30")
         #expect(summary.moneyOut == d("9579.8"))
-        #expect(summary.months == ["2026-07", "2026-09"])
+        // The savings account recorded August.
+        #expect(summary.months == ["2026-07", "2026-08", "2026-09"])
         // The same 92 days as without the skip, not two months' worth of values.
         #expect(summary.moneyOutPerYear == d("38006.82"))
     }
@@ -56,9 +57,10 @@ struct MoneyInOutTests {
         library.months["2026-09"]?.valuations[deposit].moneyOut = 300
         let summary = Valuator(library: library).moneyInOut(overYearEndingOn: "2026-09-30")
         #expect(summary.moneyOut == d("9879.8"))
-        // 9,579.8 × 365 / 92 for the current account, plus 300 × 365 / 30
-        // (2026-08-31 to 2026-09-30) for the savings account.
-        #expect(summary.moneyOutPerYear == d("41656.82"))
+        // 9,579.8 × 365 / 92 for the current account, plus 300 × 365 / 92
+        // for the savings account, which records money in and out from the
+        // same check-in (2026-06-30 to 2026-09-30).
+        #expect(summary.moneyOutPerYear == d("39197.03"))
     }
 
     @Test func convertsToTheBaseCurrencyOrSaysWhatItCouldNot() throws {
@@ -143,6 +145,7 @@ struct MoneyInOutTests {
                 valuations[index].moneyOut = 0
             case "conto-deposito":
                 valuations[index].moneyIn = 50
+                valuations[index].moneyOut = nil
             default:
                 break
             }
@@ -164,11 +167,9 @@ struct MoneyInOutTests {
         #expect(AccountKind.cash.recordsMoneyInOut)
         #expect(AccountKind.savings.recordsMoneyInOut)
         #expect(!AccountKind.creditCard.recordsMoneyInOut)
-        let library = try Fixtures.exampleLibrary()
-        #expect(library.accounts["conto-fineco"]?.tracksMoneyInOut == true)
-        #expect(library.accounts["conto-deposito"]?.tracksMoneyInOut == false)
-        var pension = try #require(library.accounts["fondo-pensione"])
-        pension.moneyInOut = true
-        #expect(!pension.tracksMoneyInOut)
+        #expect(!AccountKind.loan.recordsMoneyInOut)
+        #expect(!AccountKind.pensionFund.recordsMoneyInOut)
+        #expect(AccountKind.savings.recordsInterest)
+        #expect(!AccountKind.cash.recordsInterest)
     }
 }

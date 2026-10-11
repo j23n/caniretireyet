@@ -4,7 +4,6 @@
   "id": "conto-fineco",
   "institution": "FinecoBank",
   "kind": "cash",
-  "moneyInOut": true,
   "name": "Conto Fineco",
   "opened": "2024-03-01",
   "tags": ["daily"]

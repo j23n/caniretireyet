@@ -26,7 +26,15 @@
     }
   ],
   "valuations": [
-    { "account": "conto-deposito", "balance": "16795.55", "date": "2026-07-31", "flow": "0" },
+    {
+      "account": "conto-deposito",
+      "balance": "16795.55",
+      "date": "2026-07-31",
+      "flow": "0",
+      "interest": "34.9",
+      "moneyIn": "0",
+      "moneyOut": "0"
+    },
     {
       "account": "conto-fineco",
       "balance": "3980.4",

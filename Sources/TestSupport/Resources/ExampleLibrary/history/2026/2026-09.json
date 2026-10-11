@@ -10,7 +10,15 @@
     { "currency": "EUR", "date": "2026-09-30", "instrument": "vwce", "price": "138.42", "source": "yahoo" }
   ],
   "valuations": [
-    { "account": "conto-deposito", "balance": "17365.55", "date": "2026-09-30", "flow": "500" },
+    {
+      "account": "conto-deposito",
+      "balance": "17365.55",
+      "date": "2026-09-30",
+      "flow": "500",
+      "interest": "35.05",
+      "moneyIn": "0",
+      "moneyOut": "0"
+    },
     {
       "account": "conto-fineco",
       "balance": "4210.55",

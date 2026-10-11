@@ -60,7 +60,7 @@ struct DefaultFlowTests {
     }
 
     @Test func foreignPricesAreConvertedAndRoundedToCents() throws {
-        var library = try Fixtures.exampleLibrary()
+        var library = try exampleLibraryWithHoldings()
         library.upsert(PriceRecord(instrument: "btc", date: "2026-10-31", price: 100_000, currency: .usd))
         library.upsert(FXRecord(base: .eur, quote: .usd, date: "2026-10-31", rate: d("1.15")))
         let valuator = Valuator(library: library)
@@ -73,7 +73,8 @@ struct DefaultFlowTests {
 
     @Test func missingPricesAndModeSwitches() throws {
         var library = Library(accounts: [
-            Account(id: "broker", name: "Broker", kind: .brokerage, currency: .eur, opened: "2025-01-01"),
+            Account(id: "broker", name: "Broker", kind: .brokerage, currency: .eur, opened: "2025-01-01",
+                    valuation: .holdings),
         ])
         library.upsert(Valuation(account: "broker", date: "2025-01-31", balance: 1000))
         library.upsert(PriceRecord(instrument: "etf", date: "2025-02-28", price: 100, currency: .eur))

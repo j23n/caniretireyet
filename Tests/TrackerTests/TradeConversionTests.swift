@@ -11,7 +11,8 @@ struct TradeConversionTests {
     private func holdingsLibrary() -> Library {
         var library = TradeLibrary.withMarketData(Library(
             settings: LibrarySettings(baseCurrency: .eur),
-            accounts: [Account(id: "broker", name: "Broker", kind: .brokerage, currency: .eur, opened: "2024-01-01")],
+            accounts: [Account(id: "broker", name: "Broker", kind: .brokerage, currency: .eur, opened: "2024-01-01",
+                               valuation: .holdings)],
             instruments: Array(TradeLibrary.base.instruments.values)))
         library.upsert(PriceRecord(instrument: "aapl", date: "2024-04-30", price: 170, currency: .usd))
         library.upsert(PriceRecord(instrument: "vwce", date: "2024-04-30", price: 112, currency: .eur))
@@ -59,7 +60,9 @@ struct TradeConversionTests {
         let library = holdingsLibrary()
         #expect(library.valuations(for: "broker").map(\.flow) == [nil, 470, 100, 0])
         let conversion = try #require(library.conversionToTrades(of: "broker"))
-        #expect(conversion.account.valuation == .trades)
+        // Trades are a brokerage account's default.
+        #expect(conversion.account.valuation == nil)
+        #expect(conversion.account.recordsTrades)
         #expect(conversion.trades == [
             Trade(account: "broker", date: "2024-01-31", id: "opening-vwce", type: .opening, instrument: "vwce",
                   quantity: 10, cost: 1000, source: .import),
@@ -107,7 +110,7 @@ struct TradeConversionTests {
     @Test func tradesWithoutValuationsBecomeASnapshotAtEachMonthsLastTrade() throws {
         let library = TradeLibrary.recordedDeposits()
         let conversion = try #require(library.conversionToSnapshots(of: "broker"))
-        #expect(conversion.account.valuation == nil)
+        #expect(conversion.account.valuation == .holdings)
         #expect(conversion.notes.map(\.kind) == [.tradesRemoved, .addedValuation, .addedValuation, .addedValuation])
         #expect(conversion.valuations == [
             Valuation(account: "broker", date: "2024-01-05", cash: 4995,

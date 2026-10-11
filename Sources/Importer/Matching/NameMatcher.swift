@@ -306,10 +306,14 @@ struct AccountDraft: Hashable {
     }
 
     /// The account to propose, in the most common currency of its amounts.
+    ///
+    /// An investment account without trades in the file holds the imported
+    /// positions at each value, so it's recorded as snapshots
+    /// (`"valuation": "holdings"`), which its kind no longer defaults to.
     func account(baseCurrency: CurrencyCode, opened: CalendarDate, instrumentKinds: [InstrumentKind]) -> Account {
-        Account(id: id, name: name, kind: suggestedKind(instrumentKinds: instrumentKinds),
-                currency: currencies.mostCommon(or: baseCurrency), opened: opened,
-                valuation: recordsTrades ? .trades : nil)
+        let kind = suggestedKind(instrumentKinds: instrumentKinds)
+        return Account(id: id, name: name, kind: kind, currency: currencies.mostCommon(or: baseCurrency),
+                       opened: opened, valuation: recordsTrades ? .trades : (kind.isInvestment ? .holdings : nil))
     }
 
     /// From the name, what the account holds and the sign of its values.
@@ -319,7 +323,7 @@ struct AccountDraft: Hashable {
         if !targets.isDisjoint(with: [.quantity, .costBasis, .cash]) {
             if !instrumentKinds.isEmpty, instrumentKinds.allSatisfy({ $0 == .crypto }) { return .crypto }
             if !instrumentKinds.isEmpty, instrumentKinds.allSatisfy({ $0 == .metal }) { return .metals }
-            if let byName, byName.defaultValuationMode == .holdings || byName == .pensionFund { return byName }
+            if let byName, byName.isInvestment || byName == .pensionFund { return byName }
             return .brokerage
         }
         if let byName { return byName }

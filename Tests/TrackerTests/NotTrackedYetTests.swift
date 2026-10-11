@@ -14,7 +14,8 @@ struct NotTrackedYetTests {
             settings: LibrarySettings(baseCurrency: .eur),
             accounts: [
                 Account(id: "bank", name: "Bank", kind: .cash, currency: .eur, opened: "2020-01-01"),
-                Account(id: "broker", name: "Broker", kind: .brokerage, currency: .eur, opened: "2024-01-01"),
+                Account(id: "broker", name: "Broker", kind: .brokerage, currency: .eur, opened: "2024-01-01",
+                        valuation: .holdings),
             ],
             instruments: [
                 Instrument(id: "etf", name: "ETF", kind: .etf, currency: .eur, unit: .share,

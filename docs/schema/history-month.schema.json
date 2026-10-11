@@ -44,17 +44,17 @@
         }
       ],
       "valuations": [
+        { "account": "conto-deposito", "balance": "17365.55", "date": "2026-09-30", "flow": "500", "interest": "35.05", "moneyIn": "0", "moneyOut": "0" },
         { "account": "conto-fineco", "balance": "4210.55", "date": "2026-09-30", "flow": "-310.2", "moneyIn": "3400", "moneyOut": "2560.2" },
         { "account": "directa", "cash": "312.1", "date": "2026-09-30", "flow": "11.3" },
         { "account": "fondo-pensione", "balance": "18450.12", "date": "2026-09-30", "flow": "1325", "note": "from Q3 statement" },
-        { "account": "gold-coins", "date": "2026-09-30", "positions": [{ "instrument": "gold", "quantity": "62.2" }] },
-        { "account": "ledger-wallet", "date": "2026-09-30", "positions": [{ "instrument": "btc", "quantity": "0.4215" }] }
+        { "account": "gold-coins", "cash": "0", "date": "2026-09-30" }
       ]
     }
   ],
   "$defs": {
     "valuation": {
-      "description": "What an account was worth on a date: a balance, or positions plus optional cash (an account can switch between the two over time). Values carry forward until the account's next valuation. One with neither is worth zero; one with both counts its balance. An account that records trades records only cash: positions listed in its valuation are a check against its trades (TRADES.md), and a balance isn't used.",
+      "description": "What an account was worth on a date: a balance, or positions plus optional cash. Values carry forward until the account's next valuation. One with neither is worth zero; one with both counts its balance. An account that records trades records only cash: positions listed in its valuation are a check against its trades (TRADES.md), and a balance isn't used. Positions with no trades behind them are only in values recorded before format version 4.",
       "type": "object",
       "required": ["account", "date"],
       "properties": {
@@ -74,15 +74,19 @@
           "items": { "$ref": "#/$defs/position" }
         },
         "flow": {
-          "description": "The net money added (+) or taken out (−) since the account's previous valuation, in the account's currency. Absent means unknown. The check-in fills it in from defaults that depend on the kind of account (PROGRESS.md); the sum of all flows over a period is what you saved. An account that records trades gets its flows from its trades and cash, and its flow is written for the record.",
+          "description": "The net money added (+) or taken out (−) since the account's previous valuation, in the account's currency. Absent means unknown. The sum of all flows over a period is what you saved. The check-in works it out from what's typed, by the kind of account (ACCOUNTS.md): the whole change for cash accounts and debts, the change minus the interest for savings; an account that records trades gets it from its trades and cash, and it's written for the record. Pension funds, TFR, property, vehicles and other accounts ask for it.",
           "$ref": "common.schema.json#/$defs/decimal"
         },
         "moneyIn": {
-          "description": "Money that arrived from outside your tracked accounts since the account's previous valuation (salary, refunds, gifts), in the account's currency, never negative. Money moved from another tracked account isn't counted. Absent means not tracked for the period; recorded together with moneyOut, as a valuation with only one of them isn't counted. Only cash and savings accounts record it (PROGRESS.md, \"Money in and out\").",
+          "description": "Money that arrived from outside your tracked accounts since the account's previous valuation (salary, refunds, gifts), in the account's currency, never negative. Money moved from another tracked account isn't counted. Absent means not recorded for the period; recorded together with moneyOut, as a valuation with only one of them isn't counted. Cash and savings accounts record it at every value after their first (ACCOUNTS.md); other kinds don't.",
           "$ref": "common.schema.json#/$defs/decimal"
         },
         "moneyOut": {
-          "description": "Money that left your tracked accounts since the account's previous valuation (spending, bills, rent, credit card payments), in the account's currency, never negative. Money moved to another tracked account isn't counted, unless it paid a credit card. Absent means not tracked for the period; recorded together with moneyIn. Only cash and savings accounts record it (PROGRESS.md, \"Money in and out\").",
+          "description": "Money that left your tracked accounts since the account's previous valuation (spending, bills, rent, credit card, loan and mortgage payments), in the account's currency, never negative. Money moved to another tracked account isn't counted, unless it paid a debt. Absent means not recorded for the period; recorded together with moneyIn. Cash and savings accounts record it at every value after their first (ACCOUNTS.md); other kinds don't.",
+          "$ref": "common.schema.json#/$defs/decimal"
+        },
+        "interest": {
+          "description": "The interest a savings account earned since its previous valuation, in the account's currency. Absent means none was recorded. The flow is the change minus it, so it counts as market, as a fund's return does. Only savings accounts record it.",
           "$ref": "common.schema.json#/$defs/decimal"
         },
         "note": { "type": "string" },

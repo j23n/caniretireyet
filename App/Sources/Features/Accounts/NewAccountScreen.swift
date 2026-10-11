@@ -301,15 +301,6 @@ struct AccountPlanFields: View {
     @Binding var form: AccountForm
 
     var body: some View {
-        if form.kind.recordsMoneyInOut {
-            Section {
-                Toggle("Track money in and out", isOn: $form.tracksMoneyInOut)
-            } footer: {
-                Text("Type what came in and went out at each check-in, to see what you spend. Leave out money "
-                    + "moved between your own accounts, except credit card payments. Turn it on for a prepaid "
-                    + "card too: topping it up is a transfer.")
-            }
-        }
         Section {
             Toggle("Include in net worth", isOn: $form.includedInNetWorth)
             Toggle("Include in plans", isOn: $form.chosenPlanInclusion)

@@ -247,10 +247,32 @@ extension Library {
             written.append(converted)
         }
 
-        details.valuation = .trades
+        details.valuation = details.kind.defaultValuationMode == .trades ? nil : .trades
         return AccountConversion(account: details, valuations: written, trades: trades.sortedByKey(),
                                  removedTrades: [], notes: notes.sorted { $0.date < $1.date })
     }
+
+    /// Converts every account recorded as snapshots (`"valuation":
+    /// "holdings"`) to trades (``conversionToTrades(of:)``), for the upgrade
+    /// to format version 4 (docs/ACCOUNTS.md, "Migration"). Returns what the
+    /// conversions had to estimate, each note as `Name: date: what was done`,
+    /// by account name.
+    public mutating func convertSnapshotAccountsToTrades() -> [String] {
+        let snapshots = accounts.values.filter { $0.valuationMode == .holdings }
+            .sorted { ($0.name, $0.id) < ($1.name, $1.id) }
+        var notes: [String] = []
+        for account in snapshots {
+            guard let conversion = conversionToTrades(of: account.id) else { continue }
+            conversion.apply(to: &self)
+            notes += conversion.notes.map { "\(account.name): \($0)" }
+        }
+        return notes
+    }
+
+    /// What ``convertSnapshotAccountsToTrades()`` does, in plain words, for
+    /// the upgrade's report.
+    public static let snapshotConversionSummary = "Accounts recorded as snapshots of positions now record trades: "
+        + "an opening, then a buy or a sale per change. Their values and new money stay the same."
 
     // MARK: - Trades → snapshots
 

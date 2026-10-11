@@ -200,7 +200,8 @@ struct PriceServiceTests {
             .replacingOccurrences(of: #""currency":"EUR""#, with: #""currency":"USD""#)
         await client.on("chart/SPY", json: usdChart)
         var library = Library(
-            accounts: [Account(id: "broker", name: "Broker", kind: .brokerage, currency: .chf, opened: "2024-01-01")],
+            accounts: [Account(id: "broker", name: "Broker", kind: .brokerage, currency: .chf, opened: "2024-01-01",
+                               valuation: .holdings)],
             instruments: [
                 Instrument(id: "spy-eur", name: "In EUR", kind: .etf, currency: .eur, unit: .share,
                            assetClasses: .single(.equity), priceSource: PriceSource(provider: .yahoo, symbol: "SPY")),
