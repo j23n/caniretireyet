@@ -451,7 +451,9 @@ struct BrokerSampleTests {
             == "8 new, 0 updated, 0 identical, 0 conflicts; 8 trades among them; 1 new account, 2 new instruments")
         let account = try #require(preview.newAccounts.first?.account)
         #expect(account.id == "fineco-titoli")
-        #expect(account.valuation == .trades)
+        // A brokerage account records trades by default, so the file needn't say so.
+        #expect(account.valuation == nil)
+        #expect(account.recordsTrades)
         #expect(account.kind == .brokerage)
         #expect(account.opened == "2026-01-08")
         #expect(preview.newInstruments.map(\.instrument.kind) == [.bond, .etf])
@@ -545,7 +547,7 @@ struct BrokerSampleTests {
         var preview = session.preview(against: library)
         // The account column's name is new: matched to an account here.
         #expect(preview.newAccounts.map(\.account.id) == ["u0000000"])
-        #expect(preview.newAccounts.first?.account.valuation == .trades)
+        #expect(preview.newAccounts.first?.account.recordsTrades == true)
         session.match(account: "U0000000", to: "ibkr")
         preview = session.preview(against: library)
         #expect(preview.newAccounts.map(\.account.id) == ["ibkr"])

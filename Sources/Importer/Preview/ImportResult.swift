@@ -75,12 +75,14 @@ extension ImportPreview {
     /// Applies the preview to `library` (normally the one it was made
     /// against) and returns the new library and what changed.
     ///
-    /// Accepted new accounts and instruments are created first, and accounts
-    /// switched to recording trades. Each record is compared with the library
-    /// again: new records are added, missing values filled in, and conflicts
-    /// overwritten or kept by their ``ImportRecordPreview/resolution``
-    /// (undecided ones are kept). A trade of an account that doesn't record
-    /// trades (a switch that was rejected) is left out. The other accepted
+    /// Accepted new accounts and instruments are created first (a new
+    /// account with trades records them, whatever its kind was edited to),
+    /// and accounts switched to recording trades. Each record is compared
+    /// with the library again: new records are added, missing values filled
+    /// in, and conflicts overwritten or kept by their
+    /// ``ImportRecordPreview/resolution`` (undecided ones are kept). A trade
+    /// of an account that doesn't record trades (a switch that was rejected)
+    /// is left out. The other accepted
     /// account changes come last (opening earlier moves `Account.opened`).
     /// Applying the same file twice changes nothing.
     ///
@@ -96,10 +98,15 @@ extension ImportPreview {
 
         let rejectedAccounts = Set(newAccounts.filter { !$0.isAccepted }.map(\.account.id))
         let rejectedInstruments = Set(newInstruments.filter { !$0.isAccepted }.map(\.instrument.id))
+        let withTrades = Set(records.filter(\.imported.key.isTrade).compactMap(\.imported.key.account))
         for proposal in newAccounts where proposal.isAccepted && library.accounts[proposal.account.id] == nil {
-            library.accounts[proposal.account.id] = proposal.account
-            result.createdAccounts.append(proposal.account.id)
-            changedAccounts.insert(proposal.account.id)
+            var account = proposal.account
+            if withTrades.contains(account.id) {
+                account.valuation = account.kind.defaultValuationMode == .trades ? nil : .trades
+            }
+            library.accounts[account.id] = account
+            result.createdAccounts.append(account.id)
+            changedAccounts.insert(account.id)
         }
         for proposal in newInstruments
         where proposal.isAccepted && library.instruments[proposal.instrument.id] == nil {

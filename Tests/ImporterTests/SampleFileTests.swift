@@ -44,7 +44,9 @@ struct SampleFileTests {
         // The header names the instrument, but not which account holds it.
         #expect(preview.issues == [ImportIssue(kind: .missingField(.account), column: 4, header: "BTC (qtà)")])
         #expect(preview.newAccounts.map(\.account.id) == ["oro"])
-        #expect(preview.newAccounts.first?.account.kind == .metals)
+        // A balance says nothing about what's held: a metals account would record trades.
+        #expect(preview.newAccounts.first?.account.kind == .other)
+        #expect(preview.newAccounts.first?.account.valuationMode == .balance)
 
         session.setMapping(ImportColumn(target: .quantity, account: "ledger-wallet"), forColumn: 4)
         session.match(account: "Oro", to: "gold-coins")
@@ -70,7 +72,8 @@ struct SampleFileTests {
         let preview = session.preview(against: Library())
         let accounts = Dictionary(uniqueKeysWithValues: preview.newAccounts.map { ($0.account.id, $0.account) })
         #expect(accounts["checking"]?.kind == .cash)
-        #expect(accounts["brokerage"]?.kind == .brokerage)
+        // A balance column named like a brokerage account: brokerage accounts record trades.
+        #expect(accounts["brokerage"]?.kind == .other)
         #expect(accounts["credit-card"]?.kind == .creditCard)
         #expect(accounts.values.allSatisfy { $0.currency == .usd && $0.opened == date("2026-01-31") })
         #expect(preview.record(.valuation("credit-card", "2026-03-31"))?.imported.balance == d("-410.35"))

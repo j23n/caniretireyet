@@ -307,16 +307,31 @@ struct AccountDraft: Hashable {
 
     /// The account to propose, in the most common currency of its amounts.
     ///
-    /// An investment account without trades in the file holds the imported
-    /// positions at each value, so it's recorded as snapshots
-    /// (`"valuation": "holdings"`), which its kind no longer defaults to.
+    /// An account with trades in the file records them: a brokerage, crypto
+    /// or metals account does by default, any other kind with
+    /// `"valuation": "trades"`. An investment account without trades in the
+    /// file holds the imported positions at each value, so it's recorded as
+    /// snapshots (`"valuation": "holdings"`), which its kind no longer
+    /// defaults to.
     func account(baseCurrency: CurrencyCode, opened: CalendarDate, instrumentKinds: [InstrumentKind]) -> Account {
         let kind = suggestedKind(instrumentKinds: instrumentKinds)
+        let valuation: ValuationMode? = if recordsTrades {
+            kind.defaultValuationMode == .trades ? nil : .trades
+        } else {
+            kind.isInvestment ? .holdings : nil
+        }
         return Account(id: id, name: name, kind: kind, currency: currencies.mostCommon(or: baseCurrency),
-                       opened: opened, valuation: recordsTrades ? .trades : (kind.isInvestment ? .holdings : nil))
+                       opened: opened, valuation: valuation)
     }
 
     /// From the name, what the account holds and the sign of its values.
+    ///
+    /// An account with quantities, purchase costs or an investment account's
+    /// cash is a crypto or metals account when its instruments all are, else
+    /// what its name says if that's an investment or a pension fund, else a
+    /// brokerage account. One with only balances is what its name says,
+    /// except that brokerage, crypto and metals become `other`: those kinds
+    /// record trades, and a balance says nothing about them.
     func suggestedKind(instrumentKinds: [InstrumentKind]) -> AccountKind {
         let words = TextTools.words(name)
         let byName = Keywords.accountKinds.first { TextTools.contains(words, anyOf: $0.1) }?.0
@@ -326,7 +341,7 @@ struct AccountDraft: Hashable {
             if let byName, byName.isInvestment || byName == .pensionFund { return byName }
             return .brokerage
         }
-        if let byName { return byName }
+        if let byName { return byName.isInvestment ? .other : byName }
         return sawNegative && !sawPositive ? .loan : .other
     }
 }
