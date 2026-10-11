@@ -96,6 +96,7 @@ struct TradeEditorSheet: View {
             Section {
                 DatePicker("Date", selection: form.dateValue, in: ...Account.latestDate(of: account),
                            displayedComponents: .date)
+                    .personalControl()
                 if current.shows(.instrument) {
                     instrumentRows(form, problems: shown)
                 }
@@ -104,6 +105,7 @@ struct TradeEditorSheet: View {
                 }
             } header: {
                 Text(account?.name ?? current.account.rawValue)
+                    .privacySensitive()
             } footer: {
                 Text(verbatim: TradeTypeDisplay.explanation(current.type))
             }
@@ -198,6 +200,7 @@ struct TradeEditorSheet: View {
                 Text(instrument.name).tag(Optional(instrument.id))
             }
         }
+        .personalControl()
         Button {
             showsNewInstrument = true
         } label: {
@@ -272,6 +275,7 @@ struct TradeEditorSheet: View {
                     .font(.footnote)
                     .foregroundStyle(Palette.secondaryInk)
                     .fixedSize(horizontal: false, vertical: true)
+                    .privacySensitive()
                 Spacer(minLength: Metrics.s)
                 Button("Use") { form.wrappedValue.usePrice(record, in: snapshot, locale: locale) }
                     .buttonStyle(.borderless)
@@ -298,6 +302,7 @@ struct TradeEditorSheet: View {
             Text(verbatim: fetchNote)
                 .font(.footnote)
                 .foregroundStyle(Palette.secondaryInk)
+                .privacySensitive()
         }
     }
 
@@ -341,6 +346,7 @@ struct TradeEditorSheet: View {
                         .font(.footnote)
                         .foregroundStyle(Palette.secondaryInk)
                         .fixedSize(horizontal: false, vertical: true)
+                        .privacySensitive()
                     if !current.amount.trimmingCharacters(in: .whitespaces).isEmpty && current.amountIsComputed {
                         Spacer(minLength: Metrics.s)
                         Button("Use Computed") { form.wrappedValue.amount = "" }
@@ -358,6 +364,7 @@ struct TradeEditorSheet: View {
                         .font(.footnote)
                         .foregroundStyle(Palette.secondaryInk)
                         .fixedSize(horizontal: false, vertical: true)
+                        .privacySensitive()
                     Spacer(minLength: Metrics.s)
                     Button("Paid from Outside") { form.wrappedValue.paidOutside = true }
                         .buttonStyle(.borderless)
@@ -403,6 +410,7 @@ struct TradeEditorSheet: View {
                         .privacySensitive()
                 } label: {
                     Text(verbatim: TradeWording.instrumentLabel(instrument, in: library.library) + " held after")
+                        .privacySensitive()
                 }
             }
             if let gain = preview.realizedGain {
@@ -412,6 +420,7 @@ struct TradeEditorSheet: View {
             }
             ForEach(notes, id: \.self) { note in
                 AccountsFootnote(note, systemImage: "arrow.triangle.2.circlepath")
+                    .privacySensitive()
             }
             ForEach(preview.newIssues) { issue in
                 Label {
@@ -422,6 +431,7 @@ struct TradeEditorSheet: View {
                             .font(.footnote)
                             .fixedSize(horizontal: false, vertical: true)
                     }
+                    .privacySensitive()
                 } icon: {
                     Image(systemName: "exclamationmark.triangle")
                         .foregroundStyle(Palette.warning)

@@ -67,6 +67,7 @@ struct AccountValuationEditor: View {
         return Form {
             Section {
                 DatePicker("Date", selection: form.dateValue, displayedComponents: .date)
+                    .personalControl()
                 if replaces {
                     Label("There's already a value on this date. Saving replaces it.", systemImage: "exclamationmark.triangle")
                         .font(.footnote)
@@ -75,12 +76,15 @@ struct AccountValuationEditor: View {
                 if let note = AccountValueNotes.openingMove(date: form.wrappedValue.date, account: account,
                                                             locale: locale) {
                     AccountsFootnote(note, systemImage: "calendar.badge.clock")
+                        .privacySensitive()
                 }
                 if let note = followUpNote(form.wrappedValue) {
                     AccountsFootnote(note, systemImage: "arrow.triangle.2.circlepath")
+                        .privacySensitive()
                 }
             } header: {
                 Text(account.name)
+                    .privacySensitive()
             }
             if form.wrappedValue.isBalance {
                 Section {
@@ -98,6 +102,7 @@ struct AccountValuationEditor: View {
                         AccountsNumberField(title: instrument?.name ?? position.instrument.rawValue,
                                             text: form[position: position.instrument].quantity, prompt: "0",
                                             suffix: QuantityFormat.unit(of: instrument), allowsNegative: false)
+                            .privacySensitive()
                         AccountsNumberField(title: "Purchase cost", text: form[position: position.instrument].cost,
                                             prompt: "Unknown", suffix: symbol, allowsNegative: false)
                     }
@@ -109,6 +114,7 @@ struct AccountValuationEditor: View {
                         AccountsFootnote("It records a balance of \(AmountFormat.number(balance, locale: locale)), "
                             + "which isn't used: the holdings come from the trades. Enter the cash; saving drops "
                             + "the balance.", systemImage: "exclamationmark.triangle")
+                            .privacySensitive()
                     }
                 } header: {
                     Text(account.recordsTrades ? "Cash, and a statement's positions" : "Positions")

@@ -72,6 +72,7 @@ struct AccountsAssetMixFields: View {
         }
         if let problem = mix.problem(required: false, locale: locale) {
             Label(problem, systemImage: "exclamationmark.triangle")
+                .privacySensitive()
                 .font(.footnote)
                 .foregroundStyle(Palette.secondaryInk)
         }

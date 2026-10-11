@@ -23,6 +23,7 @@ struct InstrumentLatestPriceLabel: View {
             if let latest {
                 Text(verbatim: latest.text(locale: locale))
                     .monospacedDigit()
+                    .privacySensitive()
                 if let note = latest.sourceNote {
                     Text(verbatim: "(\(note))")
                         .foregroundStyle(Palette.secondaryInk)
@@ -76,6 +77,7 @@ struct InstrumentPriceUpdateBanner: View {
                     Text(verbatim: "Saved at " + CheckInPriceList.time(finishedAt, locale: locale))
                         .font(.caption)
                         .foregroundStyle(Palette.secondaryInk)
+                        .privacySensitive()
                 }
             }
             Spacer(minLength: Metrics.s)
@@ -160,6 +162,7 @@ struct InstrumentPriceUpdateSheet: View {
                     }
                 } header: {
                     Text(verbatim: "Instruments · \(AmountFormat.shortDate(run.date, locale: locale))")
+                        .privacySensitive()
                 } footer: {
                     Text("Prices are saved for today, from the latest close or quote. "
                         + "Only symbols, currencies and dates leave this device.")
@@ -215,15 +218,18 @@ private struct InstrumentPriceUpdateRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(verbatim: line.title)
                     .fontWeight(.medium)
+                    .privacySensitive(line.isInstrument)
                 if let source = line.sourceLine {
                     Text(verbatim: source)
                         .font(.footnote)
                         .foregroundStyle(Palette.secondaryInk)
+                        .privacySensitive(line.isInstrument)
                 }
                 Text(verbatim: line.detail(locale: locale))
                     .font(.footnote)
                     .foregroundStyle(line.failure == nil ? Palette.secondaryInk : Palette.critical)
                     .fixedSize(horizontal: false, vertical: true)
+                    .privacySensitive()
                 if line.isInstrument && canAct {
                     if line.status == .keptTyped {
                         Button("Update") { update(true) }
@@ -241,6 +247,7 @@ private struct InstrumentPriceUpdateRow: View {
                 Text(verbatim: value)
                     .monospacedDigit()
                     .foregroundStyle(line.status == .keptTyped ? Palette.secondaryInk : Palette.ink)
+                    .privacySensitive()
             }
         }
         .padding(.vertical, 2)
@@ -313,6 +320,7 @@ struct InstrumentSetPriceSheet: View {
         Form {
             Section {
                 DatePicker("Date", selection: $form.pickedDate, in: ...Date(), displayedComponents: .date)
+                    .personalControl()
                 AccountsNumberField(title: "Price", text: $form.amount, prompt: prompt,
                                     suffix: "per " + InstrumentForm.name(of: unit), allowsNegative: false)
                 Picker("Currency", selection: $form.currency) {
@@ -322,6 +330,7 @@ struct InstrumentSetPriceSheet: View {
                 }
             } header: {
                 Text(verbatim: name)
+                    .privacySensitive()
             } footer: {
                 Text("Net worth uses the latest price on or before each date. "
                     + "Update Prices won't replace a price you type in.")
@@ -331,6 +340,7 @@ struct InstrumentSetPriceSheet: View {
                     Label(note, systemImage: "info.circle")
                         .font(.footnote)
                         .foregroundStyle(Palette.secondaryInk)
+                        .privacySensitive()
                 }
             }
             if showsProblems {

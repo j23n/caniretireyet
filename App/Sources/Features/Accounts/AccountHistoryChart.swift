@@ -45,6 +45,7 @@ struct AccountHistoryChart: View {
             ChartPlaceholder(text: "The history appears after the account's second value.", height: height)
         } else {
             chart
+                .privacySensitive()
                 .frame(height: height)
                 .measuringWidth($width)
                 .accessibilityChartDescriptor(summary)

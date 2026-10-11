@@ -21,6 +21,7 @@ struct SymbolCandidateRow: View {
                     Text(verbatim: candidate.symbol)
                         .font(.body.weight(.semibold))
                         .foregroundStyle(Palette.ink)
+                        .privacySensitive()
                     if isPreferred {
                         Text("Best match")
                             .font(.caption)
@@ -31,12 +32,14 @@ struct SymbolCandidateRow: View {
                     Text(verbatim: name)
                         .font(.footnote)
                         .foregroundStyle(Palette.secondaryInk)
+                        .privacySensitive()
                 }
                 let details = PriceSourceSearch.details(of: candidate)
                 if !details.isEmpty {
                     Text(verbatim: details)
                         .font(.footnote)
                         .foregroundStyle(Palette.secondaryInk)
+                        .privacySensitive()
                 }
             }
             Spacer(minLength: 0)
@@ -125,6 +128,7 @@ struct SymbolSearchSheet: View {
                             .font(.footnote)
                             .foregroundStyle(Palette.secondaryInk)
                             .fixedSize(horizontal: false, vertical: true)
+                            .privacySensitive()
                     }
                 } header: {
                     Text("Yahoo Finance")
@@ -278,9 +282,11 @@ struct PriceSourceFinderSheet: View {
                     .font(.footnote)
                     .foregroundStyle(Palette.secondaryInk)
                     .fixedSize(horizontal: false, vertical: true)
+                    .privacySensitive()
             }
         } header: {
             Text(verbatim: "\(search.name) · \(search.currency.rawValue)")
+                .privacySensitive()
         }
     }
 }

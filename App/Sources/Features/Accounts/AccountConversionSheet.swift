@@ -50,9 +50,11 @@ struct AccountConversionSheet: View {
                     .fixedSize(horizontal: false, vertical: true)
                 LabeledContent("Months changed") {
                     Text(verbatim: summary.monthsText(locale: locale))
+                        .privacySensitive()
                 }
             } header: {
                 Text(name)
+                    .privacySensitive()
             } footer: {
                 Text(direction == .toTrades
                     ? "Values and new money stay the same. From then on, add each trade, and check-ins record only "
@@ -80,6 +82,7 @@ struct AccountConversionSheet: View {
                         DisclosureGroup {
                             ForEach(group.details, id: \.self) { detail in
                                 Text(verbatim: detail)
+                                    .privacySensitive()
                                     .font(.footnote)
                                     .foregroundStyle(Palette.secondaryInk)
                                     .fixedSize(horizontal: false, vertical: true)
@@ -135,6 +138,7 @@ struct AccountConversionSheet: View {
                             Text(verbatim: line.title)
                                 .privacySensitive()
                             Text(verbatim: AmountFormat.mediumDate(line.trade.date, locale: locale))
+                                .privacySensitive()
                                 .font(.caption)
                                 .foregroundStyle(Palette.secondaryInk)
                         }

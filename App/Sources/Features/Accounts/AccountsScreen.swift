@@ -299,11 +299,13 @@ struct AccountListRow: View {
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
                 Text(item.account.name)
+                    .privacySensitive()
                     .foregroundStyle(Palette.ink)
                     .lineLimit(1)
                 HStack(spacing: Metrics.xs) {
                     if let subtitle {
                         Text(subtitle)
+                            .privacySensitive()
                             .lineLimit(1)
                     }
                     if item.stale != nil {

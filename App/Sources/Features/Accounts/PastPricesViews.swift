@@ -214,19 +214,23 @@ private struct PastPriceLineRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(verbatim: line.title)
                     .fontWeight(.medium)
+                    .privacySensitive(line.instrument != nil)
                 Text(verbatim: PastPriceText.dates(line.dates, locale: locale))
                     .font(.footnote)
                     .foregroundStyle(Palette.secondaryInk)
+                    .privacySensitive()
                 if let source = sourceText {
                     Text(verbatim: source)
                         .font(.footnote)
                         .foregroundStyle(Palette.secondaryInk)
+                        .privacySensitive()
                 }
                 if missingCount > 0, let reason = line.result?.reason {
                     Text(verbatim: reason)
                         .font(.footnote)
                         .foregroundStyle(isFailure ? Palette.critical : Palette.secondaryInk)
                         .fixedSize(horizontal: false, vertical: true)
+                        .privacySensitive()
                 }
             }
             Spacer(minLength: Metrics.s)
@@ -289,6 +293,7 @@ struct OldPriceNoteView: View {
             Label {
                 Text(verbatim: text)
                     .fixedSize(horizontal: false, vertical: true)
+                    .privacySensitive()
             } icon: {
                 Image(systemName: systemImage)
             }
