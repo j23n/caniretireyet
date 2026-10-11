@@ -57,6 +57,16 @@ struct CheckInAccountKindsTests {
         #expect(draft["mortgage"]?.kind == .mortgage)
     }
 
+    /// A cash account that records trades says what came in and went out
+    /// with its deposits and withdrawals, so it asks for neither.
+    @Test func aCashAccountRecordingTradesAsksForNoMoneyInOut() throws {
+        var library = self.library
+        library.accounts["bank"]?.valuation = .trades
+        let draft = february(library)
+        #expect(draft["bank"]?.asksMoneyInOut == false)
+        #expect(draft["bank"]?.canEnterFlow == true)
+    }
+
     /// docs/ACCOUNTS.md, "Pre-filled values".
     @Test func eachKindsPrefilledValues() throws {
         var draft = february()

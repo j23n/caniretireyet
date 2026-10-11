@@ -111,7 +111,6 @@ final class CheckInSession {
         tradeRequest = TradeEditorTarget(account: account, date: date)
     }
 
-
     /// Shows a row's new-money field and asks for the focus there.
     func editFlow(_ account: AccountID) {
         editingFlows.insert(account)

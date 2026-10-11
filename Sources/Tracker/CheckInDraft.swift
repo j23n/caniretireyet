@@ -172,8 +172,8 @@ public struct CheckInRow: Hashable, Sendable, Identifiable {
         let derived = isTrades ? valuator.valuator.derivedSnapshot(of: account, on: date, previous: previous) : nil
         self.derived = derived
         holdsCash = isTrades ? valuator.valuator.holdsCash(account.id) : true
-        // A cash or savings account's flow is worked out from what's typed.
-        let entersFlow = !account.kind.recordsMoneyInOut
+        // A cash or savings account's flow is worked out from what's typed, unless it records trades.
+        let entersFlow = !account.kind.recordsMoneyInOut || isTrades
         isFlowEdited = entersFlow && existing?.flow != nil
         enteredFlow = entersFlow ? existing?.flow : nil
         moneyIn = existing?.moneyIn
@@ -261,9 +261,10 @@ public struct CheckInRow: Hashable, Sendable, Identifiable {
     }
 
     /// Whether the row asks for money in and out (docs/ACCOUNTS.md, "Money in
-    /// and out"): a cash or savings account's.
+    /// and out"): a cash or savings account's, unless it records trades,
+    /// whose deposits and withdrawals say what came in and went out.
     public var asksMoneyInOut: Bool {
-        kind.recordsMoneyInOut
+        kind.recordsMoneyInOut && !isTrades
     }
 
     /// Whether the row asks for the interest earned: a savings account's.
@@ -272,10 +273,11 @@ public struct CheckInRow: Hashable, Sendable, Identifiable {
     }
 
     /// Whether the flow can be typed (``setFlow(_:)``): not for a cash or
-    /// savings account, whose flow is worked out from the balance, money in
-    /// and out and the interest (docs/ACCOUNTS.md, "New money").
+    /// savings account that asks for money in and out, whose flow is worked
+    /// out from the balance, money in and out and the interest
+    /// (docs/ACCOUNTS.md, "New money").
     public var canEnterFlow: Bool {
-        !kind.recordsMoneyInOut
+        !asksMoneyInOut
     }
 
     /// Whether the row counts in the check-in's progress ("7 of 9

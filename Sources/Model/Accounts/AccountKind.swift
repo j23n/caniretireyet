@@ -124,8 +124,4 @@ public enum FlowDefault: String, Hashable, Sendable, CaseIterable {
     case trades
     /// Asked for; empty means unknown (pension fund, TFR, property, other balances).
     case ask
-
-    /// Whether the flow is worked out from what's recorded, never typed:
-    /// every rule but ``ask``.
-    public var isWorkedOut: Bool { self != .ask }
 }

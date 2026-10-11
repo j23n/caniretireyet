@@ -150,7 +150,7 @@ extension Library {
                     moneyInOut.append(valuation.key)
                 }
                 guard oldPrevious != newPrevious || tradesChanged else { continue }
-                let worksOutFlow = accounts[account]?.kind.recordsMoneyInOut ?? false
+                let worksOutFlow = accounts[account].map { $0.kind.recordsMoneyInOut && !$0.recordsTrades } ?? false
                 let automatic = oldValuator.valuator.defaultFlow(for: valuation, previous: oldPrevious)
                 let recomputed = newValuator.valuator.defaultFlow(for: valuation, previous: newPrevious)
                 // Only the trades changed, and not in a way that concerns this valuation.
