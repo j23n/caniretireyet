@@ -100,7 +100,7 @@ The app writes every file the same way, so the same data always gives the same b
   1. drops `moneyInOut` from every account: cash and savings accounts record money in and out at every value after their first;
   2. drops `valuation` from an account recorded as snapshots (`holdings`, written or by default) that has no values, so it records what its kind does now;
   3. sets an account recorded as snapshots whose values hold only balances to `"valuation": "balance"`;
-  4. turns a brokerage, crypto or metals account recorded as a balance into kind `other`, without a `valuation` key;
+  4. turns a brokerage, crypto or metals account recorded as a balance into kind `other`, without a `valuation` key, and gives each of its values after the first that has no `flow` the whole change since the value before, rounded to cents, so its new money stays what version 3 counted;
   5. converts the accounts recorded as snapshots that are left, those whose values hold positions, to trades ([TRADES.md](../TRADES.md#converting-an-account)): their values and new money stay the same. What the conversion had to estimate is in the upgrade's report, which `retire validate` prints.
 - Before migrating, the app copies the library into `backups/<yyyy-MM-dd>-v<old>/`. A migration works on the raw JSON of every file, and nothing is written unless every step succeeds.
 - An app older than the library opens it read-only: it loads, and every save is refused. A library older than the app is migrated before the app saves anything to it.
