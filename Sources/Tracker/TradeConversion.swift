@@ -1,10 +1,11 @@
 import Foundation
 import Model
 
-// Converting an account between snapshots (balances, or positions at each
-// valuation) and trades (docs/TRADES.md, "Converting an account"). The
-// functions are pure: they return the records to write, so the app and the
-// CLI can preview the change, back up the files it touches, and apply it.
+// Converting an account recorded as snapshots (balances, or positions at
+// each valuation) to trades, for the upgrade to format version 4
+// (docs/TRADES.md, "Converting an account"). The function is pure: it
+// returns the records to write, so the upgrade can report what it
+// estimated and apply it.
 
 /// Something a conversion had to estimate, or couldn't keep.
 public struct ConversionNote: Hashable, Sendable, CustomStringConvertible {
@@ -27,19 +28,13 @@ public struct ConversionNote: Hashable, Sendable, CustomStringConvertible {
         public static let cashFromBalance: Kind = "cashFromBalance"
         /// The account already had trades, which will count too.
         public static let existingTrades: Kind = "existingTrades"
-        /// A valuation added on the date of a month's last trade, so the
-        /// history keeps what the trades did.
-        public static let addedValuation: Kind = "addedValuation"
-        /// The trades were removed: their income, fees and realised gains
-        /// are no longer recorded.
-        public static let tradesRemoved: Kind = "tradesRemoved"
         /// The account never held cash, so its buys and sales are paid
         /// from or into another account (`"settlement": "external"`).
         public static let settledOutside: Kind = "settledOutside"
 
         public static let knownValues: [Kind] = [
             .costFromMarketValue, .unknownCost, .priceFromValuation, .noPrice, .cashFromBalance, .existingTrades,
-            .addedValuation, .tradesRemoved, .settledOutside,
+            .settledOutside,
         ]
     }
 
@@ -52,8 +47,8 @@ public struct ConversionNote: Hashable, Sendable, CustomStringConvertible {
     public var description: String { "\(date): \(message)" }
 }
 
-/// The records that convert one account between snapshots and trades
-/// (``Model/Library/conversionToTrades(of:)``, ``Model/Library/conversionToSnapshots(of:)``).
+/// The records that convert one account from snapshots to trades
+/// (``Model/Library/conversionToTrades(of:)``).
 public struct AccountConversion: Hashable, Sendable {
     /// The account as it will be, with its new `valuation` mode.
     public let account: Account
@@ -62,21 +57,17 @@ public struct AccountConversion: Hashable, Sendable {
     public let valuations: [Valuation]
     /// Trades to add, sorted by key.
     public let trades: [Trade]
-    /// Trades to remove, sorted by key.
-    public let removedTrades: [Trade]
     /// What had to be estimated or couldn't be kept, sorted by date.
     public let notes: [ConversionNote]
 
     /// The months whose history files the conversion changes, sorted.
     public var months: [YearMonth] {
-        Set(valuations.map(\.date.yearMonth) + trades.map(\.date.yearMonth) + removedTrades.map(\.date.yearMonth))
-            .sorted()
+        Set(valuations.map(\.date.yearMonth) + trades.map(\.date.yearMonth)).sorted()
     }
 
     /// Writes the conversion into `library`.
     public func apply(to library: inout Library) {
         library.accounts[account.id] = account
-        for trade in removedTrades { library.removeTradeRecord(trade.key) }
         for valuation in valuations { library.upsert(valuation) }
         for trade in trades { library.upsert(trade) }
     }
@@ -255,7 +246,7 @@ extension Library {
 
         details.valuation = details.kind.defaultValuationMode == .trades ? nil : .trades
         return AccountConversion(account: details, valuations: written, trades: trades.sortedByKey(),
-                                 removedTrades: [], notes: notes.sorted { $0.date < $1.date })
+                                 notes: notes.sorted { $0.date < $1.date })
     }
 
     /// The deposits and withdrawals that make the cash of each of a
@@ -313,70 +304,6 @@ extension Library {
     public static let snapshotConversionSummary = "Accounts recorded as snapshots of positions now record trades: "
         + "an opening, then a buy or a sale per change, and a deposit or withdrawal for the money added or taken "
         + "out. Their values and new money stay the same."
-
-    // MARK: - Trades → snapshots
-
-    /// The records that make `account` record positions again (docs/TRADES.md,
-    /// "Converting an account"); `nil` if there's no such account, or it
-    /// doesn't record trades.
-    ///
-    /// Each valuation gets the positions and average cost the trades give
-    /// on its date, and its cash by the cash rule; it keeps its flow. A
-    /// month whose last trade comes after its last valuation gets a
-    /// valuation on that trade's date (noted), so values on valuation dates
-    /// and month ends stay the same (between them, a snapshot carries the
-    /// one before); it, and the valuation after it, get the flow the trades
-    /// give. The trades are removed (noted): their income and realised gains
-    /// are no longer recorded.
-    public func conversionToSnapshots(of account: AccountID) -> AccountConversion? {
-        guard var details = accounts[account], details.recordsTrades else { return nil }
-        let valuator = Valuator(library: self)
-        let ledger = valuator.ledger(for: account)
-        let trades = self.trades(for: account)
-        let existing = valuations(for: account)
-        var notes: [ConversionNote] = []
-
-        // The dates to keep a snapshot on: every valuation's, and each month's last trade after its valuations.
-        var dates = Set(existing.map(\.date))
-        for (_, monthTrades) in Dictionary(grouping: trades, by: \.date.yearMonth) {
-            guard let last = monthTrades.map(\.date).max() else { continue }
-            if !existing.contains(where: { $0.date.yearMonth == last.yearMonth && $0.date >= last }) {
-                dates.insert(last)
-                notes.append(ConversionNote(kind: .addedValuation, date: last, instrument: nil,
-                                            message: "A valuation is added on \(last), the last trade of its month, "
-                                                + "so the history keeps what the trades did."))
-            }
-        }
-
-        var valuations: [Valuation] = []
-        var previousOld: Valuation?
-        var previousNew: Valuation?
-        for date in dates.sorted() {
-            let old = existing.first { $0.date == date }
-            var snapshot = old ?? Valuation(account: account, date: date)
-            snapshot.balance = nil
-            snapshot.cash = valuator.tradeCash(of: account, on: date)
-            snapshot.positions = ledger?.positions(on: date) ?? []
-            if let old, previousOld?.date == previousNew?.date {
-                snapshot.flow = old.flow
-            } else {
-                // Added, or a valuation was added before it: its flow since then, from the trades.
-                snapshot.flow = valuator.defaultFlow(for: old ?? snapshot, previous: previousNew) ?? old?.flow
-            }
-            if old != nil { previousOld = old }
-            previousNew = snapshot
-            valuations.append(snapshot)
-        }
-        if let first = trades.first {
-            notes.append(ConversionNote(kind: .tradesRemoved, date: first.date, instrument: nil,
-                                        message: "\(trades.count) trade\(trades.count == 1 ? " is" : "s are") removed: "
-                                            + "their income, fees and realised gains are no longer recorded."))
-        }
-
-        details.valuation = details.kind.defaultValuationMode == .holdings ? nil : .holdings
-        return AccountConversion(account: details, valuations: valuations, trades: [], removedTrades: trades,
-                                 notes: notes.sorted { $0.date < $1.date })
-    }
 
     /// Converts `account` to trades (``conversionToTrades(of:)``) and
     /// returns what was done; `nil`, changing nothing, when it can't be.

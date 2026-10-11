@@ -3,16 +3,14 @@ import SwiftUI
 import Tracker
 
 /// One account (UI.md, "Account detail"): its value and change, a history
-/// chart with new-money ticks, the positions of a holdings account, the
-/// editable list of valuations with *Add Past Value…* to fill in history,
-/// the details, and closing, reopening and deleting. On the Mac the
-/// valuations are a table.
+/// chart with new-money ticks, the editable list of valuations with *Add
+/// Past Value…* to fill in history, the details, and closing, reopening and
+/// deleting. On the Mac the valuations are a table.
 ///
-/// An account that records trades shows, instead of positions, its
+/// An account that records trades shows, instead of its values, its
 /// holdings with average cost and share, its trades by month (a table on
-/// the Mac) with *Add Trade…*, its income and gains by year, and what's
-/// wrong with its trades. *Switch to Trade History…* and *Switch to
-/// Snapshots…* convert an account between the two (docs/TRADES.md).
+/// the Mac) with *Add Trade…*, its income and gains by year, what's wrong
+/// with its trades, and the values that record a statement (docs/TRADES.md).
 ///
 /// Pushing an `AccountID` onto any navigation stack shows it.
 struct AccountDetailScreen: View {
@@ -35,7 +33,6 @@ struct AccountDetailScreen: View {
     @State private var tradeFilter = TradeListFilter()
     @State private var deletingTrade: TradeKey?
     @State private var confirmsTradeDelete = false
-    @State private var conversion: AccountConversionDirection?
 
     init(accountID: AccountID) {
         self.accountID = accountID
@@ -47,6 +44,9 @@ struct AccountDetailScreen: View {
     private static let noValues = "No values yet. Update the value, or record one in a check-in."
     private static let noTrades =
         "No trades yet. Add the account's buys, sells and dividends, or its opening positions."
+    private static let statementsNote = "Values that record a broker statement, as a check on the trades. A cash "
+        + "that differs from the trades counts as money added or taken out, and positions that differ are pointed "
+        + "out above. Update Cash… records another."
 
     var body: some View {
         if let account = library.account(accountID) {
@@ -63,14 +63,6 @@ struct AccountDetailScreen: View {
                     AccountActionSheet(action: action)
                 }
                 .tradeEditorSheet($tradeTarget)
-                .sheet(item: $conversion) { direction in
-                    NavigationStack {
-                        AccountConversionSheet(accountID: accountID, direction: direction)
-                    }
-                    #if os(macOS)
-                    .frame(minWidth: 480, idealWidth: 560, minHeight: 480, idealHeight: 640)
-                    #endif
-                }
                 .confirmationDialog("Delete this trade?", isPresented: $confirmsTradeDelete,
                                     titleVisibility: .visible, presenting: deletingTrade) { key in
                     Button("Delete Trade", role: .destructive) { removeTrade(key) }
@@ -173,66 +165,66 @@ struct AccountDetailScreen: View {
                     }
                 }
             }
-            if data.showsPositions {
+            if data.recordsTrades {
+                if !data.statements.isEmpty {
+                    Section {
+                        ForEach(data.statements) { row in
+                            Button {
+                                editing = AccountValuationTarget(key: row.id)
+                            } label: {
+                                AccountStatementListRow(row: row, currency: currency)
+                            }
+                            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                Button {
+                                    deletingValuation = row.id
+                                    confirmsValuationDelete = true
+                                } label: {
+                                    Label("Delete", systemImage: "trash")
+                                }
+                                .tint(Palette.critical)
+                            }
+                        }
+                    } header: {
+                        Text("Statements")
+                    } footer: {
+                        Text(Self.statementsNote + " Tap one to change it.")
+                    }
+                }
+            } else {
                 Section {
-                    ForEach(data.holdings) { row in
-                        NavigationLink {
-                            InstrumentEditor(instrumentID: row.instrument)
-                        } label: {
-                            AccountPositionListRow(row: row, currency: currency)
-                        }
+                    if data.valuations.isEmpty {
+                        Text(Self.noValues)
+                            .foregroundStyle(Palette.secondaryInk)
                     }
-                    if let cash = data.cash {
-                        AccountInfoRow(title: "Cash") {
-                            AmountText(cash, currency: currency, precision: .cents)
-                        }
-                    }
-                    NavigationLink {
-                        InstrumentsScreen()
+                    Button {
+                        addPastValue(data)
                     } label: {
-                        Label("Instruments", systemImage: AppSymbol.instruments)
+                        Label("Add Past Value…", systemImage: "calendar.badge.plus")
+                    }
+                    .disabled(!library.canEdit)
+                    ForEach(data.valuations) { row in
+                        Button {
+                            editing = AccountValuationTarget(key: row.id)
+                        } label: {
+                            AccountValuationListRow(row: row, currency: currency)
+                        }
+                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                            Button {
+                                deletingValuation = row.id
+                                confirmsValuationDelete = true
+                            } label: {
+                                Label("Delete", systemImage: "trash")
+                            }
+                            .tint(Palette.critical)
+                        }
                     }
                 } header: {
-                    Text("Positions")
+                    Text("Values")
                 } footer: {
-                    Text("Values at the latest prices. The gain is the value minus what you paid.")
-                }
-            }
-            Section {
-                if data.valuations.isEmpty {
-                    Text(Self.noValues)
-                        .foregroundStyle(Palette.secondaryInk)
-                }
-                Button {
-                    addPastValue(data)
-                } label: {
-                    Label("Add Past Value…", systemImage: "calendar.badge.plus")
-                }
-                .disabled(!library.canEdit)
-                ForEach(data.valuations) { row in
-                    Button {
-                        editing = AccountValuationTarget(key: row.id)
-                    } label: {
-                        AccountValuationListRow(row: row, currency: currency)
+                    if !data.valuations.isEmpty {
+                        Text("Tap a value to change it. A value before the opening date moves it back."
+                            + (data.movedNote.map { " " + $0 } ?? ""))
                     }
-                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                        Button {
-                            deletingValuation = row.id
-                            confirmsValuationDelete = true
-                        } label: {
-                            Label("Delete", systemImage: "trash")
-                        }
-                        .tint(Palette.critical)
-                    }
-                }
-            } header: {
-                Text(data.valuationsTitle)
-            } footer: {
-                if let note = data.valuationsNote {
-                    Text(note)
-                } else if !data.valuations.isEmpty {
-                    Text("Tap a value to change its date, amount, new money or note. A value before the opening "
-                        + "date moves it back.")
                 }
             }
             Section {
@@ -242,7 +234,6 @@ struct AccountDetailScreen: View {
             }
             Section {
                 lifecycleButtons(data)
-                conversionButton(data)
             }
             Section {
                 Button("Delete Account…", role: .destructive) {
@@ -299,39 +290,59 @@ struct AccountDetailScreen: View {
                         }
                     }
                 }
-                if data.showsPositions {
-                    Card("Positions") {
-                        AccountPositionsGrid(rows: data.holdings, cash: data.cash, currency: currency)
-                    }
-                }
-                Card {
-                    if data.valuations.isEmpty {
-                        Text(Self.noValues)
-                            .foregroundStyle(Palette.secondaryInk)
-                    } else {
-                        AccountValuationsTable(
-                            rows: data.valuations, currency: currency, showsCash: data.valuationsShowCash,
-                            edit: { key in editing = AccountValuationTarget(key: key) },
-                            delete: { key in
-                                deletingValuation = key
-                                confirmsValuationDelete = true
-                            })
-                    }
-                    if let note = data.valuationsNote {
-                        Text(note)
-                            .font(.caption)
-                            .foregroundStyle(Palette.mutedInk)
-                    }
-                } header: {
-                    SectionHeader(data.valuationsTitle) {
-                        HStack(spacing: Metrics.m) {
-                            Text("Double-click a value to edit it")
+                if data.recordsTrades {
+                    if !data.statements.isEmpty {
+                        Card {
+                            AccountStatementsTable(
+                                rows: data.statements, currency: currency,
+                                edit: { key in editing = AccountValuationTarget(key: key) },
+                                delete: { key in
+                                    deletingValuation = key
+                                    confirmsValuationDelete = true
+                                })
+                            Text(Self.statementsNote)
                                 .font(.caption)
                                 .foregroundStyle(Palette.mutedInk)
-                            Button("Add Past Value…") { addPastValue(data) }
-                                .controlSize(.small)
-                                .disabled(!library.canEdit)
-                                .help("Adds a value on an earlier date. Before the opening date, it moves it back.")
+                        } header: {
+                            SectionHeader("Statements") {
+                                Text("Double-click a statement to edit it")
+                                    .font(.caption)
+                                    .foregroundStyle(Palette.mutedInk)
+                            }
+                        }
+                    }
+                } else {
+                    Card {
+                        if data.valuations.isEmpty {
+                            Text(Self.noValues)
+                                .foregroundStyle(Palette.secondaryInk)
+                        } else {
+                            AccountValuationsTable(
+                                rows: data.valuations, currency: currency,
+                                showsMoneyInOut: data.valuationsShowMoneyInOut,
+                                showsInterest: data.valuationsShowInterest,
+                                edit: { key in editing = AccountValuationTarget(key: key) },
+                                delete: { key in
+                                    deletingValuation = key
+                                    confirmsValuationDelete = true
+                                })
+                        }
+                        if let note = data.movedNote {
+                            Text(note)
+                                .font(.caption)
+                                .foregroundStyle(Palette.mutedInk)
+                        }
+                    } header: {
+                        SectionHeader("Values") {
+                            HStack(spacing: Metrics.m) {
+                                Text("Double-click a value to edit it")
+                                    .font(.caption)
+                                    .foregroundStyle(Palette.mutedInk)
+                                Button("Add Past Value…") { addPastValue(data) }
+                                    .controlSize(.small)
+                                    .disabled(!library.canEdit)
+                                    .help("Adds a value on an earlier date. Before the opening date, it moves it back.")
+                            }
                         }
                     }
                 }
@@ -342,7 +353,6 @@ struct AccountDetailScreen: View {
                 }
                 HStack(spacing: Metrics.m) {
                     lifecycleButtons(data)
-                    conversionButton(data)
                     Spacer()
                     Button("Delete Account…", role: .destructive) {
                         confirmsDelete = true
@@ -466,19 +476,6 @@ struct AccountDetailScreen: View {
         return trades.shownCount == trades.totalCount ? total : "\(trades.shownCount) of \(total)"
     }
 
-    /// *Switch to Trade History…* for an account that records positions,
-    /// *Switch to Snapshots…* for one that records trades.
-    @ViewBuilder
-    private func conversionButton(_ data: AccountDetailData) -> some View {
-        if data.canSwitchToTrades {
-            Button("Switch to Trade History…") { conversion = .toTrades }
-                .disabled(!library.canEdit)
-        } else if data.canSwitchToSnapshots {
-            Button("Switch to Snapshots…") { conversion = .toSnapshots }
-                .disabled(!library.canEdit)
-        }
-    }
-
     // MARK: Shared
 
     /// An open account that's held nothing for a while: offered to be
@@ -576,7 +573,6 @@ struct AccountDetailScreen: View {
         case .addTrade(let target): tradeTarget = target
         case .editValuation(let key): editing = AccountValuationTarget(key: key)
         case .editAccount: self.action = AccountAction(.edit, accountID)
-        case .switchToTrades: conversion = .toTrades
         }
     }
 
@@ -744,32 +740,6 @@ private struct AccountDetailHeader: View {
 
 // MARK: - Positions
 
-/// One position in the iPhone list: name and value; quantity × price
-/// (`AccountPositionText`, the price on a line of its own when both don't
-/// fit) and the unrealised gain; the purchase cost.
-private struct AccountPositionListRow: View {
-    let row: AccountHoldingRow
-    let currency: CurrencyCode
-    @Environment(\.locale) private var locale
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: Metrics.xs) {
-            AccountPositionNameLine(row: row, currency: currency)
-            AccountPositionQuantityLine(row: row) {
-                if let gain = row.gain {
-                    AccountPositionGain(gain: gain, fraction: row.gainFraction, currency: currency)
-                }
-            }
-            if let cost = AccountPositionText.purchaseCost(row, currency: currency, locale: locale) {
-                AmountSentenceText(cost)
-                    .font(.footnote)
-                    .foregroundStyle(Palette.secondaryInk)
-            }
-        }
-        .padding(.vertical, 2)
-    }
-}
-
 /// A position's first line: its name, and its value in the account's
 /// currency (or "No price").
 struct AccountPositionNameLine: View {
@@ -861,77 +831,6 @@ struct AccountPositionGain: View {
     }
 }
 
-#if os(macOS)
-/// The positions as a grid on the Mac: instrument, quantity, price, value,
-/// purchase cost and unrealised gain.
-private struct AccountPositionsGrid: View {
-    let rows: [AccountHoldingRow]
-    let cash: Decimal?
-    let currency: CurrencyCode
-    @Environment(\.locale) private var locale
-
-    var body: some View {
-        if rows.isEmpty && cash == nil {
-            Text("No positions in the latest value.")
-                .foregroundStyle(Palette.secondaryInk)
-        } else {
-            Grid(alignment: .trailing, horizontalSpacing: Metrics.l, verticalSpacing: Metrics.s) {
-                GridRow {
-                    Text("Instrument")
-                        .gridColumnAlignment(.leading)
-                    Text("Quantity")
-                    Text("Price")
-                    Text("Value")
-                    Text("Purchase cost")
-                    Text("Unrealised gain")
-                }
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(Palette.secondaryInk)
-                Divider()
-                ForEach(rows) { row in
-                    GridRow {
-                        Text(row.name)
-                            .lineLimit(1)
-                            .privacySensitiveInFeedback()
-                        Text(QuantityFormat.quantity(row.quantity, locale: locale))
-                            .monospacedDigit()
-                            .privacySensitiveAmount()
-                        Text(AccountPositionText.unitPrice(row, locale: locale))
-                            .monospacedDigit()
-                            .privacySensitiveInFeedback()
-                        if let amount = row.amount {
-                            AmountText(amount, currency: currency, precision: .cents)
-                        } else {
-                            Text("No price").foregroundStyle(Palette.secondaryInk)
-                        }
-                        if let cost = row.costBasis {
-                            AmountText(cost, currency: currency)
-                        } else {
-                            Text("–").foregroundStyle(Palette.mutedInk)
-                        }
-                        if let gain = row.gain {
-                            DeltaText(gain, currency: currency)
-                        } else {
-                            Text("–").foregroundStyle(Palette.mutedInk)
-                        }
-                    }
-                }
-                if let cash {
-                    GridRow {
-                        Text("Cash")
-                        Text("")
-                        Text("")
-                        AmountText(cash, currency: currency, precision: .cents)
-                        Text("")
-                        Text("")
-                    }
-                }
-            }
-        }
-    }
-}
-#endif
-
 // MARK: - Valuations
 
 /// A valuation's value in the account's currency, else (a price or rate
@@ -949,8 +848,9 @@ private struct AccountValuationValue: View {
     }
 }
 
-/// One valuation in the iPhone list: date and note, value, the cash it
-/// records (when the list shows it) and new money.
+/// One valuation in the iPhone list: date and note, value, and new money,
+/// or for a cash or savings value that records them, money in and out,
+/// interest and what moved between your own accounts.
 private struct AccountValuationListRow: View {
     let row: AccountValuationRow
     let currency: CurrencyCode
@@ -973,20 +873,45 @@ private struct AccountValuationListRow: View {
             VStack(alignment: .trailing, spacing: 2) {
                 AccountValuationValue(row: row, currency: currency)
                     .foregroundStyle(Palette.ink)
-                if let cash = row.cash {
-                    HStack(spacing: 4) {
-                        Text("cash")
-                            .foregroundStyle(Palette.secondaryInk)
-                        AmountText(cash, currency: currency, precision: .cents)
-                            .foregroundStyle(Palette.secondaryInk)
-                    }
-                    .font(.caption)
+                if row.recordsMoneyInOut {
+                    moneyInOut
+                } else {
+                    flow
                 }
-                flow
             }
         }
         .contentShape(Rectangle())
         .accessibilityElement(children: .combine)
+    }
+
+    /// "in 3.400,00 € out 2.554,65 €", the interest, and "moved −1.150,00 €".
+    @ViewBuilder
+    private var moneyInOut: some View {
+        HStack(spacing: 4) {
+            Text("in")
+                .foregroundStyle(Palette.secondaryInk)
+            AmountText(row.valuation.moneyIn ?? 0, currency: currency, precision: .cents)
+            Text("out")
+                .foregroundStyle(Palette.secondaryInk)
+            AmountText(row.valuation.moneyOut ?? 0, currency: currency, precision: .cents)
+        }
+        .font(.caption)
+        if let interest = row.valuation.interest, interest != 0 {
+            HStack(spacing: 4) {
+                Text("interest")
+                    .foregroundStyle(Palette.secondaryInk)
+                DeltaText(interest, currency: currency, precision: .automatic, showsArrow: false)
+            }
+            .font(.caption)
+        }
+        if let moved = row.moved {
+            HStack(spacing: 4) {
+                Text("moved")
+                    .foregroundStyle(Palette.secondaryInk)
+                DeltaText(moved, currency: currency, precision: .automatic, showsArrow: false)
+            }
+            .font(.caption)
+        }
     }
 
     @ViewBuilder
@@ -1008,23 +933,151 @@ private struct AccountValuationListRow: View {
     }
 }
 
+// MARK: - Statements
+
+/// A statement's positions in words ("2 positions listed, as the trades
+/// give"), in warning ink when one differs from the trades.
+private struct AccountStatementPositions: View {
+    let row: AccountStatementRow
+
+    var body: some View {
+        if let text = row.positionsText {
+            Text(text)
+                .foregroundStyle(row.mismatchCount > 0 ? Palette.warning : Palette.secondaryInk)
+                .privacySensitiveInFeedback()
+        }
+    }
+}
+
+/// One statement of a trades account in the iPhone list: date, positions
+/// and note; the cash it shows and how much of it no trade records.
+private struct AccountStatementListRow: View {
+    let row: AccountStatementRow
+    let currency: CurrencyCode
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: Metrics.m) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(AmountFormat.mediumDate(row.valuation.date))
+                    .foregroundStyle(Palette.ink)
+                    .privacySensitiveInFeedback()
+                AccountStatementPositions(row: row)
+                    .font(.caption)
+                if let note = row.valuation.note {
+                    Text(note)
+                        .font(.caption)
+                        .foregroundStyle(Palette.secondaryInk)
+                        .lineLimit(2)
+                        .privacySensitiveInFeedback()
+                }
+            }
+            Spacer(minLength: Metrics.s)
+            VStack(alignment: .trailing, spacing: 2) {
+                if let cash = row.cash {
+                    HStack(spacing: 4) {
+                        Text("cash")
+                            .foregroundStyle(Palette.secondaryInk)
+                        AmountText(cash, currency: currency, precision: .cents)
+                            .foregroundStyle(Palette.ink)
+                    }
+                }
+                if let difference = row.cashDifference {
+                    HStack(spacing: 4) {
+                        Text("not in the trades")
+                            .foregroundStyle(Palette.secondaryInk)
+                        DeltaText(difference, currency: currency, precision: .automatic, showsArrow: false)
+                    }
+                    .font(.caption)
+                }
+            }
+        }
+        .contentShape(Rectangle())
+        .accessibilityElement(children: .combine)
+    }
+}
+
 #if os(macOS)
-/// The valuations as a table on the Mac: date, value, the cash it records
-/// (when `showsCash`), new money and note, as tall as its lines, so the
-/// page scrolls them (`PageTable`). Double-click (or the context menu)
-/// edits one.
+/// A trades account's statements as a table on the Mac: date, cash, the
+/// part of it no trade records, positions and note, as tall as its lines
+/// (`PageTable`). Double-click (or the context menu) edits one.
+private struct AccountStatementsTable: View {
+    let rows: [AccountStatementRow]
+    let currency: CurrencyCode
+    let edit: (ValuationKey) -> Void
+    let delete: (ValuationKey) -> Void
+
+    private enum Columns {
+        static let date = PageTableColumn(min: 84, max: 120)
+        static let cash = PageTableColumn(min: 100, max: 160, alignment: .trailing)
+        static let difference = PageTableColumn(min: 110, max: 160, alignment: .trailing)
+        static let positions = PageTableColumn(min: 160, max: 280)
+        static let note = PageTableColumn(min: 0, max: .infinity)
+    }
+
+    var body: some View {
+        PageTable(rows, open: edit) {
+            Text("Date").pageTableColumn(Columns.date)
+            Text("Cash").pageTableColumn(Columns.cash)
+            Text("Not in the trades").pageTableColumn(Columns.difference)
+            Text("Positions").pageTableColumn(Columns.positions)
+            Text("Note").pageTableColumn(Columns.note)
+        } row: { row in
+            Text(AmountFormat.mediumDate(row.valuation.date))
+                .monospacedDigit()
+                .privacySensitiveInFeedback()
+                .pageTableColumn(Columns.date)
+            Group {
+                if let cash = row.cash {
+                    AmountText(cash, currency: currency, precision: .cents)
+                } else {
+                    Text("")
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .trailing)
+            .pageTableColumn(Columns.cash)
+            Group {
+                if let difference = row.cashDifference {
+                    DeltaText(difference, currency: currency, precision: .automatic, showsArrow: false)
+                } else {
+                    Text("")
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .trailing)
+            .pageTableColumn(Columns.difference)
+            AccountStatementPositions(row: row)
+                .lineLimit(2)
+                .pageTableColumn(Columns.positions)
+            Text(row.valuation.note ?? "")
+                .foregroundStyle(Palette.secondaryInk)
+                .privacySensitiveInFeedback()
+                .pageTableColumn(Columns.note)
+        } menu: { row in
+            Button("Edit Statement…") { edit(row.id) }
+            Button("Delete Statement…", role: .destructive) { delete(row.id) }
+        }
+    }
+}
+#endif
+
+#if os(macOS)
+/// The valuations as a table on the Mac: date, value, new money and note,
+/// and for a cash or savings account (`showsMoneyInOut`) money in, money
+/// out, the interest (a savings account's, `showsInterest`) and what moved
+/// between your own accounts. As tall as its lines, so the page scrolls
+/// them (`PageTable`). Double-click (or the context menu) edits one.
 private struct AccountValuationsTable: View {
     let rows: [AccountValuationRow]
     let currency: CurrencyCode
-    let showsCash: Bool
+    let showsMoneyInOut: Bool
+    let showsInterest: Bool
     let edit: (ValuationKey) -> Void
     let delete: (ValuationKey) -> Void
 
     private enum Columns {
         static let date = PageTableColumn(min: 84, max: 120)
         static let value = PageTableColumn(min: 100, max: 160, alignment: .trailing)
-        static let cash = PageTableColumn(min: 90, max: 140, alignment: .trailing)
         static let flow = PageTableColumn(min: 90, max: 140, alignment: .trailing)
+        static let amount = PageTableColumn(min: 80, max: 130, alignment: .trailing)
         static let note = PageTableColumn(min: 0, max: .infinity)
     }
 
@@ -1032,10 +1085,15 @@ private struct AccountValuationsTable: View {
         PageTable(rows, open: edit) {
             Text("Date").pageTableColumn(Columns.date)
             Text("Value").pageTableColumn(Columns.value)
-            if showsCash {
-                Text("Cash").pageTableColumn(Columns.cash)
-            }
             Text("New money").pageTableColumn(Columns.flow)
+            if showsMoneyInOut {
+                Text("In").pageTableColumn(Columns.amount)
+                Text("Out").pageTableColumn(Columns.amount)
+                if showsInterest {
+                    Text("Interest").pageTableColumn(Columns.amount)
+                }
+                Text("Moved").pageTableColumn(Columns.amount)
+            }
             Text("Note").pageTableColumn(Columns.note)
         } row: { row in
             Text(AmountFormat.mediumDate(row.valuation.date))
@@ -1045,19 +1103,20 @@ private struct AccountValuationsTable: View {
             AccountValuationValue(row: row, currency: currency)
                 .frame(maxWidth: .infinity, alignment: .trailing)
                 .pageTableColumn(Columns.value)
-            if showsCash {
-                Group {
-                    if let cash = row.cash {
-                        AmountText(cash, currency: currency, precision: .cents)
-                    } else {
-                        Text("")
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .trailing)
-                .pageTableColumn(Columns.cash)
-            }
             AccountValuationFlowCell(row: row, currency: currency)
                 .pageTableColumn(Columns.flow)
+            if showsMoneyInOut {
+                AccountValuationAmountCell(amount: row.valuation.moneyIn, currency: currency)
+                    .pageTableColumn(Columns.amount)
+                AccountValuationAmountCell(amount: row.valuation.moneyOut, currency: currency)
+                    .pageTableColumn(Columns.amount)
+                if showsInterest {
+                    AccountValuationAmountCell(amount: row.valuation.interest, currency: currency, signed: true)
+                        .pageTableColumn(Columns.amount)
+                }
+                AccountValuationAmountCell(amount: row.moved, currency: currency, signed: true)
+                    .pageTableColumn(Columns.amount)
+            }
             Text(row.valuation.note ?? "")
                 .foregroundStyle(Palette.secondaryInk)
                 .privacySensitiveInFeedback()
@@ -1105,6 +1164,29 @@ private struct TradeIncomeColumns: View {
                 }
             }
         }
+    }
+}
+
+/// An amount in the Mac's table of values, empty when it isn't recorded:
+/// money in or out, or with a sign, the interest or what moved.
+private struct AccountValuationAmountCell: View {
+    let amount: Decimal?
+    let currency: CurrencyCode
+    var signed = false
+
+    var body: some View {
+        Group {
+            if let amount {
+                if signed {
+                    DeltaText(amount, currency: currency, precision: .automatic, showsArrow: false)
+                } else {
+                    AmountText(amount, currency: currency, precision: .cents)
+                }
+            } else {
+                Text("")
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .trailing)
     }
 }
 
@@ -1157,16 +1239,14 @@ extension AccountInfoRow where Value == Text {
     }
 }
 
-/// Whether check-ins ask for the money in and out of a cash or savings
-/// account, and what came in and went out over the last twelve months
-/// (PROGRESS.md, "Money in and out").
+/// What came in and went out of a cash or savings account over the last
+/// twelve months (PROGRESS.md, "Money in and out").
 private struct AccountMoneyInOutRows: View {
     let account: Account
     @Environment(LibraryStore.self) private var library
 
     var body: some View {
         let summary = library.valuator.moneyInOut(overYearEndingOn: .today(), accounts: [account.id])
-        AccountInfoRow(title: "Money in and out", text: "Asked at check-ins")
         if !summary.isEmpty {
             AccountInfoRow(title: "In, last 12 months") {
                 AmountText(summary.moneyIn)
@@ -1268,12 +1348,13 @@ private struct AccountInfoRows: View {
         account.availableFromAge.map { "From \($0)" } ?? "At any age"
     }
 
-    /// "Trade history", "Monthly snapshots of positions", "A balance".
+    /// "Trade history", "A balance".
     private var recordedAs: String {
         switch account.valuationMode {
         case .trades: "Trade history"
-        case .holdings: "Snapshots of positions"
         case .balance: "A balance"
+        // Written before format version 4; the load check points it out.
+        case .holdings: "Snapshots of positions (not used)"
         default: account.valuationMode.rawValue
         }
     }
@@ -1312,7 +1393,7 @@ private struct AccountInfoRows: View {
     .previewEnvironment(PreviewLibrary.withStatementMismatch)
 }
 
-#Preview("Gold coins (snapshots)") {
+#Preview("Gold coins (paid from outside)") {
     NavigationStack {
         AccountDetailScreen(accountID: "gold-coins")
             .appDestinations()
@@ -1327,6 +1408,20 @@ private struct AccountInfoRows: View {
             .appDestinations()
     }
     .previewEnvironment(PreviewLibrary.withForeignAccount)
+}
+
+#Preview("Current account with money in and out") {
+    NavigationStack {
+        AccountDetailScreen(accountID: "conto-fineco")
+    }
+    .previewEnvironment()
+}
+
+#Preview("Savings with interest") {
+    NavigationStack {
+        AccountDetailScreen(accountID: "conto-deposito")
+    }
+    .previewEnvironment()
 }
 
 #Preview("Pension fund") {
