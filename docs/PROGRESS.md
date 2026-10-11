@@ -35,6 +35,7 @@ Each check-in re-runs the main plan (`mainPlan` in `library.json`) and records t
 - the earliest retirement age at your confidence level;
 - the chance of success at your target age;
 - **readiness**: your plan assets as a share of what retiring today with your confidence level would need, from the simulation ([PLANNER.md](PLANNER.md#assets-needed-to-retire-today)). It reaches 100% exactly when retiring today does.
+- **the pace age** (`paceAge`): the earliest retirement age if you kept saving at your pace of the last 12 months until retirement ([PLANNER.md](PLANNER.md#ages-without)), so the answer over time can show whether the plan's saving is realistic. Left out without a pace (fewer than 3 months of history).
 
 Records made by earlier versions may also hold the old `fiProgress` (plan assets over the spending pensions don't cover, divided by 4%), with its old meaning, and `taxParameters` (the years of the tax rules a tax system used); both are kept as they are. The app doesn't show `fiProgress`: it treated the pensions as already paid and ignored taxes and the plan's confidence, so it could read 75% while retiring today succeeded in 13% of futures. Records that have only `fiProgress` show no progress number.
 
@@ -140,7 +141,7 @@ On Progress, a year without its own automatic baseline is measured against the l
 }
 ```
 
-`planHash` identifies the plan's inputs, so the chart can mark the check-ins where you changed the plan. `earliestAge` is left out when no age reaches the confidence level, and an optional `confidence` records the level used. `readiness` (optional) is rounded down to two decimals, so a recorded 1 means retiring today reached the confidence level; it's left out in records made before it existed and when retiring today would need more than 20 times the plan assets. A baseline's `headline` has the same fields.
+`planHash` identifies the plan's inputs, so the chart can mark the check-ins where you changed the plan. `earliestAge` is left out when no age reaches the confidence level, and an optional `confidence` records the level used. `readiness` (optional) is rounded down to two decimals, so a recorded 1 means retiring today reached the confidence level; it's left out in records made before it existed and when retiring today would need more than 20 times the plan assets. A baseline's `headline` has the same fields, except these two: `coastAge` and `paceAge` (optional) are the earliest ages saving nothing more and saving at your pace ([PLANNER.md](PLANNER.md#ages-without)), left out when no age reaches the confidence level, without a pace for `paceAge`, and in records made before they existed.
 
 ## Data this needs from day one
 

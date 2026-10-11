@@ -51,6 +51,17 @@ struct HeadlineTests {
         #expect(try json(older).objectValue?["coastAge"] == nil)
     }
 
+    @Test func thePaceAgeIsWrittenWhenThereIsOne() throws {
+        let headline = Headline(date: "2026-09-30", earliestAge: 54, engine: "2.0.0", paceAge: 57, planHash: "h")
+        #expect(try json(headline).objectValue?["paceAge"] == .number(57))
+        #expect(try JSONDecoder().decode(Headline.self, from: JSONEncoder().encode(headline)) == headline)
+
+        // Without a pace, and in older records, there's none.
+        let older = Headline(date: "2026-08-31", earliestAge: 54, engine: "0.1.0", planHash: "h")
+        #expect(older.paceAge == nil)
+        #expect(try json(older).objectValue?["paceAge"] == nil)
+    }
+
     @Test func aBaselineHeadlineCarriesReadiness() throws {
         let summary = HeadlineSummary(confidence: d("0.9"), earliestAge: 55, successAtTarget: d("0.81"),
                                       readiness: d("0.07"))

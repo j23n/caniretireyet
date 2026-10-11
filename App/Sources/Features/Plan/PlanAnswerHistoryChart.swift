@@ -3,8 +3,9 @@ import Model
 import SwiftUI
 
 /// "Your answer over time": the earliest retirement age at each check-in as
-/// a step line, with a mark where the plan or the app's calculations
-/// changed (PROGRESS.md, "The answer over time").
+/// a step line, the pace age (saving at your pace of the last 12 months) as
+/// a dashed one where check-ins recorded it, with a mark where the plan or
+/// the app's calculations changed (PROGRESS.md, "The answer over time").
 struct PlanAnswerHistoryChart: View {
     let history: PlanAnswerHistory
     var height: CGFloat = 180
@@ -32,13 +33,29 @@ struct PlanAnswerHistoryChart: View {
         Chart {
             ForEach(points, id: \.date) { point in
                 LineMark(x: .value("Check-in", point.date.dateValue),
-                         y: .value("Earliest age", point.earliestAge ?? 0))
+                         y: .value("Earliest age", point.earliestAge ?? 0),
+                         series: .value("Line", "Earliest age"))
                     .interpolationMethod(.stepEnd)
                     .foregroundStyle(Palette.accent)
                     .lineStyle(StrokeStyle(lineWidth: Metrics.lineWidth, lineCap: .round, lineJoin: .round))
                 PointMark(x: .value("Check-in", point.date.dateValue),
                           y: .value("Earliest age", point.earliestAge ?? 0))
                     .foregroundStyle(Palette.accent)
+                    .symbolSize(20)
+            }
+            ForEach(history.pacePoints, id: \.date) { point in
+                LineMark(x: .value("Check-in", point.date.dateValue),
+                         y: .value("Pace age", point.paceAge ?? 0),
+                         series: .value("Line", "At your pace"))
+                    .interpolationMethod(.stepEnd)
+                    .foregroundStyle(Palette.secondaryInk)
+                    .lineStyle(StrokeStyle(lineWidth: Metrics.lineWidth, lineCap: .round, lineJoin: .round,
+                                           dash: [4, 3]))
+                // So a single check-in's pace age shows too.
+                PointMark(x: .value("Check-in", point.date.dateValue),
+                          y: .value("Pace age", point.paceAge ?? 0))
+                    .symbol(.circle.strokeBorder(lineWidth: 1))
+                    .foregroundStyle(Palette.secondaryInk)
                     .symbolSize(20)
             }
             ForEach(history.markers) { marker in
@@ -106,6 +123,11 @@ struct PlanAnswerHistoryChart: View {
                 .foregroundStyle(Palette.secondaryInk)
             Text("Earliest \(age)")
                 .font(.caption.weight(.semibold))
+            if let pace = point.paceAge {
+                Text("At your pace \(pace)")
+                    .font(.caption2)
+                    .foregroundStyle(Palette.secondaryInk)
+            }
             if let readiness = point.readiness?.doubleValue {
                 Text(AmountFormat.percent(PlanResultsText.readinessShare(readiness), digits: 0) + " of what retiring today needed")
                     .font(.caption2)
@@ -124,6 +146,9 @@ struct PlanAnswerHistoryChart: View {
     private var summary: ChartSummary {
         var text = "The earliest retirement age recorded at each check-in."
         if let latest = history.latestAge { text += " It's \(latest) now." }
+        if let pace = history.points.last?.paceAge {
+            text += " At your pace of the last 12 months, it's \(pace)."
+        }
         if !history.markers.isEmpty {
             text += " Marked: " + history.markers.map { "\(AmountFormat.mediumDate($0.date)), \($0.label)" }
                 .joined(separator: "; ") + "."
@@ -132,7 +157,8 @@ struct PlanAnswerHistoryChart: View {
             title: "Your answer over time", summary: text, xTitle: "Check-in", yTitle: "Earliest age",
             series: [ChartSummary.Series(name: "Earliest age", points: points.map {
                 (AmountFormat.mediumDate($0.date), Double($0.earliestAge ?? 0))
-            })],
+            })] + (history.pacePoints.isEmpty ? [] : [ChartSummary.Series(name: "At your pace", points:
+                history.pacePoints.map { (AmountFormat.mediumDate($0.date), Double($0.paceAge ?? 0)) })]),
             describeValue: { "\(Int(wholeNumber: $0)) years" })
     }
 }

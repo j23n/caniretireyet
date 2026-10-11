@@ -34,6 +34,10 @@
           "description": "The earliest retirement age reaching the confidence level if nothing more were saved from the check-in on (PLANNER.md, Ages without): the coast age. Left out when none does, and in records made before it existed.",
           "type": "integer"
         },
+        "paceAge": {
+          "description": "The earliest retirement age reaching the confidence level if you kept saving at your pace of the last 12 months until retirement (PLANNER.md, Ages without): the pace age. Left out when none does, without a pace, and in records made before it existed.",
+          "type": "integer"
+        },
         "confidence": { "$ref": "#/$defs/summary/properties/confidence" },
         "earliestAge": { "$ref": "#/$defs/summary/properties/earliestAge" },
         "successAtTarget": { "$ref": "#/$defs/summary/properties/successAtTarget" },

@@ -110,7 +110,7 @@ struct KnownKeysTests {
         (summary, HeadlineSummary.knownKeys),
         (HeadlineFile(headlines: []), HeadlineFile.knownKeys),
         (Headline(date: "2026-09-30", coastAge: 61, confidence: d("0.9"), earliestAge: 54, engine: "1",
-                  planHash: "h", readiness: d("0.58"), successAtTarget: d("0.8")),
+                  paceAge: 57, planHash: "h", readiness: d("0.58"), successAtTarget: d("0.8")),
          Headline.knownKeys),
     ] }
 
