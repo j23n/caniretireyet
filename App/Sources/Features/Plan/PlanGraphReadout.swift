@@ -132,6 +132,8 @@ struct PlanGraphCallout: View {
             case value
             /// "Bad 410k €, good 980k €".
             case detail
+            /// Something gone wrong: "4 in 100 futures run out here".
+            case warning
         }
 
         var text: String
@@ -190,6 +192,11 @@ struct PlanGraphCallout: View {
                 .font(.caption2)
                 .monospacedDigit()
                 .foregroundStyle(Palette.secondaryInk)
+        case .warning:
+            Text(line.text)
+                .font(.caption2.weight(.semibold))
+                .monospacedDigit()
+                .foregroundStyle(Palette.orangeStroke)
         }
     }
 }

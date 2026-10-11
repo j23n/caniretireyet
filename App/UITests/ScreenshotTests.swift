@@ -26,8 +26,36 @@ final class ScreenshotTests: XCTestCase {
         let app = launch(library: "example", screen: "plan")
         waitForScreen(app, showing: answer(in: app), named: "plan", timeout: 240, settle: 30)
         keepScreenshot(of: app, named: "plan")
+        let first = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Chapter 1,")).firstMatch
+        #if os(macOS)
+        // The read-out at the first chapter's end, on the mark just inside
+        // the card's right edge.
+        if first.waitForExistence(timeout: 10) {
+            first.coordinate(withNormalizedOffset: CGVector(dx: 1, dy: 0.5)).withOffset(CGVector(dx: -7, dy: 0))
+                .hover()
+            pause(seconds: 1)
+            keepScreenshot(of: app, named: "plan-chapter-end")
+        }
+        #else
+        // Where the money stands at a chapter's end is only on the graph's
+        // mark and in the read-out; VoiceOver still reads it with the card.
+        XCTAssertTrue(first.waitForExistence(timeout: 10), "The first chapter never showed.")
+        XCTAssertTrue(first.label.contains(", typically "),
+                      "VoiceOver doesn't say where the money stands at the first chapter's end: \(first.label)")
+        #endif
         scrollDown(app)
         keepScreenshot(of: app, named: "plan-chapter")
+    }
+
+    /// The plan before it's calculated: its chapters without their money,
+    /// the first saying "Calculate to see your money".
+    @MainActor
+    func testPlanBeforeCalculating() {
+        let app = launch(library: "example", screen: "plan", arguments: ["-uiTestNoRun"])
+        waitForScreen(app, showing: app.buttons["plan.calculate"].firstMatch, named: "plan-uncalculated")
+        keepScreenshot(of: app, named: "plan-uncalculated")
+        scrollDown(app)
+        keepScreenshot(of: app, named: "plan-uncalculated-chapters")
     }
 
     #if os(iOS)
