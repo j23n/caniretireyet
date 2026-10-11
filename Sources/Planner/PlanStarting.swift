@@ -1,8 +1,9 @@
 import Foundation
 import Model
 
-/// A first plan from what someone takes home and spends a month (UI.md,
-/// "Empty states and first launch"), as the app's onboarding asks.
+/// A first plan from what someone takes home and spends a month, and the
+/// age they'd like to retire at (UI.md, "Empty states and first launch"),
+/// as the app's onboarding asks.
 extension PlanDocument {
     /// Spends `spendingPerMonth` a month while working and in retirement,
     /// when it's given and not negative (0 included), and, when
@@ -19,6 +20,14 @@ extension PlanDocument {
         if let payPerMonth, payPerMonth > 0 {
             let start = CalendarDate(year: asOf.year, month: 1, day: 1) ?? asOf
             work = [WorkPhase(from: start, until: .retirement, netIncome: payPerMonth * 12)]
+        }
+    }
+
+    /// Retires at `age` when it's given and above 0; else the plan keeps its
+    /// retirement age (a new plan's is `earliest`, which the planner finds).
+    public mutating func setRetirementAge(_ age: Int?) {
+        if let age, age > 0 {
+            retirement.age = .age(age)
         }
     }
 }
