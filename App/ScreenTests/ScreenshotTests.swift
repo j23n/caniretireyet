@@ -18,6 +18,12 @@ struct ScreenshotTests {
         try await keep("plan", .example, .plan)
     }
 
+    /// Before it's calculated: the chapters without their money, the first
+    /// saying "Calculate to see your money".
+    @Test func planBeforeCalculating() async throws {
+        try await keep("plan-uncalculated", .example, .plan, calculates: false)
+    }
+
     @Test func whatIf() async throws {
         try await keep("what-if", .example, .whatIf)
     }
@@ -32,12 +38,13 @@ struct ScreenshotTests {
         try await keep("progress-long", .longHistory, .progress)
     }
 
-    private func keep(_ name: String, _ sample: ScreenLaunch.Sample, _ screen: ScreenLaunch.Screen) async throws {
-        let launch = ScreenLaunch(sample, screen: screen)
+    private func keep(_ name: String, _ sample: ScreenLaunch.Sample, _ screen: ScreenLaunch.Screen,
+                      calculates: Bool = true) async throws {
+        let launch = ScreenLaunch(sample, screen: screen, calculates: calculates)
         let main = try #require(launch.library.settings.mainPlan)
         let model = launch.model()
         try await ScreenCapture.keep(root(model), named: name) {
-            model.plans.results[main] != nil || model.plans.errors[main] != nil
+            !calculates || model.plans.results[main] != nil || model.plans.errors[main] != nil
         }
         #expect(model.plans.errors[main] == nil, "The main plan didn't calculate.")
     }

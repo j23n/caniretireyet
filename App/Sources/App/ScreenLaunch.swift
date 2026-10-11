@@ -8,7 +8,8 @@ import Model
 /// memory, with the real planner, no network and settings of its own, and
 /// `-screen` the screen to start on (`overview`, `plan`, `progress` or
 /// `whatIf`). The main plan is calculated at once, with fewer runs than it
-/// says, so the plan's screens fill in quickly. Debug builds only.
+/// says, so the plan's screens fill in quickly; not with `-screenNoRun`.
+/// Debug builds only.
 struct ScreenLaunch {
     /// The made-up libraries: ``PreviewLibrary/library`` and ``PreviewLibrary/withLongHistory``.
     enum Sample: String, CaseIterable {
@@ -32,10 +33,13 @@ struct ScreenLaunch {
 
     var library: Library
     var screen: Screen
+    /// Whether the main plan is calculated at launch.
+    var calculates: Bool
 
-    init(_ sample: Sample, screen: Screen) {
+    init(_ sample: Sample, screen: Screen, calculates: Bool = true) {
         library = sample.library
         self.screen = screen
+        self.calculates = calculates
         for id in library.plans.keys {
             library.plans[id]?.simulation.runs = 400
         }
@@ -50,7 +54,8 @@ struct ScreenLaunch {
             return arguments[index + 1]
         }
         guard let sample = value(of: "-screenLibrary").flatMap(Sample.init(rawValue:)) else { return nil }
-        self.init(sample, screen: value(of: "-screen").flatMap(Screen.init(rawValue:)) ?? .overview)
+        self.init(sample, screen: value(of: "-screen").flatMap(Screen.init(rawValue:)) ?? .overview,
+                  calculates: !arguments.contains("-screenNoRun"))
     }
 
     @MainActor
@@ -74,7 +79,7 @@ struct ScreenLaunch {
             navigation.showPlan(main)
             navigation.requestsWhatIf = true
         }
-        if let main {
+        if calculates, let main {
             // As the root view does once a library is open; a library in
             // memory is open from the start.
             Task { _ = await model.plans.run(main) }
