@@ -375,17 +375,14 @@ struct PlanChapterCardView: View {
         .accessibilityHidden(true)
     }
 
-    /// The month and the age ("Mar 2034 · 48"), the median and the two
-    /// bands in full amounts, then a milestone or an event there.
+    /// The month and the age ("Mar 2034 · 48"), then as the net-worth chart
+    /// reads its projection, "Median" and the median, the top and the bottom
+    /// 10%, then a milestone or an event there.
     @ViewBuilder
     private func callout(for found: Reading) -> some View {
         ChartCalloutDate(found.date, precision: .month, detail: String(card.age(on: found.date)))
         if let fan = found.fan {
-            ChartCalloutRow("Median") {
-                AmountText(Decimal(wholeNumber: fan.p50), currency: currency)
-            }
-            ChartCalloutRow("25–75%") { ChartCalloutRange(low: fan.p25, high: fan.p75, currency: currency) }
-            ChartCalloutRow("10–90%") { ChartCalloutRange(low: fan.p10, high: fan.p90, currency: currency) }
+            ChartCalloutProjection(fan: fan, currency: currency)
         }
         if let milestone = found.milestone {
             let text = PlanMilestoneText(currency: currency, hidesAmounts: hidesAmounts, locale: locale)
@@ -468,14 +465,15 @@ struct PlanChapterCardView: View {
 }
 
 #Preview("Reading a chapter") {
-    // Made-up: 16 years of saving, read beside the net-worth chart's callout
-    // over the same projection; then a short chapter read at its right edge,
-    // and the long one at its left edge with amounts hidden.
+    // Made-up: 16 years of saving, past a million, so the short amounts read
+    // in millions, beside the net-worth chart's callout over the same
+    // projection; then a short chapter read at its right edge, and the long
+    // one at its left edge with amounts hidden.
     let today = PreviewLibrary.latestCheckIn
     let birthDate = PreviewLibrary.library.settings.person?.birthDate ?? "1988-05-14"
     let currency = PreviewLibrary.library.settings.baseCurrency
     let fan = (0...16).map { year in
-        let median = 190_000 * pow(1.06, Double(year))
+        let median = 600_000 * pow(1.06, Double(year))
         let spread = 0.12 * Double(year).squareRoot()
         return FanPoint(date: today.adding(years: year).dateValue, p10: median * exp(-1.28 * spread),
                         p25: median * exp(-0.67 * spread), p50: median, p75: median * exp(0.67 * spread),

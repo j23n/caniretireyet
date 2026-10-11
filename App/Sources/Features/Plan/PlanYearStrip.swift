@@ -395,14 +395,14 @@ struct PlanYearCardView: View {
     }
 
     /// The day and where its value comes from ("31 Mar 2026 · check-in"),
-    /// the money, what January expected and the gap, then a milestone
+    /// then as the net-worth chart reads its history, the money, and what
+    /// January expected and the gap in rows, all short, then a milestone
     /// reached there and what changed that day.
     @ViewBuilder
     private func callout(for found: Reading) -> some View {
         let source = card.checkIns.contains(found.point.date) ? "check-in" : "from prices"
         ChartCalloutDate(found.point.date, precision: .day, detail: source)
-        AmountText(Decimal(wholeNumber: found.point.value), currency: card.currency)
-            .font(.caption.weight(.semibold))
+        ChartCalloutTotal(found.point.value, currency: card.currency)
         if !found.point.isComplete {
             Text("Not every price is known")
                 .font(.caption2)
@@ -410,12 +410,9 @@ struct PlanYearCardView: View {
         }
         if let expected = found.expected {
             let gap = found.point.value - expected
-            ChartCalloutRow("\(card.year.expectationTitle(locale: locale)) expected") {
-                AmountText(Decimal(wholeNumber: expected), currency: card.currency)
-            }
-            ChartCalloutRow(gap >= 0 ? "Ahead" : "Behind") {
-                AmountText(Decimal(wholeNumber: abs(gap)), currency: card.currency)
-            }
+            ChartCalloutRow("\(card.year.expectationTitle(locale: locale)) expected", amount: expected,
+                            currency: card.currency)
+            ChartCalloutRow(gap >= 0 ? "Ahead" : "Behind", amount: abs(gap), currency: card.currency)
         }
         let text = PlanMilestoneText(currency: card.currency, hidesAmounts: hidesAmounts, locale: locale)
         ForEach(found.milestones) { reached in

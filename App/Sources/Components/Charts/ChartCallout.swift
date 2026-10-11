@@ -2,9 +2,10 @@ import Model
 import SwiftUI
 
 // A chart's callout, where the finger or the pointer reads it (UI.md,
-// "Charts"): the date first, in caption 2 and secondary ink, then the values
-// in rows, a label on the left and its value on the right, then what's
-// marked there, each with its icon. The net-worth chart and the strips'
+// "History chart"): the date first, in caption 2 and secondary ink, then the
+// headline amount, then the other amounts in rows, a label on the left and
+// its amount on the right, all short, then what's marked there, each with
+// its icon. The net-worth chart and the strips'
 // read-outs on Plan and Progress build theirs from these parts, so the two
 // read alike.
 
@@ -14,8 +15,12 @@ import SwiftUI
 ///
 ///     ChartCallout {
 ///         ChartCalloutDate(fan.date, precision: .month)
-///         ChartCalloutRow("Median") { AmountText(median) }
-///         ChartCalloutRow("25–75%") { ChartCalloutRange(low: fan.p25, high: fan.p75) }
+///         ChartCalloutProjection(fan: fan)
+///     }
+///     ChartCallout {
+///         ChartCalloutDate(point.date)
+///         ChartCalloutTotal(point.value)
+///         ChartCalloutRow("Equity", swatch: color, amount: equity)
 ///     }
 struct ChartCallout<Content: View>: View {
     var maxWidth: CGFloat = ChartStyle.calloutWidth
@@ -70,23 +75,55 @@ struct ChartCalloutDate: View {
     }
 }
 
-/// A value in a callout: its label on the left in secondary ink, the value
-/// on the right, in caption 2 ("Median 640.000 €"); the value under its
-/// label when the two don't fit side by side.
-struct ChartCalloutRow<Value: View>: View {
-    let title: String
-    let value: Value
+/// A callout's headline amount, short (`300.000 €`, `12,3M €`): the total,
+/// or over a projection its median, after a small `label` ("Median") so it
+/// doesn't read as an actual total.
+struct ChartCalloutTotal: View {
+    let amount: Double
+    var label: String?
+    /// `nil` for the base currency.
+    var currency: CurrencyCode?
 
-    init(_ title: String, @ViewBuilder value: () -> Value) {
+    init(_ amount: Double, label: String? = nil, currency: CurrencyCode? = nil) {
+        self.amount = amount
+        self.label = label
+        self.currency = currency
+    }
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 4) {
+            if let label {
+                Text(label).font(.caption2).foregroundStyle(Palette.secondaryInk)
+            }
+            AmountText(Decimal(wholeNumber: amount), currency: currency, short: true)
+                .font(.caption.weight(.semibold))
+        }
+    }
+}
+
+/// An amount in a callout, in caption 2: its swatch, when it has one, and
+/// its label on the left in secondary ink, the amount on the right, short
+/// ("Equity 212.000 €", "Top 10% 1,23M €"); the amount under its label when
+/// the two don't fit side by side.
+struct ChartCalloutRow: View {
+    let title: String
+    var swatch: Color?
+    let amount: Double
+    /// `nil` for the base currency.
+    var currency: CurrencyCode?
+
+    init(_ title: String, swatch: Color? = nil, amount: Double, currency: CurrencyCode? = nil) {
         self.title = title
-        self.value = value()
+        self.swatch = swatch
+        self.amount = amount
+        self.currency = currency
     }
 
     var body: some View {
         ViewThatFits(in: .horizontal) {
-            HStack(spacing: Metrics.s) {
+            HStack(spacing: 4) {
                 label
-                Spacer(minLength: Metrics.s)
+                Spacer(minLength: 4)
                 value
             }
             VStack(alignment: .leading, spacing: 0) {
@@ -100,24 +137,33 @@ struct ChartCalloutRow<Value: View>: View {
     }
 
     private var label: some View {
-        Text(title)
-            .foregroundStyle(Palette.secondaryInk)
+        HStack(spacing: 4) {
+            if let swatch {
+                Circle().fill(swatch).frame(width: 6, height: 6)
+            }
+            Text(title).foregroundStyle(Palette.secondaryInk)
+        }
+    }
+
+    private var value: some View {
+        AmountText(Decimal(wholeNumber: amount), currency: currency, short: true)
     }
 }
 
-/// A band's range in a callout's row, in full amounts: "410.000 € –
-/// 980.000 €". Hidden with the eye, as every ``AmountText`` is.
-struct ChartCalloutRange: View {
-    let low: Double
-    let high: Double
+/// A projection read at a date, under the callout's date: "Median" and the
+/// median as the headline, then *Top 10%* (the 90th percentile) and *Bottom
+/// 10%* (the 10th), each with the 10–90% band's swatch.
+struct ChartCalloutProjection: View {
+    let fan: FanPoint
     /// `nil` for the base currency.
     var currency: CurrencyCode?
 
     var body: some View {
-        HStack(spacing: 2) {
-            AmountText(Decimal(wholeNumber: low), currency: currency)
-            Text(verbatim: "–")
-            AmountText(Decimal(wholeNumber: high), currency: currency)
+        let band = Palette.accent.opacity(ProjectionLegend.outerBand)
+        VStack(alignment: .leading, spacing: 2) {
+            ChartCalloutTotal(fan.p50, label: "Median", currency: currency)
+            ChartCalloutRow("Top 10%", swatch: band, amount: fan.p90, currency: currency)
+            ChartCalloutRow("Bottom 10%", swatch: band, amount: fan.p10, currency: currency)
         }
     }
 }
