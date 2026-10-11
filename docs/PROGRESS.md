@@ -108,6 +108,12 @@ What you planned before you used the app, so the years your history goes back to
 
 On Progress, a year without its own automatic baseline is measured against the latest past baseline that starts before the year ends: its expected line, how it ended against it ("12.400 € ahead of your 2021 plan"), and the saving it planned for the year.
 
+### Deleting a baseline
+
+Any baseline can be deleted, with *Delete Baseline…* under *Actual vs baseline* on Progress ([UI.md](UI.md#progress)): one saved by mistake, a trial past baseline, or one that shouldn't measure a year any more. Deleting removes its file and nothing else: the plan's other baselines and its headlines stay. Its file is backed up first (`delete-baseline`), so it can be restored from *Sync & backups*.
+
+The years measured against it are then measured as above among the baselines left: against another past baseline that covers them, or against none ("No January baseline"). The confirmation says which. An automatic baseline is saved at a check-in of the main plan whose year has none, so deleting this year's means the next check-in saves a new one, starting then; an earlier year's won't come back.
+
 `projections/<plan-id>/baselines/<date>.json`, about 10 KB each ([baseline.schema.json](schema/baseline.schema.json)). The file name is the baseline's ID; a second baseline saved on the same day gets `-2`.
 
 ```json

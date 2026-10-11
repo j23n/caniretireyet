@@ -29,6 +29,9 @@ struct PlanProgressView: View {
     @State private var showsPastBaseline = false
     /// The day *Add Past Baseline…* starts on, when a year asked for it.
     @State private var pastBaselineDay: CalendarDate?
+    /// The baseline *Delete Baseline…* asks about.
+    @State private var deletingBaseline: PlanBaselineEntry?
+    @State private var confirmsBaselineDelete = false
     @State private var cache = PlanProgressCache()
 
     private var gutter: CGFloat { isWide ? Metrics.xl : Metrics.l }
@@ -87,6 +90,33 @@ struct PlanProgressView: View {
         .sheet(isPresented: $showsPastBaseline) {
             if let plan = session.plan {
                 PlanPastBaselineSheet(session: session, plan: plan, startingOn: pastBaselineDay)
+            }
+        }
+        .confirmationDialog(deletionTitle, isPresented: $confirmsBaselineDelete, titleVisibility: .visible,
+                            presenting: deletingBaseline) { entry in
+            Button("Delete Baseline", role: .destructive) { delete(entry) }
+        } message: { entry in
+            Text(verbatim: PlanProgressYear.deletionNote(
+                of: entry, years: timeline.cards.map(\.year.year), baselines: baselines,
+                savingYear: library.settings.mainPlan == session.planID ? library.asOfDate.year : nil,
+                locale: locale))
+        }
+    }
+
+    /// "Delete “Start of 2026 (automatic)”?"
+    private var deletionTitle: String {
+        guard let entry = deletingBaseline else { return "Delete this baseline?" }
+        return "Delete “\(PlanBaselineComparison.label(for: entry.baseline, locale: locale))”?"
+    }
+
+    /// Deletes a baseline; the picker then shows the newest left.
+    private func delete(_ entry: PlanBaselineEntry) {
+        Task {
+            do {
+                try await library.deleteBaseline(entry.id, of: session.planID)
+                if selectedBaseline == entry.id { selectedBaseline = nil }
+            } catch {
+                library.reportError("The baseline couldn't be deleted. \(LibraryStore.describe(error))")
             }
         }
     }
@@ -493,6 +523,15 @@ struct PlanProgressView: View {
                     .font(.caption)
                     .foregroundStyle(Palette.mutedInk)
                     .fixedSize(horizontal: false, vertical: true)
+                Button(role: .destructive) {
+                    deletingBaseline = shown
+                    confirmsBaselineDelete = true
+                } label: {
+                    Label("Delete Baseline…", systemImage: "trash")
+                }
+                .buttonStyle(.borderless)
+                .font(PlanProgressFont.caption)
+                .disabled(!library.canEdit)
             } else {
                 Text("A baseline remembers what you expected. Save one now, and later see how reality compares. "
                     + "One is also saved at the first check-in of each year.")
@@ -503,8 +542,8 @@ struct PlanProgressView: View {
         } header: {
             SectionHeader("Actual vs baseline") {
                 if !baselines.isEmpty {
-                    // Never nil while there are baselines: a nil selection has no tag.
-                    Picker("Baseline", selection: Binding(get: { selectedBaseline ?? baselines.first?.id },
+                    // Never nil while there are baselines, nor a deleted one's: those have no tag.
+                    Picker("Baseline", selection: Binding(get: { shownBaseline?.id },
                                                           set: { selectedBaseline = $0 })) {
                         ForEach(baselines) { entry in
                             Text(PlanBaselineComparison.label(for: entry.baseline, locale: locale))
