@@ -138,11 +138,45 @@ struct MilestoneTests {
         #expect(reached.map(\.id) == ["coast"])
         #expect(reached.map(\.date) == ["2026-08-31"])
         #expect(reached.first?.milestone.kind == .coastPoint(age: 67))
+        #expect(reached.first?.milestone.amount == 283_000)
 
-        // Already at or below it at the first record: behind you.
-        #expect(ladder.reached(values: values, coastAges: points([("2026-06-30", 66), ("2026-07-31", 65)])).isEmpty)
         // Without a pension there's no coast point.
         #expect(MilestoneLadder().reached(values: values, coastAges: coastAges).isEmpty)
+    }
+
+    @Test func theCoastPointIsReachedAtTheFirstRecordAtOrUnderThePension() {
+        let ladder = MilestoneLadder(coastTarget: 67)
+        let values = points([("2026-06-30", 280_000), ("2026-07-31", 281_000)])
+        // The first check-in that recorded a coast age was already past it.
+        let reached = ladder.reached(values: values, coastAges: points([("2026-06-30", 66), ("2026-07-31", 65)]))
+        #expect(reached.map(\.id) == ["coast"])
+        #expect(reached.map(\.date) == ["2026-06-30"])
+        #expect(reached.first?.milestone.amount == 280_000)
+        #expect(MilestoneLadder().reached(values: values, coastAges: points([("2026-06-30", 66)])).isEmpty)
+    }
+
+    @Test func theCoastPointIsListedOnceWhenTheCoastAgeComesBackDown() {
+        let ladder = MilestoneLadder(coastTarget: 67)
+        let values = points([("2026-06-30", 280_000), ("2026-07-31", 281_000), ("2026-08-31", 270_000),
+                             ("2026-09-30", 285_000)])
+        let coastAges = points([("2026-06-30", 68), ("2026-07-31", 67), ("2026-08-31", 68), ("2026-09-30", 66)])
+        let reached = ladder.reached(values: values, coastAges: coastAges)
+        #expect(reached.map(\.id) == ["coast"])
+        #expect(reached.map(\.date) == ["2026-07-31"])
+    }
+
+    @Test func pastTheCoastPointIsAtOrUnderTheFirstPension() throws {
+        let library = try Fixtures.exampleLibrary()
+        let plan = try #require(library.plans["base"])
+        #expect(MilestoneLadder.coastTarget(of: plan) == 67)
+        #expect(MilestoneLadder.isPastCoastPoint(63, plan: plan))
+        #expect(MilestoneLadder.isPastCoastPoint(67, plan: plan))
+        #expect(!MilestoneLadder.isPastCoastPoint(68, plan: plan))
+        #expect(!MilestoneLadder.isPastCoastPoint(nil, plan: plan))
+        var withoutPension = plan
+        withoutPension.pensions = []
+        #expect(MilestoneLadder.coastTarget(of: withoutPension) == nil)
+        #expect(!MilestoneLadder.isPastCoastPoint(63, plan: withoutPension))
     }
 
     @Test func theExampleLibraryPassesItsCoastPointInAugust() throws {
