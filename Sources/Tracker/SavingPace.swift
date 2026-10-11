@@ -168,7 +168,7 @@ extension Valuator {
         // The check-ins in the months, and back to each open plan asset's
         // latest record before them, so an account valued once a year
         // before the months can still go on into them; never further back
-        // than the range's oldest month.
+        // than 23 months before the latest check-in.
         let before = accounts.values.filter {
             NetWorthScope.planAssets.includes($0) && $0.closed.map { $0 > ends[available] } ?? true
         }.compactMap { latestRecordDate(of: $0.id, onOrBefore: ends[available]) }.min().map { max($0, ends[longest]) }
