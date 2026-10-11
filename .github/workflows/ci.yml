@@ -9,8 +9,8 @@ name: CI
 on:
   push:
   pull_request:
-    # Only labeled: each commit already has its push's run, so a pull request starts a run of its own
-    # only when the ci:mac label asks for the Mac's jobs (apple-ci's README, "When CI runs").
+    # Only labeled: each commit already has its push's run. The ci:mac label's run adds the Mac's
+    # jobs; another label's run skips them (apple-ci's README, "When CI runs").
     types: [labeled]
   workflow_dispatch:
 
