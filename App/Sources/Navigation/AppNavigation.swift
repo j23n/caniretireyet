@@ -85,6 +85,10 @@ final class AppNavigation {
     /// (``ScreenLaunch`` opens Progress with it). It stays set: on the Mac a
     /// screen that had taken it still opened on the plan.
     var requestedPlanPart: PlanPart?
+    /// A part of the plan to switch to once (``showPlanProgress()``): the
+    /// Plan screen takes it when it appears, or at once when it's already
+    /// open, and clears it.
+    var pendingPlanPart: PlanPart?
     /// Whether the Plan screen opens What if when it appears (``ScreenLaunch``).
     var requestsWhatIf = false
     /// Whether the plan opens its Target mix sheet when it appears (``ScreenLaunch``).
@@ -150,6 +154,12 @@ final class AppNavigation {
         selectedPlan = id
         tab = .plan
         sidebarSelection = id.map(SidebarItem.plan) ?? .plans
+    }
+
+    /// Shows the main plan's Progress (the Overview's *On track?*).
+    func showPlanProgress() {
+        pendingPlanPart = .progress
+        showPlan()
     }
 
     func showSettings() {

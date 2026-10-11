@@ -64,11 +64,6 @@ enum PlanResultsText {
         return min(0.99, max(0, Planner.recordedReadiness(readiness).doubleValue))
     }
 
-    /// The readiness bar's value: the share, at most 100%.
-    static func readinessBar(_ readiness: Double) -> Double {
-        min(1, max(0, readinessShare(readiness)))
-    }
-
     /// "58% of what you'd need to retire today": today's plan assets
     /// against what retiring today with the plan's confidence needs
     /// (PLANNER.md, "Assets needed to retire today"). `nil` when there's no

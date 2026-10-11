@@ -169,16 +169,16 @@ How the app treats the files when two copies differ. History and headline files 
 The iPhone uses a tab bar and the Mac uses a sidebar. The iPad gets the sidebar layout for free.
 
 - **Overview.** Shows:
-  - the main plan's answer to *Can I retire yet?*, first when there is one, with the time to go;
-  - net worth today;
+  - the main plan's answer to *Can I retire yet?*, first when there is one: the time to go as a headline, with a ring for how close you are to retiring today;
+  - net worth today, in a tile under the answer when there is one;
   - a chart over time, stacked by category;
   - the change since the last check-in, split into market and new money;
   - the change this year, split the same way, with the savings rate when money in and out are recorded;
   - breakdowns;
   - accounts that haven't been updated recently;
   - a *past and future* switch that continues the chart into the plan's projection;
-  - whether you're ahead of or behind the year's baseline, as Progress measures it;
-  - how close your plan assets are to what retiring today needs, taken from the active plan ([PLANNER.md](PLANNER.md#assets-needed-to-retire-today)).
+  - whether you're ahead of or behind the year's baseline, as Progress measures it, and whether you're past the coast point, in the *On track?* tile beside net worth;
+  - how close your plan assets are to what retiring today needs, taken from the active plan ([PLANNER.md](PLANNER.md#assets-needed-to-retire-today)), as the ring beside the answer.
 - **Accounts.** A grouped list, with closed accounts in a collapsed section. The account detail shows a value chart, the list of valuations, and actions to edit, close or reopen.
 - **Check-in.** The main action. The steps are:
   1. Choose the date (default: today).

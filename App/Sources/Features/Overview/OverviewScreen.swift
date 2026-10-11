@@ -6,14 +6,16 @@ import Tracker
 /// The home screen: can I retire yet, net worth, history, how you're doing
 /// (UI.md, "Overview").
 ///
-/// Top to bottom: the main plan's answer to "can I retire yet?" when it has
-/// one, net worth (the hero number when there's no answer), the history
-/// chart by asset class with its time span and *Future* switch, the change
-/// since the last check-in, the change this year, the answer's card with
-/// the next step when there's no answer yet, what needs attention, and the
-/// allocation bars. Everything but the answer is net worth; only the chart
-/// with *Future* on shows plan assets, so its past meets the projection.
-/// The navigation wraps it in a NavigationStack and adds the eye and gear.
+/// Top to bottom: the header (``OverviewHeader``) when the main plan has an
+/// answer: "can I retire yet?" as a headline with the readiness ring, then
+/// the *Net worth* and *On track?* tiles; without an answer, net worth as
+/// the hero number. Then the history chart by asset class with its time
+/// span and *Future* switch, the change since the last check-in, the change
+/// this year, the answer's card with the next step when there's no answer
+/// yet, what needs attention, and the allocation bars. Everything but the
+/// answer and *On track?* is net worth; only the chart with *Future* on
+/// shows plan assets, so its past meets the projection. The navigation
+/// wraps it in a NavigationStack and adds the eye and gear.
 struct OverviewScreen: View {
     @Environment(LibraryStore.self) private var library
     @Environment(PlanStore.self) private var plans
@@ -47,15 +49,18 @@ struct OverviewScreen: View {
         let planStart = library.asOfDate
         let mainPlan = library.mainPlan
         let results = mainPlan.flatMap { plans.results[$0.id] }
-        // With an answer, it leads and net worth follows; without one, net
-        // worth leads and the answer's card below says what to do.
+        // With an answer, it leads, with net worth in a tile beside where you
+        // stand; without one, net worth leads and the answer's card below says
+        // what to do.
         let headline = mainPlan == nil ? nil : plans.mainHeadline
+        let netWorth = NetWorthGlance(valuator: valuator, asOf: today)
         return ScrollView {
             VStack(alignment: .leading, spacing: Metrics.xl) {
-                if headline != nil {
-                    OverviewAnswerView(headline: headline, today: today)
+                if let headline, let mainPlan {
+                    OverviewHeader(headline: headline, plan: mainPlan, netWorth: netWorth, today: today)
+                } else {
+                    OverviewHeroView(hero: netWorth)
                 }
-                OverviewHeroView(hero: NetWorthGlance(valuator: valuator, asOf: today), leads: headline == nil)
                 if library.latestCheckIn == nil {
                     FirstCheckInCard()
                 }
@@ -72,7 +77,7 @@ struct OverviewScreen: View {
                             savings: valuator.savingsRate(from: report.from.adding(days: 1), through: today))
                     }
                     if headline == nil {
-                        OverviewAnswerView(headline: nil, today: today)
+                        OverviewAnswerCard()
                     }
                     OverviewAttentionCard(today: today)
                     OverviewAllocationCard(breakdown: valuator.breakdown(by: allocation, on: today),
@@ -89,12 +94,11 @@ struct OverviewScreen: View {
 
 // MARK: - Hero
 
-/// Net worth today, with its changes: the hero number, or under the
-/// answer when there is one, a size smaller.
+/// Net worth today, with its changes: the hero number, leading the screen
+/// while the main plan has no answer (with one, it's the header's *Net
+/// worth* tile).
 private struct OverviewHeroView: View {
     let hero: NetWorthGlance
-    /// Whether it leads the screen: without an answer to lead it.
-    var leads = true
 
     var body: some View {
         VStack(alignment: .leading, spacing: Metrics.xs) {
@@ -102,7 +106,7 @@ private struct OverviewHeroView: View {
                 .font(.subheadline)
                 .foregroundStyle(Palette.secondaryInk)
             AmountText(hero.total, tabular: false, animatesChanges: true)
-                .font(leads ? Font.largeTitle.bold() : Font.title.bold())
+                .font(.largeTitle.bold())
                 .foregroundStyle(Palette.ink)
                 .dynamicTypeSize(...DynamicTypeSize.accessibility2)
                 .lineLimit(1)

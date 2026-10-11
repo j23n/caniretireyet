@@ -197,26 +197,10 @@ struct AnswerGridlines: Shape {
 
 // MARK: - Readiness
 
-/// How close plan assets are to what retiring today needs, as a ring in the
-/// accent; full at 100% and beyond.
-struct ReadinessRing: View {
-    var fraction: Double
-    var lineWidth: CGFloat
+// The ring is `ReadinessRing` (App/Shared), which the Overview draws too.
 
-    var body: some View {
-        ZStack {
-            Circle()
-                .stroke(Palette.gridline, lineWidth: lineWidth)
-            Circle()
-                .trim(from: 0, to: min(max(fraction, 0), 1))
-                .stroke(Palette.accent, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
-                .rotationEffect(.degrees(-90))
-        }
-        .padding(lineWidth / 2)
-    }
-}
-
-/// The same as a bar, for wide places.
+/// How close plan assets are to what retiring today needs as a bar, for
+/// wide places; full at 100% and beyond.
 struct ReadinessBar: View {
     var fraction: Double
     var height: CGFloat = 8

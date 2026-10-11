@@ -62,13 +62,14 @@ extension BreakdownDimension {
 
 // MARK: - Hero and change
 
-// The hero number, net worth today with the change between the last two
-// check-ins and since the end of last year, is Glance's `NetWorthGlance`,
-// as the widgets have it. *This year* splits that change since the end of
-// last year into markets, new money and other with Tracker's
-// `Valuator.changeThisYear(asOf:)`, from the same 31 December (tested in
-// TrackerTests, and against the hero in GlanceTests), and the answer counts
-// the time to go with Glance's `RetirementCountdown` (GlanceTests).
+// The hero number and the *Net worth* tile, net worth today with the change
+// between the last two check-ins and since the end of last year, are
+// Glance's `NetWorthGlance`, as the widgets have it. *This year* splits that
+// change since the end of last year into markets, new money and other with
+// Tracker's `Valuator.changeThisYear(asOf:)`, from the same 31 December
+// (tested in TrackerTests, and against the hero in GlanceTests). The answer's
+// headline counts the time to go with Glance's `RetirementCountdown`, and its
+// ring shows Glance's `ReadinessFigure` (GlanceTests).
 
 // MARK: - History
 
@@ -135,45 +136,140 @@ struct OverviewHistory: Hashable, Sendable {
     }
 }
 
-// MARK: - Baseline
+// MARK: - Can I retire yet?
 
-/// How the accounts a baseline covers compare today with it ("On plan ·
-/// 12.400 € ahead of your Jan baseline"; PROGRESS.md, "Actual vs. a
-/// baseline"): as *Are you on track?* compares the latest check-in
-/// (``PlanBaselineComparison``), in money of the baseline's start where an
-/// inflation index allows, against its percentiles on the day
-/// (``Baseline/percentiles(on:)``).
-struct OverviewBaselineGap: Hashable, Sendable {
-    /// When the baseline was saved: an automatic one, in the year it's for.
-    var created: CalendarDate
-    /// The day the baseline starts, which names it ("your Jan baseline").
-    var start: CalendarDate
-    /// Whether it's a past baseline (PROGRESS.md, "Past baselines"), named
-    /// by the year it starts ("your 2021 plan").
-    var isPast: Bool
-    /// The baseline's accounts on the date, with those that replaced them
-    /// and those opened since (``Baseline/comparedAccounts(among:)``), less
-    /// its median then: positive when ahead.
-    var gap: Decimal
-    /// Where that total is among the baseline's futures on the date
-    /// (``PlanBaselineComparison/Position/standing``).
-    var standing: PlanBaselineComparison.Standing
+/// The main plan's answer in the Overview's header (UI.md, "Can I retire
+/// yet?"): the headline, what its ⓘ says, and what VoiceOver reads.
+struct OverviewAnswerText {
+    var headline: PlanHeadline
+    /// When the earliest age is reached: the headline's date, or for an
+    /// answer recorded at a check-in the birthday of that age; `nil`
+    /// without a birth date.
+    var earliestDate: CalendarDate?
+    /// The day the Overview reports on.
+    var today: CalendarDate
+    var locale: Locale = .current
 
-    init?(baseline: Baseline, library: Library, valuator: Valuator, on date: CalendarDate) {
-        guard date > baseline.start.date, !baseline.accounts.isEmpty else { return nil }
-        let accounts = baseline.comparedAccounts(among: valuator.accounts)
-        let total = valuator.total(on: date, including: { accounts.contains($0.id) })
-        let today = PlanActualSeries(values: [SeriesPoint(date: date, value: total.total, isComplete: total.isPriced)],
-                                     library: library, valuator: valuator, currency: library.settings.baseCurrency,
-                                     inMoneyOf: baseline.start.date)
-        guard let value = today.latest?.value,
-              let position = PlanBaselineComparison.position(of: value, on: date, in: baseline)
-        else { return nil }
-        gap = position.gap
-        standing = position.standing
-        created = baseline.created
-        start = baseline.start.date
-        isPast = baseline.kind == .past
+    /// How long until the earliest age (Glance's ``RetirementCountdown``);
+    /// `nil` when you could retire today, no age works out, there's no date,
+    /// or its month has passed.
+    var countdown: RetirementCountdown? {
+        guard !headline.canRetireNow, headline.earliestAge != nil, let earliestDate else { return nil }
+        return RetirementCountdown(from: today, to: earliestDate)
+    }
+
+    /// "In 15 years", "In 18 months", "Yes", "Not yet" when no age works
+    /// out, or "At 54" without a time to go.
+    var title: String {
+        if headline.canRetireNow { return "Yes" }
+        guard let age = headline.earliestAge else { return "Not yet" }
+        return countdown?.headlineText ?? "At \(age)"
+    }
+
+    /// "At 54, in March 2042, in 9 of 10 futures"; "You could retire today,
+    /// in at least 9 of 10 futures"; "No age works in 9 of 10 futures yet".
+    var when: String {
+        whenWords.capitalizedFirst
+    }
+
+    private var whenWords: String {
+        let futures = GlanceText.futures(headline.confidence)
+        if headline.canRetireNow { return "you could retire today, in at least \(futures) futures" }
+        guard let age = headline.earliestAge else { return "no age works in \(futures) futures yet" }
+        var parts = ["at \(age)"]
+        if let earliestDate {
+            parts.append("in \(GlanceText.monthAndYear(earliestDate, locale: locale))")
+        }
+        parts.append("in \(futures) futures")
+        return parts.joined(separator: ", ")
+    }
+
+    /// What the headline and the ring say to VoiceOver: "Not yet. In about
+    /// 15 years, at 54, in March 2042, in 9 of 10 futures. 58% of what
+    /// you'd need to retire today."
+    var spoken: String {
+        var text: String
+        if headline.canRetireNow {
+            text = "Yes. \(when)."
+        } else if let countdown {
+            text = "Not yet. \(countdown.spokenHeadlineText), \(whenWords)."
+        } else {
+            text = "Not yet. \(when)."
+        }
+        if let readiness = PlanResultsText.readiness(headline, locale: locale) {
+            text += " \(readiness)."
+        }
+        return text
+    }
+
+    /// The ⓘ's paragraphs: when and how sure, the readiness and what it
+    /// compares, that the results are out of date, and the disclaimer.
+    func explanation(isOutOfDate: Bool) -> [String] {
+        var paragraphs = [when + "."]
+        if let readiness = PlanResultsText.readiness(headline, locale: locale) {
+            paragraphs.append(readiness + ". "
+                + PlanResultsText.readinessExplanation(confidence: headline.confidence, locale: locale))
+        }
+        if isOutOfDate {
+            paragraphs.append("Calculated before your latest changes.")
+        }
+        paragraphs.append(AboutText.disclaimer)
+        return paragraphs
+    }
+}
+
+extension PlanHeadline {
+    /// The readiness as the ring shows it, by the *Readiness* widget's rules.
+    var readinessFigure: ReadinessFigure {
+        ReadinessFigure(readiness: readiness, isLowerBound: readinessIsLowerBound,
+                        needsMoreThanSearched: needsMoreThanSearched)
+    }
+}
+
+// MARK: - On track?
+
+/// The Overview's *On track?* (UI.md, "On track?"): where the latest
+/// check-in stands against its year's baseline, as Progress's *Are you on
+/// track?* has it (``PlanProgressYear/latestPosition(for:library:valuator:asOf:)``),
+/// and the coast age while you're past the coast point.
+struct OverviewOnTrack {
+    /// Where the latest check-in stands; `nil` without a baseline to
+    /// measure it against ("Not measured yet").
+    var position: PlanBaselineComparison.Position?
+    /// What the baseline is in words, as Progress's years name it:
+    /// "January", "October", "your 2021 plan".
+    var expectation = "January"
+    /// The coast age (PLANNER.md, "Ages without") while it's at or under
+    /// the age the first pension starts, as Progress's Milestones card has
+    /// it (``MilestoneLadder/isPastCoastPoint(_:plan:)``); `nil` otherwise,
+    /// and when you could retire today.
+    var coastAge: Int?
+
+    /// - Parameter results: the main plan's latest results, for the coast
+    ///   age; without them, the one the latest check-in recorded.
+    init(plan: PlanDocument, library: Library, valuator: Valuator, asOf: CalendarDate, results: PlanResults?,
+         canRetireNow: Bool, locale: Locale = .current) {
+        if let latest = PlanProgressYear.latestBaseline(for: plan.id, library: library, valuator: valuator,
+                                                        asOf: asOf) {
+            position = PlanProgressYear.latestPosition(for: plan.id, library: library, valuator: valuator, asOf: asOf)
+            expectation = PlanProgressYear.expectation(latest.entry.baseline, year: latest.checkIn.year,
+                                                       locale: locale)
+        }
+        let recorded = PlanMilestones.latestRecord(of: plan.id, library: library, asOf: asOf)
+        let coast = PlanMilestones.currentCoastAge(results: results, recorded: recorded).age
+        if !canRetireNow, MilestoneLadder.isPastCoastPoint(coast, plan: plan) {
+            coastAge = coast
+        }
+    }
+
+    /// "Past the coast point: 63 without saving".
+    static func coastLine(_ age: Int) -> String {
+        "Past the coast point: \(age) without saving"
+    }
+
+    /// The coast point line for VoiceOver, in full.
+    static func spokenCoastLine(_ age: Int) -> String {
+        "You're past the coast point: saving nothing more, you could still retire at \(age)."
     }
 }
 
