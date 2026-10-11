@@ -86,13 +86,13 @@ public enum CSVExport {
              account.institution ?? "", account.country?.rawValue ?? "", account.opened.description,
              account.closed?.description ?? "", account.valuationMode.rawValue,
              account.availableFromAge.map(String.init) ?? "", yesNo(account.includedInNetWorth),
-             yesNo(account.includedInPlan), mix(account.assetClasses), yesNo(account.tracksMoneyInOut),
+             yesNo(account.includedInPlan), mix(account.assetClasses),
              account.successor?.rawValue ?? "",
              account.tags.joined(separator: "; "), account.notes ?? ""]
         }
         return table("accounts.csv", ["id", "name", "kind", "currency", "institution", "country", "opened", "closed",
                                       "valuation", "available_from_age", "in_net_worth", "in_plans",
-                                      "asset_classes", "money_in_out", "successor", "tags", "notes"], rows)
+                                      "asset_classes", "successor", "tags", "notes"], rows)
     }
 
     /// `instruments.csv`: one row per instrument.
@@ -111,11 +111,11 @@ public enum CSVExport {
         let rows = months.flatMap(\.valuations).sortedByKey().map { valuation in
             [valuation.date.description, valuation.account.rawValue, exact(valuation.balance), exact(valuation.cash),
              String(valuation.positions.count), exact(valuation.flow), exact(valuation.moneyIn),
-             exact(valuation.moneyOut), valuation.note ?? "",
+             exact(valuation.moneyOut), exact(valuation.interest), valuation.note ?? "",
              valuation.source?.rawValue ?? ""]
         }
         return table("valuations.csv", ["date", "account", "balance", "cash", "positions", "flow", "money_in",
-                                         "money_out", "note", "source"], rows)
+                                         "money_out", "interest", "note", "source"], rows)
     }
 
     /// `positions.csv`: the quantities recorded in valuations.

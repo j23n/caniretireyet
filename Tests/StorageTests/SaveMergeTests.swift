@@ -226,7 +226,7 @@ struct SaveMergeTests {
               "baseCurrency": "CHF",
               "mainPlan": "base",
               "person": { "birthDate": "1988-4-12", "name": "Alex Example" },
-              "schemaVersion": 3,
+              "schemaVersion": 4,
               "taxResidence": "CH"
             }
 

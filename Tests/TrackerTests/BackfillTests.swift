@@ -158,7 +158,7 @@ struct ValuationEditTests {
         var library = Library()
         library.accounts["cash"] = Account(id: "cash", name: "Cash", kind: .cash, currency: .eur, opened: "2026-01-31")
         library.accounts["broker"] = Account(id: "broker", name: "Broker", kind: .brokerage, currency: .eur,
-                                             opened: "2026-01-31")
+                                             opened: "2026-01-31", valuation: .holdings)
         library.accounts["fondo"] = Account(id: "fondo", name: "Fondo", kind: .pensionFund, currency: .eur,
                                             opened: "2026-01-31")
         library.upsert(Valuation(account: "cash", date: "2026-01-31", balance: 1000, flow: 1000))

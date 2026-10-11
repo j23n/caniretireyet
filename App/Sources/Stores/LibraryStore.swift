@@ -285,7 +285,7 @@ final class LibraryStore {
         stopWatching()
         await ioTail?.value
         guard attempt == openingAttempt else { return }
-        let sync = LibrarySync(location: location)
+        let sync = LibrarySync(location: location, migrations: Self.migrations)
         self.sync = sync
         self.location = location
         pendingSaves = [:]
@@ -310,10 +310,15 @@ final class LibraryStore {
         let started = ContinuousClock.now
         do {
             let (result, snapshot) = try await sync.loadWithSnapshot()
+            let migration = await sync.takeMigration()
             guard attempt == openingAttempt else { return }
             let readOnly = result.report.readOnlyReason.map { ", read-only (\($0))" } ?? ""
             LibraryLog.notice("Opening: read \(result.report.filesRead) files in \(LibraryLog.seconds(.now - started)), "
                 + "\(result.report.issues.count) issues\(readOnly)")
+            if let migration {
+                LibraryLog.notice("Opening: upgraded from format version \(migration.fromVersion) to "
+                    + "\(migration.toVersion), \(migration.notes.count) notes; backup in \(migration.backup.path)")
+            }
             apply(result)
             diskSnapshot = snapshot
             activity = .idle
@@ -334,7 +339,7 @@ final class LibraryStore {
     /// device), that one is opened instead.
     func createLibrary(in kind: LibraryLocationKind, settings: LibrarySettings) async throws {
         guard let location = try await locator.location(kind) else { throw LibraryStoreError.iCloudUnavailable }
-        let sync = LibrarySync(location: location)
+        let sync = LibrarySync(location: location, migrations: Self.migrations)
         if await !location.containsLibrary(waitingUpTo: .seconds(3)) {
             try await sync.createLibrary(settings: settings)
         }
@@ -910,4 +915,16 @@ enum LibraryStoreError: Error, Equatable, Sendable, LocalizedError {
     }
 
     var errorDescription: String? { message }
+}
+
+extension LibraryStore {
+    /// The steps that upgrade a library in an older format: Storage's, and
+    /// after the step to version 4 the conversion of the accounts recorded
+    /// as snapshots to trades, which needs Tracker (docs/ACCOUNTS.md,
+    /// "Migration").
+    nonisolated static let migrations = Migration.all + [
+        Migration.library(from: 3, summary: Library.snapshotConversionSummary) { library in
+            library.convertSnapshotAccountsToTrades()
+        },
+    ]
 }

@@ -22,6 +22,29 @@
       "price": "127.35",
       "quantity": "10",
       "type": "buy"
+    },
+    {
+      "account": "gold-coins",
+      "amount": "-3026.03",
+      "currency": "EUR",
+      "date": "2026-03-31",
+      "id": "buy-gold",
+      "instrument": "gold",
+      "price": "97.3",
+      "quantity": "31.1",
+      "settlement": "external",
+      "type": "buy"
+    },
+    {
+      "account": "ledger-wallet",
+      "currency": "USD",
+      "date": "2026-03-31",
+      "id": "buy-btc",
+      "instrument": "btc",
+      "price": "88900",
+      "quantity": "0.03",
+      "settlement": "external",
+      "type": "buy"
     }
   ],
   "valuations": [
@@ -29,19 +52,8 @@
     { "account": "conto-fineco", "balance": "5530.1", "date": "2026-03-31", "flow": "749.9" },
     { "account": "directa", "cash": "150.2", "date": "2026-03-31", "flow": "1118.25" },
     { "account": "fondo-pensione", "balance": "17480.9", "date": "2026-03-31", "flow": "1325" },
-    {
-      "account": "gold-coins",
-      "date": "2026-03-31",
-      "flow": "3026.03",
-      "note": "bought a 1 oz coin",
-      "positions": [{ "costBasis": "8236.03", "instrument": "gold", "quantity": "93.3" }]
-    },
-    {
-      "account": "ledger-wallet",
-      "date": "2026-03-31",
-      "flow": "2402.27",
-      "positions": [{ "instrument": "btc", "quantity": "0.4515" }]
-    },
+    { "account": "gold-coins", "cash": "0", "date": "2026-03-31", "flow": "3026.03", "note": "bought a 1 oz coin" },
+    { "account": "ledger-wallet", "cash": "0", "date": "2026-03-31", "flow": "2402.27" },
     { "account": "mutuo-casa", "balance": "-144950", "date": "2026-03-31", "flow": "650" }
   ]
 }

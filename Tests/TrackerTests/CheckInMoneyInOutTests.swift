@@ -162,7 +162,7 @@ struct CheckInMoneyInOutTests {
     @Test func aFirstValueSuggestsNoMoneyOut() {
         var library = self.library
         library.accounts["nuovo-conto"] = Account(id: "nuovo-conto", name: "Nuovo conto", kind: .cash,
-                                                  currency: .eur, opened: "2026-10-01", moneyInOut: true)
+                                                  currency: .eur, opened: "2026-10-01")
         var draft = CheckInDraft(date: "2026-10-31", library: library)
         draft["nuovo-conto"]?.setBalance(1000)
         draft["nuovo-conto"]?.setMoneyIn(3000)

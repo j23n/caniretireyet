@@ -157,7 +157,7 @@ struct UnknownKeysTests {
             {
               "baseCurrency": "EUR",
               "person": { "birthDate": "1988-04-12", "name": "Alex Example", "nickname": "Al" },
-              "schemaVersion": 3,
+              "schemaVersion": 4,
               "theme": "dark"
             }
             """)
@@ -170,7 +170,7 @@ struct UnknownKeysTests {
             {
               "baseCurrency": "EUR",
               "person": { "name": "Alex", "nickname": "Al" },
-              "schemaVersion": 3,
+              "schemaVersion": 4,
               "theme": "dark"
             }
 
@@ -187,7 +187,8 @@ struct UnknownKeysTests {
         try folder.write("accounts/ibkr.json", broken)
         let loaded = try folder.library.load()
         var library = loaded.library
-        library.accounts["ibkr"] = Account(id: "ibkr", name: "IBKR", kind: .brokerage, currency: .eur, opened: "2026-01-01")
+        library.accounts["ibkr"] = Account(id: "ibkr", name: "IBKR", kind: .brokerage, currency: .eur, opened: "2026-01-01",
+                                           valuation: .holdings)
 
         let report = try folder.library.save(library, previous: loaded.library)
         #expect(try folder.json("accounts/ibkr.json")["myNote"] == nil)

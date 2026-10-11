@@ -20,14 +20,14 @@ struct SampleFileTests {
             "conto-fineco on 2026-03-31": .identical,
             "directa on 2026-01-31": .conflict, "directa on 2026-02-28": .conflict, "directa on 2026-03-31": .conflict,
             "ledger-wallet on 2026-01-31": .new, "ledger-wallet on 2026-02-28": .new,
-            "ledger-wallet on 2026-03-31": .conflict,
+            // The wallet records trades: its value on the date has only cash, so the positions are added.
+            "ledger-wallet on 2026-03-31": .updated,
             "gold-coins on 2026-01-31": .new, "gold-coins on 2026-02-28": .new, "gold-coins on 2026-03-31": .conflict,
         ])
         let wallet = try #require(preview.record(.valuation("ledger-wallet", "2026-03-31")))
         #expect(wallet.imported.positions == [ImportedPosition(instrument: "btc", quantity: d("0.2201"))])
         #expect(wallet.cells == [ImportCellRef(row: 4, column: 4)])
-        #expect(wallet.resolution == .ask)
-        #expect(preview.summary.undecidedConflicts == 5)
+        #expect(preview.summary.undecidedConflicts == 4)
         #expect(preview.skippedRows.map(\.reason) == [.excluded(rule: "Totale")])
         #expect(preview.nameMatches.contains(NameMatch(name: "gold-coins", account: "gold-coins", method: .profile)))
     }

@@ -382,6 +382,7 @@ struct AccountValuationForm: Hashable, Sendable {
         valuation.flow = number(flow)
         valuation.moneyIn = recordsMoneyInOut ? number(moneyIn) : original.moneyIn
         valuation.moneyOut = recordsMoneyInOut ? number(moneyOut) : original.moneyOut
+        valuation.interest = original.interest
         let trimmedNote = note.trimmingCharacters(in: .whitespacesAndNewlines)
         valuation.note = trimmedNote.isEmpty ? nil : trimmedNote
         var unchanged = original

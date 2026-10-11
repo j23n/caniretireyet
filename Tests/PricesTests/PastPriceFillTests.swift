@@ -85,7 +85,8 @@ struct PastPriceFillTests {
             "prc_hicp_minr": PriceResponses.eurostatHICPItaly,
         ])
         var library = Library(
-            accounts: [Account(id: "safe", name: "Safe", kind: .metals, currency: .eur, opened: "2020-01-01")],
+            accounts: [Account(id: "safe", name: "Safe", kind: .metals, currency: .eur, opened: "2020-01-01",
+                               valuation: .holdings)],
             instruments: [Self.instrument("gold", .goldAPI, "XAU", unit: .gram, kind: .metal)])
         library.upsert(Valuation(account: "safe", date: "2026-05-31", positions: [Position(instrument: "gold", quantity: 50)]))
 

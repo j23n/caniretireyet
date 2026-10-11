@@ -26,11 +26,11 @@ public struct AccountKind: OpenEnum {
 }
 
 extension AccountKind {
-    /// Brokerage, crypto and metals accounts hold positions; everything else
-    /// is recorded as a balance.
+    /// Brokerage, crypto and metals accounts record trades; everything else
+    /// is recorded as a balance (docs/ACCOUNTS.md).
     public var defaultValuationMode: ValuationMode {
         switch self {
-        case .brokerage, .crypto, .metals: .holdings
+        case .brokerage, .crypto, .metals: .trades
         default: .balance
         }
     }
@@ -51,10 +51,23 @@ extension AccountKind {
         self == .loan || self == .mortgage || self == .creditCard
     }
 
-    /// Whether valuations of this kind can record money in and out
-    /// (`moneyIn`, `moneyOut`): cash and savings accounts.
+    /// Whether valuations of this kind record money in and out (`moneyIn`,
+    /// `moneyOut`) at every value after the account's first: cash and
+    /// savings accounts.
     public var recordsMoneyInOut: Bool {
         self == .cash || self == .savings
+    }
+
+    /// Whether valuations of this kind can record the interest earned
+    /// (`interest`): savings accounts.
+    public var recordsInterest: Bool {
+        self == .savings
+    }
+
+    /// Whether the account holds investments: brokerage, crypto and metals,
+    /// which record trades.
+    public var isInvestment: Bool {
+        self == .brokerage || self == .crypto || self == .metals
     }
 
     /// How the check-in pre-fills a valuation's `flow` for this kind
@@ -76,7 +89,10 @@ public struct ValuationMode: OpenEnum {
 
     /// One amount in the account's currency.
     public static let balance: ValuationMode = "balance"
-    /// Positions (quantity × price) plus optional cash.
+    /// Positions (quantity × price) plus optional cash, at each valuation.
+    /// Written before format version 4, whose upgrade converts such accounts
+    /// to trades, so it isn't in ``knownValues``; it still decodes, and its
+    /// values still count.
     public static let holdings: ValuationMode = "holdings"
     /// Holdings worked out from the account's trades (buys, sells, …),
     /// valued at quantity × price, plus cash. Its valuations record only
@@ -84,7 +100,7 @@ public struct ValuationMode: OpenEnum {
     /// (docs/TRADES.md).
     public static let trades: ValuationMode = "trades"
 
-    public static let knownValues: [ValuationMode] = [.balance, .holdings, .trades]
+    public static let knownValues: [ValuationMode] = [.balance, .trades]
 }
 
 /// The default for a valuation's `flow` at check-in, by account kind.

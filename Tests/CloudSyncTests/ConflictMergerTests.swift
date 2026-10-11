@@ -137,7 +137,7 @@ struct ConflictMergerTests {
     @Test func aNewerLibraryIsLeftForANewerApp() throws {
         let folder = try TemporaryFolder.exampleLibrary()
         let settings = try folder.text("library.json").replacingOccurrences(
-            of: "\"schemaVersion\": 3", with: "\"schemaVersion\": 99")
+            of: "\"schemaVersion\": 4", with: "\"schemaVersion\": 99")
         try folder.write("library.json", settings)
         let versions = FakeFileVersions()
         versions.add(otherSeptember, modified: past, to: folder.url(monthPath))

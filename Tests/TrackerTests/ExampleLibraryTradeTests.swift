@@ -4,12 +4,15 @@ import Testing
 import TestSupport
 import Tracker
 
-/// The example library with Directa recorded as positions at each check-in,
-/// converted back from its trades: for tests of accounts that hold positions.
+/// The example library with Directa, the gold coins and the Ledger wallet
+/// recorded as positions at each check-in, converted back from their trades:
+/// for tests of accounts that hold positions.
 func exampleLibraryWithHoldings() throws -> Library {
     var library = try Fixtures.exampleLibrary()
-    let conversion = try #require(library.conversionToSnapshots(of: "directa"))
-    conversion.apply(to: &library)
+    for account: AccountID in ["directa", "gold-coins", "ledger-wallet"] {
+        let conversion = try #require(library.conversionToSnapshots(of: account))
+        conversion.apply(to: &library)
+    }
     return library
 }
 
@@ -94,7 +97,7 @@ struct ExampleLibraryTradeTests {
 
     @Test func convertingBackToPositionsKeepsEveryValue() throws {
         let holdings = try exampleLibraryWithHoldings()
-        #expect(holdings.accounts["directa"]?.valuation == nil)
+        #expect(holdings.accounts["directa"]?.valuation == .holdings)
         #expect(holdings.trades(for: "directa").isEmpty)
         let other = Valuator(library: holdings)
         for (date, _, _, _) in monthEnds {

@@ -9,8 +9,8 @@ import TestSupport
 struct SchemaGuardTests {
     private func newerLibrary() throws -> TemporaryFolder {
         let folder = try TemporaryFolder.exampleLibrary()
-        let settings = try folder.text("library.json").replacingOccurrences(of: "\"schemaVersion\": 3",
-                                                                           with: "\"schemaVersion\": 4")
+        let settings = try folder.text("library.json").replacingOccurrences(of: "\"schemaVersion\": 4",
+                                                                           with: "\"schemaVersion\": 5")
         try folder.write("library.json", settings)
         return folder
     }
@@ -20,10 +20,10 @@ struct SchemaGuardTests {
         let result = try folder.library.load()
         #expect(result.report.isReadOnly)
         #expect(result.report.readOnlyReason == .newerSchema)
-        #expect(result.report.schemaVersion == 4)
+        #expect(result.report.schemaVersion == 5)
         #expect(result.report.errors.isEmpty)
         #expect(result.report.warnings.first?.message.contains("read-only") == true)
-        #expect(result.library.settings.schemaVersion == 4)
+        #expect(result.library.settings.schemaVersion == 5)
         #expect(result.library.accounts.count == 10)
     }
 
@@ -32,7 +32,7 @@ struct SchemaGuardTests {
         let loaded = try folder.library.load().library
         var library = loaded
         library.accounts["tfr"]?.name = "Changed"
-        let error = StorageError.libraryIsNewer(version: 4, supported: 3)
+        let error = StorageError.libraryIsNewer(version: 5, supported: 4)
         #expect(throws: error) { try folder.library.save(library, previous: loaded) }
         #expect(throws: error) { try folder.library.checkWritable() }
         #expect(error.description.contains("read-only"))
@@ -41,8 +41,8 @@ struct SchemaGuardTests {
 
     @Test func aLibraryInMemoryFromANewerAppCannotBeSavedElsewhere() throws {
         let folder = try TemporaryFolder()
-        let library = Library(settings: LibrarySettings(schemaVersion: 4))
-        #expect(throws: StorageError.libraryIsNewer(version: 4, supported: 3)) {
+        let library = Library(settings: LibrarySettings(schemaVersion: 5))
+        #expect(throws: StorageError.libraryIsNewer(version: 5, supported: 4)) {
             try folder.library.save(library, previous: Library())
         }
         #expect(!folder.exists("library.json"))
@@ -50,18 +50,18 @@ struct SchemaGuardTests {
 
     @Test func theExampleLibraryIsCurrent() throws {
         let folder = try TemporaryFolder.exampleLibrary()
-        #expect(LibrarySettings.currentSchemaVersion == 3)
+        #expect(LibrarySettings.currentSchemaVersion == 4)
         #expect(try folder.library.migrate() == nil)
         #expect(!folder.exists("backups"))
     }
 
-    /// An app that knows only version 2 (plans with tax systems) opens a
-    /// version 3 library read-only, so it never writes plans it would read
-    /// without their tax rates.
-    @Test func anAppBeforeSimplePlansOpensAVersion3LibraryReadOnly() throws {
+    /// An app that knows only version 3 (accounts that opt in to money in
+    /// and out, snapshots) opens a version 4 library read-only, so it never
+    /// writes accounts it would read with the old rules.
+    @Test func anAppBeforeOneRulePerKindOpensAVersion4LibraryReadOnly() throws {
         let folder = try TemporaryFolder.exampleLibrary()
-        #expect(throws: StorageError.libraryIsNewer(version: 3, supported: 2)) {
-            try folder.library.migrate(to: 2, steps: [])
+        #expect(throws: StorageError.libraryIsNewer(version: 4, supported: 3)) {
+            try folder.library.migrate(to: 3, steps: [])
         }
     }
 }
@@ -71,8 +71,8 @@ struct SchemaGuardTests {
 /// for a newer schema, so the next edit can't save those defaults over the
 /// user's settings. A folder without library.json is unaffected.
 struct UnreadableSettingsTests {
-    private static let notJSON = "{ \"baseCurrency\": \"CHF\", \"schemaVersion\": 3,\n"
-    private static let notSettings = #"{ "baseCurrency": ["CHF"], "schemaVersion": 3 }"#
+    private static let notJSON = "{ \"baseCurrency\": \"CHF\", \"schemaVersion\": 4,\n"
+    private static let notSettings = #"{ "baseCurrency": ["CHF"], "schemaVersion": 4 }"#
 
     @Test(arguments: [notJSON, notSettings, "[]"])
     func anUnreadableSettingsFileOpensReadOnly(_ text: String) throws {
@@ -165,8 +165,8 @@ struct UnreadableSettingsTests {
         #expect(fixed.issues.isEmpty)
         #expect(library == loaded)
 
-        try folder.write("library.json", original.replacingOccurrences(of: "\"schemaVersion\": 3",
-                                                                       with: "\"schemaVersion\": 4"))
+        try folder.write("library.json", original.replacingOccurrences(of: "\"schemaVersion\": 4",
+                                                                       with: "\"schemaVersion\": 5"))
         let newer = folder.library.reload(.settings, into: &library)
         #expect(newer.readOnlyReason == .newerSchema)
     }
@@ -192,7 +192,7 @@ struct UnreadableSettingsTests {
     /// read-only because it's newer, and says so.
     @Test func aNewerLibraryWhoseSettingsDontDecodeSaysItIsNewer() throws {
         let folder = try TemporaryFolder.exampleLibrary()
-        try folder.write("library.json", #"{ "baseCurrency": { "code": "CHF" }, "schemaVersion": 4 }"#)
+        try folder.write("library.json", #"{ "baseCurrency": { "code": "CHF" }, "schemaVersion": 5 }"#)
         let report = try folder.library.load().report
         #expect(report.isReadOnly && report.isNewerSchema && !report.settingsUnreadable)
         #expect(report.readOnlyReason == .newerSchema)
@@ -203,9 +203,9 @@ struct UnreadableSettingsTests {
 struct MigrationTests {
     private let date = Date(timeIntervalSince1970: 1_790_000_000)  // 2026-09-21
 
-    /// A made-up step from version 3 to 4 that renames `notes` to `comment`
+    /// A made-up step from version 4 to 5 that renames `notes` to `comment`
     /// in accounts and drops the import profiles.
-    private let renameNotes = Migration(from: 3, summary: "Rename notes to comment") { files in
+    private let renameNotes = Migration(from: 4, summary: "Rename notes to comment") { files in
         for (path, json) in files where path.hasPrefix("accounts/") {
             guard case .object(var members) = json, let notes = members.removeValue(forKey: "notes") else { continue }
             members["comment"] = notes
@@ -219,60 +219,62 @@ struct MigrationTests {
     @Test func stepsRunAfterABackupOfTheWholeLibrary() throws {
         let folder = try TemporaryFolder.exampleLibrary()
         try folder.write("README.md", "Readme")
-        let report = try #require(try folder.library.migrate(to: 4, steps: [renameNotes], date: date))
+        let report = try #require(try folder.library.migrate(to: 5, steps: [renameNotes], date: date))
 
         let day = CalendarDate(date, in: .current)
-        #expect(report.backup.name == "\(day)-v3")
+        #expect(report.backup.name == "\(day)-v4")
         #expect(report.backup.files.count == Fixtures.allJSONFiles.count + 1)
         for path in Fixtures.allJSONFiles {
-            #expect(try folder.data("backups/\(day)-v3/\(path)") == Fixtures.data(for: path))
+            #expect(try folder.data("backups/\(day)-v4/\(path)") == Fixtures.data(for: path))
         }
-        #expect(report.fromVersion == 3)
-        #expect(report.toVersion == 4)
+        #expect(report.fromVersion == 4)
+        #expect(report.toVersion == 5)
         #expect(report.steps == ["Rename notes to comment"])
         #expect(report.written == [
             "accounts/casa.json", "accounts/gold-coins.json", "accounts/mutuo-casa.json", "library.json",
         ])
         #expect(report.deleted == ["imports/directa-movimenti.json", "imports/net-worth-sheet.json"])
-        #expect(try folder.json("library.json")["schemaVersion"] == 4)
+        #expect(try folder.json("library.json")["schemaVersion"] == 5)
         #expect(try folder.json("accounts/casa.json")["comment"] == "Made-up estimate of the home's market value.")
         #expect(!folder.exists("imports/net-worth-sheet.json"))
-        #expect(try folder.library.backups().map(\.name) == ["\(day)-v3"])
+        #expect(try folder.library.backups().map(\.name) == ["\(day)-v4"])
     }
 
     @Test func aMissingStepThrowsAndChangesNothing() throws {
         let folder = try TemporaryFolder.exampleLibrary()
-        #expect(throws: StorageError.missingMigration(from: 4)) {
-            try folder.library.migrate(to: 5, steps: [renameNotes], date: date)
+        #expect(throws: StorageError.missingMigration(from: 5)) {
+            try folder.library.migrate(to: 6, steps: [renameNotes], date: date)
         }
-        #expect(try folder.json("library.json")["schemaVersion"] == 3)
+        #expect(try folder.json("library.json")["schemaVersion"] == 4)
         #expect(!folder.exists("backups"))
     }
 
     @Test func aFailingStepChangesNothing() throws {
         struct Failure: Error {}
         let folder = try TemporaryFolder.exampleLibrary()
-        let failing = Migration(from: 3, summary: "Fails") { _ in throw Failure() }
-        #expect(throws: Failure.self) { try folder.library.migrate(to: 4, steps: [failing], date: date) }
-        #expect(try folder.json("library.json")["schemaVersion"] == 3)
+        let failing = Migration(from: 4, summary: "Fails") { _ in throw Failure() }
+        #expect(throws: Failure.self) { try folder.library.migrate(to: 5, steps: [renameNotes, failing], date: date) }
+        #expect(try folder.json("library.json")["schemaVersion"] == 4)
+        #expect(try folder.json("accounts/casa.json")["comment"] == nil)
+        #expect(!folder.exists("backups"))
     }
 
     @Test func aNewerLibraryIsNotMigrated() throws {
         let folder = try TemporaryFolder.exampleLibrary()
         try folder.write("library.json", #"{ "baseCurrency": "EUR", "schemaVersion": 5 }"#)
-        #expect(throws: StorageError.libraryIsNewer(version: 5, supported: 3)) { try folder.library.migrate() }
+        #expect(throws: StorageError.libraryIsNewer(version: 5, supported: 4)) { try folder.library.migrate() }
     }
 
     @Test func anOlderLibraryMustBeMigratedBeforeSaving() throws {
         let folder = try TemporaryFolder.exampleLibrary()
-        try folder.write("library.json", #"{ "baseCurrency": "EUR", "schemaVersion": 2 }"#)
+        try folder.write("library.json", #"{ "baseCurrency": "EUR", "schemaVersion": 3 }"#)
         let result = try folder.library.load()
         #expect(result.report.needsMigration)
-        #expect(throws: StorageError.libraryNeedsMigration(version: 2, current: 3)) {
+        #expect(throws: StorageError.libraryNeedsMigration(version: 3, current: 4)) {
             try folder.library.checkWritable()
         }
 
-        let step = Migration(from: 2, summary: "Nothing to change") { _ in }
+        let step = Migration(from: 3, summary: "Nothing to change") { _ in }
         let report = try #require(try folder.library.migrate(steps: [step], date: date))
         #expect(report.steps == ["Nothing to change"])
         #expect(report.written == ["library.json"])
@@ -284,7 +286,7 @@ struct MigrationTests {
     /// from them, so such a library doesn't open, and nothing is written.
     @Test func aTestVersionsLibraryDoesntOpen() throws {
         let folder = try TemporaryFolder.exampleLibrary()
-        let settings = try folder.text("library.json").replacingOccurrences(of: #""schemaVersion": 3"#,
+        let settings = try folder.text("library.json").replacingOccurrences(of: #""schemaVersion": 4"#,
                                                                            with: #""schemaVersion": 2"#)
         try folder.write("library.json", settings)
         #expect(throws: StorageError.missingMigration(from: 2)) { try folder.library.loadMigrating() }

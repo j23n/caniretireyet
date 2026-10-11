@@ -2,6 +2,7 @@ import ArgumentParser
 import Foundation
 import Model
 import Storage
+import Tracker
 
 /// `--library <path>`, shared by every command.
 struct LibraryOptions: ParsableArguments {
@@ -39,10 +40,9 @@ struct LibraryOptions: ParsableArguments {
             throw CLIError("\(folder.root.path) isn't a library: it has no library.json. Create one with `retire init`.")
         }
         // An older library is upgraded, after a backup, before anything is written.
-        let (result, migration) = try folder.loadMigrating()
+        let (result, migration) = try folder.loadMigrating(steps: Self.migrations)
         if let migration {
-            context.console.error("Upgraded the library from format version \(migration.fromVersion) to "
-                + "\(migration.toVersion); the files as they were are in \(migration.backup.path)/.")
+            for line in migration.lines { context.console.error(line) }
         }
         let errors = result.report.errors.count
         if errors > 0 {
@@ -105,4 +105,30 @@ func parseDate(_ text: String?, option: String) throws -> CalendarDate? {
         throw ValidationError("\(option) must be a date written YYYY-MM-DD, not “\(text)”.")
     }
     return date
+}
+
+extension LibraryOptions {
+    /// The upgrade steps: Storage's, and after the step to version 4 the
+    /// conversion of the accounts recorded as snapshots to trades, which
+    /// needs Tracker (docs/ACCOUNTS.md, "Migration").
+    static let migrations = Migration.all + [
+        Migration.library(from: 3, summary: Library.snapshotConversionSummary) { library in
+            library.convertSnapshotAccountsToTrades()
+        },
+    ]
+}
+
+extension MigrationReport {
+    /// What the upgrade did, for the terminal: where the backup is, each
+    /// step, and what the steps had to estimate.
+    var lines: [String] {
+        var lines = ["Upgraded the library from format version \(fromVersion) to \(toVersion); the files as they "
+            + "were are in \(backup.path)/."]
+        lines += steps.map { "  - \($0)" }
+        if !notes.isEmpty {
+            lines.append("Estimated while upgrading:")
+            lines += notes.map { "  - \($0)" }
+        }
+        return lines
+    }
 }

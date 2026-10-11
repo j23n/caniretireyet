@@ -130,7 +130,8 @@ struct PastPriceNeedsTests {
     static func library() -> Library {
         Library(
             accounts: [
-                Account(id: "broker", name: "Broker", kind: .brokerage, currency: .eur, opened: "2020-01-01"),
+                Account(id: "broker", name: "Broker", kind: .brokerage, currency: .eur, opened: "2020-01-01",
+                        valuation: .holdings),
                 Account(id: "usd-cash", name: "Dollars", kind: .cash, currency: .usd, opened: "2020-01-01"),
             ],
             instruments: [

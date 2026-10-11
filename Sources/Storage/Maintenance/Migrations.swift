@@ -4,30 +4,54 @@ import Model
 /// One step that upgrades a library from schema version ``version`` to
 /// `version + 1`.
 ///
-/// A step works on the library's JSON files as raw JSON, because files in
-/// an old schema may not decode with today's model. It can change, add
-/// and remove files; the migration then sets `schemaVersion` in
+/// A step usually works on the library's JSON files as raw JSON, because
+/// files in an old schema may not decode with today's model. It can change,
+/// add and remove files; the migration then sets `schemaVersion` in
 /// `library.json`, writes the changed files and deletes the removed ones.
+///
+/// Several steps can upgrade from the same version: they run in the order
+/// they're passed, and each one after the first finds the files as the
+/// steps before it left them, with `schemaVersion` already `version + 1`.
+/// So a later step can work on the decoded library
+/// (``library(from:summary:apply:)``), when it needs what other modules
+/// know about it.
 public struct Migration: Sendable {
     /// The schema version this step upgrades from.
     public var version: Int
     /// What the step changes, in plain words.
     public var summary: String
     /// Changes the library's JSON files, keyed by path relative to the
-    /// library folder (`accounts/directa.json`). Files that aren't valid
-    /// JSON aren't included.
-    public var apply: @Sendable (inout [String: JSONValue]) throws -> Void
+    /// library folder (`accounts/directa.json`), and returns what it had to
+    /// estimate or point out, in plain words (``MigrationReport/notes``).
+    /// Files that aren't valid JSON aren't included.
+    public var apply: @Sendable (inout [String: JSONValue]) throws -> [String]
 
+    /// A step that changes the library's JSON files and has nothing to point out.
     public init(from version: Int, summary: String, apply: @escaping @Sendable (inout [String: JSONValue]) throws -> Void) {
+        self.init(notedApply: { files in
+            try apply(&files)
+            return []
+        }, from: version, summary: summary)
+    }
+
+    /// A step that changes the library's JSON files and returns notes. The
+    /// closure comes first, so a trailing closure never picks this one.
+    init(notedApply apply: @escaping @Sendable (inout [String: JSONValue]) throws -> [String], from version: Int,
+         summary: String) {
         self.version = version
         self.summary = summary
         self.apply = apply
     }
 
-    /// The steps this app knows, in order: none yet. Format version 3 is the
-    /// first any library kept; versions 1 and 2 were test versions' and
-    /// can't be upgraded (``StorageError/missingMigration(from:)``).
-    public static let all: [Migration] = []
+    /// The steps this app knows, in order. Format version 3 is the first any
+    /// library kept; versions 1 and 2 were test versions' and can't be
+    /// upgraded (``StorageError/missingMigration(from:)``).
+    ///
+    /// The step to version 4 (``accountKinds``) leaves the accounts recorded
+    /// as snapshots whose values hold positions to a step the app and the
+    /// command line add after it, which converts them to trades with
+    /// Tracker's conversion.
+    public static let all: [Migration] = [accountKinds]
 }
 
 /// What a migration did.
@@ -40,6 +64,9 @@ public struct MigrationReport: Hashable, Sendable {
     public var backup: Backup
     /// The summaries of the steps applied, in order.
     public var steps: [String]
+    /// What the steps had to estimate or point out, in plain words, in the
+    /// order of the steps.
+    public var notes: [String] = []
     /// Files the steps changed or added, rewritten in canonical form.
     public var written: [String]
     /// Files the steps removed.
@@ -70,9 +97,10 @@ extension LibraryFolder {
         }
         if version == target { return nil }
         if version > target { throw StorageError.libraryIsNewer(version: version, supported: target) }
-        let chain = try (version..<target).map { from in
-            guard let step = steps.first(where: { $0.version == from }) else { throw StorageError.missingMigration(from: from) }
-            return step
+        let chain = try (version..<target).flatMap { from in
+            let found = steps.filter { $0.version == from }
+            guard !found.isEmpty else { throw StorageError.missingMigration(from: from) }
+            return found
         }
 
         let paths = try files.listFiles(in: root).filter { !$0.hasPrefix(Self.backupsFolder + "/") }
@@ -86,8 +114,9 @@ extension LibraryFolder {
             }
         }
         let original = documents
+        var notes: [String] = []
         for step in chain {
-            try step.apply(&documents)
+            notes += try step.apply(&documents)
             let settings = documents[settingsPath] ?? .object([:])
             documents[settingsPath] = settings.withMember("schemaVersion", to: .number(Decimal(step.version + 1)))
         }
@@ -105,16 +134,17 @@ extension LibraryFolder {
             try files.removeItem(at: url(for: path))
         }
         return MigrationReport(fromVersion: version, toVersion: target, backup: backup, steps: chain.map(\.summary),
-                               written: written, deleted: deleted, skipped: skipped)
+                               notes: notes, written: written, deleted: deleted, skipped: skipped)
     }
 
-    /// Loads the library (``load()``), upgrading it first when it uses an
-    /// older schema version (``migrate(to:steps:date:)``, after a backup), so
-    /// it can be saved; a library with a newer one loads read-only. Returns
-    /// the migration, if one ran.
-    public func loadMigrating() throws -> (result: LoadResult, migration: MigrationReport?) {
+    /// Loads the library (``load()``), upgrading it first with `steps` when
+    /// it uses an older schema version (``migrate(to:steps:date:)``, after a
+    /// backup), so it can be saved; a library with a newer one loads
+    /// read-only. Returns the migration, if one ran.
+    public func loadMigrating(steps: [Migration] = Migration.all)
+        throws -> (result: LoadResult, migration: MigrationReport?) {
         let result = try load()
-        guard result.report.needsMigration, let migration = try migrate() else { return (result, nil) }
+        guard result.report.needsMigration, let migration = try migrate(steps: steps) else { return (result, nil) }
         return (try load(), migration)
     }
 }

@@ -284,6 +284,7 @@ extension CheckInDraft {
             let recordsBoth = (moneyIn ?? -1) >= 0 && (moneyOut ?? -1) >= 0
             record.moneyIn = recordsBoth ? moneyIn : nil
             record.moneyOut = recordsBoth ? moneyOut : nil
+            record.interest = row.interest
             written = record
         }
         return Proposal(valuation: valuation, written: written, defaultFlow: defaultFlow, positions: reviews)

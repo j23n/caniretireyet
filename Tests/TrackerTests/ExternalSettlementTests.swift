@@ -251,7 +251,8 @@ struct ExternalConversionTests {
     private func coins() -> Library {
         var library = GoldLibrary.withPrices(Library(
             settings: LibrarySettings(baseCurrency: .eur),
-            accounts: [Account(id: "coins", name: "Gold coins", kind: .metals, currency: .eur, opened: "2024-01-01")],
+            accounts: [Account(id: "coins", name: "Gold coins", kind: .metals, currency: .eur, opened: "2024-01-01",
+                               valuation: .holdings)],
             instruments: Array(GoldLibrary.base.instruments.values)))
         let valuations = [
             Valuation(account: "coins", date: "2024-01-31",
@@ -326,7 +327,7 @@ struct ExternalConversionTests {
     }
 
     @Test func theExampleGoldCoinsConvertToABuyPaidFromOutside() throws {
-        let library = try Fixtures.exampleLibrary()
+        let library = try exampleLibraryWithHoldings()
         #expect(!library.hasHeldCash("gold-coins"))
         let conversion = try #require(library.conversionToTrades(of: "gold-coins"))
         let buy = try #require(conversion.trades.first { $0.type == .buy })

@@ -9,7 +9,7 @@ struct AccountDefaultsTests {
 
     @Test func valuationModeByKind() {
         for kind in [AccountKind.brokerage, .crypto, .metals] {
-            #expect(account(kind).valuationMode == .holdings)
+            #expect(account(kind).valuationMode == .trades)
         }
         for kind in [AccountKind.cash, .savings, .pensionFund, .tfr, .property, .mortgage, .other] {
             #expect(account(kind).valuationMode == .balance)

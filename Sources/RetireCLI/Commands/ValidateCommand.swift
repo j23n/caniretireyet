@@ -14,7 +14,9 @@ struct ValidateCommand: RetireSubcommand {
             version and whether the library is read-only. It also checks references between \
             files: records of unknown accounts, valuations outside an account's dates, debts \
             with positive balances, missing prices, and plans or import profiles naming what \
-            doesn't exist. Exits with status 1 when there are errors (with --strict, warnings too).
+            doesn't exist. A library in an older format is upgraded first, after a backup, and \
+            the upgrade's steps and what they estimated are printed. Exits with status 1 when \
+            there are errors (with --strict, warnings too).
             """)
 
     @OptionGroup var options: LibraryOptions
@@ -30,14 +32,22 @@ struct ValidateCommand: RetireSubcommand {
         guard folder.files.fileExists(at: folder.root) else {
             throw CLIError("The library folder \(folder.root.path) doesn't exist.")
         }
-        let loaded = try folder.load()
+        let loaded: LoadResult
+        var migration: MigrationReport?
+        do {
+            (loaded, migration) = try folder.loadMigrating(steps: LibraryOptions.migrations)
+        } catch StorageError.missingMigration {
+            // A test version's library: reported as older below.
+            loaded = try folder.load()
+        }
         var issues = loaded.report.issues
         if folder.containsLibrary {
             issues += LibraryChecks(library: loaded.library).issues()
         }
         // By path, then errors before warnings, keeping the order found (the sort is stable).
         issues.sort { ($0.path, $0.severity == .error ? 0 : 1) < ($1.path, $1.severity == .error ? 0 : 1) }
-        let report = Report(folder: folder, library: loaded.library, load: loaded.report, issues: issues)
+        let report = Report(folder: folder, library: loaded.library, load: loaded.report, migration: migration,
+                            issues: issues)
 
         try context.console.print(report, json: json)
         if report.errors > 0 || (strict && report.warnings > 0) { throw ExitCode.failure }
@@ -48,6 +58,8 @@ struct ValidateCommand: RetireSubcommand {
         var folder: LibraryFolder
         var library: Library
         var load: LoadReport
+        /// The upgrade from an older format, if one ran.
+        var migration: MigrationReport?
         var issues: [LoadIssue]
 
         var errors: Int { issues.filter { $0.severity == .error }.count }
@@ -93,6 +105,10 @@ struct ValidateCommand: RetireSubcommand {
             table.add(["Contents", contentsText])
             lines += table.lines()
             lines.append("")
+            if let migration {
+                lines += migration.lines
+                lines.append("")
+            }
             if issues.isEmpty {
                 lines.append("No problems found.")
                 return lines
@@ -114,7 +130,12 @@ struct ValidateCommand: RetireSubcommand {
         var json: JSON {
             JSON(library: folder.root.path, schemaVersion: load.schemaVersion,
                  currentSchemaVersion: LibrarySettings.currentSchemaVersion, readOnly: load.isReadOnly,
-                 needsMigration: load.needsMigration, filesRead: load.filesRead, errors: errors, warnings: warnings,
+                 needsMigration: load.needsMigration,
+                 migration: migration.map {
+                     JSON.Migration(fromVersion: $0.fromVersion, toVersion: $0.toVersion, backup: $0.backup.path,
+                                    steps: $0.steps, notes: $0.notes)
+                 },
+                 filesRead: load.filesRead, errors: errors, warnings: warnings,
                  issues: issues.map { JSON.Issue(path: $0.path, severity: $0.severity.rawValue, message: $0.message) })
         }
 
@@ -125,11 +146,20 @@ struct ValidateCommand: RetireSubcommand {
                 var message: String
             }
 
+            struct Migration: Encodable {
+                var fromVersion: Int
+                var toVersion: Int
+                var backup: String
+                var steps: [String]
+                var notes: [String]
+            }
+
             var library: String
             var schemaVersion: Int?
             var currentSchemaVersion: Int
             var readOnly: Bool
             var needsMigration: Bool
+            var migration: Migration?
             var filesRead: Int
             var errors: Int
             var warnings: Int

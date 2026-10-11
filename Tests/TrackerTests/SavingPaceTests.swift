@@ -398,7 +398,7 @@ struct SavingPaceTests {
     @Test func aMissingPriceMakesItIncomplete() throws {
         var library = self.library(flows: [Decimal](repeating: 1_000, count: 12))
         library.accounts["broker"] = Account(id: "broker", name: "Broker", kind: .brokerage, currency: .eur,
-                                             opened: "2026-08-31")
+                                             opened: "2026-08-31", valuation: .holdings)
         library.upsert(Valuation(account: "broker", date: "2026-08-31", cash: 0,
                                  positions: [Position(instrument: "unpriced", quantity: 1)], flow: 0))
         library.upsert(Valuation(account: "broker", date: "2026-09-30", cash: 0,
@@ -417,7 +417,7 @@ struct SavingPaceTests {
     func anAccountWhoseRecordsStartInsideTheMonths(opened: CalendarDate) throws {
         var library = self.library(flows: [Decimal](repeating: 1_000, count: 12))
         library.accounts["wallet"] = Account(id: "wallet", name: "Wallet", kind: .crypto, currency: .eur,
-                                             opened: opened)
+                                             opened: opened, valuation: .holdings)
         library.upsert(PriceRecord(instrument: "btc", date: "2026-03-31", price: 90_000, currency: .eur))
         library.upsert(Valuation(account: "wallet", date: "2026-03-31", cash: 0,
                                  positions: [Position(instrument: "btc", quantity: d("0.4"))]))

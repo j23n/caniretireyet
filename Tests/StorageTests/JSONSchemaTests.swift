@@ -222,8 +222,8 @@ import TestSupport
                 }
               ],
               "valuations": [
-                { "account": "conto-fineco", "balance": "4210.55", "date": "2026-09-30", "flow": "-310.2", "moneyIn": "3400",
-                  "moneyOut": "3710.2", "note": "statement", "source": "manual" },
+                { "account": "conto-fineco", "balance": "4210.55", "date": "2026-09-30", "flow": "-310.2", "interest": "1.5",
+                  "moneyIn": "3400", "moneyOut": "3710.2", "note": "statement", "source": "manual" },
                 { "account": "directa", "cash": "312.1", "date": "2026-09-30", "positions": [{ "costBasis": "50000", "instrument": "vwce", "quantity": "423" }] }
               ]
             }
@@ -235,7 +235,7 @@ import TestSupport
             {
               "assetClasses": { "bonds": "0.4", "equity": "0.6" }, "availableFromAge": 67, "closed": "2030-12-31", "country": "IT",
               "currency": "EUR", "id": "fondo-pensione", "includeIn": { "netWorth": true, "plan": false }, "institution": "Fondo Esempio",
-              "kind": "pensionFund", "moneyInOut": false, "name": "Fondo pensione", "notes": "joined at work", "opened": "2022-01-01", "successor": "new-fund",
+              "kind": "pensionFund", "name": "Fondo pensione", "notes": "joined at work", "opened": "2022-01-01", "successor": "new-fund",
               "tags": ["pension"], "valuation": "balance"
             }
             """, against: "account.schema.json")
@@ -248,7 +248,7 @@ import TestSupport
         try checkRoundTrip(LibrarySettings.self, """
             {
               "baseCurrency": "EUR", "inflationIndex": "hicp-ea", "mainPlan": "base",
-              "person": { "birthDate": "1988-04-12", "name": "Alex Example" }, "schemaVersion": 3, "taxResidence": "IT"
+              "person": { "birthDate": "1988-04-12", "name": "Alex Example" }, "schemaVersion": 4, "taxResidence": "IT"
             }
             """, against: "library.schema.json")
     }

@@ -191,6 +191,9 @@ struct CheckInRebaseTests {
 
         old.rebase(onto: library)
         #expect(old.conflicts.isEmpty)
-        #expect(old.records(in: library).valuations == library.months["2026-09"]?.valuations)
+        // The gold coins and the wallet record trades, so their rows start as their trades say.
+        let followingTrades: Set<AccountID> = ["gold-coins", "ledger-wallet"]
+        #expect(old.records(in: library).valuations.filter { !followingTrades.contains($0.account) }
+            == library.months["2026-09"]?.valuations)
     }
 }
