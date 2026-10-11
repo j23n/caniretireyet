@@ -138,6 +138,16 @@ final class AppNavigation {
         }
     }
 
+    /// Shows the accounts: the Accounts tab at its list; in the sidebar,
+    /// which lists them, `account` when there's one.
+    func showAccounts(selecting account: AccountID?) {
+        tab = .accounts
+        switch layout {
+        case .tabs: accountsPath = []
+        case .sidebar: if let account { sidebarSelection = .account(account) }
+        }
+    }
+
     /// The account selected in the sidebar, if one is.
     var selectedAccount: AccountID? {
         if case .account(let id)? = sidebarSelection { id } else { nil }

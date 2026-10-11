@@ -136,6 +136,13 @@ struct PlanMoneyInOutTests {
         #expect(changes[3]?.direction == -1)
         #expect(changes[3]?.isGood == true)
 
+        #expect(changes.map { $0?.text(currency: .eur, locale: locale) }
+            == ["▲ 4 points", "▲ €2,000", "▲ 3%", "▼ 2%"])
+        let same = PlanLastTwelveMonths.TileChange(value: .percent(0.001), direction: 0, isGood: true)
+        #expect(same.text(currency: .eur, locale: locale) == "No change")
+        let one = PlanLastTwelveMonths.TileChange(value: .points(-1), direction: -1, isGood: false)
+        #expect(one.text(currency: .eur, locale: locale) == "▼ 1 point")
+
         let worse = PlanLastTwelveMonths(current: savings(moneyIn: 40_000, moneyOut: 36_000),
                                          previous: savings(moneyIn: 45_800, moneyOut: 31_600), since: nil)
         #expect(worse.tiles.map { $0.change?.isGood } == [false, false, false, false])

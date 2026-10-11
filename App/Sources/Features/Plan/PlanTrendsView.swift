@@ -5,13 +5,16 @@ import Tracker
 
 /// Trends (UI.md, "Trends"; PROGRESS.md, "Trends"): how you've actually
 /// been doing, from your own records, over the time span the Overview's
-/// history uses. *Where your money came from* splits plan assets into what
-/// you started with, what you put in and what markets added; *Time to
-/// retirement* is the plan's answer at each check-in; *Year by year* grades
-/// each calendar year in words. On iPhone the grain and the span are at the
-/// top of the page; on the Mac and iPad they're in the toolbar
-/// (``PlanTrendsControls``), the cards are in two columns and *Year by
-/// year* is a table across the page.
+/// history uses. *Your last 12 months*, *Savings rate* and *Money in and
+/// out* are built on money in and out, with the plan as reference lines,
+/// and fold into one card while none is recorded; *Where your money came
+/// from* splits plan assets into what you started with, what you put in
+/// and what markets added; *Time to retirement* is the plan's answer at
+/// each check-in; *Year by year* grades each calendar year in words. On
+/// iPhone the grain and the span are at the top of the page; on the Mac and
+/// iPad they're in the toolbar (``PlanTrendsControls``), the tiles are in a
+/// row, the charts in two columns and *Year by year* is a table across the
+/// page.
 struct PlanTrendsView: View {
     let session: PlanSession
     var isWide = false
@@ -34,15 +37,40 @@ struct PlanTrendsView: View {
 
     var body: some View {
         let model = trendsModel
+        let reference = moneyReference(on: model.money.end)
         ScrollView {
             VStack(alignment: .leading, spacing: Metrics.l) {
                 if isWide {
-                    EqualColumns(spacing: Metrics.l) {
-                        sourcesCard(model.sources)
-                        answerCard(model.history)
+                    if model.money.isEmpty {
+                        PlanMoneyInOutEmptyCard()
+                        EqualColumns(spacing: Metrics.l) {
+                            sourcesCard(model.sources)
+                            answerCard(model.history)
+                        }
+                    } else {
+                        PlanLastTwelveMonthsCard(year: model.lastTwelveMonths,
+                                                 plannedSpending: reference.spendingWhileWorking, isWide: true)
+                        EqualColumns(spacing: Metrics.l) {
+                            VStack(alignment: .leading, spacing: Metrics.l) {
+                                savingsRateCard(model.money, planRate: reference.savingsRate)
+                                moneyCard(model.money, planSpending: reference.spending(per: model.money.grain))
+                            }
+                            VStack(alignment: .leading, spacing: Metrics.l) {
+                                sourcesCard(model.sources)
+                                answerCard(model.history)
+                            }
+                        }
                     }
                 } else {
                     PlanTrendsControls()
+                    if model.money.isEmpty {
+                        PlanMoneyInOutEmptyCard()
+                    } else {
+                        PlanLastTwelveMonthsCard(year: model.lastTwelveMonths,
+                                                 plannedSpending: reference.spendingWhileWorking)
+                        savingsRateCard(model.money, planRate: reference.savingsRate)
+                        moneyCard(model.money, planSpending: reference.spending(per: model.money.grain))
+                    }
                     sourcesCard(model.sources)
                     answerCard(model.history)
                 }
@@ -51,6 +79,15 @@ struct PlanTrendsView: View {
             .padding(gutter)
         }
         .background(Palette.page)
+    }
+
+    /// The plan's references for money in and out on the latest check-in:
+    /// its spending while working and its own savings rate. From the plan
+    /// as shown, so an edit moves them at once.
+    private func moneyReference(on date: CalendarDate) -> PlanMoneyReference {
+        PlanMoneyReference(plan: session.plan, on: date,
+                           earliestAge: library.library.headlines(for: session.planID).last?.earliestAge,
+                           birthDate: library.settings.person?.birthDate)
     }
 
     /// Worked out once for each state of the library, the grain and the
@@ -62,6 +99,49 @@ struct PlanTrendsView: View {
         return cache.model(for: key) {
             PlanTrendsModel(plan: session.planID, library: library.library, valuator: library.valuator, grain: grain,
                             range: range, asOf: asOf)
+        }
+    }
+
+    // MARK: Savings rate, Money in and out
+
+    private func savingsRateCard(_ money: PlanMoneyInOut, planRate: Decimal?) -> some View {
+        Card {
+            if money.counted.isEmpty {
+                notYet("No money in and out was recorded in this time span.")
+            } else {
+                PlanSavingsRateLegend(showsLastTwelveMonths: money.hasLastTwelveMonths, planRate: planRate)
+                PlanSavingsRateChart(money: money, planRate: planRate)
+            }
+            whereItStarts(money)
+        } header: {
+            SectionHeader("Savings rate")
+        }
+    }
+
+    private func moneyCard(_ money: PlanMoneyInOut, planSpending: Decimal?) -> some View {
+        Card {
+            if money.counted.isEmpty {
+                notYet("No money in and out was recorded in this time span.")
+            } else {
+                PlanMoneyInOutLegend(money: money, showsPlanSpending: planSpending != nil)
+                PlanMoneyInOutChart(money: money, planSpending: planSpending)
+            }
+            whereItStarts(money)
+        } header: {
+            SectionHeader("Money in and out")
+        }
+    }
+
+    /// "Money in and out is recorded since 30 Jun 2026: 3 months so far.",
+    /// when the span reaches back before it.
+    @ViewBuilder
+    private func whereItStarts(_ money: PlanMoneyInOut) -> some View {
+        if let line = money.whereItStarts(locale: locale) {
+            Text(line)
+                .font(PlanProgressFont.caption)
+                .foregroundStyle(Palette.secondaryInk)
+                .fixedSize(horizontal: false, vertical: true)
+                .privacySensitiveInFeedback()
         }
     }
 

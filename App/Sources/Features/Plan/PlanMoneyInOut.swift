@@ -69,6 +69,10 @@ struct PlanMoneyInOut: Hashable {
         period.coversMore(grain)
     }
 
+    /// Whether any period in the span has a rate over the 12 months ending
+    /// at it: *Savings rate* draws its line.
+    var hasLastTwelveMonths: Bool { periods.contains { $0.lastTwelveMonths?.rate != nil } }
+
     /// Whether any period in the span covers more than itself.
     var hasCoversMore: Bool { periods.contains { coversMore($0) } }
 
@@ -116,6 +120,12 @@ struct PlanMoneyInOut: Hashable {
         span.lowerBound.addingTimeInterval(span.upperBound.timeIntervalSince(span.lowerBound) * fraction)
     }
 
+    /// The middle of `period` on the charts' time axis: where its dot and
+    /// its point on a line go.
+    func middle(of period: MoneyInOutPeriod) -> Date {
+        Self.date(0.5, across: timeSpan(of: period))
+    }
+
     /// The charts' time axis: from the first period's start to the last
     /// one's end; `nil` without periods.
     var domain: ClosedRange<Date>? {
@@ -126,8 +136,7 @@ struct PlanMoneyInOut: Hashable {
     /// The period whose middle is nearest `date`: the one a pointer reads.
     func period(nearest date: Date) -> MoneyInOutPeriod? {
         periods.min { first, second in
-            abs(Self.date(0.5, across: timeSpan(of: first)).timeIntervalSince(date))
-                < abs(Self.date(0.5, across: timeSpan(of: second)).timeIntervalSince(date))
+            abs(middle(of: first).timeIntervalSince(date)) < abs(middle(of: second).timeIntervalSince(date))
         }
     }
 
@@ -248,6 +257,18 @@ struct PlanLastTwelveMonths: Hashable {
         var direction: Int
         /// Whether it's good news (more kept, less went out): green, else orange.
         var isGood: Bool
+
+        /// "▲ 4 points", "▲ 2.100 €", "▼ 2%", or "No change" for one that
+        /// shows as none.
+        func text(currency: CurrencyCode, locale: Locale = .current) -> String {
+            guard direction != 0 else { return "No change" }
+            let number = switch value {
+            case .points(let points): Wording.count(abs(points), "point")
+            case .amount(let amount): AmountFormat.amount(abs(amount), currency: currency, locale: locale)
+            case .percent(let fraction): AmountFormat.percent(abs(fraction), digits: 0, locale: locale)
+            }
+            return "\(direction > 0 ? "▲" : "▼") \(number)"
+        }
     }
 
     /// Savings rate, Kept, Came in and Went out, in that order.
