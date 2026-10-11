@@ -16,8 +16,8 @@ struct PlanOutsideCard: View {
     @Binding var plan: PlanDocument
     let issues: PlanInputIssues
     let words: PlanWords
-    /// Opens an item's sheet, or the target mix's.
-    var onOpen: (PlanChapter.Item) -> Void = { _ in }
+    /// Opens a setting's sheet.
+    var onOpen: (PlanSettingSheet) -> Void = { _ in }
 
     @Environment(LibraryStore.self) private var library
 

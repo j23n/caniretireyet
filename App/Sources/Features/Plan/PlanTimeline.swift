@@ -59,8 +59,8 @@ struct PlanTimeline {
         /// The milestones the median future reaches in it (PROGRESS.md, "Milestones").
         let milestones: [ProjectedMilestone]
         let outcome: PlanChaptersModel.Outcome?
-        /// Your birth date, for the age on a date.
-        let birthDate: CalendarDate
+        /// The chapter, for the age and the year at a point.
+        let chapter: PlanChapter
 
         var id: Int { index }
 
@@ -85,9 +85,16 @@ struct PlanTimeline {
             return point { last[keyPath: $0] }
         }
 
-        /// Your age on `date`.
+        /// The year a point on the card stands for: its start counts as the
+        /// chapter's first year (``PlanChapter/year(on:)``).
+        func year(on date: Date) -> Int {
+            chapter.year(on: CalendarDate(date, in: .current))
+        }
+
+        /// The age reached during that year, as the start label, the ticks
+        /// and the end label count them (``PlanChapter/age(on:)``).
         func age(on date: Date) -> Int {
-            birthDate.wholeYears(to: CalendarDate(date, in: .current))
+            chapter.age(on: CalendarDate(date, in: .current))
         }
     }
 
@@ -128,19 +135,20 @@ struct PlanTimeline {
                 milestones: milestones.filter {
                     $0.date.dateValue > dates.lowerBound && $0.date.dateValue <= dates.upperBound
                 },
-                outcome: model.outcomes[index], birthDate: birthDate)
+                outcome: model.outcomes[index], chapter: chapter)
         }
     }
 
-    /// The money scale fitted to the cards at `indices`, the ones on screen
-    /// (UI.md, "Plan"): the medians and the middle half of futures, so the
-    /// outer band may run off the top or the bottom; to every card without
-    /// one of them. `nil` before the plan has results, or without the rate
-    /// to show them in.
-    func scale(fitting indices: Set<Int>) -> PlanStripScale? {
-        let shown = indices.filter(cards.indices.contains)
-        return PlanStripScale(values: (shown.isEmpty ? Set(cards.indices) : shown).flatMap { index in
-            cards[index].fan.flatMap { point in [point.p25, point.p50, point.p75] }
+    /// The money scale fitted to the money between the screen's edges
+    /// (UI.md, "Plan"): the median and the middle half of futures, so the
+    /// outer band may run off the top or the bottom. `nil` before the plan
+    /// has results, or without the rate to show them in.
+    func scale(fitting window: PlanStripWindow) -> PlanStripScale? {
+        PlanStripScale(values: window.values(of: cards) { card, plot in
+            let bands = [\FanPoint.p25, \.p50, \.p75]
+            return StripFit.Card(plot: plot, start: card.start, end: card.end, lines: bands.map { band in
+                card.fan.map { StripFit.Point(date: $0.date, value: $0[keyPath: band]) }
+            })
         })
     }
 

@@ -1,3 +1,4 @@
+import Glance
 import Model
 import SwiftUI
 
@@ -8,6 +9,10 @@ import SwiftUI
 ///   for a large standalone number (the hero figure).
 /// - With `signed`, its sign is always shown, without colour: a trade's
 ///   cash going down isn't bad news (`AmountFormat.signedAmount`).
+/// - With `short`, short enough for a narrow place like a chart's callout:
+///   `300.000 €`, `12,3M €`, `1,00B €` (Glance's `ShortAmount`). It takes
+///   the place of `precision` and `signed`; VoiceOver still reads the full
+///   amount.
 /// - Shows `•••••` while amounts are hidden (`\.hidesAmounts`), and is
 ///   marked `.privacySensitive()`, so widgets and the app switcher redact it
 ///   when the device is locked.
@@ -18,12 +23,14 @@ import SwiftUI
 ///     AmountText(balance, currency: account.currency, precision: .cents)
 ///     AmountText(trade.amount, currency: account.currency, precision: .cents, signed: true)
 ///     AmountText(total, tabular: false, animatesChanges: true).font(.largeTitle.bold())
+///     AmountText(median, short: true)
 struct AmountText: View {
     let amount: Decimal
     /// `nil` for the base currency.
     var currency: CurrencyCode?
     var precision: AmountPrecision = .whole
     var signed = false
+    var short = false
     var tabular = true
     var animatesChanges = false
 
@@ -33,11 +40,12 @@ struct AmountText: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     init(_ amount: Decimal, currency: CurrencyCode? = nil, precision: AmountPrecision = .whole, signed: Bool = false,
-         tabular: Bool = true, animatesChanges: Bool = false) {
+         short: Bool = false, tabular: Bool = true, animatesChanges: Bool = false) {
         self.amount = amount
         self.currency = currency
         self.precision = precision
         self.signed = signed
+        self.short = short
         self.tabular = tabular
         self.animatesChanges = animatesChanges
     }
@@ -52,10 +60,24 @@ struct AmountText: View {
             .contentTransition(animatesChanges && !reduceMotion && !hidesAmounts
                 ? .numericText(value: amount.doubleValue) : .identity)
             .animation(animatesChanges && !reduceMotion ? .default : nil, value: amount)
-            .accessibilityLabel(hidesAmounts ? Text("Amount hidden") : Text(verbatim: text))
+            .accessibilityLabel(hidesAmounts ? Text("Amount hidden") : Text(verbatim: spoken))
     }
 
     private var formatted: String {
+        let code = currency ?? baseCurrency
+        if short {
+            return ShortAmount.text(amount, currency: code, locale: locale)
+        }
+        return full
+    }
+
+    /// What VoiceOver reads: the full amount, also when the text is short,
+    /// whose `M` and `B` it would read as letters.
+    private var spoken: String {
+        short ? full : formatted
+    }
+
+    private var full: String {
         let code = currency ?? baseCurrency
         return signed
             ? AmountFormat.signedAmount(amount, currency: code, precision: precision, locale: locale)
@@ -142,6 +164,7 @@ struct DeltaText: View {
         AmountText(Decimal(string: "312480.55")!, tabular: false).font(.largeTitle.bold())
         AmountText(Decimal(string: "4210.55")!, precision: .cents)
         AmountText(Decimal(string: "-1025.95")!, precision: .cents, signed: true)
+        AmountText(Decimal(12_345_678), short: true)
         DeltaText(Decimal(4210))
         DeltaText(Decimal(-240))
         DeltaText(Decimal(string: "-0.001")!, precision: .cents)

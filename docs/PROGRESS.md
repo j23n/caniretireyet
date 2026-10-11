@@ -63,7 +63,7 @@ Every milestone is an amount of plan assets, in the base currency and today's mo
 | Years of spending | 1, 2, 3, 5, 10, 15, 20, 25, 30, 40 and 50 times the plan's retirement spending a year | "Enough for 10 years of the spending you plan for retirement" |
 | What retiring today needs | a quarter, a third, half, two thirds, three quarters, 9 in 10 of it, and all of it | "Halfway to what retiring today needs" |
 | The crossover | a year's saving divided by the typical (median) yearly growth of the plan's mix: where a typical year's growth matches what you save | "A typical year now adds more than you save" |
-| The coast point | the plan assets at the check-in whose recorded coast age first comes down to the age the first pension starts | "Passed the coast point: saving nothing more, you could still retire at 67." |
+| The coast point | the plan assets at the first check-in whose recorded coast age is at or under the age the first pension starts | "Passed the coast point: saving nothing more, you could still retire at 67." |
 
 - **A year's saving** is the take-home pay of the work phase in force less spending while working, the cash the plan invests each year (contributions are part of it). Without saving there's no crossover. The mix is the plan's target mix, or today's mix of the money you can draw.
 - **What retiring today needs** comes from the plan's latest results, else from the readiness recorded at the latest check-in (today's plan assets ÷ readiness).
@@ -71,7 +71,7 @@ Every milestone is an amount of plan assets, in the base currency and today's mo
 - **Ahead:** when the plan's median future first reaches each amount, between its year-ends, shown by the part of the year ("typically mid 2027"). The shares use what retiring today needs now; as you get older it needs less, so those dates are, if anything, late.
 - **The next milestone** is the lowest amount ahead, with how far there: today's plan assets as a share of its amount, or for a share of what retiring today needs, today's readiness as a share of it ("88% there"). A share is ahead while today's readiness is below it, as check-ins count them reached.
 - **Notable check-ins** join the milestones in a year's words, a row a month: a month you saved at least twice your usual (the median of the year before) and at least 1% of plan assets ("You saved 3.200 €, more than usual."); markets moving plan assets by 5% or more since the check-in before ("Markets fell 24.500 €, 8%."); and a baseline saved ("Saved a baseline.").
-- **The coast point:** the check-in whose recorded coast age, the earliest age you could retire if you stopped saving today ([PLANNER.md](PLANNER.md#ages-without)), first comes down to the age the first pension starts. Each check-in records the coast age (`Headline.coastAge`).
+- **The coast point:** the first check-in whose recorded coast age, the earliest age you could retire if you stopped saving today ([PLANNER.md](PLANNER.md#ages-without)), is at or under the age the first pension starts, including the first check-in that recorded one. Each check-in records the coast age (`Headline.coastAge`). Once reached, it stays listed when the age rises again, as other milestones do. A coast age at or under it in the latest results only, not yet recorded, counts at the next check-in. Without a pension there's no coast point.
 - **The widget** *Next milestone* shows the next one, from the snapshot the app writes (`MilestoneGlance`).
 
 ### Actual vs. a baseline
