@@ -274,18 +274,25 @@ struct OnboardingScreen: View {
     /// synced from another device keeps its own, also a plan file that
     /// didn't load), and only in the `currency` the amounts were entered
     /// in: a library that appeared in iCloud Drive meanwhile is opened
-    /// instead, with its own. If it can't be saved, the Plan screen still
+    /// instead, with its own. None without spending outside the euro
+    /// (``PlanEditing/starterPlan(id:name:library:asOf:payPerMonth:spendingPerMonth:)``).
+    /// When there's none, or it can't be saved, the Plan screen still
     /// offers to create one.
     private func createStarterPlan(currency: CurrencyCode) {
         let hasUnloadedPlan = library.unloadedFiles.contains { if case .plan = $0 { true } else { false } }
         guard library.canEdit, library.library.plans.isEmpty, !hasUnloadedPlan,
-              library.settings.baseCurrency == currency else { return }
-        let plan = PlanEditing.starterPlan(
-            id: library.newPlanID(for: Self.starterPlanName), name: Self.starterPlanName, library: library.library,
-            asOf: library.asOfDate, payPerMonth: payPerMonth, spendingPerMonth: spendingPerMonth)
+              library.settings.baseCurrency == currency,
+              let plan = PlanEditing.starterPlan(
+                  id: library.newPlanID(for: Self.starterPlanName), name: Self.starterPlanName,
+                  library: library.library, asOf: library.asOfDate,
+                  payPerMonth: payPerMonth, spendingPerMonth: spendingPerMonth)
+        else { return }
         do {
-            try library.save(plan)
-            if library.settings.mainPlan == nil { try library.setMainPlan(plan.id) }
+            // One write, so the plan is never saved without becoming the main plan.
+            try library.update { edited in
+                edited.plans[plan.id] = plan
+                if edited.settings.mainPlan == nil { edited.settings.mainPlan = plan.id }
+            }
         } catch {
             let message = LibraryStore.describe(error)
             LibraryLog.error("Onboarding: couldn't save the first plan: \(message)")

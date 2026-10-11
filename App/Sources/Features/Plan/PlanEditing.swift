@@ -24,8 +24,14 @@ enum PlanEditing {
     /// The plan onboarding creates (UI.md, "Empty states and first
     /// launch"): a ``newPlan(id:name:library:asOf:)`` with the pay and
     /// spending entered a month (Planner's `PlanDocument.setMonthly`).
+    /// `nil` when no spending was entered and the default has nothing to
+    /// come from: without a rate from euros, it would spend 30,000 of any
+    /// currency.
     static func starterPlan(id: PlanID, name: String, library: Library, asOf: CalendarDate,
-                            payPerMonth: Decimal?, spendingPerMonth: Decimal?) -> PlanDocument {
+                            payPerMonth: Decimal?, spendingPerMonth: Decimal?) -> PlanDocument? {
+        let entersSpending = spendingPerMonth.map { $0 >= 0 } ?? false
+        guard entersSpending || sourcePlan(in: library) != nil
+              || convertedReferenceSpending(in: library, asOf: asOf) != nil else { return nil }
         var plan = newPlan(id: id, name: name, library: library, asOf: asOf)
         plan.setMonthly(payPerMonth: payPerMonth, spendingPerMonth: spendingPerMonth, asOf: asOf)
         return plan
@@ -53,18 +59,23 @@ enum PlanEditing {
     ///    dollars, 4.800.000 for yen);
     /// 3. else, without a rate to the euro, 30.000 in the base currency.
     static func defaultSpending(in library: Library, asOf: CalendarDate) -> PlanSpending {
-        let base = library.settings.baseCurrency
         if let source = sourcePlan(in: library) {
             return PlanSpending(working: source.spending.working, retired: source.spending.retired)
         }
-        let amount = FXTable(library: library).convert(referenceSpending, from: .eur, to: base, on: asOf)
-            .map(roundedForDefault) ?? referenceSpending
+        let amount = convertedReferenceSpending(in: library, asOf: asOf) ?? referenceSpending
         return PlanSpending(working: amount, retired: amount)
     }
 
     /// The yearly spending a new plan starts from without other plans: in
     /// euros, converted into the base currency.
     static let referenceSpending: Decimal = 30_000
+
+    /// ``referenceSpending`` in the base currency, rounded; `nil` without a
+    /// rate from euros to it.
+    static func convertedReferenceSpending(in library: Library, asOf: CalendarDate) -> Decimal? {
+        FXTable(library: library).convert(referenceSpending, from: .eur, to: library.settings.baseCurrency, on: asOf)
+            .map(roundedForDefault)
+    }
 
     /// `amount` to two significant figures: 35.123 → 35.000, 4.812.345 →
     /// 4.800.000. A default to edit, not a figure to trust.
