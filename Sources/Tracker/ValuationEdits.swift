@@ -102,6 +102,13 @@ extension Library {
         editValuations { $0.removeValuation(key) }
     }
 
+    /// What ``removeValue(_:)`` would do, without doing it: for a delete
+    /// confirmation to say it first.
+    public func previewRemovingValue(_ key: ValuationKey) -> FlowFollowUp {
+        var copy = self
+        return copy.removeValue(key)
+    }
+
     // MARK: - After a change made elsewhere
 
     /// Brings the flows of the valuations that follow changed ones in step
