@@ -2,7 +2,7 @@ import Foundation
 import Model
 
 // Default flows for new valuations (PROGRESS.md, "Data this needs from day
-// one"), and cost basis tracking without transactions (UI.md, "Check-in").
+// one").
 
 extension Valuator {
     /// `quantity` units of `instrument` valued in `currency` on `date`: the
@@ -33,85 +33,35 @@ extension Valuator {
     }
 
     /// The default `flow` for a new valuation, following its account kind's
-    /// rule, in the account's currency and rounded to cents; `previous` is
-    /// the account's latest valuation before it.
+    /// rule (``Model/AccountKind/defaultFlow``), in the account's currency
+    /// and rounded to cents; `previous` is the account's latest valuation
+    /// before it.
     ///
-    /// - Whole change (current accounts, savings, cards, loans, mortgages):
-    ///   the new amount minus the previous one.
-    /// - New money (brokerage, crypto, metals): the change in cash, plus each
-    ///   change in quantity at the new price. For a position whose quantity
-    ///   went up, what was `paid` for it (in the account's currency) replaces
-    ///   the quantity change × price. Price movement isn't new money.
+    /// - Whole change (current accounts, cards, loans, mortgages): the new
+    ///   amount minus the previous one.
+    /// - Change less interest (savings): the whole change minus the
+    ///   valuation's `interest`, so the interest counts as market.
     /// - Asked (pension fund, TFR, property, other): `nil`, i.e. unknown until
     ///   the user enters it.
     /// - An account that records trades, whatever its kind: its deposits,
     ///   withdrawals, transfers, openings and trades settled outside it
     ///   since `previous`, plus the valuation's residual (its cash minus
-    ///   the cash the trades give); see ``TradeFlow``. `paid` isn't used.
+    ///   the cash the trades give); see ``TradeFlow``.
+    /// - A brokerage, crypto or metals account that doesn't record trades
+    ///   (one written before format version 4, which the upgrade converts):
+    ///   the whole change.
     ///
     /// Without a previous valuation, the whole amount is new money. `nil`
     /// also when the account is unknown or a needed price or rate is missing.
-    public func defaultFlow(for valuation: Valuation, previous: Valuation?,
-                            paid: [InstrumentID: Decimal] = [:]) -> Decimal? {
+    public func defaultFlow(for valuation: Valuation, previous: Valuation?) -> Decimal? {
         guard let account = accounts[valuation.account] else { return nil }
         if account.recordsTrades { return tradeFlow(for: valuation, previous: previous)?.rounded(scale: 2) }
-        let date = valuation.date
-        switch account.kind.defaultFlow {
-        case .ask:
-            return nil
-        case .wholeChange, .wholeChangeEditable:
-            guard let now = amountInAccountCurrency(of: valuation, on: date) else { return nil }
-            guard let previous else { return now.rounded(scale: 2) }
-            guard let before = amountInAccountCurrency(of: previous, on: previous.date) else { return nil }
-            return (now - before).rounded(scale: 2)
-        case .newMoney:
-            if valuation.isBalance || previous?.isBalance == true {
-                // Switching between a balance and holdings: no price split is possible.
-                guard let now = amountInAccountCurrency(of: valuation, on: date) else { return nil }
-                guard let previous else { return now.rounded(scale: 2) }
-                guard let before = amountInAccountCurrency(of: previous, on: date) else { return nil }
-                return (now - before).rounded(scale: 2)
-            }
-            var flow = (valuation.cash ?? 0) - (previous?.cash ?? 0)
-            var instruments = valuation.positions.map(\.instrument)
-            for position in previous?.positions ?? [] where !instruments.contains(position.instrument) {
-                instruments.append(position.instrument)
-            }
-            for instrument in instruments {
-                let now = valuation.position(for: instrument)?.quantity ?? 0
-                let before = previous?.position(for: instrument)?.quantity ?? 0
-                if now == before { continue }
-                if now > before, let amount = paid[instrument] {
-                    flow += amount
-                } else if let value = marketValue(of: now - before, of: instrument, in: account.currency, on: date) {
-                    flow += value
-                } else {
-                    return nil
-                }
-            }
-            return flow.rounded(scale: 2)
-        }
-    }
-}
-
-/// Keeps a position's cost basis (its total purchase cost, *valore di
-/// carico*) up to date from check-ins, without transactions.
-public enum CostBasis {
-    /// The cost basis after a position's quantity changed:
-    ///
-    /// - up: the previous cost plus what was `paid` for the added quantity;
-    /// - down: the previous cost reduced pro rata (average cost), rounded to cents;
-    /// - unchanged: the previous cost.
-    ///
-    /// A new position (previous quantity zero) costs what was paid. `nil`
-    /// when a needed amount is unknown.
-    public static func updated(previousQuantity: Decimal, previousCost: Decimal?, quantity: Decimal,
-                               paid: Decimal?) -> Decimal? {
-        if quantity <= 0 { return 0 }
-        if previousQuantity <= 0 { return paid }
-        if quantity == previousQuantity { return previousCost }
-        guard let previousCost else { return nil }
-        if quantity > previousQuantity { return paid.map { previousCost + $0 } }
-        return (previousCost * quantity / previousQuantity).rounded(scale: 2)
+        let rule = account.kind.defaultFlow
+        guard rule != .ask else { return nil }
+        guard let now = amountInAccountCurrency(of: valuation, on: valuation.date) else { return nil }
+        guard let previous else { return now.rounded(scale: 2) }
+        guard let before = amountInAccountCurrency(of: previous, on: previous.date) else { return nil }
+        let interest = rule == .changeLessInterest ? valuation.interest ?? 0 : 0
+        return (now - before - interest).rounded(scale: 2)
     }
 }

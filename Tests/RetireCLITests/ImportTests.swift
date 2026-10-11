@@ -230,15 +230,15 @@ struct ImportTests {
         #expect(loaded.trades(for: "ledger-wallet").allSatisfy { $0.type == .opening || $0.isSettledExternally })
     }
 
-    /// A month inserted between two check-ins: the later month's automatic
-    /// flow is worked out again from it, a typed flow is kept, and undoing
-    /// puts both months back.
+    /// A month inserted between two check-ins: the later month's flows of
+    /// the current and the savings account are worked out again from it,
+    /// and undoing puts both months back.
     @Test func insertingAMonthRecomputesTheNextAutomaticFlow() async throws {
         let library = try TemporaryFolder.exampleLibrary()
         // February is missing for the current account and the savings
         // account, so March's flows are measured from January: the current
-        // account's is the whole change (automatic), the savings account's
-        // was typed (500 paid in, without the interest).
+        // account's is the whole change, the savings account's was typed
+        // before format version 4 (500 paid in, without the interest).
         var gap = try library.load()
         let before = gap
         gap.removeValuation(ValuationKey(account: "conto-fineco", date: "2026-02-28"))
@@ -254,7 +254,8 @@ struct ImportTests {
         let run = await runCLI(["import", files.url("february.csv").path, "--library", library.path, "--apply"])
         #expect(run.status == 0, "\(run.all)")
         #expect(run.output.contains("Imported: 2 added, 0 updated, 0 overwritten, 0 kept, 0 identical, 0 left out.\n"))
-        #expect(run.output.contains("Recomputed the automatic flows of later values: conto-fineco on 2026-03-31.\n"))
+        #expect(run.output.contains("Recomputed the automatic flows of later values: conto-deposito on 2026-03-31, "
+            + "conto-fineco on 2026-03-31.\n"))
         #expect(run.output.contains("Wrote 2 files:\n  history/2026/2026-02.json\n  history/2026/2026-03.json\n"))
 
         var loaded = try library.load()
@@ -262,7 +263,8 @@ struct ImportTests {
         #expect(fineco.map(\.balance) == [d("5210.85"), d("4780.2"), d("5530.1")])
         // March's flow is now the change since February: 5530.10 − 4780.20.
         #expect(fineco.map(\.flow) == [d("1260.45"), nil, d("749.9")])
-        #expect(loaded.valuations(for: "conto-deposito").first { $0.date == "2026-03-31" }?.flow == 500)
+        // A savings account's flow is worked out too: the change since February, 16,159.50 − 15,626.95.
+        #expect(loaded.valuations(for: "conto-deposito").first { $0.date == "2026-03-31" }?.flow == d("532.55"))
         let backup = try #require(try library.backups().last)
         #expect(backup.files == ["history/2026/2026-02.json", "history/2026/2026-03.json"])
 

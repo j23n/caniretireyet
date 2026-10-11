@@ -3,8 +3,6 @@ import Model
 
 /// Something unusual in a check-in, shown on the review screen.
 public enum CheckInWarning: Hashable, Sendable {
-    /// A position's quantity went down: did you sell?
-    case quantityDecreased(account: AccountID, instrument: InstrumentID, from: Decimal, to: Decimal)
     /// The account's value changed by more than 30% since its previous
     /// valuation; values in the base currency.
     case largeChange(account: AccountID, from: Decimal, to: Decimal)
@@ -17,7 +15,7 @@ public enum CheckInWarning: Hashable, Sendable {
     /// The account the warning concerns.
     public var account: AccountID {
         switch self {
-        case .quantityDecreased(let account, _, _, _), .largeChange(let account, _, _), .unknownFlow(let account):
+        case .largeChange(let account, _, _), .unknownFlow(let account):
             account
         case .valuation(let problem):
             problem.account
@@ -25,7 +23,8 @@ public enum CheckInWarning: Hashable, Sendable {
     }
 }
 
-/// One position of a check-in row, valued.
+/// One position of a trades account's check-in row, valued: what its trades
+/// hold on the date.
 public struct CheckInPositionReview: Hashable, Sendable {
     public let instrument: InstrumentID
     public let quantity: Decimal
@@ -34,11 +33,7 @@ public struct CheckInPositionReview: Hashable, Sendable {
     public let price: PriceRecord?
     /// The value in the base currency; `nil` without a price or FX rate.
     public let value: Decimal?
-    /// When the quantity went up: the added quantity at the price, in the
-    /// account's currency. The placeholder for "paid", and what's used when
-    /// nothing was entered.
-    public let estimatedPaid: Decimal?
-    /// The cost basis that will be written.
+    /// The cost basis the trades give.
     public let costBasis: Decimal?
 }
 
@@ -61,8 +56,15 @@ public struct CheckInRowReview: Hashable, Sendable, Identifiable {
     /// for it (e.g. "contributions since …"). A trades account's flow comes
     /// from its trades and cash, whatever this says (see ``CheckInRow/isTrades``).
     public let flowRule: FlowDefault
-    /// The row's positions, valued; for a trades account, what its trades
-    /// hold on the date (and what they held at the previous valuation).
+    /// The row's part in what moved between your own accounts
+    /// (docs/ACCOUNTS.md, "Moved between your accounts"), in the account's
+    /// currency: a cash or savings account's flow minus money in plus money
+    /// out (``Model/Valuation/moved``), a trades account's flow, and a loan's
+    /// or a mortgage's flow when it's negative (paid out). `nil` for other
+    /// accounts, which aren't in the sum, and for rows that write nothing.
+    public let moved: Decimal?
+    /// For a trades account: what its trades hold on the date (and what
+    /// they held at the previous valuation), valued.
     public let positions: [CheckInPositionReview]
     public let warnings: [CheckInWarning]
     /// For a trades account with positions entered (from a broker
@@ -87,6 +89,19 @@ public struct CheckInReview: Hashable, Sendable {
     /// Accounts that open after the date and get a value in this check-in:
     /// saving moves their opening date back to the date. In row order.
     public let openingMoves: [AccountID]
+    /// The sum of the rows' ``CheckInRowReview/moved``, in the base currency:
+    /// money that left one of your accounts and landed in another cancels
+    /// out. Rows whose amount can't be converted are left out.
+    public let moved: Decimal
+
+    /// What moved and doesn't cancel out (docs/ACCOUNTS.md, "Settled
+    /// questions" 5): ``moved`` when it's at least 1 either way, e.g. a
+    /// payment into a pension fund, which isn't in the sum, or money out
+    /// left at 0 for a payment. Information, not a warning. `nil` when it
+    /// cancels out.
+    public var movedNotCancelledOut: Decimal? {
+        abs(moved) >= 1 ? moved : nil
+    }
 
     /// Every warning, in row order.
     public var warnings: [CheckInWarning] {
@@ -131,10 +146,6 @@ extension CheckInDraft {
             let previousValue = row.previous.flatMap { priced.value(of: $0, on: $0.date)?.knownValue }
             var warnings: [CheckInWarning] = []
             if row.state == .updated, row.conflict == nil {
-                for position in row.positions where position.quantity < position.previousQuantity && !row.isTrades {
-                    warnings.append(.quantityDecreased(account: row.account, instrument: position.instrument,
-                                                       from: position.previousQuantity, to: position.quantity))
-                }
                 if let previousValue, previousValue != 0, let now = value?.knownValue,
                    abs(now - previousValue) > Self.largeChangeThreshold * abs(previousValue) {
                     warnings.append(.largeChange(account: row.account, from: previousValue, to: now))
@@ -145,16 +156,34 @@ extension CheckInDraft {
             return CheckInRowReview(
                 account: row.account, state: row.state, valuation: proposal.written, value: value,
                 previousValue: previousValue, flow: proposal.written?.flow, defaultFlow: proposal.defaultFlow,
-                flowRule: priced.accounts[row.account]?.kind.defaultFlow ?? .ask, positions: proposal.positions,
+                flowRule: priced.accounts[row.account]?.kind.defaultFlow ?? .ask,
+                moved: proposal.written.flatMap { Self.moved(by: $0, in: row) }, positions: proposal.positions,
                 warnings: warnings, mismatches: row.isTrades ? priced.reconcile(proposal.valuation) : [])
+        }
+        var moved: Decimal = 0
+        for review in reviews {
+            guard let amount = review.moved, let currency = priced.accounts[review.account]?.currency,
+                  let converted = priced.fx.convert(amount, from: currency, to: priced.baseCurrency, on: date)
+            else { continue }
+            moved += converted
         }
         return CheckInReview(
             date: date, previousCheckIn: previousCheckIn, rows: reviews, netWorth: valuator.netWorth(on: date),
-            change: previousCheckIn.map { valuator.change(from: $0, to: date) }, openingMoves: records.openingMoves)
+            change: previousCheckIn.map { valuator.change(from: $0, to: date) }, openingMoves: records.openingMoves,
+            moved: moved.rounded(scale: 2))
+    }
+
+    /// The part of `written`, the valuation `row` writes, in what moved
+    /// between your own accounts (``CheckInRowReview/moved``).
+    static func moved(by written: Valuation, in row: CheckInRow) -> Decimal? {
+        if row.isTrades { return written.flow }
+        if row.kind.recordsMoneyInOut { return written.moved }
+        if row.kind.countsPrincipalRepaid, let flow = written.flow { return min(flow, 0) }
+        return nil
     }
 
     /// The valuations (one per row updated or marked unchanged, with flows
-    /// and cost bases filled in), prices and FX rates to write, and the
+    /// and money in and out filled in), prices and FX rates to write, and the
     /// accounts whose opening date moves back to the date. Rows not
     /// reviewed, skipped or in conflict with a valuation saved on the date
     /// write nothing.
@@ -214,13 +243,19 @@ extension CheckInDraft {
 
     /// The row valued with `valuator`. With `ignoringConflict`, `written` is
     /// what the row would write once its conflict is settled in its favour.
+    ///
+    /// A cash or savings account's value after its first records both
+    /// money in and money out, never neither (docs/ACCOUNTS.md, "Pre-filled
+    /// values"): money in is 0 until typed; a current account's money out
+    /// is the suggestion (``CheckInDraft/defaultMoneyOut(moneyIn:flow:)``)
+    /// and a savings account's 0 until typed; both are 0 when it's marked
+    /// unchanged. Its flow is worked out: the change, less the interest for
+    /// savings. A value saved on the date that the row left as it was is
+    /// written back as it was.
     func proposal(for row: CheckInRow, using valuator: Valuator, ignoringConflict: Bool = false) -> Proposal {
-        let currency = valuator.accounts[row.account]?.currency ?? valuator.baseCurrency
         var valuation = Valuation(account: row.account, date: date, note: row.note, source: row.source)
         var reviews: [CheckInPositionReview] = []
-        if row.mode == .balance {
-            valuation.balance = row.balance
-        } else if row.mode == .trades {
+        if row.mode == .trades {
             // The cash; positions entered are a reconciliation check, written as entered.
             valuation.cash = row.cash
             valuation.positions = row.positions.filter { $0.quantity != 0 }.map {
@@ -242,49 +277,49 @@ extension CheckInDraft {
                     previousQuantity: before.first { $0.instrument == instrument }?.quantity ?? 0,
                     price: valuator.prices.latest(for: instrument, onOrBefore: date),
                     value: valuator.marketValue(of: quantity, of: instrument, in: valuator.baseCurrency, on: date),
-                    estimatedPaid: nil, costBasis: position?.costBasis))
+                    costBasis: position?.costBasis))
             }
         } else {
-            valuation.cash = row.cash
-            for position in row.positions {
-                let estimate = position.isIncrease
-                    ? valuator.marketValue(of: position.quantityChange, of: position.instrument, in: currency,
-                                           on: date)?.rounded(scale: 2)
-                    : nil
-                let cost = position.enteredCostBasis ?? CostBasis.updated(
-                    previousQuantity: position.previousQuantity, previousCost: position.previousCostBasis,
-                    quantity: position.quantity, paid: position.paid ?? estimate)
-                if position.quantity != 0 {
-                    valuation.positions.append(Position(instrument: position.instrument, quantity: position.quantity,
-                                                        costBasis: cost))
-                }
-                reviews.append(CheckInPositionReview(
-                    instrument: position.instrument, quantity: position.quantity,
-                    previousQuantity: position.previousQuantity,
-                    price: valuator.prices.latest(for: position.instrument, onOrBefore: date),
-                    value: valuator.marketValue(of: position.quantity, of: position.instrument,
-                                                in: valuator.baseCurrency, on: date),
-                    estimatedPaid: estimate, costBasis: position.quantity == 0 ? nil : cost))
-            }
+            valuation.balance = row.balance
         }
+        let unchanged = row.state == .unchanged && !row.isTrades
+        // The flow of a savings account is the change minus the interest.
+        if !unchanged { valuation.interest = row.interest }
         // Unchanged is no new money, except in a trades account: its deposits and withdrawals since.
-        let defaultFlow = row.state == .unchanged && !row.isTrades
-            ? 0 : valuator.defaultFlow(for: valuation, previous: row.previous, paid: row.paid)
+        let defaultFlow = unchanged ? 0 : valuator.defaultFlow(for: valuation, previous: row.previous)
         var written: Valuation?
         if row.state == .updated || row.state == .unchanged, ignoringConflict || row.conflict == nil {
             var record = valuation
-            record.flow = row.isFlowEdited ? row.enteredFlow : defaultFlow
-            // A first value has no previous valuation to measure from, so it suggests no money out.
-            let suggested = row.previous == nil
-                ? nil : CheckInDraft.defaultMoneyOut(moneyIn: row.moneyIn, flow: record.flow)
-            let moneyOut = row.enteredMoneyOut ?? suggested
-            // Money out typed with money in left empty: nothing came in.
-            let moneyIn = row.moneyIn ?? (row.enteredMoneyOut == nil ? nil : 0)
-            // Both or neither, never negative: summaries count nothing else.
-            let recordsBoth = (moneyIn ?? -1) >= 0 && (moneyOut ?? -1) >= 0
-            record.moneyIn = recordsBoth ? moneyIn : nil
-            record.moneyOut = recordsBoth ? moneyOut : nil
-            record.interest = row.interest
+            record.flow = row.isFlowEdited && row.canEnterFlow ? row.enteredFlow : defaultFlow
+            if row.asksMoneyInOut {
+                if row.state == .updated, !row.isEdited, let existing = row.existing {
+                    // A value saved on the date and left as it was is written back as it was.
+                    record.flow = existing.flow
+                    record.moneyIn = existing.moneyIn
+                    record.moneyOut = existing.moneyOut
+                } else if row.previous != nil {
+                    // An account's first value has no value before it to measure money in and out from.
+                    // A negative amount (saved by hand) counts as not typed.
+                    let typedIn = row.moneyIn.flatMap { $0 >= 0 ? $0 : nil }
+                    let typedOut = row.enteredMoneyOut.flatMap { $0 >= 0 ? $0 : nil }
+                    let moneyIn = unchanged ? 0 : typedIn ?? 0
+                    let suggested = row.kind == .savings
+                        ? 0 : CheckInDraft.defaultMoneyOut(moneyIn: moneyIn, flow: record.flow) ?? 0
+                    record.moneyIn = moneyIn
+                    record.moneyOut = unchanged ? 0 : typedOut ?? suggested
+                }
+            } else {
+                // A first value has no previous valuation to measure from, so it suggests no money out.
+                let suggested = row.previous == nil
+                    ? nil : CheckInDraft.defaultMoneyOut(moneyIn: row.moneyIn, flow: record.flow)
+                let moneyOut = row.enteredMoneyOut ?? suggested
+                // Money out typed with money in left empty: nothing came in.
+                let moneyIn = row.moneyIn ?? (row.enteredMoneyOut == nil ? nil : 0)
+                // Both or neither, never negative: summaries count nothing else.
+                let recordsBoth = (moneyIn ?? -1) >= 0 && (moneyOut ?? -1) >= 0
+                record.moneyIn = recordsBoth ? moneyIn : nil
+                record.moneyOut = recordsBoth ? moneyOut : nil
+            }
             written = record
         }
         return Proposal(valuation: valuation, written: written, defaultFlow: defaultFlow, positions: reviews)
