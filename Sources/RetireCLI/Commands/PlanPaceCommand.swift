@@ -51,8 +51,8 @@ struct PlanPaceCommand: RetireSubcommand {
 
         func lines() -> [String] {
             guard let pace else {
-                return ["Not enough history for a saving pace: it needs check-ins of plan assets at least "
-                    + "\(SavingPace.minimumMonths) months apart."]
+                return ["Not enough history for a saving pace: it needs every plan asset tracked for at least "
+                    + "\(SavingPace.minimumMonths) months."]
             }
             let money = pace.isInTodaysMoney ? "in money of \(pace.asOf)"
                 : "in money of each check-in (the inflation index doesn't cover these months)"

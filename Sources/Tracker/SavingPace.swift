@@ -33,7 +33,8 @@ public struct SavingPace: Hashable, Sendable {
     /// The currency of every amount: the base currency.
     public let currency: CurrencyCode
     /// The months counted, oldest first: the last 12, or every whole month
-    /// since the first check-in when there are fewer.
+    /// since every plan asset is tracked (the first record of each one
+    /// opened before it) when there are fewer.
     public let months: [Month]
     /// The usual month: the median of `months`.
     public let usualMonth: Decimal
@@ -141,15 +142,24 @@ extension Valuator {
     /// How much you've been saving into plan assets through the latest
     /// check-in on or before `date` (``SavingPace``), in its money with
     /// `inflation`; `nil` with fewer than ``SavingPace/minimumMonths``
-    /// whole months since the first check-in.
+    /// whole months since every plan asset is tracked.
     public func savingPace(asOf date: CalendarDate, inflation: InflationIndex? = nil) -> SavingPace? {
         let checkIns = checkInDates(in: .planAssets, through: date)
         guard let first = checkIns.first, let asOf = checkIns.last else { return nil }
+        // The months start once every plan asset that existed is tracked:
+        // before an account opened earlier was first valued, its months
+        // would count as saving nothing. One opened later is new.
+        let tracked = accounts.values.filter { NetWorthScope.planAssets.includes($0) }
+            .compactMap { account in
+                firstRecordDate(of: account.id).flatMap { $0 > account.opened && $0 <= asOf ? $0 : nil }
+            }
+            .max()
+        let start = max(first, tracked ?? first)
         // Months 0 (the latest) to 23, each from the end of the one before;
-        // only whole months after the first check-in.
+        // only whole months after the start.
         let longest = 2 * SavingPace.window
         let ends = (0...longest).map { SavingPace.monthEnd($0, before: asOf) }
-        let available = (0..<longest).prefix(while: { ends[$0 + 1] >= first }).count
+        let available = (0..<longest).prefix(while: { ends[$0 + 1] >= start }).count
         guard available >= SavingPace.minimumMonths else { return nil }
 
         let intervals = zip(checkIns, checkIns.dropFirst()).filter { $0.1 > ends[available] }
