@@ -48,8 +48,8 @@ struct AccountDefaultsTests {
     @Test func flowDefaultsByKind() {
         #expect(AccountKind.cash.defaultFlow == .wholeChange)
         #expect(AccountKind.mortgage.defaultFlow == .wholeChange)
-        #expect(AccountKind.savings.defaultFlow == .wholeChangeEditable)
-        #expect(AccountKind.metals.defaultFlow == .newMoney)
+        #expect(AccountKind.savings.defaultFlow == .changeLessInterest)
+        #expect(AccountKind.metals.defaultFlow == .trades)
         #expect(AccountKind.pensionFund.defaultFlow == .ask)
         #expect(AccountKind.mortgage.isLiability)
     }

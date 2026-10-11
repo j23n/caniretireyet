@@ -4,8 +4,9 @@ import Model
 /// How much of the money that came in was kept over a period (PROGRESS.md,
 /// "Savings rate"): money in less money out on cash and savings accounts
 /// (``MoneyInOutSummary``), plus what was paid into pension funds and TFR,
-/// pay that never reaches a cash account, on both sides. In the base
-/// currency.
+/// pay that never reaches a cash account, on both sides, plus the principal
+/// repaid on loans and mortgages, whose payments are money out, as kept. In
+/// the base currency.
 public struct SavingsRate: Hashable, Sendable {
     /// The money in and out it's worked out from.
     public var moneyInOut: MoneyInOutSummary
@@ -21,14 +22,21 @@ public struct SavingsRate: Hashable, Sendable {
     /// Pension accounts whose new money is what the main plan pays in,
     /// because a check-in left their flow empty. Sorted.
     public var plannedContributionAccounts: [AccountID]
+    /// The drop in what loans and mortgages owe over the same days
+    /// (``Model/AccountKind/countsPrincipalRepaid``), each account's at
+    /// least zero, whether the plan includes it or not: the part of their
+    /// payments, money out, that was kept.
+    public var principalRepaid: Decimal
 
     public init(moneyInOut: MoneyInOutSummary, from: CalendarDate, through: CalendarDate,
-                pensionContributions: Decimal = 0, plannedContributionAccounts: [AccountID] = []) {
+                pensionContributions: Decimal = 0, plannedContributionAccounts: [AccountID] = [],
+                principalRepaid: Decimal = 0) {
         self.moneyInOut = moneyInOut
         self.from = from
         self.through = through
         self.pensionContributions = pensionContributions
         self.plannedContributionAccounts = plannedContributionAccounts
+        self.principalRepaid = principalRepaid
     }
 
     /// The account kinds whose new money counts as pay that was saved.
@@ -37,8 +45,9 @@ public struct SavingsRate: Hashable, Sendable {
     /// What came in: money in, plus the pension contributions.
     public var income: Decimal { moneyInOut.moneyIn + pensionContributions }
 
-    /// What was kept: money in less money out, plus the pension contributions.
-    public var saved: Decimal { moneyInOut.net + pensionContributions }
+    /// What was kept: money in less money out, plus the pension
+    /// contributions and the principal repaid.
+    public var saved: Decimal { moneyInOut.net + pensionContributions + principalRepaid }
 
     /// ``saved`` over ``income``; negative when more went out than came in.
     /// `nil` when nothing came in.
@@ -51,10 +60,10 @@ extension Valuator {
     /// The savings rate over the money in and out recorded by valuations
     /// dated from `from` through `through` (``moneyInOut(from:through:accounts:)``),
     /// with the new money into pension funds and TFR (``SavingsRate/pensionKinds``)
-    /// over the days the pay covers: those of the account the most came
-    /// into, so an account checked rarely, or recording money in and out
-    /// for longer, doesn't stretch them. `nil` when no money in and out was
-    /// counted.
+    /// and the principal repaid on loans and mortgages, over the days the pay
+    /// covers: those of the account the most came into, so an account
+    /// checked rarely, or recording money in and out for longer, doesn't
+    /// stretch them. `nil` when no money in and out was counted.
     public func savingsRate(from: CalendarDate, through: CalendarDate) -> SavingsRate? {
         let money = moneyInOut(from: from, through: through)
         guard let counted = money.measuredFrom else { return nil }
@@ -72,8 +81,13 @@ extension Valuator {
             contributions += paid.change.newMoney
             if paid.isFlowFromPlan { planned.append(account.id) }
         }
+        var repaid: Decimal = 0
+        for account in accounts.values.sorted(by: { $0.id < $1.id })
+        where account.kind.countsPrincipalRepaid && account.isOpen(onAnyDayFrom: start, through: through) {
+            repaid += max(change(of: account, from: start, to: through).change.newMoney, 0)
+        }
         return SavingsRate(moneyInOut: money, from: start, through: through, pensionContributions: contributions,
-                           plannedContributionAccounts: planned)
+                           plannedContributionAccounts: planned, principalRepaid: repaid)
     }
 
     /// ``savingsRate(from:through:)`` over the twelve months that end on `date`.

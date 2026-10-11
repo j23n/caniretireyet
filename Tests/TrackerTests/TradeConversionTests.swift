@@ -35,13 +35,8 @@ struct TradeConversionTests {
         let valuator = Valuator(library: library)
         var previous: Valuation?
         for var valuation in valuations {
-            if previous != nil {
-                let paid = [InstrumentID: Decimal](valuation.positions.compactMap { position in
-                    let before = previous?.position(for: position.instrument)
-                    guard position.quantity > (before?.quantity ?? 0), let cost = position.costBasis else { return nil }
-                    return (position.instrument, cost - (before?.costBasis ?? 0))
-                }, uniquingKeysWith: { first, _ in first })
-                valuation.flow = valuator.defaultFlow(for: valuation, previous: previous, paid: paid)
+            if let previous {
+                valuation.flow = valuator.snapshotFlow(for: valuation, previous: previous)
             }
             library.upsert(valuation)
             previous = valuation
@@ -203,5 +198,41 @@ struct TradeConversionTests {
         #expect(estimated.notes.first?.kind == .costFromMarketValue)
         #expect(estimated.notes.first?.message
             == "The opening of 10 vwce has no recorded cost: it's their value then, 1020.")
+    }
+}
+
+extension Valuator {
+    /// The new money a snapshot check-in recorded before format version 4:
+    /// the change in cash, plus each change in quantity at the new price,
+    /// or what was paid for a quantity that went up (read from the cost
+    /// bases). Made-up snapshot accounts in these tests record their flows
+    /// so, as the example library's did.
+    func snapshotFlow(for valuation: Valuation, previous: Valuation) -> Decimal? {
+        guard let account = accounts[valuation.account] else { return nil }
+        var flow = (valuation.cash ?? 0) - (previous.cash ?? 0)
+        var instruments = valuation.positions.map(\.instrument)
+        for position in previous.positions where !instruments.contains(position.instrument) {
+            instruments.append(position.instrument)
+        }
+        for instrument in instruments {
+            let now = valuation.position(for: instrument)
+            let before = previous.position(for: instrument)
+            let change = (now?.quantity ?? 0) - (before?.quantity ?? 0)
+            if change == 0 { continue }
+            // What was paid: the cost basis added.
+            let paid: Decimal? = if change > 0, let cost = now?.costBasis {
+                (before?.quantity ?? 0) <= 0 ? cost : before?.costBasis.map { cost - $0 }
+            } else {
+                nil
+            }
+            if let paid {
+                flow += paid
+            } else if let value = marketValue(of: change, of: instrument, in: account.currency, on: valuation.date) {
+                flow += value
+            } else {
+                return nil
+            }
+        }
+        return flow.rounded(scale: 2)
     }
 }

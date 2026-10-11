@@ -7,8 +7,8 @@ import Tracker
 // list is editable). Plain values, so they can be checked on Linux.
 
 /// A new valuation of one account, made the way the check-in makes one: a
-/// `CheckInDraft` limited to that account, so flows, "paid" amounts and cost
-/// bases follow the same rules.
+/// `CheckInDraft` limited to that account, so flows and money in and out
+/// follow the same rules.
 struct AccountValuationDraft: Hashable, Sendable {
     let account: AccountID
     private(set) var draft: CheckInDraft
@@ -147,7 +147,6 @@ struct AccountValuationInput: Hashable, Sendable {
     var balance: String?
     var cash: String?
     var quantities: [InstrumentID: String] = [:]
-    var paid: [InstrumentID: String] = [:]
     /// `nil` or empty: the default for the account's kind.
     var flow: String?
     var note: String?
@@ -169,11 +168,6 @@ struct AccountValuationInput: Hashable, Sendable {
     subscript(quantity instrument: InstrumentID, prefilled prefilled: String) -> String {
         get { quantities[instrument] ?? prefilled }
         set { quantities[instrument] = newValue }
-    }
-
-    subscript(paid instrument: InstrumentID) -> String {
-        get { paid[instrument] ?? "" }
-        set { paid[instrument] = newValue }
     }
 
     var flowText: String {
@@ -203,7 +197,6 @@ struct AccountValuationInput: Hashable, Sendable {
         for (_, text) in quantities.sorted(by: { $0.key < $1.key }) {
             check(text, "quantity", required: "Enter each position's quantity, or 0 if it was sold.")
         }
-        for (_, text) in paid.sorted(by: { $0.key < $1.key }) { check(text, "amount paid") }
         check(flow, "new money")
         return problems
     }
@@ -227,9 +220,6 @@ struct AccountValuationInput: Hashable, Sendable {
                 if let quantity = AmountInput.decimal(from: text, locale: locale) {
                     row.setQuantity(quantity, of: instrument)
                 }
-            }
-            for (instrument, text) in paid.sorted(by: { $0.key < $1.key }) {
-                row.setPaid(AmountInput.decimal(from: text, locale: locale), for: instrument)
             }
             if let flow {
                 switch AmountInput.parse(flow, locale: locale) {
@@ -382,6 +372,7 @@ struct AccountValuationForm: Hashable, Sendable {
         valuation.flow = number(flow)
         valuation.moneyIn = recordsMoneyInOut ? number(moneyIn) : original.moneyIn
         valuation.moneyOut = recordsMoneyInOut ? number(moneyOut) : original.moneyOut
+        // A savings account's interest isn't edited here yet: it's kept.
         valuation.interest = original.interest
         let trimmedNote = note.trimmingCharacters(in: .whitespacesAndNewlines)
         valuation.note = trimmedNote.isEmpty ? nil : trimmedNote

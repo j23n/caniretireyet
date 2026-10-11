@@ -15,10 +15,12 @@ extension CheckInDraft {
     ///   the other side of the date is filled in again, keeping what was
     ///   entered.
     /// - Rows with nothing entered (not reviewed yet, only pre-filled from
-    ///   a valuation saved on the date, or a trades account's as its trades
-    ///   say) are filled in again, and skipped rows stay skipped. Rows marked
-    ///   unchanged restore the new previous values. What was entered is
-    ///   kept, and default flows follow the new previous values.
+    ///   a valuation saved on the date, or a trades account's as its new
+    ///   trades say) are filled in again, so a trades account's row is done
+    ///   once a trade is added since its previous value. Skipped rows stay
+    ///   skipped. Rows marked unchanged restore the new previous values.
+    ///   What was entered is kept, and default flows follow the new
+    ///   previous values.
     /// - A row with something entered whose account now has a different
     ///   valuation saved on the date than the row started from keeps its
     ///   values and records the saved one as its ``CheckInRow/conflict``. It
@@ -48,9 +50,11 @@ extension CheckInDraft {
             let derived = account.recordsTrades
                 ? valuator.valuator.derivedSnapshot(of: account, on: date, previous: previous) : nil
             let holdsCash = account.recordsTrades ? valuator.valuator.holdsCash(account.id) : true
+            let hasNewTrades = account.recordsTrades
+                && CheckInRow.hasTrades(of: account.id, after: previous?.date, through: date, in: library)
             if old.previous == previous, (old.conflict ?? old.existing) == saved,
                old.opensLater == (account.opened > date), old.isTrades == account.recordsTrades, old.derived == derived,
-               old.holdsCash == holdsCash {
+               old.holdsCash == holdsCash, old.hasNewTrades == hasNewTrades, old.kind == account.kind {
                 rebased.append(old)
                 continue
             }

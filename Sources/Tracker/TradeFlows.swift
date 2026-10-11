@@ -98,7 +98,7 @@ extension Valuator {
     /// The recorded part of the flow of a trades account's valuation on
     /// `date`, `previous` being the account's valuation before it, split
     /// into what was paid from or into another account: the period starts
-    /// where ``defaultFlow(for:previous:paid:)`` starts it (`previous`, or
+    /// where ``defaultFlow(for:previous:)`` starts it (`previous`, or
     /// without one the library's previous check-in), so the parts add up to
     /// the flow a check-in saves, residual aside. Zero for other accounts.
     public func tradeFlowParts(of account: AccountID, on date: CalendarDate, previous: Valuation?) -> TradeFlowParts {

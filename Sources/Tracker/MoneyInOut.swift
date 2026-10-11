@@ -5,7 +5,8 @@ import Model
 /// period, from their valuations' `moneyIn` and `moneyOut` (PROGRESS.md,
 /// "Money in and out"): rough income and spending, in the base currency.
 /// Transfers between tracked accounts aren't in either, apart from credit
-/// card payments, which are money out.
+/// card, loan and mortgage payments, which are money out (docs/ACCOUNTS.md,
+/// "Loans and mortgages").
 public struct MoneyInOutSummary: Hashable, Sendable {
     /// The first day counted.
     public var from: CalendarDate
@@ -112,5 +113,18 @@ extension Valuator {
     public func moneyInOut(overYearEndingOn date: CalendarDate,
                            accounts only: Set<AccountID>? = nil) -> MoneyInOutSummary {
         moneyInOut(from: date.adding(years: -1).adding(days: 1), through: date, accounts: only)
+    }
+}
+
+extension Valuation {
+    /// What a cash or savings account's value says moved between your own
+    /// accounts since the value before it (docs/ACCOUNTS.md, "Moved between
+    /// your accounts"): its flow minus money in plus money out, in the
+    /// account's currency. The flow is the change (less the interest, for
+    /// savings), so it's what's left once money in and out are taken out.
+    /// `nil` unless the flow and both amounts are recorded.
+    public var moved: Decimal? {
+        guard let flow, let moneyIn, let moneyOut else { return nil }
+        return flow - moneyIn + moneyOut
     }
 }
