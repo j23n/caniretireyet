@@ -588,7 +588,7 @@ The plan reads as a life ([PLANNER.md](PLANNER.md#chapters)): the answer first, 
 - **Spending.** While working (in the first chapter), in retirement (where you retire), and the later phases (from an age, a share of it, where each begins). Each is a setting with a sheet of its own:
   - **Spending while working:** **A month**: "In today's EUR.", then what the accounts that track money in and out recorded going out a month in the last year, when they did.
   - **Spending in retirement:** **A month**: "In today's EUR. Later phases spend a share of it."
-  - **Later spending:** the age it starts at (**From 75**) and **Share of spending**, each a row: "From an age, a share of what you spend in retirement." **Delete** at the bottom removes the phase.
+  - **Later spending:** the age it starts at (**From 75**) and **Share of spending**, each a row: "From an age, a share of what you spend in retirement." **Delete** at the bottom removes a phase already in the plan.
   - **Flexible spending** ([PLANNER.md](PLANNER.md#flexible-spending)), a setting after spending in retirement:
 
   ```
