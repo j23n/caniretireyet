@@ -132,15 +132,16 @@ struct PlanTimeline {
         }
     }
 
-    /// The money scale fitted to the cards at `indices`, the ones on screen
-    /// (UI.md, "Plan"): the medians and the middle half of futures, so the
-    /// outer band may run off the top or the bottom; to every card without
-    /// one of them. `nil` before the plan has results, or without the rate
-    /// to show them in.
-    func scale(fitting indices: Set<Int>) -> PlanStripScale? {
-        let shown = indices.filter(cards.indices.contains)
-        return PlanStripScale(values: (shown.isEmpty ? Set(cards.indices) : shown).flatMap { index in
-            cards[index].fan.flatMap { point in [point.p25, point.p50, point.p75] }
+    /// The money scale fitted to the money between the screen's edges
+    /// (UI.md, "Plan"): the median and the middle half of futures, so the
+    /// outer band may run off the top or the bottom. `nil` before the plan
+    /// has results, or without the rate to show them in.
+    func scale(fitting window: PlanStripWindow) -> PlanStripScale? {
+        PlanStripScale(values: window.values(of: cards) { card, plot in
+            let bands = [\FanPoint.p25, \.p50, \.p75]
+            return StripFit.Card(plot: plot, start: card.start, end: card.end, lines: bands.map { band in
+                card.fan.map { StripFit.Point(date: $0.date, value: $0[keyPath: band]) }
+            })
         })
     }
 

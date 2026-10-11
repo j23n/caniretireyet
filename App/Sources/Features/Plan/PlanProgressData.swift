@@ -689,13 +689,15 @@ struct PlanProgressTimeline {
         }
     }
 
-    /// The money scale fitted to the cards at `indices`, the ones on screen
-    /// (UI.md, "Progress"): your money and what was expected; to every card
-    /// without one of them. `nil` without values.
-    func scale(fitting indices: Set<Int>) -> PlanStripScale? {
-        let shown = indices.filter(cards.indices.contains)
-        return PlanStripScale(values: (shown.isEmpty ? Set(cards.indices) : shown).flatMap { index in
-            cards[index].actual.map(\.value) + cards[index].expected.map(\.value)
+    /// The money scale fitted to the money between the screen's edges
+    /// (UI.md, "Progress"): your money and what was expected, each card's
+    /// plot `inset` in from its edges. `nil` without values.
+    func scale(fitting window: PlanStripWindow, inset: Double = 0) -> PlanStripScale? {
+        PlanStripScale(values: window.values(of: cards, inset: inset) { card, plot in
+            let lines = [card.actual, card.expected].map { line in
+                line.map { StripFit.Point(date: $0.date, value: $0.value) }
+            }
+            return StripFit.Card(plot: plot, start: card.start, end: card.end, lines: lines)
         })
     }
 
