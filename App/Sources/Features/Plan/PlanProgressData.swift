@@ -312,8 +312,15 @@ struct PlanProgressYear: Hashable, Sendable, Identifiable {
     /// baseline).
     func expectation(locale: Locale = .current) -> String {
         guard let baseline else { return "January" }
-        let start = baseline.baseline.start.date
-        if baseline.baseline.kind == .past { return "your \(start.year) plan" }
+        return Self.expectation(baseline.baseline, year: year, locale: locale)
+    }
+
+    /// What `baseline` is in words for `year` measured against it, as
+    /// ``expectation(locale:)`` says it: "January", "October", "your 2021
+    /// plan". The Overview's *On track?* names it so too.
+    static func expectation(_ baseline: Baseline, year: Int, locale: Locale = .current) -> String {
+        let start = baseline.start.date
+        if baseline.kind == .past { return "your \(start.year) plan" }
         guard start.year == year, start.month > 1 else { return "January" }
         return AmountFormat.monthName(start, locale: locale)
     }

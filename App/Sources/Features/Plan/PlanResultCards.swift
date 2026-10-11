@@ -87,66 +87,6 @@ struct PlanResultWarnings: View {
     }
 }
 
-/// How close today's plan assets are to what retiring today needs (UI.md,
-/// "Can I retire yet?"; the plan's key numbers say it too): a bar, and "58%
-/// of what you'd need to retire today" with an ⓘ that says what it
-/// compares. It comes from the same simulation as the chance of retiring
-/// today, so it reaches 100% exactly when that chance reaches the plan's
-/// confidence. An answer recorded before it existed shows `fallback`, if
-/// any, instead of its old FI progress.
-struct PlanReadinessView: View {
-    let headline: PlanHeadline
-    /// Shown when there's no readiness, e.g. ``PlanResultsText/readinessNotRecorded``.
-    var fallback: String?
-
-    @Environment(\.locale) private var locale
-    @State private var showsExplanation = false
-
-    var body: some View {
-        if let text = PlanResultsText.readiness(headline, locale: locale) {
-            VStack(alignment: .leading, spacing: Metrics.xs) {
-                if let readiness = headline.readiness {
-                    ProgressView(value: PlanResultsText.readinessBar(readiness))
-                        .tint(Palette.accent)
-                        .accessibilityHidden(true)
-                }
-                HStack(alignment: .firstTextBaseline, spacing: Metrics.xs) {
-                    Text(text)
-                        .foregroundStyle(Palette.secondaryInk)
-                        .fixedSize(horizontal: false, vertical: true)
-                    explanationButton
-                }
-            }
-            .font(.footnote)
-        } else if let fallback {
-            Text(fallback)
-                .font(.footnote)
-                .foregroundStyle(Palette.mutedInk)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-    }
-
-    private var explanationButton: some View {
-        Button {
-            showsExplanation = true
-        } label: {
-            Image(systemName: "info.circle")
-                .foregroundStyle(Palette.accent)
-        }
-        .buttonStyle(.borderless)
-        .accessibilityLabel("About this number")
-        .popover(isPresented: $showsExplanation) {
-            Text(PlanResultsText.readinessExplanation(confidence: headline.confidence, locale: locale))
-                .font(.callout)
-                .foregroundStyle(Palette.ink)
-                .fixedSize(horizontal: false, vertical: true)
-                .padding(Metrics.l)
-                .frame(idealWidth: 320, maxWidth: 360, alignment: .leading)
-                .presentationCompactAdaptation(.popover)
-        }
-    }
-}
-
 /// The run in progress, in a card: the one part of the results that reads
 /// the progress, so the rest doesn't redraw with each update.
 struct PlanRunProgressCard: View {

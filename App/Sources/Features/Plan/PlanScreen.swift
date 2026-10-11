@@ -137,6 +137,7 @@ struct PlanContentView: View {
                 await session.refresh()
             }
             .task { takeRequests() }
+            .onChange(of: navigation.pendingPlanPart) { takePendingPart() }
             .overlay(alignment: .bottom) {
                 if let message {
                     Text(message)
@@ -190,6 +191,15 @@ struct PlanContentView: View {
         if navigation.requestsWhatIf {
             if isWide { showsInspector = true } else { showsWhatIf = true }
         }
+        takePendingPart()
+    }
+
+    /// A part asked for once, e.g. Progress from the Overview's *On track?*
+    /// (``AppNavigation/showPlanProgress()``); only the main plan takes it.
+    private func takePendingPart() {
+        guard let pending = navigation.pendingPlanPart, planID == library.settings.mainPlan else { return }
+        part = pending
+        navigation.pendingPlanPart = nil
     }
 
     // MARK: Layouts
