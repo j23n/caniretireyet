@@ -43,7 +43,7 @@ struct CheckInList: View {
         let review = draft.review(in: snapshot)
         let sections = CheckInSection.sections(of: draft, in: snapshot)
         let visible = CheckInSection.visibleRows(of: sections, showsOpenedLater: session.showsOpenedLater)
-        let moneyInOut = Set(visible.filter { CheckInRowDisplay.showsMoneyInOut($0, in: snapshot) }.map(\.account))
+        let moneyInOut = Set(visible.filter { CheckInRowDisplay.showsMoneyInOut($0) }.map(\.account))
         let order = CheckInFieldOrder.list(rows: visible, review: review, expanded: session.expanded,
                                            editingFlows: session.editingFlows, editingCash: session.editingCash,
                                            moneyInOut: moneyInOut)
@@ -409,16 +409,22 @@ private struct CheckInListRow: View {
             CheckInStateIndicator(row: row)
         }
         caption
-        if CheckInRowDisplay.showsMoneyInOut(row, in: library.library) {
+        if CheckInRowDisplay.showsMoneyInOut(row) {
             moneyInOutFields
+            if CheckInRowDisplay.showsInterest(row) {
+                interestField
+            }
+            movedLine
         }
         if showsFlowField {
             flowField
         }
     }
 
-    /// "In [ 3.400,00 ] Out [ 3.010,30 ]": money out follows money in and the
-    /// change until it's typed (PROGRESS.md, "Money in and out").
+    /// "In [ 3.400,00 ] Out [ 3.010,30 ]" (docs/ACCOUNTS.md, "Pre-filled
+    /// values"): empty, money in is 0; a current account's money out
+    /// follows money in and the change until it's typed, and a savings
+    /// account's is 0.
     private var moneyInOutFields: some View {
         let inField = CheckInField.moneyIn(row.account)
         let outField = CheckInField.moneyOut(row.account)
@@ -427,8 +433,9 @@ private struct CheckInListRow: View {
                 .font(.subheadline)
                 .foregroundStyle(Palette.secondaryInk)
             CheckInNumberField(
-                inField, focus: focus, isFocused: focused == inField, value: row.moneyIn, prompt: "0",
-                label: inField.name(in: library.library), allowsEmpty: true, onSubmit: { next(inField) }
+                inField, focus: focus, isFocused: focused == inField, value: row.moneyIn,
+                prompt: CheckInWording.moneyPrompt, label: inField.name(in: library.library), allowsEmpty: true,
+                onSubmit: { next(inField) }
             ) { amount in
                 checkIn.updateRow(row.account) { $0.setMoneyIn(amount) }
             }
@@ -438,7 +445,7 @@ private struct CheckInListRow: View {
                 .foregroundStyle(Palette.secondaryInk)
             CheckInNumberField(
                 outField, focus: focus, isFocused: focused == outField,
-                value: row.enteredMoneyOut ?? review?.valuation?.moneyOut, prompt: "unknown",
+                value: row.enteredMoneyOut ?? review?.valuation?.moneyOut, prompt: CheckInWording.moneyPrompt,
                 label: outField.name(in: library.library), allowsEmpty: true, onSubmit: { next(outField) }
             ) { amount in
                 checkIn.updateRow(row.account) { $0.setMoneyOut(amount) }
@@ -446,6 +453,46 @@ private struct CheckInListRow: View {
             .checkInFieldBox(isFocused: focused == outField)
             Color.clear
                 .frame(width: 22, height: 1)
+        }
+    }
+
+    /// "Interest [ 35,05 ]", a savings account's: its new money is the
+    /// change less the interest, which counts as markets.
+    private var interestField: some View {
+        let field = CheckInField.interest(row.account)
+        return HStack(spacing: Metrics.s) {
+            Text("Interest")
+                .font(.subheadline)
+                .foregroundStyle(Palette.secondaryInk)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            HStack(spacing: Metrics.xs) {
+                CheckInNumberField(
+                    field, focus: focus, isFocused: focused == field, value: row.interest,
+                    prompt: CheckInWording.moneyPrompt, label: field.name(in: library.library), allowsEmpty: true,
+                    signToggle: signToggle, onSubmit: { next(field) }
+                ) { amount in
+                    checkIn.updateRow(row.account) { $0.setInterest(amount) }
+                }
+                Text(verbatim: symbol)
+                    .foregroundStyle(Palette.secondaryInk)
+            }
+            .frame(width: 116)
+            .checkInFieldBox(isFocused: focused == field)
+            Color.clear
+                .frame(width: 22, height: 1)
+        }
+    }
+
+    /// "Moved +500,00 between your accounts", read-only: what's left once
+    /// money in and out (and the interest) are taken out of the change.
+    @ViewBuilder
+    private var movedLine: some View {
+        if let text = CheckInWording.moved(review?.moved, locale: locale) {
+            AmountSentenceText(text)
+                .font(.footnote)
+                .foregroundStyle(Palette.secondaryInk)
+                .monospacedDigit()
+                .accessibilityHint(Text(verbatim: CheckInWording.movedExplanation))
         }
     }
 
@@ -552,10 +599,26 @@ private struct CheckInListRow: View {
     private var hidesAmounts: Bool { redactionReasons.hidesAmounts }
 
     /// "Bought or sold since 30 Sep?  [⊕ Add Trade…]": a new trade, dated
-    /// on the check-in's date. Once it's saved, the row follows it. The
-    /// button goes under the question when both don't fit on a line.
+    /// on the check-in's date. Once it's saved, the row follows it. A row
+    /// waiting for its trades also offers *No Trades* (docs/ACCOUNTS.md,
+    /// "Settled questions" 4). The buttons go under the question when they
+    /// don't fit on a line.
     private var addTradeLine: some View {
-        textThenButton(addTradePrompt, addTradeButton)
+        textThenButton(addTradePrompt, tradeButtons)
+    }
+
+    private var tradeButtons: some View {
+        HStack(spacing: Metrics.s) {
+            if CheckInRowDisplay.offersNoTrades(row) {
+                Button("No Trades") {
+                    markUnchanged()
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .accessibilityLabel(Text(verbatim: "No trades in \(name) since its last value"))
+            }
+            addTradeButton
+        }
     }
 
     private var addTradePrompt: some View {
@@ -801,15 +864,20 @@ private struct CheckInListRow: View {
                         Text(verbatim: "·")
                     }
                     Text("new money")
-                    Button {
-                        session.editFlow(row.account)
-                    } label: {
+                    if CheckInRowDisplay.canEditFlow(row, rule: rule) {
+                        Button {
+                            session.editFlow(row.account)
+                        } label: {
+                            CheckInPlainAmount(review?.flow, signed: true, placeholder: "unknown")
+                                .fontWeight(.semibold)
+                                .foregroundStyle(Palette.accent)
+                        }
+                        .buttonStyle(.borderless)
+                        .accessibilityHint("Edits the new money")
+                    } else {
+                        // Worked out from what's typed (docs/ACCOUNTS.md, "New money").
                         CheckInPlainAmount(review?.flow, signed: true, placeholder: "unknown")
-                            .fontWeight(.semibold)
-                            .foregroundStyle(Palette.accent)
                     }
-                    .buttonStyle(.borderless)
-                    .accessibilityHint("Edits the new money")
                 }
             }
             .font(.footnote)
