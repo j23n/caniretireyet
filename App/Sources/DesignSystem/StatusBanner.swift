@@ -115,7 +115,8 @@ struct LibraryStatusBanners: View {
     /// screen that shows the banners in a card of its own (the Overview's
     /// "Needs attention").
     static func showsAny(for library: LibraryStore) -> Bool {
-        library.upgrade != nil || library.isReadOnly || library.lastError != nil || library.loadIssues.contains { $0.severity == .error }
+        library.upgrade != nil || library.isReadOnly || library.lastError != nil
+            || library.loadIssues.contains { $0.severity == .error }
             || !library.mergedConflicts.isEmpty || !library.conflictFailures.isEmpty || !library.saveNotices.isEmpty
     }
 

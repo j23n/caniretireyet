@@ -297,6 +297,7 @@ final class LibraryStore {
         conflictFailures = []
         saveNotices = []
         lastError = nil
+        upgrade = nil
         if !holdsLibrary {
             showOpening(.looking(location.kind), inICloud: location.isUbiquitous)
             let found = await location.containsLibrary()
