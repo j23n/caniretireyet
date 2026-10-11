@@ -103,6 +103,7 @@ struct InstrumentsScreen: View {
             TableColumn("Name") { (instrument: Instrument) in
                 Text(instrument.name)
                     .lineLimit(1)
+                    .privacySensitiveInFeedback()
             }
             .width(min: 160, ideal: 260)
             TableColumn("Kind") { (instrument: Instrument) in
@@ -112,6 +113,7 @@ struct InstrumentsScreen: View {
             TableColumn("ISIN / ticker") { (instrument: Instrument) in
                 Text(InstrumentText.identifiers(of: instrument))
                     .foregroundStyle(Palette.secondaryInk)
+                    .privacySensitiveInFeedback()
             }
             .width(min: 90, ideal: 160)
             TableColumn("Priced in") { (instrument: Instrument) in
@@ -129,6 +131,7 @@ struct InstrumentsScreen: View {
             TableColumn("Price source") { (instrument: Instrument) in
                 Text(InstrumentText.source(of: instrument))
                     .foregroundStyle(Palette.secondaryInk)
+                    .privacySensitiveInFeedback()
             }
         }
         .contextMenu(forSelectionType: InstrumentID.self) { ids in
@@ -278,13 +281,16 @@ private struct InstrumentListRow: View {
             Text(instrument.name)
                 .foregroundStyle(Palette.ink)
                 .lineLimit(2)
+                .privacySensitiveInFeedback()
             Text("\(InstrumentForm.name(of: instrument.kind)) · \(InstrumentText.identifiers(of: instrument))")
                 .font(.caption)
                 .foregroundStyle(Palette.secondaryInk)
+                .privacySensitiveInFeedback()
             HStack(spacing: Metrics.xs) {
                 InstrumentLatestPriceLabel(latest: latest, threshold: threshold)
                 Text(verbatim: "· " + InstrumentText.source(of: instrument))
                     .lineLimit(1)
+                    .privacySensitiveInFeedback()
                 InstrumentUpdateIndicator(line: update)
             }
             .font(.caption)
@@ -474,6 +480,7 @@ struct InstrumentEditor: View {
                 Section("Held in") {
                     Text(holders.joined(separator: ", "))
                         .foregroundStyle(Palette.secondaryInk)
+                        .privacySensitiveInFeedback()
                 }
             }
             if showsProblems {
@@ -575,6 +582,7 @@ struct InstrumentEditor: View {
                     .font(.footnote)
                     .foregroundStyle(Palette.secondaryInk)
                     .fixedSize(horizontal: false, vertical: true)
+                    .privacySensitiveInFeedback()
                 testQuoteAction(testQuote, form: form.wrappedValue)
             }
         } header: {
@@ -608,6 +616,7 @@ struct InstrumentEditor: View {
                 Label("Saved for \(date)", systemImage: "checkmark.circle")
                     .font(.footnote)
                     .foregroundStyle(Palette.good)
+                    .privacySensitiveInFeedback()
             } else if !quote.fits(form.testInstrument(id: instrumentID ?? "test")) {
                 Text("The currency, unit or symbol changed since the test. Test again to keep a price.")
                     .font(.footnote)
@@ -639,6 +648,7 @@ struct InstrumentEditor: View {
                     Text(verbatim: InstrumentText.price(typedPrice.price, currency: typedPrice.currency, locale: locale)
                         + " on " + AmountFormat.shortDate(typedPrice.date, locale: locale))
                         .monospacedDigit()
+                        .privacySensitiveInFeedback()
                 }
             }
             Button("Set Price…") { showsSetPrice = true }

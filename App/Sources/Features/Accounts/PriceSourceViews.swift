@@ -21,6 +21,7 @@ struct SymbolCandidateRow: View {
                     Text(verbatim: candidate.symbol)
                         .font(.body.weight(.semibold))
                         .foregroundStyle(Palette.ink)
+                        .privacySensitiveInFeedback()
                     if isPreferred {
                         Text("Best match")
                             .font(.caption)
@@ -31,12 +32,14 @@ struct SymbolCandidateRow: View {
                     Text(verbatim: name)
                         .font(.footnote)
                         .foregroundStyle(Palette.secondaryInk)
+                        .privacySensitiveInFeedback()
                 }
                 let details = PriceSourceSearch.details(of: candidate)
                 if !details.isEmpty {
                     Text(verbatim: details)
                         .font(.footnote)
                         .foregroundStyle(Palette.secondaryInk)
+                        .privacySensitiveInFeedback()
                 }
             }
             Spacer(minLength: 0)
@@ -125,6 +128,7 @@ struct SymbolSearchSheet: View {
                             .font(.footnote)
                             .foregroundStyle(Palette.secondaryInk)
                             .fixedSize(horizontal: false, vertical: true)
+                            .privacySensitiveInFeedback()
                     }
                 } header: {
                     Text("Yahoo Finance")
@@ -231,6 +235,7 @@ struct PriceSourceFinderSheet: View {
                     Section {
                         Label(message, systemImage: "exclamationmark.triangle")
                             .foregroundStyle(Palette.warning)
+                            .privacySensitiveInFeedback()
                     }
                 }
             }
@@ -278,9 +283,11 @@ struct PriceSourceFinderSheet: View {
                     .font(.footnote)
                     .foregroundStyle(Palette.secondaryInk)
                     .fixedSize(horizontal: false, vertical: true)
+                    .privacySensitiveInFeedback()
             }
         } header: {
             Text(verbatim: "\(search.name) · \(search.currency.rawValue)")
+                .privacySensitiveInFeedback()
         }
     }
 }

@@ -53,6 +53,7 @@ struct TradeHoldingsRows: View {
                     Text(verbatim: AmountFormat.percent(share, digits: 0, locale: locale))
                         .font(.footnote)
                         .foregroundStyle(Palette.secondaryInk)
+                        .privacySensitiveInFeedback()
                 }
                 AmountText(cash, currency: currency, precision: .cents)
                     .foregroundStyle(Palette.ink)
@@ -89,6 +90,7 @@ struct TradeHoldingsRows: View {
                 if let share = AccountPositionText.share(row, locale: locale) {
                     Text(verbatim: share)
                         .lineLimit(1)
+                        .privacySensitiveInFeedback()
                 }
             }
             ViewThatFits(in: .horizontal) {
@@ -150,6 +152,7 @@ struct TradeHoldingsGrid: View {
                 GridRow {
                     Text(row.name)
                         .lineLimit(1)
+                        .privacySensitiveInFeedback()
                     Text(QuantityFormat.quantity(row.quantity, locale: locale))
                         .monospacedDigit()
                         .privacySensitiveAmount()
@@ -162,6 +165,7 @@ struct TradeHoldingsGrid: View {
                     }
                     Text(AccountPositionText.unitPrice(row, locale: locale))
                         .monospacedDigit()
+                        .privacySensitiveInFeedback()
                     if let amount = row.amount {
                         AmountText(amount, currency: currency, precision: .cents)
                     } else {
@@ -171,6 +175,7 @@ struct TradeHoldingsGrid: View {
                     Text(row.share.map { AmountFormat.percent($0, digits: 0, locale: locale) } ?? "–")
                         .monospacedDigit()
                         .foregroundStyle(Palette.secondaryInk)
+                        .privacySensitiveInFeedback()
                 }
             }
             if let cash = holdings.cash {
@@ -184,6 +189,7 @@ struct TradeHoldingsGrid: View {
                     Text(holdings.cashShare.map { AmountFormat.percent($0, digits: 0, locale: locale) } ?? "–")
                         .monospacedDigit()
                         .foregroundStyle(Palette.secondaryInk)
+                        .privacySensitiveInFeedback()
                 }
             }
             Divider()
@@ -262,6 +268,7 @@ struct TradeListRowView: View {
                 .font(.caption)
                 .foregroundStyle(Palette.secondaryInk)
                 .lineLimit(3)
+                .privacySensitiveInFeedback()
         }
     }
 
@@ -361,21 +368,25 @@ struct TradesTable: View {
         } row: { item in
             Text(AmountFormat.mediumDate(item.date))
                 .monospacedDigit()
+                .privacySensitiveInFeedback()
                 .pageTableColumn(Columns.date)
             TradeTableTypeCell(item: item)
                 .pageTableColumn(Columns.type)
             Text(item.instrumentLabel ?? "")
+                .privacySensitiveInFeedback()
                 .pageTableColumn(Columns.instrument)
             TradeTableQuantityCell(item: item)
                 .pageTableColumn(Columns.quantity)
             Text(item.priceText ?? "")
                 .monospacedDigit()
                 .frame(maxWidth: .infinity, alignment: .trailing)
+                .privacySensitiveInFeedback()
                 .pageTableColumn(Columns.price)
             TradeTableAmountCell(item: item, currency: currency)
                 .pageTableColumn(Columns.amount)
             Text([item.settlementLabel, item.trade.note].compactMap { $0 }.joined(separator: " · "))
                 .foregroundStyle(Palette.secondaryInk)
+                .privacySensitiveInFeedback()
                 .pageTableColumn(Columns.note)
         } menu: { item in
             Button("Edit Trade…") { edit(item.id) }
@@ -455,6 +466,7 @@ struct TradeIncomeYearView: View {
             Text(verbatim: String(year.year))
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(Palette.ink)
+                .privacySensitiveInFeedback()
             ForEach(year.lines) { line in
                 HStack {
                     Text(verbatim: line.name)
@@ -498,7 +510,8 @@ struct TradeIssueBanners: View {
         VStack(spacing: Metrics.s) {
             ForEach(notes) { note in
                 StatusBanner(note.isError ? .warning : .info, note.title, message: note.message,
-                             actionTitle: note.actionTitle, action: note.action.map { action in { perform(action) } })
+                             personal: [.title, .message], actionTitle: note.actionTitle,
+                             action: note.action.map { action in { perform(action) } })
             }
         }
     }

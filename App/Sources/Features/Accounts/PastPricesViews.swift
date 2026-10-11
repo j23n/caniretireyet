@@ -148,6 +148,7 @@ struct PastPricesSheet: View {
         case .failed(let reason):
             Label {
                 Text(verbatim: reason)
+                    .privacySensitiveInFeedback()
             } icon: {
                 Image(systemName: "exclamationmark.triangle")
                     .foregroundStyle(Palette.critical)
@@ -214,19 +215,23 @@ private struct PastPriceLineRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(verbatim: line.title)
                     .fontWeight(.medium)
+                    .privacySensitiveInFeedback(line.instrument != nil)
                 Text(verbatim: PastPriceText.dates(line.dates, locale: locale))
                     .font(.footnote)
                     .foregroundStyle(Palette.secondaryInk)
+                    .privacySensitiveInFeedback()
                 if let source = sourceText {
                     Text(verbatim: source)
                         .font(.footnote)
                         .foregroundStyle(Palette.secondaryInk)
+                        .privacySensitiveInFeedback()
                 }
                 if missingCount > 0, let reason = line.result?.reason {
                     Text(verbatim: reason)
                         .font(.footnote)
                         .foregroundStyle(isFailure ? Palette.critical : Palette.secondaryInk)
                         .fixedSize(horizontal: false, vertical: true)
+                        .privacySensitiveInFeedback()
                 }
             }
             Spacer(minLength: Metrics.s)
@@ -289,6 +294,7 @@ struct OldPriceNoteView: View {
             Label {
                 Text(verbatim: text)
                     .fixedSize(horizontal: false, vertical: true)
+                    .privacySensitiveInFeedback()
             } icon: {
                 Image(systemName: systemImage)
             }

@@ -57,7 +57,7 @@ struct AccountDetailScreen: View {
                             filter: tradeFilter, locale: locale)
                 : nil
             layout(data, trades: trades)
-                .navigationTitle(account.name)
+                .personalNavigationTitle(account.name, hidden: "Account")
                 .toolbar { toolbarContent(data) }
                 .sheet(item: $action) { action in
                     AccountActionSheet(action: action)
@@ -455,6 +455,7 @@ struct AccountDetailScreen: View {
                 }
             } header: {
                 Text(verbatim: month.title(locale: locale))
+                    .privacySensitiveInFeedback()
             }
         }
     }
@@ -486,7 +487,7 @@ struct AccountDetailScreen: View {
         StatusBanner(
             .info, "This account has been empty since \(AmountFormat.mediumDate(since, locale: locale)). Close it?",
             message: "Closing keeps its history: it stays in every chart up to that day, and leaves check-ins.",
-            actionTitle: library.canEdit ? "Close Account…" : nil,
+            personal: .title, actionTitle: library.canEdit ? "Close Account…" : nil,
             action: { action = AccountAction(.close, accountID, date: since) })
     }
 
@@ -649,6 +650,7 @@ private struct AccountDetailHeader: View {
                 if let institution = data.account.institution {
                     Text(institution)
                         .lineLimit(1)
+                        .privacySensitiveInFeedback()
                 }
                 if data.stale != nil {
                     AccountStaleBadge()
@@ -675,6 +677,7 @@ private struct AccountDetailHeader: View {
                     DeltaText(change.change, currency: data.currency, precision: .cents)
                     Text("since \(AmountFormat.shortDate(from, relativeTo: .today(), locale: locale))")
                         .foregroundStyle(Palette.secondaryInk)
+                        .privacySensitiveInFeedback()
                 }
                 .font(.subheadline)
                 let parts = self.parts(of: change)
@@ -690,6 +693,7 @@ private struct AccountDetailHeader: View {
             Text(statusLine)
                 .font(.caption)
                 .foregroundStyle(Palette.mutedInk)
+                .privacySensitiveInFeedback()
         }
         .padding(.vertical, Metrics.xs)
     }
@@ -777,6 +781,7 @@ struct AccountPositionNameLine: View {
             Text(row.name)
                 .foregroundStyle(Palette.ink)
                 .lineLimit(2)
+                .privacySensitiveInFeedback()
             Spacer(minLength: Metrics.s)
             if let amount = row.amount {
                 AmountText(amount, currency: currency, precision: .cents)
@@ -821,12 +826,14 @@ struct AccountPositionQuantityLine<Trailing: View>: View {
                 if let price {
                     Text(verbatim: price)
                         .lineLimit(1)
+                        .privacySensitiveInFeedback()
                 }
             }
             VStack(alignment: .leading, spacing: 2) {
                 AmountSentenceText(quantity)
                 if let price {
                     Text(verbatim: price)
+                        .privacySensitiveInFeedback()
                 }
                 trailing()
             }
@@ -885,11 +892,13 @@ private struct AccountPositionsGrid: View {
                     GridRow {
                         Text(row.name)
                             .lineLimit(1)
+                            .privacySensitiveInFeedback()
                         Text(QuantityFormat.quantity(row.quantity, locale: locale))
                             .monospacedDigit()
                             .privacySensitiveAmount()
                         Text(AccountPositionText.unitPrice(row, locale: locale))
                             .monospacedDigit()
+                            .privacySensitiveInFeedback()
                         if let amount = row.amount {
                             AmountText(amount, currency: currency, precision: .cents)
                         } else {
@@ -951,11 +960,13 @@ private struct AccountValuationListRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(AmountFormat.mediumDate(row.valuation.date))
                     .foregroundStyle(Palette.ink)
+                    .privacySensitiveInFeedback()
                 if let note = row.valuation.note {
                     Text(note)
                         .font(.caption)
                         .foregroundStyle(Palette.secondaryInk)
                         .lineLimit(2)
+                        .privacySensitiveInFeedback()
                 }
             }
             Spacer(minLength: Metrics.s)
@@ -1029,6 +1040,7 @@ private struct AccountValuationsTable: View {
         } row: { row in
             Text(AmountFormat.mediumDate(row.valuation.date))
                 .monospacedDigit()
+                .privacySensitiveInFeedback()
                 .pageTableColumn(Columns.date)
             AccountValuationValue(row: row, currency: currency)
                 .frame(maxWidth: .infinity, alignment: .trailing)
@@ -1048,6 +1060,7 @@ private struct AccountValuationsTable: View {
                 .pageTableColumn(Columns.flow)
             Text(row.valuation.note ?? "")
                 .foregroundStyle(Palette.secondaryInk)
+                .privacySensitiveInFeedback()
                 .pageTableColumn(Columns.note)
         } menu: { row in
             Button("Edit Value…") { edit(row.id) }
@@ -1186,16 +1199,25 @@ private struct AccountInfoRows: View {
         Group {
             AccountInfoRow(title: "Kind", text: account.kind.displayName)
             if let institution = account.institution {
-                AccountInfoRow(title: "Institution", text: institution)
+                AccountInfoRow(title: "Institution") {
+                    Text(institution)
+                        .privacySensitiveInFeedback()
+                }
             }
             if let country = account.country {
                 AccountInfoRow(title: "Country", text: CountryChoices.name(of: country, locale: locale))
             }
             AccountInfoRow(title: "Currency", text: CurrencyChoices.name(of: account.currency, locale: locale))
-            AccountInfoRow(title: "Plans can draw on it", text: availability)
+            AccountInfoRow(title: "Plans can draw on it") {
+                Text(availability)
+                    .privacySensitiveInFeedback()
+            }
             AccountInfoRow(title: "Recorded as", text: recordedAs)
             if let mix = assetMix {
-                AccountInfoRow(title: "Asset mix", text: mix)
+                AccountInfoRow(title: "Asset mix") {
+                    Text(mix)
+                        .privacySensitiveInFeedback()
+                }
             }
         }
         Group {
@@ -1204,21 +1226,39 @@ private struct AccountInfoRows: View {
             if account.kind.recordsMoneyInOut {
                 AccountMoneyInOutRows(account: account)
             }
-            AccountInfoRow(title: "Opened", text: AmountFormat.mediumDate(account.opened, locale: locale))
+            AccountInfoRow(title: "Opened") {
+                Text(AmountFormat.mediumDate(account.opened, locale: locale))
+                    .privacySensitiveInFeedback()
+            }
             if let closed = account.closed {
-                AccountInfoRow(title: "Closed", text: AmountFormat.mediumDate(closed, locale: locale))
+                AccountInfoRow(title: "Closed") {
+                    Text(AmountFormat.mediumDate(closed, locale: locale))
+                        .privacySensitiveInFeedback()
+                }
             }
             if let successor = account.successor {
-                AccountInfoRow(title: "Money went to", text: library.account(successor)?.name ?? successor.rawValue)
+                AccountInfoRow(title: "Money went to") {
+                    Text(library.account(successor)?.name ?? successor.rawValue)
+                        .privacySensitiveInFeedback()
+                }
             }
             if !predecessors.isEmpty {
-                AccountInfoRow(title: "Took over from", text: predecessors.joined(separator: ", "))
+                AccountInfoRow(title: "Took over from") {
+                    Text(predecessors.joined(separator: ", "))
+                        .privacySensitiveInFeedback()
+                }
             }
             if !account.tags.isEmpty {
-                AccountInfoRow(title: "Tags", text: account.tags.joined(separator: ", "))
+                AccountInfoRow(title: "Tags") {
+                    Text(account.tags.joined(separator: ", "))
+                        .privacySensitiveInFeedback()
+                }
             }
             if let notes = account.notes {
-                AccountInfoRow(title: "Notes", text: notes)
+                AccountInfoRow(title: "Notes") {
+                    Text(notes)
+                        .privacySensitiveInFeedback()
+                }
             }
         }
     }

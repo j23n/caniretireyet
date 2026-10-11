@@ -50,6 +50,7 @@ struct AccountHistoryChart: View {
             chart
                 .frame(height: height)
                 .measuringWidth($width)
+                .privacySensitiveInFeedback()
                 .accessibilityChartDescriptor(summary)
         }
     }

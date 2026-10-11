@@ -65,23 +65,28 @@ struct UpdateValueSheet: View {
         return Form {
             Section {
                 DatePicker("Date", selection: $date, in: ...Account.latestDate(of: account), displayedComponents: .date)
+                    .personalControl()
                 if let note = AccountValueNotes.openingMove(date: day, account: account, locale: locale) {
                     AccountsFootnote(note, systemImage: "calendar.badge.clock")
+                        .privacySensitiveInFeedback()
                 }
                 if let note = followUpNote(draft, in: snapshot) {
                     AccountsFootnote(note, systemImage: "arrow.triangle.2.circlepath")
+                        .privacySensitiveInFeedback()
                 }
                 if let previous = draft.row?.previous {
                     LabeledContent("Last value") {
                         HStack(spacing: Metrics.xs) {
                             Text(AmountFormat.shortDate(previous.date, locale: locale))
                                 .foregroundStyle(Palette.secondaryInk)
+                                .privacySensitiveInFeedback()
                             AmountText(review?.previousValue ?? 0, precision: .cents)
                         }
                     }
                 }
             } header: {
                 Text(account.name)
+                    .privacySensitiveInFeedback()
             }
             if let row = draft.row {
                 valueSection(row: row, prefilled: base.row, review: review, account: account)
@@ -110,6 +115,7 @@ struct UpdateValueSheet: View {
                 Section {
                     Text("\(account.name) was closed before this date. Choose a date up to the day it closed.")
                         .foregroundStyle(Palette.secondaryInk)
+                        .privacySensitiveInFeedback()
                 }
             }
             AccountsProblemsSection(problems: problems)
@@ -182,9 +188,11 @@ struct UpdateValueSheet: View {
         AccountsNumberField(title: instrument?.name ?? position.instrument.rawValue,
                             text: $input[quantity: position.instrument, prefilled: text(prefilled)], prompt: "0",
                             suffix: QuantityFormat.unit(of: instrument), allowsNegative: false)
+            .privacySensitiveInFeedback()
         if let review, let price = review.price {
             HStack {
                 Text(verbatim: QuantityFormat.atPrice(price.price, currency: price.currency, locale: locale))
+                    .privacySensitiveInFeedback()
                 Spacer()
                 if let value = review.value {
                     AmountText(value)
@@ -205,6 +213,7 @@ struct UpdateValueSheet: View {
         let instrument = library.library.instruments[position.instrument]
         return HStack {
             Text(instrument?.name ?? position.instrument.rawValue)
+                .privacySensitiveInFeedback()
             Spacer(minLength: Metrics.s)
             Text(verbatim: CheckInWording.quantity(position.quantity, instrument: instrument, locale: locale))
                 .monospacedDigit()
@@ -225,6 +234,7 @@ struct UpdateValueSheet: View {
         Section {
             AccountsNumberField(title: title, text: $input.flowText, prompt: prompt,
                                 suffix: AmountFormat.symbol(for: account.currency, locale: locale))
+                .privacySensitiveInFeedback(row.previous != nil && rule == .ask)
         } footer: {
             Text(account.recordsTrades ? CheckInWording.tradeFlowExplanation : flowExplanation(rule))
         }
@@ -325,8 +335,10 @@ struct CloseAccountSheet: View {
         return Form {
             Section {
                 DatePicker("Closing date", selection: $date, in: account.opened.dateValue..., displayedComponents: .date)
+                    .personalControl()
             } header: {
                 Text(account.name)
+                    .privacySensitiveInFeedback()
             } footer: {
                 Text("Its last day. It counts in your net worth up to and including this day.")
             }
@@ -337,6 +349,7 @@ struct CloseAccountSheet: View {
                         Text(candidate.name).tag(Optional(candidate.id))
                     }
                 }
+                .personalControl()
             } footer: {
                 Text("The account that took over, e.g. your new bank. Charts then stay continuous, and the money "
                     + "moving across isn't counted as spent.")
