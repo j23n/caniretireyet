@@ -76,7 +76,7 @@ struct AmountSentence: Hashable, Sendable {
     }
 
     mutating func append(amount: String) {
-        append(.amount(amount))
+        append(Part.amount(amount))
     }
 
     mutating func append(_ sentence: AmountSentence) {
