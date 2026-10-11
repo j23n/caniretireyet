@@ -5,8 +5,8 @@ import SwiftUI
 /// "Your life in 6 chapters" (UI.md, "Plan"): the chapters side by side on a
 /// strip that scrolls sideways, each card as wide as its years (never too
 /// narrow to read, and on iPhone never narrower than the screen), on the
-/// money scale the cards on screen share, so the graph runs on from card to
-/// card. Choosing a card selects its chapter, whose details show below the
+/// money scale the cards on screen share, fitted to the money between the
+/// screen's edges, so the graph runs on from card to card. Choosing a card selects its chapter, whose details show below the
 /// strip; selecting one elsewhere scrolls it into view. The pointer over a
 /// card, or a finger touched and held on it, reads the graph there.
 struct PlanChapterStrip: View {
