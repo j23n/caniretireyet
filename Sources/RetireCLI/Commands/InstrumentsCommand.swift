@@ -7,8 +7,13 @@ import Storage
 struct InstrumentsGroupCommand: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "instruments",
-        abstract: "List the library's instruments.",
-        subcommands: [InstrumentsListCommand.self],
+        abstract: "List the library's instruments, and find their price sources.",
+        discussion: """
+            retire instruments list                         kind, currency, asset mix and price source
+            retire instruments find <instrument> [--set <symbol>]
+                                                            Yahoo Finance listings to price it from
+            """,
+        subcommands: [InstrumentsListCommand.self, InstrumentsFindCommand.self],
         defaultSubcommand: InstrumentsListCommand.self)
 }
 

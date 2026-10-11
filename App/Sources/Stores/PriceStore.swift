@@ -12,9 +12,14 @@ import Prices
 final class PriceStore {
     /// `nil` in previews and tests: nothing is fetched.
     private let service: PriceService?
+    /// Finds Yahoo Finance symbols; `nil` with no service (previews).
+    private let symbolSearch: YahooSymbolSearch?
 
-    init(service: PriceService?) {
+    /// With a `service`, symbols are searched with `symbolSearch`, by
+    /// default through `URLSession`.
+    init(service: PriceService?, symbolSearch: YahooSymbolSearch? = nil) {
         self.service = service
+        self.symbolSearch = service == nil ? nil : symbolSearch ?? YahooSymbolSearch()
     }
 
     /// Whether prices can be fetched at all (not in previews).
@@ -49,6 +54,15 @@ final class PriceStore {
             return CheckInPrices(date: date, entries: [PriceListEntry(item: item, outcome: .manual)])
         }
         return await service.fetch(CheckInPriceNeeds(instrument: instrument, date: date, baseCurrency: baseCurrency))
+    }
+
+    /// The Yahoo Finance listings for `query`, an ISIN, a ticker or a name,
+    /// best first (*Find…* in the instrument editor, *Find Price Sources…*
+    /// after an import). Only the query leaves the device. Throws
+    /// `PriceFetchError`; finds nothing in previews.
+    func searchSymbols(_ query: String) async throws -> [SymbolCandidate] {
+        guard let symbolSearch else { return [] }
+        return try await symbolSearch.search(query)
     }
 
     /// What *Fill In Past Prices* would fetch for `library`: every past date
