@@ -13,6 +13,7 @@ struct Sparkline: View {
     var body: some View {
         chart
             .frame(width: 64, height: 24)
+            .privacySensitive()
             .accessibilityElement()
             .accessibilityLabel(Text(accessibilityText))
     }

@@ -61,6 +61,7 @@ struct IncomeStackChart: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
+            .privacySensitive()
         }
     }
 

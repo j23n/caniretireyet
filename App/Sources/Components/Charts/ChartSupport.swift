@@ -254,6 +254,7 @@ struct ChartMarkerLabel: View {
         }
         .font(.caption2)
         .foregroundStyle(Palette.secondaryInk)
+        .privacySensitive()
     }
 }
 

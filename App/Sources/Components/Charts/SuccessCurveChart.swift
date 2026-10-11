@@ -47,6 +47,7 @@ struct SuccessCurveChart: View {
                 .frame(height: Self.height)
                 .measuringWidth($width)
                 .accessibilityChartDescriptor(summary)
+                .privacySensitive()
         }
     }
 

@@ -63,6 +63,7 @@ struct WaterfallChart: View {
                 }
             }
         }
+        .privacySensitive()
         .accessibilityChartDescriptor(summary(bars))
     }
 
