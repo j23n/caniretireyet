@@ -339,7 +339,10 @@ struct AccountValuationForm: Hashable, Sendable {
     var positions: [PositionField]
     /// Empty means unknown. Typed only where ``AccountValuationFields/flow``.
     var flow: String
-    /// Money in and out of a cash or savings account; empty means not recorded.
+    /// Money in and out of a cash or savings account. Empty, for a value
+    /// that records them (``recordsMoneyInOut``), money in is 0 and money
+    /// out is suggested, as in *Update Value*; for an older value without
+    /// them, empty means not recorded.
     var moneyIn: String
     var moneyOut: String
     /// A savings account's interest; empty means none.
@@ -371,6 +374,23 @@ struct AccountValuationForm: Hashable, Sendable {
         moneyOut = valuation.moneyOut.map { AmountInput.text(for: $0, locale: locale) } ?? ""
         interest = valuation.interest.map { AmountInput.text(for: $0, locale: locale) } ?? ""
         note = valuation.note ?? ""
+    }
+
+    /// Whether the value being edited records money in and out. A value
+    /// from before they were asked for may have neither, and may keep it.
+    var recordsMoneyInOut: Bool { original.moneyIn != nil || original.moneyOut != nil }
+
+    /// The money out suggested when its field is empty, for a value that
+    /// records money in and out: 0 for savings; for cash, what money in
+    /// and the new money suggest (``Tracker/CheckInDraft/defaultMoneyOut(moneyIn:flow:)``).
+    /// `nil` while the value can't be read.
+    func suggestedMoneyOut(in library: Library, locale: Locale = .current) -> Decimal? {
+        guard let valuation = valuation(in: library, locale: locale, suggestingMoneyOut: false) else { return nil }
+        return Self.suggestedMoneyOut(for: valuation, kind: kind)
+    }
+
+    private static func suggestedMoneyOut(for valuation: Valuation, kind: AccountKind) -> Decimal {
+        kind == .savings ? 0 : CheckInDraft.defaultMoneyOut(moneyIn: valuation.moneyIn ?? 0, flow: valuation.flow) ?? 0
     }
 
     /// The date as a `Date` (noon, this device's time zone), for a date picker.
@@ -441,7 +461,7 @@ struct AccountValuationForm: Hashable, Sendable {
             check(moneyIn, "money in")
             check(moneyOut, "money out")
             let moneyAmounts = [moneyIn, moneyOut].map { AmountInput.parse($0, locale: locale) }
-            if (moneyAmounts[0] == .empty) != (moneyAmounts[1] == .empty) {
+            if !recordsMoneyInOut, (moneyAmounts[0] == .empty) != (moneyAmounts[1] == .empty) {
                 problems.append("Enter both money in and out, or neither.")
             }
             if moneyAmounts.contains(where: { ($0.value ?? 0) < 0 }) {
@@ -457,8 +477,13 @@ struct AccountValuationForm: Hashable, Sendable {
     ///
     /// Fields the form doesn't show keep what the file has, except new
     /// money: a cash, savings or debt account's is worked out from the
-    /// value before it in `library` (docs/ACCOUNTS.md, "New money").
+    /// value before it in `library` (docs/ACCOUNTS.md, "New money") when
+    /// the date, the value or the interest changed.
     func valuation(in library: Library, locale: Locale = .current) -> Valuation? {
+        valuation(in: library, locale: locale, suggestingMoneyOut: true)
+    }
+
+    private func valuation(in library: Library, locale: Locale, suggestingMoneyOut: Bool) -> Valuation? {
         guard problems(in: library, locale: locale).isEmpty else { return nil }
         func number(_ text: String) -> Decimal? { AmountInput.decimal(from: text, locale: locale) }
         let fields = fields(in: library)
@@ -472,15 +497,24 @@ struct AccountValuationForm: Hashable, Sendable {
                 return Position(instrument: field.instrument, quantity: quantity, costBasis: number(field.cost))
             }
         }
-        valuation.moneyIn = fields.moneyInOut ? number(moneyIn) : original.moneyIn
+        let fillsMoneyInOut = fields.moneyInOut && recordsMoneyInOut
+        valuation.moneyIn = fields.moneyInOut ? number(moneyIn) ?? (fillsMoneyInOut ? 0 : nil) : original.moneyIn
         valuation.moneyOut = fields.moneyInOut ? number(moneyOut) : original.moneyOut
         valuation.interest = fields.interest ? number(interest) : original.interest
         if fields.flow {
             valuation.flow = number(flow)
+        } else if valuation.date == original.date, valuation.balance == original.balance,
+                  valuation.cash == original.cash, valuation.positions == original.positions,
+                  valuation.interest == original.interest {
+            // Nothing the new money is worked out from changed (a note, say), so it stays as it was.
+            valuation.flow = original.flow
         } else {
             let others = others(in: library)
             let previous = others.valuations(for: original.account).last { $0.date < date }
             valuation.flow = Valuator(library: others).defaultFlow(for: valuation, previous: previous)
+        }
+        if fillsMoneyInOut, suggestingMoneyOut, valuation.moneyOut == nil {
+            valuation.moneyOut = Self.suggestedMoneyOut(for: valuation, kind: kind)
         }
         let trimmedNote = note.trimmingCharacters(in: .whitespacesAndNewlines)
         valuation.note = trimmedNote.isEmpty ? nil : trimmedNote

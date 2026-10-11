@@ -153,9 +153,43 @@ struct ValuationFormsTests {
         #expect(form.problems(in: library, locale: locale).isEmpty)
     }
 
-    @Test func editValueAsksForBothMoneyInAndOutOrNeither() throws {
-        var form = try form("conto-fineco", on: "2026-09-30")
-        form.moneyOut = ""
+    @Test func editingANoteKeepsADebtsNewMoney() throws {
+        var library = self.library
+        var typed = try #require(library.valuations(for: "mutuo-casa").first { $0.date == "2026-08-31" })
+        typed.flow = 900  // Typed or imported before, not the whole change.
+        library.upsert(typed)
+        var form = AccountValuationForm(typed, kind: .mortgage, holdsPositions: false, locale: locale)
+        form.note = "Statement checked"
+        let valuation = try #require(form.valuation(in: library, locale: locale))
+        #expect(valuation.flow == 900)
+        #expect(valuation.source == typed.source)
+        form.balance = "141000"
+        #expect(try #require(form.valuation(in: library, locale: locale)).flow != 900)
+    }
+
+    /// A value from before money in and out were asked for has neither,
+    /// and may keep it: both or neither.
+    @Test func editValueOfAnOlderValueAsksForBothMoneyInAndOutOrNeither() throws {
+        var form = try form("conto-fineco", on: "2026-06-30")
+        #expect(!form.recordsMoneyInOut)
+        #expect(try #require(form.valuation(in: library, locale: locale)).moneyIn == nil)
+        form.moneyOut = "100"
         #expect(form.problems(in: library, locale: locale) == ["Enter both money in and out, or neither."])
+    }
+
+    /// A value that records money in and out reads empty fields as *Update
+    /// Value* does: money in 0, money out what money in and the new money
+    /// suggest.
+    @Test func editValueFillsEmptyMoneyInAndOutOfAValueThatRecordsThem() throws {
+        var form = try form("conto-fineco", on: "2026-09-30")
+        #expect(form.recordsMoneyInOut)
+        form.moneyIn = ""
+        form.moneyOut = ""
+        #expect(form.problems(in: library, locale: locale).isEmpty)
+        let valuation = try #require(form.valuation(in: library, locale: locale))
+        let flow = try #require(valuation.flow)
+        #expect(valuation.moneyIn == 0)
+        #expect(valuation.moneyOut == max(0, -flow))
+        #expect(form.suggestedMoneyOut(in: library, locale: locale) == valuation.moneyOut)
     }
 }
