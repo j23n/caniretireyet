@@ -96,6 +96,53 @@ struct PlanMoneyInOutTests {
         #expect(years.timeSpan(of: year).upperBound == CalendarDate("2027-01-01").dateValue)
     }
 
+    /// A month of money in and out, as the series counts it.
+    private func period(_ month: YearMonth, moneyIn: Decimal, moneyOut: Decimal,
+                        lastTwelveMonths: SavingsRate? = nil) -> MoneyInOutPeriod {
+        let money = MoneyInOutSummary(from: month.firstDay, through: month.lastDay, currency: .eur, moneyIn: moneyIn,
+                                      moneyOut: moneyOut, months: [month],
+                                      measuredFrom: month.firstDay.adding(days: -1), lastCounted: month.lastDay)
+        return MoneyInOutPeriod(from: month.firstDay, through: month.lastDay,
+                                savings: SavingsRate(moneyInOut: money, from: month.firstDay.adding(days: -1),
+                                                     through: month.lastDay),
+                                lastTwelveMonths: lastTwelveMonths)
+    }
+
+    private func series(_ periods: [MoneyInOutPeriod]) -> PlanMoneyInOut {
+        let recorded = MoneyInOutSummary(from: "2026-07-01", through: "2026-09-30", currency: .eur,
+                                         months: periods.map(\.from.yearMonth), measuredFrom: "2026-06-30")
+        let series = MoneyInOutSeries(currency: .eur, grain: .months, periods: periods, recorded: recorded)
+        return PlanMoneyInOut(series, from: nil, firstRecord: nil, through: "2026-09-30")
+    }
+
+    /// Fractions to whole percentages, so a decimal's conversion doesn't matter.
+    private func percents(_ values: [Double]) -> [Int] {
+        values.map { Int(($0 * 100).rounded()) }
+    }
+
+    @Test func theRateAxisFitsBarsWithinAHundredPercent() {
+        // July keeps 30%, August 5 € in and 2.000 € out: −39.900%.
+        let money = series([period("2026-07", moneyIn: 3_000, moneyOut: 2_100),
+                            period("2026-08", moneyIn: 5, moneyOut: 2_000)])
+        let values = money.rateAxisValues(planRate: Decimal(string: "0.1"))
+        #expect(percents(values) == [30, -100, 10])
+        #expect(values.min() == -PlanMoneyInOut.rateAxisLimit)
+        // The bar is drawn to the axis's edge.
+        #expect(PlanMoneyInOut.clampedRate(-399, to: -105...35) == -105)
+        #expect(PlanMoneyInOut.clampedRate(30, to: -105...35) == 30)
+    }
+
+    @Test func theRateAxisAlwaysFitsTheLineAndThePlansRate() {
+        // A rate over the last 12 months below −100%, and a plan that spends more than its pay.
+        let rolling = SavingsRate(
+            moneyInOut: MoneyInOutSummary(from: "2025-10-01", through: "2026-09-30", currency: .eur, moneyIn: 1_000,
+                                          moneyOut: 3_000, months: ["2026-09"], measuredFrom: "2025-09-30"),
+            from: "2025-09-30", through: "2026-09-30")
+        let money = series([period("2026-09", moneyIn: 3_000, moneyOut: 2_100, lastTwelveMonths: rolling)])
+        #expect(percents(money.rateAxisValues(planRate: Decimal(string: "-1.5"))) == [30, -200, -150])
+        #expect(percents(money.rateAxisValues(planRate: nil)) == [30, -200])
+    }
+
     @Test func theHiddenAxisIsInMultiplesOfTheAverageCameIn() throws {
         let money = self.money()
         let base = try #require(money.relativeBase)

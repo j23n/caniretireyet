@@ -8,9 +8,11 @@ import Tracker
 /// more went out than came in. With months, a line through the rate over
 /// the 12 months ending at each month, from the twelfth month recorded. A
 /// dashed rule at the plan's own savings rate while working. The value axis
-/// fits the bars, the line and the rule. Rates stay with the eye. The
-/// current month or year is drawn lighter ("so far"). Drag across it to
-/// read a period (``PlanMoneyInOutCallout``).
+/// fits the line, the rule and the bars within ±100%
+/// (``PlanMoneyInOut/rateAxisValues(planRate:)``); a bar beyond is drawn to
+/// the axis's edge, and its callout reads the real rate. Rates stay with
+/// the eye. The current month or year is drawn lighter ("so far"). Drag
+/// across it to read a period (``PlanMoneyInOutCallout``).
 struct PlanSavingsRateChart: View {
     let money: PlanMoneyInOut
     /// The plan's own savings rate while working; `nil` without a work
@@ -38,8 +40,11 @@ struct PlanSavingsRateChart: View {
         var id: Date { start }
         /// Keeps the bar's area apart from the others'.
         var key: String { period.from.description }
-        /// How high the bar is drawn.
-        var height: Double { rate ?? 0 }
+        /// How high the bar is drawn: its rate, kept within the value
+        /// axis's `domain`.
+        func height(within domain: ClosedRange<Double>) -> Double {
+            PlanMoneyInOut.clampedRate(rate ?? 0, to: domain)
+        }
         /// How much of its colour the bar keeps.
         var opacity: Double { isSoFar ? PlanSavingsRateChart.soFarOpacity : 1 }
     }
@@ -59,8 +64,7 @@ struct PlanSavingsRateChart: View {
 
     var body: some View {
         let bars = self.bars
-        let scale = AmountScale(values: bars.compactMap(\.rate) + bars.compactMap(\.lastTwelveMonths)
-            + [planPoints].compactMap { $0 })
+        let scale = AmountScale(values: money.rateAxisValues(planRate: planRate).map { $0 * 100 })
         let domain = money.domain ?? (Date.now...Date.now.addingTimeInterval(31 * 86_400))
         chart(bars, scale: scale, domain: domain)
             .frame(height: Self.height)
@@ -83,7 +87,7 @@ struct PlanSavingsRateChart: View {
         let rated: [Bar] = bars.filter { $0.rate != nil }
         let rolling: [Bar] = bars.filter { $0.lastTwelveMonths != nil }
         return Chart {
-            rateBars(rated)
+            rateBars(rated, within: scale.domain)
             zeroRule()
             lastTwelveMonthsLine(rolling)
             planRule()
@@ -98,15 +102,16 @@ struct PlanSavingsRateChart: View {
     }
 
     /// Each bar, an area from zero to its rate between its start and its
-    /// end; `key` keeps a bar's area apart from the others'.
+    /// end, drawn to the edge of the value axis's `domain` when its rate is
+    /// beyond it; `key` keeps a bar's area apart from the others'.
     @ChartContentBuilder
-    private func rateBars(_ bars: [Bar]) -> some ChartContent {
+    private func rateBars(_ bars: [Bar], within domain: ClosedRange<Double>) -> some ChartContent {
         ForEach(bars) { bar in
             AreaMark(x: .value("Date", bar.start), yStart: .value("From", 0.0),
-                     yEnd: .value("Savings rate", bar.height), series: .value("Bar", bar.key))
+                     yEnd: .value("Savings rate", bar.height(within: domain)), series: .value("Bar", bar.key))
                 .foregroundStyle(Palette.color(for: Self.barColor).opacity(bar.opacity))
             AreaMark(x: .value("Date", bar.end), yStart: .value("From", 0.0),
-                     yEnd: .value("Savings rate", bar.height), series: .value("Bar", bar.key))
+                     yEnd: .value("Savings rate", bar.height(within: domain)), series: .value("Bar", bar.key))
                 .foregroundStyle(Palette.color(for: Self.barColor).opacity(bar.opacity))
         }
     }

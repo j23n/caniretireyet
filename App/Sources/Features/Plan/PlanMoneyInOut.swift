@@ -140,6 +140,29 @@ struct PlanMoneyInOut: Hashable {
         }
     }
 
+    /// How far a period's bar on *Savings rate* reaches before the axis
+    /// stops fitting it: 100% either way. A month with almost nothing in
+    /// (5 € in, 2.000 € out) has a rate of about −40.000%, which would
+    /// flatten every other bar.
+    static let rateAxisLimit = 1.0
+
+    /// The rates *Savings rate*'s value axis fits, as fractions: each
+    /// period's rate, kept within ±``rateAxisLimit``, the rate over the
+    /// last 12 months and the plan's own rate, which are never cut. A bar
+    /// beyond the axis is drawn to its edge (``clampedRate(_:to:)``); its
+    /// callout reads the real rate.
+    func rateAxisValues(planRate: Decimal?) -> [Double] {
+        let limit = Self.rateAxisLimit
+        let bars = periods.compactMap(\.rate).map { min(max($0.doubleValue, -limit), limit) }
+        let lines = periods.compactMap { $0.lastTwelveMonths?.rate?.doubleValue }
+        return bars + lines + [planRate?.doubleValue].compactMap { $0 }
+    }
+
+    /// `rate` kept inside `domain`, where a bar beyond the axis is drawn to.
+    static func clampedRate(_ rate: Double, to domain: ClosedRange<Double>) -> Double {
+        min(max(rate, domain.lowerBound), domain.upperBound)
+    }
+
     /// What came in, on average, in the periods counted: the 1× of the value
     /// axis of *Money in and out* while amounts are hidden.
     var relativeBase: Double? {
