@@ -93,6 +93,11 @@ public struct Headline: Hashable, Sendable, KeyedRecord, KnownKeysProviding {
     public var earliestAge: Int?
     /// The planner version.
     public var engine: String
+    /// The earliest retirement age reaching the confidence level if you
+    /// kept saving at your pace of the last 12 months: the pace age
+    /// (PLANNER.md, "Ages without"). `nil` when none does, without a pace,
+    /// and in records made before it existed.
+    public var paceAge: Int?
     /// Identifies the plan's inputs.
     public var planHash: String
     /// Plan assets as a fraction of what retiring today with the plan's
@@ -104,13 +109,14 @@ public struct Headline: Hashable, Sendable, KeyedRecord, KnownKeysProviding {
 
     public init(
         date: CalendarDate, coastAge: Int? = nil, confidence: Decimal? = nil, earliestAge: Int? = nil, engine: String,
-        planHash: String, readiness: Decimal? = nil, successAtTarget: Decimal? = nil
+        paceAge: Int? = nil, planHash: String, readiness: Decimal? = nil, successAtTarget: Decimal? = nil
     ) {
         self.date = date
         self.coastAge = coastAge
         self.confidence = confidence
         self.earliestAge = earliestAge
         self.engine = engine
+        self.paceAge = paceAge
         self.planHash = planHash
         self.readiness = readiness
         self.successAtTarget = successAtTarget
@@ -127,7 +133,7 @@ public struct Headline: Hashable, Sendable, KeyedRecord, KnownKeysProviding {
 
 extension Headline: Codable {
     enum CodingKeys: String, CodingKey, CaseIterable {
-        case date, coastAge, confidence, earliestAge, engine, planHash, readiness, successAtTarget
+        case date, coastAge, confidence, earliestAge, engine, paceAge, planHash, readiness, successAtTarget
     }
 
     public static var knownKeys: Set<String> { Set(CodingKeys.allCases.map(\.stringValue)) }
@@ -139,6 +145,7 @@ extension Headline: Codable {
         confidence = try c.decodeDecimalIfPresent(forKey: .confidence)
         earliestAge = try c.decodeIfPresent(Int.self, forKey: .earliestAge)
         engine = try c.decode(String.self, forKey: .engine)
+        paceAge = try c.decodeIfPresent(Int.self, forKey: .paceAge)
         planHash = try c.decode(String.self, forKey: .planHash)
         readiness = try c.decodeDecimalIfPresent(forKey: .readiness)
         successAtTarget = try c.decodeDecimalIfPresent(forKey: .successAtTarget)
@@ -151,6 +158,7 @@ extension Headline: Codable {
         try c.encodeDecimalIfPresent(confidence, forKey: .confidence)
         try c.encodeIfPresent(earliestAge, forKey: .earliestAge)
         try c.encode(engine, forKey: .engine)
+        try c.encodeIfPresent(paceAge, forKey: .paceAge)
         try c.encode(planHash, forKey: .planHash)
         try c.encodeDecimalIfPresent(readiness, forKey: .readiness)
         try c.encodeDecimalIfPresent(successAtTarget, forKey: .successAtTarget)

@@ -229,6 +229,8 @@ struct AgesWithoutTests {
             let earliest = try #require(result.answer.earliestAge)
             let paceAge = try #require(found.earliestAge)
             #expect(isLater ? paceAge > earliest : paceAge < earliest, "\(monthly): \(paceAge) against \(earliest)")
+            // A check-in records it.
+            #expect(result.headline().paceAge == paceAge)
         }
     }
 
@@ -239,6 +241,7 @@ struct AgesWithoutTests {
         let result = try await Planner.run(plan: plan(), library: library, options: withPace)
         #expect(result.answer.earliestAge != nil)
         #expect(result.answer.agesWithout.isEmpty)
+        #expect(result.headline().paceAge == nil)
     }
 
     @Test func theBisectionCountsItsSteps() {

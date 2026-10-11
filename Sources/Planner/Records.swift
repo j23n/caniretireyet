@@ -35,7 +35,8 @@ extension PlanResult {
         let summary = headlineSummary
         return Headline(
             date: date ?? start.date, coastAge: answer.agesWithout.coast?.earliestAge,
-            confidence: summary.confidence, earliestAge: summary.earliestAge, engine: engine, planHash: planHash,
+            confidence: summary.confidence, earliestAge: summary.earliestAge, engine: engine,
+            paceAge: answer.agesWithout.pace?.earliestAge, planHash: planHash,
             readiness: summary.readiness, successAtTarget: summary.successAtTarget)
     }
 
