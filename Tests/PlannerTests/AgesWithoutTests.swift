@@ -127,6 +127,34 @@ struct AgesWithoutTests {
         #expect(atPace.events == planned.events && atPace.pensions == planned.pensions)
     }
 
+    /// A pension fund's share of the pace counts an unusual lump sum as a
+    /// usual month (952, not 20,000); the 2,000 saved into an account the
+    /// plan excludes isn't the plan's; and the TFR's 1,000 is paid on top
+    /// only until it ends in 2030.
+    @Test func atThePaceTheShareInThePaceAndTheContributionsInForceCount() {
+        let library = Sample.library(birth: "1986-01-01", on: "2025-12-31", [
+            SampleAccount(id: "broker", balance: 150_000),
+            SampleAccount(id: "pension", kind: .pensionFund, balance: 20_000, availableFromAge: 60),
+            SampleAccount(id: "tfr", kind: .pensionFund, balance: 10_000, availableFromAge: 60),
+            SampleAccount(id: "house", balance: 5_000),
+        ])
+        let pace = SavingPace(
+            asOf: "2025-12-31", currency: .eur, months: [], usualMonth: 1_000, perYear: 12_000, range: nil,
+            byAccount: ["broker": 9_000, "pension": 20_000, "house": 2_000],
+            byAccountInPace: ["broker": 9_048, "pension": 952, "house": 2_000], leftOut: ["tfr"],
+            carriedForward: [], isInTodaysMoney: false, isComplete: true)
+        var planned = plan()
+        planned.portfolio.exclude = ["house"]
+        planned.contributions = [PlanContribution(account: "tfr", perYear: 1_000, until: .date("2030-12-31"))]
+        let atPace = Planner.plan(planned, atPace: pace, library: library)
+        #expect(atPace.contributions == [PlanContribution(account: "tfr", perYear: 1_000, until: .date("2030-12-31")),
+                                         PlanContribution(account: "pension", perYear: 952)])
+        #expect(atPace.work == [
+            WorkPhase(from: "2025-12-31", until: .date("2030-12-31"), netIncome: 41_000),
+            WorkPhase(from: "2031-01-01", until: .retirement, netIncome: 40_000),
+        ])
+    }
+
     /// Rent of 6,000 from 40 to 50 and a pension of 4,000 from 45 reach the
     /// accounts while working, so they're already in the 12,000 pace: the
     /// income drops by what they pay, and every working year saves the pace.

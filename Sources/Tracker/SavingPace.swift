@@ -53,9 +53,11 @@ public struct SavingPace: Hashable, Sendable {
     /// left out. Money moved between plan assets at a check-in comes off
     /// each side pro rata.
     public let byAccount: [AccountID: Decimal]
-    /// Each account's share of `perYear`: its new money in `months`, an
-    /// unusual month counted as the usual one split between accounts as
-    /// that month was, scaled to a year. The shares add up to `perYear`.
+    /// Each account's share of `perYear`: its new money in `months`, scaled
+    /// to a year, with an unusual month counted as the usual one. One that
+    /// saved more is split between accounts as that month was; one that took
+    /// money out is split as the usual months were. The shares add up to
+    /// `perYear`. A pace made without them (in tests) takes `byAccount`.
     public let byAccountInPace: [AccountID: Decimal]
     /// Accounts whose new money in `months` wasn't recorded, so that the
     /// tracker counts what the main plan pays into them, nothing without a
@@ -343,14 +345,25 @@ extension Valuator {
             if let low = paces.min(), let high = paces.max() { range = low...high }
         }
         let scale = Decimal(SavingPace.window) / Decimal(window)
-        // An unusual month's parts scaled to the usual month.
-        let factors = (0..<window).map { month in
-            pace.unusual[window - 1 - month] && months[month] != 0 ? pace.usual / months[month] : 1
+        // An unusual month counts as the usual month: one that saved more,
+        // split as it was; one that took money out, split as the usual
+        // months were, so an account paying as usual keeps a share like theirs.
+        let isUnusual = (0..<window).map { pace.unusual[window - 1 - $0] }
+        let usualParts = parts.mapValues { amounts in
+            amounts.indices.reduce(Decimal(0)) { isUnusual[$1] ? $0 : $0 + amounts[$1] }
         }
+        let usualTotal = usualParts.values.reduce(0, +)
+        let takenOut = Decimal(isUnusual.indices.filter { isUnusual[$0] && months[$0] <= 0 }.count)
         let byAccount = parts.mapValues { $0.reduce(0, +) }.filter { $0.value != 0 }
         let inPace = parts.mapValues { amounts in
-            zip(amounts, factors).reduce(Decimal(0)) { total, part in total + part.0 * part.1 }
-        }.filter { $0.value != 0 }
+            amounts.indices.reduce(Decimal(0)) { total, month in
+                guard isUnusual[month] else { return total + amounts[month] }
+                if months[month] > 0 { return total + amounts[month] * pace.usual / months[month] }
+                return total
+            }
+        }.merging(usualParts.mapValues { share in
+            usualTotal > 0 ? pace.usual * takenOut * share / usualTotal : 0
+        }, uniquingKeysWith: +).filter { $0.value != 0 }
         return SavingPace(
             asOf: asOf, currency: baseCurrency,
             months: latest.indices.map { index in
