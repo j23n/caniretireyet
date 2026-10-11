@@ -51,6 +51,12 @@ struct PlanAnswerHistoryChart: View {
                     .foregroundStyle(Palette.secondaryInk)
                     .lineStyle(StrokeStyle(lineWidth: Metrics.lineWidth, lineCap: .round, lineJoin: .round,
                                            dash: [4, 3]))
+                // So a single check-in's pace age shows too.
+                PointMark(x: .value("Check-in", point.date.dateValue),
+                          y: .value("Pace age", point.paceAge ?? 0))
+                    .symbol(.circle.strokeBorder(lineWidth: 1))
+                    .foregroundStyle(Palette.secondaryInk)
+                    .symbolSize(20)
             }
             ForEach(history.markers) { marker in
                 RuleMark(x: .value("Check-in", marker.date.dateValue))

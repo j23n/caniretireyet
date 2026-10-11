@@ -140,7 +140,7 @@ On Progress, a year without its own automatic baseline is measured against the l
 }
 ```
 
-`planHash` identifies the plan's inputs, so the chart can mark the check-ins where you changed the plan. `earliestAge` is left out when no age reaches the confidence level, and an optional `confidence` records the level used. `readiness` (optional) is rounded down to two decimals, so a recorded 1 means retiring today reached the confidence level; it's left out in records made before it existed and when retiring today would need more than 20 times the plan assets. `coastAge` and `paceAge` (optional) are the earliest ages saving nothing more and saving at your pace ([PLANNER.md](PLANNER.md#ages-without)), left out when no age reaches the confidence level, without a pace for `paceAge`, and in records made before they existed. A baseline's `headline` has the same fields.
+`planHash` identifies the plan's inputs, so the chart can mark the check-ins where you changed the plan. `earliestAge` is left out when no age reaches the confidence level, and an optional `confidence` records the level used. `readiness` (optional) is rounded down to two decimals, so a recorded 1 means retiring today reached the confidence level; it's left out in records made before it existed and when retiring today would need more than 20 times the plan assets. A baseline's `headline` has the same fields, except these two: `coastAge` and `paceAge` (optional) are the earliest ages saving nothing more and saving at your pace ([PLANNER.md](PLANNER.md#ages-without)), left out when no age reaches the confidence level, without a pace for `paceAge`, and in records made before they existed.
 
 ## Data this needs from day one
 
