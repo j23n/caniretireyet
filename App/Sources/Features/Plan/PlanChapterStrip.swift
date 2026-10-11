@@ -356,8 +356,7 @@ struct PlanChapterCardView: View {
     }
 
     /// The graph at the pointer (UI.md, "Plan"): a rule, the median's dot,
-    /// and a label with the age and the year, a milestone or an event
-    /// there, the median and the range 8 in 10 futures fall in.
+    /// and a callout like the net-worth chart's over its projection.
     private func readout(at pointerX: CGFloat) -> some View {
         let found = reading(at: pointerX)
         return ZStack(alignment: .topLeading) {
@@ -367,38 +366,39 @@ struct PlanChapterCardView: View {
                 PlanGraphDot()
                     .offset(x: found.x - 4.5, y: plot.y(fan.p50, scale) - 4.5)
             }
-            PlanGraphCallout(lines: lines(for: found))
-                .offset(x: PlanGraphCallout.leading(at: found.x, in: width), y: plot.top + 4)
+            ChartCallout(maxWidth: PlanGraphCallout.width(in: width)) {
+                callout(for: found)
+            }
+            .offset(x: PlanGraphCallout.leading(at: found.x, in: width), y: plot.top + 4)
         }
         .allowsHitTesting(false)
         .accessibilityHidden(true)
     }
 
-    private func lines(for found: Reading) -> [PlanGraphCallout.Line] {
-        let year = Calendar.current.component(.year, from: found.date)
-        var lines = [PlanGraphCallout.Line(text: "\(card.age(on: found.date)) · \(String(year))", style: .context)]
+    /// The month and the age ("Mar 2034 · 48"), the median and the two
+    /// bands in full amounts, then a milestone or an event there.
+    @ViewBuilder
+    private func callout(for found: Reading) -> some View {
+        ChartCalloutDate(found.date, precision: .month, detail: String(card.age(on: found.date)))
+        if let fan = found.fan {
+            ChartCalloutRow("Median") {
+                AmountText(Decimal(wholeNumber: fan.p50), currency: currency)
+            }
+            ChartCalloutRow("25–75%") { ChartCalloutRange(low: fan.p25, high: fan.p75, currency: currency) }
+            ChartCalloutRow("10–90%") { ChartCalloutRange(low: fan.p10, high: fan.p90, currency: currency) }
+        }
         if let milestone = found.milestone {
             let text = PlanMilestoneText(currency: currency, hidesAmounts: hidesAmounts, locale: locale)
-            lines.append(PlanGraphCallout.Line(text: text.name(milestone.milestone), style: .milestone))
-            lines.append(PlanGraphCallout.Line(text: "Typically by \(PlanMilestoneText.when(milestone.date))",
-                                               style: .detail))
+            ChartCalloutMarker(text.name(milestone.milestone),
+                               detail: "Typically by \(PlanMilestoneText.when(milestone.date))") {
+                PlanGraphFlag()
+            }
         } else if let event = found.event {
-            lines.append(PlanGraphCallout.Line(text: event.title, style: .title))
-            lines.append(PlanGraphCallout.Line(text: event.detail, style: .detail))
+            ChartCalloutMarker(event.title, detail: event.detail) {
+                Image(systemName: "circle.fill")
+                    .foregroundStyle(Self.color(of: event.kind))
+            }
         }
-        if let fan = found.fan {
-            lines.append(PlanGraphCallout.Line(text: "Typically \(rounded(fan.p50))", style: .value))
-            lines.append(PlanGraphCallout.Line(text: "Bad \(compact(fan.p10)), good \(compact(fan.p90))",
-                                               style: .detail))
-        }
-        return lines
-    }
-
-    /// A projected amount to the nearest thousand: "640.000 €".
-    private func rounded(_ value: Double) -> String {
-        guard !hidesAmounts else { return AmountFormat.hidden }
-        let thousands = abs(value) >= 10_000 ? (value / 1_000).rounded() * 1_000 : value.rounded()
-        return AmountFormat.amount(Decimal(wholeNumber: thousands), currency: currency, locale: locale)
     }
 
     // MARK: Drawing
@@ -465,4 +465,59 @@ struct PlanChapterCardView: View {
         case .saving: Palette.accent
         }
     }
+}
+
+#Preview("Reading a chapter") {
+    // Made-up: 16 years of saving, read beside the net-worth chart's callout
+    // over the same projection; then a short chapter read at its right edge,
+    // and the long one at its left edge with amounts hidden.
+    let today = PreviewLibrary.latestCheckIn
+    let birthDate = PreviewLibrary.library.settings.person?.birthDate ?? "1988-05-14"
+    let currency = PreviewLibrary.library.settings.baseCurrency
+    let fan = (0...16).map { year in
+        let median = 190_000 * pow(1.06, Double(year))
+        let spread = 0.12 * Double(year).squareRoot()
+        return FanPoint(date: today.adding(years: year).dateValue, p10: median * exp(-1.28 * spread),
+                        p25: median * exp(-0.67 * spread), p50: median, p75: median * exp(0.67 * spread),
+                        p90: median * exp(1.28 * spread))
+    }
+    let outcome = PlanChaptersModel.Outcome(age: 54, low: fan[16].p10, median: fan[16].p50, high: fan[16].p90,
+                                            failureShare: 0)
+    let rental = PlanTimeline.Event(id: "income-0", date: today.adding(years: 6).dateValue, kind: .pension,
+                                    title: "Rental income", detail: "in \(today.year + 6)")
+    let long = PlanTimeline.Card(
+        index: 0, style: .working, title: "Employee", span: "Now to 54 · \(today.year) to \(today.year + 16)",
+        start: fan[0].date, end: fan[16].date, fan: fan, startLabel: "Now", endLabel: nil, ticks: [],
+        events: [rental], milestones: [], outcome: outcome, birthDate: birthDate)
+    let short = PlanTimeline.Card(
+        index: 1, style: .bridge, title: "Bridge", span: "52 to 54", start: fan[14].date, end: fan[16].date,
+        fan: Array(fan[14...16]), startLabel: "52", endLabel: "54", ticks: [], events: [], milestones: [],
+        outcome: outcome, birthDate: birthDate)
+    let scale = PlanStripScale(values: fan.flatMap { [$0.p25, $0.p50, $0.p75] })
+    let shape = RoundedRectangle(cornerRadius: 14, style: .continuous)
+    ScrollView([.horizontal, .vertical]) {
+        VStack(alignment: .leading, spacing: Metrics.l) {
+            HStack(alignment: .top, spacing: Metrics.l) {
+                PlanChapterCardView(card: long, scale: scale, width: 352, height: 352, currency: currency,
+                                    pointerX: 230)
+                    .background(Palette.card, in: shape)
+                Card("Plan assets, with the future") {
+                    NetWorthChart(history: [], projection: fan, title: "Plan assets",
+                                  readsDate: today.adding(years: 10).dateValue)
+                }
+                .frame(width: 380)
+            }
+            HStack(alignment: .top, spacing: Metrics.l) {
+                PlanChapterCardView(card: short, scale: scale, width: PlanChapterStrip.minimumWidth, height: 352,
+                                    currency: currency, pointerX: PlanChapterStrip.minimumWidth - 4)
+                    .background(Palette.card, in: shape)
+                PlanChapterCardView(card: long, scale: scale, width: 352, height: 352, currency: currency,
+                                    pointerX: 4)
+                    .background(Palette.card, in: shape)
+                    .environment(\.hidesAmounts, true)
+            }
+        }
+        .padding()
+    }
+    .background(Palette.page)
 }
