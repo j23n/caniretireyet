@@ -59,9 +59,10 @@ public struct SavingPace: Hashable, Sendable {
     /// each check-in where it came from the plan, since a pace that repeats
     /// the plan says nothing about it.
     public let leftOut: [AccountID]
-    /// Accounts paid regularly or valued less often than plan assets, and
-    /// not valued since before `asOf`, whose saving at the rate of their
-    /// latest record goes on to `asOf`, for at most as long again;
+    /// Accounts whose saving at the rate of their latest payment goes on to
+    /// `asOf`, for at most as long again: paid regularly and not valued
+    /// since, or paid less often than plan assets are valued, or valued
+    /// less often and not since;
     /// money taken out isn't carried forward.
     public let carriedForward: [AccountID]
     /// Whether the amounts are in money of `asOf`. Without an inflation
@@ -250,7 +251,8 @@ extension Valuator {
             let firstRecord = firstRecordDate(of: account)
             let gaps = zip(payments, payments.dropFirst()).map { $0.0.to.days(to: $0.1.to) }.sorted()
             let regular = payments.count >= 3 && accounts[account]?.recordsTrades != true
-            let longest = regular ? gaps[(gaps.count - 1) / 2] * 3 / 2 : 0
+            let usualGap = regular ? gaps[(gaps.count - 1) / 2] : 0
+            let longest = usualGap * 3 / 2
             let usual = regular ? SavingPace.median(payments.map(\.amount)) : 0
             var spans: [(from: CalendarDate, to: CalendarDate, amount: Decimal)] = []
             for (number, payment) in payments.enumerated() {
@@ -264,19 +266,23 @@ extension Valuator {
                 spans.append((min(payment.from, earliest), payment.to, payment.amount))
             }
             for span in spans { spread(span.amount, of: account, from: span.from, to: span.to) }
-            // An account not valued since before the latest check-in goes on
-            // saving as it did up to its latest record, for at most as long
-            // again, when it's paid regularly (and its latest payment was
-            // like the others) or valued less often than plan assets (its
-            // latest interval over half as long again as the usual time
-            // between check-ins): an account valued once a year saved in the
-            // months since its statement too. A one-off only skipped at a
-            // check-in isn't repeated, nor money taken out, nor an amount the
-            // inflation index couldn't put in today's money.
+            // An account goes on saving as it did up to its latest payment,
+            // to the latest check-in and for at most as long again, when it's
+            // paid regularly (and that payment was like the others) and
+            // either isn't valued since or is paid less often than plan
+            // assets are valued (a pension fund paid each quarter and marked
+            // unchanged in between), or when it's valued less often than
+            // plan assets and not since: an account valued once a year saved
+            // in the months since its statement too. "Less often" is over
+            // half as long again as the usual time between check-ins. A
+            // one-off only skipped at a check-in isn't repeated, nor money
+            // taken out, nor an amount the inflation index couldn't put in
+            // today's money.
+            let notValuedSince = spans.last.map { latestRecordDate(of: account, onOrBefore: asOf) == $0.to } ?? false
             guard let last = spans.last, last.amount > 0, last.to < asOf,
-                  regular ? last.amount <= 2 * usual : last.from.days(to: last.to) * 2 > usualCheckIn * 3,
+                  regular ? last.amount <= 2 * usual && (notValuedSince || usualGap * 2 > usualCheckIn * 3)
+                      : notValuedSince && last.from.days(to: last.to) * 2 > usualCheckIn * 3,
                   accounts[account]?.recordsTrades != true, accounts[account]?.closed.map({ $0 > asOf }) ?? true,
-                  latestRecordDate(of: account, onOrBefore: asOf) == last.to,
                   index.map({ $0.value(on: last.to) != nil }) ?? true
             else { continue }
             let length = last.from.days(to: last.to)

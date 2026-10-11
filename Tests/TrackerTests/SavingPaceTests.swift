@@ -168,6 +168,29 @@ struct SavingPaceTests {
         }
     }
 
+    /// A pension fund paid 3,000 a quarter a month before each quarter's
+    /// end, and marked unchanged in between: it goes on saving after its
+    /// latest payment, on 31 Aug, so the year comes to about 12,000.
+    @Test func aQuarterlyPaymentGoesOnAfterTheLatestOne() throws {
+        var library = self.library(flows: [Decimal](repeating: 1_000, count: 18))
+        library.accounts["pension"] = Account(id: "pension", name: "Pension", kind: .pensionFund, currency: .eur,
+                                              opened: "2020-01-01")
+        var balance: Decimal = 130_000
+        library.upsert(Valuation(account: "pension", date: SavingPace.monthEnd(18, before: "2026-09-30"),
+                                 balance: balance, flow: 0))
+        for back in (0..<18).reversed() {
+            let flow: Decimal = back % 3 == 1 ? 3_000 : 0
+            balance += flow
+            library.upsert(Valuation(account: "pension", date: SavingPace.monthEnd(back, before: "2026-09-30"),
+                                     balance: balance, flow: flow))
+        }
+        let pace = try #require(Valuator(library: library).savingPace(asOf: "2026-09-30"))
+        #expect(pace.carriedForward == ["pension"])
+        let pension = try #require(pace.byAccount["pension"])
+        #expect(abs(pension - 12_000) < 50, "\(pension)")
+        #expect(pace.unusualMonths.isEmpty)
+    }
+
     /// A pension fund valued once a year, on 31 Mar, with 6,000 paid in:
     /// it goes on saving at that rate from its statement to 30 Sep, so the
     /// year's 6,000 isn't cut to the 182 days before its statement.
