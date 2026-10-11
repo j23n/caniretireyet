@@ -6,82 +6,91 @@ import Model
 // together in one control (UI.md, "Overview", "Your money over time").
 // Without SwiftUI, so it can be tested on Linux.
 
-/// How far ahead a projection is shown. A plan running to 95 makes eight
-/// years of history a sliver, so the chart stops earlier unless you ask for
-/// the whole plan. Remembered on the device (`AppPreferences.futureHorizon`).
+/// How far ahead a projection is shown: to retirement, or 5, 10, 20 or 30
+/// years after it. A plan running to 95 makes eight years of history a
+/// sliver, so the chart stops earlier than the plan's end. Once retirement
+/// is behind, the years count from today instead and *To retirement* isn't
+/// offered. Remembered on the device (`AppPreferences.futureHorizon`).
 enum FutureHorizon: String, CaseIterable, Hashable, Sendable {
     /// Up to the day you retire.
     case toRetirement
-    /// Up to 15 years after you retire: the years when markets matter most.
-    case retirementPlus15
-    /// 20 years from now.
-    case twentyYears
-    /// To the plan's end.
-    case wholePlan
+    /// Up to 5 years after you retire.
+    case retirementPlus5
+    /// Up to 10 years after you retire.
+    case retirementPlus10
+    /// Up to 20 years after you retire.
+    case retirementPlus20
+    /// Up to 30 years after you retire.
+    case retirementPlus30
 
-    /// Retirement and 15 years after it.
-    static let standard: FutureHorizon = .retirementPlus15
+    /// Retirement and 10 years after it.
+    static let standard: FutureHorizon = .retirementPlus10
 
-    /// In the menu.
-    var title: String {
+    /// The horizon stored on the device, or ``standard`` when there's none
+    /// or it's one that's no longer offered.
+    init(stored: String?) {
+        self = stored.flatMap(Self.init(rawValue:)) ?? .standard
+    }
+
+    /// The years after retirement (or after today, once retirement is
+    /// behind); `nil` for ``toRetirement``.
+    var years: Int? {
         switch self {
-        case .toRetirement: "To retirement"
-        case .retirementPlus15: "Retirement + 15 years"
-        case .twentyYears: "20 years"
-        case .wholePlan: "Whole plan"
+        case .toRetirement: nil
+        case .retirementPlus5: 5
+        case .retirementPlus10: 10
+        case .retirementPlus20: 20
+        case .retirementPlus30: 30
         }
     }
 
-    /// In the control's label, after the past range: "5Y · to retirement".
-    var shortTitle: String {
-        switch self {
-        case .toRetirement: "to retirement"
-        case .retirementPlus15: "retirement +15"
-        case .twentyYears: "+20 years"
-        case .wholePlan: "whole plan"
-        }
+    /// Whether the horizons count from retirement: while it's ahead of `start`.
+    static func countsFromRetirement(start: Date, retirement: Date?) -> Bool {
+        retirement.map { $0 > start } ?? false
     }
 
-    /// In the control's label where room is short (an iPhone): "5Y → ret. +15".
-    var compactTitle: String {
-        switch self {
-        case .toRetirement: "retiring"
-        case .retirementPlus15: "ret. +15"
-        case .twentyYears: "+20y"
-        case .wholePlan: "end"
-        }
+    /// In the menu: "Retirement + 10 years", or "+10 years" once retirement
+    /// is behind.
+    func title(fromRetirement: Bool) -> String {
+        guard let years else { return "To retirement" }
+        return fromRetirement ? "Retirement + \(years) years" : "+\(years) years"
     }
 
-    /// Whether the horizon depends on a retirement date.
-    var needsRetirement: Bool {
-        self == .toRetirement || self == .retirementPlus15
+    /// In the control's label, after the past range: "5Y · retirement +10".
+    func shortTitle(fromRetirement: Bool) -> String {
+        guard let years else { return "to retirement" }
+        return fromRetirement ? "retirement +\(years)" : "+\(years) years"
     }
 
-    /// The horizons that make sense: the ones counted from retirement only
-    /// while retirement is ahead.
+    /// In the control's label where room is short (an iPhone): "5Y → ret. +10".
+    func compactTitle(fromRetirement: Bool) -> String {
+        guard let years else { return "retiring" }
+        return fromRetirement ? "ret. +\(years)" : "+\(years)y"
+    }
+
+    /// The horizons that make sense: all of them while retirement is ahead,
+    /// and all but ``toRetirement`` once it's behind.
     static func choices(start: Date, retirement: Date?) -> [FutureHorizon] {
-        allCases.filter { !$0.needsRetirement || retirement.map { $0 > start } == true }
+        countsFromRetirement(start: start, retirement: retirement)
+            ? allCases : allCases.filter { $0 != .toRetirement }
     }
 
-    /// This horizon, or 20 years when it counts from a retirement that
-    /// isn't ahead.
+    /// This horizon, or ``standard`` when it's ``toRetirement`` and
+    /// retirement isn't ahead.
     func effective(start: Date, retirement: Date?) -> FutureHorizon {
-        Self.choices(start: start, retirement: retirement).contains(self) ? self : .twentyYears
+        Self.choices(start: start, retirement: retirement).contains(self) ? self : .standard
     }
 
-    /// Where the projection stops: never past the plan's end, and at least a
-    /// year after `start`.
+    /// Where the projection stops: this many years after retirement while
+    /// it's ahead, after `start` once it isn't; never past the plan's end,
+    /// and at least a year after `start`.
     func end(start: Date, retirement: Date?, planEnd: Date, calendar: Calendar = .current) -> Date {
         let horizon = effective(start: start, retirement: retirement)
         func adding(_ years: Int, to date: Date) -> Date {
             calendar.date(byAdding: .year, value: years, to: date) ?? date
         }
-        let end: Date = switch horizon {
-        case .toRetirement: retirement ?? planEnd
-        case .retirementPlus15: adding(15, to: retirement ?? start)
-        case .twentyYears: adding(20, to: start)
-        case .wholePlan: planEnd
-        }
+        let from = retirement.map { max($0, start) } ?? start
+        let end = horizon.years.map { adding($0, to: from) } ?? from
         return min(planEnd, max(end, adding(1, to: start)))
     }
 }
@@ -138,9 +147,13 @@ struct ProjectionWindow: Hashable, Sendable {
     }
 }
 
-/// The control's label for a time span: "5Y", or "5Y · retirement +15"
-/// while the future is shown ("5Y → ret. +15" when `compact`).
-func timeSpanTitle(range: OverviewRange, horizon: FutureHorizon?, compact: Bool = false) -> String {
+/// The control's label for a time span: "5Y", or "5Y · retirement +10"
+/// while the future is shown ("5Y → ret. +10" when `compact`; "5Y · +10
+/// years" once retirement is behind).
+func timeSpanTitle(range: OverviewRange, horizon: FutureHorizon?, fromRetirement: Bool,
+                   compact: Bool = false) -> String {
     guard let horizon else { return range.title }
-    return compact ? "\(range.title) → \(horizon.compactTitle)" : "\(range.title) · \(horizon.shortTitle)"
+    return compact
+        ? "\(range.title) → \(horizon.compactTitle(fromRetirement: fromRetirement))"
+        : "\(range.title) · \(horizon.shortTitle(fromRetirement: fromRetirement))"
 }
