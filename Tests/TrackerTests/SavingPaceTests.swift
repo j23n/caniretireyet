@@ -345,6 +345,33 @@ struct SavingPaceTests {
         #expect(pace.range == 12_000...12_500)
     }
 
+    /// A savings account emptied on 31 Mar and not valued since: taking
+    /// the 5,000 out isn't carried forward.
+    @Test func moneyTakenOutIsntCarriedForward() throws {
+        var library = self.library(flows: [Decimal](repeating: 1_000, count: 12))
+        library.accounts["savings"] = Account(id: "savings", name: "Savings", kind: .savings, currency: .eur,
+                                              opened: "2020-01-01")
+        library.upsert(Valuation(account: "savings", date: "2025-09-30", balance: 5_000, flow: 0))
+        library.upsert(Valuation(account: "savings", date: "2026-03-31", balance: 0, flow: -5_000))
+        let pace = try #require(Valuator(library: library).savingPace(asOf: "2026-09-30"))
+        #expect(pace.carriedForward.isEmpty)
+        #expect(pace.byAccount["savings"]?.rounded(scale: 2) == -5_000)
+    }
+
+    /// With 18 months and an index from 30 Jun 2025, the last 12 are in
+    /// today's money, and there's no range, which would need the months
+    /// before.
+    @Test func anIndexCoveringOnlyThePaceLeavesOutTheRange() throws {
+        let index = InflationIndex([IndexRecord(index: .hicpIT, date: "2025-06-30", value: 100),
+                                    IndexRecord(index: .hicpIT, date: "2026-09-30", value: 100)],
+                                   index: .hicpIT)
+        let pace = try #require(Valuator(library: library(flows: [Decimal](repeating: 1_000, count: 18)))
+            .savingPace(asOf: "2026-09-30", inflation: index))
+        #expect(pace.isInTodaysMoney)
+        #expect(pace.range == nil)
+        #expect(pace.perYear == 12_000)
+    }
+
     /// A pension fund with new money recorded at one check-in and taken
     /// from the plan at the next: the recorded 3,000 counts, the plan's
     /// doesn't, and the account is listed as left out.

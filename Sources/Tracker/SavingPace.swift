@@ -41,7 +41,9 @@ public struct SavingPace: Hashable, Sendable {
     /// usual one, scaled to a year when there are fewer than 12.
     public let perYear: Decimal
     /// The lowest and highest pace of the 12 months ending at each of the
-    /// last month ends, up to 12; `nil` without 13 months. The months
+    /// last month ends, up to 12; `nil` without 13 months, or when the
+    /// pace is in today's money and the inflation index doesn't cover
+    /// them all. The months
     /// before `months` aren't checked for missing values (`isComplete`) or
     /// left-out accounts (`leftOut`).
     public let range: ClosedRange<Decimal>?
@@ -57,7 +59,8 @@ public struct SavingPace: Hashable, Sendable {
     /// the plan says nothing about it.
     public let leftOut: [AccountID]
     /// Accounts not valued since before `asOf`, whose saving at the rate of
-    /// their latest record goes on to `asOf`, for at most as long again.
+    /// their latest record goes on to `asOf`, for at most as long again;
+    /// money taken out isn't carried forward.
     public let carriedForward: [AccountID]
     /// Whether the amounts are in money of `asOf`. Without an inflation
     /// index with values from the start of the first month, they're all in
@@ -155,10 +158,13 @@ extension Valuator {
             .flatMap { $0.accounts.filter { $0.isFlowFromPlan && $0.change.newMoney != 0 }.map(\.account) })
 
         // In today's money only when the index covers every month, so the
-        // months never mix money of today and of each check-in.
+        // months never mix money of today and of each check-in; without
+        // the range's older months covered too, there's no range.
         let index = inflation.flatMap {
-            $0.value(on: ends[available]) != nil && $0.value(on: asOf) != nil ? $0 : nil
+            $0.value(on: ends[window]) != nil && $0.value(on: asOf) != nil ? $0 : nil
         }
+        let hasRange = available > SavingPace.window
+            && (index == nil || index?.value(on: ends[available]) != nil)
         var isComplete = true
         // Each account's new money at each check-in where it had some,
         // after money moved between plan assets cancels out.
@@ -248,7 +254,7 @@ extension Valuator {
             // saving as it did up to its latest record, for at most as long
             // again: an account valued once a year saved in the months since
             // its statement too.
-            guard let last = spans.last, last.amount != 0, last.to < asOf, accounts[account]?.recordsTrades != true,
+            guard let last = spans.last, last.amount > 0, last.to < asOf, accounts[account]?.recordsTrades != true,
                   accounts[account]?.closed.map({ $0 > asOf }) ?? true,
                   latestRecordDate(of: account, onOrBefore: asOf) == last.to
             else { continue }
@@ -263,7 +269,7 @@ extension Valuator {
         let latest = Array(months.prefix(window).reversed())
         let pace = SavingPace.pace(of: latest, planAssets: planAssets)
         var range: ClosedRange<Decimal>?
-        if available > SavingPace.window {
+        if hasRange {
             let paces = (0...(available - SavingPace.window)).prefix(SavingPace.window).map { shift in
                 SavingPace.pace(of: Array(months[shift..<(shift + SavingPace.window)]), planAssets: planAssets).perYear
             }
