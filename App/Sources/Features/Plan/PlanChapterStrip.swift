@@ -57,7 +57,7 @@ struct PlanChapterStrip: View {
     private func chartSummary(_ card: PlanTimeline.Card) -> ChartSummary {
         let labels = card.fan.enumerated().map { offset, point in
             let age = card.age(on: point.date)
-            return offset == 0 ? "Start, \(age)" : "\(age) · \(Calendar.current.component(.year, from: point.date))"
+            return offset == 0 ? "Start, \(age)" : "\(age) · \(card.year(on: point.date))"
         }
         func series(_ name: String, _ value: (FanPoint) -> Double) -> ChartSummary.Series {
             ChartSummary.Series(name: name, points: zip(labels, card.fan).map { ($0, value($1)) })
@@ -375,8 +375,8 @@ struct PlanChapterCardView: View {
     }
 
     private func lines(for found: Reading) -> [PlanGraphCallout.Line] {
-        let year = Calendar.current.component(.year, from: found.date)
-        var lines = [PlanGraphCallout.Line(text: "\(card.age(on: found.date)) · \(String(year))", style: .context)]
+        let line = "\(card.age(on: found.date)) · \(String(card.year(on: found.date)))"
+        var lines = [PlanGraphCallout.Line(text: line, style: .context)]
         if let milestone = found.milestone {
             let text = PlanMilestoneText(currency: currency, hidesAmounts: hidesAmounts, locale: locale)
             lines.append(PlanGraphCallout.Line(text: text.name(milestone.milestone), style: .milestone))
