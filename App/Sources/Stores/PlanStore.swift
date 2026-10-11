@@ -71,7 +71,7 @@ final class PlanStore {
     /// The library whose kept results were restored, so it's done once per library opened.
     @ObservationIgnored private var restoredLibrary: URL?
     /// What names a library kept in memory, which has no folder, for the
-    /// ``archive``: the UI tests' (`UITestLaunch`). `nil` keeps nothing for it.
+    /// ``archive``: the screen tests' (App/ScreenTests). `nil` keeps nothing for it.
     @ObservationIgnored var inMemoryLibrary: URL?
     /// The latest write to the ``archive``: writes wait for the one before,
     /// so an older result never replaces a newer one.

@@ -3,7 +3,7 @@ import Model
 import Storage
 import Tracker
 
-/// A made-up library for SwiftUI previews and the UI tests: the tests'
+/// A made-up library for SwiftUI previews and the screen tests: the tests'
 /// example library (Sources/TestSupport/Resources/ExampleLibrary, which
 /// project.yml bundles with the app), read as the app reads a library.
 /// Ten accounts (current, savings, a broker that records trades of an ETF,

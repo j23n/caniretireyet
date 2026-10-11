@@ -38,11 +38,11 @@ final class AppModel {
         #endif
     }
 
-    /// The app's model at launch: ``live()``, or in a Debug build launched by
-    /// the UI tests, their made-up library (``UITestLaunch``).
+    /// The app's model at launch: ``live()``, or in a Debug build launched
+    /// with `-screenLibrary`, a made-up library (``ScreenLaunch``).
     static func atLaunch() -> AppModel {
         #if DEBUG
-        if let launch = UITestLaunch(arguments: ProcessInfo.processInfo.arguments) {
+        if let launch = ScreenLaunch(arguments: ProcessInfo.processInfo.arguments) {
             return launch.model()
         }
         #endif
@@ -70,7 +70,7 @@ final class AppModel {
             widgetSnapshotURL: AppGroup.snapshotURL)
     }
 
-    /// Previews, and the UI tests' launch: `library` in memory (by default
+    /// Previews, the screen tests and ``ScreenLaunch``: `library` in memory (by default
     /// the made-up example library), no network, no files (not even the
     /// widgets' snapshot, nor the plans' results without `planResults`),
     /// plans run on `planEngine` (made-up results by default), and this
