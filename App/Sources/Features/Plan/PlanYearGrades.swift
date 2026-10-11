@@ -89,7 +89,8 @@ struct PlanYearGrade: Hashable, Sendable, Identifiable {
     /// year, the days its planned saving covers.
     var putIn: Decimal
     /// What the baseline planned you'd save in the year, by now for the
-    /// year still going; `nil` without a baseline or its year.
+    /// year still going, in money of the year's end where the inflation
+    /// index allows (else as recorded); `nil` without a baseline or its year.
     var plannedSaving: Decimal?
     /// Money out over the year, scaled to a year; `nil` without money in
     /// and out recorded in it.
@@ -175,8 +176,10 @@ struct PlanYearGrade: Hashable, Sendable, Identifiable {
             return PlanYearGrade(
                 year: year, isSoFar: sourceYears[year]?.isSoFar ?? false, hasBaseline: baseline != nil,
                 putIn: measuredPutIn,
-                plannedSaving: baseline.flatMap {
-                    PlanProgressYear.plannedSaving(in: $0, from: saving, to: span.to)
+                plannedSaving: baseline.flatMap { baseline in
+                    PlanProgressYear.plannedSaving(in: baseline, from: saving, to: span.to).map {
+                        index?.convert($0, from: baseline.start.date, to: span.to) ?? $0
+                    }
                 },
                 moneyOutPerYear: money.isEmpty ? nil : money.moneyOutPerYear,
                 plannedSpending: baseline.flatMap { baseline in

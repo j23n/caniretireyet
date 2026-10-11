@@ -11,6 +11,7 @@ import Tracker
 /// working), and when a baseline's plan was past working.
 struct PlanYearGradeYearsTests {
     private let latest = PreviewLibrary.latestCheckIn
+    private let index = InflationIndex(library: PreviewLibrary.library, index: "hicp-it")
 
     private func years(in library: Library = PreviewLibrary.library, from start: CalendarDate? = nil,
                        through end: CalendarDate = PreviewLibrary.latestCheckIn) -> [PlanYearGrade] {
@@ -27,8 +28,9 @@ struct PlanYearGradeYearsTests {
         let thisYear = try #require(grades.first)
         #expect(thisYear.isSoFar)
         #expect(thisYear.hasBaseline)
-        // From the baseline's start, 31 December, to the latest check-in: 273 of 365 days.
-        #expect(thisYear.plannedSaving == Decimal(18_000) * 273 / 365)
+        // From the baseline's start, 31 December, to the latest check-in: 273 of 365 days,
+        // in the year's money.
+        #expect(thisYear.plannedSaving == index.convert(Decimal(18_000) * 273 / 365, from: "2025-12-31", to: latest))
         let valuator = Valuator(library: PreviewLibrary.library)
         let sources = valuator.moneySources(.months, through: latest)
         #expect(thisYear.putIn == sources.years.first { $0.year == 2026 }?.putIn)
@@ -68,19 +70,19 @@ struct PlanYearGradeYearsTests {
         let valuator = Valuator(library: library)
         let thisYear = try #require(years(in: library).first)
         #expect(thisYear.year == 2026)
-        // From 31 March to the latest check-in: 183 of the 275 days left in the year.
-        #expect(thisYear.plannedSaving == Decimal(18_000) * 183 / 275)
+        // From 31 March to the latest check-in: 183 of the 275 days left in the year,
+        // in the year's money.
+        #expect(thisYear.plannedSaving == index.convert(Decimal(18_000) * 183 / 275, from: "2026-03-31", to: latest))
         #expect(thisYear.putIn == PlanYearGrade.putIn(after: "2026-03-31", through: latest, valuator: valuator))
         // Less than the whole year's: the first quarter's saving isn't counted.
         let wholeYear = try #require(valuator.moneySources(.months, through: latest).years.first { $0.year == 2026 })
         #expect(thisYear.putIn < wholeYear.putIn)
     }
 
-    // MARK: Planned spending in the year's money
+    // MARK: Planned saving and spending in the year's money
 
     @Test func plannedSpendingIsInTheYearsMoneyWhereTheIndexAllows() throws {
         let thisYear = try #require(years().first)
-        let index = InflationIndex(library: PreviewLibrary.library, index: "hicp-it")
         let inYearsMoney = try #require(index.convert(36_000, from: "2025-12-31", to: latest))
         #expect(inYearsMoney > 36_000)
         #expect(thisYear.plannedSpending == inYearsMoney)
@@ -91,6 +93,21 @@ struct PlanYearGradeYearsTests {
         for month in library.months.keys { library.months[month]?.indices = [] }
         let thisYear = try #require(years(in: library).first)
         #expect(thisYear.plannedSpending == 36_000)
+    }
+
+    @Test func plannedSavingIsInTheYearsMoneyWhereTheIndexAllows() throws {
+        let thisYear = try #require(years().first)
+        let recorded = Decimal(18_000) * 273 / 365
+        let inYearsMoney = try #require(index.convert(recorded, from: "2025-12-31", to: latest))
+        #expect(inYearsMoney > recorded)
+        #expect(thisYear.plannedSaving == inYearsMoney)
+    }
+
+    @Test func plannedSavingIsAsRecordedWithoutAnIndex() throws {
+        var library = PreviewLibrary.library
+        for month in library.months.keys { library.months[month]?.indices = [] }
+        let thisYear = try #require(years(in: library).first)
+        #expect(thisYear.plannedSaving == Decimal(18_000) * 273 / 365)
     }
 
     // MARK: Past working
