@@ -59,10 +59,15 @@ struct OverviewChangeCard: View {
 /// money and other, so what you saved stands apart from what markets did.
 /// The hero says this year's change in per cent; this card leads with it
 /// in money ("▲ +18.240 € since 31 Dec 2025"), and in per cent while
-/// amounts are hidden.
+/// amounts are hidden. Under it, the savings rate over the money in and
+/// out recorded this year, when there is some.
 struct OverviewYearCard: View {
     /// Tracker's `Valuator.changeThisYear(asOf:)`.
     let report: ChangeReport
+    /// Tracker's `Valuator.savingsRate(from:through:)` over the values
+    /// recorded this year; `nil` without money in and out.
+    var savings: SavingsRate?
+    @Environment(\.hidesAmounts) private var hidesAmounts
     @Environment(\.locale) private var locale
 
     var body: some View {
@@ -75,8 +80,35 @@ struct OverviewYearCard: View {
                     .font(.footnote)
                     .foregroundStyle(Palette.mutedInk)
                     .fixedSize(horizontal: false, vertical: true)
+                if let savings, let text = Self.savingsText(savings, today: report.to, hidesAmounts: hidesAmounts,
+                                                            locale: locale) {
+                    Text(text)
+                        .font(.subheadline)
+                        .foregroundStyle(Palette.ink)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
         }
+    }
+
+    /// "Savings rate 17%: you kept 1.945 € of the 11.525 € that came in
+    /// since 30 Jun, with 1.325 € paid into pensions counted as both."
+    /// While amounts are hidden, only the rate and since when. `nil` when
+    /// nothing came in.
+    static func savingsText(_ savings: SavingsRate, today: CalendarDate, hidesAmounts: Bool,
+                            locale: Locale) -> String? {
+        guard let rate = savings.rate else { return nil }
+        let percent = AmountFormat.percent(rate, digits: 0, locale: locale)
+        let since = AmountFormat.shortDate(savings.from, relativeTo: today, locale: locale)
+        if hidesAmounts { return "Savings rate \(percent) of what came in since \(since)." }
+        let currency = savings.moneyInOut.currency
+        func amount(_ value: Decimal) -> String { AmountFormat.amount(value, currency: currency, locale: locale) }
+        var text = "Savings rate \(percent): you kept \(amount(savings.saved)) of the \(amount(savings.income)) "
+            + "that came in since \(since)"
+        if savings.pensionContributions > 0 {
+            text += ", with \(amount(savings.pensionContributions)) paid into pensions counted as both"
+        }
+        return text + "."
     }
 }
 
@@ -590,7 +622,8 @@ struct OverviewAllocationCard: View {
                     OverviewChangeCard(report: report)
                 }
                 if let report = valuator.changeThisYear(asOf: date) {
-                    OverviewYearCard(report: report)
+                    OverviewYearCard(report: report,
+                                     savings: valuator.savingsRate(from: report.from.adding(days: 1), through: date))
                 }
                 // Before the main plan's first calculation.
                 OverviewAnswerView(headline: nil, today: date)
