@@ -74,14 +74,43 @@ private final class CaptureWindow {
         window.makeKeyAndOrderFront(nil)
     }
 
-    /// The whole window, its title bar and toolbar too.
+    /// The whole window, its title bar and toolbar too: as the window
+    /// server shows it, else as its views draw themselves.
     func png() -> Data? {
+        if let image = Self.windowServerImage(of: window) {
+            return NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:])
+        }
         guard let view = window.contentView?.superview ?? window.contentView,
               let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds) else {
             return nil
         }
         view.cacheDisplay(in: view.bounds, to: bitmap)
         return bitmap.representation(using: .png, properties: [:])
+    }
+
+    /// The window as the window server composites it. The views can't draw
+    /// the sidebar's glass themselves: `cacheDisplay` leaves the sidebar a
+    /// blank panel. `CGWindowListCreateImage` is unavailable to Swift since
+    /// macOS 15 (ScreenCaptureKit replaces it, but needs the screen
+    /// recording permission CI doesn't have), so it's looked up at run time;
+    /// an app may still capture its own windows with it. Nil when it's gone.
+    private static func windowServerImage(of window: NSWindow) -> CGImage? {
+        typealias CreateImage = @convention(c) (CGRect, UInt32, UInt32, UInt32) -> Unmanaged<CGImage>?
+        let includingWindow: UInt32 = 1 << 3  // kCGWindowListOptionIncludingWindow
+        let ignoreFraming: UInt32 = 1 << 0  // kCGWindowImageBoundsIgnoreFraming: no shadow
+        let bestResolution: UInt32 = 1 << 3  // kCGWindowImageBestResolution
+        guard let coreGraphics = dlopen("/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics", RTLD_LAZY),
+              let symbol = dlsym(coreGraphics, "CGWindowListCreateImage") else {
+            return nil
+        }
+        let createImage = unsafeBitCast(symbol, to: CreateImage.self)
+        guard window.windowNumber > 0,
+              let image = createImage(.null, includingWindow, UInt32(window.windowNumber),
+                                      ignoreFraming | bestResolution)?.takeRetainedValue(),
+              image.width > 1, image.height > 1 else {
+            return nil
+        }
+        return image
     }
 
     func close() {
