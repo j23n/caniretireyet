@@ -8,9 +8,10 @@ extension TemporaryFolder {
     /// - `broker`: a brokerage account recorded as snapshots by default,
     ///   whose values hold positions, the first without a purchase cost;
     /// - `new-broker`: a brokerage account recorded as snapshots, with no values;
-    /// - `exchange`: a crypto account recorded as a balance;
+    /// - `exchange`: a crypto account recorded as a balance, whose second
+    ///   value has no flow;
     /// - `wallet`: a crypto account recorded as snapshots by default, whose
-    ///   values hold only balances;
+    ///   values hold only balances, the second without a flow;
     /// - `fund`: a pension fund recorded as snapshots, whose values hold only
     ///   balances.
     public static func version3Library() throws -> TemporaryFolder {
@@ -61,9 +62,9 @@ extension TemporaryFolder {
                   "moneyOut": "1800" },
                 { "account": "broker", "cash": "20", "date": "2026-02-28", "flow": "520",
                   "positions": [{ "costBasis": "1550", "instrument": "vwce", "quantity": "15" }] },
-                { "account": "exchange", "balance": "550", "date": "2026-02-28", "flow": "0" },
+                { "account": "exchange", "balance": "550", "date": "2026-02-28" },
                 { "account": "fund", "balance": "3100", "date": "2026-02-28", "flow": "100" },
-                { "account": "wallet", "balance": "210", "date": "2026-02-28", "flow": "0" }
+                { "account": "wallet", "balance": "210.004", "date": "2026-02-28" }
               ]
             }
             """)
