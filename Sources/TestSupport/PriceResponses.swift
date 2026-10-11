@@ -142,4 +142,23 @@ extension PriceResponses {
     {"type":"OBS_PERIOD_OVERALL_LATEST","title":"2026-08"}],\
     "positions-with-no-data":{"freq":[],"unit":[],"coicop18":[],"geo":[],"time":[]}}}
     """
+
+    /// Yahoo Finance, `GET v1/finance/search?q=IE00BK5BQT80&quotesCount=10&newsCount=0`:
+    /// the ISIN of Vanguard FTSE All-World (Acc): its London listing first
+    /// (no single currency), then XETRA, Milan (with a currency) and a
+    /// listing Yahoo Finance has no quotes for.
+    public static let yahooSearchVWCE = """
+    {"explains":[],"count":4,"quotes":[\
+    {"exchange":"LSE","shortname":"VANGUARD FUNDS PLC VANGUARD FTSE","quoteType":"ETF","symbol":"VWRA.L",\
+    "index":"quotes","score":20020.0,"typeDisp":"ETF",\
+    "longname":"Vanguard FTSE All-World UCITS ETF USD Accumulation","exchDisp":"London","isYahooFinance":true},\
+    {"exchange":"GER","shortname":"Vanguard FTSE All-World U.ETF R","quoteType":"ETF","symbol":"VWCE.DE",\
+    "index":"quotes","score":20015.0,"typeDisp":"ETF",\
+    "longname":"Vanguard FTSE All-World UCITS ETF USD Accumulation","exchDisp":"XETRA","isYahooFinance":true},\
+    {"exchange":"MIL","shortname":"VANGUARD FTSE ALL-WORLD UCITS E","quoteType":"ETF","symbol":"VWCE.MI",\
+    "index":"quotes","score":20010.0,"typeDisp":"ETF","exchDisp":"Milan","currency":"EUR","isYahooFinance":true},\
+    {"exchange":"FRA","shortname":"Vanguard FTSE All-World","quoteType":"ETF","symbol":"VWCE.F",\
+    "index":"quotes","score":20005.0,"typeDisp":"ETF","exchDisp":"Frankfurt","isYahooFinance":false}\
+    ],"news":[],"nav":[],"lists":[],"researchReports":[],"totalTime":21}
+    """
 }

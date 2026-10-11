@@ -271,7 +271,7 @@ struct PlanAndHelpTests {
         #expect(runHelp.output.contains("--save-baseline <label>"))
         #expect(runHelp.output.contains("--fast"))
         #expect(runHelp.output.contains("--years"))
-        for command in ["settings", "instruments"] {
+        for command in ["settings", "instruments", "spending"] {
             #expect(run.output.contains("  \(command) "), "\(command)")
         }
     }

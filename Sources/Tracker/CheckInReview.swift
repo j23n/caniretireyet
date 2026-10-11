@@ -272,8 +272,19 @@ extension CheckInDraft {
             ? 0 : valuator.defaultFlow(for: valuation, previous: row.previous, paid: row.paid)
         var written: Valuation?
         if row.state == .updated || row.state == .unchanged, ignoringConflict || row.conflict == nil {
-            written = valuation
-            written?.flow = row.isFlowEdited ? row.enteredFlow : defaultFlow
+            var record = valuation
+            record.flow = row.isFlowEdited ? row.enteredFlow : defaultFlow
+            // A first value has no previous valuation to measure from, so it suggests no money out.
+            let suggested = row.previous == nil
+                ? nil : CheckInDraft.defaultMoneyOut(moneyIn: row.moneyIn, flow: record.flow)
+            let moneyOut = row.enteredMoneyOut ?? suggested
+            // Money out typed with money in left empty: nothing came in.
+            let moneyIn = row.moneyIn ?? (row.enteredMoneyOut == nil ? nil : 0)
+            // Both or neither, never negative: summaries count nothing else.
+            let recordsBoth = (moneyIn ?? -1) >= 0 && (moneyOut ?? -1) >= 0
+            record.moneyIn = recordsBoth ? moneyIn : nil
+            record.moneyOut = recordsBoth ? moneyOut : nil
+            written = record
         }
         return Proposal(valuation: valuation, written: written, defaultFlow: defaultFlow, positions: reviews)
     }
