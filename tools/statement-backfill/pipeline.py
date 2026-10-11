@@ -6,7 +6,7 @@ The stages (README.md):
 2. Classify: what kind of statement, whose account, which period.
 3. Extract: the model copies each page into JSON.
 4. Check: balances must add up; pages that don't are asked again.
-5. Assemble: accounts mapped and merged, transfers matched, months summed, CSVs written.
+5. Assemble: each folder is an account; transfers matched, months summed, CSVs written.
 
 Every model reply is cached in the work folder, keyed by the PDF's hash, so a rerun only
 asks the model about what changed. Amounts are `Decimal` throughout, never floats.
@@ -54,8 +54,8 @@ class Config:
     statements: Path
     work: Path
     output: Path
-    accounts: Path
     model: str
+    account: str | None = None  # read only this account's folder (assembling still covers all)
     retry_model: str | None = None
     limit: int | None = None
     only: list[str] = field(default_factory=list)
@@ -170,15 +170,8 @@ def money(value: Decimal | None) -> str:
     return format(value.normalize(), "f")
 
 
-def account_key(number: object) -> str:
-    """An account number to compare by: letters and digits, upper case, with hidden digits
-    (**** or XXXX) as *."""
-    key = re.sub(r"[^0-9A-Za-z*]", "", str(number or "")).upper()
-    return re.sub(r"X{2,}", lambda run: "*" * len(run.group()), key)
-
-
 def isin_key(isin: object) -> str:
-    """An ISIN to compare by: letters and digits, upper case. Never masked, so XX stays."""
+    """An ISIN to compare by: letters and digits, upper case."""
     return re.sub(r"[^0-9A-Za-z]", "", str(isin or "")).upper()
 
 
@@ -564,8 +557,23 @@ def read_page_reader(info: dict) -> Callable[[dict], dict]:
 # MARK: - Stages 1-4 for every PDF
 
 
+def all_pdfs(config: Config) -> list[Path]:
+    return sorted(p for p in config.statements.rglob("*") if p.suffix.lower() == ".pdf")
+
+
+def account_of(path: Path, config: Config) -> str | None:
+    """The library account a PDF belongs to: the first folder under the statements folder."""
+    parts = path.relative_to(config.statements).parts
+    return parts[0] if len(parts) > 1 else None
+
+
 def statement_files(config: Config) -> list[Path]:
-    files = sorted(p for p in config.statements.rglob("*") if p.suffix.lower() == ".pdf")
+    """The PDFs to read this run: those in account folders, or in `config.account`'s only."""
+    files = [p for p in all_pdfs(config) if account_of(p, config) is not None]
+    if config.account:
+        files = [p for p in files if account_of(p, config) == config.account]
+        if not files:
+            sys.exit(f"No PDFs in {config.statements / config.account}")
     if config.only:
         files = [p for p in files if p.name in config.only]
     if config.limit:
@@ -639,7 +647,7 @@ def run(config: Config, ask: Ask | None = None, retry_ask: Ask | None = None) ->
             except Exception as error:
                 log(f"    ✗ {type(error).__name__}: {error}")
     log("\nAssembling")
-    assemble(config, files)
+    assemble(config, all_pdfs(config))
 
 
 # MARK: - Stage 5: assemble
@@ -655,13 +663,10 @@ class Statement:
     start: date | None
     end: date | None
     data: dict
+    account: str       # the library account: its folder
+    source: str        # the statement account: the folder it's in, under the account's folder
     reversed: bool = False
-    account: str | None = None  # the library account it maps to
-    failed: bool = False        # its checks failed: its period is a hole in the account's history
-
-    @property
-    def source(self) -> str:
-        return f"{self.institution} {self.number}"
+    failed: bool = False  # its checks failed: its period is a hole in the account's history
 
     @property
     def last_day(self) -> date | None:
@@ -679,11 +684,16 @@ class Report:
 def load_statements(config: Config, files: list[Path], report: Report) -> list[Statement]:
     statements = []
     for path in files:
+        name = str(path.relative_to(config.statements))
+        account = account_of(path, config)
+        if account is None:
+            report.add("PDFs outside an account folder (left out)", name)
+            continue
+        source = str(path.parent.relative_to(config.statements))
         folder = config.work / file_hash(path)
         status = load(folder / "status.json")
-        name = str(path.relative_to(config.statements))
         if not status:
-            report.add("Not read", f"{name}")
+            report.add("Not read yet", name)
             continue
         if status.get("skipped"):
             continue
@@ -693,7 +703,7 @@ def load_statements(config: Config, files: list[Path], report: Report) -> list[S
             if info:
                 statements.append(Statement(name, info["kind"], info["institution"], info["accountNumber"],
                                             info["currency"], info["periodStart"], info["periodEnd"], {},
-                                            failed=True))
+                                            account, source, failed=True))
             continue
         if info["kind"] in ("card", "loan"):
             data = load(folder / "debt.json")
@@ -702,35 +712,8 @@ def load_statements(config: Config, files: list[Path], report: Report) -> list[S
                                                                      key=lambda p: int(p.stem.split("-")[1]))]}
         statements.append(Statement(name, info["kind"], info["institution"], info["accountNumber"],
                                     info["currency"], info["periodStart"], info["periodEnd"], data,
-                                    reversed=bool(status.get("reversed"))))
+                                    account, source, reversed=bool(status.get("reversed"))))
     return statements
-
-
-def map_accounts(statements: list[Statement], config: Config, report: Report) -> list[Statement]:
-    """Maps each statement's account number to a library account ID (accounts.json)."""
-    mapping = {}
-    if config.accounts.exists():
-        mapping = {account_key(k): v for k, v in json.loads(config.accounts.read_text()).items()
-                   if not k.startswith("_")}
-    unknown: dict[tuple, int] = defaultdict(int)
-    mapped = []
-    for statement in statements:
-        key = account_key(statement.number)
-        target = mapping.get(key)
-        shown = key.split("*")[-1]
-        if target is None and "*" in key and len(shown) >= 4:
-            # A masked number (**** 4242): match on the digits it shows.
-            matches = {v for k, v in mapping.items() if k.endswith(shown)}
-            if len(matches) == 1:
-                target = matches.pop()
-        if target is None:
-            unknown[(statement.kind, statement.institution, statement.number or "(none)")] += 1
-            continue
-        statement.account = target
-        mapped.append(statement)
-    for (kind, institution, number), count in sorted(unknown.items()):
-        report.add("Accounts not in accounts.json (left out)", f"{kind}: {institution} {number} ({count} statements)")
-    return mapped
 
 
 def by_source(statements: list[Statement]) -> dict[str, list[Statement]]:
@@ -1074,7 +1057,14 @@ def profiles() -> dict[str, dict]:
 
 def assemble(config: Config, files: list[Path]) -> None:
     report = Report()
-    statements = map_accounts(load_statements(config, files, report), config, report)
+    statements = load_statements(config, files, report)
+    kinds: dict[str, set[str]] = defaultdict(set)
+    for statement in statements:
+        kinds[statement.account].add("debt" if statement.kind in ("card", "loan") else statement.kind)
+    for account, found in sorted(kinds.items()):
+        if len(found) > 1:
+            report.add("Account folders with more than one kind of statement",
+                       f"{account}: {', '.join(sorted(found))} (each goes to its own CSV)")
     pairs = match_transfers(movements(statements), config.transfer_days)
     cash = assemble_banks(statements, report)
     trades = assemble_brokers(statements, config, report)

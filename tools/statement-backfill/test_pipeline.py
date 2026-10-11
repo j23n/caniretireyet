@@ -44,7 +44,7 @@ CLASSIFY = {
                    "periodStart": "2024-01-01", "periodEnd": "2024-01-31"},
     "giro-a-feb": {"kind": "bank", "institution": "Musterbank", "accountNumber": "DE00 1111", "currency": "EUR",
                    "periodStart": "2024-02-01", "periodEnd": "2024-02-29"},
-    "giro-b": {"kind": "bank", "institution": "Beispielbank", "accountNumber": "DE00 2222", "currency": "EUR",
+    "giro-b": {"kind": "bank", "institution": "Beispielbank", "accountNumber": None, "currency": "EUR",
                "periodStart": "2024-02-15", "periodEnd": "2024-03-31"},
     "depot-1-jan": {"kind": "broker", "institution": "Old Broker", "accountNumber": "D-1", "currency": "EUR",
                     "periodStart": "2024-01-01", "periodEnd": "2024-01-31"},
@@ -108,14 +108,15 @@ PAGES = {
                  "interest": None},
 }
 
+# One folder per library account; a folder inside it per statement account merged into it.
 FILES = {
-    "2024-01 giro a.pdf": "giro-a-jan", "2024-02 giro a.pdf": "giro-a-feb", "2024-03 giro b.pdf": "giro-b",
-    "depot 1 jan.pdf": "depot-1-jan", "depot 1 feb.pdf": "depot-1-feb", "depot 2 feb.pdf": "depot-2-feb",
-    "card jan.pdf": "card-jan", "card feb.pdf": "card-feb", "terms.pdf": "terms",
+    "current-account/musterbank/2024-01.pdf": "giro-a-jan",
+    "current-account/musterbank/2024-02.pdf": "giro-a-feb",
+    "current-account/beispielbank/2024-03.pdf": "giro-b",
+    "current-account/terms.pdf": "terms",
+    "broker/old/jan.pdf": "depot-1-jan", "broker/old/feb.pdf": "depot-1-feb", "broker/new/feb.pdf": "depot-2-feb",
+    "credit-card/jan.pdf": "card-jan", "credit-card/feb.pdf": "card-feb",
 }
-
-ACCOUNTS = {"DE00 1111": "current-account", "DE00 2222": "current-account", "D-1": "broker", "D-2": "broker",
-            "4242": "credit-card"}
 
 
 class FakeModel:
@@ -159,10 +160,10 @@ class PipelineTests(unittest.TestCase):
         statements.mkdir()
         for name, marker in FILES.items():
             filler = [f"Line {i} of a made-up statement with enough text to read as text." for i in range(5)]
+            (statements / name).parent.mkdir(parents=True, exist_ok=True)
             make_pdf(statements / name, [[f"PAGE {marker}"] + filler])
-        (self.root / "accounts.json").write_text(json.dumps(ACCOUNTS))
         self.config = pipeline.Config(statements=statements, work=self.root / "work", output=self.root / "out",
-                                      accounts=self.root / "accounts.json", model="fake")
+                                      model="fake")
 
     def rows(self, name):
         with (self.config.output / name).open() as handle:
@@ -211,7 +212,7 @@ class PipelineTests(unittest.TestCase):
     def test_a_statement_that_never_adds_up_goes_to_the_report(self):
         pipeline.run(self.config, ask=Stubborn())
         report = (self.config.output / "report.md").read_text()
-        self.assertIn("2024-03 giro b.pdf: opening balance 0 + 3 transactions 7920", report)
+        self.assertIn("current-account/beispielbank/2024-03.pdf: opening balance 0 + 3 transactions 7920", report)
         self.assertIn("Month ends left out (a statement is missing) (2)", report)
         self.assertEqual([r["date"] for r in self.rows("cash.csv")], ["2024-01-31"])
 
@@ -227,11 +228,34 @@ class PipelineTests(unittest.TestCase):
         for number, day, owed in [("A", "2024-01-15", "100"), ("B", "2024-01-28", "40"), ("A", "2024-02-15", "120")]:
             data = pipeline.read_debt({"statementDate": day, "balanceOwed": owed})
             statements.append(pipeline.Statement(f"{number} {day}.pdf", "card", "Card Co", number, "EUR", None, None,
-                                                 data, account="cards"))
+                                                 data, account="cards", source=f"cards/{number}"))
         rows = pipeline.assemble_debts(statements, pipeline.Report())
         self.assertEqual([(str(r["date"]), r["balance"]) for r in rows],
                          [("2024-01-15", Decimal("-100")), ("2024-01-28", Decimal("-140")),
                           ("2024-02-15", Decimal("-120"))])
+
+    def test_one_account_folder_at_a_time(self):
+        model = FakeModel()
+        self.config.account = "credit-card"
+        pipeline.run(self.config, ask=model)
+        self.assertEqual(len(model.calls), 4)  # classify and read each of its two statements
+        self.assertEqual(len(self.rows("debts.csv")), 2)
+        self.assertEqual(self.rows("cash.csv"), [])
+        report = (self.config.output / "report.md").read_text()
+        self.assertIn("Not read yet (7)", report)
+        # The next account's run assembles both.
+        self.config.account = "current-account"
+        pipeline.run(self.config, ask=FakeModel())
+        self.assertEqual(len(self.rows("debts.csv")), 2)
+        self.assertEqual(len(self.rows("cash.csv")), 3)
+
+    def test_pdfs_outside_an_account_folder_are_left_out(self):
+        make_pdf(self.config.statements / "loose.pdf", [["PAGE terms"]])
+        model = FakeModel()
+        pipeline.run(self.config, ask=model)
+        self.assertFalse(any("loose" in c for c in model.calls))
+        report = (self.config.output / "report.md").read_text()
+        self.assertIn("PDFs outside an account folder (left out) (1)\n\n- loose.pdf", report)
 
     def test_reruns_use_the_cache(self):
         pipeline.run(self.config, ask=FakeModel())
@@ -261,9 +285,6 @@ class ReadingTests(unittest.TestCase):
         reply = 'Here:\n```json\n{"a": "1", // the amount\n "b": "http://x"}\n```'
         self.assertEqual(pipeline.parse_json(reply), {"a": "1", "b": "http://x"})
 
-    def test_account_numbers_compare_without_spaces_or_dashes(self):
-        self.assertEqual(pipeline.account_key("DE00 1234-5678"), "DE0012345678")
-
     def test_a_model_that_cannot_load_stops_the_run(self):
         # There's no such model (and usually no mlx_lm where the tests run), so loading fails.
         with self.assertRaises(SystemExit):
@@ -274,16 +295,6 @@ class ReadingTests(unittest.TestCase):
         trade = pipeline.read_broker_page({"transactions": [{"date": "2024-01-02", "type": "buy",
                                                              "isin": "IE00BXX00001", "quantity": "1"}]})
         self.assertEqual(trade["transactions"][0]["isin"], "IE00BXX00001")
-
-    def test_only_masked_numbers_match_on_their_last_digits(self):
-        root = Path(tempfile.mkdtemp())
-        self.addCleanup(shutil.rmtree, root)
-        (root / "accounts.json").write_text(json.dumps({"4242": "credit-card"}))
-        config = pipeline.Config(statements=root, work=root, output=root, accounts=root / "accounts.json", model="x")
-        statements = [pipeline.Statement(f"{n}.pdf", "bank", "Bank", n, "EUR", None, None, {})
-                      for n in ["**** 4242", "XXXX XXXX XXXX 4242", "DE00 0000 4242"]]
-        mapped = pipeline.map_accounts(statements, config, pipeline.Report())
-        self.assertEqual([s.number for s in mapped], ["**** 4242", "XXXX XXXX XXXX 4242"])
 
     def test_profiles_map_every_column(self):
         for profile in pipeline.profiles().values():
