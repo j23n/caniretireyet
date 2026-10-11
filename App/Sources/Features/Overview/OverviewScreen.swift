@@ -67,7 +67,9 @@ struct OverviewScreen: View {
                         OverviewChangeCard(report: report)
                     }
                     if let report = valuator.changeThisYear(asOf: today) {
-                        OverviewYearCard(report: report)
+                        OverviewYearCard(
+                            report: report,
+                            savings: valuator.savingsRate(from: report.from.adding(days: 1), through: today))
                     }
                     if headline == nil {
                         OverviewAnswerView(headline: nil, today: today)
