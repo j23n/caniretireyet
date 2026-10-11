@@ -215,6 +215,19 @@ extension LibraryStore {
         return id
     }
 
+    /// The backup label of deleting a baseline.
+    static let deleteBaselineBackupLabel = "delete-baseline"
+
+    /// Deletes one of `plan`'s baselines, which removes its file; the plan's
+    /// other baselines and its headlines stay. The file is backed up first
+    /// (`delete-baseline`), so the baseline can be restored from
+    /// *Sync & backups*, and it waits for the write.
+    func deleteBaseline(_ id: BaselineID, of plan: PlanID) async throws {
+        _ = try await commit(backingUpAs: Self.deleteBaselineBackupLabel) { library in
+            library.projections[plan]?.baselines[id] = nil
+        }
+    }
+
     /// Records the headline answer at a check-in, replacing one recorded on the same date.
     func record(_ headline: Headline, for plan: PlanID) throws {
         try update { library in
