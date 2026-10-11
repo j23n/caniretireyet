@@ -210,13 +210,27 @@ struct PlanYearGrade: Hashable, Sendable, Identifiable {
     ///   answered. Without either, such a phase never ends.
     static func plannedSpending(of baseline: Baseline, in year: Int, birthDate: CalendarDate?) -> Decimal? {
         guard let plan = try? baseline.planDocument() else { return nil }
-        let yearStart = CalendarDate.firstDay(ofYear: year)
-        let retirementAge = plan.retirement.age.age ?? baseline.headline.earliestAge
+        return spendingWhileWorking(of: plan, on: CalendarDate.firstDay(ofYear: year),
+                                    earliestAge: baseline.headline.earliestAge, birthDate: birthDate)
+    }
+
+    /// A plan's spending while working, a year; `nil` when it's past
+    /// working on `day`: every work phase ended before it.
+    ///
+    /// - Parameters:
+    ///   - earliestAge: the earliest age the plan answered, which places a
+    ///     phase that lasts until retirement when the plan has no
+    ///     retirement age of its own.
+    ///   - birthDate: places such a phase. Without it, or without an age,
+    ///     it never ends.
+    static func spendingWhileWorking(of plan: PlanDocument, on day: CalendarDate, earliestAge: Int?,
+                                     birthDate: CalendarDate?) -> Decimal? {
+        let retirementAge = plan.retirement.age.age ?? earliestAge
         let retirement = birthDate.flatMap { birth in retirementAge.map { birth.adding(years: $0) } }
         let working = plan.work.contains { phase in
             switch phase.until {
-            case .date(let until): until >= yearStart
-            case .retirement: retirement.map { $0 > yearStart } ?? true
+            case .date(let until): until >= day
+            case .retirement: retirement.map { $0 > day } ?? true
             }
         }
         return working ? plan.spending.working : nil
