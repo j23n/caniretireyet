@@ -22,9 +22,9 @@ text { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica
 .f-equity { fill: var(--equity); fill-opacity: 0.3; } .f-gold { fill: var(--gold); fill-opacity: 0.3; }
 .d-cash { fill: var(--cashS); } .d-bonds { fill: var(--bondsS); } .d-equity { fill: var(--equityS); } .d-gold { fill: var(--goldS); }
 .e-cash { stroke: var(--cashS); } .e-bonds { stroke: var(--bondsS); } .e-equity { stroke: var(--equityS); } .e-total { stroke: var(--ink); }
+.s-accent { stroke: var(--accent); } .s-track { stroke: var(--track); }
 .largeTitle { font-size: 34px; font-weight: 700; letter-spacing: 0.4px; }
-.title { font-size: 28px; letter-spacing: 0.36px; }
-.sub { font-size: 15px; letter-spacing: -0.23px; }
+.title { font-size: 28px; letter-spacing: 0.36px; }.sub { font-size: 15px; letter-spacing: -0.23px; }
 .foot { font-size: 13px; letter-spacing: -0.08px; }
 .cap { font-size: 12px; }
 .cap2 { font-size: 11px; letter-spacing: 0.06px; }
@@ -83,7 +83,7 @@ text { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica
     <rect x="127" y="839" width="139" height="5" rx="2.5" class="ink"/>
   </g>
 
-  <!-- The history chart, unchanged in every direction: its controls, legend and three years by asset class -->
+  <!-- The history chart, unchanged in every direction: its controls, legend and three years by asset class; then the top of the next card -->
   <g id="history">
     <rect x="16" y="0" width="58" height="32" rx="16" class="tint"/>
     <text x="29" y="21" class="sub sb accent">3Y</text>
@@ -115,6 +115,8 @@ text { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica
       </g>
       <polyline class="e-total" fill="none" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke" points="0,211.5 3,219 6,231.5 9,238 12,246.5 15,263 18,249 21,266.5 24,278 27,286.5 30,298 33,305 36,312.5"/>
     </g>
+    <rect x="16.5" y="322.5" width="360" height="200" rx="16" class="card"/>
+    <text x="32" y="351" class="sub sb ink">What moved in September</text>
   </g>
 
   <!-- B: the label row, with the ⓘ that explains the whole answer and holds the disclaimer (D1), as in A -->
@@ -124,38 +126,39 @@ text { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica
     <use href="#i-chevron" x="370" y="169" width="7" height="12" class="c-ink3"/>
   </g>
 
-  <!-- B: the headline, the widgets' countdown in words, then the age, month and confidence, and the readiness (58%) under it -->
+  <!-- B: the headline, the widgets' countdown in words, and the readiness (58%) beside it as a ring: r 21, 6 wide,
+       from 12 o'clock clockwise. Circumference 131.95; 58% is 76.53. The ring's center is the headline's cap height. -->
   <g id="b-headline">
-    <text x="16" y="221" class="largeTitle ink">In 15 years</text>
-    <text x="16" y="246" class="sub ink2">At 54 · March 2042 · in 9 of 10 futures</text>
-    <rect x="16" y="262" width="361" height="6" rx="3" class="track"/>
-    <rect x="16" y="262" width="209.4" height="6" rx="3" class="accent"/>
-    <text x="16" y="289" class="sub ink2">58% of what retiring today needs</text>
+    <text x="16" y="225" class="largeTitle ink">In 15 years</text>
+    <text x="321" y="210" text-anchor="end" class="sub sb ink">58%</text>
+    <text x="321" y="228" text-anchor="end" class="sub ink2">ready</text>
+    <circle cx="353" cy="213" r="21" fill="none" class="s-track" stroke-width="6"/>
+    <circle cx="353" cy="213" r="21" fill="none" class="s-accent" stroke-width="6" stroke-linecap="round" stroke-dasharray="76.53 131.95" transform="rotate(-90 353 213)"/>
   </g>
 
   <!-- B: the net worth tile's contents, 12 points inside the tile (16…190.5) -->
   <g id="b-networth">
-    <text x="28" y="336" class="sub ink2">Net worth</text>
-    <text x="28" y="370" class="title b ink">312.480 €</text>
-    <text x="28" y="394" class="sub up">▲ 4.210 €</text>
-    <text x="28" y="414" class="sub ink2">in September</text>
-    <text x="28" y="434.5" class="sub"><tspan class="up">▲ 6,2% </tspan><tspan class="ink2">this year</tspan></text>
+    <text x="28" y="284" class="sub ink2">Net worth</text>
+    <text x="28" y="318" class="title b ink">312.480 €</text>
+    <text x="28" y="342" class="sub up">▲ 4.210 €</text>
+    <text x="28" y="362" class="sub ink2">in September</text>
+    <text x="28" y="382.5" class="sub"><tspan class="up">▲ 6,2% </tspan><tspan class="ink2">this year</tspan></text>
   </g>
 
   <!-- B: the On track? tile's contents, 12 points inside the tile (202.5…377): the standing and the amount against
        the baseline's median, as Progress says them. The tile opens Progress. Each row lines up with a row of the net worth tile. -->
   <g id="b-track">
-    <text x="214.5" y="336" class="sub ink2">On track?</text>
-    <use href="#i-chevron" x="358" y="325" width="7" height="12" class="c-ink3"/>
-    <text x="214.5" y="370" class="title b up">On plan</text>
-    <text x="214.5" y="394" class="sub ink">12.400 € ahead</text>
-    <text x="214.5" y="414" class="sub ink2">of January</text>
+    <text x="214.5" y="284" class="sub ink2">On track?</text>
+    <use href="#i-chevron" x="358" y="273" width="7" height="12" class="c-ink3"/>
+    <text x="214.5" y="318" class="title b up">On plan</text>
+    <text x="214.5" y="342" class="sub ink">12.400 € ahead</text>
+    <text x="214.5" y="362" class="sub ink2">of January</text>
   </g>
 
   <!-- B: the coast point line, A's shortened wording, as the On track? tile's last two rows -->
   <g id="b-coast">
-    <text x="214.5" y="434.5" class="sub ink2">Past the coast point:</text>
-    <text x="214.5" y="455" class="sub ink2">63 without saving</text>
+    <text x="214.5" y="382.5" class="sub ink2">Past the coast point:</text>
+    <text x="214.5" y="403" class="sub ink2">63 without saving</text>
   </g>
 
   <g id="frame">
@@ -174,12 +177,12 @@ text { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica
     <use href="#chrome"/>
     <use href="#b-label"/>
     <use href="#b-headline"/>
-    <rect x="16.5" y="309.5" width="173.5" height="161" rx="16" class="card"/>
-    <rect x="203" y="309.5" width="173.5" height="161" rx="16" class="card"/>
+    <rect x="16.5" y="257.5" width="173.5" height="161" rx="16" class="card"/>
+    <rect x="203" y="257.5" width="173.5" height="161" rx="16" class="card"/>
     <use href="#b-networth"/>
     <use href="#b-track"/>
     <use href="#b-coast"/>
-    <use href="#history" y="494"/>
+    <use href="#history" y="442"/>
     <rect y="732" width="393" height="120" fill="url(#fade-light)"/>
     <use href="#tabbar"/>
   </g>
@@ -193,18 +196,18 @@ text { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica
     <use href="#chrome"/>
     <use href="#b-label"/>
     <use href="#b-headline"/>
-    <rect x="16.5" y="309.5" width="173.5" height="161" rx="16" class="card"/>
-    <rect x="203" y="309.5" width="173.5" height="161" rx="16" class="card"/>
+    <rect x="16.5" y="257.5" width="173.5" height="161" rx="16" class="card"/>
+    <rect x="203" y="257.5" width="173.5" height="161" rx="16" class="card"/>
     <use href="#b-networth"/>
     <use href="#b-track"/>
     <use href="#b-coast"/>
-    <use href="#history" y="494"/>
+    <use href="#history" y="442"/>
     <rect y="732" width="393" height="120" fill="url(#fade-dark)"/>
     <use href="#tabbar"/>
   </g>
 </g>
 
-<!-- Out of date: Calculate in the label row (R1), as in A; the headline and the coast point line dimmed.
+<!-- Out of date: Calculate in the label row (R1), as in A; the headline, its ring and the coast point line dimmed.
      The standing and net worth don't come from the plan's results, so they don't dim. -->
 <text x="954" y="44" class="label">B. Headline and two tiles <tspan class="note">· Out of date</tspan></text>
 <g transform="translate(946 60)">
@@ -217,12 +220,12 @@ text { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica
     <use href="#i-info" x="340" y="166.5" width="17" height="17" class="c-accent"/>
     <use href="#i-chevron" x="370" y="169" width="7" height="12" class="c-ink3"/>
     <use href="#b-headline" opacity="0.45"/>
-    <rect x="16.5" y="309.5" width="173.5" height="161" rx="16" class="card"/>
-    <rect x="203" y="309.5" width="173.5" height="161" rx="16" class="card"/>
+    <rect x="16.5" y="257.5" width="173.5" height="161" rx="16" class="card"/>
+    <rect x="203" y="257.5" width="173.5" height="161" rx="16" class="card"/>
     <use href="#b-networth"/>
     <use href="#b-track"/>
     <use href="#b-coast" opacity="0.45"/>
-    <use href="#history" y="494"/>
+    <use href="#history" y="442"/>
     <rect y="732" width="393" height="120" fill="url(#fade-light)"/>
     <use href="#tabbar"/>
   </g>

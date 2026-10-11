@@ -18,6 +18,7 @@ text { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica
 .f-equity { fill: var(--equity); fill-opacity: 0.3; } .f-gold { fill: var(--gold); fill-opacity: 0.3; }
 .d-cash { fill: var(--cashS); } .d-bonds { fill: var(--bondsS); } .d-equity { fill: var(--equityS); } .d-gold { fill: var(--goldS); }
 .e-cash { stroke: var(--cashS); } .e-bonds { stroke: var(--bondsS); } .e-equity { stroke: var(--equityS); } .e-total { stroke: var(--ink); }
+.s-accent { stroke: var(--accent); } .s-track { stroke: var(--track); }
 .largeTitle { font-size: 26px; font-weight: 700; }
 .title { font-size: 22px; }
 .title2 { font-size: 17px; }
@@ -123,35 +124,35 @@ text { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica
   <g clip-path="url(#window)" class="light">
     <use href="#chrome"/>
 
-    <!-- The headline across the page: the label row with the ⓘ (D1), the countdown in words, the age, month
-         and confidence, and the readiness (58% of 728) -->
+    <!-- The headline across the page: the label row with the ⓘ (D1), the countdown in words, and the readiness (58%)
+         at the page's right edge as a ring: r 17, 5 wide, from 12 o'clock clockwise. Circumference 106.81; 58% is 61.95 -->
     <text x="360" y="72.5" class="sub ink2">Can I retire yet?</text>
     <use href="#i-info" x="1057" y="62.5" width="13" height="13" class="c-accent"/>
     <use href="#i-chevron" x="1082" y="64" width="5.8" height="10" class="c-ink3"/>
-    <text x="360" y="104.5" class="largeTitle ink">In 15 years</text>
-    <text x="360" y="124" class="sub ink2">At 54 · March 2042 · in 9 of 10 futures</text>
-    <rect x="360" y="138" width="728" height="5" rx="2.5" class="track"/>
-    <rect x="360" y="138" width="422.24" height="5" rx="2.5" class="accent"/>
-    <text x="360" y="159.5" class="sub ink2">58% of what retiring today needs</text>
+    <text x="360" y="108.5" class="largeTitle ink">In 15 years</text>
+    <text x="1041" y="97.5" text-anchor="end" class="sub sb ink">58%</text>
+    <text x="1041" y="111.5" text-anchor="end" class="sub ink2">ready</text>
+    <circle cx="1068.5" cy="99.5" r="17" fill="none" class="s-track" stroke-width="5"/>
+    <circle cx="1068.5" cy="99.5" r="17" fill="none" class="s-accent" stroke-width="5" stroke-linecap="round" stroke-dasharray="61.95 106.81" transform="rotate(-90 1068.5 99.5)"/>
 
     <!-- Two tiles, 16 points apart, across the 728-point page; each line fits on one row -->
-    <rect x="360.5" y="176.5" width="355" height="104" rx="16" class="card"/>
-    <rect x="732.5" y="176.5" width="355" height="104" rx="16" class="card"/>
+    <rect x="360.5" y="136.5" width="355" height="104" rx="16" class="card"/>
+    <rect x="732.5" y="136.5" width="355" height="104" rx="16" class="card"/>
 
     <!-- Net worth -->
-    <text x="376" y="203" class="sub ink2">Net worth</text>
-    <text x="376" y="231" class="title b ink">312.480 €</text>
-    <text x="376" y="249" class="sub"><tspan class="up">▲ 4.210 € </tspan><tspan class="ink2">in September</tspan></text>
-    <text x="376" y="265" class="sub"><tspan class="up">▲ 6,2% </tspan><tspan class="ink2">this year</tspan></text>
+    <text x="376" y="163" class="sub ink2">Net worth</text>
+    <text x="376" y="191" class="title b ink">312.480 €</text>
+    <text x="376" y="209" class="sub"><tspan class="up">▲ 4.210 € </tspan><tspan class="ink2">in September</tspan></text>
+    <text x="376" y="225" class="sub"><tspan class="up">▲ 6,2% </tspan><tspan class="ink2">this year</tspan></text>
 
     <!-- On track?: the standing and the amount against the baseline's median, then the coast point line; it opens Progress -->
-    <text x="748" y="203" class="sub ink2">On track?</text>
-    <use href="#i-chevron" x="1066.2" y="194" width="5.8" height="10" class="c-ink3"/>
-    <text x="748" y="231" class="title b up">On plan</text>
-    <text x="748" y="249" class="sub"><tspan class="ink">12.400 € ahead </tspan><tspan class="ink2">of January</tspan></text>
-    <text x="748" y="265" class="sub ink2">Past the coast point: 63 without saving</text>
+    <text x="748" y="163" class="sub ink2">On track?</text>
+    <use href="#i-chevron" x="1066.2" y="154" width="5.8" height="10" class="c-ink3"/>
+    <text x="748" y="191" class="title b up">On plan</text>
+    <text x="748" y="209" class="sub"><tspan class="ink">12.400 € ahead </tspan><tspan class="ink2">of January</tspan></text>
+    <text x="748" y="225" class="sub ink2">Past the coast point: 63 without saving</text>
 
-    <use href="#history" y="304"/>
+    <use href="#history" y="264"/>
   </g>
   <rect x="0.25" y="0.25" width="1199.5" height="799.5" rx="15.75" fill="none" stroke="#000" stroke-opacity="0.22" stroke-width="0.5"/>
 </g>

@@ -1,0 +1,146 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="890" height="924" viewBox="0 0 890 924">
+<title>Overview header, direction B: four charts for the readiness next to the headline, at 58% and at 130%</title>
+<!-- A mock, not a screenshot: the top of B's header on an iPhone, cropped. The app's colors (App/Resources/Assets.xcassets)
+     and the iOS text styles at the default size. Made-up values from UI.md. Every chart is drawn to scale. -->
+<style>
+text { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif; }
+.light { --page: #F4F4F1; --card: #FCFCFB; --border: #E1E0D9; --ink: #0B0B0B; --ink2: #52514E; --ink3: #898781; --accent: #2A78D6; --deep: #17508F;
+  --track: rgba(120, 120, 128, 0.18); }
+.page { fill: var(--page); } .card { fill: var(--card); stroke: var(--border); stroke-width: 1; }
+.ink { fill: var(--ink); } .ink2 { fill: var(--ink2); } .ink3 { fill: var(--ink3); }
+.accent { fill: var(--accent); } .track { fill: var(--track); }
+.s-accent { stroke: var(--accent); } .s-deep { stroke: var(--deep); } .s-track { stroke: var(--track); }
+.c-ink3 { color: var(--ink3); } .c-accent { color: var(--accent); }
+.largeTitle { font-size: 34px; font-weight: 700; letter-spacing: 0.4px; }
+.sub { font-size: 15px; letter-spacing: -0.23px; }
+.sb { font-weight: 600; }
+.label { font-size: 15px; font-weight: 600; fill: #52514E; letter-spacing: -0.2px; }
+.note { font-weight: 400; fill: #898781; }
+</style>
+<defs>
+  <clipPath id="crop"><rect width="393" height="150" rx="20"/></clipPath>
+
+  <!-- SF Symbols, approximated -->
+  <symbol id="i-chevron" viewBox="0 0 7 12"><path d="M1.2 1.2 5.8 6l-4.6 4.8" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-info" viewBox="0 0 20 20"><circle cx="10" cy="10" r="8.7" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="10" cy="6.1" r="1.2" fill="currentColor"/><path d="M10 9.1v5.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+
+  <!-- In screen coordinates, as in b-iphone.svg: the label row, and the tiles' top edge under the headline -->
+  <g id="around">
+    <rect width="393" height="852" class="page"/>
+    <text x="16" y="180" class="sub ink2">Can I retire yet?</text>
+    <use href="#i-info" x="340" y="166.5" width="17" height="17" class="c-accent"/>
+    <use href="#i-chevron" x="370" y="169" width="7" height="12" class="c-ink3"/>
+    <rect x="16.5" y="257.5" width="173.5" height="161" rx="16" class="card"/>
+    <rect x="203" y="257.5" width="173.5" height="161" rx="16" class="card"/>
+    <text x="28" y="284" class="sub ink2">Net worth</text>
+    <text x="214.5" y="284" class="sub ink2">On track?</text>
+    <use href="#i-chevron" x="358" y="273" width="7" height="12" class="c-ink3"/>
+  </g>
+
+  <g id="not-yet"><text x="16" y="225" class="largeTitle ink">In 15 years</text></g>
+  <g id="yes"><text x="16" y="225" class="largeTitle ink">Yes</text></g>
+
+  <!-- 1. Ring: r 21, 6 wide, from 12 o'clock clockwise. Circumference 131.95; 58% is 76.53 -->
+  <g id="ring-58">
+    <text x="321" y="210" text-anchor="end" class="sub sb ink">58%</text>
+    <text x="321" y="228" text-anchor="end" class="sub ink2">ready</text>
+    <circle cx="353" cy="213" r="21" fill="none" class="s-track" stroke-width="6"/>
+    <circle cx="353" cy="213" r="21" fill="none" class="s-accent" stroke-width="6" stroke-linecap="round" stroke-dasharray="76.53 131.95" transform="rotate(-90 353 213)"/>
+  </g>
+  <!-- Past 100%, the ring laps itself: a full ring, then 30% more in a deeper blue -->
+  <g id="ring-130">
+    <text x="321" y="210" text-anchor="end" class="sub sb ink">130%</text>
+    <text x="321" y="228" text-anchor="end" class="sub ink2">ready</text>
+    <circle cx="353" cy="213" r="21" fill="none" class="s-accent" stroke-width="6"/>
+    <circle cx="353" cy="213" r="21" fill="none" class="s-deep" stroke-width="6" stroke-linecap="round" stroke-dasharray="39.58 131.95" transform="rotate(-90 353 213)"/>
+  </g>
+
+  <!-- 2. Half gauge: r 25, 6 wide, left to right over the top. 58% of 180° ends at 75.6° -->
+  <g id="gauge-58">
+    <text x="313" y="210" text-anchor="end" class="sub sb ink">58%</text>
+    <text x="313" y="228" text-anchor="end" class="sub ink2">ready</text>
+    <path d="M324 226A25 25 0 0 1 374 226" fill="none" class="s-track" stroke-width="6" stroke-linecap="round"/>
+    <path d="M324 226A25 25 0 0 1 355.22 201.78" fill="none" class="s-accent" stroke-width="6" stroke-linecap="round"/>
+  </g>
+  <g id="gauge-130">
+    <text x="313" y="210" text-anchor="end" class="sub sb ink">130%</text>
+    <text x="313" y="228" text-anchor="end" class="sub ink2">ready</text>
+    <path d="M324 226A25 25 0 0 1 374 226" fill="none" class="s-accent" stroke-width="6" stroke-linecap="round"/>
+  </g>
+
+  <!-- 3. Short bar: 80 wide, 8 high. 58% is 46.4 -->
+  <g id="bar-58">
+    <text x="289" y="210" text-anchor="end" class="sub sb ink">58%</text>
+    <text x="289" y="228" text-anchor="end" class="sub ink2">ready</text>
+    <rect x="297" y="209" width="80" height="8" rx="4" class="track"/>
+    <rect x="297" y="209" width="46.4" height="8" rx="4" class="accent"/>
+  </g>
+  <g id="bar-130">
+    <text x="289" y="210" text-anchor="end" class="sub sb ink">130%</text>
+    <text x="289" y="228" text-anchor="end" class="sub ink2">ready</text>
+    <rect x="297" y="209" width="80" height="8" rx="4" class="accent"/>
+  </g>
+
+  <!-- 4. Pie: r 22. 58% of 360° is 208.8° from 12 o'clock -->
+  <g id="pie-58">
+    <text x="325" y="210" text-anchor="end" class="sub sb ink">58%</text>
+    <text x="325" y="228" text-anchor="end" class="sub ink2">ready</text>
+    <circle cx="355" cy="213" r="22" class="track"/>
+    <path d="M355 213L355 191A22 22 0 1 1 344.4 232.28Z" class="accent"/>
+  </g>
+  <g id="pie-130">
+    <text x="325" y="210" text-anchor="end" class="sub sb ink">130%</text>
+    <text x="325" y="228" text-anchor="end" class="sub ink2">ready</text>
+    <circle cx="355" cy="213" r="22" class="accent"/>
+  </g>
+</defs>
+
+<rect width="890" height="924" fill="#FFFFFF"/>
+<text x="40" y="44" class="label">B. The readiness next to the headline <tspan class="note">· four charts, in place of the line and the bar under it</tspan></text>
+<text x="40" y="86" class="label">Not yet <tspan class="note">· 58% of what retiring today needs</tspan></text>
+<text x="473" y="86" class="label">Yes <tspan class="note">· 130%</tspan></text>
+
+<!-- 1. Ring -->
+<text x="40" y="118" class="label">1. Ring <tspan class="note">· past 100% it laps itself</tspan></text>
+<g transform="translate(32 130)">
+  <g clip-path="url(#crop)" class="light"><g transform="translate(0 -150)"><use href="#around"/><use href="#not-yet"/><use href="#ring-58"/></g></g>
+  <rect x="0.5" y="0.5" width="392" height="149" rx="19.5" fill="none" stroke="#000" stroke-opacity="0.12"/>
+</g>
+<g transform="translate(465 130)">
+  <g clip-path="url(#crop)" class="light"><g transform="translate(0 -150)"><use href="#around"/><use href="#yes"/><use href="#ring-130"/></g></g>
+  <rect x="0.5" y="0.5" width="392" height="149" rx="19.5" fill="none" stroke="#000" stroke-opacity="0.12"/>
+</g>
+
+<!-- 2. Half gauge -->
+<text x="40" y="324" class="label">2. Half gauge <tspan class="note">· full at 100%</tspan></text>
+<g transform="translate(32 336)">
+  <g clip-path="url(#crop)" class="light"><g transform="translate(0 -150)"><use href="#around"/><use href="#not-yet"/><use href="#gauge-58"/></g></g>
+  <rect x="0.5" y="0.5" width="392" height="149" rx="19.5" fill="none" stroke="#000" stroke-opacity="0.12"/>
+</g>
+<g transform="translate(465 336)">
+  <g clip-path="url(#crop)" class="light"><g transform="translate(0 -150)"><use href="#around"/><use href="#yes"/><use href="#gauge-130"/></g></g>
+  <rect x="0.5" y="0.5" width="392" height="149" rx="19.5" fill="none" stroke="#000" stroke-opacity="0.12"/>
+</g>
+
+<!-- 3. Short bar -->
+<text x="40" y="530" class="label">3. Short bar <tspan class="note">· today's bar, shortened; full at 100%</tspan></text>
+<g transform="translate(32 542)">
+  <g clip-path="url(#crop)" class="light"><g transform="translate(0 -150)"><use href="#around"/><use href="#not-yet"/><use href="#bar-58"/></g></g>
+  <rect x="0.5" y="0.5" width="392" height="149" rx="19.5" fill="none" stroke="#000" stroke-opacity="0.12"/>
+</g>
+<g transform="translate(465 542)">
+  <g clip-path="url(#crop)" class="light"><g transform="translate(0 -150)"><use href="#around"/><use href="#yes"/><use href="#bar-130"/></g></g>
+  <rect x="0.5" y="0.5" width="392" height="149" rx="19.5" fill="none" stroke="#000" stroke-opacity="0.12"/>
+</g>
+
+<!-- 4. Pie -->
+<text x="40" y="736" class="label">4. Pie <tspan class="note">· full at 100%</tspan></text>
+<g transform="translate(32 748)">
+  <g clip-path="url(#crop)" class="light"><g transform="translate(0 -150)"><use href="#around"/><use href="#not-yet"/><use href="#pie-58"/></g></g>
+  <rect x="0.5" y="0.5" width="392" height="149" rx="19.5" fill="none" stroke="#000" stroke-opacity="0.12"/>
+</g>
+<g transform="translate(465 748)">
+  <g clip-path="url(#crop)" class="light"><g transform="translate(0 -150)"><use href="#around"/><use href="#yes"/><use href="#pie-130"/></g></g>
+  <rect x="0.5" y="0.5" width="392" height="149" rx="19.5" fill="none" stroke="#000" stroke-opacity="0.12"/>
+</g>
+</svg>

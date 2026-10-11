@@ -178,17 +178,15 @@ On the Mac: the answer and net worth side by side, the readiness, the baseline a
 
 ## B. Headline and two tiles
 
-The answer as a headline in plain words, as in A, saying when: "In 15 years", with the readiness bar under it. Under the headline, two tiles side by side, like the small widgets: net worth, and how you're doing along the plan. The headline is the only hero; the two tiles read as equals.
+The answer as a headline in plain words, as in A, saying when: "In 15 years", with the readiness drawn beside it as a small ring. Under the headline, two tiles side by side, like the small widgets: net worth, and how you're doing along the plan. The headline is the only hero; the two tiles read as equals.
 
 ```
 ┌──────────────────────────────────────────┐
 │ Overview                        👁   ⚙︎   │
 │                                          │
 │ Can I retire yet?                    ⓘ › │  ← subheadline, secondary
-│ In 15 years                              │  ← largeTitle
-│ At 54 · March 2042 · in 9 of 10 futures  │  ← subheadline, secondary
-│ ▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇░░░░░░░░░░░░░░░░░ │  ← readiness, 0 to 100%
-│ 58% of what retiring today needs         │  ← subheadline, secondary
+│ In 15 years                   58%  ╭─╮   │  ← largeTitle; subheadline, semibold
+│                             ready  ╰─╯   │  ← subheadline, secondary; the ring, 0 to 100%
 │ ╭──────────────────╮╭──────────────────╮ │
 │ │ Net worth        ││ On track?      › │ │  ← subheadline, secondary
 │ │ 312.480 €        ││ On plan          │ │  ← title
@@ -202,16 +200,27 @@ The answer as a headline in plain words, as in A, saying when: "In 15 years", wi
 └──────────────────────────────────────────┘
 ```
 
-**The headline.** It's the widgets' countdown (`RetirementCountdown`) as a phrase: "In 15 years", in whole years from two years on, rounded to the nearest, else in months ("In 18 months"). It leaves out "About": the line under it gives the age and the month exactly, with the confidence. Then the readiness bar and its sentence, as in A. VoiceOver reads the headline as "Not yet. In about 15 years, at 54, in March 2042."
+**The headline.** It's the widgets' countdown (`RetirementCountdown`) as a phrase: "In 15 years", in whole years from two years on, rounded to the nearest, else in months ("In 18 months"). It's the only time on the Overview: the earliest age, the month and the confidence ("At 54 · March 2042 · in 9 of 10 futures") have no line of their own. The label row's ⓘ says them, and the Plan screen and the *Time to retire* widget show them. VoiceOver reads the headline as "Not yet. In about 15 years, at 54, in March 2042, in 9 of 10 futures."
+
+**The readiness, beside the headline.** A ring, 48 points across, at the headline's right edge, centered on its capital letters: it fills clockwise from the top to the readiness, and is full at 100%, where retiring today works. Its label, "58%" over "ready", stands to its left. The label says what the number is: a bare "58%" next to "In 15 years" could read as a 58% chance of retiring then, and the app counts chances in futures ("9 of 10"). The ⓘ gives the whole sentence ("58% of what you'd need to retire today") and VoiceOver reads it with the ring. The ring and its label take the place of the readiness bar and its sentence, and the headline's line takes the place of the line under it: the header is two rows shorter than with the bar.
+
+Four charts fit beside the headline. The mocks draw them side by side, at 58% and at "Yes" with 130% ([Mocks](#mocks-1)):
+
+| Chart | Size | Reads | Past 100% |
+| --- | --- | --- | --- |
+| **Ring** (chosen for the mocks) | 48 × 48 | at a glance, as a share of a whole; Apple Watch's Activity rings and the Fitness app have made the shape familiar | laps itself: a full ring, then the part past 100% in a deeper blue, so "Yes" still shows how far past |
+| Half gauge | 56 × 31 | as "how far toward full", like a speedometer; shorter than the ring, so it sits lower beside the headline | stays full |
+| Short bar | 80 × 8 | the most exactly, as a length on a straight scale, and it's today's bar, shortened. Beside a largeTitle it's thin, and reads more as decoration than as a chart | stays full |
+| Pie | 44 × 44 | as a share, but a two-slice pie is the weakest of the four: angles are harder to judge than a length or an arc, and a small share is a sliver | stays full |
 
 **The tiles.** *Net worth* is the amount and its two changes, as in the *Net worth* widget. *On track?* says where the latest check-in stands against the baseline, as Progress's *Are you on track?* does. Its value is the standing: "On plan" in its color, "Ahead" in green, or "Behind" in orange, and the word means color is never the only signal. Under it is the amount against the baseline's median, named as Progress's years name it ("12.400 € ahead of January"). The tile ends with the coast point line, in A's shortened wording. Tapping the tile opens Progress, where the Milestones card explains the coast point.
 
-- **Keeps:** every piece but the disclaimer: the time to go as the headline, the earliest age and month, the confidence, the readiness bar and sentence, the standing and its amount, the coast point line, net worth and its changes.
-- **Moves:** the readiness ⓘ to the label row, as in A, where it explains the whole answer and holds the disclaimer (D1). The run status to the label row (R1). The standing, its amount and the coast point line into the *On track?* tile.
-- **Drops:** "Not yet" when there's an age, because "In 15 years" says it. Also "About", "simulated" and "of your … baseline" from the wording.
+- **Keeps:** the time to go as the headline, the readiness as a ring and its percentage, the standing and its amount, the coast point line, net worth and its changes.
+- **Moves:** the readiness ⓘ to the label row, as in A, where it explains the whole answer: the readiness sentence, the earliest age and month, the confidence and the disclaimer (D1). The run status to the label row (R1). The standing, its amount and the coast point line into the *On track?* tile.
+- **Drops:** the line under the headline, whose age, month and confidence move into the ⓘ. The readiness sentence, which shortens to "58% ready". "Not yet" when there's an age, because "In 15 years" says it. Also "About", "simulated" and "of your … baseline" from the wording.
 - **Type styles:** three (largeTitle, title, subheadline).
 
-**Why.** The headline answers the app's question in the words a person would use, and the bar under it shows how far along you are. The tiles set side by side the two things that change at every check-in: what you have, and how that compares with the plan. They're in the same place every month, and they match the widgets. The cost: the headline counts years, which the age and month under it say more exactly. It's also the tallest of the four on an iPhone, and the tiles stack at large text sizes.
+**Why.** The headline answers the app's question in the words a person would use, and the ring beside it shows how far along you are, both in one line. The tiles set side by side the two things that change at every check-in: what you have, and how that compares with the plan. They're in the same place every month, and they match the widgets. The cost: the exact age, month and confidence are a tap away, and the headline only counts years. At 48 points the ring shows the share roughly; its label gives it exactly.
 
 ### States
 
@@ -219,18 +228,18 @@ The answer as a headline in plain words, as in A, saying when: "In 15 years", wi
 | --- | --- |
 | Not yet, with an age | as above |
 | Within two years | the headline counts months: "In 18 months" |
-| Yes | "Yes" / "You could retire today · in 9 of 10 futures"; the bar is full and reads "130% of what retiring today needs" |
-| No age works out | "Not yet" / "No age works in 9 of 10 futures yet"; the bar as usual |
-| No time to go | an answer recorded at a check-in without a birth date, or whose month has passed, has no countdown: the headline is "At 54", the line under it "March 2042 · in 9 of 10 futures" |
+| Yes | the headline is "Yes", and the ring laps itself: "130% ready". The ⓘ and VoiceOver say "You could retire today, in at least 9 of 10 futures" |
+| No age works out | the headline is "Not yet", the ring as usual. The ⓘ and VoiceOver say "No age works in 9 of 10 futures yet" |
+| No time to go | an answer recorded at a check-in without a birth date, or whose month has passed, has no countdown: the headline is "At 54", and the ⓘ gives the month |
 | Ahead or behind plan | the *On track?* tile reads "Ahead" (green) or "Behind" (orange), then "3.000 € behind" / "of January"; VoiceOver reads "Ahead of plan", "Behind plan" |
 | No baseline | the *On track?* tile reads "Not measured yet", as Progress does, in place of the standing and its amount; the coast point line stays |
 | Not past the coast point | the *On track?* tile ends after the amount; the net worth tile sets the height |
-| Recorded at a check-in | as A: "◷ 30 Sep" in the label row; an answer recorded before readiness existed shows "Calculate the plan to see how close you are to retiring today." in the bar's place |
-| Out of date | as A: *Calculate* in the label row, the headline's lines and the coast point line dim, and the ⓘ also says "Calculated before your latest changes". The standing and net worth don't come from the plan's results, so they don't dim |
+| Recorded at a check-in | as A: "◷ 30 Sep" in the label row. An answer recorded before readiness existed has no ring; "Calculate the plan to see how close you are to retiring today." goes under the headline |
+| Out of date | as A: *Calculate* in the label row, the headline, the ring and the coast point line dim, and the ⓘ also says "Calculated before your latest changes". The standing and net worth don't come from the plan's results, so they don't dim |
 | Calculating | as A: "Calculating 29%" in the label row |
 | No answer yet | net worth leads as today, full width, with no headline and no tiles; the answer's card stays below the chart |
-| Hidden amounts | the net worth tile reads "•••••", "▲ 1,4% in September", "▲ 6,2% this year"; the *On track?* tile reads "••••• ahead" / "of January". The headline has no amounts |
-| Large text | the headline wraps, and the tiles stack, each the full width (below) |
+| Hidden amounts | the net worth tile reads "•••••", "▲ 1,4% in September", "▲ 6,2% this year"; the *On track?* tile reads "••••• ahead" / "of January". The headline and the ring have no amounts |
+| Large text | the ring keeps its size and its label grows. When the headline and the ring don't fit on one line, the ring and its label go on a line of their own under the headline. The tiles stack, each the full width (below) |
 
 ```
 Large text: the tiles stack
@@ -254,15 +263,13 @@ Large text: the tiles stack
 
 ### iPad and Mac
 
-The headline across the page, with the bar the page's width, then the two tiles under it, each half the width. There every line fits on one row.
+The headline across the page, with the ring at the page's right edge, then the two tiles under it, each half the width. There every line fits on one row.
 
 ```
 ┌────────────────────────────────────────────────────────────────┐
 │ Can I retire yet?                                          ⓘ › │
-│ In 15 years                                                    │
-│ At 54 · March 2042 · in 9 of 10 futures                        │
-│ ▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇░░░░░░░░░░░░░░░░░░░░░░░░░░ │
-│ 58% of what retiring today needs                               │
+│ In 15 years                                         58%  ╭─╮   │
+│                                                   ready  ╰─╯   │
 │ ╭─────────────────────────────╮╭─────────────────────────────╮ │
 │ │ Net worth                   ││ On track?                 › │ │
 │ │ 312.480 €                   ││ On plan                     │ │
@@ -276,11 +283,15 @@ The headline across the page, with the bar the page's width, then the two tiles 
 
 ### Mocks
 
-On an iPhone, in light and dark mode, and out of date. Out of date, *Calculate* is in the label row (R1), as in A, and the headline and the coast point line are dimmed. The tiles are cards, 12 points apart with 12 points inside, so "312.480 €" fits in title. Each row of the *On track?* tile lines up with a row of the net worth tile. The coast point line takes the tile's last two rows, which makes both tiles one row taller than net worth alone needs.
+The four charts beside the headline, at 58% and at "Yes" with 130%. Each is drawn to scale, with the same label, in the top of B's header on an iPhone.
+
+![B. Four charts for the readiness beside the headline: a ring, a half gauge, a short bar and a pie, at 58% and at 130%](overview-header/b-charts.svg)
+
+With the ring, on an iPhone, in light and dark mode, and out of date. Out of date, *Calculate* is in the label row (R1), as in A, and the headline, the ring and the coast point line are dimmed. The tiles are cards, 12 points apart with 12 points inside, so "312.480 €" fits in title. Each row of the *On track?* tile lines up with a row of the net worth tile. The coast point line takes the tile's last two rows, which makes both tiles one row taller than net worth alone needs.
 
 ![B. Headline and two tiles on an iPhone: light, dark, and out of date](overview-header/b-iphone.svg)
 
-On the Mac: the headline across the page, then the two tiles, with each line on one row.
+On the Mac: the headline across the page with the ring at its right edge, then the two tiles, with each line on one row.
 
 ![B. Headline and two tiles on the Mac](overview-header/b-mac.svg)
 
@@ -439,10 +450,11 @@ Net worth on the left, the answer's card on the right, at the same height.
 | | Today | A. Trimmed | B. Headline and two tiles | C. One gauge | D. Net worth first |
 | --- | --- | --- | --- | --- | --- |
 | Leads with | the answer | the answer | the answer, as a headline ("In 15 years") | the answer | net worth |
-| Rows above the chart on an iPhone (wireframes) | 18 (20 with the coast point) | 12 | 14 | 12 | 10 |
+| Rows above the chart on an iPhone (wireframes) | 18 (20 with the coast point) | 12 | 12 | 12 | 10 |
 | Text styles | 6 | 3 | 3 | 3 | 3 |
 | Time to go | ✓ | ✓ | the headline | ✓ | – |
-| Readiness sentence | ✓ | ✓ | ✓ | ✓ | on the Plan screen |
+| Confidence ("9 of 10 futures") | ✓ | ✓ | in the ⓘ | ✓ | ✓ |
+| Readiness | bar and sentence | bar and sentence | a ring beside the headline, "58% ready"; the sentence in the ⓘ | the bar with the baseline's range, and the sentence | bar and "58%"; the sentence on the Plan screen |
 | Baseline amount | ✓ | ✓ | in the *On track?* tile | in the ⓘ | on the Plan screen |
 | Baseline's range on the bar | – | – | – | ✓ | – |
 | Coast point line | – | after the baseline | in the *On track?* tile | under the gauge | on the Plan screen |
@@ -453,7 +465,10 @@ Rows are counted from the wireframes, from "Can I retire yet?" or "Net worth" to
 
 ## Open questions
 
-- **Which direction to build?** Or which parts of more than one: the run status (R1, R2) and the disclaimer (D1–D3) go with any layout, and C's gauge would fit into A, B or D in place of their bar.
+- **Which direction to build?** Or which parts of more than one: the run status (R1, R2) and the disclaimer (D1–D3) go with any layout. C's gauge would fit into A or D in place of their bar, and B's ring would fit beside A's answer.
+- **Which chart beside B's headline?** The mocks use the ring; the half gauge, the short bar and the pie are drawn next to it ([B's mocks](#mocks-1)).
+- **Can the earliest age, the month and the confidence leave the Overview** (B)? The ⓘ, the Plan screen and the *Time to retire* widget keep them.
+- **Should B's headline say "About"?** With no age and month under it, "In 15 years" is the only time on the Overview, and it rounds to the nearest year: with 15 years and 6 months to go, it reads "In 16 years". "In about 16 years" hedges that, as VoiceOver already does.
 - **Must the disclaimer stay visible on the Overview?** If so, D2 works with any direction; a footer under the allocation would also work, but it adds to what's below the chart.
 - **Can the time to go leave the Overview** (D)? The *Time to retire* widget and Progress's "To go" keep it.
 - **Can the baseline's amount leave the Overview** (C, D)? The word "On plan" stays.
