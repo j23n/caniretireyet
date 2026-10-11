@@ -207,6 +207,26 @@ struct SavingPaceTests {
         #expect(pace.perYear == 12_000)
     }
 
+    /// A pension fund valued monthly, paid 3,000 a quarter through 31 Mar
+    /// and nothing since: its next payment is overdue, so it isn't carried
+    /// forward, and its year is the 6,000 paid.
+    @Test func aRegularPaymentThatStoppedIsntCarriedForward() throws {
+        var library = self.library(flows: [Decimal](repeating: 1_000, count: 12))
+        library.accounts["pension"] = Account(id: "pension", name: "Pension", kind: .pensionFund, currency: .eur,
+                                              opened: "2020-01-01")
+        var balance: Decimal = 10_000
+        for back in (0...21).reversed() {
+            let date = SavingPace.monthEnd(back, before: "2026-09-30")
+            let flow: Decimal = back >= 6 && back % 3 == 0 ? 3_000 : 0
+            balance += flow
+            library.upsert(Valuation(account: "pension", date: date, balance: balance, flow: flow))
+        }
+        let pace = try #require(Valuator(library: library).savingPace(asOf: "2026-09-30"))
+        #expect(pace.carriedForward.isEmpty)
+        #expect(pace.byAccount["pension"]?.rounded(scale: 2) == 6_000)
+        #expect(abs(pace.perYear - 18_000) < d("0.01"), "\(pace.perYear)")
+    }
+
     /// A pension fund valued once a year, with 6,000 paid in at its
     /// statement on 20 Sep 2025, before the months: it goes on at that rate
     /// from its statement for 335 days, 325 of them in the months.

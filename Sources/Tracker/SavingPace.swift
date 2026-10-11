@@ -294,14 +294,17 @@ extension Valuator {
             // assets are valued (a pension fund paid each quarter and marked
             // unchanged in between), or when it's valued less often than
             // plan assets and not since: an account valued once a year saved
-            // in the months since its statement too. "Less often" is over
+            // in the months since its statement too. Valued since, it's
+            // carried only while its next payment isn't overdue: one that
+            // stopped paying in has stopped saving. "Less often" is over
             // half as long again as the usual time between check-ins. A
             // one-off only skipped at a check-in isn't repeated, nor money
             // taken out, nor an amount the inflation index couldn't put in
             // today's money.
             let notValuedSince = spans.last.map { latestRecordDate(of: account, onOrBefore: asOf) == $0.to } ?? false
             guard let last = spans.last, last.amount > 0, last.to < asOf,
-                  regular ? last.amount <= 2 * usual && (notValuedSince || usualGap * 2 > usualCheckIn * 3)
+                  regular ? last.amount <= 2 * usual
+                      && (notValuedSince || usualGap * 2 > usualCheckIn * 3 && last.to.days(to: asOf) <= longest)
                       : notValuedSince && last.from.days(to: last.to) * 2 > usualCheckIn * 3,
                   accounts[account]?.recordsTrades != true, accounts[account]?.closed.map({ $0 > asOf }) ?? true,
                   index.map({ $0.value(on: last.to) != nil }) ?? true
