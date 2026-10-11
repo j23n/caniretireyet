@@ -493,7 +493,7 @@ extension PlanProgressYear {
 struct PlanProgressTimeline {
     /// Something that happened at a check-in of the year: the answer moved,
     /// or the plan or the calculations changed; a milestone was reached; you
-    /// saved well above usual, markets moved a lot, a baseline was saved.
+    /// saved well above usual, or markets moved a lot.
     struct Note: Hashable, Sendable, Identifiable {
         var date: CalendarDate
         /// "Mar".
@@ -641,14 +641,13 @@ struct PlanProgressTimeline {
     ///   - history: the plan's answers.
     ///   - milestones: the milestones the plan's assets reached.
     ///   - text: the milestones' and the notes' words, with their currency.
-    init(years: [PlanProgressYear], plan: PlanID, library: Library, valuator: Valuator, history: PlanAnswerHistory,
+    init(years: [PlanProgressYear], library: Library, valuator: Valuator, history: PlanAnswerHistory,
          milestones: [ReachedMilestone] = [], text: PlanMilestoneText) {
         let locale = text.locale
         let dates = valuator.checkInDates(in: .planAssets)
         let changes = zip(dates, dates.dropFirst()).map { before, after in
             (from: before, to: after, change: valuator.change(from: before, to: after, in: .planAssets).total)
         }
-        let baselines = PlanBaselineComparison.baselines(for: plan, in: library)
         let checkInDays = Set(dates.map(\.dateValue))
         cards = years.map { year in
             let start = CalendarDate.firstDay(ofYear: year.year).dateValue
@@ -680,7 +679,7 @@ struct PlanProgressTimeline {
                 Note(date: reached.date, month: GlanceText.shortMonth(reached.date, locale: locale),
                      text: text.reachedInRow(reached.milestone), isMilestone: true)
             }
-            let notable = Self.notable(in: year, changes: changes, baselines: baselines, text: text)
+            let notable = Self.notable(in: year, changes: changes, text: text)
             let notes = (answerNotes + milestoneNotes + notable).sorted { $0.date < $1.date }
             return Card(year: year, actual: actual, expected: expected, notes: notes,
                         milestones: inYear, checkIns: checkInDays.intersection(actual.map(\.date)),
@@ -762,11 +761,12 @@ struct PlanProgressTimeline {
 
     /// The year's notable check-ins (PROGRESS.md, "Milestones"): saving at
     /// least twice the usual (the median of the 12 check-ins before) and at
-    /// least 1% of plan assets, markets moving plan assets by 5% or more, and
-    /// the baselines saved since the check-in before.
+    /// least 1% of plan assets, and markets moving plan assets by 5% or more.
+    /// Saving a baseline isn't one: it's bookkeeping, not something that
+    /// happened to the money.
     static func notable(in year: PlanProgressYear,
                         changes: [(from: CalendarDate, to: CalendarDate, change: ValueChange)],
-                        baselines: [PlanBaselineEntry], text: PlanMilestoneText) -> [Note] {
+                        text: PlanMilestoneText) -> [Note] {
         var notes: [Note] = []
         func amount(_ value: Decimal) -> String {
             text.hidesAmounts ? AmountFormat.hidden
@@ -786,11 +786,6 @@ struct PlanProgressTimeline {
                 let moved = change.market < 0 ? "Markets fell \(amount(change.market)), \(percent)."
                     : "Markets added \(amount(change.market)), \(percent)."
                 notes.append(Note(date: step.to, month: month, text: moved))
-            }
-            for entry in baselines where entry.baseline.created > step.from && entry.baseline.created <= step.to {
-                let saved = entry.baseline.kind == .yearly ? "Saved the year's baseline."
-                    : entry.baseline.label.map { "Saved a baseline: \($0)." } ?? "Saved a baseline."
-                notes.append(Note(date: step.to, month: month, text: saved))
             }
         }
         return notes
