@@ -10,7 +10,8 @@ import SwiftUI
 /// - **Progress**: whether you're on track, and each year as a card on a
 ///   strip that opens at today, with its story below.
 /// - **Trends**: how you've actually been doing over your whole history:
-///   where your money came from, and the answer at each check-in.
+///   where your money came from, the answer at each check-in, and each year
+///   graded in words; a year opens on Progress.
 ///
 /// On iPhone (tabs) a segmented Plan | Progress | Trends, and What-if is a
 /// bottom sheet; on the Mac and iPad (sidebar) the same in the toolbar,
@@ -106,6 +107,8 @@ struct PlanContentView: View {
     @Environment(\.locale) private var locale
     @State private var session: PlanSession
     @State private var part: PlanPart = .plan
+    /// The year Progress opens on, from a row of Trends' *Year by year*.
+    @State private var progressYear: Int?
     @State private var showsInspector = false
     @State private var showsWhatIf = false
     @State private var isRenaming = false
@@ -254,9 +257,9 @@ struct PlanContentView: View {
                              onShowProgress: { part = .progress }, onExport: { exportCalculations() })
         case .progress:
             PlanProgressView(session: session, isWide: false, onSaveBaseline: { startSavingBaseline() },
-                             onShowPlan: { part = .plan })
+                             onShowPlan: { part = .plan }, openingYear: $progressYear)
         case .trends:
-            PlanTrendsView(session: session, isWide: false)
+            PlanTrendsView(session: session, isWide: false, onShowYear: showProgress(of:))
         }
     }
 
@@ -296,10 +299,16 @@ struct PlanContentView: View {
                              onShowProgress: { part = .progress }, onExport: { exportCalculations() })
         case .progress:
             PlanProgressView(session: session, isWide: true, onSaveBaseline: { startSavingBaseline() },
-                             onShowPlan: { part = .plan })
+                             onShowPlan: { part = .plan }, openingYear: $progressYear)
         case .trends:
-            PlanTrendsView(session: session, isWide: true)
+            PlanTrendsView(session: session, isWide: true, onShowYear: showProgress(of:))
         }
+    }
+
+    /// Progress, opened on `year`.
+    private func showProgress(of year: Int) {
+        progressYear = year
+        part = .progress
     }
 
     // MARK: Toolbar

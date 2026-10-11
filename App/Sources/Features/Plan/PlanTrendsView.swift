@@ -7,12 +7,16 @@ import Tracker
 /// been doing, from your own records, over the time span the Overview's
 /// history uses. *Where your money came from* splits plan assets into what
 /// you started with, what you put in and what markets added; *Time to
-/// retirement* is the plan's answer at each check-in. On iPhone the grain
-/// and the span are at the top of the page; on the Mac and iPad they're in
-/// the toolbar (``PlanTrendsControls``), and the cards are in two columns.
+/// retirement* is the plan's answer at each check-in; *Year by year* grades
+/// each calendar year in words. On iPhone the grain and the span are at the
+/// top of the page; on the Mac and iPad they're in the toolbar
+/// (``PlanTrendsControls``), the cards are in two columns and *Year by
+/// year* is a table across the page.
 struct PlanTrendsView: View {
     let session: PlanSession
     var isWide = false
+    /// Opens a year on Progress.
+    var onShowYear: (Int) -> Void = { _ in }
 
     @Environment(LibraryStore.self) private var library
     @Environment(\.locale) private var locale
@@ -42,6 +46,7 @@ struct PlanTrendsView: View {
                     sourcesCard(model.sources)
                     answerCard(model.history)
                 }
+                yearsCard(model.years)
             }
             .padding(gutter)
         }
@@ -132,6 +137,20 @@ struct PlanTrendsView: View {
             items.append(ChartLegendItem(name: "Saving nothing more", swatch: .dottedLine(.neutral)))
         }
         return items
+    }
+
+    // MARK: Year by year
+
+    private func yearsCard(_ years: [PlanYearGrade]) -> some View {
+        Card {
+            if years.isEmpty {
+                notYet("Year by year shows from your first check-in.")
+            } else {
+                PlanYearGradesTable(years: years, isWide: isWide, onShowYear: onShowYear)
+            }
+        } header: {
+            SectionHeader("Year by year")
+        }
     }
 
     private func setMainPlan() {

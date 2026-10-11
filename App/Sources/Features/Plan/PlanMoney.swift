@@ -28,6 +28,15 @@ enum PlanMoney {
         return library.effectiveInflationIndex.map { PlanInflationIndex(index: $0, isStandIn: true) }
     }
 
+    /// The values of the inflation index for the base currency
+    /// (``inflationIndex(for:library:)``): what turns a baseline's money of
+    /// its start into money of another day. `nil` when the library has no
+    /// index at all.
+    static func baseCurrencyIndex(library: Library) -> InflationIndex? {
+        inflationIndex(for: library.settings.baseCurrency, library: library)
+            .map { InflationIndex(library: library, index: $0.index) }
+    }
+
     /// The note under a chart whose actual values are adjusted with another
     /// currency's index: "There's no inflation index for JPY: your actual
     /// values are adjusted with Italy's prices."; `nil` otherwise.

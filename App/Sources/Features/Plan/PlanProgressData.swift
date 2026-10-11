@@ -769,8 +769,7 @@ struct PlanProgressTimeline {
     static func expected(by baseline: Baseline, days: [CalendarDate], totals: [NetWorth], through end: CalendarDate,
                          library: Library, valuator: Valuator) -> [ChartPoint] {
         let accounts = baseline.comparedAccounts(among: library.accounts)
-        let index = PlanMoney.inflationIndex(for: library.settings.baseCurrency, library: library)
-            .map { InflationIndex(library: library, index: $0.index) }
+        let index = PlanMoney.baseCurrencyIndex(library: library)
         var shifts: [(day: CalendarDate, factor: Double, others: Double)] = []
         for (day, total) in zip(days, totals) {
             // One unit of money of the day in money of the baseline's start.
@@ -976,13 +975,9 @@ enum PlanProgressText {
         } else if milestones.contains(where: { if case .coastPoint = $0.milestone.kind { true } else { false } }) {
             parts.append("past the coast point")
         }
-        if year.from != year.to, year.change.start > 0, parts.count < 2 {
-            let share = year.change.market / year.change.start
-            if share >= Decimal(8) / 100 {
-                parts.insert("a strong year for markets", at: 0)
-            } else if share <= -Decimal(5) / 100 {
-                parts.insert("a hard year for markets", at: 0)
-            }
+        if year.from != year.to, parts.count < 2,
+           let markets = MarketYear(markets: year.change.market, start: year.change.start)?.yearWords {
+            parts.insert(AmountSentence(markets), at: 0)
         }
         guard let first = parts.first else { return nil }
         let sentence: AmountSentence = parts.count > 1 ? "\(first), and \(parts[1])" : first
