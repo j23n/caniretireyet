@@ -96,6 +96,24 @@ final class ScreenshotTests: XCTestCase {
         keepScreenshot(of: app, named: "what-if")
     }
 
+    /// The Target mix sheet of a plan with a mix of its own and changes
+    /// with age: the mix, then scrolled down to a section per change.
+    @MainActor
+    func testTargetMix() {
+        let app = launch(library: "example", screen: "targetMix")
+        waitForScreen(app, showing: app.buttons["A mix I choose"].firstMatch, named: "target-mix")
+        keepScreenshot(of: app, named: "target-mix")
+        #if os(macOS)
+        let sheet = app.sheets.firstMatch
+        if sheet.exists { sheet.scroll(byDeltaX: 0, deltaY: -600) }
+        #else
+        app.swipeUp()
+        #endif
+        pause(seconds: 2)
+        keepScreenshot(of: app, named: "target-mix-changes")
+        XCTAssertTrue(app.state == .runningForeground, "The app stopped in the Target mix sheet.")
+    }
+
     @MainActor
     func testProgress() {
         let app = launch(library: "example", screen: "progress")
