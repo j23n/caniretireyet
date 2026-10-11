@@ -389,7 +389,12 @@ A brokerage, crypto or metals account can record its **trades** instead of month
 │ INCOME & GAINS                           │
 │ 2026   Realised gains · Dividends ·      │
 │        Interest · Fees · Taxes · Net     │
-│ CASH AT CHECK-INS · DETAILS · …          │
+│ VALUES AT CHECK-INS                      │
+│ 30 Sep 2026                  57.410,35 € │
+│                            cash 312,10 € │
+│                       new money +11,30 € │
+│ …                                        │
+│ DETAILS · …                              │
 └──────────────────────────────────────────┘
 ```
 
@@ -397,7 +402,7 @@ A brokerage, crypto or metals account can record its **trades** instead of month
 - **Trades**: grouped by month, newest first; each row shows the type's icon, what it was ("Buy 0,10383916 BTC") over its price, date and note ("at 101.437,76 € · 1 Oct 2025", the price in its own currency), and on the other side the cash it moved, with a sale's realised gain. A trade paid from outside the account shows what was paid or received, marked "paid from outside" (a sale: "proceeds paid out"); on the Mac the mark leads its note. At the largest text sizes the amount goes under the description. *Filter* shows one instrument or one type. Tap a trade to edit it; swipe or long-press to delete it (the confirmation says what deleting brings in, e.g. a later sale now selling more than is held). On the Mac, a table (date, type, instrument, quantity, price, amount, note) as long as its trades, which scrolls with the page: double-click edits, right-click edits or deletes.
 - **Income & gains**, by year: realised gains, dividends, interest, fees and taxes, and the net; a sale whose cost is unknown is left out and said so. In the account's currency.
 - **What needs a look**, as banners with the fix: a trade missing a price or amount, a sale of more than was held, an opening without cost, a missing exchange rate, a trade outside the account's dates, a value with a balance (which isn't used), and a statement that differs from the trades ("The statement on 30 Jun shows 12 VWCE; your trades give 10. Add the missing trade."). Each banner's button opens the trade, a new trade on the statement's date, or the value. The Overview's *Needs attention* points to an account with any of these ("Directa: 2 problems with trades").
-- **Cash at check-ins**: the account's values, which record its cash. The history chart, the header's change and the new-money ticks come from the Valuator (deposits and transfers on their own dates).
+- **Values at check-ins**: the account's values, newest first. Each row shows the account's value at that check-in (its trades at that day's prices and its cash) and its new money. For an account that holds cash (`Valuator.holdsCash(_:)`), each row also shows the cash its value records: a line under the value ("cash 312,10 €"), a *Cash* column on the Mac. The footer (a note under the table on the Mac) says what the values are and, for an account that holds cash, that a cash that differs from the trades counts as money added or taken out. An account that never holds cash ([TRADES.md](TRADES.md#check-ins), "No cash to show") shows no cash in the list. Tap a value to edit it, swipe to delete it; on the Mac, double-click edits, right-click edits or deletes. The history chart, the header's change and the new-money ticks come from the Valuator (deposits and transfers on their own dates).
 - The toolbar's **+** adds a trade; *Update Cash…* records the cash on a date; *Switch to Snapshots…* sits next to *Close Account…*.
 
 **Add Trade** (and *Edit Trade*) is a sheet:

@@ -229,11 +229,10 @@ struct AccountDetailScreen: View {
                     }
                 }
             } header: {
-                Text(data.recordsTrades ? "Cash at check-ins" : "Values")
+                Text(data.valuationsTitle)
             } footer: {
-                if data.recordsTrades {
-                    Text("Each value records the account's cash on its date; its holdings come from the trades. A "
-                        + "cash that differs from the trades counts as money added or taken out.")
+                if let note = data.valuationsNote {
+                    Text(note)
                 } else if !data.valuations.isEmpty {
                     Text("Tap a value to change its date, amount, new money or note. A value before the opening "
                         + "date moves it back.")
@@ -314,15 +313,20 @@ struct AccountDetailScreen: View {
                             .foregroundStyle(Palette.secondaryInk)
                     } else {
                         AccountValuationsTable(
-                            rows: data.valuations, currency: currency,
+                            rows: data.valuations, currency: currency, showsCash: data.valuationsShowCash,
                             edit: { key in editing = AccountValuationTarget(key: key) },
                             delete: { key in
                                 deletingValuation = key
                                 confirmsValuationDelete = true
                             })
                     }
+                    if let note = data.valuationsNote {
+                        Text(note)
+                            .font(.caption)
+                            .foregroundStyle(Palette.mutedInk)
+                    }
                 } header: {
-                    SectionHeader(data.recordsTrades ? "Cash at check-ins" : "Values") {
+                    SectionHeader(data.valuationsTitle) {
                         HStack(spacing: Metrics.m) {
                             Text("Double-click a value to edit it")
                                 .font(.caption)
@@ -947,7 +951,8 @@ private struct AccountValuationValue: View {
     }
 }
 
-/// One valuation in the iPhone list: date and note, value and new money.
+/// One valuation in the iPhone list: date and note, value, the cash it
+/// records (when the list shows it) and new money.
 private struct AccountValuationListRow: View {
     let row: AccountValuationRow
     let currency: CurrencyCode
@@ -968,6 +973,15 @@ private struct AccountValuationListRow: View {
             VStack(alignment: .trailing, spacing: 2) {
                 AccountValuationValue(row: row, currency: currency)
                     .foregroundStyle(Palette.ink)
+                if let cash = row.cash {
+                    HStack(spacing: 4) {
+                        Text("cash")
+                            .foregroundStyle(Palette.secondaryInk)
+                        AmountText(cash, currency: currency, precision: .cents)
+                            .foregroundStyle(Palette.secondaryInk)
+                    }
+                    .font(.caption)
+                }
                 flow
             }
         }
@@ -995,18 +1009,21 @@ private struct AccountValuationListRow: View {
 }
 
 #if os(macOS)
-/// The valuations as a table on the Mac: date, value, new money and note,
-/// as tall as its lines, so the page scrolls them (`PageTable`).
-/// Double-click (or the context menu) edits one.
+/// The valuations as a table on the Mac: date, value, the cash it records
+/// (when `showsCash`), new money and note, as tall as its lines, so the
+/// page scrolls them (`PageTable`). Double-click (or the context menu)
+/// edits one.
 private struct AccountValuationsTable: View {
     let rows: [AccountValuationRow]
     let currency: CurrencyCode
+    let showsCash: Bool
     let edit: (ValuationKey) -> Void
     let delete: (ValuationKey) -> Void
 
     private enum Columns {
         static let date = PageTableColumn(min: 84, max: 120)
         static let value = PageTableColumn(min: 100, max: 160, alignment: .trailing)
+        static let cash = PageTableColumn(min: 90, max: 140, alignment: .trailing)
         static let flow = PageTableColumn(min: 90, max: 140, alignment: .trailing)
         static let note = PageTableColumn(min: 0, max: .infinity)
     }
@@ -1015,6 +1032,9 @@ private struct AccountValuationsTable: View {
         PageTable(rows, open: edit) {
             Text("Date").pageTableColumn(Columns.date)
             Text("Value").pageTableColumn(Columns.value)
+            if showsCash {
+                Text("Cash").pageTableColumn(Columns.cash)
+            }
             Text("New money").pageTableColumn(Columns.flow)
             Text("Note").pageTableColumn(Columns.note)
         } row: { row in
@@ -1024,6 +1044,17 @@ private struct AccountValuationsTable: View {
             AccountValuationValue(row: row, currency: currency)
                 .frame(maxWidth: .infinity, alignment: .trailing)
                 .pageTableColumn(Columns.value)
+            if showsCash {
+                Group {
+                    if let cash = row.cash {
+                        AmountText(cash, currency: currency, precision: .cents)
+                    } else {
+                        Text("")
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .trailing)
+                .pageTableColumn(Columns.cash)
+            }
             AccountValuationFlowCell(row: row, currency: currency)
                 .pageTableColumn(Columns.flow)
             Text(row.valuation.note ?? "")

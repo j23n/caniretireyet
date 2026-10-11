@@ -67,6 +67,9 @@ struct AccountValuationRow: Hashable, Sendable, Identifiable {
     var amount: Decimal?
     /// The value on its own date, in the base currency (what could be valued).
     var value: Decimal
+    /// The cash the valuation records, in the account's currency, when the
+    /// list shows it (``AccountDetailData/valuationsShowCash``).
+    var cash: Decimal? = nil
 
     var id: ValuationKey { valuation.key }
 }
@@ -117,6 +120,10 @@ struct AccountDetailData: Hashable, Sendable {
     var cash: Decimal?
     /// Every valuation, newest first.
     var valuations: [AccountValuationRow]
+    /// Whether the list of values shows each one's recorded cash beside its
+    /// value: for an account that records trades and holds cash of its own
+    /// (``Tracker/Valuator/holdsCash(_:)``, docs/TRADES.md, "No cash to show").
+    var valuationsShowCash = false
     /// Set when the latest value is too old, unless the account is empty
     /// (``AccountStaleness``).
     var stale: StaleAccount?
@@ -141,6 +148,23 @@ struct AccountDetailData: Hashable, Sendable {
 
     /// The currency the page shows amounts in: the account's own.
     var currency: CurrencyCode { account.currency }
+
+    /// The title of the list of values.
+    var valuationsTitle: String {
+        recordsTrades ? "Values at check-ins" : "Values"
+    }
+
+    /// What a trades account's list of values shows, under it; `nil` for
+    /// other accounts. Cash is mentioned only when the list shows it.
+    var valuationsNote: String? {
+        guard recordsTrades else { return nil }
+        let values = "Each value is the account's value at that check-in: its trades at that day's prices"
+        guard valuationsShowCash else {
+            return values + ", with the new money since the one before."
+        }
+        return values + " and its cash, with the new money since the one before. A cash that differs from the "
+            + "trades counts as money added or taken out."
+    }
 
     /// Whether the account holds positions (now, or by its kind's default).
     var showsPositions: Bool {
@@ -231,15 +255,18 @@ struct AccountDetailData: Hashable, Sendable {
             tradeHoldings = trades
             holdings = trades.rows
             incomeYears = TradeIncomeYear.years(of: account.id, valuator: valuator)
+            valuationsShowCash = valuator.holdsCash(account.id)
         } else {
             cash = latest.flatMap { $0.isBalance ? nil : $0.cash }
         }
         tradeIssues = TradeIssueNote.notes(for: account.id, library: library, valuator: valuator)
+        let showsCash = valuationsShowCash
         valuations = all.reversed().map { valuation in
             AccountValuationRow(
                 valuation: valuation,
                 amount: valuator.amountInAccountCurrency(of: valuation, on: valuation.date),
-                value: valuator.value(of: valuation, on: valuation.date)?.knownValue ?? 0)
+                value: valuator.value(of: valuation, on: valuation.date)?.knownValue ?? 0,
+                cash: showsCash ? valuation.cash : nil)
         }
         stale = account.isClosed
             ? nil : AccountStaleness.stale(account.id, valuator: valuator, on: today, threshold: stalenessThreshold)
