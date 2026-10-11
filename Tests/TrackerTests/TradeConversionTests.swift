@@ -63,11 +63,16 @@ struct TradeConversionTests {
         // Trades are a brokerage account's default.
         #expect(conversion.account.valuation == nil)
         #expect(conversion.account.recordsTrades)
+        // The cash each value shows that the buys and sales don't explain is a deposit: the opening cash,
+        // then February's 470 and March's 100 of new money. April's buy was paid from the cash.
         #expect(conversion.trades == [
+            Trade(account: "broker", date: "2024-01-31", id: "deposit", type: .deposit, amount: 100, source: .import),
             Trade(account: "broker", date: "2024-01-31", id: "opening-vwce", type: .opening, instrument: "vwce",
                   quantity: 10, cost: 1000, source: .import),
             Trade(account: "broker", date: "2024-02-29", id: "buy-vwce", type: .buy, instrument: "vwce", quantity: 5,
                   price: 105, currency: .eur, amount: -520),
+            Trade(account: "broker", date: "2024-02-29", id: "deposit", type: .deposit, amount: 470),
+            Trade(account: "broker", date: "2024-03-31", id: "deposit", type: .deposit, amount: 100),
             Trade(account: "broker", date: "2024-03-31", id: "sell-vwce", type: .sell, instrument: "vwce",
                   quantity: 5, price: 110, currency: .eur),
             Trade(account: "broker", date: "2024-04-30", id: "buy-aapl", type: .buy, instrument: "aapl", quantity: 2,
@@ -92,8 +97,83 @@ struct TradeConversionTests {
         for (previous, valuation) in zip(valuations, valuations.dropFirst()) {
             #expect(valuator.defaultFlow(for: valuation, previous: previous) == valuation.flow, "\(valuation.date)")
         }
+        // The cash is what the trades give: every flow is a trade, and no value has a residual.
+        for valuation in valuations {
+            #expect(valuator.tradeCash(of: "broker", on: valuation.date) == valuation.cash, "\(valuation.date)")
+        }
+        #expect(valuator.tradeFlows(of: "broker", after: nil, through: "2024-04-30").allSatisfy { $0.trade != nil })
         #expect(valuator.tradeIssues(for: "broker").isEmpty)
         #expect(converted.conversionToTrades(of: "broker") == nil)
+    }
+
+    @Test func theChangeSplitStaysTheSame() throws {
+        let library = holdingsLibrary()
+        var converted = library
+        converted.convertToTrades("broker")
+        // Each period from a value to a later one, or to the first value. (Snapshots with an unknown
+        // flow in a longer period count all of its change as new money; trades split it.)
+        let periods: [(CalendarDate, CalendarDate)] = [
+            ("2023-12-31", "2024-01-31"), ("2024-01-31", "2024-02-29"), ("2024-02-29", "2024-03-31"),
+            ("2024-03-31", "2024-04-30"), ("2024-01-31", "2024-04-30"), ("2024-02-15", "2024-03-15"),
+        ]
+        func split(_ library: Library, _ from: CalendarDate, _ to: CalendarDate) -> [Decimal] {
+            let change = Valuator(library: library).change(from: from, to: to).accounts.first?.change
+            return [change?.start, change?.market, change?.newMoney, change?.other, change?.end].map { $0 ?? -1 }
+        }
+        for (from, to) in periods {
+            #expect(split(converted, from, to) == split(library, from, to), "\(from) – \(to)")
+        }
+        #expect(split(converted, "2024-01-31", "2024-04-30")[2] == 570)
+    }
+
+    @Test func cashTakenOutIsAWithdrawal() throws {
+        var library = holdingsLibrary()
+        // 300 taken out in May, nothing bought or sold.
+        library.upsert(Valuation(account: "broker", date: "2024-05-31", cash: 120, positions: [
+            Position(instrument: "aapl", quantity: 2, costBasis: 280),
+            Position(instrument: "vwce", quantity: 10, costBasis: d("1013.33")),
+        ], flow: -300))
+        let conversion = try #require(library.conversionToTrades(of: "broker"))
+        #expect(conversion.trades.last == Trade(account: "broker", date: "2024-05-31", id: "withdrawal",
+                                                type: .withdrawal, amount: -300))
+        #expect(conversion.notes.map(\.kind) == [.priceFromValuation])
+        var converted = library
+        converted.convertToTrades("broker")
+        let valuator = Valuator(library: converted)
+        #expect(valuator.tradeCash(of: "broker", on: "2024-05-31") == 120)
+        #expect(valuator.tradeIssues(for: "broker").isEmpty)
+    }
+
+    @Test func aValueWithoutNewMoneyGetsWhatItsCashShows() throws {
+        var library = holdingsLibrary()
+        // March's new money wasn't recorded: the cash says 100 came in besides the sale.
+        var march = try #require(library.valuations(for: "broker").first { $0.date == "2024-03-31" })
+        march.flow = nil
+        library.upsert(march)
+        let conversion = try #require(library.conversionToTrades(of: "broker"))
+        #expect(conversion.trades.filter { $0.type == .deposit }.map(\.amount) == [100, 470, 100])
+        #expect(conversion.valuations.map(\.flow) == [nil, 470, nil, 0])
+        var converted = library
+        converted.convertToTrades("broker")
+        #expect(Valuator(library: converted).change(from: "2024-02-29", to: "2024-03-31").total.newMoney == 100)
+        #expect(values(converted, on: monthEnds) == values(library, on: monthEnds))
+    }
+
+    @Test func aTradeWithoutACashEffectLeavesItsValuesResidual() throws {
+        var library = holdingsLibrary()
+        // A position bought in February with no price on or before the date, and no cost.
+        library.upsert(Valuation(account: "broker", date: "2024-02-29", cash: 50, positions: [
+            Position(instrument: "vwce", quantity: 15, costBasis: 1520),
+            Position(instrument: "unpriced", quantity: 1),
+        ], flow: 470))
+        let vwce = try #require(library.instruments["vwce"])
+        library.instruments["unpriced"] = Instrument(id: "unpriced", name: "Unpriced", kind: .etf, currency: .eur,
+                                                     unit: .share, assetClasses: vwce.assetClasses)
+        let conversion = try #require(library.conversionToTrades(of: "broker"))
+        #expect(conversion.notes.map(\.kind).contains(.noPrice))
+        // February's cash can't be worked out from the trades, so it gets no deposit; adding the buy's
+        // amount explains its residual. March's sale of the unpriced position is unknown too.
+        #expect(conversion.trades.filter { $0.type == .deposit }.map(\.date) == ["2024-01-31"])
     }
 
     @Test func aRoundTripGivesBackTheSnapshots() throws {
@@ -102,7 +182,7 @@ struct TradeConversionTests {
         converted.convertToTrades("broker")
         let back = try #require(converted.conversionToSnapshots(of: "broker"))
         #expect(back.notes.map(\.kind) == [.tradesRemoved])
-        #expect(back.removedTrades.count == 4)
+        #expect(back.removedTrades.count == 7)
         back.apply(to: &converted)
         #expect(converted == library)
     }
@@ -138,10 +218,14 @@ struct TradeConversionTests {
         let conversion = try #require(library.conversionToTrades(of: "broker"))
         #expect(conversion.valuations.first == Valuation(account: "broker", date: "2023-12-31", cash: 900,
                                                           source: .import))
-        // Positions after the first valuation are bought, at the valuation's price; without a
-        // cost basis before it, February's buy is priced the same way.
-        #expect(conversion.trades.first?.type == .buy)
-        #expect(conversion.trades.first?.amount == nil)
+        // The balance is cash put in. Positions after the first valuation are bought, at the
+        // valuation's price; without a cost basis before it, February's buy is priced the same way.
+        #expect(conversion.trades.prefix(3) == [
+            Trade(account: "broker", date: "2023-12-31", id: "deposit", type: .deposit, amount: 900, source: .import),
+            Trade(account: "broker", date: "2024-01-31", id: "buy-vwce", type: .buy, instrument: "vwce", quantity: 10,
+                  price: 102, currency: .eur),
+            Trade(account: "broker", date: "2024-01-31", id: "deposit", type: .deposit, amount: 220),
+        ])
         #expect(conversion.notes.map(\.kind)
             == [.cashFromBalance, .priceFromValuation, .priceFromValuation, .priceFromValuation])
 
@@ -149,7 +233,7 @@ struct TradeConversionTests {
         opening.upsert(Valuation(account: "broker", date: "2024-01-31", cash: 100,
                                  positions: [Position(instrument: "vwce", quantity: 10)]))
         let estimated = try #require(opening.conversionToTrades(of: "broker"))
-        #expect(estimated.trades.first?.cost == 1020)
+        #expect(estimated.trades.first { $0.type == .opening }?.cost == 1020)
         #expect(estimated.notes.first?.kind == .costFromMarketValue)
         #expect(estimated.notes.first?.message
             == "The opening of 10 vwce has no recorded cost: it's their value then, 1020.")

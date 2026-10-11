@@ -429,7 +429,7 @@ A brokerage, crypto or metals account can record its **trades** instead of month
 **Switching an account.** *Switch to Trade History…* on a holdings account, and *Switch to Snapshots…* on a trades account, open a sheet with a preview ([TRADES.md](TRADES.md#converting-an-account)):
 
 - what it writes, in a sentence, and the months it changes ("12 months, Oct 2025 – Sep 2026");
-- to trades: the opening positions, the buys and the sales inferred from the changes in quantity, each with its date; the estimates, counted and expandable ("11 buys and sales are estimates, priced at their value's price.", "1 opening position has no recorded cost: its cost is its value on that day."); for an account that has never held cash (coins, a wallet), a note that its buys and sales are paid from outside it, so its cash stays at zero;
+- to trades: the opening positions, the buys and the sales inferred from the changes in quantity, each with its date, and the count of deposits and withdrawals (the new money each value counted); the estimates, counted and expandable ("11 buys and sales are estimates, priced at their value's price.", "1 opening position has no recorded cost: its cost is its value on that day."); for an account that has never held cash (coins, a wallet), a note that its buys and sales are paid from outside it, so its cash stays at zero;
 - to snapshots: a warning that each trade's detail is lost (its date, price, fees, and the income and realised gains worked out from it), and the values it adds on a month's last trade;
 - the months' files are backed up first, as for an import, so the switch can be undone by restoring that backup from *Sync & backups*. Values and new money stay the same either way.
 
