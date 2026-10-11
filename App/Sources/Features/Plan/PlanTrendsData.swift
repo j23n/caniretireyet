@@ -17,10 +17,10 @@ extension PeriodGrain {
     }
 
     /// The grain Trends starts on: months until money in and out has been
-    /// recorded for two whole calendar years, then years.
-    static func trendsStandard(for library: Library, asOf: CalendarDate) -> PeriodGrain {
-        let first = library.months.values.lazy.flatMap(\.valuations).filter(\.hasMoneyInOut).map(\.date).min()
-        guard let first else { return .months }
+    /// recorded for two whole calendar years, then years. The year of
+    /// `firstMoneyInOut` isn't whole: a first value covers no time before it.
+    static func trendsStandard(firstMoneyInOut: CalendarDate?, asOf: CalendarDate) -> PeriodGrain {
+        guard let first = firstMoneyInOut else { return .months }
         return first.year + 2 < asOf.year ? .years : .months
     }
 }

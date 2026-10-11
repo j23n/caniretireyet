@@ -23,7 +23,7 @@ struct PlanTrendsView: View {
     private var gutter: CGFloat { isWide ? Metrics.xl : Metrics.l }
 
     private var grain: PeriodGrain {
-        storedGrain ?? .trendsStandard(for: library.library, asOf: library.asOfDate)
+        storedGrain ?? .trendsStandard(firstMoneyInOut: library.firstMoneyInOut, asOf: library.asOfDate)
     }
 
     private var isMainPlan: Bool { library.settings.mainPlan == session.planID }
@@ -176,7 +176,8 @@ struct PlanTrendsControls: View {
     }
 
     private var grain: Binding<PeriodGrain> {
-        Binding(get: { storedGrain ?? .trendsStandard(for: library.library, asOf: library.asOfDate) },
+        Binding(get: { storedGrain ?? .trendsStandard(firstMoneyInOut: library.firstMoneyInOut,
+                                                      asOf: library.asOfDate) },
                 set: { storedGrain = $0 })
     }
 }
