@@ -170,12 +170,12 @@ struct FanChart: View {
 #Preview("Fan chart") {
     PreviewResultsView { results in
         let actual = PreviewLibrary.valuator.series(.planAssets, through: PreviewLibrary.latestCheckIn).chartPoints
-        Card("Your money over time · whole plan") {
+        Card("Your money over time · to the plan's end") {
             FanChart(fan: results.portfolio, actual: actual, markers: results.markers, showsLegend: true)
         }
-        Card("Retirement + 15 years") {
+        Card("Retirement + 10 years") {
             let window = ProjectionWindow(now: PreviewLibrary.latestCheckIn.dateValue, range: .fiveYears,
-                                          horizon: .retirementPlus15, retirement: results.retirementDate,
+                                          horizon: .retirementPlus10, retirement: results.retirementDate,
                                           planEnd: results.portfolio.last?.date ?? Date())
             FanChart(fan: window.fan(results.portfolio), actual: window.history(actual),
                      markers: window.markers(results.markers), showsLegend: true)
