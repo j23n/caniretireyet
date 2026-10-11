@@ -58,6 +58,9 @@ struct YahooSymbolSearchTests {
         // A currency the response gives wins over the exchange's.
         let usdInMilan = SymbolCandidate(provider: .yahoo, symbol: "X.MI", exchange: "MIL", currency: .usd)
         #expect(usdInMilan.likelyCurrency == .usd)
+        // Amsterdam and SIX list ETFs in more than one currency.
+        #expect(SymbolCandidate(provider: .yahoo, symbol: "CSPX.AS", exchange: "AMS").likelyCurrency == nil)
+        #expect(SymbolCandidate(provider: .yahoo, symbol: "CSSPX.SW", exchange: "EBS").likelyCurrency == nil)
     }
 
     @Test func thePreferredListingIsTheFirstInTheInstrumentsCurrency() async throws {

@@ -592,7 +592,7 @@ struct InstrumentEditor: View {
 
     private func sourceFooter(_ form: InstrumentForm) -> String {
         let text = "Where its price comes from at each check-in and with Update Prices. Without one, you type "
-            + "the price in. Only the symbol and the date leave this device."
+            + "the price in. Only the symbol, the date and what you search for with Find… leave this device."
         guard let hint = form.symbolHint else { return text }
         return hint + " " + text
     }

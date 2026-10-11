@@ -41,9 +41,9 @@ public struct SymbolCandidate: Hashable, Sendable, Identifiable {
 
     /// The currency it most likely trades in: the one the provider gave,
     /// else the one of its exchange when nearly everything there trades in
-    /// one (XETRA, Borsa Italiana and Euronext in EUR; New York in USD).
-    /// `nil` when that's unknown, e.g. in London, which lists in GBP, USD
-    /// and EUR.
+    /// one (XETRA, Borsa Italiana and Euronext Paris in EUR; New York in
+    /// USD). `nil` when that's unknown, e.g. in London, Amsterdam or on SIX,
+    /// which list many ETFs in USD or EUR as well.
     public var likelyCurrency: CurrencyCode? {
         currency ?? exchange.flatMap { Self.exchangeCurrencies[$0.uppercased()] }
     }
@@ -75,14 +75,15 @@ public struct SymbolCandidate: Hashable, Sendable, Identifiable {
     static let exchangeCurrencies: [String: CurrencyCode] = {
         var table: [String: CurrencyCode] = [:]
         let byCurrency: [(CurrencyCode, [String])] = [
-            // XETRA, the German regional exchanges, Euronext, Milan, Madrid,
-            // Vienna, Helsinki, Dublin, Athens and EuroTLX.
-            (.eur, ["GER", "FRA", "STU", "MUN", "DUS", "HAM", "BER", "HAN", "PAR", "AMS", "BRU", "LIS", "MIL",
-                    "MCE", "VIE", "HEL", "ISE", "ATH", "TLO"]),
+            // XETRA, the German regional exchanges, Euronext Paris, Brussels
+            // and Lisbon, Milan, Madrid, Vienna, Helsinki, Dublin, Athens and
+            // EuroTLX. Not Amsterdam or SIX (EBS), which list many ETFs in
+            // USD or EUR beside their own currency.
+            (.eur, ["GER", "FRA", "STU", "MUN", "DUS", "HAM", "BER", "HAN", "PAR", "BRU", "LIS", "MIL", "MCE",
+                    "VIE", "HEL", "ISE", "ATH", "TLO"]),
             // NYSE, Nasdaq, NYSE American and Arca, Cboe BZX, OTC markets
             // and the US futures exchanges.
             (.usd, ["NYQ", "NMS", "NGM", "NCM", "ASE", "PCX", "BTS", "PNK", "NYM", "CMX", "CBT", "CME"]),
-            (.chf, ["EBS"]),
             (CurrencyCode("CAD"), ["TOR", "VAN", "CNQ"]),
             (CurrencyCode("AUD"), ["ASX"]),
             (.jpy, ["JPX"]),
