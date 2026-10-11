@@ -556,7 +556,8 @@ struct PlanYearCardView: View {
                                   valuator: PreviewLibrary.valuator, asOf: asOf,
                                   text: PlanMilestoneText(currency: library.settings.baseCurrency))
     let cards = model.timeline.cards
-    let scale = model.timeline.scale(fitting: Set(cards.indices))
+    let scale = model.timeline.scale(fitting: PlanStripWindow(wholeCards: Array(cards.indices)),
+                                     inset: Double(PlanYearCardView.pad))
     let height = PlanYearCardView.height(textScale: 1)
     let width = PlanYearCardView.width(pointsPerMonth: 21)
     let shape = RoundedRectangle(cornerRadius: 14, style: .continuous)
