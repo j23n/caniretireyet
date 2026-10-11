@@ -9,8 +9,9 @@ name: CI
 on:
   push:
   pull_request:
-    # labeled: the ci:mac label runs the Mac's jobs on a pull request (apple-ci's README, "When CI runs").
-    types: [opened, synchronize, reopened, labeled]
+    # Only labeled: each commit already has its push's run, so a pull request starts a run of its own
+    # only when the ci:mac label asks for the Mac's jobs (apple-ci's README, "When CI runs").
+    types: [labeled]
   workflow_dispatch:
 
 permissions:
