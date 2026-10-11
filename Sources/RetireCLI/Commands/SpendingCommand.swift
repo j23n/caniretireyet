@@ -14,8 +14,9 @@ struct SpendingCommand: RetireSubcommand {
         discussion: """
             Adds up moneyIn and moneyOut, recorded at check-ins on cash and savings accounts, over \
             the twelve months to today, or a calendar year with --year, in the library's base \
-            currency. Money moved between your own accounts isn't in either, so money out is \
-            roughly what you spent. Values without both amounts, and an account's first value, aren't counted.
+            currency. Money out is roughly what you spent: money moved between your own accounts isn't \
+            in either, but a credit card payment is money out. Values without both amounts, and an \
+            account's first value, aren't counted.
             """)
 
     @OptionGroup var options: LibraryOptions

@@ -4,7 +4,8 @@ import Model
 /// The money that came into and went out of cash and savings accounts over a
 /// period, from their valuations' `moneyIn` and `moneyOut` (PROGRESS.md,
 /// "Money in and out"): rough income and spending, in the base currency.
-/// Transfers between tracked accounts aren't in either.
+/// Transfers between tracked accounts aren't in either, apart from credit
+/// card payments, which are money out.
 public struct MoneyInOutSummary: Hashable, Sendable {
     /// The first day counted.
     public var from: CalendarDate

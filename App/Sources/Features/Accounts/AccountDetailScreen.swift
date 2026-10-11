@@ -97,10 +97,7 @@ struct AccountDetailScreen: View {
                                     titleVisibility: .visible, presenting: deletingValuation) { key in
                     Button("Delete Value", role: .destructive) { removeValuation(key) }
                 } message: { key in
-                    let check = AccountValueNotes.moneyInOutCheck(library.library.previewRemovingValue(key),
-                                                                  locale: locale)
-                    Text("The account's value then carries forward from the value before it."
-                        + (check.map { " " + $0 } ?? ""))
+                    Text(AccountValueNotes.deleteMessage(library.library.previewRemovingValue(key), locale: locale))
                 }
                 .alert("Couldn't change the account", isPresented: $showsError) {
                     Button("OK", role: .cancel) {}
