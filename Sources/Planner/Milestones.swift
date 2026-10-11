@@ -158,7 +158,8 @@ public struct MilestoneLadder: Hashable, Sendable {
     /// their amount.
     ///
     /// The coast point is reached at the first check-in whose recorded coast
-    /// age is at most ``coastTarget``, after one above it.
+    /// age is at most ``coastTarget``, the first record included; it stays
+    /// reached when the age rises again.
     ///
     /// - Parameters:
     ///   - values: plan assets at each check-in and at the end of each
@@ -190,16 +191,10 @@ public struct MilestoneLadder: Hashable, Sendable {
                 high = point.value
             }
         }
-        if let target = coastTarget, var low = coastAges.first?.value {
-            let age = Decimal(target)
-            for point in coastAges.dropFirst() where point.value < low {
-                if point.value <= age, low > age {
-                    let assets = values.last { $0.date <= point.date }?.value ?? 0
-                    reached.append(ReachedMilestone(milestone: Milestone(kind: .coastPoint(age: target), amount: assets),
-                                                    date: point.date))
-                }
-                low = point.value
-            }
+        if let target = coastTarget, let point = coastAges.first(where: { $0.value <= Decimal(target) }) {
+            let assets = values.last { $0.date <= point.date }?.value ?? 0
+            reached.append(ReachedMilestone(milestone: Milestone(kind: .coastPoint(age: target), amount: assets),
+                                            date: point.date))
         }
         return reached.sorted {
             ($0.date, $0.milestone.amount, $0.milestone.kindOrder) < ($1.date, $1.milestone.amount, $1.milestone.kindOrder)
@@ -318,7 +313,21 @@ extension MilestoneLadder {
     public init(plan: PlanDocument, library: Library, on date: CalendarDate, neededToday: Decimal? = nil) {
         self.init(spending: plan.spending.retired > 0 ? plan.spending.retired : nil, neededToday: neededToday,
                   crossover: Self.crossover(plan: plan, library: library, on: date),
-                  coastTarget: plan.pensions.compactMap(\.fromAge).min())
+                  coastTarget: Self.coastTarget(of: plan))
+    }
+
+    /// The age `plan`'s coast point is for: when its first pension starts;
+    /// `nil` without a pension.
+    public static func coastTarget(of plan: PlanDocument) -> Int? {
+        plan.pensions.compactMap(\.fromAge).min()
+    }
+
+    /// Whether `coastAge` is at or under `plan`'s coast point: saving nothing
+    /// more, you could still retire when its first pension starts. `false`
+    /// without a coast age or a pension.
+    public static func isPastCoastPoint(_ coastAge: Int?, plan: PlanDocument) -> Bool {
+        guard let coastAge, let target = coastTarget(of: plan) else { return false }
+        return coastAge <= target
     }
 
     /// Where a typical year's growth matches a year's saving, in whole

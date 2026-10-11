@@ -1,0 +1,22 @@
+Below is the first page of a statement. Say what kind of statement it is.
+
+Reply with:
+{
+  "kind": "bank" | "broker" | "card" | "loan" | "other",
+  "institution": string,            // the bank or broker's name as printed
+  "accountNumber": string | null,   // IBAN, account or depot number as printed
+  "currency": string | null,        // ISO code, e.g. "EUR"
+  "periodStart": "YYYY-MM-DD" | null,
+  "periodEnd": "YYYY-MM-DD" | null,
+  "statementDate": "YYYY-MM-DD" | null
+}
+
+"bank" is a current or savings account with a list of payments. "broker" is a securities
+account or depot (buys, sells, dividends, holdings). "card" is a credit card. "loan" is a loan
+or mortgage. Anything else, such as a tax certificate, a letter or terms and conditions, is
+"other".
+
+Page:
+<<<
+{page_text}
+>>>

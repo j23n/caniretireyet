@@ -1,0 +1,19 @@
+Below is a {institution} {kind} statement for account {account_number}, currency {currency}.
+It may be one page or several pages joined.
+
+Copy the balance owed and the payment.
+
+Reply with:
+{
+  "statementDate": "YYYY-MM-DD",
+  "previousBalance": string | null, // owed at the previous statement, as a positive number
+  "balanceOwed": string,            // owed at this statement, as a positive number; negative
+                                    // only if the account is in credit
+  "payments": string | null,        // total paid toward the card or loan in this period, positive
+  "interest": string | null         // interest charged in this period, positive
+}
+
+Pages:
+<<<
+{page_text}
+>>>

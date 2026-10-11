@@ -38,8 +38,8 @@ struct PlanProgressModel {
             MilestoneLadder(plan: $0, library: library, on: asOf)
                 .reached(plan: plan, library: library, valuator: valuator, through: asOf)
         } ?? []
-        timeline = PlanProgressTimeline(years: years, plan: plan, library: library, valuator: valuator,
-                                        history: history, milestones: reached, text: text)
+        timeline = PlanProgressTimeline(years: years, library: library, valuator: valuator, history: history,
+                                        milestones: reached, text: text)
     }
 }
 

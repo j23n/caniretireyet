@@ -5,8 +5,8 @@ import SwiftUI
 /// "Your life in 6 chapters" (UI.md, "Plan"): the chapters side by side on a
 /// strip that scrolls sideways, each card as wide as its years (never too
 /// narrow to read, and on iPhone never narrower than the screen), on the
-/// money scale the cards on screen share, so the graph runs on from card to
-/// card. Choosing a card selects its chapter, whose details show below the
+/// money scale the cards on screen share, fitted to the money between the
+/// screen's edges, so the graph runs on from card to card. Choosing a card selects its chapter, whose details show below the
 /// strip; selecting one elsewhere scrolls it into view. The pointer over a
 /// card, or a finger touched and held on it, reads the graph there.
 struct PlanChapterStrip: View {
@@ -58,7 +58,7 @@ struct PlanChapterStrip: View {
     private func chartSummary(_ card: PlanTimeline.Card) -> ChartSummary {
         let labels = card.fan.enumerated().map { offset, point in
             let age = card.age(on: point.date)
-            return offset == 0 ? "Start, \(age)" : "\(age) · \(Calendar.current.component(.year, from: point.date))"
+            return offset == 0 ? "Start, \(age)" : "\(age) · \(card.year(on: point.date))"
         }
         func series(_ name: String, _ value: (FanPoint) -> Double) -> ChartSummary.Series {
             ChartSummary.Series(name: name, points: zip(labels, card.fan).map { ($0, value($1)) })
@@ -305,10 +305,6 @@ struct PlanChapterCardView: View {
         return CGPoint(x: x, y: plot.y(fan.p50, scale))
     }
 
-    private func compact(_ value: Double) -> String {
-        hidesAmounts ? AmountFormat.hidden : AmountFormat.compactAmount(value, currency: currency, locale: locale)
-    }
-
     // MARK: At the pointer
 
     /// What the graph shows at a point: a milestone, an event or the
@@ -350,10 +346,8 @@ struct PlanChapterCardView: View {
     }
 
     /// The graph at the pointer (UI.md, "Plan"): a rule, the median's dot,
-    /// and a label with the age and the year, a milestone or an event
-    /// there, the median and the range 8 in 10 futures fall in; at the
-    /// chapter's end, those at its last year's end and how many futures
-    /// run out during it.
+    /// and a callout like the net-worth chart's over its projection, or at
+    /// the chapter's end, how it ends.
     private func readout(at pointerX: CGFloat) -> some View {
         let found = reading(at: pointerX)
         return ZStack(alignment: .topLeading) {
@@ -363,51 +357,53 @@ struct PlanChapterCardView: View {
                 PlanGraphDot()
                     .offset(x: found.x - 4.5, y: plot.y(fan.p50, scale) - 4.5)
             }
-            PlanGraphCallout(lines: lines(for: found))
-                .offset(x: PlanGraphCallout.leading(at: found.x, in: width), y: plot.top + 4)
+            ChartCallout(maxWidth: PlanGraphCallout.width(in: width)) {
+                callout(for: found)
+            }
+            .offset(x: PlanGraphCallout.leading(at: found.x, in: width), y: plot.top + 4)
         }
         .allowsHitTesting(false)
         .accessibilityHidden(true)
     }
 
-    private func lines(for found: Reading) -> [PlanGraphCallout.Line] {
+    /// The month and the age ("Mar 2034 · 48"), then as the net-worth chart
+    /// reads its projection, "Median" and the median, the top and the bottom
+    /// 10%, then a milestone or an event there. At the chapter's end, its
+    /// last year and the age reached in it ("End of 2055 · 67"), the money at
+    /// that year's end in the same rows, and how many futures run out during
+    /// the chapter.
+    @ViewBuilder
+    private func callout(for found: Reading) -> some View {
         if let outcome = found.outcome {
-            // The chapter's last year: the one it reaches that age in.
-            let year = card.birthDate.year + outcome.age
+            let band = Palette.accent.opacity(ProjectionLegend.outerBand)
             let runsOut = outcome.failureShare > 0
-            return [
-                PlanGraphCallout.Line(text: "\(outcome.age) · \(String(year))", style: .context),
-                PlanGraphCallout.Line(text: "Typically \(rounded(outcome.median))", style: .value),
-                PlanGraphCallout.Line(text: "Bad \(compact(outcome.low)), good \(compact(outcome.high))",
-                                      style: .detail),
-                PlanGraphCallout.Line(text: PlanTimelineText.runsOut(outcome.failureShare),
-                                      style: runsOut ? .warning : .detail)
-            ]
+            Text(verbatim: "End of \(String(card.year(on: found.date))) · \(outcome.age)")
+                .font(.caption2)
+                .foregroundStyle(Palette.secondaryInk)
+            ChartCalloutTotal(outcome.median, label: "Median", currency: currency)
+            ChartCalloutRow("Top 10%", swatch: band, amount: outcome.high, currency: currency)
+            ChartCalloutRow("Bottom 10%", swatch: band, amount: outcome.low, currency: currency)
+            Text(PlanTimelineText.runsOut(outcome.failureShare))
+                .font(.caption2.weight(runsOut ? .semibold : .regular))
+                .foregroundStyle(runsOut ? Palette.orangeStroke : Palette.secondaryInk)
+        } else {
+            ChartCalloutDate(found.date, precision: .month, detail: String(card.age(on: found.date)))
+            if let fan = found.fan {
+                ChartCalloutProjection(fan: fan, currency: currency)
+            }
+            if let milestone = found.milestone {
+                let text = PlanMilestoneText(currency: currency, hidesAmounts: hidesAmounts, locale: locale)
+                ChartCalloutMarker(text.name(milestone.milestone),
+                                   detail: "Typically by \(PlanMilestoneText.when(milestone.date))") {
+                    PlanGraphFlag()
+                }
+            } else if let event = found.event {
+                ChartCalloutMarker(event.title, detail: event.detail) {
+                    Image(systemName: "circle.fill")
+                        .foregroundStyle(Self.color(of: event.kind))
+                }
+            }
         }
-        let year = Calendar.current.component(.year, from: found.date)
-        var lines = [PlanGraphCallout.Line(text: "\(card.age(on: found.date)) · \(String(year))", style: .context)]
-        if let milestone = found.milestone {
-            let text = PlanMilestoneText(currency: currency, hidesAmounts: hidesAmounts, locale: locale)
-            lines.append(PlanGraphCallout.Line(text: text.name(milestone.milestone), style: .milestone))
-            lines.append(PlanGraphCallout.Line(text: "Typically by \(PlanMilestoneText.when(milestone.date))",
-                                               style: .detail))
-        } else if let event = found.event {
-            lines.append(PlanGraphCallout.Line(text: event.title, style: .title))
-            lines.append(PlanGraphCallout.Line(text: event.detail, style: .detail))
-        }
-        if let fan = found.fan {
-            lines.append(PlanGraphCallout.Line(text: "Typically \(rounded(fan.p50))", style: .value))
-            lines.append(PlanGraphCallout.Line(text: "Bad \(compact(fan.p10)), good \(compact(fan.p90))",
-                                               style: .detail))
-        }
-        return lines
-    }
-
-    /// A projected amount to the nearest thousand: "640.000 €".
-    private func rounded(_ value: Double) -> String {
-        guard !hidesAmounts else { return AmountFormat.hidden }
-        let thousands = abs(value) >= 10_000 ? (value / 1_000).rounded() * 1_000 : value.rounded()
-        return AmountFormat.amount(Decimal(wholeNumber: thousands), currency: currency, locale: locale)
     }
 
     // MARK: Drawing
@@ -482,4 +478,60 @@ struct PlanChapterCardView: View {
         case .saving: Palette.accent
         }
     }
+}
+
+#Preview("Reading a chapter") {
+    // Made-up: 16 years of saving, past a million, so the short amounts read
+    // in millions, beside the net-worth chart's callout over the same
+    // projection; then a short chapter read at its right edge, and the long
+    // one at its left edge with amounts hidden.
+    let today = PreviewLibrary.latestCheckIn
+    let birthDate = PreviewLibrary.library.settings.person?.birthDate ?? "1988-05-14"
+    let currency = PreviewLibrary.library.settings.baseCurrency
+    let fan = (0...16).map { year in
+        let median = 600_000 * pow(1.06, Double(year))
+        let spread = 0.12 * Double(year).squareRoot()
+        return FanPoint(date: today.adding(years: year).dateValue, p10: median * exp(-1.28 * spread),
+                        p25: median * exp(-0.67 * spread), p50: median, p75: median * exp(0.67 * spread),
+                        p90: median * exp(1.28 * spread))
+    }
+    let outcome = PlanChaptersModel.Outcome(age: 54, low: fan[16].p10, median: fan[16].p50, high: fan[16].p90,
+                                            failureShare: 0)
+    let rental = PlanTimeline.Event(id: "income-0", date: today.adding(years: 6).dateValue, kind: .pension,
+                                    title: "Rental income", detail: "in \(today.year + 6)")
+    let long = PlanTimeline.Card(
+        index: 0, style: .working, title: "Employee", span: "Now to 54 · \(today.year) to \(today.year + 16)",
+        start: fan[0].date, end: fan[16].date, fan: fan, startLabel: "Now", endLabel: nil, ticks: [],
+        events: [rental], milestones: [], outcome: outcome, birthDate: birthDate)
+    let short = PlanTimeline.Card(
+        index: 1, style: .bridge, title: "Bridge", span: "52 to 54", start: fan[14].date, end: fan[16].date,
+        fan: Array(fan[14...16]), startLabel: "52", endLabel: "54", ticks: [], events: [], milestones: [],
+        outcome: outcome, birthDate: birthDate)
+    let scale = PlanStripScale(values: fan.flatMap { [$0.p25, $0.p50, $0.p75] })
+    let shape = RoundedRectangle(cornerRadius: 14, style: .continuous)
+    ScrollView([.horizontal, .vertical]) {
+        VStack(alignment: .leading, spacing: Metrics.l) {
+            HStack(alignment: .top, spacing: Metrics.l) {
+                PlanChapterCardView(card: long, scale: scale, width: 352, height: 352, currency: currency,
+                                    pointerX: 230)
+                    .background(Palette.card, in: shape)
+                Card("Plan assets, with the future") {
+                    NetWorthChart(history: [], projection: fan, title: "Plan assets",
+                                  readsDate: today.adding(years: 10).dateValue)
+                }
+                .frame(width: 380)
+            }
+            HStack(alignment: .top, spacing: Metrics.l) {
+                PlanChapterCardView(card: short, scale: scale, width: PlanChapterStrip.minimumWidth, height: 352,
+                                    currency: currency, pointerX: PlanChapterStrip.minimumWidth - 4)
+                    .background(Palette.card, in: shape)
+                PlanChapterCardView(card: long, scale: scale, width: 352, height: 352, currency: currency,
+                                    pointerX: 4)
+                    .background(Palette.card, in: shape)
+                    .environment(\.hidesAmounts, true)
+            }
+        }
+        .padding()
+    }
+    .background(Palette.page)
 }
