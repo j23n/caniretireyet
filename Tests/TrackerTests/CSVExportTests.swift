@@ -88,6 +88,24 @@ import TestSupport
         #expect(pension[12] == "bonds=0.4; equity=0.6")
     }
 
+    @Test func moneyInAndOutAreExported() throws {
+        let valuations = rows(try file("valuations.csv"))
+        let moneyIn = try #require(valuations[0].firstIndex(of: "money_in"))
+        let moneyOut = try #require(valuations[0].firstIndex(of: "money_out"))
+        let fineco = try #require(valuations.first { $0[0] == "2026-09-30" && $0[1] == "conto-fineco" })
+        #expect(fineco[moneyIn] == "3400")
+        #expect(fineco[moneyOut] == "2554.65")
+        let deposit = try #require(valuations.first { $0[0] == "2026-09-30" && $0[1] == "conto-deposito" })
+        #expect(deposit[moneyIn].isEmpty)
+
+        let accounts = rows(try file("accounts.csv"))
+        let tracks = try #require(accounts[0].firstIndex(of: "money_in_out"))
+        let current = try #require(accounts.first { $0[0] == "conto-fineco" })
+        let savings = try #require(accounts.first { $0[0] == "conto-deposito" })
+        #expect(current[tracks] == "yes")
+        #expect(savings[tracks] == "no")
+    }
+
     @Test func fieldsAreQuotedWhenNeeded() {
         #expect(CSVExport.field("plain") == "plain")
         #expect(CSVExport.field("a, b") == "\"a, b\"")

@@ -81,6 +81,15 @@ public struct CheckInRow: Hashable, Sendable, Identifiable {
     public private(set) var isFlowEdited: Bool
     /// The flow entered by hand, in the account's currency; `nil` means unknown.
     public private(set) var enteredFlow: Decimal?
+    /// The money that came in since the previous valuation, in the account's
+    /// currency, for an account that records it (PROGRESS.md, "Money in and
+    /// out"); `nil` means not recorded.
+    public private(set) var moneyIn: Decimal?
+    /// The money that went out, typed by hand (or kept as saved on the
+    /// date); `nil` works it out from ``moneyIn`` and the flow
+    /// (``CheckInDraft/defaultMoneyOut(moneyIn:flow:)``) when there's a
+    /// ``previous`` valuation.
+    public private(set) var enteredMoneyOut: Decimal?
     /// The valuation's note. Editing it doesn't change the row's state.
     public var note: String?
     /// Where the values came from, kept from a valuation already saved on
@@ -94,6 +103,11 @@ public struct CheckInRow: Hashable, Sendable, Identifiable {
     /// value is edited: it was the default for the saved values, so it was
     /// worked out rather than typed.
     var resetsFlowOnEdit: Bool
+    /// Whether the money out kept from `existing` goes back to following
+    /// the money in and the flow once a value is edited: it was the
+    /// suggestion for the saved values, so it was worked out rather than
+    /// typed.
+    var resetsMoneyOutOnEdit: Bool
     /// Whether the account opens after the check-in's date, e.g. one added
     /// in the app today while last year is filled in. Such a row is
     /// optional: it's never counted as missing, *mark rest unchanged* leaves
@@ -141,10 +155,14 @@ public struct CheckInRow: Hashable, Sendable, Identifiable {
         holdsCash = isTrades ? valuator.valuator.holdsCash(account.id) : true
         isFlowEdited = existing?.flow != nil
         enteredFlow = existing?.flow
+        moneyIn = existing?.moneyIn
+        enteredMoneyOut = existing?.moneyOut
         note = existing?.note
         source = existing?.source
         isEdited = false
         resetsFlowOnEdit = false
+        resetsMoneyOutOnEdit = previous != nil && existing?.moneyOut != nil
+            && existing?.moneyOut == CheckInDraft.defaultMoneyOut(moneyIn: existing?.moneyIn, flow: existing?.flow)
         if isTrades {
             // The cash typed on the date, else what the trades give; positions only as entered.
             mode = .trades
@@ -376,11 +394,32 @@ public struct CheckInRow: Hashable, Sendable, Identifiable {
         enteredFlow = amount
     }
 
-    /// Goes back to the default flow for the account's kind.
+    /// Records the money that came in, in the account's currency, without
+    /// a sign (a minus is dropped). `nil` leaves it empty: with money out
+    /// typed, nothing came in; else neither is recorded for this valuation.
+    public mutating func setMoneyIn(_ amount: Decimal?) {
+        touch()
+        moneyIn = amount.map { abs($0) }
+    }
+
+    /// Records the money that went out, in the account's currency, without
+    /// a sign (a minus is dropped); `nil` goes back to working it out from
+    /// the money in and the flow.
+    public mutating func setMoneyOut(_ amount: Decimal?) {
+        touch()
+        enteredMoneyOut = amount.map { abs($0) }
+    }
+
+    /// Goes back to the default flow for the account's kind. A money out
+    /// that was only the saved suggestion follows it.
     public mutating func resetFlow() {
         isFlowEdited = false
         enteredFlow = nil
         resetsFlowOnEdit = false
+        if resetsMoneyOutOnEdit {
+            resetsMoneyOutOnEdit = false
+            enteredMoneyOut = nil
+        }
         if state == .updated { isEdited = true }
     }
 
@@ -413,6 +452,9 @@ public struct CheckInRow: Hashable, Sendable, Identifiable {
         isFlowEdited = false
         enteredFlow = nil
         resetsFlowOnEdit = false
+        resetsMoneyOutOnEdit = false
+        moneyIn = nil
+        enteredMoneyOut = nil
         source = nil
         state = .unchanged
         return true
@@ -452,6 +494,8 @@ public struct CheckInRow: Hashable, Sendable, Identifiable {
                 }
             }
             if other.isFlowEdited { setFlow(other.enteredFlow) }
+            moneyIn = other.moneyIn
+            enteredMoneyOut = other.enteredMoneyOut
         }
         note = other.note
     }
@@ -464,8 +508,8 @@ public struct CheckInRow: Hashable, Sendable, Identifiable {
         balance = nil
     }
 
-    /// A value was entered: the row is updated, and a flow that was only the
-    /// saved default follows the new values.
+    /// A value was entered: the row is updated, and a flow or money out that
+    /// was only the saved default follows the new values.
     private mutating func touch() {
         state = .updated
         source = nil
@@ -474,6 +518,10 @@ public struct CheckInRow: Hashable, Sendable, Identifiable {
             resetsFlowOnEdit = false
             isFlowEdited = false
             enteredFlow = nil
+        }
+        if resetsMoneyOutOnEdit {
+            resetsMoneyOutOnEdit = false
+            enteredMoneyOut = nil
         }
     }
 
@@ -574,6 +622,15 @@ public struct CheckInDraft: Hashable, Sendable, Codable {
             if let old = self[moved.rows[index].account] { moved.rows[index].adoptEdits(from: old) }
         }
         self = moved
+    }
+
+    /// The money out to suggest when only the money in was typed: what came
+    /// in minus the flow (for a current account, the change in balance),
+    /// as if nothing moved between your own accounts; never negative.
+    /// `nil` without money in or a flow.
+    public static func defaultMoneyOut(moneyIn: Decimal?, flow: Decimal?) -> Decimal? {
+        guard let moneyIn, let flow else { return nil }
+        return max(0, moneyIn - flow)
     }
 
     // MARK: Prices and FX rates
@@ -700,7 +757,8 @@ extension CheckInPosition: Codable {
 extension CheckInRow: Codable {
     enum CodingKeys: String, CodingKey {
         case account, state, mode, previous, existing, conflict, balance, cash, positions, isFlowEdited, enteredFlow,
-             note, source, isEdited, resetsFlowOnEdit, opensLater, isTrades, derived, holdsCash
+             moneyIn, enteredMoneyOut, note, source, isEdited, resetsFlowOnEdit, resetsMoneyOutOnEdit, opensLater,
+             isTrades, derived, holdsCash
     }
 
     public init(from decoder: any Decoder) throws {
@@ -716,11 +774,14 @@ extension CheckInRow: Codable {
         positions = try c.decodeIfPresent([CheckInPosition].self, forKey: .positions) ?? []
         isFlowEdited = try c.decodeIfPresent(Bool.self, forKey: .isFlowEdited) ?? false
         enteredFlow = try c.decodeDecimalIfPresent(forKey: .enteredFlow)
+        moneyIn = try c.decodeDecimalIfPresent(forKey: .moneyIn)
+        enteredMoneyOut = try c.decodeDecimalIfPresent(forKey: .enteredMoneyOut)
         note = try c.decodeIfPresent(String.self, forKey: .note)
         source = try c.decodeIfPresent(DataSource.self, forKey: .source)
         // A draft kept before rows recorded this: an updated row counts as edited.
         isEdited = try c.decodeIfPresent(Bool.self, forKey: .isEdited) ?? (state == .updated)
         resetsFlowOnEdit = try c.decodeIfPresent(Bool.self, forKey: .resetsFlowOnEdit) ?? false
+        resetsMoneyOutOnEdit = try c.decodeIfPresent(Bool.self, forKey: .resetsMoneyOutOnEdit) ?? false
         opensLater = try c.decodeIfPresent(Bool.self, forKey: .opensLater) ?? false
         isTrades = try c.decodeIfPresent(Bool.self, forKey: .isTrades) ?? false
         derived = try c.decodeIfPresent(Valuation.self, forKey: .derived)
@@ -746,10 +807,13 @@ extension CheckInRow: Codable {
         try c.encode(positions, forKey: .positions)
         try c.encode(isFlowEdited, forKey: .isFlowEdited)
         try c.encodeDecimalIfPresent(enteredFlow, forKey: .enteredFlow)
+        try c.encodeDecimalIfPresent(moneyIn, forKey: .moneyIn)
+        try c.encodeDecimalIfPresent(enteredMoneyOut, forKey: .enteredMoneyOut)
         try c.encodeIfPresent(note, forKey: .note)
         try c.encodeIfPresent(source, forKey: .source)
         try c.encode(isEdited, forKey: .isEdited)
         try c.encode(resetsFlowOnEdit, forKey: .resetsFlowOnEdit)
+        if resetsMoneyOutOnEdit { try c.encode(resetsMoneyOutOnEdit, forKey: .resetsMoneyOutOnEdit) }
         if opensLater { try c.encode(opensLater, forKey: .opensLater) }
         if isTrades { try c.encode(isTrades, forKey: .isTrades) }
         try c.encodeIfPresent(derived, forKey: .derived)

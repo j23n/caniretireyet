@@ -44,7 +44,7 @@
         }
       ],
       "valuations": [
-        { "account": "conto-fineco", "balance": "4210.55", "date": "2026-09-30", "flow": "-310.2" },
+        { "account": "conto-fineco", "balance": "4210.55", "date": "2026-09-30", "flow": "-310.2", "moneyIn": "3400", "moneyOut": "2560.2" },
         { "account": "directa", "cash": "312.1", "date": "2026-09-30", "flow": "11.3" },
         { "account": "fondo-pensione", "balance": "18450.12", "date": "2026-09-30", "flow": "1325", "note": "from Q3 statement" },
         { "account": "gold-coins", "date": "2026-09-30", "positions": [{ "instrument": "gold", "quantity": "62.2" }] },
@@ -75,6 +75,14 @@
         },
         "flow": {
           "description": "The net money added (+) or taken out (−) since the account's previous valuation, in the account's currency. Absent means unknown. The check-in fills it in from defaults that depend on the kind of account (PROGRESS.md); the sum of all flows over a period is what you saved. An account that records trades gets its flows from its trades and cash, and its flow is written for the record.",
+          "$ref": "common.schema.json#/$defs/decimal"
+        },
+        "moneyIn": {
+          "description": "Money that arrived from outside your tracked accounts since the account's previous valuation (salary, refunds, gifts), in the account's currency, never negative. Money moved from another tracked account isn't counted. Absent means not tracked for the period; recorded together with moneyOut, as a valuation with only one of them isn't counted. Only cash and savings accounts record it (PROGRESS.md, \"Money in and out\").",
+          "$ref": "common.schema.json#/$defs/decimal"
+        },
+        "moneyOut": {
+          "description": "Money that left your tracked accounts since the account's previous valuation (spending, bills, rent), in the account's currency, never negative. Money moved to another tracked account isn't counted. Absent means not tracked for the period; recorded together with moneyIn. Only cash and savings accounts record it (PROGRESS.md, \"Money in and out\").",
           "$ref": "common.schema.json#/$defs/decimal"
         },
         "note": { "type": "string" },

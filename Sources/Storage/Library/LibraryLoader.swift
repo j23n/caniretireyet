@@ -379,6 +379,27 @@ struct LibraryLoader {
             warn(LibraryFile.settings.path, "The main plan \"\(plan)\" doesn't exist.")
         }
         checkTrades(in: library)
+        checkMoneyInOut(in: library)
+    }
+
+    /// Warns about money in and out (`moneyIn`, `moneyOut`) that summaries
+    /// leave out: on an account whose kind doesn't record it, only one of the
+    /// two, or negative.
+    /// Every value is still loaded.
+    mutating func checkMoneyInOut(in library: Library) {
+        for valuation in library.allValuations where valuation.hasMoneyInOut {
+            let path = LibraryFile.month(valuation.date.yearMonth).path
+            if let account = library.accounts[valuation.account], !account.kind.recordsMoneyInOut {
+                warn(path, "The valuation of \(account.id) on \(valuation.date) records money in or out, but only "
+                    + "cash and savings accounts do; it isn't counted.")
+            } else if (valuation.moneyIn == nil) != (valuation.moneyOut == nil) {
+                warn(path, "The valuation of \(valuation.account) on \(valuation.date) records only money "
+                    + "\(valuation.moneyIn == nil ? "out" : "in"); record both, or neither. It isn't counted.")
+            } else if (valuation.moneyIn ?? 0) < 0 || (valuation.moneyOut ?? 0) < 0 {
+                warn(path, "The valuation of \(valuation.account) on \(valuation.date) has negative money in or out; "
+                    + "both are amounts without a sign. It isn't counted.")
+            }
+        }
     }
 
     /// Warns about trades that can't be applied as they are (docs/TRADES.md,

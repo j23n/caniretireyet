@@ -55,6 +55,10 @@
       "type": "object",
       "properties": { "netWorth": { "type": "boolean" }, "plan": { "type": "boolean" } }
     },
+    "moneyInOut": {
+      "description": "Whether check-ins ask for the money that came in and went out of the account (moneyIn and moneyOut on its valuations), to see what you spend. Only for cash and savings accounts. Default: false; an account whose valuations already record them shows them either way.",
+      "type": "boolean"
+    },
     "successor": {
       "description": "The account that replaced this one, e.g. when you switched banks, so charts stay continuous.",
       "$ref": "common.schema.json#/$defs/slug"

@@ -39,7 +39,9 @@ struct CheckInTable: View {
         let snapshot = library.library
         let review = draft.review(in: snapshot)
         let sections = CheckInSection.sections(of: draft, in: snapshot)
-        let order = CheckInFieldOrder.nowColumn(rows: sections.flatMap(\.rows), editingCash: session.editingCash)
+        let rows = sections.flatMap(\.rows)
+        let moneyInOut = Set(rows.filter { CheckInRowDisplay.showsMoneyInOut($0, in: snapshot) }.map(\.account))
+        let order = CheckInFieldOrder.nowColumn(rows: rows, editingCash: session.editingCash, moneyInOut: moneyInOut)
         VStack(spacing: 0) {
             ScrollViewReader { proxy in
                 ScrollView {
@@ -253,6 +255,15 @@ private struct CheckInTableRow: View {
                     positionLine(position)
                 }
                 cashLine
+            } else if CheckInRowDisplay.showsMoneyInOut(row, in: library.library) {
+                moneyLine(.moneyIn(row.account), title: "Money in", value: row.moneyIn, prompt: "0,00") {
+                    $0.setMoneyIn($1)
+                }
+                // Empty, money out records nothing: it's unknown.
+                moneyLine(.moneyOut(row.account), title: "Money out",
+                          value: row.enteredMoneyOut ?? review?.valuation?.moneyOut, prompt: "unknown") {
+                    $0.setMoneyOut($1)
+                }
             }
             Divider()
                 .padding(.leading, CheckInColumns.inset)
@@ -641,6 +652,39 @@ private struct CheckInTableRow: View {
             CheckInPlainDelta(change)
         } newMoney: {
             cashAction(hasField: hasField)
+        } note: {
+            Color.clear
+        }
+        .font(.callout)
+        .frame(height: 30)
+    }
+
+    /// Money in or out of a cash or savings account, under its balance
+    /// (PROGRESS.md, "Money in and out"). Money out follows money in and the
+    /// change until it's typed.
+    private func moneyLine(_ field: CheckInField, title: LocalizedStringKey, value: Decimal?, prompt: String,
+                           set: @escaping (inout CheckInRow, Decimal?) -> Void) -> some View {
+        CheckInTableLine {
+            Color.clear
+        } account: {
+            Text(title)
+                .fontWeight(.medium)
+                .lineLimit(1)
+                .padding(.leading, Metrics.l)
+        } last: {
+            Color.clear
+        } now: {
+            CheckInNumberField(
+                field, focus: focus, isFocused: focused == field, value: value, prompt: prompt,
+                label: field.name(in: library.library), allowsEmpty: true, onSubmit: { onReturn(field) }
+            ) { amount in
+                checkIn.updateRow(row.account) { set(&$0, amount) }
+            }
+            .checkInFieldBox(isFocused: focused == field, height: 24)
+        } change: {
+            Color.clear
+        } newMoney: {
+            Color.clear
         } note: {
             Color.clear
         }

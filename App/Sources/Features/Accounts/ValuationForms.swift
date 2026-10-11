@@ -103,6 +103,11 @@ enum AccountValueNotes {
             sentences.append("The new money of the \(values(kept.count)) on \(dates(kept)) was typed in, "
                 + "so it stays as it is.")
         }
+        let moneyInOut = flows.moneyInOut
+        if !moneyInOut.isEmpty {
+            sentences.append("Check the money in and out of the \(values(moneyInOut.count)) on \(dates(moneyInOut)): "
+                + "they were for the days since another value.")
+        }
         return sentences.isEmpty ? nil : sentences.joined(separator: " ")
     }
 }
@@ -240,6 +245,13 @@ struct AccountValuationForm: Hashable, Sendable {
     var positions: [PositionField]
     /// Empty means unknown.
     var flow: String
+    /// Whether the account's kind records money in and out (cash and
+    /// savings). For other kinds the editor hides the fields, and saving
+    /// keeps what the file has.
+    let recordsMoneyInOut: Bool
+    /// Money in and out of a cash or savings account; empty means not recorded.
+    var moneyIn: String
+    var moneyOut: String
     var note: String
 
     /// The fields of `valuation`. A trades account's (`recordsTrades`) is
@@ -247,11 +259,12 @@ struct AccountValuationForm: Hashable, Sendable {
     /// isn't used, so saving drops it (docs/TRADES.md). A debt's
     /// (`isLiability`) balance reads as typed in the check-in.
     init(_ valuation: Valuation, holdsPositions: Bool, recordsTrades: Bool = false, isLiability: Bool = false,
-         locale: Locale = .current) {
+         recordsMoneyInOut: Bool = true, locale: Locale = .current) {
         original = valuation
         date = valuation.date
         isBalance = !recordsTrades && (valuation.isBalance || (!valuation.isHoldings && !holdsPositions))
         self.isLiability = isLiability
+        self.recordsMoneyInOut = recordsMoneyInOut
         balance = valuation.balance.map { AmountInput.balanceText(for: $0, isLiability: isLiability, locale: locale) }
             ?? ""
         cash = valuation.cash.map { AmountInput.text(for: $0, locale: locale) } ?? ""
@@ -261,6 +274,8 @@ struct AccountValuationForm: Hashable, Sendable {
                           cost: position.costBasis.map { AmountInput.text(for: $0, locale: locale) } ?? "")
         }
         flow = valuation.flow.map { AmountInput.text(for: $0, locale: locale) } ?? ""
+        moneyIn = valuation.moneyIn.map { AmountInput.text(for: $0, locale: locale) } ?? ""
+        moneyOut = valuation.moneyOut.map { AmountInput.text(for: $0, locale: locale) } ?? ""
         note = valuation.note ?? ""
     }
 
@@ -309,6 +324,17 @@ struct AccountValuationForm: Hashable, Sendable {
             }
         }
         check(flow, "new money")
+        if recordsMoneyInOut {
+            check(moneyIn, "money in")
+            check(moneyOut, "money out")
+            let moneyAmounts = [moneyIn, moneyOut].map { AmountInput.parse($0, locale: locale) }
+            if (moneyAmounts[0] == .empty) != (moneyAmounts[1] == .empty) {
+                problems.append("Enter both money in and out, or neither.")
+            }
+            if moneyAmounts.contains(where: { ($0.value ?? 0) < 0 }) {
+                problems.append("Money in and out can't be negative.")
+            }
+        }
         return problems
     }
 
@@ -328,6 +354,8 @@ struct AccountValuationForm: Hashable, Sendable {
             }
         }
         valuation.flow = number(flow)
+        valuation.moneyIn = recordsMoneyInOut ? number(moneyIn) : original.moneyIn
+        valuation.moneyOut = recordsMoneyInOut ? number(moneyOut) : original.moneyOut
         let trimmedNote = note.trimmingCharacters(in: .whitespacesAndNewlines)
         valuation.note = trimmedNote.isEmpty ? nil : trimmedNote
         var unchanged = original

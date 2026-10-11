@@ -49,6 +49,7 @@ swift run retire import --library <folder> movimenti.csv --account directa   # a
 swift run retire trades list directa --library <folder>          # also summary: a year's gains and dividends
 swift run retire instruments --library <folder>
 swift run retire instruments find vwce --library <folder>    # Yahoo Finance listings; --set <symbol> saves one
+swift run retire spending --library <folder>                    # money in and out of cash accounts
 swift run retire prices --library <folder> --fill-history --dry-run  # past prices; without --dry-run writes
 swift run retire plan --library <folder> --years                 # the answer, and the median run by year
 swift run retire plan show --library <folder>                    # the plan's inputs
