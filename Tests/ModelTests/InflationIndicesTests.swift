@@ -43,6 +43,50 @@ struct InflationIndicesTests {
         #expect(IndexID.hicp(currency: .gbp) == nil)
     }
 
+    @Test func theUSAndTheUKHaveANationalCPI() {
+        #expect(IndexID.cpi(.us) == .cpiUS && IndexID.cpi("gb") == .cpiGB)
+        #expect(IndexID.cpi(.de) == nil)
+        #expect(IndexID.cpiCountries == [.gb, .us])
+        #expect(IndexID.cpiUS.rawValue == "cpi-us" && IndexID.cpiGB.rawValue == "cpi-gb")
+        #expect(IndexID.cpiUS.cpiArea == "US" && IndexID.cpiGB.cpiArea == "GB")
+        #expect(IndexID.cpiUS.hicpArea == nil && IndexID.hicpIT.cpiArea == nil)
+    }
+
+    @Test func everyCountryWithAnIndex() {
+        #expect(IndexID.consumerPrices(.it) == .hicpIT)
+        #expect(IndexID.consumerPrices("us") == .cpiUS)
+        #expect(IndexID.consumerPrices(.gb) == .cpiGB)
+        #expect(IndexID.consumerPrices("JP") == nil)
+        #expect(IndexID.consumerPriceCountries.count == 37)
+        #expect(IndexID.consumerPriceCountries == IndexID.consumerPriceCountries.sorted())
+        #expect(Set(IndexID.consumerPriceCountries).isSuperset(of: [.it, .ch, .gb, .us]))
+    }
+
+    @Test func everyIndexKnowsItsAreaAndCurrency() {
+        #expect(IndexID.cpiUS.priceArea == "US" && IndexID.cpiUS.priceCurrency == .usd)
+        #expect(IndexID.cpiGB.priceArea == "GB" && IndexID.cpiGB.priceCurrency == .gbp)
+        #expect(IndexID.hicpIT.priceArea == "IT" && IndexID.hicpIT.priceCurrency == .eur)
+        #expect(IndexID.hicpEA.priceArea == "EA" && IndexID("hicp-ch").priceCurrency == .chf)
+        #expect(IndexID("cpi-jp").priceArea == nil && IndexID("cpi-jp").priceCurrency == nil)
+    }
+
+    @Test func aCurrencyHasTheIndexOfItsCountry() {
+        #expect(IndexID.consumerPrices(currency: .eur) == .hicpEA)
+        #expect(IndexID.consumerPrices(currency: .chf) == "hicp-ch")
+        #expect(IndexID.consumerPrices(currency: .usd) == .cpiUS)
+        #expect(IndexID.consumerPrices(currency: "gbp") == .cpiGB)
+        #expect(IndexID.consumerPrices(currency: "JPY") == nil)
+    }
+
+    @Test func aLibraryInDollarsCountsOnlyIndicesInDollars() {
+        var library = self.library(currency: .usd)
+        library.upsert(IndexRecord(index: .cpiUS, date: "2026-08-31", value: 320))
+        library.upsert(IndexRecord(index: .hicpEA, date: "2026-08-31", value: 100))
+        library.upsert(IndexRecord(index: .hicpEA, date: "2026-07-31", value: 100))
+        // The euro area's index isn't in dollars, so it doesn't count.
+        #expect(library.effectiveInflationIndex == .cpiUS)
+    }
+
     @Test func theLibrarysIndexFollowsItsSettings() {
         // The tax residence's HICP first, then the base currency's.
         #expect(library(currency: .eur, residence: .it).effectiveInflationIndex == .hicpIT)
@@ -50,12 +94,16 @@ struct InflationIndicesTests {
         #expect(library(currency: .chf, residence: .ch).effectiveInflationIndex == "hicp-ch")
         #expect(library(currency: .eur).effectiveInflationIndex == .hicpEA)
         #expect(library(currency: .chf).effectiveInflationIndex == "hicp-ch")
-        #expect(library(currency: .eur, residence: .us).effectiveInflationIndex == .hicpEA)
-        #expect(library(currency: .usd, residence: .us).effectiveInflationIndex == nil)
-        #expect(library(currency: .gbp, residence: .gb).effectiveInflationIndex == nil)
+        #expect(library(currency: .eur, residence: "JP").effectiveInflationIndex == .hicpEA)
+        #expect(library(currency: .eur, residence: .us).effectiveInflationIndex == .cpiUS)
+        #expect(library(currency: .usd, residence: .us).effectiveInflationIndex == .cpiUS)
+        #expect(library(currency: .gbp, residence: .gb).effectiveInflationIndex == .cpiGB)
+        #expect(library(currency: .usd).effectiveInflationIndex == .cpiUS)
+        #expect(library(currency: .gbp, residence: "JP").effectiveInflationIndex == .cpiGB)
+        #expect(library(currency: "JPY", residence: "JP").effectiveInflationIndex == nil)
         // The setting wins, whatever it is.
         #expect(library(currency: .eur, residence: .it, index: .hicpEA).effectiveInflationIndex == .hicpEA)
-        #expect(library(currency: .usd, residence: .us, index: "cpi-us").effectiveInflationIndex == "cpi-us")
+        #expect(library(currency: .usd, residence: .us, index: .hicpEA).effectiveInflationIndex == .hicpEA)
     }
 
     @Test func aLibraryWithoutAResidenceKeepsTheIndexItRecorded() {
@@ -84,7 +132,9 @@ struct InflationIndicesTests {
         let italy = library(currency: .eur, residence: .it)
         #expect(italy.inflationIndex(for: .eur) == .hicpIT)
         #expect(italy.inflationIndex(for: .chf) == "hicp-ch")
-        #expect(italy.inflationIndex(for: .usd) == nil)
+        #expect(italy.inflationIndex(for: .usd) == .cpiUS)
+        #expect(italy.inflationIndex(for: .gbp) == .cpiGB)
+        #expect(italy.inflationIndex(for: "JPY") == nil)
 
         let switzerland = library(currency: .chf, residence: .ch)
         #expect(switzerland.inflationIndex(for: .chf) == "hicp-ch")
@@ -96,8 +146,15 @@ struct InflationIndicesTests {
         #expect(border.inflationIndex(for: .eur) == "hicp-de")
 
         let us = library(currency: .usd, residence: .us)
-        #expect(us.inflationIndex(for: .usd) == nil)
+        #expect(us.inflationIndex(for: .usd) == .cpiUS)
         #expect(us.inflationIndex(for: .eur) == .hicpEA)
+        #expect(us.inflationIndex(for: .gbp) == .cpiGB)
+
+        // Living in the UK with a library in euros: pounds use the UK's index.
+        let britain = library(currency: .eur, residence: .gb)
+        #expect(britain.inflationIndex(for: .eur) == .cpiGB)
+        #expect(britain.inflationIndex(for: .gbp) == .cpiGB)
+        #expect(britain.inflationIndex(for: .usd) == .cpiUS)
     }
 
     @Test func theLibraryNeedsItsOwnIndex() {
@@ -105,7 +162,8 @@ struct InflationIndicesTests {
         #expect(library.inflationIndices == [.hicpIT])
         library.settings.inflationIndex = .hicpEA
         #expect(library.inflationIndices == [.hicpEA])
-        #expect(self.library(currency: .usd).inflationIndices.isEmpty)
+        #expect(self.library(currency: .usd).inflationIndices == [.cpiUS])
+        #expect(self.library(currency: "JPY").inflationIndices.isEmpty)
     }
 
     @Test func theSettingIsOptionalInTheFile() throws {

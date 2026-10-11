@@ -16,6 +16,11 @@ enum PlanIssueText {
         }
     }
 
+    /// The notice on a plan without a tax rate on investments, which runs
+    /// as if they weren't taxed.
+    static let noInvestmentRateMessage = "Tax on investments isn't set, so the answer assumes none. Set it under "
+        + "Taxes (0% if they aren't taxed)."
+
     /// The message to show for `issue`.
     static func message(for issue: PlanIssue, plan: PlanDocument?, library: Library) -> String {
         switch issue.code {
@@ -26,9 +31,10 @@ enum PlanIssueText {
         case "planner.unknownCostBasis":
             return issue.message.replacingOccurrences(
                 of: "in the plan (portfolio.unrealizedGainShare)", with: "under Assumptions (Unrealised gains, estimate)")
-        case "planner.investmentRate" where plan?.tax.investmentRate == nil:
-            return "Set the tax rate on investments under Taxes: the plan taxes the gains on what you sell and the "
-                + "income your investments pay with it (0% if they aren't taxed)."
+        case "planner.noInvestmentRate":
+            return noInvestmentRateMessage
+        case "planner.noBirthDate":
+            return "Add your birth date under You: the plan needs your age."
     case "planner.lowMedianReturn":
             if let option = issue.option,
                let assumption = (plan?.assumptions ?? PlanAssumptions()).returnAssumption(for: AssetClass(option)) {

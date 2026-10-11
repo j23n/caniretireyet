@@ -42,8 +42,8 @@ public struct PriceService: Sendable {
     public let instrumentProviders: [PriceProvider: any InstrumentPriceProvider]
     public let fxProvider: FrankfurterProvider
     /// Makes the provider of an index, or `nil` for none: the standard
-    /// service's is Eurostat's for any HICP.
-    let makeIndexProvider: @Sendable (IndexID) -> EurostatIndexProvider?
+    /// service's are ``standardIndexProvider(for:client:policy:)``.
+    let makeIndexProvider: @Sendable (IndexID) -> (any InflationIndexProvider)?
     public let cache: PriceCache
     let today: @Sendable () -> CalendarDate
     /// Shared by every instrument fetch and every step of filling in past
@@ -63,7 +63,7 @@ public struct PriceService: Sendable {
     /// caps the instruments fetched at once.
     public init(
         instrumentProviders: [any InstrumentPriceProvider], fxProvider: FrankfurterProvider,
-        makeIndexProvider: @escaping @Sendable (IndexID) -> EurostatIndexProvider?,
+        makeIndexProvider: @escaping @Sendable (IndexID) -> (any InflationIndexProvider)?,
         today: @escaping @Sendable () -> CalendarDate = { CalendarDate.today() },
         maxConcurrentFetches: Int = PriceService.defaultMaxConcurrentFetches
     ) {
@@ -77,8 +77,21 @@ public struct PriceService: Sendable {
     }
 
     /// The provider of `index`; `nil` when there's none.
-    public func indexProvider(for index: IndexID) -> EurostatIndexProvider? {
+    public func indexProvider(for index: IndexID) -> (any InflationIndexProvider)? {
         makeIndexProvider(index)
+    }
+
+    /// The standard provider of `index`: Eurostat for the HICP of every
+    /// country that has one and of the euro area (`hicp-de`, `hicp-ea`, …),
+    /// the BLS for `cpi-us` and the ONS for `cpi-gb`; `nil` for any other
+    /// index.
+    public static func standardIndexProvider(
+        for index: IndexID, client: any HTTPClient = URLSessionHTTPClient(), policy: RequestPolicy = .standard
+    ) -> (any InflationIndexProvider)? {
+        if let eurostat = EurostatIndexProvider(index: index, client: client, policy: policy) { return eurostat }
+        if let bls = BLSIndexProvider(index: index, client: client, policy: policy) { return bls }
+        if let ons = ONSIndexProvider(index: index, client: client, policy: policy) { return ons }
+        return nil
     }
 
     /// The indices `library` uses (`Library.inflationIndices`: its own, and
@@ -95,8 +108,10 @@ public struct PriceService: Sendable {
 
     /// The standard providers: Yahoo Finance, CoinGecko and gold-api.com for
     /// instruments (``standardInstrumentProviders``), Frankfurter for ECB
-    /// rates, and Eurostat for the HICP of every country that has one and of
-    /// the euro area (`hicp-de`, `hicp-ea`, …).
+    /// rates, and for inflation indices Eurostat for the HICP of every
+    /// country that has one and of the euro area (`hicp-de`, `hicp-ea`, …),
+    /// the BLS for `cpi-us` and the ONS for `cpi-gb`
+    /// (``standardIndexProvider(for:client:policy:)``).
     public static func standard(
         client: any HTTPClient = URLSessionHTTPClient(), credentials: any CredentialsProvider = StaticCredentials(),
         policy: RequestPolicy = .standard,
@@ -110,7 +125,7 @@ public struct PriceService: Sendable {
                 GoldAPIProvider(client: client, policy: policy),
             ],
             fxProvider: FrankfurterProvider(client: client, policy: policy),
-            makeIndexProvider: { EurostatIndexProvider(index: $0, client: client, policy: policy) },
+            makeIndexProvider: { PriceService.standardIndexProvider(for: $0, client: client, policy: policy) },
             today: today, maxConcurrentFetches: maxConcurrentFetches)
     }
 

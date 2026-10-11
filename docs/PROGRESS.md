@@ -162,7 +162,7 @@ Two kinds of data are needed for the comparisons above.
 - A value without a flow, an imported one typically, counts as the check-in would have filled it in: for the kinds it fills in, the whole change of a balance since the value before (for holdings, the changes in quantity and cash); for those it asks about, what the main plan pays in, as above. An account's first value without a flow, what it held when its records start, counts as "other", whatever its kind.
 - Moving money between two tracked accounts cancels out at the portfolio level (−1,000 from the current account, +1,000 into the broker). So the sum of all flows is your actual savings for the period, which is what the plan's savings are compared against.
 
-**Inflation.** Needed to put the actual line in today's money. The app fetches the library's consumer price index (by default the Eurostat HICP of the tax residence, else of the base currency, and one for each plan's currency) along with FX rates, and stores it in the monthly history files. Past values are public, so this can be filled in later if needed.
+**Inflation.** Needed to put the actual line in today's money. The app fetches the library's consumer price index (by default the index of the tax residence, else of the base currency: Eurostat's HICP, the BLS's CPI-U for the US or the ONS's CPI for the UK; and one for each plan's currency) along with FX rates, and stores it in the monthly history files. Past values are public, so this can be filled in later if needed.
 
 ## What changes in the files
 

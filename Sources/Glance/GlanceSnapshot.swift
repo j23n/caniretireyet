@@ -267,12 +267,19 @@ public struct RetirementAnswer: Hashable, Sendable {
         confidence = headline.confidence?.doubleValue ?? defaultConfidence
         earliestAge = headline.earliestAge
         if let age = headline.earliestAge, let birthDate {
-            earliestDate = max(headline.date, birthDate.adding(years: age))
+            earliestDate = Self.earliestDate(age: age, recordedOn: headline.date, birthDate: birthDate)
         }
         readiness = headline.readiness?.doubleValue
         readinessIsLowerBound = false
         needsMoreThanSearched = false
         canRetireNow = (readiness ?? 0) >= 1
+    }
+
+    /// When an earliest `age` recorded at the check-in on `date` is reached:
+    /// the birthday of that age, never before the check-in, as the planner
+    /// has it.
+    public static func earliestDate(age: Int, recordedOn date: CalendarDate, birthDate: CalendarDate) -> CalendarDate {
+        max(date, birthDate.adding(years: age))
     }
 
     /// ``readiness`` as the app shows it: below 1 rounded down to a whole

@@ -21,11 +21,11 @@ You need a Mac with Xcode 26 and an Apple Developer account (for iCloud).
    ```
 
    Run `xcodegen` (or `make project`) again after pulling changes that add or remove files or change `project.yml`: Xcode only sees them in a newly generated project.
-2. **Make it yours.** Create `Signing.xcconfig` at the root with your bundle identifier and Apple Developer team ID (Xcode → Settings → Accounts, or developer.apple.com → Account → Membership; `make signing TEAM=ABCDE12345` writes the team line), then generate again:
+2. **Set your team.** `make signing TEAM=ABCDE12345` writes your Apple Developer team ID (developer.apple.com → Account → Membership details) into `Signing.xcconfig` at the root; then generate again. The bundle identifier is j23n's, `com.j23n.caniretireyet`. To build your own copy under another team, put your own in the same file:
 
    ```
-   APP_BUNDLE_IDENTIFIER = com.<yourdomain>.caniretireyet
    DEVELOPMENT_TEAM = ABCDE12345
+   APP_BUNDLE_IDENTIFIER = com.<yourdomain>.caniretireyet
    ```
 
    Git ignores the file and every generated project reads it (`App/Config/Project.xcconfig`), so Xcode doesn't ask for your team after each `xcodegen`, and a pull never touches it. Each build's build number is the number of commits (`make build-number`; j23n/apple-ci's README, "Build numbers"). In Xcode's *Signing & Capabilities*, check that *iCloud → iCloud Documents* lists the container `iCloud.<bundle id>`; the first build with automatic signing registers it.
