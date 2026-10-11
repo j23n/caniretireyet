@@ -87,7 +87,7 @@ extension Migration {
                 guard let before = previous.balance, let now = entry.balance,
                       var valuations = files[entry.path]?["valuations"]?.arrayValue
                 else { continue }
-                let flow = JSONValue.string((now - before).fileString)
+                let flow = JSONValue.string((now - before).rounded(scale: 2).fileString)
                 valuations[entry.index] = valuations[entry.index].withMember("flow", to: flow)
                 files[entry.path] = files[entry.path]?.withMember("valuations", to: .array(valuations))
             }
