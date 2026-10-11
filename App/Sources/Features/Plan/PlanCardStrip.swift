@@ -315,6 +315,7 @@ struct PlanStripAmountLabels: View {
                 .font(.caption2)
                 .foregroundStyle(Palette.mutedInk)
                 .planGraphLabel()
+                .privacySensitive()
                 .frame(width: max(0, width - 8), alignment: isOnRight(y) ? .trailing : .leading)
                 .offset(x: 4, y: y - 16)
         }

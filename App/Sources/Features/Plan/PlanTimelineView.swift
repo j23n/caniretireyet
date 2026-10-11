@@ -284,6 +284,7 @@ struct PlanTimelineHeadline: View {
                     .font(Self.wideTitleFont)
                     .foregroundStyle(Palette.ink)
                     .fixedSize(horizontal: false, vertical: true)
+                    .privacySensitive()
                     .accessibilityAddTraits(.isHeader)
                 reason
                     .foregroundStyle(Palette.secondaryInk)
@@ -296,6 +297,7 @@ struct PlanTimelineHeadline: View {
                     Text(title)
                         .font(Self.wideTitleFont)
                         .foregroundStyle(Palette.ink)
+                        .privacySensitive()
                         .accessibilityAddTraits(.isHeader)
                     reason
                         .foregroundStyle(Palette.secondaryInk)
@@ -313,6 +315,7 @@ struct PlanTimelineHeadline: View {
                         .font(.title.weight(.bold))
                         .foregroundStyle(Palette.ink)
                         .fixedSize(horizontal: false, vertical: true)
+                        .privacySensitive()
                         .accessibilityAddTraits(.isHeader)
                 }
                 reason
@@ -349,6 +352,7 @@ struct PlanTimelineHeadline: View {
                                              bar: results.headline.confidence))
                     .font(.subheadline)
                     .fixedSize(horizontal: false, vertical: true)
+                    .privacySensitive()
             }
         }
     }
@@ -533,6 +537,7 @@ struct PlanChapterDetails: View {
                     .monospacedDigit()
                     .foregroundStyle(Palette.secondaryInk)
             }
+            .privacySensitive()
             Spacer(minLength: Metrics.s)
             if showsSteps {
                 PlanStepButtons(index: index, count: model.chapters.chapters.count, select: onSelect)
@@ -571,6 +576,7 @@ struct PlanChapterDetails: View {
                                 .foregroundStyle(Palette.secondaryInk)
                         }
                         .font(.subheadline)
+                        .privacySensitive()
                         .accessibilityElement(children: .combine)
                     }
                     if milestones.count > Self.shownMilestones {
@@ -587,6 +593,7 @@ struct PlanChapterDetails: View {
                         Label {
                             Text(risk)
                                 .fixedSize(horizontal: false, vertical: true)
+                                .privacySensitive()
                         } icon: {
                             Image(systemName: "exclamationmark.triangle.fill")
                                 .foregroundStyle(Palette.orangeStroke)
@@ -627,6 +634,7 @@ struct PlanChapterDetails: View {
                     .font(.footnote)
                     .foregroundStyle(Palette.secondaryInk)
                     .fixedSize(horizontal: false, vertical: true)
+                    .privacySensitive()
             }
             PlanChapterAddMenu(chapter: chapter, model: model, plan: plan, editing: $editing)
                 .disabled(!canEdit)

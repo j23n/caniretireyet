@@ -58,6 +58,11 @@ struct PlanSettingRow: Hashable, Identifiable {
     var value: String
     var opens: Opens
     var issues: [PlanIssue] = []
+    /// Whether the title and the second line show the person's data (a
+    /// name, an age, a year, a share), hidden in a feedback screenshot. The
+    /// value always does.
+    var personalTitle = true
+    var personalSubtitle = true
 }
 
 enum PlanChapterSettings {
@@ -76,20 +81,21 @@ enum PlanChapterSettings {
                     subtitle: earliest ? "At \(model.retirementAge), in \(model.retirementYear)"
                         : "In \(model.retirementYear)",
                     value: earliest ? "As early as you can" : "At \(plan.planRetirementAge)",
-                    opens: .editor(.retirementAge))]
+                    opens: .editor(.retirementAge), personalTitle: false)]
             case .workingSpending:
                 return [PlanSettingRow(id: "working-spending", symbol: "cart", kind: .spending, title: "Spending",
                                        subtitle: "While working", value: words.monthly(plan.spending.working),
-                                       opens: .sheet(.item(item)))]
+                                       opens: .sheet(.item(item)), personalTitle: false, personalSubtitle: false)]
             case .retiredSpending:
                 let flexible = plan.spending.flexibleRule.map { "Never below \(words.percent($0.effectiveFloor))" }
                 return [
                     PlanSettingRow(id: "retired-spending", symbol: "cart", kind: .spending, title: "Spending",
                                    subtitle: "In retirement", value: words.monthly(plan.spending.retired),
-                                   opens: .sheet(.item(item))),
+                                   opens: .sheet(.item(item)), personalTitle: false, personalSubtitle: false),
                     PlanSettingRow(id: "flexible-spending", symbol: "arrow.down.right", kind: .spending,
                                    title: "Flexible spending", subtitle: "Spending less after bad years",
-                                   value: flexible ?? "Off", opens: .sheet(.flexibleSpending)),
+                                   value: flexible ?? "Off", opens: .sheet(.flexibleSpending),
+                                   personalTitle: false, personalSubtitle: false),
                 ]
             case .spendingPhase(let index):
                 guard plan.spending.phases.indices.contains(index) else { return [] }
@@ -174,10 +180,11 @@ enum PlanChapterSettings {
                 return [PlanSettingRow(id: "mix-\(item)", symbol: "chart.pie", kind: .mix, title: title,
                                        subtitle: "The target mix",
                                        value: phrase.capitalizedFirst,
-                                       opens: .sheet(.item(item)))]
+                                       opens: .sheet(.item(item)), personalSubtitle: false)]
             case .end:
                 return [PlanSettingRow(id: "end", symbol: "flag.checkered", kind: .end, title: "The plan ends at",
-                                       value: "\(plan.effectiveEndAge)", opens: .editor(.endAge))]
+                                       value: "\(plan.effectiveEndAge)", opens: .editor(.endAge),
+                                       personalTitle: false)]
             }
         }
     }
@@ -242,10 +249,12 @@ struct PlanSettingRowView: View {
                     Text(row.title)
                         .font(.subheadline)
                         .foregroundStyle(Palette.ink)
+                        .privacySensitive(row.personalTitle)
                     if let subtitle = row.subtitle {
                         Text(subtitle)
                             .font(.caption)
                             .foregroundStyle(Palette.secondaryInk)
+                            .privacySensitive(row.personalSubtitle)
                     }
                     ForEach(row.issues, id: \.self) { issue in
                         PlanIssueLine(issue)

@@ -79,6 +79,7 @@ struct PlanBirthDateEditor: View {
         VStack(alignment: .leading, spacing: Metrics.s) {
             if birthDate != nil || addsBirthDate {
                 DatePicker("Born", selection: birthDateBinding, in: ...Date(), displayedComponents: .date)
+                    .personalControl()
             } else {
                 HStack {
                     Text("Born")
@@ -211,6 +212,7 @@ struct PlanAssumptionsEditor: View {
                     .foregroundStyle(Palette.secondaryInk)
                 ForEach(accounts) { account in
                     Toggle(account.name, isOn: $plan.portfolio[planIncludes: account.id])
+                        .personalControl()
                 }
             }
         }

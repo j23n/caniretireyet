@@ -152,12 +152,14 @@ struct PlanEarlyYearsCard: View {
                 .font(isCompact ? .subheadline.weight(.semibold) : .headline)
                 .foregroundStyle(Palette.ink)
                 .minimumScaleFactor(0.7)
+                .privacySensitive()
             if let moved {
                 Text(moved)
                     .font(isCompact ? .caption : .subheadline)
                     .monospacedDigit()
                     .foregroundStyle(isCompact ? Palette.secondaryInk : Palette.ink)
                     .fixedSize(horizontal: false, vertical: true)
+                    .privacySensitive()
             }
             if !isCompact {
                 Text("Before your first answer.")
@@ -288,6 +290,7 @@ struct PlanYearCardView: View {
         }
         .lineLimit(1)
         .minimumScaleFactor(0.8)
+        .privacySensitive()
         .frame(width: width - 2 * Self.pad, alignment: .leading)
         .offset(x: Self.pad, y: Self.pad)
     }
@@ -306,6 +309,7 @@ struct PlanYearCardView: View {
                 .font(.caption2)
                 .foregroundStyle(Palette.secondaryInk)
                 .planGraphLabel()
+                .privacySensitive()
                 .offset(x: max(Self.pad, start.x) + 2, y: below ? start.y + 3 : start.y - 18)
         }
     }
@@ -389,6 +393,7 @@ struct PlanYearCardView: View {
                 ChartCallout(maxWidth: PlanGraphCallout.width(in: width)) {
                     callout(for: found)
                 }
+                .privacySensitive()
                 .offset(x: PlanGraphCallout.leading(at: at, in: width), y: plot.top + 4)
             }
             .allowsHitTesting(false)

@@ -81,11 +81,13 @@ struct PlanWhatIfPanel: View {
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(Palette.ink)
                     .fixedSize(horizontal: false, vertical: true)
+                    .privacySensitive()
                 if let change {
                     Text("Earliest \(change)")
                         .font(.subheadline.weight(.semibold))
                         .monospacedDigit()
                         .foregroundStyle(Palette.accent)
+                        .privacySensitive()
                 }
             } else {
                 Text("No answer yet")
@@ -151,6 +153,7 @@ struct PlanWhatIfPanel: View {
         case .retirementAge:
             Text("\(Int(wholeNumber: number))")
                 .monospacedDigit()
+                .privacySensitive()
         case .spending, .saving:
             if model.isAvailable(slider) {
                 HStack(spacing: 4) {
@@ -164,6 +167,7 @@ struct PlanWhatIfPanel: View {
         case .equityReturn:
             Text("\(AmountFormat.percent(number, digits: 2, locale: locale)) a year")
                 .monospacedDigit()
+                .privacySensitive()
         }
     }
 }

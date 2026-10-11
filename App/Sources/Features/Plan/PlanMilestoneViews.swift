@@ -40,22 +40,26 @@ struct PlanNextMilestoneView: View {
                     .font(.caption.weight(.semibold))
                     .monospacedDigit()
                     .foregroundStyle(Palette.accent)
+                    .privacySensitive()
             }
             Text(text.name(next.milestone))
                 .font(.headline)
                 .foregroundStyle(Palette.ink)
                 .fixedSize(horizontal: false, vertical: true)
+                .privacySensitive()
             PlanMilestoneBar(progress: next.progress)
             if let detail = text.detail(next.milestone) {
                 Text(detail)
                     .font(.caption)
                     .foregroundStyle(Palette.secondaryInk)
                     .fixedSize(horizontal: false, vertical: true)
+                    .privacySensitive()
             }
             if let date {
                 Text("Typically by \(PlanMilestoneText.when(date)).")
                     .font(.caption)
                     .foregroundStyle(Palette.secondaryInk)
+                    .privacySensitive()
             }
         }
         .accessibilityElement(children: .combine)
@@ -80,12 +84,14 @@ struct PlanCoastAgeView: View {
                         .font(.headline)
                         .monospacedDigit()
                         .foregroundStyle(target.map { age <= $0 } == true ? Palette.positive : Palette.ink)
+                        .privacySensitive()
                 }
             }
             Text(PlanMilestoneText.coast(age, target: target))
                 .font(.subheadline)
                 .foregroundStyle(Palette.ink)
                 .fixedSize(horizontal: false, vertical: true)
+                .privacySensitive()
         }
         .accessibilityElement(children: .combine)
     }
@@ -260,12 +266,14 @@ struct PlanProgressMilestones: View {
                     .foregroundStyle(Palette.accent)
             }
             .font(PlanProgressFont.text)
+            .privacySensitive()
             PlanMilestoneBar(progress: next.progress)
             if let caption = text.caption(next, date: milestones.nextDate) {
                 Text(caption)
                     .font(PlanProgressFont.caption)
                     .foregroundStyle(Palette.secondaryInk)
                     .fixedSize(horizontal: false, vertical: true)
+                    .privacySensitive()
             }
         }
         .accessibilityElement(children: .combine)
@@ -282,6 +290,7 @@ struct PlanProgressMilestones: View {
                     .fontWeight(.semibold)
                     .monospacedDigit()
                     .foregroundStyle(isPastCoastPoint ? Palette.positive : Palette.ink)
+                    .privacySensitive()
             }
             .font(PlanProgressFont.text)
             Text(PlanMilestoneText.coastCaption(milestones.coastAge, target: milestones.ladder.coastTarget,
@@ -290,6 +299,7 @@ struct PlanProgressMilestones: View {
                 .font(PlanProgressFont.caption)
                 .foregroundStyle(Palette.secondaryInk)
                 .fixedSize(horizontal: false, vertical: true)
+                .privacySensitive()
         }
         .accessibilityElement(children: .combine)
     }
@@ -332,11 +342,13 @@ struct PlanMilestoneRow: View {
                 .font(.subheadline)
                 .foregroundStyle(Palette.ink)
                 .fixedSize(horizontal: false, vertical: true)
+                .privacySensitive()
             Spacer(minLength: Metrics.s)
             Text(when)
                 .font(.subheadline)
                 .monospacedDigit()
                 .foregroundStyle(Palette.secondaryInk)
+                .privacySensitive()
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(Text(label))

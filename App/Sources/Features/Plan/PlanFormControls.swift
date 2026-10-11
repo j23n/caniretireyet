@@ -151,6 +151,7 @@ struct PlanIssueLine: View {
                 .font(.footnote)
                 .foregroundStyle(Palette.ink)
                 .fixedSize(horizontal: false, vertical: true)
+                .privacySensitive()
         } icon: {
             Image(systemName: isError ? "xmark.octagon.fill" : "exclamationmark.triangle.fill")
                 .foregroundStyle(isError ? Palette.critical : Palette.warning)

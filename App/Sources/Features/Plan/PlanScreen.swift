@@ -128,7 +128,7 @@ struct PlanContentView: View {
 
     var body: some View {
         planLayout
-            .navigationTitle(name)
+            .personalNavigationTitle(name, hidden: "Plan")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
@@ -144,6 +144,7 @@ struct PlanContentView: View {
                         .padding(.horizontal, Metrics.l)
                         .padding(.vertical, Metrics.s)
                         .background(.regularMaterial, in: Capsule())
+                        .privacySensitive()
                         .padding(Metrics.l)
                         .transition(.opacity)
                 }
@@ -408,6 +409,7 @@ struct PlanContentView: View {
         }
         // The label draws its own chevron; the toolbar would add a second one.
         .menuIndicator(.hidden)
+        .personalControl()
         .accessibilityLabel(Text("Plan: \(name)"))
     }
 

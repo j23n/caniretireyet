@@ -15,6 +15,7 @@ struct PlanStoryText: View {
     var body: some View {
         Text(attributed)
             .fixedSize(horizontal: false, vertical: true)
+            .privacySensitive()
     }
 
     private var attributed: AttributedString {
@@ -196,8 +197,10 @@ struct PlanValueEditor: View {
             Toggle("As early as you can", isOn: $plan.planRetiresEarliest)
             if !plan.planRetiresEarliest {
                 Stepper("At \(plan.planRetirementAge)", value: $plan.planRetirementAge, in: 30...85)
+                    .privacySensitive()
             }
             note(model.retirementNote)
+                .privacySensitive()
             if let onUsePlanAge, model.ageSource == .chosen {
                 Button("Plan's age") {
                     dismiss()
@@ -208,6 +211,7 @@ struct PlanValueEditor: View {
         case .endAge:
             title("The plan's end")
             Stepper("Plan to age \(plan.planEndAge)", value: $plan.planEndAge, in: 70...110)
+                .privacySensitive()
         }
     }
 

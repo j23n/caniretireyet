@@ -79,6 +79,7 @@ struct PlanYearDetails: View {
                             .foregroundStyle(Palette.ink)
                     }
                 }
+                .privacySensitive()
                 standing
             }
             Spacer(minLength: Metrics.s)
@@ -101,6 +102,7 @@ struct PlanYearDetails: View {
             Text(against)
                 .font(PlanProgressFont.caption.weight(.semibold))
                 .foregroundStyle(PlanBaselineComparison.Standing.color(of: year.position))
+                .privacySensitive()
         } else {
             Text(PlanProgressText.unmeasured(year))
                 .font(PlanProgressFont.caption)
@@ -116,6 +118,7 @@ struct PlanYearDetails: View {
             .foregroundStyle(stacks ? Palette.ink : Palette.secondaryInk)
             .lineLimit(1)
             .minimumScaleFactor(0.8)
+            .privacySensitive()
     }
 
     /// Three columns, or two when narrow: the figures over why in the first.
@@ -146,6 +149,7 @@ struct PlanYearDetails: View {
                 .font(PlanProgressFont.caption)
                 .foregroundStyle(Palette.secondaryInk)
                 .fixedSize(horizontal: false, vertical: true)
+                .privacySensitive()
         }
         if !year.isComplete || card.actual.contains(where: { !$0.isComplete }) {
             OldPriceNoteView(text: "Some prices or exchange rates were missing: those holdings count as zero, "
@@ -186,6 +190,7 @@ struct PlanYearCardFooter: View {
         .monospacedDigit()
         .lineLimit(1)
         .minimumScaleFactor(0.8)
+        .privacySensitive()
         .accessibilityElement(children: .combine)
     }
 }
@@ -278,9 +283,11 @@ struct PlanYearFigures: View {
                 .font(.title3.weight(.semibold))
                 .monospacedDigit()
                 .foregroundStyle(Palette.ink)
+                .privacySensitive()
             Text(detail ?? " ")
                 .font(PlanProgressFont.caption)
                 .foregroundStyle(detailColor)
+                .privacySensitive()
         }
         .lineLimit(1)
         .minimumScaleFactor(0.8)
@@ -407,6 +414,7 @@ struct PlanYearWhy: View {
             Text(title)
                 .font(PlanProgressFont.text.weight(.semibold))
                 .foregroundStyle(Palette.ink)
+                .privacySensitive()
                 .accessibilityAddTraits(.isHeader)
             if let explanation = year.explanation?.inWholeUnits {
                 let shown = rows(explanation)
@@ -440,6 +448,7 @@ struct PlanYearWhy: View {
                         .foregroundStyle(Palette.secondaryInk)
                         .lineLimit(1)
                         .minimumScaleFactor(0.85)
+                        .privacySensitive()
                 }
             } else {
                 Text(PlanProgressText.january(year, currency: card.currency, hidesAmounts: hidesAmounts, locale: locale)
@@ -447,10 +456,12 @@ struct PlanYearWhy: View {
                     .font(PlanProgressFont.caption)
                     .foregroundStyle(Palette.secondaryInk)
                     .fixedSize(horizontal: false, vertical: true)
+                    .privacySensitive()
                 if year.baseline == nil, let onAddPastBaseline {
                     Button("Add What You Planned in \(String(year.year))…") { onAddPastBaseline(year.year) }
                         .buttonStyle(.borderless)
                         .font(PlanProgressFont.text.weight(.semibold))
+                        .privacySensitive()
                 }
             }
         }
@@ -464,6 +475,7 @@ struct PlanYearWhy: View {
             .foregroundStyle(value == 0 ? Palette.mutedInk : value > 0 ? Palette.positive : Palette.orangeStroke)
             .gridColumnAlignment(.trailing)
             .lineLimit(1)
+            .privacySensitive()
     }
 }
 
@@ -521,6 +533,7 @@ struct PlanYearHappenings: View {
                                 .foregroundStyle(Palette.ink)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
+                        .privacySensitive()
                         .accessibilityElement(children: .combine)
                     }
                 }

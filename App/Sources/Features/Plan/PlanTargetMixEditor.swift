@@ -35,6 +35,7 @@ struct PlanTargetMixEditor: View {
                     if let growth = model.todaysGrowth {
                         Text("Today's mix grows at a median of " + AmountFormat.percent(growth, locale: locale)
                             + " a year, rebalanced every year.")
+                            .privacySensitive()
                     }
                 }
             }
@@ -56,6 +57,7 @@ struct PlanTargetMixEditor: View {
                             + "choose one from today.")
                     } else if let growth = model.growthText(of: targetMix, comparedWithToday: true, locale: locale) {
                         Text(growth)
+                            .privacySensitive()
                     }
                 }
                 Text(PlanTargetMixModel.todayNote)
@@ -146,6 +148,7 @@ private struct PlanTargetMixClassRow: View {
                 .font(.footnote)
                 .monospacedDigit()
                 .foregroundStyle(Palette.secondaryInk)
+                .privacySensitive()
             }
         }
     }
@@ -179,6 +182,7 @@ private struct PlanTargetMixTotal: View {
             Label(PlanTargetMixModel.totalText(mix, locale: locale), systemImage: "checkmark.circle")
                 .font(.footnote)
                 .foregroundStyle(Palette.secondaryInk)
+                .privacySensitive()
         }
     }
 }
@@ -209,14 +213,17 @@ private struct PlanTargetMixStepSection: View {
                     + (plan.retirement.age.age.map { ": \($0) in this plan." } ?? "."))
                     .font(.footnote)
                     .foregroundStyle(Palette.secondaryInk)
+                    .privacySensitive()
             } else {
                 Stepper("From \(plan.portfolio[planStepAge: index, fallback: fallback])",
                         value: $plan.portfolio[planStepAge: index, fallback: fallback], in: range)
+                    .privacySensitive()
             }
             if let note = model.startedNote(step: index), let age = model.currentAge {
                 Text(note)
                     .font(.footnote)
                     .foregroundStyle(Palette.secondaryInk)
+                    .privacySensitive()
                 Button("Make it the target mix") { plan.portfolio.foldTargetMixSteps(passedBy: age) }
             }
             ForEach(model.rows) { row in
@@ -232,6 +239,7 @@ private struct PlanTargetMixStepSection: View {
             HStack {
                 Text(title)
                     .accessibilityAddTraits(.isHeader)
+                    .privacySensitive()
                 Spacer()
                 Button {
                     plan.portfolio.targetMixByAge = PlanEditing.removing(at: index, from: plan.portfolio.targetMixByAge)
@@ -244,6 +252,7 @@ private struct PlanTargetMixStepSection: View {
         } footer: {
             if let growth = model.growthText(of: step?.mix, locale: locale) {
                 Text(growth)
+                    .privacySensitive()
             }
         }
     }
@@ -267,6 +276,7 @@ struct PlanTargetMixOverview: View {
                 let step = portfolio.targetMixByAge[index]
                 line(PlanTargetMixModel.title(of: step.fromAge),
                      PlanTargetMixModel.mixSummary(step.mix, locale: locale))
+                    .privacySensitive()
             }
             Button("Edit Target Mix…", action: onEdit)
                 .buttonStyle(.borderless)
@@ -279,6 +289,7 @@ struct PlanTargetMixOverview: View {
             Text(mix)
                 .multilineTextAlignment(.trailing)
                 .foregroundStyle(Palette.secondaryInk)
+                .privacySensitive()
         }
     }
 }

@@ -154,6 +154,7 @@ struct PlanChapterCardView: View {
                     .foregroundStyle(Palette.ink)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
+                    .privacySensitive()
             }
             Text(card.span)
                 .font(.caption)
@@ -161,6 +162,7 @@ struct PlanChapterCardView: View {
                 .foregroundStyle(Palette.secondaryInk)
                 .lineLimit(1)
                 .minimumScaleFactor(0.75)
+                .privacySensitive()
         }
         .frame(width: width - 24, alignment: .leading)
         .offset(x: 12, y: 12)
@@ -190,6 +192,7 @@ struct PlanChapterCardView: View {
                     .offset(x: width - 34, y: plot.bottom + 6)
             }
         }
+        .privacySensitive()
     }
 
     /// What happens, under the ages: each label starts at its date, and one
@@ -280,6 +283,7 @@ struct PlanChapterCardView: View {
                     .foregroundStyle(Palette.secondaryInk)
             }
             .planGraphLabel()
+            .privacySensitive()
             .frame(width: mark.runsRight ? nil : max(0, mark.point.x + 10), alignment: .trailing)
             .offset(x: mark.runsRight ? max(4, mark.point.x - 2) : 0,
                     y: above ? mark.point.y - 44 : mark.point.y + 6)
@@ -360,6 +364,7 @@ struct PlanChapterCardView: View {
             ChartCallout(maxWidth: PlanGraphCallout.width(in: width)) {
                 callout(for: found)
             }
+            .privacySensitive()
             .offset(x: PlanGraphCallout.leading(at: found.x, in: width), y: plot.top + 4)
         }
         .allowsHitTesting(false)

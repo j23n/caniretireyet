@@ -35,6 +35,7 @@ struct PlanCalculationsSheet: View {
                         Text(message)
                             .font(.footnote)
                             .foregroundStyle(Palette.secondaryInk)
+                            .privacySensitive()
                     }
                 } footer: {
                     Text("Markdown: the plan as read, the starting portfolio, the chance of success by retirement "
@@ -65,12 +66,14 @@ struct PlanCalculationsSheet: View {
             ShareLink(item: file.url) {
                 Label("Share \(file.name)…", systemImage: "square.and.arrow.up")
             }
+            .personalControl()
             #if os(macOS)
             Button {
                 save(file)
             } label: {
                 Label("Save \(file.name)…", systemImage: "square.and.arrow.down")
             }
+            .personalControl()
             #endif
         } else if let error = export.error {
             Label(error, systemImage: "exclamationmark.triangle")

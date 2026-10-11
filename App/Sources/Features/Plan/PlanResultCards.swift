@@ -17,10 +17,10 @@ struct PlanResultsBanners: View {
     var body: some View {
         VStack(spacing: Metrics.s) {
             if let error = session.runError {
-                StatusBanner(.error, "The plan can't run", message: error)
+                StatusBanner(.error, "The plan can't run", message: error, personal: .message)
             }
             if let error = session.saveError {
-                StatusBanner(.error, "Your change wasn't saved", message: error)
+                StatusBanner(.error, "Your change wasn't saved", message: error, personal: .message)
             }
         }
     }
@@ -51,6 +51,7 @@ struct PlanResultWarnings: View {
                         Text(text(for: issue))
                             .foregroundStyle(Palette.secondaryInk)
                             .fixedSize(horizontal: false, vertical: true)
+                            .privacySensitive()
                     }
                 }
                 if warnings.count > limit {
@@ -114,6 +115,7 @@ struct PlanReadinessView: View {
                     Text(text)
                         .foregroundStyle(Palette.secondaryInk)
                         .fixedSize(horizontal: false, vertical: true)
+                        .privacySensitive()
                     explanationButton
                 }
             }
@@ -140,6 +142,7 @@ struct PlanReadinessView: View {
                 .font(.callout)
                 .foregroundStyle(Palette.ink)
                 .fixedSize(horizontal: false, vertical: true)
+                .privacySensitive()
                 .padding(Metrics.l)
                 .frame(idealWidth: 320, maxWidth: 360, alignment: .leading)
                 .presentationCompactAdaptation(.popover)
@@ -214,6 +217,7 @@ struct PlanSuccessCard: View {
                         }
                     }
                 }
+                .privacySensitive()
             }
         } header: {
             SectionHeader("Chance of success by retirement age") {
@@ -283,6 +287,7 @@ struct PlanFanCard: View {
                     .font(.footnote)
                     .foregroundStyle(Palette.secondaryInk)
                     .fixedSize(horizontal: false, vertical: true)
+                    .privacySensitive()
             }
             if !actual.points.isEmpty,
                let note = PlanMoney.standInNote(actual.inflation, currency: currency, locale: locale) {
@@ -293,6 +298,7 @@ struct PlanFanCard: View {
             }
         } header: {
             SectionHeader("Your money over time · retiring at \(results.details.focus.age)")
+                .privacySensitive()
         }
     }
 }
@@ -349,6 +355,7 @@ struct PlanKeyNumbersCard: View {
                     GridRow {
                         Text(row.label)
                             .foregroundStyle(Palette.secondaryInk)
+                            .privacySensitive()
                         PlanFigureText(figure: row.value)
                             .fontWeight(row.isEmphasized ? .semibold : .regular)
                             .gridColumnAlignment(.trailing)
@@ -375,9 +382,11 @@ struct PlanFigureText: View {
         case .percent(let share):
             Text(AmountFormat.percent(share, digits: 0, locale: locale))
                 .monospacedDigit()
+                .privacySensitive()
         case .text(let text):
             Text(text)
                 .monospacedDigit()
+                .privacySensitive()
         }
     }
 }
