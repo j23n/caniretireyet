@@ -62,6 +62,16 @@ struct ExampleLibraryTradeTests {
         #expect(valuator.tradeCash(of: "directa", on: "2025-11-12") == d("188.9"))
     }
 
+    /// The account detail's values at check-ins: each check-in's value is
+    /// its trades at that day's prices and its cash, not the cash it records,
+    /// which the list shows apart because Directa holds cash.
+    @Test func itsValuesAtCheckInsAreItsTradesAndItsCash() throws {
+        let september = try #require(library.valuations(for: "directa").first { $0.date == "2026-09-30" })
+        #expect(september.cash == d("312.1"))
+        #expect(valuator.amountInAccountCurrency(of: september, on: september.date) == d("57410.35"))
+        #expect(valuator.holdsCash("directa"))
+    }
+
     @Test func itsAverageCostIsTheBrokersCarryingValue() throws {
         let september = try #require(valuator.holdings(of: "directa", on: "2026-09-30").first)
         #expect(september.costBasis == 48200)
