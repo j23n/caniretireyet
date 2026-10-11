@@ -18,6 +18,10 @@ public struct MoneyInOutSummary: Hashable, Sendable {
     public var moneyOut: Decimal
     /// The months with at least one valuation counted, sorted.
     public var months: [YearMonth]
+    /// The date of the earliest valuation a counted value is measured from
+    /// (the account's valuation before it): the counted values cover the
+    /// days after it through ``through``. `nil` when nothing was counted.
+    public var measuredFrom: CalendarDate?
     /// Accounts with a value that couldn't be converted to the base currency
     /// (an FX rate is missing), left out of the sums. Sorted.
     public var unconverted: [AccountID]
@@ -31,7 +35,7 @@ public struct MoneyInOutSummary: Hashable, Sendable {
 
     public init(from: CalendarDate, through: CalendarDate, currency: CurrencyCode, moneyIn: Decimal = 0,
                 moneyOut: Decimal = 0, months: [YearMonth] = [], unconverted: [AccountID] = [],
-                moneyOutPerYear: Decimal? = nil) {
+                moneyOutPerYear: Decimal? = nil, measuredFrom: CalendarDate? = nil) {
         self.from = from
         self.through = through
         self.currency = currency
@@ -40,6 +44,7 @@ public struct MoneyInOutSummary: Hashable, Sendable {
         self.months = months
         self.unconverted = unconverted
         self.moneyOutPerYear = moneyOutPerYear
+        self.measuredFrom = measuredFrom
     }
 
     /// Money in minus money out.
@@ -88,8 +93,10 @@ extension Valuator {
                 summary.moneyIn += inBase
                 summary.moneyOut += outBase
                 accountOut += outBase
-                days += max(1, values[index - 1].date.days(to: valuation.date))
+                let previous = values[index - 1].date
+                days += max(1, previous.days(to: valuation.date))
                 months.insert(valuation.date.yearMonth)
+                summary.measuredFrom = min(summary.measuredFrom ?? previous, previous)
             }
             if days > 0 { perYear = (perYear ?? 0) + accountOut * 365 / Decimal(days) }
         }
