@@ -35,14 +35,6 @@ enum AccountPositionText {
                                        amount: QuantityFormat.unitPrice(average, currency: currency, locale: locale))
     }
 
-    /// "Purchase cost 48.200 €" (the whole position's); `nil` when unknown.
-    static func purchaseCost(_ row: AccountHoldingRow, currency: CurrencyCode,
-                             locale: Locale = .current) -> AmountSentence? {
-        guard let cost = row.costBasis else { return nil }
-        return QuantityFormat.labelled("Purchase cost",
-                                       amount: AmountFormat.amount(cost, currency: currency, locale: locale))
-    }
-
     /// "95 % of the account" (as the locale writes a percentage); `nil`
     /// when the share isn't known.
     static func share(_ row: AccountHoldingRow, locale: Locale = .current) -> String? {

@@ -6,9 +6,10 @@ import Model
 /// (App/ScreenTests, `make screenshots`) and for opening a screen by hand:
 /// `-screenLibrary example` (or `longHistory`) opens a made-up library in
 /// memory, with the real planner, no network and settings of its own, and
-/// `-screen` the screen to start on (`overview`, `plan`, `progress` or
-/// `whatIf`; `targetMix`, the Target mix sheet of the first plan with
-/// changes with age; `checkIn`, the October check-in under way, from
+/// `-screen` the screen to start on (`overview`, `plan`, `progress`,
+/// `trends` or `whatIf`; `targetMix`, the Target mix sheet of the first plan
+/// with changes with age; `tradesAccount` or `cashAccount`, an account's
+/// details; `checkIn`, the October check-in under way, from
 /// `CheckInPreviewData`). The main plan is calculated at once, with fewer runs than it
 /// says, so the plan's screens fill in quickly; not with `-screenNoRun`.
 /// `-screenLibrary empty` opens first launch instead, on the step `-screen`
@@ -40,8 +41,22 @@ struct ScreenLaunch {
         case trends
         case whatIf
         case targetMix
+        /// Directa's details: a trades account's holdings, trades and statements.
+        case tradesAccount
+        /// Conto Fineco's details: a current account's values with money in,
+        /// money out and what moved.
+        case cashAccount
         /// The check-in, under way (``CheckInPreviewData/fill(_:)``).
         case checkIn
+
+        /// The account whose details the screen shows; `nil` for the others.
+        var account: AccountID? {
+            switch self {
+            case .tradesAccount: "directa"
+            case .cashAccount: "conto-fineco"
+            default: nil
+            }
+        }
     }
 
     var library: Library
@@ -142,9 +157,18 @@ struct ScreenLaunch {
             let plans = library.plans.values.sorted { $0.id.rawValue < $1.id.rawValue }
             navigation.showPlan(plans.first { !$0.portfolio.targetMixByAge.isEmpty }?.id ?? main)
             navigation.requestsTargetMix = true
+        case .tradesAccount, .cashAccount:
+            // Both layouts', since the root view sets the layout once it appears.
+            if let account = screen.account {
+                navigation.tab = .accounts
+                navigation.accountsPath = [account]
+                navigation.sidebarSelection = .account(account)
+            }
         case .checkIn:
             CheckInPreviewData.fill(model)
-            navigation.startCheckIn()
+            // Both layouts', as above.
+            navigation.isCheckInPresented = true
+            navigation.sidebarSelection = .checkIn
         }
         if calculates, let main {
             // As the root view does once a library is open; a library in

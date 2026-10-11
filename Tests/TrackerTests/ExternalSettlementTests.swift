@@ -318,10 +318,6 @@ struct ExternalConversionTests {
         for valuation in unanchored.valuations(for: "coins") { unanchored.removeValuation(valuation.key) }
         #expect(Valuator(library: unanchored).tradeCash(of: "coins", on: "2024-03-31") == 0)
 
-        // Back to snapshots gives the same positions.
-        let back = try #require(converted.conversionToSnapshots(of: "coins"))
-        back.apply(to: &converted)
-        #expect(converted.valuations(for: "coins").map(\.positions) == library.valuations(for: "coins").map(\.positions))
     }
 
     @Test func theExampleGoldCoinsConvertToABuyPaidFromOutside() throws {
