@@ -331,10 +331,14 @@ struct PreviewApplyTests {
         let profile = try #require(library.importProfiles["net-worth-sheet"])
         let data = try Samples.data("italian-excel-1252.csv")
         let session = try ImportSession(data: data, profile: profile)
-        let once = session.preview(against: library).apply(to: library)
+        let first = session.preview(against: library)
+        // The wallet's sale in January is left out with its account's trades while the buy in March is kept.
+        #expect(first.tradesLeftOutUntilOverwritten.map { "\($0.account) \($0.count)" } == ["ledger-wallet 1"])
+        let once = first.apply(to: library)
         let again = session.preview(against: once.library)
-        // The wallet's sale in January, left out with its account's trades while the buy in March is kept.
+        // That sale, still left out.
         #expect(again.summary.newRecords == 1)
+        #expect(again.tradesLeftOutUntilOverwritten.map { "\($0.account) \($0.count)" } == ["ledger-wallet 1"])
         // Directa's three balances, the gold coins' last one and the wallet's buy in March.
         #expect(again.summary.conflicts == 5)
         #expect(!again.apply(to: once.library).hasChanges)
