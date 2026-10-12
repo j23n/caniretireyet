@@ -283,6 +283,25 @@ struct StatementImportTests {
         #expect(kept?.moneyOut == d("1766.40"))
     }
 
+    @Test func anInterestLineClassifiedAgainTakesTheInterestAway() throws {
+        let library = Self.library()
+        var session = try Self.session("english-bank.csv", account: "deposito")
+        session.setStatementRule(.transfer, for: "Transfer")
+        let first = session.preview(against: library, today: Self.today).apply(to: library).library
+        let before = try #require(first.valuations(for: "deposito").first { $0.date == "2026-02-28" })
+        #expect(before.interest == d("11.80"))
+        // February's interest line left out: the value has no interest, and its flow is the whole change.
+        session.setStatementClass(.ignore, forRow: 5)
+        let again = session.preview(against: first, today: Self.today)
+        let february = try #require(again.record(.valuation("deposito", "2026-02-28")))
+        #expect(february.status == .updated)
+        let written = try #require(again.apply(to: first).library.valuations(for: "deposito")
+            .first { $0.date == "2026-02-28" })
+        #expect(written.interest == nil)
+        #expect(written.moneyIn == 0)
+        #expect(written.flow == d("10524.30") - d("11012.50"))
+    }
+
     @Test func aSavingsAccountsInterestIsItsOwn() throws {
         var session = try Self.session("english-bank.csv", account: "deposito")
         session.setStatementRule(.transfer, for: "Transfer")

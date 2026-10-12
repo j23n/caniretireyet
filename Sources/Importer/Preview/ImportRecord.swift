@@ -367,6 +367,11 @@ enum RecordMerge {
         // check-in's guess or an earlier import of the file.
         let recounts = imported.countsMoneyInOutFromLines && !conflict
         var recounted = false
+        // Lines that count no interest leave it out: the library's goes too.
+        if recounts, imported.interest == nil, valuation.interest != nil {
+            valuation.interest = nil
+            recounted = true
+        }
         for (path, value) in [(\Valuation.moneyIn, imported.moneyIn), (\.moneyOut, imported.moneyOut),
                               (\.interest, imported.interest)] {
             guard let value else { continue }
