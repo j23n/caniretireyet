@@ -87,7 +87,7 @@ struct ImportStatementFlowTests {
         #expect(flow.statementNotes.contains { $0.isProblem })
     }
 
-    @Test func aFileThatDoesNotFollowOnNeedsTheBalanceBeforeIt() {
+    @Test func aFileThatDoesNotFollowOnNeedsTheBalanceBeforeIt() throws {
         var library = PreviewLibrary.library
         library.months["2026-08"]?.valuations.removeAll { $0.account == "conto-fineco" }
         var flow = ImportFlow(library: library)
@@ -95,8 +95,15 @@ struct ImportStatementFlowTests {
         flow.setConstants { $0.account = "conto-fineco" }
         #expect(flow.needsOpeningBalance)
         #expect(flow.statementNotes.contains { $0.isProblem })
+        let problem = try #require(flow.openingBalanceProblem)
+        #expect(problem.hasPrefix("Conto Fineco's balances can't be worked out"))
+        #expect(!problem.contains("conto-fineco"))
+        #expect(flow.mappingIssues.contains(problem))
+        #expect(!flow.previewIssues.contains(problem))
+        #expect(flow.blockers.contains("Give the balance before the file's first line."))
         flow.setStatementOpeningBalance(Decimal(string: "4515.2"))
         #expect(!flow.needsOpeningBalance)
         #expect(flow.statementOpeningBalance == Decimal(string: "4515.2"))
+        #expect(flow.openingBalanceProblem == nil)
     }
 }

@@ -32,7 +32,16 @@ struct ImportPreviewStep: View {
                 if flow.isGuided {
                     ImportGuidedProposals(model: model)
                 }
-                ForEach(flow.mappingIssues, id: \.self) { issue in
+                if let problem = flow.openingBalanceProblem {
+                    Card("Balance before the first line", systemImage: "exclamationmark.triangle") {
+                        Text(problem)
+                            .font(.footnote)
+                            .foregroundStyle(Palette.secondaryInk)
+                            .privacySensitiveInFeedback()
+                        ImportOpeningBalanceField(model: model)
+                    }
+                }
+                ForEach(flow.previewIssues, id: \.self) { issue in
                     StatusBanner(.warning, issue, personal: .title)
                 }
                 ForEach(flow.debtNotes, id: \.self) { note in
