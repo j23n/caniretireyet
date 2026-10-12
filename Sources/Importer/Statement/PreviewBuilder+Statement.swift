@@ -284,6 +284,11 @@ extension PreviewBuilder {
         if !firstCovered, let first = sortedCuts.first {
             issues.append(ImportIssue(kind: .moneyInOutFrom(account.id, value: first, previous: anchor?.date)))
         }
+        if let last = sortedCuts.last, !valuations.contains(where: { $0.date == last }),
+           let later = valuations.first(where: { $0.date > end }), later.moneyIn != nil || later.moneyOut != nil {
+            let since = valuations.last { $0.date < later.date }?.date
+            issues.append(ImportIssue(kind: .laterMoneyInOut(account.id, value: later.date, since: since)))
+        }
         let after = lines.filter { line in sortedCuts.last.map { line.date > $0 } ?? true }
         if !after.isEmpty {
             issues.append(ImportIssue(kind: .linesAfterLastValue(count: after.count, after: sortedCuts.last)))

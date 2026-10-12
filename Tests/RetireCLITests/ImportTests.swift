@@ -472,6 +472,26 @@ struct ImportTests {
         #expect(badBalance.status == 64)
     }
 
+    @Test func aStatementsDaysCanBeGiven() async throws {
+        let library = try TemporaryFolder.exampleLibrary()
+        let statement = try Samples.url("statement.csv").path
+        let arguments = ["import", statement, "--library", library.path, "--account", "conto-fineco"]
+        let through = await runCLI(arguments + ["--through", "2026-10-29"])
+        #expect(through.status == 0, "\(through.all)")
+        #expect(through.output.contains("The file is read as covering 2026-10-01 to 2026-10-29"))
+        #expect(through.output
+            .contains("  2026-10-29  conto-fineco  balance 5,480.15, in 3,400.00, out 1,380.40  new\n"))
+        #expect(!through.output.contains("2026-10-31  conto-fineco"))
+
+        let late = await runCLI(arguments + ["--from", "2026-10-02"])
+        #expect(late.output.contains("1 line is outside 2026-10-02 to 2026-10-31, the days the file covers."))
+        for bad in [["--through", "29/10/2026"], ["--from", "2026-10-20", "--through", "2026-10-10"],
+                    ["--through", "2027-05-31"]] {
+            let run = await runCLI(arguments + bad)
+            #expect(run.status == 64, "\(bad): \(run.all)")
+        }
+    }
+
     @Test func aLibraryFromANewerAppIsNotWritten() async throws {
         let library = try TemporaryFolder.exampleLibrary()
         let settings = try library.text("library.json").replacingOccurrences(of: #""schemaVersion": 4"#,

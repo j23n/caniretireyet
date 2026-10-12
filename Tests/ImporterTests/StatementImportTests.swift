@@ -321,6 +321,23 @@ struct StatementImportTests {
         })
     }
 
+    @Test func aLaterValuesMoneyInAndOutThatTheFileSplitsIsNoted() throws {
+        var library = Self.library()
+        var later = Valuation(account: "conto", date: "2026-04-30", balance: d("8775.65"))
+        later.moneyIn = d("5636.20")
+        library.upsert(later)
+        let session = try Self.session("italian-bank.csv", account: "conto")
+        let preview = session.preview(against: library, today: Self.today)
+        #expect(preview.issues.contains {
+            $0.kind == .laterMoneyInOut("conto", value: "2026-04-30", since: "2026-01-31")
+        })
+        // Without money in and out, the later value has nothing to split.
+        library.upsert(Valuation(account: "conto", date: "2026-04-30", balance: d("8775.65")))
+        #expect(!session.preview(against: library, today: Self.today).issues.contains {
+            if case .laterMoneyInOut = $0.kind { true } else { false }
+        })
+    }
+
     // MARK: - The account's dates
 
     @Test func anAccountOpenedAfterTheFileStartsIsProposedToOpenEarlier() throws {

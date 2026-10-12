@@ -103,6 +103,8 @@ public struct ImportedRecord: Hashable, Sendable {
     public var moneyIn: Decimal?
     public var moneyOut: Decimal?
     public var interest: Decimal?
+    /// Follows from the balance and the interest, so it's never a conflict
+    /// of its own: it changes with them, or fills in a missing one.
     public var flow: Decimal?
     /// Prices: the price and its currency.
     public var price: Decimal?

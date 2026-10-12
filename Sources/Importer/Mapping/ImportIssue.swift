@@ -85,6 +85,11 @@ public struct ImportIssue: Hashable, Sendable, CustomStringConvertible {
         /// Statement layout: `count` lines fall outside the days the file
         /// is said to cover, so nothing is imported.
         case linesOutsidePeriod(count: Int, from: CalendarDate, through: CalendarDate)
+        /// A note, statement layout: the account's next value after the file
+        /// (`value`) has money in and out since its value before (`since`),
+        /// which the file's new values now split, so they count twice until
+        /// that value's are corrected.
+        case laterMoneyInOut(AccountID, value: CalendarDate, since: CalendarDate?)
     }
 
     public var kind: Kind
@@ -104,7 +109,8 @@ public struct ImportIssue: Hashable, Sendable, CustomStringConvertible {
         switch kind {
         case .positiveDebts, .debtsInCredit, .tradeAmountSigns, .negativeQuantities, .cashDirectionBySign,
              .ignoredTradeRows, .quantitiesAsTrades, .tradesWithoutPrice, .openingsWithoutCost, .moneyInOutFrom,
-             .linesAfterLastValue, .runningBalanceBreaks, .statementPeriod: true
+             .linesAfterLastValue, .runningBalanceBreaks, .statementPeriod,
+             .laterMoneyInOut: true
         default: false
         }
     }
@@ -197,6 +203,10 @@ public struct ImportIssue: Hashable, Sendable, CustomStringConvertible {
         case .linesOutsidePeriod(let count, let from, let through):
             return "\(count == 1 ? "1 line is" : "\(count) lines are") outside \(from) to \(through), the days the "
                 + "file covers."
+        case .laterMoneyInOut(let account, let value, let since):
+            let start = since.map { "since \($0)" } ?? "since it opened"
+            return "\(account)'s value on \(value) has money in and out \(start), which the file's values now split: "
+                + "until its money in and out are only those after the file's last value, they count twice."
         }
     }
 }
