@@ -313,7 +313,7 @@ A bank's statement export for one cash or savings account is read in the **state
 
 ### Detecting a statement
 
-Without a profile, a file is read as a statement when it isn't a broker's transactions and has dates, a description or counterparty column (`Descrizione`, `Causale`, `Verwendungszweck`, `Description`, `Payee`, …), and either a signed amount column (`Importo`, `Betrag`, `Amount`) with money in and out, or columns for money in and out (`Entrate` and `Uscite`, `Avere` and `Dare`, `Haben` and `Soll`, `Credit` and `Debit`, `Paid in` and `Paid out`). It has no quantities or prices, and its text columns don't name accounts (`Account name`, or a bare `Name`, makes it a long file). `--layout statement` reads any file this way; a statement's `Name` column is then who was paid.
+Without a profile, a file is read as a statement when it isn't a broker's transactions and has dates, a description or counterparty column (`Descrizione`, `Causale`, `Verwendungszweck`, `Description`, `Payee`, …), and either a signed amount column (`Importo`, `Betrag`, `Amount`) with money in and out, or columns for money in and out (`Entrate` and `Uscite`, `Avere` and `Dare`, `Haben` and `Soll`, `Credit` and `Debit`, `Paid in` and `Paid out`). It has no quantities or prices. A column whose header names accounts (`Account name`, or a bare `Name`) doesn't count as its description or counterparty. `--layout statement` reads any file this way, and a statement's `Name` column is then who was paid.
 
 ### Columns
 
