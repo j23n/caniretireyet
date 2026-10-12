@@ -369,7 +369,9 @@ struct StatementImportTests {
         february.statementOpeningBalance = 5000
         february.statementThrough = "2026-02-28"
         let one = february.preview(against: gap, today: Self.today)
-        #expect(one.record(.valuation("conto", "2026-02-28"))?.imported.moneyIn == nil)
+        let lone = try #require(one.record(.valuation("conto", "2026-02-28")))
+        #expect(lone.imported.balance == 4900)
+        #expect(lone.imported.moneyIn == nil && lone.imported.moneyOut == nil)
         #expect(!one.issues.contains { if case .laterMoneyInOut = $0.kind { true } else { false } })
         // Without money in and out, the later value has nothing to split.
         library.upsert(Valuation(account: "conto", date: "2026-04-30", balance: d("8775.65")))
