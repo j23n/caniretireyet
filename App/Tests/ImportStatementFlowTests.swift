@@ -35,7 +35,10 @@ struct ImportStatementFlowTests {
         #expect(flow.steps == [.file, .format, .columns, .classify, .accounts, .preview, .done])
         #expect(ColumnUse.options(for: .statement).contains(.field(.credit)))
         #expect(ColumnUse.field(.amount).title(in: .statement) == "Amount (+ in, − out)")
-        #expect(flow.statementAccountChoices.allSatisfy { $0.kind.recordsMoneyInOut && !$0.recordsTrades })
+        let choices = flow.statementAccountChoices.map(\.id)
+        #expect(choices.contains("conto-fineco"))
+        #expect(choices.contains("conto-deposito"))
+        #expect(!choices.contains("directa"))
     }
 
     @Test func aLineChangedAloneGoesBackWhenUndone() throws {
@@ -54,6 +57,10 @@ struct ImportStatementFlowTests {
         var flow = flow()
         #expect(ImportFlow.suggestedRulePhrase(for: try line(flow, "Spesa 1234")) == "Spesa")
         #expect(flow.linesMatching(rule: "spesa") == 2)
+        #expect(flow.linesMatching(rule: " – ") == nil)
+        flow.setStatementClass(.spending, forRow: try line(flow, "Spesa 5678").row)
+        #expect(flow.linesMatching(rule: "spesa") == 1)
+        flow.setStatementClass(nil, forRow: try line(flow, "Spesa 5678").row)
         flow.setStatementRule(.ignore, for: "Spesa")
         #expect(flow.statementRules.map(\.match) == ["Spesa"])
         #expect(try line(flow, "Spesa 1234").statementClass == .ignore)
@@ -72,8 +79,24 @@ struct ImportStatementFlowTests {
         #expect(period.through == "2026-09-30")
         flow.setStatementThrough("2026-09-26")
         #expect(flow.statementPeriod?.through == "2026-09-26")
-        #expect(flow.preview?.records.contains { $0.imported.key.date == "2026-09-26" } == true)
+        let value = try #require(flow.preview?.records.first { $0.imported.key.date == "2026-09-26" })
+        let text = flow.describe(value.incoming, locale: Locale(identifier: "en_US"))
+        #expect(text.contains("in "))
+        #expect(text.contains("out "))
         flow.setStatementFrom("2026-09-03")
         #expect(flow.statementNotes.contains { $0.isProblem })
+    }
+
+    @Test func aFileThatDoesNotFollowOnNeedsTheBalanceBeforeIt() {
+        var library = PreviewLibrary.library
+        library.months["2026-08"]?.valuations.removeAll { $0.account == "conto-fineco" }
+        var flow = ImportFlow(library: library)
+        flow.open(Data(Self.csv.utf8), fileName: "settembre.csv")
+        flow.setConstants { $0.account = "conto-fineco" }
+        #expect(flow.needsOpeningBalance)
+        #expect(flow.statementNotes.contains { $0.isProblem })
+        flow.setStatementOpeningBalance(Decimal(string: "4515.2"))
+        #expect(!flow.needsOpeningBalance)
+        #expect(flow.statementOpeningBalance == Decimal(string: "4515.2"))
     }
 }
