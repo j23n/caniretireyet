@@ -47,6 +47,7 @@ private struct WideColumn {
 struct PreviewBuilder {
     let session: ImportSession
     let library: Library
+    let today: CalendarDate
     /// The last date a row may have: a week after today.
     let latestDate: CalendarDate
     let bindings: ImportSession.Bindings
@@ -86,6 +87,7 @@ struct PreviewBuilder {
     init(session: ImportSession, library: Library, today: CalendarDate) {
         self.session = session
         self.library = library
+        self.today = today
         latestDate = today.adding(days: 7)
         bindings = session.bindings
         matcher = NameMatcher(library: library, matches: session.profile.matches)
@@ -95,9 +97,12 @@ struct PreviewBuilder {
         issues = session.issues
         var preview = ImportPreview(ambiguities: session.ambiguities, skippedRows: table.skippedRows,
                                     conflictPolicy: profile.effectiveOnConflict)
+        var statement: (records: [ImportRecordKey: Accumulator], lines: [StatementLine])?
         if let dateColumn = bindings.dateColumn {
             let dates = DateParser(format: session.effectiveFormat(forColumn: dateColumn).date ?? ImportDateFormat())
-            if profile.layout == .trades {
+            if profile.layout == .statement {
+                statement = statementRecords(dateColumn: dateColumn, dates: dates)
+            } else if profile.layout == .trades {
                 extractTrades(dateColumn: dateColumn, dates: dates)
             } else if profile.layout == .long {
                 extractLong(dateColumn: dateColumn, dates: dates)
@@ -105,12 +110,17 @@ struct PreviewBuilder {
                 extractWide(dateColumn: dateColumn, dates: dates)
             }
         }
-        let records = aggregate()
+        let records = statement?.records ?? (profile.layout == .statement ? [:] : aggregate())
         if profile.layout == .trades {
             makeTrades()
             preview.tradeTypes = session.tradeTypeValues
         }
         compare(records, into: &preview)
+        if let lines = statement?.lines {
+            preview.statementLines = lines
+            preview.firstDate = lines.first?.date
+            preview.lastDate = lines.last?.date
+        }
         preview.cellErrors = errors.sorted { $0.cell < $1.cell }
         preview.issues = issues
         preview.nameMatches = matcher.found

@@ -52,6 +52,7 @@ struct ImportReport: CommandReport {
         var lines = settingsLines()
         lines += section("Columns", columnLines())
         lines += section("Types", typeLines())
+        lines += section("Lines", statementLines())
         lines += section("Formats to confirm", ambiguityLines())
         lines += section("Problems with the mapping", problems.map { "  \($0)" })
         lines += section("Notes", noteLines())
@@ -133,7 +134,7 @@ struct ImportReport: CommandReport {
         case .mapped(let index):
             let mapping = profile.columns[index]
             if profile.layout.rowIsRecord, let field = mapping.field, field != .value {
-                return Self.fieldName(field, trades: profile.layout == .trades)
+                return Self.fieldName(field, layout: profile.layout)
             }
             guard let target = profile.target(of: mapping), target != .ignore else { return "ignored" }
             if profile.layout == .long { return "values: \(target.rawValue)" }
@@ -161,9 +162,11 @@ struct ImportReport: CommandReport {
         }
     }
 
-    /// What a long or trades file's column holds, e.g. `account names`, `net amounts`.
-    static func fieldName(_ field: ImportField, trades: Bool) -> String {
-        switch field {
+    /// What a long, trades or statement file's column holds, e.g. `account names`, `net amounts`.
+    static func fieldName(_ field: ImportField, layout: ImportLayout) -> String {
+        let trades = layout == .trades
+        if layout == .statement, field == .amount { return "amounts (+ in, − out)" }
+        return switch field {
         case .date: "the dates"
         case .account: "account names"
         case .instrument: trades ? "instruments (name, ticker or ISIN)" : "instrument names"
@@ -181,6 +184,11 @@ struct ImportReport: CommandReport {
         case .ratio: "split ratios"
         case .note: "notes"
         case .settlement: "paid from outside the account or not"
+        case .credit: "money in"
+        case .debit: "money out"
+        case .description: "descriptions"
+        case .counterparty: "who paid or was paid"
+        case .balance: "balances after each line"
         default: field.rawValue
         }
     }
@@ -203,6 +211,52 @@ struct ImportReport: CommandReport {
             lines.append("  Map the others with --type \"<word>=<type>\", or --type \"<word>=ignore\" to leave them out.")
         }
         return lines
+    }
+
+    /// Statement: the lines by class, with their money in and out, then the
+    /// lines themselves, those classified by their sign alone first, largest first.
+    func statementLines() -> [String] {
+        let lines = preview.statementLines
+        guard profile.layout == .statement, !lines.isEmpty else { return [] }
+        var classes = TextTable([.left("Class"), .right("Lines"), .right("In"), .right("Out")])
+        for statementClass in StatementClass.knownValues {
+            let of = lines.filter { $0.statementClass == statementClass }
+            guard !of.isEmpty else { continue }
+            let moneyIn = of.filter { $0.amount > 0 }.reduce(Decimal(0)) { $0 + $1.amount }
+            let moneyOut = of.filter { $0.amount < 0 }.reduce(Decimal(0)) { $0 - $1.amount }
+            classes.add([statementClass.rawValue, "\(of.count)", Format.amount(moneyIn), Format.amount(moneyOut)])
+        }
+        var result = classes.lines()
+        guard rows > 0 else { return result }
+        let ordered = lines.filter { $0.source == .sign }.sorted { abs($0.amount) > abs($1.amount) }
+            + lines.filter { $0.source != .sign }
+        var table = TextTable([.left("Date"), .right("Amount"), .left("Class"), .left("Why"), .left("Text")])
+        for line in ordered.prefix(rows) {
+            let source = Self.source(line.source)
+            let why = source.detail.map { "\(source.name): \($0)" } ?? source.name
+            table.add([line.date.description, Format.amount(line.amount), line.statementClass.rawValue,
+                       Self.clip(why, 32), Self.clip(line.text, 48)])
+        }
+        result.append("")
+        result += table.lines()
+        if lines.count > rows {
+            result.append("  … and \(Wording.count(lines.count - rows, "more line")) (--rows to list more).")
+        }
+        result.append("  Correct a class with --class \"<words in the text>=<class>\" (income, spending, transfer, "
+            + "interest or ignore); --save-profile keeps it for the next statement.")
+        return result
+    }
+
+    /// Why a line has its class: `rule`, `trade`, …, and what it refers to.
+    static func source(_ source: StatementLine.Source) -> (name: String, detail: String?) {
+        switch source {
+        case .chosen: ("chosen", nil)
+        case .rule(let phrase): ("rule", "“\(phrase)”")
+        case .trade(let key): ("trade", "\(key.account) on \(key.date)")
+        case .account(let account): ("account", account.rawValue)
+        case .words: ("usual words", nil)
+        case .sign: ("sign", nil)
+        }
     }
 
     /// A header as the name of an account or instrument, with what it matched.
@@ -360,7 +414,7 @@ struct ImportReport: CommandReport {
         var table = TextTable([.left("Date"), .left("Record"), .left("Library"), .left("File")])
         for record in conflicts.prefix(rows) {
             table.add([record.imported.key.date.description, Self.subject(record.imported.key),
-                       record.existing.map(Self.values) ?? "", Self.values(record)])
+                       record.existing.map { Self.values($0, like: record.imported) } ?? "", Self.values(record)])
         }
         var lines = rows > 0 ? table.lines() : []
         if conflicts.count > rows { lines.append("  … and \(Wording.count(conflicts.count - rows, "more conflict")).") }
@@ -479,10 +533,13 @@ struct ImportReport: CommandReport {
         if let price = record.price { parts.append("\(Format.exact(price)) \(record.currency?.rawValue ?? "")") }
         if let rate = record.rate { parts.append(Format.exact(rate)) }
         if let trade = record.trade { parts.append(values(trade)) }
+        parts += moneyInOut(record.moneyIn, record.moneyOut, record.interest)
         return parts.joined(separator: ", ").trimmingCharacters(in: .whitespaces)
     }
 
-    static func values(_ record: LibraryRecord) -> String {
+    /// The library's record, with the money in and out of a valuation when
+    /// the file's record (`imported`) has them, to compare.
+    static func values(_ record: LibraryRecord, like imported: ImportedRecord? = nil) -> String {
         switch record {
         case .valuation(let valuation):
             var parts: [String] = []
@@ -492,10 +549,20 @@ struct ImportReport: CommandReport {
                 parts.append("\(position.instrument) \(Format.exact(position.quantity))"
                     + (position.costBasis.map { " (cost \(Format.amount($0)))" } ?? ""))
             }
+            if imported?.moneyIn != nil || imported?.moneyOut != nil {
+                parts += moneyInOut(valuation.moneyIn, valuation.moneyOut, valuation.interest)
+            }
             return parts.joined(separator: ", ")
         case .price(let price): return "\(Format.exact(price.price)) \(price.currency)"
         case .fx(let rate): return Format.exact(rate.rate)
         case .trade(let trade): return values(trade)
+        }
+    }
+
+    /// `in 2,800.00`, `out 1,266.40`, `interest 1.20`, for those recorded.
+    static func moneyInOut(_ moneyIn: Decimal?, _ moneyOut: Decimal?, _ interest: Decimal?) -> [String] {
+        [("in", moneyIn), ("out", moneyOut), ("interest", interest)].compactMap { label, value in
+            value.map { "\(label) \(Format.amount($0))" }
         }
     }
 
@@ -527,6 +594,12 @@ struct ImportReport: CommandReport {
             },
             tradeTypes: preview.tradeTypes.map {
                 JSON.TradeType(value: $0.value, rows: $0.count, type: $0.type?.rawValue, source: $0.source.rawValue)
+            },
+            statementLines: preview.statementLines.map { line in
+                JSON.StatementLine(row: line.row, date: line.date.description, amount: Format.exact(line.amount),
+                                   text: line.text, class: line.statementClass.rawValue,
+                                   source: Self.source(line.source).name, sourceDetail: Self.source(line.source).detail,
+                                   value: line.period?.description)
             },
             ambiguities: preview.ambiguities.map {
                 JSON.Ambiguity(kind: $0.kind.rawValue, column: $0.column, header: $0.header, message: $0.description,
@@ -577,7 +650,8 @@ struct ImportReport: CommandReport {
                             status: record.status.rawValue,
                             resolution: record.status == .conflict ? record.resolution.rawValue : nil,
                             values: Self.values(record),
-                            existing: record.status == .conflict ? record.existing.map(Self.values) : nil)
+                            existing: record.status == .conflict
+                                ? record.existing.map { Self.values($0, like: record.imported) } : nil)
             },
             cellErrors: preview.cellErrors.map {
                 JSON.CellError(row: $0.row, column: $0.column, header: $0.header, raw: $0.raw,
@@ -638,6 +712,20 @@ struct ImportReport: CommandReport {
             /// `nil` when unmapped; `ignore` when its rows are left out.
             var type: String?
             var source: String
+        }
+
+        struct StatementLine: Encodable {
+            var row: Int
+            var date: String
+            var amount: String
+            var text: String
+            var `class`: String
+            /// chosen, rule, trade, account, words or sign.
+            var source: String
+            /// The rule's phrase, the trade, or the account.
+            var sourceDetail: String?
+            /// The date of the value whose money in and out the line counts in.
+            var value: String?
         }
 
         struct Ambiguity: Encodable {
@@ -754,6 +842,7 @@ struct ImportReport: CommandReport {
         var settings: Settings
         var columns: [Column]
         var tradeTypes: [TradeType]
+        var statementLines: [StatementLine]
         var ambiguities: [Ambiguity]
         var issues: [Message]
         var notes: [Message]

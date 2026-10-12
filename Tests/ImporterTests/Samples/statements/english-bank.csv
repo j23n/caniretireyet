@@ -1,0 +1,5 @@
+Date,Description,Amount,Balance
+01/05/2026,Transfer from checking,1000.00,11000.00
+01/31/2026,Interest paid,12.50,11012.50
+02/10/2026,Transfer to checking,-500.00,10512.50
+02/28/2026,Interest paid,11.80,10524.30

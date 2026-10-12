@@ -19,6 +19,14 @@ public struct ImportSession: Sendable {
     public var profile: ImportProfile
     /// Whether re-reading the file proposes a new mapping.
     private var proposesMapping: Bool
+    /// Statement layout: classes chosen for single lines, by 1-based row.
+    /// They belong to this file, so they aren't saved in the profile; a rule
+    /// is (``setStatementRule(_:for:)``).
+    public var statementLineClasses: [Int: StatementClass] = [:]
+    /// Statement layout: the account's balance before the file's first line,
+    /// for a file without a balance column that doesn't follow on from the
+    /// library's values.
+    public var statementOpeningBalance: Decimal?
 
     /// Reads a file and proposes a mapping for it. Settings left `nil` are detected.
     public init(data: Data, settings: ImportFileSettings = ImportFileSettings()) throws(ImportError) {

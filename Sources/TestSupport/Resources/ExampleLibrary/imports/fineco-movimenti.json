@@ -1,0 +1,20 @@
+{
+  "columns": [
+    { "field": "date", "header": "Data operazione" },
+    { "field": "ignore", "header": "Data valuta" },
+    { "field": "credit", "header": "Entrate" },
+    { "field": "debit", "header": "Uscite" },
+    { "field": "description", "header": "Descrizione" }
+  ],
+  "constants": { "account": "conto-fineco" },
+  "defaults": { "date": { "pattern": "dd/MM/yyyy" }, "number": { "decimal": ",", "thousands": "." } },
+  "file": { "delimiter": ";", "encoding": "utf-8", "headerRow": 4 },
+  "id": "fineco-movimenti",
+  "layout": "statement",
+  "name": "Fineco, movimenti",
+  "onConflict": "ask",
+  "rules": [
+    { "class": "transfer", "match": "Bonifico a favore di Directa" },
+    { "class": "spending", "match": "Addebito carta di credito" }
+  ]
+}

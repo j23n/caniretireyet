@@ -2,15 +2,15 @@ import Foundation
 import Model
 
 extension ImportLayout {
-    /// Whether each row of a file in this layout is one record (long and
-    /// trades), rather than one date (wide).
-    public var rowIsRecord: Bool { self == .long || self == .trades }
+    /// Whether each row of a file in this layout is one record (long,
+    /// trades and statement), rather than one date (wide).
+    public var rowIsRecord: Bool { self == .long || self == .trades || self == .statement }
 }
 
 extension ImportField {
     /// Whether a column holding this field holds numbers.
     public var holdsNumbers: Bool {
-        [.value, .quantity, .price, .amount, .gross, .fees, .tax, .ratio].contains(self)
+        [.value, .quantity, .price, .amount, .gross, .fees, .tax, .ratio, .credit, .debit, .balance].contains(self)
     }
 
     /// The fields of the trades layout, in menu order.

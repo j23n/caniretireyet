@@ -233,7 +233,8 @@ struct MigrationTests {
         #expect(report.written == [
             "accounts/casa.json", "accounts/gold-coins.json", "accounts/mutuo-casa.json", "library.json",
         ])
-        #expect(report.deleted == ["imports/directa-movimenti.json", "imports/net-worth-sheet.json"])
+        #expect(report.deleted == ["imports/directa-movimenti.json", "imports/fineco-movimenti.json",
+                                   "imports/net-worth-sheet.json"])
         #expect(try folder.json("library.json")["schemaVersion"] == 5)
         #expect(try folder.json("accounts/casa.json")["comment"] == "Made-up estimate of the home's market value.")
         #expect(!folder.exists("imports/net-worth-sheet.json"))

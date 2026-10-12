@@ -99,6 +99,7 @@ extension ImportSession {
         } else {
             profile.tradeTypes = [:]
         }
+        if profile.layout != .statement { profile.rules = [] }
         return profile
     }
 
