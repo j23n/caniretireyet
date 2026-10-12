@@ -11,8 +11,12 @@ public struct ImportLayout: OpenEnum {
     /// field of the trade (`columns[].field`), and the file's type words are
     /// mapped to trade types by the profile's `tradeTypes`.
     public static let trades: ImportLayout = "trades"
+    /// One row per line of a bank statement of one cash or savings account.
+    /// Each line is classified (``StatementClass``), and the lines become the
+    /// account's values with money in and out (docs/IMPORT.md, "Bank statements").
+    public static let statement: ImportLayout = "statement"
 
-    public static let knownValues: [ImportLayout] = [.wide, .long, .trades]
+    public static let knownValues: [ImportLayout] = [.wide, .long, .trades, .statement]
 }
 
 /// What a value in the file becomes.
@@ -65,7 +69,8 @@ public struct ImportField: OpenEnum {
     public static let quantity: ImportField = "quantity"
     /// The price per unit.
     public static let price: ImportField = "price"
-    /// The cash the trade moved in the account's currency, net of fees and tax.
+    /// The cash the trade moved in the account's currency, net of fees and
+    /// tax. Statement layout: the line's amount, signed (+ in, − out).
     public static let amount: ImportField = "amount"
     /// The trade's value before fees and tax, in the account's currency
     /// (a sale's proceeds, a buy's quantity × price, a dividend before tax).
@@ -84,9 +89,22 @@ public struct ImportField: OpenEnum {
     /// own cash.
     public static let settlement: ImportField = "settlement"
 
+    // Statement layout. A line's signed amount is `amount`.
+
+    /// Money in, without a sign, when the statement has separate columns for in and out.
+    public static let credit: ImportField = "credit"
+    /// Money out, without a sign, when the statement has separate columns for in and out.
+    public static let debit: ImportField = "debit"
+    /// The bank's text for the line. Several columns are joined.
+    public static let description: ImportField = "description"
+    /// Who paid or was paid, when the statement has a column for it.
+    public static let counterparty: ImportField = "counterparty"
+    /// The account's balance after the line.
+    public static let balance: ImportField = "balance"
+
     public static let knownValues: [ImportField] = [
         .date, .account, .instrument, .value, .currency, .base, .quote, .ignore, .type, .quantity, .price, .amount,
-        .gross, .fees, .tax, .ratio, .note, .settlement,
+        .gross, .fees, .tax, .ratio, .note, .settlement, .credit, .debit, .description, .counterparty, .balance,
     ]
 }
 

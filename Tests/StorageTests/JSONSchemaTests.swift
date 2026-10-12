@@ -111,6 +111,7 @@ import TestSupport
          "/$defs/format/properties/date"),
         ("ImportNumberFormat", ImportNumberFormat.knownKeys, "import-profile.schema.json",
          "/$defs/format/properties/number"),
+        ("StatementRule", StatementRule.knownKeys, "import-profile.schema.json", "/properties/rules/items"),
     ]
 
     @Test func everyKnownKeyIsInItsSchemaAndNoMore() throws {
@@ -294,6 +295,7 @@ import TestSupport
               "name": "Directa, movimenti",
               "onConflict": "keep",
               "target": "price",
+              "rules": [{ "class": "transfer", "match": "Giroconto" }],
               "tradeTypes": { "Acquisto": "buy", "Giroconto": "ignore" }
             }
             """, against: "import-profile.schema.json")

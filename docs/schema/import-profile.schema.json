@@ -34,9 +34,9 @@
       "$ref": "#/$defs/format"
     },
     "layout": {
-      "description": "wide: one row per date, one column per account or value. long: one row per record, each column a field. trades: one row per trade, a broker's transactions export.",
+      "description": "wide: one row per date, one column per account or value. long: one row per record, each column a field. trades: one row per trade, a broker's transactions export. statement: one row per line of a bank statement of one cash or savings account, read into its values with money in and out.",
       "$comment": "Open enum: a profile with a layout this version doesn't know (such as ledger, from an earlier version that imported journals) is kept as it is but not offered.",
-      "enum": ["wide", "long", "trades"]
+      "enum": ["wide", "long", "trades", "statement"]
     },
     "dateColumn": { "description": "Wide layout: the header of the column holding the date.", "type": "string" },
     "target": {
@@ -44,7 +44,7 @@
       "$ref": "#/$defs/target"
     },
     "constants": {
-      "description": "Fields that are the same for every row. Long layout: account, instrument, currency, base, quote (wide columns that leave these out use them too). Trades layout: account, and settlement.",
+      "description": "Fields that are the same for every row. Long layout: account, instrument, currency, base, quote (wide columns that leave these out use them too). Trades layout: account, and settlement. Statement layout: account.",
       "type": "object",
       "properties": {
         "account": { "$ref": "common.schema.json#/$defs/slug" },
@@ -92,6 +92,22 @@
           "ignore"
         ]
       }
+    },
+    "rules": {
+      "description": "Statement layout: phrases in a line's description or counterparty, found ignoring case, accents and punctuation as whole words, and the class every line with one gets. The longest phrase a line has wins; a line no rule matches is classified automatically (IMPORT.md, Bank statements).",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["match", "class"],
+        "properties": {
+          "match": { "type": "string", "minLength": 1 },
+          "class": {
+            "description": "income: money in. spending: money out (a credit card, loan or mortgage payment too). transfer: moved between your accounts, neither. interest: a savings account's interest, a current account's money in. ignore: neither, still in the balance.",
+            "$comment": "Open enum.",
+            "enum": ["income", "spending", "transfer", "interest", "ignore"]
+          }
+        }
+      }
     }
   },
   "examples": [
@@ -130,7 +146,7 @@
         },
         "target": { "$ref": "#/$defs/target" },
         "field": {
-          "description": "Long layout: date, account, instrument, value, currency, base, quote or ignore. Trades layout: date, type (mapped by tradeTypes), account, instrument (several columns can hold it: a name, a ticker, an ISIN, tried in order), quantity, price, currency (the price's), amount (net, in the account's currency), gross (before fees and tax), fees, tax, ratio, note, settlement or ignore.",
+          "description": "Long layout: date, account, instrument, value, currency, base, quote or ignore. Trades layout: date, type (mapped by tradeTypes), account, instrument (several columns can hold it: a name, a ticker, an ISIN, tried in order), quantity, price, currency (the price's), amount (net, in the account's currency), gross (before fees and tax), fees, tax, ratio, note, settlement or ignore. Statement layout: date, amount (signed), credit and debit (money in and out without signs, instead of amount), description (several columns are joined), counterparty, balance (after the line) or ignore.",
           "$comment": "Open enum.",
           "enum": [
             "date",
@@ -150,7 +166,12 @@
             "tax",
             "ratio",
             "note",
-            "settlement"
+            "settlement",
+            "credit",
+            "debit",
+            "description",
+            "counterparty",
+            "balance"
           ]
         },
         "account": { "$ref": "common.schema.json#/$defs/slug" },

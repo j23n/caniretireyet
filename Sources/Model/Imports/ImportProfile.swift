@@ -25,13 +25,16 @@ public struct ImportProfile: Hashable, Sendable, Identifiable, KnownKeysProvidin
     /// "Acquisto"), mapped to trade types. Matched exactly, then ignoring
     /// case and accents. The value `ignore` leaves the rows of that type out.
     public var tradeTypes: [String: TradeType]
+    /// Statement layout: phrases in a line's text and the class of the lines
+    /// that have them. The longest phrase a line has wins.
+    public var rules: [StatementRule]
 
     public init(
         id: ImportProfileID, name: String, file: ImportFileSettings = ImportFileSettings(),
         defaults: ImportFormat = ImportFormat(), layout: ImportLayout, dateColumn: String? = nil,
         target: ImportTarget? = nil, constants: ImportConstants = ImportConstants(), columns: [ImportColumn] = [],
         matches: ImportMatches = ImportMatches(), onConflict: ConflictPolicy? = nil,
-        tradeTypes: [String: TradeType] = [:]
+        tradeTypes: [String: TradeType] = [:], rules: [StatementRule] = []
     ) {
         self.id = id
         self.name = name
@@ -45,6 +48,7 @@ public struct ImportProfile: Hashable, Sendable, Identifiable, KnownKeysProvidin
         self.matches = matches
         self.onConflict = onConflict
         self.tradeTypes = tradeTypes
+        self.rules = rules
     }
 
     /// The conflict policy (default: ask).
@@ -56,7 +60,7 @@ public struct ImportProfile: Hashable, Sendable, Identifiable, KnownKeysProvidin
 extension ImportProfile: Codable {
     enum CodingKeys: String, CodingKey, CaseIterable {
         case id, name, file, defaults, layout, dateColumn, target, constants, columns, matches, onConflict
-        case tradeTypes
+        case tradeTypes, rules
     }
 
     public static var knownKeys: Set<String> { Set(CodingKeys.allCases.map(\.stringValue)) }
@@ -75,6 +79,7 @@ extension ImportProfile: Codable {
         matches = try c.decodeIfPresent(ImportMatches.self, forKey: .matches) ?? ImportMatches()
         onConflict = try c.decodeIfPresent(ConflictPolicy.self, forKey: .onConflict)
         tradeTypes = try c.decodeIfPresent([String: TradeType].self, forKey: .tradeTypes) ?? [:]
+        rules = try c.decodeArray([StatementRule].self, forKey: .rules)
     }
 
     public func encode(to encoder: any Encoder) throws {
@@ -91,6 +96,7 @@ extension ImportProfile: Codable {
         if matches != ImportMatches() { try c.encode(matches, forKey: .matches) }
         try c.encodeIfPresent(onConflict, forKey: .onConflict)
         try c.encodeIfNotEmpty(tradeTypes, forKey: .tradeTypes)
+        try c.encodeIfNotEmpty(rules, forKey: .rules)
     }
 }
 
