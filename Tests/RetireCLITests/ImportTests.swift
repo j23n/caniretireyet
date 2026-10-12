@@ -89,6 +89,13 @@ struct ImportTests {
         var changed = try library.snapshot().filter { original[$0.key] != $0.value }.keys.sorted()
         #expect(changed == ["history/2026/2026-10.json"])
 
+        // Again without the flags: the conflict is all that differs, and it is kept.
+        let kept = await runCLI(["import", try sheet(), "--library", library.path, "--apply"], clock: clock)
+        #expect(kept.status == 0, "\(kept.all)")
+        #expect(kept.output.contains("Nothing changed: every record that differs is a conflict, and the "
+            + "library's values were kept (--on-conflict overwrite imports the file's).\n"))
+        #expect(try library.backups().count == 1)
+
         // With the flags: the account is created and closed, the conflict overwritten.
         let second = await runCLI(["import", try sheet(), "--library", library.path, "--apply",
                                    "--accept-new-accounts", "--accept-closings", "--on-conflict", "overwrite"],
