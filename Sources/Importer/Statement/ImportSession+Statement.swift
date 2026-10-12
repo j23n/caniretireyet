@@ -52,7 +52,8 @@ extension ImportSession {
         if numbers.contains(where: { Keywords.header($0.header, has: Keywords.quantity + Keywords.price) }) {
             return false
         }
-        // A long file's `Account name` names accounts, not who was paid; `Payee name` is a counterparty.
+        // A long file's `Account name` or `Name` names accounts, not who was paid; `Payee name` is a
+        // counterparty. Once a file is a statement, its `Name` column is (``proposeStatementMapping()``).
         let namesAccounts = (Keywords.account + Keywords.instrument).filter { $0 != "name" && $0 != "nome" }
         let hasText = columns.contains {
             $0.kind == .text && Keywords.header($0.header, has: Keywords.statementDescription + Keywords.counterparty)
@@ -93,7 +94,7 @@ extension ImportSession {
             } else if analysis.kind == .text {
                 if Keywords.header(header, has: Keywords.statementDescription) {
                     field = .description
-                } else if Keywords.header(header, has: Keywords.counterparty) {
+                } else if Keywords.header(header, has: Keywords.counterparty + ["name"]) {
                     field = .counterparty
                 }
             } else if analysis.kind == .number, analysis.number?.percent != true {

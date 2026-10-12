@@ -66,6 +66,21 @@ struct StatementImportTests {
             2026-02-10,ACME SRL,2800.00
             """
         #expect(try ImportSession(data: Data(payee.utf8)).looksLikeStatement)
+        let named = """
+            Date,Name,Amount
+            2026-01-31,Conto corrente,5210.85
+            2026-01-31,Mutuo casa,-120000.00
+            """
+        #expect(try !ImportSession(data: Data(named.utf8)).looksLikeStatement)
+        // A statement's `Name` is who was paid.
+        let monzo = """
+            Date,Name,Description,Amount
+            2026-02-02,Supermercato Rossi,Groceries,-45.90
+            2026-02-10,ACME SRL,Salary,2800.00
+            """
+        let statement = try ImportSession(data: Data(monzo.utf8))
+        #expect(statement.profile.layout == .statement)
+        #expect(statement.profile.columns.first { $0.header == "Name" }?.field == .counterparty)
     }
 
     @Test func columnsAreProposedByTheirHeaders() throws {

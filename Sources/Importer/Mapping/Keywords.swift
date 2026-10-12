@@ -81,9 +81,10 @@ enum Keywords {
                                       "wallet", "pension", "pensione", "fondo", "mutuo", "mortgage", "loan", "prestito",
                                       "main", "principale", "my", "mio", "joint", "cointestato", "girokonto", "konto",
                                       "sparkonto", "tagesgeld", "kreditkarte"]
-    /// Who paid or was paid.
+    /// Who paid or was paid. A bare `Name` is one only in a file already
+    /// read as a statement, since a long file's `Name` names accounts.
     static let counterparty = ["beneficiario", "ordinante", "controparte", "payee", "payer", "counterparty",
-                               "merchant", "empfanger", "auftraggeber", "zahlungsempfanger", "name"]
+                               "merchant", "empfanger", "auftraggeber", "zahlungsempfanger"]
 
     /// Words removed from a header to get the name it stands for:
     /// `BTC (qtà)` → `BTC`, `Prezzo VWCE` → `VWCE`.
