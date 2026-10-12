@@ -105,5 +105,14 @@ struct ImportStatementFlowTests {
         #expect(!flow.needsOpeningBalance)
         #expect(flow.statementOpeningBalance == Decimal(string: "4515.2"))
         #expect(flow.openingBalanceProblem == nil)
+        #expect(flow.statementNotes.contains { $0.text.contains("not the day before the file") })
+    }
+
+    @Test func anOpeningBalanceThatDisagreesWithTheValueBeforeIsSaidSo() {
+        var flow = flow()
+        flow.setStatementOpeningBalance(4000)
+        let notes = flow.statementNotes.map(\.text)
+        #expect(notes.contains { $0.contains("isn't the balance before the file's first line") })
+        #expect(!notes.contains { $0.contains("not the day before the file") })
     }
 }

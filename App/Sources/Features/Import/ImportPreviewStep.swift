@@ -32,12 +32,16 @@ struct ImportPreviewStep: View {
                 if flow.isGuided {
                     ImportGuidedProposals(model: model)
                 }
-                if let problem = flow.openingBalanceProblem {
-                    Card("Balance before the first line", systemImage: "exclamationmark.triangle") {
-                        Text(problem)
+                // Kept once a balance is given, so a mistyped one can be corrected here too.
+                if flow.openingBalanceProblem != nil || flow.statementOpeningBalance != nil {
+                    let problem = flow.openingBalanceProblem
+                    Card("Balance before the first line",
+                         systemImage: problem == nil ? "banknote" : "exclamationmark.triangle") {
+                        Text(problem ?? "The balance the account had before the file's first line, which its values "
+                            + "are worked out from.")
                             .font(.footnote)
                             .foregroundStyle(Palette.secondaryInk)
-                            .privacySensitiveInFeedback()
+                            .privacySensitiveInFeedback(problem != nil)
                         ImportOpeningBalanceField(model: model)
                     }
                 }

@@ -176,8 +176,16 @@ extension ImportFlow {
                 + "statement shows it."
         case .moneyInOutFrom(let account, let value, let previous):
             let name = accountName(account)
-            let before = previous.map { "\(name)'s last value before the file is on \(AmountFormat.mediumDate($0)), "
-                + "not the day before the file" } ?? "\(name) has no value before the file"
+            let before: String
+            if let previous, previous == openingBalanceDay {
+                before = "\(name)'s balance on \(AmountFormat.mediumDate(previous)) isn't the balance before the "
+                    + "file's first line"
+            } else if let previous {
+                before = "\(name)'s last value before the file is on \(AmountFormat.mediumDate(previous)), not the "
+                    + "day before the file"
+            } else {
+                before = "\(name) has no value before the file"
+            }
             return "\(before), so money in and out are counted only after \(AmountFormat.mediumDate(value))."
         default:
             return issue.description
