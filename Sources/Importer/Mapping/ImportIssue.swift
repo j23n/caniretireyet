@@ -58,6 +58,41 @@ public struct ImportIssue: Hashable, Sendable, CustomStringConvertible {
         /// A note: `count` openings made from quantities have no purchase
         /// cost and no price, so their cost is unknown.
         case openingsWithoutCost(AccountID, count: Int)
+        /// Statement layout: the account the profile names isn't in the library.
+        case unknownAccount(AccountID)
+        /// Statement layout: the account doesn't record money in and out
+        /// (only cash and savings accounts that don't record trades do), so
+        /// nothing is imported.
+        case noMoneyInOut(AccountID)
+        /// Statement layout: the file has no balance column, and the library
+        /// has no value of the account just before the file, so its balances
+        /// are unknown until an opening balance is given
+        /// (``ImportSession/statementOpeningBalance``).
+        case needsOpeningBalance(AccountID)
+        /// A note, statement layout: the file doesn't cover the period from
+        /// the account's value before it (`previous`, or none) to its first
+        /// value in the file, so money in and out start after `value`.
+        case moneyInOutFrom(AccountID, value: CalendarDate, previous: CalendarDate?)
+        /// A note, statement layout: `count` lines come after the file's last
+        /// value (`after`, or none), so they count toward a later one.
+        case linesAfterLastValue(count: Int, after: CalendarDate?)
+        /// A note, statement layout: on `count` days, the balance column
+        /// doesn't follow from the day before and the day's lines.
+        case runningBalanceBreaks(count: Int)
+        /// A note, statement layout: the days the file is read as covering
+        /// (``ImportSession/statementFrom``, ``ImportSession/statementThrough``).
+        case statementPeriod(from: CalendarDate, through: CalendarDate)
+        /// Statement layout: `count` lines fall outside the days the file
+        /// is said to cover, so nothing is imported.
+        case linesOutsidePeriod(count: Int, from: CalendarDate, through: CalendarDate)
+        /// Statement layout: the last day the file is said to cover is after
+        /// today, so nothing is imported.
+        case statementThroughAfterToday(CalendarDate)
+        /// A note, statement layout: the account's next value after the file
+        /// (`value`) has money in and out since its value before (`since`),
+        /// which the file's new values now split, so they count twice until
+        /// that value's are corrected.
+        case laterMoneyInOut(AccountID, value: CalendarDate, since: CalendarDate?)
     }
 
     public var kind: Kind
@@ -76,7 +111,9 @@ public struct ImportIssue: Hashable, Sendable, CustomStringConvertible {
     public var isNote: Bool {
         switch kind {
         case .positiveDebts, .debtsInCredit, .tradeAmountSigns, .negativeQuantities, .cashDirectionBySign,
-             .ignoredTradeRows, .quantitiesAsTrades, .tradesWithoutPrice, .openingsWithoutCost: true
+             .ignoredTradeRows, .quantitiesAsTrades, .tradesWithoutPrice, .openingsWithoutCost, .moneyInOutFrom,
+             .linesAfterLastValue, .runningBalanceBreaks, .statementPeriod,
+             .laterMoneyInOut: true
         default: false
         }
     }
@@ -145,6 +182,36 @@ public struct ImportIssue: Hashable, Sendable, CustomStringConvertible {
         case .openingsWithoutCost(let account, let count):
             return "\(account): \(count == 1 ? "1 opening has" : "\(count) openings have") no purchase cost and no "
                 + "price, so \(count == 1 ? "its cost is" : "their costs are") unknown."
+        case .unknownAccount(let account):
+            return "There's no account \(account) in the library."
+        case .noMoneyInOut(let account):
+            return "\(account) doesn't record money in and out: only cash and savings accounts do, so the statement "
+                + "isn't imported."
+        case .needsOpeningBalance(let account):
+            return "The file has no balance column, and the library has no value of \(account) just before it: give "
+                + "the balance before the file's first line."
+        case .moneyInOutFrom(let account, let value, let previous):
+            let before = previous.map { "\(account)'s value before the file is on \($0), before the file starts" }
+                ?? "\(account) has no value before the file"
+            return "\(before), so money in and out start after \(value)."
+        case .linesAfterLastValue(let count, let after):
+            let lines = count == 1 ? "1 line comes" : "\(count) lines come"
+            return after.map { "\(lines) after \($0), so \(count == 1 ? "it counts" : "they count") toward the next value." }
+                ?? "\(lines) after the file's last whole month, so no value is made from \(count == 1 ? "it" : "them") yet."
+        case .runningBalanceBreaks(let count):
+            return "\(place): on \(Wording.count(count, "day")), the balance doesn't follow from the day before and "
+                + "the day's lines."
+        case .statementPeriod(let from, let through):
+            return "The file is read as covering \(from) to \(through): every line from those days, and no others."
+        case .linesOutsidePeriod(let count, let from, let through):
+            return "\(count == 1 ? "1 line is" : "\(count) lines are") outside \(from) to \(through), the days the "
+                + "file covers."
+        case .statementThroughAfterToday(let through):
+            return "The file can't cover days after today, such as \(through)."
+        case .laterMoneyInOut(let account, let value, let since):
+            let start = since.map { "since \($0)" } ?? "since it opened"
+            return "\(account)'s value on \(value) has money in and out \(start), which the file's values now split: "
+                + "until its money in and out are only those after the file's last value, they count twice."
         }
     }
 }

@@ -35,6 +35,9 @@ public struct ImportPreview: Hashable, Sendable {
     /// Trades layout: the values of the file's type column and the trade
     /// types they're read as.
     public var tradeTypes: [TradeTypeValue] = []
+    /// Statement layout: the file's lines in date order, each with its
+    /// class and the value it counts in.
+    public var statementLines: [StatementLine] = []
 
     /// Counts for the summary.
     public var summary: ImportSummary {

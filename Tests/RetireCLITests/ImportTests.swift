@@ -202,7 +202,7 @@ struct ImportTests {
         let unknown = await runCLI(["import", try sheet(), "--library", library.path, "--profile", "nope"])
         #expect(unknown.status == 1)
         #expect(unknown.errors.contains("There's no import profile \"nope\" in imports/. "
-            + "Profiles: bank-sheet, directa-movimenti, net-worth-sheet."))
+            + "Profiles: bank-sheet, directa-movimenti, fineco-movimenti, net-worth-sheet."))
     }
 
     /// Quantities of an account that records trades become trades: the wallet held 0.4515 BTC, so April's 0.5
@@ -424,6 +424,72 @@ struct ImportTests {
         #expect(result["added"] as? Int == 3)
         #expect(result["written"] as? [String] == ["history/2026/2026-10.json"])
         #expect((result["backup"] as? String)?.hasPrefix("backups/") == true)
+    }
+
+    @Test func aBankStatementBecomesAValueWithMoneyInAndOut() async throws {
+        let library = try TemporaryFolder.exampleLibrary()
+        let statement = try Samples.url("statement.csv").path
+        let arguments = ["import", statement, "--library", library.path, "--account", "conto-fineco",
+                         "--class", "Spesa=spending"]
+        let run = await runCLI(arguments)
+        #expect(run.status == 0, "\(run.all)")
+        #expect(run.output.contains("  Layout       statement, dates in “Data”\n"))
+        #expect(run.output.contains("  2  Importo      numbers  amounts (+ in, − out)  "))
+        #expect(run.output.contains("""
+            Lines
+              Class     Lines        In       Out
+              income        1  3,400.00      0.00
+              spending      2      0.00  1,380.40
+              transfer      2      0.00    750.00
+            """))
+        #expect(run.output.contains("  2026-10-15    -250.00  transfer  account: directa  Bonifico a Directa SIM\n"))
+        #expect(run.output.contains("  2026-10-28    -180.40  spending  rule: “Spesa”     Spesa supermercato\n"))
+        #expect(run.output.contains("  2026-10-31  conto-fineco  balance 5,480.15, in 3,400.00, out 1,380.40  new\n"))
+
+        let json = try parseJSON(await runCLI(arguments + ["--json"]).output)
+        let lines = try #require(json["statementLines"] as? [[String: Any]])
+        #expect(lines.map { $0["class"] as? String } == ["spending", "income", "transfer", "transfer", "spending"])
+        #expect(lines.map { $0["source"] as? String } == ["sign", "usual words", "account", "usual words", "rule"])
+        #expect(lines.allSatisfy { $0["value"] as? String == "2026-10-31" })
+
+        let applied = await runCLI(arguments + ["--apply"])
+        #expect(applied.status == 0, "\(applied.all)")
+        let written = try #require(try library.load().valuations(for: "conto-fineco").last)
+        #expect(written == Valuation(account: "conto-fineco", date: "2026-10-31", balance: d("5480.15"),
+                                     flow: d("1269.6"), moneyIn: 3400, moneyOut: d("1380.4"), source: .import))
+        let again = await runCLI(arguments + ["--apply"])
+        #expect(again.output.contains("Nothing to import: the library already has everything in the file.\n"))
+    }
+
+    @Test func aStatementNeedsAnAccountThatRecordsMoneyInAndOut() async throws {
+        let library = try TemporaryFolder.exampleLibrary()
+        let statement = try Samples.url("statement.csv").path
+        let broker = await runCLI(["import", statement, "--library", library.path, "--account", "directa"])
+        #expect(broker.output.contains("directa doesn't record money in and out: only cash and savings accounts do"))
+        let badClass = await runCLI(["import", statement, "--library", library.path, "--class", "Spesa=food"])
+        #expect(badClass.status == 64)
+        let badBalance = await runCLI(["import", statement, "--library", library.path, "--opening-balance", "1.234,5"])
+        #expect(badBalance.status == 64)
+    }
+
+    @Test func aStatementsDaysCanBeGiven() async throws {
+        let library = try TemporaryFolder.exampleLibrary()
+        let statement = try Samples.url("statement.csv").path
+        let arguments = ["import", statement, "--library", library.path, "--account", "conto-fineco"]
+        let through = await runCLI(arguments + ["--through", "2026-10-29"])
+        #expect(through.status == 0, "\(through.all)")
+        #expect(through.output.contains("The file is read as covering 2026-10-01 to 2026-10-29"))
+        #expect(through.output
+            .contains("  2026-10-29  conto-fineco  balance 5,480.15, in 3,400.00, out 1,380.40  new\n"))
+        #expect(!through.output.contains("2026-10-31  conto-fineco"))
+
+        let late = await runCLI(arguments + ["--from", "2026-10-02"])
+        #expect(late.output.contains("1 line is outside 2026-10-02 to 2026-10-31, the days the file covers."))
+        for bad in [["--through", "29/10/2026"], ["--from", "2026-10-20", "--through", "2026-10-10"],
+                    ["--through", "2027-05-31"]] {
+            let run = await runCLI(arguments + bad)
+            #expect(run.status == 64, "\(bad): \(run.all)")
+        }
     }
 
     @Test func aLibraryFromANewerAppIsNotWritten() async throws {

@@ -41,7 +41,7 @@ struct JournalProfileTests {
         #expect(run.status == 1)
         #expect(run.errors.contains("imports/journal.json has the layout \"ledger\", which this version can't import."))
         let unknown = await retire(["import", sheet, "--library", library.path, "--profile", "nope"])
-        #expect(unknown.errors.contains("Profiles: directa-movimenti, net-worth-sheet."))
+        #expect(unknown.errors.contains("Profiles: directa-movimenti, fineco-movimenti, net-worth-sheet."))
         // Without a profile, the file is read as usual.
         let proposed = await retire(["import", sheet, "--library", library.path])
         #expect(proposed.status == 0, "\(proposed.all)")

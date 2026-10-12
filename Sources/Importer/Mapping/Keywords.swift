@@ -57,6 +57,35 @@ enum Keywords {
                            "withholding"]
     static let tradeRatio = ["ratio", "split ratio", "rapporto"]
 
+    // MARK: Statement layout
+
+    /// A line's signed amount.
+    static let statementAmount = ["importo", "amount", "betrag", "umsatz", "movimento", "transaction amount"]
+    /// Money in, without a sign.
+    static let statementCredit = ["entrate", "entrata", "accrediti", "accredito", "avere", "credit", "credits",
+                                  "paid in", "money in", "haben", "einnahmen", "eingang", "gutschrift"]
+    /// Money out, without a sign.
+    static let statementDebit = ["uscite", "uscita", "addebiti", "addebito", "dare", "debit", "debits", "paid out",
+                                 "money out", "soll", "ausgaben", "ausgang", "lastschrift"]
+    /// The balance after the line.
+    static let statementBalance = ["saldo", "balance", "running balance", "kontostand"]
+    /// The bank's text for the line.
+    static let statementDescription = ["descrizione", "causale", "dettagli", "description", "details", "memo",
+                                       "narrative", "reference", "particulars", "verwendungszweck", "buchungstext",
+                                       "beschreibung"]
+    /// Words any account's name could have, which say nothing about which
+    /// account a statement line names.
+    static let genericAccountWords = ["conto", "corrente", "deposito", "risparmio", "libretto", "carta", "di", "credito",
+                                      "debito", "prepagata", "bank", "banca", "account", "checking", "current",
+                                      "savings", "cash", "contanti", "credit", "debit", "card", "broker", "brokerage",
+                                      "wallet", "pension", "pensione", "fondo", "mutuo", "mortgage", "loan", "prestito",
+                                      "main", "principale", "my", "mio", "joint", "cointestato", "girokonto", "konto",
+                                      "sparkonto", "tagesgeld", "kreditkarte"]
+    /// Who paid or was paid. A bare `Name` is one only in a file already
+    /// read as a statement, since a long file's `Name` names accounts.
+    static let counterparty = ["beneficiario", "ordinante", "controparte", "payee", "payer", "counterparty",
+                               "merchant", "empfanger", "auftraggeber", "zahlungsempfanger"]
+
     /// Words removed from a header to get the name it stands for:
     /// `BTC (qtà)` → `BTC`, `Prezzo VWCE` → `VWCE`.
     static let headerNoise = quantity + price + costBasis + cash + balance

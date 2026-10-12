@@ -14,19 +14,27 @@ extension ImportSession {
     ///
     /// - Trades: a broker's transactions, a row per trade; see
     ///   ``proposeTradesMapping()``.
+    /// - Statement: a bank statement, a row per line; see
+    ///   ``proposeStatementMapping()``.
     ///
     /// With no `layout`, the layout is trades when the file looks like a
-    /// broker's transactions (``looksLikeTransactions``), long when a text
-    /// column's header names accounts or instruments, and wide otherwise.
+    /// broker's transactions (``looksLikeTransactions``), statement when it
+    /// looks like a bank statement (``looksLikeStatement``), long when a
+    /// text column's header names accounts or instruments, and wide otherwise.
     public mutating func proposeMapping(layout: ImportLayout? = nil) {
         let columns = detection.columns
-        let layout = layout ?? (looksLikeTransactions ? .trades : Self.guessLayout(columns))
+        let layout = layout ?? (looksLikeTransactions ? .trades
+            : looksLikeStatement ? .statement : Self.guessLayout(columns))
         profile.layout = layout
         profile.dateColumn = nil
         profile.target = nil
         profile.columns = []
         if layout == .trades {
             proposeTradesMapping()
+            return
+        }
+        if layout == .statement {
+            proposeStatementMapping()
             return
         }
         let dateColumn = columns.first { $0.kind == .date }?.column

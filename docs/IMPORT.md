@@ -2,7 +2,7 @@
 
 Imports any spreadsheet or export by mapping its columns to what the library stores. It handles whatever date and number formats the file uses, and a mapping can be saved and reused, so the next file of the same shape imports in one step.
 
-It also imports a broker's transactions as trades (see [Broker transactions](#broker-transactions)).
+It also imports a broker's transactions as trades (see [Broker transactions](#broker-transactions)), and a bank's statement as a cash or savings account's values with money in and out (see [Bank statements](#bank-statements)).
 
 ## Steps
 
@@ -42,6 +42,12 @@ It also imports a broker's transactions as trades (see [Broker transactions](#br
   ```
   Data operazione;Tipo operazione;ISIN;Quantità;Prezzo;Importo euro;Commissioni
   12/01/2026;Acquisto;IE00BK5BQT80;15;102,30;-1.539,50;5,00
+  ```
+- **Statement:** one row per line of a bank statement of one cash or savings account. Each line is income, spending, a transfer between your accounts, interest, or left out. See [Bank statements](#bank-statements).
+
+  ```
+  Data operazione;Data valuta;Entrate;Uscite;Descrizione
+  10/02/2026;10/02/2026;2.800,00;;Accredito stipendio ACME SRL
   ```
 
 ## Targets
@@ -301,6 +307,95 @@ The importer is tested with made-up exports in the shapes of real ones (`Tests/I
 - **Degiro-like** (`degiro.csv`): English, `,`, `dd-MM-yyyy`; no type column (sells are negative quantities, buys negative amounts), a stock priced in dollars with the amount in euros at Degiro's rate, costs as negative amounts.
 - **IBKR-like** (`ibkr.csv`): a flex query with camel-case headers, an account column, `BUY`/`SELL`, `Dividends`, `Withholding Tax`, `Broker Interest Received`, `Other Fees`, and `Deposits/Withdrawals` both ways.
 
+## Bank statements
+
+A bank's statement export for one cash or savings account is read in the **statement layout**: each row is a line of the statement, and each line is classified as money in, money out or neither. The lines become the account's values, with the balance and money in and out ([PROGRESS.md](PROGRESS.md#money-in-and-out)). The lines themselves aren't stored: correcting a past month means importing its file again.
+
+### Detecting a statement
+
+Without a profile, a file is read as a statement when it isn't a broker's transactions and has dates, a description or counterparty column (`Descrizione`, `Causale`, `Verwendungszweck`, `Description`, `Payee`, …), and either a signed amount column (`Importo`, `Betrag`, `Amount`) with money in and out, or columns for money in and out (`Entrate` and `Uscite`, `Avere` and `Dare`, `Haben` and `Soll`, `Credit` and `Debit`, `Paid in` and `Paid out`). It has no quantities or prices. A column whose header names accounts (`Account name`, or a bare `Name`) doesn't count as its description or counterparty. `--layout statement` reads any file this way, and a statement's `Name` column is then who was paid.
+
+### Columns
+
+| Field | What it holds |
+| --- | --- |
+| `date` | The booking date. A second date column (the value date) is ignored. |
+| `amount` | The line's amount: + in, − out. |
+| `credit`, `debit` | Instead of `amount`: money in and money out. The sign is dropped. |
+| `description` | The bank's text. Several columns are joined. |
+| `counterparty` | Who paid or was paid. It's read with the description. |
+| `balance` | The account's balance after the line. Optional. |
+
+The account is the profile's `constants.account` (`--account` on the command line): one file is one account, a cash or savings account of the library that doesn't record trades. A row without an amount is skipped. A row with a cell that can't be read is left out, with the cell's error.
+
+### Classes
+
+| Class | Counts as |
+| --- | --- |
+| `income` | Money in: pay, refunds, gifts. |
+| `spending` | Money out: shopping, rent, bills, and the payments of a credit card, a loan or a mortgage. |
+| `transfer` | Neither: money moved between your accounts. |
+| `interest` | A savings account's `interest`; a current account's money in. |
+| `ignore` | Neither. It still counts in the balance. |
+
+Income and spending count by the line's sign, so a refund classed as spending is money in.
+
+Each line gets the class of the first of these that says one:
+
+1. **Chosen for the line** (`ImportSession.setStatementClass(_:forRow:)`), for this file only.
+2. **A rule** in the profile's `rules`: a phrase the line's text has as whole words, ignoring case, accents and punctuation. The longest phrase wins. `--class "Giroconto=transfer"` adds one, and saving the profile keeps the rules, so a correction made once holds for the next statement.
+3. **A trade of another account** that moves the same amount within 4 days: a transfer. It's a deposit (a deposit of 500 is −500 on the statement), a withdrawal, or a buy, sale, fee or tax [paid from outside its account](TRADES.md#paid-from-outside-the-account). Each trade matches one line and each line one trade, the pairs nearest in date first.
+4. **Another account's name** in the text, or its institution when it isn't this account's bank: a transfer. Money out to a credit card, a loan or a mortgage is spending, since paying a debt is (money in from one, such as a loan paid out, is a transfer). Names of four letters or fewer, and names made only of words any account could have (`Conto corrente`, `Savings`), don't count.
+5. **The usual words:** `Giroconto`, `Girofondi`, `Umbuchung`, `Übertrag` or `Internal transfer` for a transfer. For money in only, `Stipendio`, `Emolumenti`, `Gehalt`, `Lohn`, `Salary` or `Payroll` for income, and `Interessi`, `Zinsen` or `Interest` for interest.
+6. **The sign:** money in is income, money out spending.
+
+Nothing is left out unclassified, so a statement imports without any rules; the classes are there to be corrected. The preview lists each line with its class and why (`ImportPreview.statementLines`).
+
+### Values
+
+- **The days the file covers** are taken to be whole months: from the first day of the first line's month to the last day of the last line's month, or to today if that month isn't over. The preview notes them. A bank's export of the last 90 days, or one made in the middle of a month, covers less: `--from` and `--through` (`ImportSession.statementFrom`, `statementThrough`) give its first and last days; the last can't be after today. A line outside them is a problem, and nothing is imported.
+- **Where.** At each of the account's values in those days, at the end of each month without one, and on the `--through` day when it's given, so the next file follows on from it. Lines after the last value count toward the next one, and the preview notes how many.
+- **The balance** comes from the balance column: the balance at the end of each day that has one, plus the lines after it. A day's lines can be listed in any order, so its end is the balance that follows from the day before and the day's lines; a day where none does is noted. Without the column, the balance is the balance before the file plus the lines. That's the account's value on the day before the file's first day, or `--opening-balance` (`ImportSession.statementOpeningBalance`). With neither, nothing is imported, and the preview says why.
+- **Money in and out** (and a savings account's interest) are the sums of the lines since the value before. The first value gets them only when the file covers its whole period: the account's value before is on the day before the file's first day, or the balance column's first balance follows on from it. A balance before the file's first line (from the column or `--opening-balance`) that differs from the value before means it doesn't. Otherwise the preview notes where money in and out start. An account's first value has none, as at a check-in.
+- **The flow** is worked out as a check-in's is: the change, less a savings account's interest. So what moved between your accounts is the transfers ([PROGRESS.md](PROGRESS.md#money-in-and-out)).
+- **Values already in the library** are compared like any record ([Preview, conflicts and undo](#preview-conflicts-and-undo)): money in and out they lack are filled in, and different ones follow the conflict policy (a check-in's money out left as suggested, with a transfer in it, differs). Importing the same file again changes nothing. When the file's new values come before a later value with money in and out, the preview notes it: that value's money in and out still cover the months the file now has, so they count twice until it's corrected.
+
+### Profiles
+
+The example library's `imports/fineco-movimenti.json` reads an Italian bank's movements into `conto-fineco`:
+
+```json
+{
+  "columns": [
+    { "field": "date", "header": "Data operazione" },
+    { "field": "ignore", "header": "Data valuta" },
+    { "field": "credit", "header": "Entrate" },
+    { "field": "debit", "header": "Uscite" },
+    { "field": "description", "header": "Descrizione" }
+  ],
+  "constants": { "account": "conto-fineco" },
+  "defaults": { "date": { "pattern": "dd/MM/yyyy" }, "number": { "decimal": ",", "thousands": "." } },
+  "file": { "delimiter": ";", "encoding": "utf-8", "headerRow": 4 },
+  "id": "fineco-movimenti",
+  "layout": "statement",
+  "name": "Fineco, movimenti",
+  "onConflict": "ask",
+  "rules": [
+    { "class": "transfer", "match": "Bonifico a favore di Directa" },
+    { "class": "spending", "match": "Addebito carta di credito" }
+  ]
+}
+```
+
+The fields are those of any profile ([import-profile.schema.json](schema/import-profile.schema.json)), with `rules`.
+
+### The sample statements
+
+The statement layout is tested with made-up exports in `Tests/ImporterTests/Samples/statements/`:
+
+- **Italian-like** (`italian-bank.csv`): title rows, `;`, `1.234,56`, `dd/MM/yyyy`, the newest line first, `Entrate` and `Uscite`, a value date; pay, a transfer to a broker, a `Giroconto`, interest, and a line in a month that isn't over.
+- **English-like** (`english-bank.csv`): `,`, `MM/dd/yyyy`, signed amounts and a running balance, a savings account's interest.
+
 ## Where it runs
 
 - **Engine.** The `Importer` module, in pure Swift. It reads bytes and a `Library` and returns results; the app and the CLI back up and write the files it reports as changed. It's tested on Linux against a folder of sample files (`Tests/ImporterTests/Samples/`): Italian Excel CSVs in Windows-1252, US-style exports, Numbers exports, title and totals rows, month-only dates, Excel serial dates, long files, quantities with prices, debts written as positive amounts (and columns that write them negative), broken rows.
@@ -309,7 +404,9 @@ The importer is tested with made-up exports in the shapes of real ones (`Tests/I
   - `preview.apply(to:)` returns an `ImportResult`: the new library and the month files, accounts and instruments that changed.
   - `session.makeProfile(id:name:library:)` saves the mapping with everything detected written out.
   - Broker transactions: the trades layout reads each row into a trade with a stable ID (`TradeID.stable`), keyed `ImportRecordKey.trade`. `ImportSession.looksLikeTransactions` tells a transactions file; `tradeTypeValues` lists the type column's values with the type each is read as (`TradeTypeValue`: from the profile, the usual words in `TradeTypeWords`, or unmapped), and `setTradeType(_:for:)` maps one. The preview carries them in `ImportPreview.tradeTypes`; proposals to make an account record trades are `AccountChangeProposal.Change.recordTrades`, and `ImportResult.tradesAccounts` and `tradesWritten` say what applying did. Tested with the made-up exports in `Tests/ImporterTests/Samples/trades/`.
-- **App.** The same SwiftUI flow on Mac and iPhone. The Mac, with its big table, is the comfortable place to build a profile. On the iPhone, you can open a CSV from Files and import it with a saved profile. A broker's transactions add a Types step after Columns.
+  - Bank statements: the statement layout reads each line into a `StatementLine` with its class, why it has it, and the value it counts in (`ImportPreview.statementLines`); its values are records keyed `ImportRecordKey.valuation`, with `moneyIn`, `moneyOut`, `interest` and `flow` (`ImportedRecord`). `ImportSession.looksLikeStatement` tells a statement; `statementRule(for:)` and `setStatementRule(_:for:)` read and change the profile's `rules`, `setStatementClass(_:forRow:)` chooses one line's class, `statementOpeningBalance` gives the balance before the file, and `statementFrom` and `statementThrough` the days it covers. Tested with the made-up exports in `Tests/ImporterTests/Samples/statements/`.
+- **App.** The same SwiftUI flow on Mac and iPhone. The Mac, with its big table, is the comfortable place to build a profile. On the iPhone, you can open a CSV from Files and import it with a saved profile. A broker's transactions add a Types step after Columns. A bank statement's lines can't be classified in the app yet; import it with the command line.
 - **CLI.** `retire import <file>` previews without writing (the default, `--dry-run`): the detected settings, what each column becomes, the formats to confirm, notes, proposed accounts and closings, a summary with sample records and conflicts, and the cells that can't be read. `--save-profile <id>` saves the proposed mapping as `imports/<id>.json` to edit and reuse with `--profile <id>`; options such as `--date-format`, `--decimal`, `--delimiter` and `--liability-sign` override what was detected. `--apply` backs up the files that change to `backups/<timestamp>-import/` and writes them; it refuses while formats are still guesses (unless `--accept-guesses`). Non-interactively, new accounts and instruments and closings are only made with `--accept-new-accounts`, `--accept-new-instruments` and `--accept-closings` (their records are left out otherwise), and conflicts follow `--on-conflict keep|overwrite` (undecided ones keep the library's values). `retire import --undo` undoes the latest import not undone yet, leaving later edits in place and listing them, after copying the current files to `backups/<timestamp>-undo-import/`.
 - **CLI, broker transactions.** `retire import <file>` reads a transactions file as trades, or with `--layout trades`; the report lists the file's type words with their trade types (**Types**) and notes on signs, and the trades among the records. `--account <id>` names the account of every row, `--type "<word>=<type>"` (repeatable) maps a word, or `--type "<word>=ignore"` leaves its rows out, and `--amount-sign auto|from-type|as-written` sets how amounts are signed. An account of another kind than brokerage, crypto or metals that doesn't record trades is switched only with `--accept-trades-mode`; otherwise its trades are left out. `--save-profile` writes the types too. JSON output adds `tradeTypes`, `summary.trades` and `result.tradesAccounts`.
+- **CLI, bank statements.** `retire import <file> --account <id>` reads a statement (or with `--layout statement`). The report's **Lines** lists each class with its money in and out, then the lines with their class and why, those classified by their sign alone first, largest first. `--class "<words>=<class>"` (repeatable) adds a rule, and `--save-profile` keeps the rules. `--opening-balance <amount>` gives the balance before the file, and `--from` and `--through` the days it covers. JSON output adds `statementLines`.
 - **CLI, trades.** `retire trades list <account> [--year] [--instrument] [--json]` and `summary <account> | --all [--year] [--json]` ([TRADES.md](TRADES.md)). Trades are added, edited and converted in the app, or in the history files by hand.

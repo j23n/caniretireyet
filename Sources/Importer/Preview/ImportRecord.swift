@@ -97,6 +97,15 @@ public struct ImportedRecord: Hashable, Sendable {
     public var balance: Decimal?
     public var cash: Decimal?
     public var positions: [ImportedPosition]
+    /// Valuations of a bank statement: money in and out, and a savings
+    /// account's interest, since the account's previous value, and the flow
+    /// worked out from them (docs/IMPORT.md, "Bank statements").
+    public var moneyIn: Decimal?
+    public var moneyOut: Decimal?
+    public var interest: Decimal?
+    /// Follows from the balance and the interest, so it's never a conflict
+    /// of its own: it changes with them, or fills in a missing one.
+    public var flow: Decimal?
     /// Prices: the price and its currency.
     public var price: Decimal?
     public var currency: CurrencyCode?
@@ -213,7 +222,8 @@ enum RecordMerge {
                         Position(instrument: position.instrument, quantity: $0, costBasis: position.costBasis)
                     }
                 }.sorted { $0.instrument < $1.instrument },
-                source: .import)
+                flow: imported.flow, moneyIn: imported.moneyIn, moneyOut: imported.moneyOut,
+                interest: imported.interest, source: .import)
             return Outcome(status: .new, kept: .valuation(valuation), overwritten: .valuation(valuation))
         case (.price(let key), let existing):
             let record = PriceRecord(instrument: key.instrument, date: key.date, price: imported.price ?? 0,
@@ -287,7 +297,8 @@ enum RecordMerge {
     }
 
     /// Merges the file's values into a valuation. Without `overwrite`, only
-    /// values the valuation lacks are filled in. Returns whether any value differed.
+    /// values the valuation lacks are filled in. Returns whether any value
+    /// differed. A flow is never a conflict of its own (see ``ImportedRecord/flow``).
     static func merge(_ imported: ImportedRecord, into existing: Valuation,
                       overwrite: Bool) -> (Valuation, conflict: Bool) {
         var valuation = existing
@@ -346,6 +357,21 @@ enum RecordMerge {
                 }
             }
         }
+        for (path, value) in [(\Valuation.moneyIn, imported.moneyIn), (\.moneyOut, imported.moneyOut),
+                              (\.interest, imported.interest)] {
+            guard let value else { continue }
+            if let old = valuation[keyPath: path] {
+                if old != value {
+                    conflict = true
+                    if overwrite { valuation[keyPath: path] = value }
+                }
+            } else {
+                valuation[keyPath: path] = value
+            }
+        }
+        // The flow follows the balances and the interest: it's filled in, and
+        // replaced only with the values it's worked out from.
+        if let flow = imported.flow, valuation.flow == nil || (overwrite && conflict) { valuation.flow = flow }
         if overwrite, conflict { valuation.source = .import }
         return (valuation, conflict)
     }

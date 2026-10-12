@@ -47,6 +47,7 @@ private struct WideColumn {
 struct PreviewBuilder {
     let session: ImportSession
     let library: Library
+    let today: CalendarDate
     /// The last date a row may have: a week after today.
     let latestDate: CalendarDate
     let bindings: ImportSession.Bindings
@@ -76,6 +77,8 @@ struct PreviewBuilder {
     /// The library's trades that the trades made from quantities replace
     /// and no longer make, with the cells of their positions.
     var removedTrades: [(trade: Trade, cells: [ImportCellRef])] = []
+    /// Statement layout: the lines read, with their classes.
+    var statementLines: [StatementLine] = []
 
     var table: ImportTable { session.table }
     var profile: ImportProfile { session.profile }
@@ -86,6 +89,7 @@ struct PreviewBuilder {
     init(session: ImportSession, library: Library, today: CalendarDate) {
         self.session = session
         self.library = library
+        self.today = today
         latestDate = today.adding(days: 7)
         bindings = session.bindings
         matcher = NameMatcher(library: library, matches: session.profile.matches)
@@ -95,9 +99,12 @@ struct PreviewBuilder {
         issues = session.issues
         var preview = ImportPreview(ambiguities: session.ambiguities, skippedRows: table.skippedRows,
                                     conflictPolicy: profile.effectiveOnConflict)
+        var fromStatement: [ImportRecordKey: Accumulator]?
         if let dateColumn = bindings.dateColumn {
             let dates = DateParser(format: session.effectiveFormat(forColumn: dateColumn).date ?? ImportDateFormat())
-            if profile.layout == .trades {
+            if profile.layout == .statement {
+                fromStatement = statementRecords(dateColumn: dateColumn, dates: dates)
+            } else if profile.layout == .trades {
                 extractTrades(dateColumn: dateColumn, dates: dates)
             } else if profile.layout == .long {
                 extractLong(dateColumn: dateColumn, dates: dates)
@@ -105,12 +112,13 @@ struct PreviewBuilder {
                 extractWide(dateColumn: dateColumn, dates: dates)
             }
         }
-        let records = aggregate()
+        let records = fromStatement ?? (profile.layout == .statement ? [:] : aggregate())
         if profile.layout == .trades {
             makeTrades()
             preview.tradeTypes = session.tradeTypeValues
         }
         compare(records, into: &preview)
+        preview.statementLines = statementLines
         preview.cellErrors = errors.sorted { $0.cell < $1.cell }
         preview.issues = issues
         preview.nameMatches = matcher.found
@@ -510,7 +518,7 @@ struct PreviewBuilder {
         records.sort { $0.imported.key < $1.imported.key }
         preview.records = records
 
-        let dates = values.map(\.date) + tradeRows.map(\.date)
+        let dates = values.map(\.date) + tradeRows.map(\.date) + statementLines.map(\.date)
         preview.firstDate = dates.min()
         preview.lastDate = dates.max()
         preview.newInstruments = instrumentProposals
@@ -528,7 +536,8 @@ struct PreviewBuilder {
     }
 
     /// Accounts whose values stop before the file's last date are proposed
-    /// as closed the day after their last non-zero value; accounts with
+    /// as closed the day after their last non-zero value (not from a broker's
+    /// transactions or a bank statement); accounts with
     /// values from before they opened are proposed to open earlier. Closing
     /// an account and making it record trades are proposed unaccepted; only
     /// an account that isn't brokerage, crypto or metals is offered to
@@ -583,7 +592,8 @@ struct PreviewBuilder {
                 }
                 continue
             }
-            guard let lastValue, lastValue < lastDate else { continue }
+            // A statement's last value is a month's end, often before its last line.
+            guard profile.layout != .statement, let lastValue, lastValue < lastDate else { continue }
             let laterInLibrary = library.valuations(for: id).contains { valuation in
                 valuation.date > lastValue && !imported.contains(.valuation(valuation.key))
                     && !Self.isZero(valuation)

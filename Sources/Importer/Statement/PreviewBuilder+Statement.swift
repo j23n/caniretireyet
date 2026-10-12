@@ -1,0 +1,354 @@
+import Foundation
+import Model
+
+/// The statement layout (docs/IMPORT.md, "Bank statements"): the lines of
+/// one cash or savings account's statement, classified, become the
+/// account's values with a balance and money in and out.
+extension PreviewBuilder {
+    /// How many days apart a line and a trade moving the same amount can be
+    /// to be one transfer.
+    static let transferDays = 4
+
+    /// A line as the file gives it, before it's classified.
+    private struct ReadLine {
+        var row: Int
+        var date: CalendarDate
+        var amount: Decimal
+        var text: String
+        var balance: Decimal?
+        var cells: [ImportCellRef]
+    }
+
+    /// Reads the lines, classifies them (``statementLines``) and works out
+    /// the account's values: one at each of its values in the file's span,
+    /// and one at each month end of a month that has none.
+    mutating func statementRecords(dateColumn: Int, dates: DateParser) -> [ImportRecordKey: Accumulator] {
+        guard let id = profile.constants.account else {
+            issues.append(ImportIssue(kind: .missingField(.account)))
+            return [:]
+        }
+        guard let account = library.accounts[id] else {
+            issues.append(ImportIssue(kind: .unknownAccount(id)))
+            return [:]
+        }
+        guard account.kind.recordsMoneyInOut, !account.recordsTrades else {
+            issues.append(ImportIssue(kind: .noMoneyInOut(id)))
+            return [:]
+        }
+        let read = readStatementLines(dateColumn: dateColumn, dates: dates)
+        guard !read.isEmpty else { return [:] }
+        var lines = classify(read, account: account)
+        let records = statementValues(&lines, read: read, account: account)
+        statementLines = lines
+        return records
+    }
+
+    // MARK: - Reading
+
+    /// The file's lines in date order: a file that lists the newest first
+    /// is read backwards, so lines on one day keep the order they happened in.
+    private mutating func readStatementLines(dateColumn: Int, dates: DateParser) -> [ReadLine] {
+        var single: [ImportField: Int] = [:]
+        var texts: [Int] = []
+        for (column, index) in bindings.columns.sorted(by: { $0.key < $1.key }) {
+            guard let field = profile.columns[index].field else { continue }
+            switch field {
+            case .description, .counterparty: texts.append(column)
+            case .amount, .credit, .debit, .balance: if single[field] == nil { single[field] = column }
+            default: continue
+            }
+        }
+        let amountColumns = [ImportField.amount, .credit, .debit].compactMap { single[$0] }
+        guard !amountColumns.isEmpty else {
+            issues.append(ImportIssue(kind: .missingField(.amount)))
+            return []
+        }
+        let parsers = Dictionary(uniqueKeysWithValues: single.map { field, column in
+            (field, NumberParser(format: session.effectiveFormat(forColumn: column).number ?? ImportNumberFormat()))
+        })
+
+        var lines: [ReadLine] = []
+        rows: for row in table.rows {
+            guard amountColumns.contains(where: { !row[$0].isEmpty }) else { continue }
+            let dateText = row[dateColumn]
+            guard !dateText.isEmpty else {
+                fail(row.number, dateColumn, dateText, .missingDate)
+                continue
+            }
+            guard let date = parseDate(dateText, row: row.number, column: dateColumn, with: dates) else { continue }
+            var amount: Decimal = 0
+            var cells: [ImportCellRef] = []
+            var balance: Decimal?
+            for field in [ImportField.amount, .credit, .debit, .balance] {
+                guard let column = single[field], let parser = parsers[field] else { continue }
+                let text = row[column]
+                guard !text.isEmpty else { continue }
+                guard let number = parseNumber(text, row: row.number, column: column, with: parser, empty: .skip)
+                else { continue rows }
+                switch field {
+                case .amount: amount += number.value
+                case .credit: amount += abs(number.value)
+                case .debit: amount -= abs(number.value)
+                default: balance = number.value
+                }
+                cells.append(ImportCellRef(row: row.number, column: column))
+            }
+            let text = texts.map { row[$0] }.filter { !$0.isEmpty }.joined(separator: " · ")
+            lines.append(ReadLine(row: row.number, date: date, amount: amount, text: text, balance: balance,
+                                  cells: cells))
+        }
+        if let first = lines.first, let last = lines.last, first.date > last.date { lines.reverse() }
+        // A stable sort: lines on one day keep their order.
+        return lines.enumerated().sorted { ($0.element.date, $0.offset) < ($1.element.date, $1.offset) }
+            .map(\.element)
+    }
+
+    // MARK: - Classifying
+
+    /// Each line's class and why: chosen for the line, a rule, a trade of
+    /// another account moving the same amount, another account named in
+    /// the text, the usual words, else the sign.
+    private func classify(_ read: [ReadLine], account: Account) -> [StatementLine] {
+        let names = accountNames(excluding: account)
+        let open = read.indices.filter { index in
+            session.statementLineClasses[read[index].row] == nil && session.statementRule(for: read[index].text) == nil
+        }
+        let trades = matchTrades(read, lines: open, excluding: account.id)
+        return read.indices.map { index in
+            let line = read[index]
+            let chosen: (StatementClass, StatementLine.Source)
+            if let statementClass = session.statementLineClasses[line.row] {
+                chosen = (statementClass, .chosen)
+            } else if let rule = session.statementRule(for: line.text) {
+                chosen = (rule.statementClass, .rule(rule.match))
+            } else if let trade = trades[index] {
+                chosen = (.transfer, .trade(trade))
+            } else if let named = Self.namedAccount(in: line.text, names: names) {
+                // Paying a debt is spending; a loan paid out into the account is moved between accounts.
+                chosen = (named.isLiability && line.amount < 0 ? .spending : .transfer, .account(named.id))
+            } else if let suggested = StatementWords.suggestion(for: line.text, amount: line.amount) {
+                chosen = (suggested, .words)
+            } else {
+                chosen = (line.amount >= 0 ? .income : .spending, .sign)
+            }
+            return StatementLine(row: line.row, date: line.date, amount: line.amount, text: line.text,
+                                 balance: line.balance, statementClass: chosen.0, source: chosen.1)
+        }
+    }
+
+    /// The library's trades of other accounts that move money from or to a
+    /// bank account: deposits and withdrawals, and buys, sales, fees and
+    /// taxes paid from outside their account, each with the amount it puts
+    /// on the bank's statement (a deposit of 500 is −500 there).
+    private func transferTrades(excluding account: AccountID) -> [(trade: Trade, amount: Decimal)] {
+        library.allTrades.compactMap { trade in
+            guard trade.account != account, let amount = trade.amount else { return nil }
+            if trade.type == .deposit || trade.type == .withdrawal { return (trade, -amount) }
+            if trade.isSettledExternally, [.buy, .sell, .fee, .tax].contains(trade.type) { return (trade, amount) }
+            return nil
+        }
+    }
+
+    /// The trades that the `lines` (indices into `read`) are, by line:
+    /// trades moving a line's amount within ``transferDays``, each matching
+    /// one line, the nearest pairs first.
+    private func matchTrades(_ read: [ReadLine], lines: [Int], excluding account: AccountID) -> [Int: TradeKey] {
+        let trades = transferTrades(excluding: account)
+        var pairs: [(line: Int, trade: Int, days: Int)] = []
+        for line in lines {
+            for (index, trade) in trades.enumerated() where trade.amount == read[line].amount {
+                let days = abs(trade.trade.date.days(to: read[line].date))
+                if days <= Self.transferDays { pairs.append((line, index, days)) }
+            }
+        }
+        var matched: [Int: TradeKey] = [:]
+        var used = Set<Int>()
+        for pair in pairs.sorted(by: { ($0.days, $0.line, $0.trade) < ($1.days, $1.line, $1.trade) })
+        where matched[pair.line] == nil && !used.contains(pair.trade) {
+            matched[pair.line] = trades[pair.trade].trade.key
+            used.insert(pair.trade)
+        }
+        return matched
+    }
+
+    /// The names that stand for the library's other accounts in a line's
+    /// text: each account's name, and its institution when it isn't this
+    /// account's bank. Names of four letters or fewer, and names made only
+    /// of words any account could have (`Conto corrente`, `Savings`,
+    /// `Credit card`), say too little.
+    private func accountNames(excluding account: Account) -> [(phrase: String, id: AccountID, isLiability: Bool)] {
+        let generic = Set(Keywords.genericAccountWords)
+        let ownBank = account.institution.map(TextTools.words)
+        var names: [(phrase: String, id: AccountID, isLiability: Bool)] = []
+        for other in library.accounts.values.sorted(by: { $0.id < $1.id }) where other.id != account.id {
+            var candidates = [TextTools.words(other.name)]
+            if let institution = other.institution.map(TextTools.words), institution != ownBank {
+                candidates.append(institution)
+            }
+            for words in candidates where words.joined().count > 4 && !words.allSatisfy(generic.contains) {
+                names.append((words.joined(separator: " "), other.id, other.kind.isLiability))
+            }
+        }
+        return names
+    }
+
+    /// The account whose name is the longest one the text has.
+    private static func namedAccount(in text: String, names: [(phrase: String, id: AccountID, isLiability: Bool)])
+        -> (id: AccountID, isLiability: Bool)? {
+        let words = TextTools.words(text)
+        return names.filter { TextTools.contains(words, anyOf: [$0.phrase]) }
+            .max { $0.phrase.count < $1.phrase.count }.map { ($0.id, $0.isLiability) }
+    }
+
+    // MARK: - Values
+
+    /// The account's values over the days the file covers (unless the
+    /// session gives them, from its first month's first day to its last
+    /// month's last day, or today in the month that isn't over): one at
+    /// each of the account's values in the span, one at the end of each
+    /// month without one, and one on the last day the session gives. Each has the balance, and
+    /// when the file covers its whole period, from the value before it,
+    /// money in and out (and interest) and the flow. Sets each line's
+    /// ``StatementLine/period``.
+    private mutating func statementValues(_ lines: inout [StatementLine], read: [ReadLine],
+                                          account: Account) -> [ImportRecordKey: Accumulator] {
+        guard let firstDate = lines.first?.date, let lastDate = lines.last?.date else { return [:] }
+        let start = session.statementFrom ?? firstDate.startOfMonth
+        let end = session.statementThrough ?? max(lastDate, min(lastDate.endOfMonth, today))
+        if let through = session.statementThrough, through > today {
+            issues.append(ImportIssue(kind: .statementThroughAfterToday(through)))
+            return [:]
+        }
+        let outside = lines.filter { $0.date < start || $0.date > end }.count
+        guard outside == 0 else {
+            issues.append(ImportIssue(kind: .linesOutsidePeriod(count: outside, from: start, through: end)))
+            return [:]
+        }
+        issues.append(ImportIssue(kind: .statementPeriod(from: start, through: end)))
+        let valuations = library.valuations(for: account.id)
+        let anchor = valuations.last { $0.date < start }
+        var cuts = Set(valuations.map(\.date).filter { $0 >= start && $0 <= end })
+        var month = start.yearMonth
+        while month <= end.yearMonth {
+            if month.lastDay <= end, !cuts.contains(where: { month.contains($0) }) { cuts.insert(month.lastDay) }
+            month = month.next
+        }
+        // A file said to end on a day has a value on that day, which the next file follows on from.
+        if session.statementThrough != nil { cuts.insert(end) }
+        let balances = RunningBalances(lines)
+        if balances.breaks > 0 { issues.append(ImportIssue(kind: .runningBalanceBreaks(count: balances.breaks))) }
+        let fromFile = balances.opening
+        let adjacent = anchor.map { $0.date >= start.adding(days: -1) } ?? false
+        let opening = fromFile ?? session.statementOpeningBalance ?? (adjacent ? anchor?.balance : nil)
+        // The file follows on from the value before it when that value is on the day before it, unless the
+        // balance before the file's first line, from the file or given, isn't that value's balance; or
+        // across a gap when the file's balance column says it is.
+        let firstCovered = anchor.map { anchor in
+            if let fromFile { return fromFile == anchor.balance }
+            return adjacent && (session.statementOpeningBalance.map { $0 == anchor.balance } ?? true)
+        } ?? false
+        guard opening != nil || balances.hasBalances else {
+            issues.append(ImportIssue(kind: .needsOpeningBalance(account.id)))
+            return [:]
+        }
+
+        var records: [ImportRecordKey: Accumulator] = [:]
+        let sortedCuts = cuts.sorted()
+        var previous: (date: CalendarDate, balance: Decimal?)? = anchor.map { ($0.date, $0.balance) }
+        for (index, cut) in sortedCuts.enumerated() {
+            let covered = index > 0 || firstCovered
+            let inPeriod = lines.indices.filter { index in
+                lines[index].date <= cut && previous.map { lines[index].date > $0.date } ?? true
+            }
+            let balance = balances.balance(on: cut, opening: opening)
+            defer { previous = (cut, balance) }
+            guard let balance else { continue }
+            var record = ImportedRecord(key: .valuation(ValuationKey(account: account.id, date: cut)))
+            record.balance = balance
+            var cells = inPeriod.flatMap { read[$0].cells }
+            if covered, previous != nil {
+                var moneyIn: Decimal = 0, moneyOut: Decimal = 0, interest: Decimal = 0
+                for index in inPeriod {
+                    lines[index].period = cut
+                    let counted = lines[index].counted(recordsInterest: account.kind.recordsInterest)
+                    moneyIn += counted.moneyIn
+                    moneyOut += counted.moneyOut
+                    interest += counted.interest
+                }
+                record.moneyIn = moneyIn
+                record.moneyOut = moneyOut
+                if interest != 0 { record.interest = interest }
+                if let previousBalance = previous?.balance {
+                    record.flow = balance - previousBalance - (account.kind.recordsInterest ? interest : 0)
+                }
+            }
+            cells.sort()
+            records[record.key] = Accumulator(record: record, cells: cells)
+        }
+        if !firstCovered, let first = sortedCuts.first {
+            issues.append(ImportIssue(kind: .moneyInOutFrom(account.id, value: first, previous: anchor?.date)))
+        }
+        // Only a last value with money in and out of its own counts twice with a later value's.
+        if let last = sortedCuts.last, !valuations.contains(where: { $0.date == last }),
+           let record = records[.valuation(ValuationKey(account: account.id, date: last))]?.record,
+           record.moneyIn != nil || record.moneyOut != nil,
+           let later = valuations.first(where: { $0.date > end }), later.moneyIn != nil || later.moneyOut != nil {
+            let since = valuations.last { $0.date < later.date }?.date
+            issues.append(ImportIssue(kind: .laterMoneyInOut(account.id, value: later.date, since: since)))
+        }
+        let after = lines.filter { line in sortedCuts.last.map { line.date > $0 } ?? true }
+        if !after.isEmpty {
+            issues.append(ImportIssue(kind: .linesAfterLastValue(count: after.count, after: sortedCuts.last)))
+        }
+        return records
+    }
+}
+
+/// The balances a statement's balance column gives: the balance at the end
+/// of each day that has one, and the balance before the first line.
+private struct RunningBalances {
+    private var lines: [StatementLine]
+    /// The balance at the end of each day with a balance.
+    private var dayEnds: [(date: CalendarDate, balance: Decimal)] = []
+    /// The balance before the file's first line, worked out from the first balance.
+    private(set) var opening: Decimal?
+    /// Days whose balance doesn't follow from the day before and its lines.
+    private(set) var breaks = 0
+
+    var hasBalances: Bool { !dayEnds.isEmpty }
+
+    /// Of a day's balances, the end of the day is the one that follows from
+    /// the day before and the day's lines, since a day's lines can be
+    /// listed in any order; else the last one.
+    init(_ lines: [StatementLine]) {
+        self.lines = lines
+        let days = Dictionary(grouping: lines, by: \.date)
+        var previous: Decimal?
+        for date in days.keys.sorted() {
+            let day = days[date] ?? []
+            let candidates = day.compactMap(\.balance)
+            let sum = day.reduce(Decimal(0)) { $0 + $1.amount }
+            guard let last = candidates.last else {
+                previous = previous.map { $0 + sum }
+                continue
+            }
+            let expected = previous.map { $0 + sum }
+            let end = expected.flatMap { expected in candidates.first { $0 == expected } } ?? last
+            if let expected, end != expected { breaks += 1 }
+            if dayEnds.isEmpty {
+                opening = end - lines.filter { $0.date <= date }.reduce(Decimal(0)) { $0 + $1.amount }
+            }
+            dayEnds.append((date, end))
+            previous = end
+        }
+    }
+
+    /// The balance at the end of `date`: from the latest day with a balance
+    /// on or before it, else from `opening`, plus the lines after it.
+    func balance(on date: CalendarDate, opening: Decimal?) -> Decimal? {
+        let known = dayEnds.last { $0.date <= date }
+        guard let base = known?.balance ?? opening else { return nil }
+        return base + lines.filter { line in line.date <= date && known.map { line.date > $0.date } ?? true }
+            .reduce(Decimal(0)) { $0 + $1.amount }
+    }
+}

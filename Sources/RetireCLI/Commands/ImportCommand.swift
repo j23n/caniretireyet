@@ -59,10 +59,22 @@ struct ImportCommand: RetireSubcommand {
             is switched only with --accept-trades-mode; otherwise its trades are left out. --settlement external \
             says the file's buys and sales were paid from another account (a dealer's invoices \
             paid from the bank): they leave the account's cash alone.
+
+            A bank statement (dates, a description, and signed amounts or columns for money in \
+            and out) is read as one cash or savings account's lines (--layout statement, with \
+            --account <id>). Each line is income, spending, a transfer between your accounts, \
+            interest, or ignored: by a rule, a trade of another account moving the same amount, \
+            another account's name in the text, the usual words, else its sign. The lines become \
+            the account's values at its values in the file's months and at the end of the other \
+            months, with the balance and money in and out. Correct classes with --class \
+            "Giroconto=transfer"; --save-profile keeps them. The file is taken to cover whole \
+            months; --from and --through give the days a file of the last 90 days, or one \
+            exported mid-month, covers. A file without a balance column that doesn't follow on \
+            from the library's values needs --opening-balance.
             """)
 
     enum Layout: String, ExpressibleByArgument, CaseIterable {
-        case wide, long, trades
+        case wide, long, trades, statement
 
         var value: ImportLayout { ImportLayout(rawValue: rawValue) }
     }
@@ -124,13 +136,31 @@ struct ImportCommand: RetireSubcommand {
                                valueName: "row"))
     var headerRow: Int?
 
-    @Option(help: ArgumentHelp("Without a profile: wide (a row per date), long (a row per record) or trades (a row "
-                                   + "per trade). Default: detected."))
+    @Option(help: ArgumentHelp("Without a profile: wide (a row per date), long (a row per record), trades (a row "
+                                   + "per trade) or statement (a row per line of a bank statement). Default: detected."))
     var layout: Layout?
 
     @Option(help: ArgumentHelp("The account every row belongs to, when the file has no account column (long and "
-                                   + "trades layouts).", valueName: "id"))
+                                   + "trades layouts), or the statement's account.", valueName: "id"))
     var account: String?
+
+    @Option(name: .customLong("class"), parsing: .singleValue,
+            help: ArgumentHelp("Statement: make every line whose text has these words income, spending, transfer, "
+                                   + "interest or ignore. Repeatable.", valueName: "words=class"))
+    var classes: [String] = []
+
+    @Option(help: ArgumentHelp("Statement: the account's balance before the file's first line, for a file without a "
+                                   + "balance column that doesn't follow on from the library's values.",
+                               valueName: "amount"))
+    var openingBalance: String?
+
+    @Option(help: ArgumentHelp("Statement: the first day the file covers. Default: the first day of its first "
+                                   + "line's month.", valueName: "YYYY-MM-DD"))
+    var from: String?
+
+    @Option(help: ArgumentHelp("Statement: the last day the file covers, which gets a value. Default: the last day "
+                                   + "of its last line's month, or today.", valueName: "YYYY-MM-DD"))
+    var through: String?
 
     @Option(name: .customLong("type"), parsing: .singleValue,
             help: ArgumentHelp("Trades: map a type word of the file to a trade type (buy, sell, dividend, interest, "
@@ -227,7 +257,28 @@ struct ImportCommand: RetireSubcommand {
             throw ValidationError("--type needs a word and a trade type, e.g. --type \"Giroconto=deposit\", not "
                 + "“\(mapping)”.")
         }
+        for rule in classes where Self.classRule(rule) == nil {
+            throw ValidationError("--class needs words and a class (income, spending, transfer, interest or ignore), "
+                + "e.g. --class \"Giroconto=transfer\", not “\(rule)”.")
+        }
+        if let openingBalance, Decimal(fileString: openingBalance) == nil {
+            throw ValidationError("--opening-balance needs a number such as 1234.56, not “\(openingBalance)”.")
+        }
+        let period = (try parseDate(from, option: "--from"), try parseDate(through, option: "--through"))
+        if let from = period.0, let through = period.1, from > through {
+            throw ValidationError("--from must be on or before --through.")
+        }
         if rows < 0 { throw ValidationError("--rows can't be negative.") }
+    }
+
+    /// `Giroconto=transfer` → the words and the class; `nil` unless the class is known.
+    static func classRule(_ text: String) -> (words: String, class: StatementClass)? {
+        guard let equals = text.lastIndex(of: "=") else { return nil }
+        let words = text[..<equals].trimmingCharacters(in: .whitespaces)
+        let statementClass = StatementClass(rawValue: text[text.index(after: equals)...]
+            .trimmingCharacters(in: .whitespaces))
+        guard !words.isEmpty, statementClass.isKnown else { return nil }
+        return (words, statementClass)
     }
 
     /// `Giroconto=deposit` → the word and the type; `nil` unless the type is
@@ -269,6 +320,9 @@ struct ImportCommand: RetireSubcommand {
             data = try Data(contentsOf: fileURL)
         } catch {
             throw CLIError("Can't read \(fileURL.path): \(error.localizedDescription)")
+        }
+        if let through = try parseDate(through, option: "--through"), through > context.today {
+            throw ValidationError("--through can't be after today, \(context.today).")
         }
         let session = try makeSession(data, library: loaded.library)
         var preview = session.preview(against: loaded.library, today: context.today)
@@ -340,6 +394,14 @@ struct ImportCommand: RetireSubcommand {
         for mapping in types {
             if let (word, type) = Self.typeMapping(mapping) { session.setTradeType(type, for: word) }
         }
+        for rule in classes {
+            if let (words, statementClass) = Self.classRule(rule) { session.setStatementRule(statementClass, for: words) }
+        }
+        if let openingBalance {
+            session.statementOpeningBalance = Decimal(fileString: openingBalance)
+        }
+        session.statementFrom = from.flatMap { CalendarDate($0) }
+        session.statementThrough = through.flatMap { CalendarDate($0) }
         if let onConflict { session.profile.onConflict = onConflict.policy }
         return session
     }
