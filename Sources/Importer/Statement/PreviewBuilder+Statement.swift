@@ -277,6 +277,7 @@ extension PreviewBuilder {
                 }
                 record.moneyIn = moneyIn
                 record.moneyOut = moneyOut
+                record.countsMoneyInOutFromLines = true
                 if interest != 0 { record.interest = interest }
                 if let previousBalance = previous?.balance {
                     record.flow = balance - previousBalance - (account.kind.recordsInterest ? interest : 0)

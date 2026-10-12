@@ -76,6 +76,9 @@ struct ImportDoneStep: View {
                              message: "The library's files are back to how they were before it.")
             } else if receipt.hasChanges {
                 StatusBanner(.success, "Imported \(receipt.fileName)", personal: .title)
+            } else if receipt.kept > 0 {
+                StatusBanner(.info, "Nothing changed", message: "Every record that differs was a conflict, and the "
+                    + "library's values were kept.")
             } else {
                 StatusBanner(.info, "Nothing to import", message: "The library already has everything in the file.")
             }

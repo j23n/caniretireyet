@@ -241,11 +241,46 @@ struct StatementImportTests {
         #expect(checkIn.imported.balance == d("6244.45"))
         #expect(checkIn.imported.moneyIn == 2800)
         #expect(checkIn.imported.moneyOut == d("1266.40"))
-        // The check-in's money out differs: the policy decides.
-        #expect(checkIn.status == .conflict)
+        // The balance agrees, so the money out counted from the lines replaces the check-in's guess.
+        #expect(checkIn.status == .updated)
+        #expect(checkIn.incoming == .valuation(Valuation(
+            account: "conto", date: "2026-02-20", balance: d("6244.45"), flow: d("1033.60"), moneyIn: 2800,
+            moneyOut: d("1266.40"), source: .import)))
         let march = try #require(preview.record(.valuation("conto", "2026-03-31")))
         #expect(march.imported.moneyOut == 60)
         #expect(march.imported.flow == d("2576.20"))
+        let written = preview.apply(to: library).library.valuations(for: "conto").first { $0.date == "2026-02-20" }
+        #expect(written?.moneyOut == d("1266.40"))
+    }
+
+    @Test func aLineClassifiedAgainReplacesTheMoneyInAndOutImportedBefore() throws {
+        let library = Self.library(deposit: true)
+        var session = try Self.session("italian-bank.csv", account: "conto")
+        let first = session.preview(against: library, today: Self.today).apply(to: library).library
+        // The salary of February, income, made a transfer: February's money in drops by it.
+        let pay = try #require(session.preview(against: first, today: Self.today).statementLines
+            .first { $0.date.yearMonth == "2026-02" && $0.statementClass == .income })
+        session.setStatementClass(.transfer, forRow: pay.row)
+        let again = session.preview(against: first, today: Self.today)
+        let february = try #require(again.record(.valuation("conto", "2026-02-28")))
+        #expect(february.status == .updated)
+        #expect(february.imported.moneyIn == 2800 - pay.amount)
+        let written = again.apply(to: first).library.valuations(for: "conto").first { $0.date == "2026-02-28" }
+        #expect(written?.moneyIn == 2800 - pay.amount)
+        #expect(written?.moneyOut == d("1266.40"))
+    }
+
+    @Test func moneyInAndOutWithADifferentBalanceAreAConflict() throws {
+        var library = Self.library(deposit: true)
+        library.upsert(Valuation(account: "conto", date: "2026-02-20", balance: d("6000"), moneyIn: 2800,
+                                 moneyOut: d("1766.40")))
+        let preview = try Self.session("italian-bank.csv", account: "conto").preview(against: library,
+                                                                                     today: Self.today)
+        let checkIn = try #require(preview.record(.valuation("conto", "2026-02-20")))
+        // The balance differs: the policy decides the value as a whole.
+        #expect(checkIn.status == .conflict)
+        let kept = preview.apply(to: library).library.valuations(for: "conto").first { $0.date == "2026-02-20" }
+        #expect(kept?.moneyOut == d("1766.40"))
     }
 
     @Test func aSavingsAccountsInterestIsItsOwn() throws {

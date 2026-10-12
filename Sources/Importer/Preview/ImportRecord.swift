@@ -106,6 +106,11 @@ public struct ImportedRecord: Hashable, Sendable {
     /// Follows from the balance and the interest, so it's never a conflict
     /// of its own: it changes with them, or fills in a missing one.
     public var flow: Decimal?
+    /// Whether money in and out (and interest) were counted from a bank
+    /// statement's classified lines: they replace the library's when the
+    /// balance agrees, since the lines say what the value's own were
+    /// (docs/IMPORT.md, "Bank statements").
+    public internal(set) var countsMoneyInOutFromLines = false
     /// Prices: the price and its currency.
     public var price: Decimal?
     public var currency: CurrencyCode?
@@ -357,13 +362,23 @@ enum RecordMerge {
                 }
             }
         }
+        // A statement's money in and out, counted from the lines as they're
+        // classified now, replace the library's when the balance agrees: a
+        // check-in's guess or an earlier import of the file.
+        let recounts = imported.countsMoneyInOutFromLines && !conflict
+        var recounted = false
         for (path, value) in [(\Valuation.moneyIn, imported.moneyIn), (\.moneyOut, imported.moneyOut),
                               (\.interest, imported.interest)] {
             guard let value else { continue }
             if let old = valuation[keyPath: path] {
                 if old != value {
-                    conflict = true
-                    if overwrite { valuation[keyPath: path] = value }
+                    if recounts {
+                        recounted = true
+                    } else {
+                        conflict = true
+                        if !overwrite { continue }
+                    }
+                    valuation[keyPath: path] = value
                 }
             } else {
                 valuation[keyPath: path] = value
@@ -371,8 +386,10 @@ enum RecordMerge {
         }
         // The flow follows the balances and the interest: it's filled in, and
         // replaced only with the values it's worked out from.
-        if let flow = imported.flow, valuation.flow == nil || (overwrite && conflict) { valuation.flow = flow }
-        if overwrite, conflict { valuation.source = .import }
+        if let flow = imported.flow, valuation.flow == nil || recounted || (overwrite && conflict) {
+            valuation.flow = flow
+        }
+        if recounted || (overwrite && conflict) { valuation.source = .import }
         return (valuation, conflict)
     }
 }
