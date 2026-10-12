@@ -109,18 +109,23 @@ extension PreviewBuilder {
     /// another account moving the same amount, another account named in
     /// the text, the usual words, else the sign.
     private func classify(_ read: [ReadLine], account: Account) -> [StatementLine] {
-        var trades = transferTrades(excluding: account.id)
         let names = accountNames(excluding: account)
-        return read.map { line in
+        let open = read.indices.filter { index in
+            session.statementLineClasses[read[index].row] == nil && session.statementRule(for: read[index].text) == nil
+        }
+        let trades = matchTrades(read, lines: open, excluding: account.id)
+        return read.indices.map { index in
+            let line = read[index]
             let chosen: (StatementClass, StatementLine.Source)
             if let statementClass = session.statementLineClasses[line.row] {
                 chosen = (statementClass, .chosen)
             } else if let rule = session.statementRule(for: line.text) {
                 chosen = (rule.statementClass, .rule(rule.match))
-            } else if let index = Self.matchingTrade(for: line, in: trades) {
-                chosen = (.transfer, .trade(trades.remove(at: index).trade.key))
+            } else if let trade = trades[index] {
+                chosen = (.transfer, .trade(trade))
             } else if let named = Self.namedAccount(in: line.text, names: names) {
-                chosen = (named.isLiability ? .spending : .transfer, .account(named.id))
+                // Paying a debt is spending; a loan paid out into the account is moved between accounts.
+                chosen = (named.isLiability && line.amount < 0 ? .spending : .transfer, .account(named.id))
             } else if let suggested = StatementWords.suggestion(for: line.text, amount: line.amount) {
                 chosen = (suggested, .words)
             } else {
@@ -144,11 +149,26 @@ extension PreviewBuilder {
         }
     }
 
-    /// The trade moving a line's amount nearest its date, within ``transferDays``.
-    private static func matchingTrade(for line: ReadLine, in trades: [(trade: Trade, amount: Decimal)]) -> Int? {
-        trades.indices.filter { index in
-            trades[index].amount == line.amount && abs(trades[index].trade.date.days(to: line.date)) <= transferDays
-        }.min { abs(trades[$0].trade.date.days(to: line.date)) < abs(trades[$1].trade.date.days(to: line.date)) }
+    /// The trades that the `lines` (indices into `read`) are, by line:
+    /// trades moving a line's amount within ``transferDays``, each matching
+    /// one line, the nearest pairs first.
+    private func matchTrades(_ read: [ReadLine], lines: [Int], excluding account: AccountID) -> [Int: TradeKey] {
+        let trades = transferTrades(excluding: account)
+        var pairs: [(line: Int, trade: Int, days: Int)] = []
+        for line in lines {
+            for (index, trade) in trades.enumerated() where trade.amount == read[line].amount {
+                let days = abs(trade.trade.date.days(to: read[line].date))
+                if days <= Self.transferDays { pairs.append((line, index, days)) }
+            }
+        }
+        var matched: [Int: TradeKey] = [:]
+        var used = Set<Int>()
+        for pair in pairs.sorted(by: { ($0.days, $0.line, $0.trade) < ($1.days, $1.line, $1.trade) })
+        where matched[pair.line] == nil && !used.contains(pair.trade) {
+            matched[pair.line] = trades[pair.trade].trade.key
+            used.insert(pair.trade)
+        }
+        return matched
     }
 
     /// The names that stand for the library's other accounts in a line's

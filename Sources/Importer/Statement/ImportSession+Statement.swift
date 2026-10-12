@@ -52,8 +52,10 @@ extension ImportSession {
         if numbers.contains(where: { Keywords.header($0.header, has: Keywords.quantity + Keywords.price) }) {
             return false
         }
+        // A long file's `Account name` names accounts, not who was paid.
         let hasText = columns.contains {
             $0.kind == .text && Keywords.header($0.header, has: Keywords.statementDescription + Keywords.counterparty)
+                && !Keywords.header($0.header, has: Keywords.account + Keywords.instrument)
         }
         guard hasText else { return false }
         let hasCredit = numbers.contains { Keywords.header($0.header, has: Keywords.statementCredit) }

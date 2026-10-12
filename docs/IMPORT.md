@@ -344,8 +344,8 @@ Each line gets the class of the first of these that says one:
 
 1. **Chosen for the line** (`ImportSession.setStatementClass(_:forRow:)`), for this file only.
 2. **A rule** in the profile's `rules`: a phrase the line's text has as whole words, ignoring case, accents and punctuation. The longest phrase wins. `--class "Giroconto=transfer"` adds one, and saving the profile keeps the rules, so a correction made once holds for the next statement.
-3. **A trade of another account** that moves the same amount within 4 days: a transfer. It's a deposit (a deposit of 500 is −500 on the statement), a withdrawal, or a buy, sale, fee or tax [paid from outside its account](TRADES.md#paid-from-outside-the-account). Each trade matches one line, the nearest in date.
-4. **Another account's name** in the text, or its institution when it isn't this account's bank: a transfer, or spending for a credit card, a loan or a mortgage. Names of four letters or fewer, and names made only of words any account could have (`Conto corrente`, `Savings`), don't count.
+3. **A trade of another account** that moves the same amount within 4 days: a transfer. It's a deposit (a deposit of 500 is −500 on the statement), a withdrawal, or a buy, sale, fee or tax [paid from outside its account](TRADES.md#paid-from-outside-the-account). Each trade matches one line and each line one trade, the pairs nearest in date first.
+4. **Another account's name** in the text, or its institution when it isn't this account's bank: a transfer. Money out to a credit card, a loan or a mortgage is spending, since paying a debt is (money in from one, such as a loan paid out, is a transfer). Names of four letters or fewer, and names made only of words any account could have (`Conto corrente`, `Savings`), don't count.
 5. **The usual words:** `Giroconto`, `Girofondi`, `Umbuchung`, `Übertrag` or `Internal transfer` for a transfer. For money in only, `Stipendio`, `Emolumenti`, `Gehalt`, `Lohn`, `Salary` or `Payroll` for income, and `Interessi`, `Zinsen` or `Interest` for interest.
 6. **The sign:** money in is income, money out spending.
 

@@ -53,6 +53,13 @@ struct StatementImportTests {
             #expect(!session.looksLikeStatement, "\(name)")
             #expect(session.profile.layout != .statement, "\(name)")
         }
+        // A long file whose debts are negative names accounts, not who was paid.
+        let long = """
+            Date,Account name,Amount,Currency
+            2026-01-31,Conto corrente,5210.85,EUR
+            2026-01-31,Mutuo casa,-120000.00,EUR
+            """
+        #expect(try !ImportSession(data: Data(long.utf8)).looksLikeStatement)
     }
 
     @Test func columnsAreProposedByTheirHeaders() throws {
@@ -113,15 +120,32 @@ struct StatementImportTests {
         #expect(try Self.line(preview, row: 11).source == .sign)
         library.accounts["visa"]?.institution = "Esempio Credito"
         let card = """
-            Data;Uscite;Descrizione
-            20/02/2026;320,50;Addebito Esempio Credito
+            Data;Entrate;Uscite;Descrizione
+            20/02/2026;;320,50;Addebito Esempio Credito
+            25/02/2026;40,00;;Rimborso Esempio Credito
             """
         var paid = try ImportSession(data: Data(card.utf8))
         paid.proposeMapping(layout: .statement)
         paid.profile.constants.account = "conto"
-        let line = try #require(paid.preview(against: library, today: Self.today).statementLines.first)
-        #expect(line.source == .account("visa"))
-        #expect(line.statementClass == .spending)
+        let lines = paid.preview(against: library, today: Self.today).statementLines
+        #expect(lines.map(\.source) == [.account("visa"), .account("visa")])
+        // Paying the card is spending; money back from it is moved between accounts.
+        #expect(lines.map(\.statementClass) == [.spending, .transfer])
+    }
+
+    @Test func eachTradeMatchesTheLineNearestIt() throws {
+        let csv = """
+            Data;Uscite;Descrizione
+            03/02/2026;500,00;Affitto
+            06/02/2026;500,00;Bonifico
+            """
+        var session = try ImportSession(data: Data(csv.utf8))
+        session.proposeMapping(layout: .statement)
+        session.profile.constants.account = "conto"
+        // The deposit of 500 into the broker on 6 February is the second line, not the first.
+        let lines = session.preview(against: Self.library(deposit: true), today: Self.today).statementLines
+        #expect(lines.map(\.statementClass) == [.spending, .transfer])
+        #expect(lines.map(\.date) == ["2026-02-03", "2026-02-06"])
     }
 
     @Test func rulesAndChosenClassesCorrectLines() throws {
