@@ -1015,7 +1015,7 @@ A window with steps along the top, as described in [IMPORT.md](IMPORT.md):
 
 1. **File.** A drop zone, or the result of dragging a file onto the app.
 2. **Format.** The detected settings, each a picker with a live sample: encoding, delimiter, header row, decimal and thousands separators, date format, and whether empty cells are skipped.
-3. **Columns.** A table: the column header, sample values, *Imports as* (Balance of…, Quantity of…, Price of…, Ignore), and a per-column format override. The layout: a row per date, per record, or per trade.
+3. **Columns.** A table: the column header, sample values, *Imports as* (Balance of…, Quantity of…, Price of…, Ignore), and a per-column format override. The layout: a row per date, per record, per trade, or a bank statement.
 4. **Accounts.** Names in the file matched to accounts (existing, new, or ignored), plus proposed closings, which are off until you turn them on.
 5. **Preview.** The parsed grid with errors highlighted, counts (new, updated, identical, conflicting), and the conflict policy.
 6. **Done.** A summary, **Undo import**, and **Save as profile**. When the import created instruments that have no price source (a broker's export gives an ISIN and a ticker, never a source), a **Price sources** section lists them with **Find Price Sources…**: a sheet searches Yahoo Finance for each one in turn by its ISIN, else its ticker, else its name, and chooses the first listing in its currency, as *Find…* in the instrument editor does ([Accounts](#accounts)). Each can take another listing, none, or another search; *Save* sets the chosen ones in one edit. When the import's positions are valued on dates without a price, a **Past prices** section lists them ("12 past values have no price for XAU") with **Fill In Past Prices…** ([Adding history](#adding-history)).
@@ -1027,6 +1027,16 @@ A broker's transactions (Directa's or Fineco's movements, Degiro's or IBKR's exp
 - **Types**, between Columns and Accounts: each word the file uses for a transaction ("Acquisto", "Ritenuta su dividendo", "Giroconto") with its number of rows, where its type comes from (the usual word, set by you or the profile), and a picker of trade types, or *Leave out*. A word the importer doesn't know shows a warning and its rows are left out until you choose; nothing is guessed. Below, how amounts are signed (automatic, without signs: from the type, signed: as written) and notes on how the file's signs were read.
 - **Accounts** proposes making an account record trades when the file has trades for one that doesn't, with what that changes. It's off until you turn it on; while off, its trades are left out. Or choose another account.
 - **Preview** shows the trades like other records ("Directa, buy, 12 Jan 2026 · Buy 15 VWCE at 102,30 · −1.539,50 € · fees 5 €"), with how many of the records are trades; **Done** counts them, names the accounts now recording trades, and has **Undo import** as always.
+
+A bank's statement of a current or savings account is recognized when the file is read and imported as the account's money in and out, *A bank statement* ([IMPORT.md](IMPORT.md#bank-statements)):
+
+- **Columns** offers the statement's fields (Date, Amount (+ in, − out), Money in, Money out, Description, Counterparty, Balance) and *Account*: a cash or savings account that doesn't record trades.
+- **Classify**, between Columns and Accounts:
+  - **Days:** the days the file is read as covering, whole months by default. *Starts on a day of its own* and *Ends on a day of its own* give the first and last day of a file that covers part of a month; the last can't be after today. A field for the balance before the first line appears when the file has no balance column and doesn't follow on from the library's values. Notes say how the lines became values.
+  - **Classes:** income, spending, transfer, interest and *Left out*, each with its number of lines and its money in and out.
+  - **Lines:** each line's text, date, amount and class, and why it has it: your rule, a trade of another account, another account's name, the usual words, or *By its sign*, in the warning color, since nothing else said. A menu changes the class for that line alone, or *Make a Rule…* opens a sheet: the words a line's text must have (starting from its text up to the first number), the class, and how many lines of the file the rule takes.
+  - **Rules:** the profile's rules, each with a button to remove it. Saving the profile keeps them for next month's file.
+- **Preview** shows each value's money in and out, after its balance.
 
 On iPhone, a CSV opened from Files goes straight to "Import with profile…": choose the profile, preview, import.
 

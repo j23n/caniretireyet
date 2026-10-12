@@ -19,7 +19,9 @@ struct ImportAccountsStep: View {
         Form {
             if names.isEmpty && newAccounts.isEmpty && newInstruments.isEmpty && changes.isEmpty {
                 Section {
-                    Text("No accounts or instruments are named yet: say what the columns hold in Columns.")
+                    Text(flow.layout == .statement
+                         ? "A bank statement is of the one account chosen in Columns: there are no names to match."
+                         : "No accounts or instruments are named yet: say what the columns hold in Columns.")
                         .foregroundStyle(Palette.secondaryInk)
                 }
             }

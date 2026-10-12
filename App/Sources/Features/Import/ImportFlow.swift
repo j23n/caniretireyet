@@ -3,12 +3,14 @@ import Importer
 import Model
 
 /// A step of the import, shown along the top (UI.md, "Import"; IMPORT.md, "Steps").
-/// A broker's transactions (the trades layout) have Types after Columns.
+/// A broker's transactions (the trades layout) have Types after Columns, and
+/// a bank statement (the statement layout) has Classify.
 enum ImportStep: Int, Hashable, Sendable, Comparable {
     case file
     case format
     case columns
     case types
+    case classify
     case accounts
     case preview
     case done
@@ -19,6 +21,7 @@ enum ImportStep: Int, Hashable, Sendable, Comparable {
         case .format: "Format"
         case .columns: "Columns"
         case .types: "Types"
+        case .classify: "Classify"
         case .accounts: "Accounts"
         case .preview: "Preview"
         case .done: "Done"
@@ -167,6 +170,9 @@ struct ImportFlow: Sendable {
     var steps: [ImportStep] {
         if isGuided { return [.file, .preview, .done] }
         if session?.profile.layout == .trades { return [.file, .format, .columns, .types, .accounts, .preview, .done] }
+        if session?.profile.layout == .statement {
+            return [.file, .format, .columns, .classify, .accounts, .preview, .done]
+        }
         return [.file, .format, .columns, .accounts, .preview, .done]
     }
 

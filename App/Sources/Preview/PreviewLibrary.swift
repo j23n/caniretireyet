@@ -9,7 +9,7 @@ import Tracker
 /// Ten accounts (current, savings, a broker that records trades of an ETF,
 /// a bitcoin wallet, gold coins, a pension fund, TFR, a home and its
 /// mortgage, and a closed bank account), month-end check-ins from October
-/// 2025 to September 2026, the broker's trades, two plans, two import
+/// 2025 to September 2026, the broker's trades, two plans, three import
 /// profiles, a baseline and the headlines recorded at each check-in. All
 /// names and amounts are made up.
 ///

@@ -93,6 +93,10 @@ struct ImportColumnsStep: View {
         case .trades:
             "Each row is one trade from a broker's export: its date, type, instrument, quantity, price and amounts "
                 + "in columns. The next step maps the file's words to trade types."
+        case .statement:
+            "Each row is a line of one cash or savings account's bank statement: its date, description and amount, "
+                + "or money in and out, in columns. The next step sorts the lines into income, spending and "
+                + "transfers between your accounts."
         default: "Each row is a date; each column an account, holding, price or rate, named by its header."
         }
     }
@@ -171,7 +175,8 @@ private struct ImportColumnsSettings: View {
     }
 }
 
-/// Wide (a row per date) or long (a row per record).
+/// Wide (a row per date), long (a row per record), trades (a row per
+/// trade) or a bank statement (a row per line).
 private struct ImportLayoutPicker: View {
     let model: ImportController
 
@@ -180,6 +185,7 @@ private struct ImportLayoutPicker: View {
             Text(ImportChoices.layoutName(.wide)).tag(ImportLayout.wide)
             Text(ImportChoices.layoutName(.long)).tag(ImportLayout.long)
             Text(ImportChoices.layoutName(.trades)).tag(ImportLayout.trades)
+            Text(ImportChoices.layoutName(.statement)).tag(ImportLayout.statement)
         }
         .pickerStyle(.segmented)
     }
@@ -209,23 +215,38 @@ private struct ImportDateColumnPicker: View {
 }
 
 /// Long layout: the account, instrument and currency of every row, when
-/// the file has no column for them. Trades layout: the account.
+/// the file has no column for them. Trades layout: the account. Statement
+/// layout: the cash or savings account the statement is of.
 private struct ImportConstantsPickers: View {
     let model: ImportController
 
     var body: some View {
         let flow = model.flow
-        Picker("Account of every row", selection: Binding(get: { model.flow.constants.account }, set: { account in
-            model.flow.setConstants { $0.account = account }
-        })) {
-            Text("From a column").tag(AccountID?.none)
-            ForEach(flow.accountChoices) { account in
-                Text(account.name).tag(AccountID?.some(account.id))
+        if flow.layout == .statement {
+            Picker("Account", selection: Binding(get: { model.flow.constants.account }, set: { account in
+                model.flow.setConstants { $0.account = account }
+            })) {
+                Text("Choose…").tag(AccountID?.none)
+                ForEach(flow.statementAccountChoices) { account in
+                    Text(account.name).tag(AccountID?.some(account.id))
+                }
             }
+            .pickerStyle(.menu)
+            .personalControl()
+        } else {
+            Picker("Account of every row", selection: Binding(get: { model.flow.constants.account },
+                                                              set: { account in
+                model.flow.setConstants { $0.account = account }
+            })) {
+                Text("From a column").tag(AccountID?.none)
+                ForEach(flow.accountChoices) { account in
+                    Text(account.name).tag(AccountID?.some(account.id))
+                }
+            }
+            .pickerStyle(.menu)
+            .personalControl()
         }
-        .pickerStyle(.menu)
-        .personalControl()
-        if flow.layout != .trades {
+        if flow.layout == .long {
             Picker("Instrument of every row", selection: Binding(get: { model.flow.constants.instrument },
                                                                  set: { instrument in
                 model.flow.setConstants { $0.instrument = instrument }

@@ -357,6 +357,7 @@ enum ImportChoices {
         switch layout {
         case .long: "A row per record"
         case .trades: "A row per trade"
+        case .statement: "A bank statement"
         default: "A row per date"
         }
     }
