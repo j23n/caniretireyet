@@ -438,7 +438,10 @@ struct ImportReport: CommandReport {
         var lines: [String] = []
         if let outcome {
             let result = outcome.result
-            if !result.hasChanges {
+            if !result.hasChanges, result.kept > 0 {
+                lines.append("Nothing changed: every record that differs is a conflict, and the library's values "
+                    + "were kept (--on-conflict overwrite imports the file's).")
+            } else if !result.hasChanges {
                 lines.append("Nothing to import: the library already has everything in the file.")
             } else {
                 lines.append("Imported: \(result.added) added, \(result.updated) updated, "

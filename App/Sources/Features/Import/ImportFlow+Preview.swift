@@ -212,9 +212,14 @@ extension ImportFlow {
         if needsOpeningBalance {
             reasons.append("Give the balance before the file's first line.")
         } else if planned?.hasChanges != true {
-            reasons.append(preview.records.isEmpty
-                ? "Nothing in the file can be imported yet: say what its columns hold."
-                : "The library already has everything in this file.")
+            if preview.records.isEmpty {
+                reasons.append("Nothing in the file can be imported yet: say what its columns hold.")
+            } else if (planned?.kept ?? 0) > 0 {
+                reasons.append("Everything the file changes is a conflict the library's values are kept for: "
+                    + "overwrite them to import the file's.")
+            } else {
+                reasons.append("The library already has everything in this file.")
+            }
         }
         return reasons
     }
