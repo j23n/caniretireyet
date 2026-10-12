@@ -66,13 +66,19 @@ extension ImportFlow {
     var statementRules: [StatementRule] { session?.profile.rules ?? [] }
 
     /// How many of the file's lines a rule for `phrase` would classify:
-    /// those whose longest matching phrase it would be.
-    func linesMatching(rule phrase: String) -> Int {
-        let phrase = phrase.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard var session, !phrase.isEmpty else { return 0 }
+    /// those whose longest matching phrase it would be, leaving out lines
+    /// whose class was chosen alone. `nil` when `phrase` has no words to
+    /// match (e.g. "–"), so no rule can be made from it.
+    func linesMatching(rule phrase: String) -> Int? {
+        guard var session else { return nil }
+        var alone = session
+        alone.profile.rules = []
+        alone.setStatementRule(.ignore, for: phrase)
+        guard let rule = alone.profile.rules.first else { return nil }
         session.setStatementRule(.ignore, for: phrase)
-        let match = session.statementRule(for: phrase)?.match
-        return statementLines.filter { session.statementRule(for: $0.text)?.match == match }.count
+        return statementLines.filter { line in
+            line.source != .chosen && session.statementRule(for: line.text)?.match == rule.match
+        }.count
     }
 
     /// The phrase to start a rule from: the line's text up to its first

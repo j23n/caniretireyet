@@ -11,7 +11,7 @@ import UniformTypeIdentifiers
 /// Classify step after Columns).
 ///
 /// - **Mac and iPad:** every step, along the top: File, Format, Columns,
-///   Accounts, Preview and Done. The page keeps its import while you visit
+///   Types or Classify when the file needs them, Accounts, Preview and Done. The page keeps its import while you visit
 ///   other pages.
 /// - **iPhone:** a sheet that starts as "Import with profile…": the file and
 ///   a saved profile, the preview, Done. "Set up the columns step by step"

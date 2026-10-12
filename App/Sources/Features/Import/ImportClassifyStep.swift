@@ -102,7 +102,7 @@ private struct ImportStatementDays: View {
             if let from = flow.statementFrom {
                 DatePicker("First day", selection: Binding(get: { from.dateValue }, set: { date in
                     model.flow.setStatementFrom(CalendarDate(date, in: .current))
-                }), displayedComponents: .date)
+                }), in: ...(flow.statementThrough?.dateValue ?? Date()), displayedComponents: .date)
                     .personalControl()
             }
             Toggle("Ends on a day of its own", isOn: Binding(get: { model.flow.statementThrough != nil }, set: { on in
@@ -111,7 +111,7 @@ private struct ImportStatementDays: View {
             if let through = flow.statementThrough {
                 DatePicker("Last day", selection: Binding(get: { through.dateValue }, set: { date in
                     model.flow.setStatementThrough(CalendarDate(date, in: .current))
-                }), in: ...Date(), displayedComponents: .date)
+                }), in: min(flow.statementFrom?.dateValue ?? .distantPast, Date())...Date(), displayedComponents: .date)
                     .personalControl()
             }
             if flow.needsOpeningBalance || flow.statementOpeningBalance != nil {
@@ -310,16 +310,18 @@ private struct ImportStatementRuleSheet: View {
                         model.flow.setStatementRule(statementClass, for: phrase)
                         dismiss()
                     }
-                    .disabled(phrase.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .disabled(model.flow.linesMatching(rule: phrase) == nil)
                 }
             }
         }
         .frame(minWidth: 380, minHeight: 280)
     }
 
-    /// E.g. "Every line with these words, ignoring case and accents: 3 lines in this file…".
+    /// E.g. "Every line whose text has these words, ignoring case and accents: 3 lines in this file…".
     private var matches: String {
-        let count = model.flow.linesMatching(rule: phrase)
+        guard let count = model.flow.linesMatching(rule: phrase) else {
+            return "Give a word or more that a line's text has, ignoring case and accents."
+        }
         return "Every line whose text has these words, ignoring case and accents: "
             + (count == 1 ? "1 line" : "\(count) lines") + " in this file. A line you changed alone keeps its "
             + "class. The rule is kept in the profile, if you save one."
