@@ -31,7 +31,7 @@ public struct ImportSession: Sendable {
     /// they aren't the first day of its first line's month and the last day
     /// of its last line's month (or today, in the month that isn't over).
     /// A bank's export of the last 90 days, or one made in the middle of a
-    /// month, covers part of a month.
+    /// month, covers part of a month. The last can't be after today.
     public var statementFrom: CalendarDate?
     public var statementThrough: CalendarDate?
 

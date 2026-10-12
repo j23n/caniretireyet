@@ -215,6 +215,10 @@ extension PreviewBuilder {
         guard let firstDate = lines.first?.date, let lastDate = lines.last?.date else { return [:] }
         let start = session.statementFrom ?? firstDate.startOfMonth
         let end = session.statementThrough ?? max(lastDate, min(lastDate.endOfMonth, today))
+        if let through = session.statementThrough, through > today {
+            issues.append(ImportIssue(kind: .statementThroughAfterToday(through)))
+            return [:]
+        }
         let outside = lines.filter { $0.date < start || $0.date > end }.count
         guard outside == 0 else {
             issues.append(ImportIssue(kind: .linesOutsidePeriod(count: outside, from: start, through: end)))
@@ -284,7 +288,10 @@ extension PreviewBuilder {
         if !firstCovered, let first = sortedCuts.first {
             issues.append(ImportIssue(kind: .moneyInOutFrom(account.id, value: first, previous: anchor?.date)))
         }
+        // Only a last value with money in and out of its own counts twice with a later value's.
         if let last = sortedCuts.last, !valuations.contains(where: { $0.date == last }),
+           let record = records[.valuation(ValuationKey(account: account.id, date: last))]?.record,
+           record.moneyIn != nil || record.moneyOut != nil,
            let later = valuations.first(where: { $0.date > end }), later.moneyIn != nil || later.moneyOut != nil {
             let since = valuations.last { $0.date < later.date }?.date
             issues.append(ImportIssue(kind: .laterMoneyInOut(account.id, value: later.date, since: since)))

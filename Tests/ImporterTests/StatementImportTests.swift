@@ -297,6 +297,11 @@ struct StatementImportTests {
         #expect(fifth.imported.balance == d("8775.65"))
         #expect(fifth.imported.moneyOut == 45)
         #expect(!through.issues.contains { if case .linesAfterLastValue = $0.kind { true } else { false } })
+
+        session.statementThrough = "2026-04-13"
+        let future = session.preview(against: Self.library(), today: Self.today)
+        #expect(future.issues.contains { $0.kind == .statementThroughAfterToday("2026-04-13") })
+        #expect(future.records.isEmpty)
     }
 
     @Test func aFileThatStartsMidMonthDoesntFollowOnFromTheMonthBefore() throws {
@@ -337,6 +342,20 @@ struct StatementImportTests {
         #expect(preview.issues.contains {
             $0.kind == .laterMoneyInOut("conto", value: "2026-04-30", since: "2026-01-31")
         })
+        // A file whose only value gets no money in and out of its own counts nothing twice.
+        var gap = Self.library(valueOn: "2025-12-31")
+        gap.upsert(later)
+        var february = try ImportSession(data: Data("""
+            Data;Uscite;Descrizione
+            10/02/2026;100,00;Affitto
+            """.utf8))
+        february.proposeMapping(layout: .statement)
+        february.profile.constants.account = "conto"
+        february.statementOpeningBalance = 5000
+        february.statementThrough = "2026-02-28"
+        let one = february.preview(against: gap, today: Self.today)
+        #expect(one.record(.valuation("conto", "2026-02-28"))?.imported.moneyIn == nil)
+        #expect(!one.issues.contains { if case .laterMoneyInOut = $0.kind { true } else { false } })
         // Without money in and out, the later value has nothing to split.
         library.upsert(Valuation(account: "conto", date: "2026-04-30", balance: d("8775.65")))
         #expect(!session.preview(against: library, today: Self.today).issues.contains {
