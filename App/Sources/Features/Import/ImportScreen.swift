@@ -7,7 +7,8 @@ import UniformTypeIdentifiers
 
 /// Importing a spreadsheet or CSV export (UI.md, "Import"; IMPORT.md, "Steps"),
 /// or a broker's transactions (IMPORT.md, "Broker transactions": a Types step
-/// after Columns).
+/// after Columns), or a bank statement (IMPORT.md, "Bank statements": a
+/// Classify step after Columns).
 ///
 /// - **Mac and iPad:** every step, along the top: File, Format, Columns,
 ///   Accounts, Preview and Done. The page keeps its import while you visit
@@ -177,6 +178,8 @@ struct ImportStepContent: View {
             ImportColumnsStep(model: model, isCompact: isCompact)
         case .types:
             ImportTypesStep(model: model)
+        case .classify:
+            ImportClassifyStep(model: model)
         case .accounts:
             ImportAccountsStep(model: model)
         case .preview:

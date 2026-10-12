@@ -9,6 +9,8 @@ enum ImportPreviewData {
         case sheet
         /// ``trades``: a broker's transactions.
         case trades
+        /// ``statement``: a bank statement.
+        case statement
     }
 
     /// A wide sheet in the Italian style that no saved profile fits: two
@@ -40,8 +42,26 @@ enum ImportPreviewData {
 
     static let tradesFileName = "movimenti-2026.csv"
 
+    /// A bank's movements in the Italian style, for the statement layout:
+    /// pay, rent, a transfer to the broker, a card bill, a move to savings,
+    /// interest and shopping, the newest first, with money in and out in
+    /// columns of their own.
+    static let statement = """
+        Data operazione;Data valuta;Entrate;Uscite;Descrizione
+        28/10/2026;28/10/2026;;180,40;Pagamento POS SUPERMERCATO ROSSI
+        20/10/2026;20/10/2026;;500,00;Giroconto verso conto deposito
+        16/10/2026;16/10/2026;;320,50;Addebito carta di credito
+        15/10/2026;15/10/2026;;250,00;Bonifico a favore di Directa SIM
+        10/10/2026;10/10/2026;3.400,00;;Accredito stipendio ACME SRL
+        05/10/2026;05/10/2026;;35,00;Rimborso spese condominio
+        01/10/2026;01/10/2026;;1.200,00;Affitto ottobre
+        """
+
+    static let statementFileName = "conto-movimenti-ottobre.csv"
+
     /// An import of ``sheet`` (or ``trades``, into the preview library's
-    /// first account) against `library`, on `step` (Done needs the import
+    /// first account that records trades, or ``statement``, into its first
+    /// cash account) against `library`, on `step` (Done needs the import
     /// run; see `ImportPreviewHost`).
     @MainActor
     static func controller(library: Library, step: ImportStep, guided: Bool = false,
@@ -53,6 +73,10 @@ enum ImportPreviewData {
         case .trades:
             controller.open(Data(trades.utf8), fileName: tradesFileName)
             let account = library.sortedAccounts.first { $0.recordsTrades } ?? library.sortedAccounts.first
+            controller.flow.setConstants { $0.account = account?.id }
+        case .statement:
+            controller.open(Data(statement.utf8), fileName: statementFileName)
+            let account = library.sortedAccounts.first { $0.kind == .cash && !$0.recordsTrades }
             controller.flow.setConstants { $0.account = account?.id }
         }
         if guided, let profile = controller.flow.profileFits.first?.profile {

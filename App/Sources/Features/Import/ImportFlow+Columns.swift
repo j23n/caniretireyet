@@ -34,6 +34,9 @@ enum ColumnUse: Hashable, Sendable {
         if layout == .trades {
             return [.date] + ImportField.tradeFields.map(ColumnUse.field) + [.ignore]
         }
+        if layout == .statement {
+            return [.date] + ImportField.statementFields.map(ColumnUse.field) + [.ignore]
+        }
         if layout == .long {
             return [.date, .field(.account), .field(.instrument)] + values
                 + [.field(.currency), .field(.base), .field(.quote), .ignore]
@@ -69,7 +72,12 @@ enum ColumnUse: Hashable, Sendable {
             case .type: return "Trade type"
             case .quantity: return "Quantity"
             case .price: return "Price"
-            case .amount: return "Amount (net)"
+            case .amount: return layout == .statement ? "Amount (+ in, − out)" : "Amount (net)"
+            case .credit: return "Money in"
+            case .debit: return "Money out"
+            case .description: return "Description"
+            case .counterparty: return "Counterparty"
+            case .balance: return "Balance"
             case .gross: return "Gross amount"
             case .fees: return "Fees"
             case .tax: return "Tax"
@@ -123,9 +131,9 @@ struct ImportColumnRow: Identifiable, Hashable, Sendable {
 extension ImportFlow {
     var layout: ImportLayout { session?.profile.layout ?? .wide }
 
-    /// Switches between one row per date (wide), one row per record (long)
-    /// and one row per trade (trades): the importer proposes the columns
-    /// again for that layout.
+    /// Switches between one row per date (wide), one row per record (long),
+    /// one row per trade (trades) and one row per line of a bank statement
+    /// (statement): the importer proposes the columns again for that layout.
     mutating func setLayout(_ layout: ImportLayout) {
         guard layout != self.layout else { return }
         editSession { $0.proposeMapping(layout: layout) }
@@ -263,7 +271,8 @@ extension ImportFlow {
 
     // MARK: Long layout
 
-    /// Long layout: the fields that are the same for every row.
+    /// Long layout: the fields that are the same for every row. Trades and
+    /// statement layouts: the account.
     var constants: ImportConstants { session?.profile.constants ?? ImportConstants() }
 
     mutating func setConstants(_ change: (inout ImportConstants) -> Void) {
@@ -312,6 +321,12 @@ extension ImportFlow {
         return accounts.filter { !$0.isClosed }.sortedForDisplay() + accounts.filter(\.isClosed).sortedForDisplay()
     }
 
+    /// The accounts a bank statement can be imported into: cash and savings
+    /// accounts that don't record trades, open ones first.
+    var statementAccountChoices: [Account] {
+        accountChoices.filter { $0.kind.recordsMoneyInOut && !$0.recordsTrades }
+    }
+
     /// The library's instruments for pickers, by name.
     var instrumentChoices: [Instrument] {
         library.instruments.values.sortedForDisplay()
@@ -326,7 +341,7 @@ extension ImportColumnRow {
         case .date:
             return effectiveFormat.date?.pattern ?? "—"
         case .value, .field(.quantity), .field(.price), .field(.amount), .field(.gross), .field(.fees),
-             .field(.tax), .field(.ratio):
+             .field(.tax), .field(.ratio), .field(.credit), .field(.debit), .field(.balance):
             var text = NumberParser(format: effectiveFormat.number ?? ImportNumberFormat()).example
             if effectiveFormat.number?.percent == true { text += " %" }
             if effectiveFormat.empty == .zero { text += ", empty = 0" }
