@@ -87,7 +87,7 @@ struct ImportStatementFlowTests {
         #expect(flow.statementNotes.contains { $0.isProblem })
     }
 
-    @Test func aFileThatDoesNotFollowOnNeedsTheBalanceBeforeIt() {
+    @Test func aFileThatDoesNotFollowOnNeedsTheBalanceBeforeIt() throws {
         var library = PreviewLibrary.library
         library.months["2026-08"]?.valuations.removeAll { $0.account == "conto-fineco" }
         var flow = ImportFlow(library: library)
@@ -95,8 +95,24 @@ struct ImportStatementFlowTests {
         flow.setConstants { $0.account = "conto-fineco" }
         #expect(flow.needsOpeningBalance)
         #expect(flow.statementNotes.contains { $0.isProblem })
+        let problem = try #require(flow.openingBalanceProblem)
+        #expect(problem.hasPrefix("Conto Fineco's balances can't be worked out"))
+        #expect(!problem.contains("conto-fineco"))
+        #expect(flow.mappingIssues.contains(problem))
+        #expect(!flow.previewIssues.contains(problem))
+        #expect(flow.blockers.contains("Give the balance before the file's first line."))
         flow.setStatementOpeningBalance(Decimal(string: "4515.2"))
         #expect(!flow.needsOpeningBalance)
         #expect(flow.statementOpeningBalance == Decimal(string: "4515.2"))
+        #expect(flow.openingBalanceProblem == nil)
+        #expect(flow.statementNotes.contains { $0.text.contains("not the day before the file") })
+    }
+
+    @Test func anOpeningBalanceThatDisagreesWithTheValueBeforeIsSaidSo() {
+        var flow = flow()
+        flow.setStatementOpeningBalance(4000)
+        let notes = flow.statementNotes.map(\.text)
+        #expect(notes.contains { $0.contains("isn't the balance before the file's first line") })
+        #expect(!notes.contains { $0.contains("not the day before the file") })
     }
 }

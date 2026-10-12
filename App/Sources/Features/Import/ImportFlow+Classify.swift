@@ -19,6 +19,13 @@ struct StatementNote: Hashable, Sendable {
     var isProblem: Bool
 }
 
+extension ImportIssue {
+    /// Whether the issue asks for the balance before a statement's first line.
+    var asksForOpeningBalance: Bool {
+        if case .needsOpeningBalance = kind { true } else { false }
+    }
+}
+
 /// The Classify step of a bank statement (the statement layout; IMPORT.md,
 /// "Bank statements"): each line with its class and why it has it, the
 /// rules that classify lines, and the days the file covers.
@@ -124,9 +131,12 @@ extension ImportFlow {
     /// Whether the file's balances are unknown until the balance before its
     /// first line is given.
     var needsOpeningBalance: Bool {
-        (preview?.issues ?? []).contains { issue in
-            if case .needsOpeningBalance = issue.kind { true } else { false }
-        }
+        (preview?.issues ?? []).contains(where: \.asksForOpeningBalance)
+    }
+
+    /// Why the balance before the file's first line is needed, when it is.
+    var openingBalanceProblem: String? {
+        (preview?.issues ?? []).first(where: \.asksForOpeningBalance).map { issueText($0) }
     }
 
     /// What the statement's import says about its lines and days, e.g. "1
@@ -144,8 +154,42 @@ extension ImportFlow {
                 false
             }
         }
-        return issues.filter { !$0.isNote }.map { StatementNote(text: $0.description, isProblem: true) }
-            + issues.filter(\.isNote).map { StatementNote(text: $0.description, isProblem: false) }
+        return issues.filter { !$0.isNote }.map { StatementNote(text: issueText($0), isProblem: true) }
+            + issues.filter(\.isNote).map { StatementNote(text: issueText($0), isProblem: false) }
+    }
+
+    /// The day the balance before the file's first line is on: the day
+    /// before the first day the file covers.
+    var openingBalanceDay: CalendarDate? { statementPeriod?.from.adding(days: -1) }
+
+    /// What an issue says, with a statement's account by its name and its
+    /// dates written out (the importer's own text names accounts by ID, for
+    /// the command line), e.g. "Conto Fineco's balances can't be worked
+    /// out…".
+    func issueText(_ issue: ImportIssue) -> String {
+        switch issue.kind {
+        case .needsOpeningBalance(let account):
+            let name = accountName(account)
+            let day = openingBalanceDay.map { " on \(AmountFormat.mediumDate($0))" } ?? ""
+            return "\(name)'s balances can't be worked out: the file has no balance column, and \(name) has no balance"
+                + "\(day), the day before the file starts. Give the balance before the file's first line, as the "
+                + "statement shows it."
+        case .moneyInOutFrom(let account, let value, let previous):
+            let name = accountName(account)
+            let before: String
+            if let previous, previous == openingBalanceDay {
+                before = "\(name)'s balance on \(AmountFormat.mediumDate(previous)) isn't the balance before the "
+                    + "file's first line"
+            } else if let previous {
+                before = "\(name)'s last value before the file is on \(AmountFormat.mediumDate(previous)), not the "
+                    + "day before the file"
+            } else {
+                before = "\(name) has no value before the file"
+            }
+            return "\(before), so money in and out are counted only after \(AmountFormat.mediumDate(value))."
+        default:
+            return issue.description
+        }
     }
 
     // MARK: Names

@@ -84,8 +84,6 @@ struct ImportClassifyStep: View {
 private struct ImportStatementDays: View {
     let model: ImportController
 
-    @State private var openingText = ""
-
     var body: some View {
         let flow = model.flow
         let period = flow.statementPeriod
@@ -115,15 +113,7 @@ private struct ImportStatementDays: View {
                     .personalControl()
             }
             if flow.needsOpeningBalance || flow.statementOpeningBalance != nil {
-                LabeledContent("Balance before the first line") {
-                    HStack(spacing: Metrics.s) {
-                        TextField("Balance", text: $openingText)
-                            .multilineTextAlignment(.trailing)
-                            .onSubmit(applyOpening)
-                        Button("Use", action: applyOpening)
-                            .disabled(AmountInput.parse(openingText).value == flow.statementOpeningBalance)
-                    }
-                }
+                ImportOpeningBalanceField(model: model)
             }
             ForEach(flow.statementNotes, id: \.self) { note in
                 Label(note.text, systemImage: note.isProblem ? "exclamationmark.triangle" : "info.circle")
@@ -139,17 +129,6 @@ private struct ImportStatementDays: View {
                 + "middle of a month, covers less: give its first and last days. The last day gets a value of its "
                 + "own, which next month's file follows on from.")
         }
-        .onAppear {
-            openingText = flow.statementOpeningBalance.map { AmountInput.text(for: $0) } ?? ""
-        }
-    }
-
-    private func applyOpening() {
-        switch AmountInput.parse(openingText) {
-        case .empty: model.flow.setStatementOpeningBalance(nil)
-        case .value(let value): model.flow.setStatementOpeningBalance(value)
-        case .unreadable: break
-        }
     }
 
     /// The last day to start from: the file's last line, or the period's last day if earlier.
@@ -157,6 +136,38 @@ private struct ImportStatementDays: View {
         let today = CalendarDate.today()
         let last = flow.statementLines.last?.date ?? flow.statementPeriod?.through
         return last.map { min($0, today) }
+    }
+}
+
+/// The balance before a statement's first line, typed in, for a file
+/// without a balance column that doesn't follow on from the library's
+/// values. Classify's Days and Preview show it.
+struct ImportOpeningBalanceField: View {
+    let model: ImportController
+
+    @State private var openingText = ""
+
+    var body: some View {
+        LabeledContent("Balance before the first line") {
+            HStack(spacing: Metrics.s) {
+                TextField("Balance", text: $openingText)
+                    .multilineTextAlignment(.trailing)
+                    .onSubmit(apply)
+                Button("Use", action: apply)
+                    .disabled(AmountInput.parse(openingText).value == model.flow.statementOpeningBalance)
+            }
+        }
+        .onAppear {
+            openingText = model.flow.statementOpeningBalance.map { AmountInput.text(for: $0) } ?? ""
+        }
+    }
+
+    private func apply() {
+        switch AmountInput.parse(openingText) {
+        case .empty: model.flow.setStatementOpeningBalance(nil)
+        case .value(let value): model.flow.setStatementOpeningBalance(value)
+        case .unreadable: break
+        }
     }
 }
 

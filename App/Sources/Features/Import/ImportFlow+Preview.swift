@@ -209,7 +209,9 @@ extension ImportFlow {
             reasons.append(guesses == 1 ? "Confirm the format the importer guessed."
                 : "Confirm the \(guesses) formats the importer guessed.")
         }
-        if planned?.hasChanges != true {
+        if needsOpeningBalance {
+            reasons.append("Give the balance before the file's first line.")
+        } else if planned?.hasChanges != true {
             reasons.append(preview.records.isEmpty
                 ? "Nothing in the file can be imported yet: say what its columns hold."
                 : "The library already has everything in this file.")

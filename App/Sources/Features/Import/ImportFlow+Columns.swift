@@ -367,7 +367,16 @@ extension ImportFlow {
     /// Problems with the mapping as a whole rather than one column: no date
     /// column, columns of the profile missing from the file, broken quotes,
     /// values after an account closed.
-    var mappingIssues: [String] {
+    var mappingIssues: [String] { mappingProblems.map { issueText($0) } }
+
+    /// ``mappingIssues`` but the one asking for the balance before a
+    /// statement's first line, which Preview asks for with its field.
+    var previewIssues: [String] {
+        mappingProblems.filter { !$0.asksForOpeningBalance }.map { issueText($0) }
+    }
+
+    /// The issues ``mappingIssues`` says.
+    var mappingProblems: [ImportIssue] {
         let issues = preview?.issues ?? session?.issues ?? []
         return issues.filter { issue in
             guard !issue.isNote else { return false }
@@ -376,7 +385,7 @@ extension ImportFlow {
             case .missingField, .invalidDatePattern: return issue.column == nil
             default: return true
             }
-        }.map(\.description)
+        }
     }
 
     /// Columns with values that a saved profile doesn't know: they're not
