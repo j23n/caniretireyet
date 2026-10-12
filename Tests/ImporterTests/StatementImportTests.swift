@@ -253,6 +253,72 @@ struct StatementImportTests {
         #expect(january.imported.flow == 1000)
     }
 
+    // MARK: - The days a file covers
+
+    @Test func aFileCoversWholeMonthsUnlessItsDaysAreGiven() throws {
+        var session = try Self.session("italian-bank.csv", account: "conto")
+        let preview = session.preview(against: Self.library(), today: Self.today)
+        #expect(preview.issues.contains { $0.kind == .statementPeriod(from: "2026-02-01", through: "2026-04-12") })
+
+        // An export made on 5 April: its last day gets a value, which the next file follows on from.
+        session.statementThrough = "2026-04-05"
+        let through = session.preview(against: Self.library(), today: Self.today)
+        let fifth = try #require(through.record(.valuation("conto", "2026-04-05")))
+        #expect(fifth.imported.balance == d("8775.65"))
+        #expect(fifth.imported.moneyOut == 45)
+        #expect(!through.issues.contains { if case .linesAfterLastValue = $0.kind { true } else { false } })
+    }
+
+    @Test func aFileThatStartsMidMonthDoesntFollowOnFromTheMonthBefore() throws {
+        var session = try Self.session("italian-bank.csv", account: "conto")
+        // A file of the last 90 days: 31 January's value isn't the balance before its first line.
+        session.statementFrom = "2026-02-02"
+        let preview = session.preview(against: Self.library(), today: Self.today)
+        #expect(preview.issues.contains { $0.kind == .needsOpeningBalance("conto") })
+        #expect(preview.records.isEmpty)
+
+        session.statementFrom = "2026-02-03"
+        let late = session.preview(against: Self.library(), today: Self.today)
+        #expect(late.issues.contains {
+            $0.kind == .linesOutsidePeriod(count: 1, from: "2026-02-03", through: "2026-04-12")
+        })
+        #expect(late.records.isEmpty)
+    }
+
+    @Test func anOpeningBalanceThatDisagreesWithTheValueBeforeLeavesTheFirstMonthOut() throws {
+        var session = try Self.session("italian-bank.csv", account: "conto")
+        session.statementOpeningBalance = 5000
+        let preview = session.preview(against: Self.library(), today: Self.today)
+        let february = try #require(preview.record(.valuation("conto", "2026-02-28")))
+        #expect(february.imported.balance == d("5833.60"))
+        #expect(february.imported.moneyIn == nil)
+        #expect(preview.issues.contains {
+            $0.kind == .moneyInOutFrom("conto", value: "2026-02-28", previous: "2026-01-31")
+        })
+    }
+
+    // MARK: - The account's dates
+
+    @Test func anAccountOpenedAfterTheFileStartsIsProposedToOpenEarlier() throws {
+        var library = Self.library()
+        library.accounts["conto"]?.opened = "2026-03-01"
+        let session = try Self.session("italian-bank.csv", account: "conto")
+        let preview = session.preview(against: library, today: Self.today)
+        #expect(preview.accountChanges
+            == [AccountChangeProposal(account: "conto", change: .openEarlier(on: "2026-02-28"))])
+    }
+
+    @Test func valuesAfterAnAccountClosedAreAnIssue() throws {
+        // The month that isn't over has lines after the last month end, which don't close the account.
+        let session = try Self.session("italian-bank.csv", account: "conto")
+        #expect(session.preview(against: Self.library(), today: Self.today).accountChanges.isEmpty)
+
+        var library = Self.library()
+        library.accounts["conto"]?.closed = "2026-03-01"
+        let preview = session.preview(against: library, today: Self.today)
+        #expect(preview.issues.contains { $0.kind == .valuesAfterClosed("conto", closed: "2026-03-01") })
+    }
+
     @Test func aBalanceThatDoesntAddUpIsNoted() throws {
         let csv = """
             Date,Description,Amount,Balance

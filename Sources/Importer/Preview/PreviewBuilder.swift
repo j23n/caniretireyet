@@ -77,6 +77,8 @@ struct PreviewBuilder {
     /// The library's trades that the trades made from quantities replace
     /// and no longer make, with the cells of their positions.
     var removedTrades: [(trade: Trade, cells: [ImportCellRef])] = []
+    /// Statement layout: the lines read, with their classes.
+    var statementLines: [StatementLine] = []
 
     var table: ImportTable { session.table }
     var profile: ImportProfile { session.profile }
@@ -97,11 +99,11 @@ struct PreviewBuilder {
         issues = session.issues
         var preview = ImportPreview(ambiguities: session.ambiguities, skippedRows: table.skippedRows,
                                     conflictPolicy: profile.effectiveOnConflict)
-        var statement: (records: [ImportRecordKey: Accumulator], lines: [StatementLine])?
+        var fromStatement: [ImportRecordKey: Accumulator]?
         if let dateColumn = bindings.dateColumn {
             let dates = DateParser(format: session.effectiveFormat(forColumn: dateColumn).date ?? ImportDateFormat())
             if profile.layout == .statement {
-                statement = statementRecords(dateColumn: dateColumn, dates: dates)
+                fromStatement = statementRecords(dateColumn: dateColumn, dates: dates)
             } else if profile.layout == .trades {
                 extractTrades(dateColumn: dateColumn, dates: dates)
             } else if profile.layout == .long {
@@ -110,17 +112,13 @@ struct PreviewBuilder {
                 extractWide(dateColumn: dateColumn, dates: dates)
             }
         }
-        let records = statement?.records ?? (profile.layout == .statement ? [:] : aggregate())
+        let records = fromStatement ?? (profile.layout == .statement ? [:] : aggregate())
         if profile.layout == .trades {
             makeTrades()
             preview.tradeTypes = session.tradeTypeValues
         }
         compare(records, into: &preview)
-        if let lines = statement?.lines {
-            preview.statementLines = lines
-            preview.firstDate = lines.first?.date
-            preview.lastDate = lines.last?.date
-        }
+        preview.statementLines = statementLines
         preview.cellErrors = errors.sorted { $0.cell < $1.cell }
         preview.issues = issues
         preview.nameMatches = matcher.found
@@ -520,7 +518,7 @@ struct PreviewBuilder {
         records.sort { $0.imported.key < $1.imported.key }
         preview.records = records
 
-        let dates = values.map(\.date) + tradeRows.map(\.date)
+        let dates = values.map(\.date) + tradeRows.map(\.date) + statementLines.map(\.date)
         preview.firstDate = dates.min()
         preview.lastDate = dates.max()
         preview.newInstruments = instrumentProposals
@@ -538,7 +536,8 @@ struct PreviewBuilder {
     }
 
     /// Accounts whose values stop before the file's last date are proposed
-    /// as closed the day after their last non-zero value; accounts with
+    /// as closed the day after their last non-zero value (not from a broker's
+    /// transactions or a bank statement); accounts with
     /// values from before they opened are proposed to open earlier. Closing
     /// an account and making it record trades are proposed unaccepted; only
     /// an account that isn't brokerage, crypto or metals is offered to
@@ -593,7 +592,8 @@ struct PreviewBuilder {
                 }
                 continue
             }
-            guard let lastValue, lastValue < lastDate else { continue }
+            // A statement's last value is a month's end, often before its last line.
+            guard profile.layout != .statement, let lastValue, lastValue < lastDate else { continue }
             let laterInLibrary = library.valuations(for: id).contains { valuation in
                 valuation.date > lastValue && !imported.contains(.valuation(valuation.key))
                     && !Self.isZero(valuation)

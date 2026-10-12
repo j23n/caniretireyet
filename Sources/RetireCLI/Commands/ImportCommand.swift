@@ -67,8 +67,10 @@ struct ImportCommand: RetireSubcommand {
             another account's name in the text, the usual words, else its sign. The lines become \
             the account's values at its values in the file's months and at the end of the other \
             months, with the balance and money in and out. Correct classes with --class \
-            "Giroconto=transfer"; --save-profile keeps them. A file without a balance column \
-            that doesn't follow on from the library's values needs --opening-balance.
+            "Giroconto=transfer"; --save-profile keeps them. The file is taken to cover whole \
+            months; --from and --through give the days a file of the last 90 days, or one \
+            exported mid-month, covers. A file without a balance column that doesn't follow on \
+            from the library's values needs --opening-balance.
             """)
 
     enum Layout: String, ExpressibleByArgument, CaseIterable {
@@ -151,6 +153,14 @@ struct ImportCommand: RetireSubcommand {
                                    + "balance column that doesn't follow on from the library's values.",
                                valueName: "amount"))
     var openingBalance: String?
+
+    @Option(help: ArgumentHelp("Statement: the first day the file covers. Default: the first day of its first "
+                                   + "line's month.", valueName: "YYYY-MM-DD"))
+    var from: String?
+
+    @Option(help: ArgumentHelp("Statement: the last day the file covers, which gets a value. Default: the last day "
+                                   + "of its last line's month, or today.", valueName: "YYYY-MM-DD"))
+    var through: String?
 
     @Option(name: .customLong("type"), parsing: .singleValue,
             help: ArgumentHelp("Trades: map a type word of the file to a trade type (buy, sell, dividend, interest, "
@@ -253,6 +263,10 @@ struct ImportCommand: RetireSubcommand {
         }
         if let openingBalance, Decimal(fileString: openingBalance) == nil {
             throw ValidationError("--opening-balance needs a number such as 1234.56, not “\(openingBalance)”.")
+        }
+        let period = (try parseDate(from, option: "--from"), try parseDate(through, option: "--through"))
+        if let from = period.0, let through = period.1, from > through {
+            throw ValidationError("--from must be on or before --through.")
         }
         if rows < 0 { throw ValidationError("--rows can't be negative.") }
     }
@@ -383,6 +397,8 @@ struct ImportCommand: RetireSubcommand {
         if let openingBalance {
             session.statementOpeningBalance = Decimal(fileString: openingBalance)
         }
+        session.statementFrom = from.flatMap { CalendarDate($0) }
+        session.statementThrough = through.flatMap { CalendarDate($0) }
         if let onConflict { session.profile.onConflict = onConflict.policy }
         return session
     }

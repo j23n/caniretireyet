@@ -19,28 +19,28 @@ extension PreviewBuilder {
         var cells: [ImportCellRef]
     }
 
-    /// Reads the lines, classifies them and works out the account's values:
-    /// one at each of its values in the file's span, and one at each month
-    /// end of a month that has none. Returns the values and the lines.
-    mutating func statementRecords(dateColumn: Int, dates: DateParser)
-        -> (records: [ImportRecordKey: Accumulator], lines: [StatementLine]) {
+    /// Reads the lines, classifies them (``statementLines``) and works out
+    /// the account's values: one at each of its values in the file's span,
+    /// and one at each month end of a month that has none.
+    mutating func statementRecords(dateColumn: Int, dates: DateParser) -> [ImportRecordKey: Accumulator] {
         guard let id = profile.constants.account else {
             issues.append(ImportIssue(kind: .missingField(.account)))
-            return ([:], [])
+            return [:]
         }
         guard let account = library.accounts[id] else {
             issues.append(ImportIssue(kind: .unknownAccount(id)))
-            return ([:], [])
+            return [:]
         }
         guard account.kind.recordsMoneyInOut, !account.recordsTrades else {
             issues.append(ImportIssue(kind: .noMoneyInOut(id)))
-            return ([:], [])
+            return [:]
         }
         let read = readStatementLines(dateColumn: dateColumn, dates: dates)
-        guard !read.isEmpty else { return ([:], []) }
+        guard !read.isEmpty else { return [:] }
         var lines = classify(read, account: account)
         let records = statementValues(&lines, read: read, account: account)
-        return (records, lines)
+        statementLines = lines
+        return records
     }
 
     // MARK: - Reading
@@ -182,18 +182,25 @@ extension PreviewBuilder {
 
     // MARK: - Values
 
-    /// The account's values over the file's span, from its first month's
-    /// first day to its last month's last day (or today, in the month that
-    /// isn't over): one at each of the account's values in the span, and
-    /// one at the end of each month without one. Each has the balance, and
+    /// The account's values over the days the file covers (unless the
+    /// session gives them, from its first month's first day to its last
+    /// month's last day, or today in the month that isn't over): one at
+    /// each of the account's values in the span, one at the end of each
+    /// month without one, and one on the last day the session gives. Each has the balance, and
     /// when the file covers its whole period, from the value before it,
     /// money in and out (and interest) and the flow. Sets each line's
     /// ``StatementLine/period``.
     private mutating func statementValues(_ lines: inout [StatementLine], read: [ReadLine],
                                           account: Account) -> [ImportRecordKey: Accumulator] {
         guard let firstDate = lines.first?.date, let lastDate = lines.last?.date else { return [:] }
-        let start = firstDate.startOfMonth
-        let end = max(lastDate, min(lastDate.endOfMonth, today))
+        let start = session.statementFrom ?? firstDate.startOfMonth
+        let end = session.statementThrough ?? max(lastDate, min(lastDate.endOfMonth, today))
+        let outside = lines.filter { $0.date < start || $0.date > end }.count
+        guard outside == 0 else {
+            issues.append(ImportIssue(kind: .linesOutsidePeriod(count: outside, from: start, through: end)))
+            return [:]
+        }
+        issues.append(ImportIssue(kind: .statementPeriod(from: start, through: end)))
         let valuations = library.valuations(for: account.id)
         let anchor = valuations.last { $0.date < start }
         var cuts = Set(valuations.map(\.date).filter { $0 >= start && $0 <= end })
@@ -202,13 +209,19 @@ extension PreviewBuilder {
             if month.lastDay <= end, !cuts.contains(where: { month.contains($0) }) { cuts.insert(month.lastDay) }
             month = month.next
         }
+        // A file said to end on a day has a value on that day, which the next file follows on from.
+        if session.statementThrough != nil { cuts.insert(end) }
         let balances = RunningBalances(lines)
         if balances.breaks > 0 { issues.append(ImportIssue(kind: .runningBalanceBreaks(count: balances.breaks))) }
         let fromFile = balances.opening
-        let opening = fromFile ?? session.statementOpeningBalance
-            ?? (anchor.map { $0.date >= start.adding(days: -1) } == true ? anchor?.balance : nil)
+        let adjacent = anchor.map { $0.date >= start.adding(days: -1) } ?? false
+        let opening = fromFile ?? session.statementOpeningBalance ?? (adjacent ? anchor?.balance : nil)
+        // The file follows on from the value before it when that value is on the day before it, unless the
+        // balance before the file's first line, from the file or given, isn't that value's balance; or
+        // across a gap when the file's balance column says it is.
         let firstCovered = anchor.map { anchor in
-            anchor.date >= start.adding(days: -1) || (fromFile != nil && anchor.balance == fromFile)
+            if let fromFile { return fromFile == anchor.balance }
+            return adjacent && (session.statementOpeningBalance.map { $0 == anchor.balance } ?? true)
         } ?? false
         guard opening != nil || balances.hasBalances else {
             issues.append(ImportIssue(kind: .needsOpeningBalance(account.id)))

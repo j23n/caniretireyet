@@ -79,6 +79,12 @@ public struct ImportIssue: Hashable, Sendable, CustomStringConvertible {
         /// A note, statement layout: on `count` days, the balance column
         /// doesn't follow from the day before and the day's lines.
         case runningBalanceBreaks(count: Int)
+        /// A note, statement layout: the days the file is read as covering
+        /// (``ImportSession/statementFrom``, ``ImportSession/statementThrough``).
+        case statementPeriod(from: CalendarDate, through: CalendarDate)
+        /// Statement layout: `count` lines fall outside the days the file
+        /// is said to cover, so nothing is imported.
+        case linesOutsidePeriod(count: Int, from: CalendarDate, through: CalendarDate)
     }
 
     public var kind: Kind
@@ -98,7 +104,7 @@ public struct ImportIssue: Hashable, Sendable, CustomStringConvertible {
         switch kind {
         case .positiveDebts, .debtsInCredit, .tradeAmountSigns, .negativeQuantities, .cashDirectionBySign,
              .ignoredTradeRows, .quantitiesAsTrades, .tradesWithoutPrice, .openingsWithoutCost, .moneyInOutFrom,
-             .linesAfterLastValue, .runningBalanceBreaks: true
+             .linesAfterLastValue, .runningBalanceBreaks, .statementPeriod: true
         default: false
         }
     }
@@ -186,6 +192,11 @@ public struct ImportIssue: Hashable, Sendable, CustomStringConvertible {
         case .runningBalanceBreaks(let count):
             return "\(place): on \(Wording.count(count, "day")), the balance doesn't follow from the day before and "
                 + "the day's lines."
+        case .statementPeriod(let from, let through):
+            return "The file is read as covering \(from) to \(through): every line from those days, and no others."
+        case .linesOutsidePeriod(let count, let from, let through):
+            return "\(count == 1 ? "1 line is" : "\(count) lines are") outside \(from) to \(through), the days the "
+                + "file covers."
         }
     }
 }

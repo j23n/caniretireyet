@@ -27,6 +27,13 @@ public struct ImportSession: Sendable {
     /// for a file without a balance column that doesn't follow on from the
     /// library's values.
     public var statementOpeningBalance: Decimal?
+    /// Statement layout: the first and last days the file covers, when
+    /// they aren't the first day of its first line's month and the last day
+    /// of its last line's month (or today, in the month that isn't over).
+    /// A bank's export of the last 90 days, or one made in the middle of a
+    /// month, covers part of a month.
+    public var statementFrom: CalendarDate?
+    public var statementThrough: CalendarDate?
 
     /// Reads a file and proposes a mapping for it. Settings left `nil` are detected.
     public init(data: Data, settings: ImportFileSettings = ImportFileSettings()) throws(ImportError) {
