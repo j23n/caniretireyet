@@ -60,9 +60,11 @@ jobs:
           label_trigger: ready
           # The model, and how hard it thinks (--effort: low, medium, high, xhigh or max; the
           # owner's choice is high, above the model's default of medium). `gh pr create` lets
-          # Claude open its pull request (.apple-ci/claude/j23n.md, "Pull requests"); the action's
-          # own tools (reading, editing, committing, pushing) stay as they are.
+          # Claude open its pull request (.apple-ci/claude/j23n.md, "Pull requests"); the read-only
+          # `gh issue` and `gh pr` commands let it see the other issues and pull requests in flight
+          # (.apple-ci/claude/apps.md, "Claude on GitHub"). The action's own tools (reading,
+          # editing, committing, pushing) stay as they are.
           claude_args: >-
             --model claude-opus-5-5
             --effort high
-            --allowedTools "Bash(gh pr create:*)"
+            --allowedTools "Bash(gh pr create:*),Bash(gh issue list:*),Bash(gh issue view:*),Bash(gh pr list:*),Bash(gh pr view:*),Bash(gh pr diff:*)"
