@@ -60,6 +60,12 @@ struct StatementImportTests {
             2026-01-31,Mutuo casa,-120000.00,EUR
             """
         #expect(try !ImportSession(data: Data(long.utf8)).looksLikeStatement)
+        let payee = """
+            Date,Payee Name,Amount
+            2026-02-02,Supermercato Rossi,-45.90
+            2026-02-10,ACME SRL,2800.00
+            """
+        #expect(try ImportSession(data: Data(payee.utf8)).looksLikeStatement)
     }
 
     @Test func columnsAreProposedByTheirHeaders() throws {

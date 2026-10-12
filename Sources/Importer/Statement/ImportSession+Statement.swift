@@ -52,10 +52,11 @@ extension ImportSession {
         if numbers.contains(where: { Keywords.header($0.header, has: Keywords.quantity + Keywords.price) }) {
             return false
         }
-        // A long file's `Account name` names accounts, not who was paid.
+        // A long file's `Account name` names accounts, not who was paid; `Payee name` is a counterparty.
+        let namesAccounts = (Keywords.account + Keywords.instrument).filter { $0 != "name" && $0 != "nome" }
         let hasText = columns.contains {
             $0.kind == .text && Keywords.header($0.header, has: Keywords.statementDescription + Keywords.counterparty)
-                && !Keywords.header($0.header, has: Keywords.account + Keywords.instrument)
+                && !Keywords.header($0.header, has: namesAccounts)
         }
         guard hasText else { return false }
         let hasCredit = numbers.contains { Keywords.header($0.header, has: Keywords.statementCredit) }
