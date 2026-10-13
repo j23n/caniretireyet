@@ -121,10 +121,13 @@ extension Valuator {
     /// `report`'s split of net worth's change with its new money as the
     /// savings rate counts what was saved (``saved(after:through:)``) over
     /// its days: the part of new accounts' first values counted as what
-    /// they already held moves to other. For the Overview's bars.
+    /// they already held, and the one-offs (``MoneyInOutSummary/oneOffs``),
+    /// move to other. For the Overview's bars.
     public func savedSplit(of report: ChangeReport) -> ValueChange {
         var change = report.total
-        let saved = saved(after: report.from, through: report.to).byAccount.values.reduce(Decimal(0), +)
+        let oneOffs = moneyInOut(from: report.from.adding(days: 1), through: report.to,
+                                 accounts: cameInAccounts).oneOffs
+        let saved = saved(after: report.from, through: report.to).byAccount.values.reduce(Decimal(0), +) - oneOffs
         change.other += change.newMoney - saved
         change.newMoney = saved
         return change

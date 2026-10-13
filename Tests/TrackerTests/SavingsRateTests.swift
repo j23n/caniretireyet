@@ -146,6 +146,13 @@ struct SavingsRateTests {
         #expect(savings.rate?.rounded(scale: 4) == d("0.3372"))
         // What moved between the accounts leaves the one-off out too.
         #expect(library.months["2026-01"]?.valuations.first { $0.account == "bank" }?.moved == 0)
+        // So does the Overview's Saved bar: the one-off is under Other.
+        let valuator = Valuator(library: library)
+        let report = valuator.change(from: "2025-12-31", to: "2026-01-31")
+        let split = valuator.savedSplit(of: report)
+        #expect(split.newMoney == savings.saved)
+        #expect(split.other == report.total.other + 20000)
+        #expect(split.start + split.market + split.newMoney + split.other == split.end)
     }
 
     /// A check-in fills in a new account's whole amount as its flow: only the

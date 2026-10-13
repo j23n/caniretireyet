@@ -173,4 +173,22 @@ struct CheckInMoneyInOutTests {
         #expect(row.enteredMoneyOut == d("2554.65"))
         #expect(written(draft)?.moneyOut == d("2554.65"))
     }
+
+    /// The check-in doesn't ask for a one-off, so a value saved on its date
+    /// keeps its own, left as it was or changed, and loses it only when
+    /// marked unchanged.
+    @Test func aSavedValueKeepsItsOneOff() throws {
+        var library = self.library
+        let index = try #require(library.months["2026-09"]?.valuations.firstIndex { $0.account == "conto-fineco" })
+        library.months["2026-09"]?.valuations[index].oneOff = 250
+        func written(_ draft: CheckInDraft) -> Valuation? {
+            draft.review(in: library).row(for: "conto-fineco")?.valuation
+        }
+        var draft = CheckInDraft(date: "2026-09-30", library: library)
+        #expect(written(draft)?.oneOff == 250)
+        draft["conto-fineco"]?.setBalance(d("4600.25"))
+        #expect(written(draft)?.oneOff == 250)
+        draft["conto-fineco"]?.markUnchanged()
+        #expect(written(draft)?.oneOff == nil)
+    }
 }
