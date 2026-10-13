@@ -9,9 +9,10 @@ import SwiftUI
 // the window for `.privacy`, as the eye does, and `appEnvironment` sets
 // `hidesPersonalData`. Amounts are `.privacySensitive()` already; the rest of
 // the person's data (names, their records' dates, notes, the plan's ages, a
-// chart's text) is `.privacySensitive()` only then, so the eye keeps hiding
-// amounts alone (UI.md, "Privacy"). Compiled into the app and the widgets,
-// which never set it.
+// chart's text) is redacted only then, so the eye keeps hiding amounts alone
+// (UI.md, "Privacy"). Both marks only ever add hiding: the eye hides an
+// amount inside a view marked for feedback too. Compiled into the app and
+// the widgets, which never set it.
 
 extension EnvironmentValues {
     /// Whether the person's data is hidden, beyond amounts: a feedback
@@ -22,10 +23,11 @@ extension EnvironmentValues {
 extension View {
     /// A view that shows the person's data and isn't an amount: a name they
     /// chose or imported, a record's date, a note, an age from the plan, a
-    /// chart. It's `.privacySensitive()` while a feedback screenshot is taken
-    /// (`hidesPersonalData`), so it draws as a placeholder then; the eye
-    /// leaves it readable. An amount is ``privacySensitiveAmount()`` instead.
-    /// `sensitive` is false for a view that only sometimes shows such data.
+    /// chart. It draws as a placeholder while a feedback screenshot is taken
+    /// (`hidesPersonalData`); the eye leaves it readable, and still hides
+    /// the amounts inside it. An amount is ``privacySensitiveAmount()``
+    /// instead. `sensitive` is false for a view that only sometimes shows
+    /// such data.
     ///
     ///     Text(verbatim: account.name).privacySensitiveInFeedback()
     func privacySensitiveInFeedback(_ sensitive: Bool = true) -> some View {
@@ -72,8 +74,11 @@ private struct PrivacySensitiveInFeedback: ViewModifier {
     @Environment(\.hidesPersonalData) private var hidesPersonalData
 
     func body(content: Content) -> some View {
-        // One modifier either way, so the view keeps its state while a screenshot is taken.
-        content.privacySensitive(sensitive && hidesPersonalData)
+        // Not `.privacySensitive(false)` outside a screenshot: that would keep the amounts inside
+        // readable under the eye, whatever they're marked. Redaction reasons add up, so no reason
+        // leaves the eye's `.privacy` in place. One modifier either way, so the view keeps its
+        // state while a screenshot is taken.
+        content.redacted(reason: sensitive && hidesPersonalData ? .placeholder : [])
     }
 }
 
