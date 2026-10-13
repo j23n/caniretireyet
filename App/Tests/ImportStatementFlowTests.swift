@@ -219,7 +219,7 @@ struct ImportStatementFlowTests {
         var library = PreviewLibrary.library
         for var valuation in library.months["2026-09"]?.valuations ?? [] {
             _ = library.removeValuation(valuation.key)
-            valuation.date = "2026-10-31"
+            valuation.date = "2026-10-01"
             library.upsert(valuation)
         }
         var flow = ImportFlow(library: library)
