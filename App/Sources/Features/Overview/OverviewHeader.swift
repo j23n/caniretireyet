@@ -4,20 +4,23 @@ import Planner
 import SwiftUI
 
 /// The top of the Overview while the main plan has an answer (UI.md, "Can I
-/// retire yet?"): a label row, the answer as a headline with the readiness
-/// ring beside it, then the *Net worth* and *On track?* tiles. Three text
-/// styles: largeTitle, title and subheadline.
+/// retire yet?"): the answer in a tile of its own, then the *Net worth* and
+/// *On track?* tiles under it. Everything starts at the tiles' leading edge.
 ///
-/// - **Label row:** "Can I retire yet?", the run status ("◷ 30 Sep" for an
-///   answer recorded at a check-in, *Calculate* when the results are out of
-///   date, "Calculating 29%"), an ⓘ that explains the whole answer, and the
-///   chevron. The label row and the headline open the plan, with a tap
-///   gesture rather than as a button, so the ⓘ and *Calculate* get their
-///   own taps; the chevron is the button VoiceOver and keyboards use.
-/// - **Headline:** the time to go ("In 15 years"), "Yes", "Not yet", or
-///   "At 54" without a time to go; the ring (``ReadinessRing``) laps past
-///   100%, its label by the *Readiness* widget's rules (``ReadinessFigure``).
-///   Out-of-date results dim it, as the Plan screen dims them.
+/// - **Title row:** "Can I retire yet?", an ⓘ after it that explains the
+///   whole answer, and the chevron at the trailing edge, above *On track?*'s.
+///   The tile opens the plan, with a tap gesture rather than as a button, so
+///   the ⓘ and *Calculate* get their own taps; the chevron is the button
+///   VoiceOver and keyboards use.
+/// - **The ring** (``ReadinessRing``) at the leading edge, with the
+///   percentage inside it, by the *Readiness* widget's rules
+///   (``ReadinessFigure``); it laps past 100%.
+/// - **The answer's words** at the ring's right: the headline ("In 15
+///   years", "Yes", "Not yet", or "At 54" without a time to go), when ("At 54
+///   · March 2042") and how sure ("in 9 of 10 futures"), then the run status
+///   ("◷ 30 Sep" for an answer recorded at a check-in, *Calculate* when the
+///   results are out of date, "Calculating 29%"). Out-of-date results dim
+///   the ring and the words, as the Plan screen dims them.
 /// - **Tiles:** net worth with its changes, and where the latest check-in
 ///   stands against its baseline (opening Progress) with the coast point
 ///   line. Side by side and as tall as each other; stacked at the largest
@@ -42,50 +45,61 @@ struct OverviewHeader: View {
 
     /// Out-of-date answers dim as the Plan screen dims its results.
     private static let dimmedOpacity = 0.7
+    /// The ring's size, the same at every text size.
+    private static let ringSize: CGFloat = 144
+    private static let ringLineWidth: CGFloat = 12
 
     var body: some View {
         let words = OverviewAnswerText(headline: headline, earliestDate: earliestDate, today: today, locale: locale)
         let dims = dimsAnswer
-        VStack(alignment: .leading, spacing: Metrics.m) {
-            VStack(alignment: .leading, spacing: Metrics.xs) {
-                labelRow(words)
-                answerRow(words)
-                    .opacity(dims ? Self.dimmedOpacity : 1)
-                if headline.recordedOn != nil, headline.readiness == nil {
-                    // Recorded before readiness existed: its old FI progress disagreed with the
-                    // chance of retiring today, so a neutral line instead of a ring.
-                    Text(PlanResultsText.readinessNotRecorded)
-                        .font(.subheadline)
-                        .foregroundStyle(Palette.secondaryInk)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                if let error = plans.errors[plan.id], headline.recordedOn != nil || isStale {
-                    cantCalculate(error)
-                        .padding(.top, Metrics.xs)
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .contentShape(Rectangle())
-            .onTapGesture {
-                navigation.showPlan()
-            }
-            .accessibilityElement(children: .contain)
-            .accessibilityAction(named: "Open the plan") {
-                navigation.showPlan()
-            }
+        VStack(alignment: .leading, spacing: tileSpacing) {
+            answerTile(words, dims: dims)
             tiles(dims: dims)
         }
     }
 
-    // MARK: Label row
+    // MARK: Answer
 
-    private func labelRow(_ words: OverviewAnswerText) -> some View {
+    /// The question, the ring and the answer's words in a tile as wide as
+    /// the two under it; a tap anywhere but the ⓘ and *Calculate* opens
+    /// the plan.
+    private func answerTile(_ words: OverviewAnswerText, dims: Bool) -> some View {
+        OverviewTile {
+            titleRow(words)
+            answerRow(words, dims: dims)
+                .padding(.top, Metrics.m)
+            if headline.recordedOn != nil, headline.readiness == nil {
+                // Recorded before readiness existed: its old FI progress disagreed with the
+                // chance of retiring today, so a neutral line instead of a ring.
+                Text(PlanResultsText.readinessNotRecorded)
+                    .foregroundStyle(Palette.secondaryInk)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.top, Metrics.s)
+            }
+            if let error = plans.errors[plan.id], headline.recordedOn != nil || isStale {
+                cantCalculate(error)
+                    .padding(.top, Metrics.s)
+            }
+        }
+        .onTapGesture {
+            navigation.showPlan()
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityAction(named: "Open the plan") {
+            navigation.showPlan()
+        }
+    }
+
+    /// "Can I retire yet?" with its ⓘ, and the chevron at the trailing edge.
+    private func titleRow(_ words: OverviewAnswerText) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
             Text("Can I retire yet?")
-                .foregroundStyle(Palette.secondaryInk)
-            Spacer(minLength: Metrics.s)
-            runStatus
+                .font(.title2.bold())
+                .foregroundStyle(Palette.ink)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityAddTraits(.isHeader)
             explanationButton(words)
+            Spacer(minLength: Metrics.xs)
             Button {
                 navigation.showPlan()
             } label: {
@@ -96,12 +110,11 @@ struct OverviewHeader: View {
             .buttonStyle(.borderless)
             .accessibilityLabel("Open the plan")
         }
-        .font(.subheadline)
     }
 
-    /// In the label row: a calculation going on, when the answer was
+    /// Under the answer's words: a calculation going on, when the answer was
     /// recorded, or *Calculate* when the results are out of date. Why the
-    /// plan can't be calculated has a line of its own under the headline.
+    /// plan can't be calculated has a line of its own under the answer.
     @ViewBuilder
     private var runStatus: some View {
         if let progress = plans.progress(of: plan.id, .checkIn) ?? plans.progress(of: plan.id, .base) {
@@ -130,6 +143,7 @@ struct OverviewHeader: View {
             showsExplanation = true
         } label: {
             Image(systemName: "info.circle")
+                .font(.body)
                 .foregroundStyle(Palette.accent)
         }
         .buttonStyle(.borderless)
@@ -160,66 +174,80 @@ struct OverviewHeader: View {
             .buttonStyle(.bordered)
             .controlSize(.small)
         }
-        .font(.subheadline)
     }
 
-    // MARK: Headline and ring
+    // MARK: Ring and words
 
-    /// The headline with the ring at its right, or the ring on a line of
-    /// its own under it when both don't fit on one. VoiceOver reads them
-    /// as one element.
-    private func answerRow(_ words: OverviewAnswerText) -> some View {
+    /// The ring at the leading edge and the answer's words at its right;
+    /// at the largest text sizes the words go under the ring. VoiceOver
+    /// reads the headline and the ring as one element.
+    private func answerRow(_ words: OverviewAnswerText, dims: Bool) -> some View {
         let figure = headline.readinessFigure
         let percent = figure.text { AmountFormat.percent($0, digits: 0, locale: locale) }
-        return ViewThatFits(in: .horizontal) {
-            HStack(alignment: .center, spacing: Metrics.m) {
-                title(words)
-                Spacer(minLength: Metrics.s)
-                if let percent {
-                    ring(figure, percent: percent)
-                }
+        let layout = dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: Metrics.m))
+            : AnyLayout(HStackLayout(alignment: .center, spacing: Metrics.l))
+        return layout {
+            if let percent {
+                ring(figure, percent: percent)
+                    .opacity(dims ? Self.dimmedOpacity : 1)
             }
             VStack(alignment: .leading, spacing: Metrics.s) {
-                title(words)
-                if let percent {
-                    ring(figure, percent: percent)
+                answerWords(words, nextToRing: percent != nil)
+                    .opacity(dims ? Self.dimmedOpacity : 1)
+                runStatus
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    /// The headline, then when and how sure; the headline in largeTitle
+    /// when there's no ring beside it.
+    private func answerWords(_ words: OverviewAnswerText, nextToRing: Bool) -> some View {
+        VStack(alignment: .leading, spacing: Metrics.xs) {
+            Text(words.title)
+                .font(nextToRing ? .title.bold() : .largeTitle.bold())
+                .foregroundStyle(Palette.ink)
+                .dynamicTypeSize(...DynamicTypeSize.accessibility2)
+            VStack(alignment: .leading, spacing: 2) {
+                if let when = words.whenLine {
+                    Text(verbatim: when)
+                        .foregroundStyle(Palette.ink)
                 }
+                Text(verbatim: words.futuresLine)
+                    .foregroundStyle(Palette.secondaryInk)
             }
         }
+        .fixedSize(horizontal: false, vertical: true)
+        .privacySensitiveInFeedback()
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text(verbatim: words.spoken))
         .accessibilityAddTraits(.isHeader)
     }
 
-    private func title(_ words: OverviewAnswerText) -> some View {
-        Text(words.title)
-            .font(.largeTitle.bold())
-            .foregroundStyle(Palette.ink)
-            .dynamicTypeSize(...DynamicTypeSize.accessibility2)
-            .fixedSize(horizontal: false, vertical: true)
-            .privacySensitiveInFeedback()
-    }
-
-    /// "58%" over "ready", right-aligned, left of a ring 48 points across
-    /// that keeps its size at every text size.
+    /// The ring, with the percentage and "ready" inside it; it keeps its
+    /// size at every text size, and the percentage shrinks to fit.
     private func ring(_ figure: ReadinessFigure, percent: String) -> some View {
-        HStack(spacing: Metrics.s) {
-            VStack(alignment: .trailing, spacing: 0) {
+        ZStack {
+            ReadinessRing(fraction: figure.lappingFill, lineWidth: Self.ringLineWidth, laps: true)
+                .privacySensitiveInFeedback()
+            VStack(spacing: 0) {
                 Text(verbatim: percent)
-                    .font(.subheadline.weight(.semibold))
+                    .font(.system(size: 32, weight: .bold))
                     .monospacedDigit()
                     .foregroundStyle(Palette.ink)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.5)
                     .privacySensitiveInFeedback()
                 Text("ready")
-                    .font(.subheadline)
                     .foregroundStyle(Palette.secondaryInk)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
             }
-            .multilineTextAlignment(.trailing)
-            ReadinessRing(fraction: figure.lappingFill, lineWidth: 6, laps: true)
-                .frame(width: 48, height: 48)
-                .privacySensitiveInFeedback()
+            .padding(Self.ringLineWidth + Metrics.s)
         }
-        .fixedSize()
+        .frame(width: Self.ringSize, height: Self.ringSize)
+        .accessibilityHidden(true)
     }
 
     // MARK: Tiles
@@ -232,7 +260,7 @@ struct OverviewHeader: View {
         let onTrack = OverviewOnTrack(plan: plan, library: library.library, valuator: library.valuator,
                                       asOf: library.asOfDate, results: plans.latestResults(of: plan.id),
                                       canRetireNow: headline.canRetireNow, locale: locale)
-        let spacing = isWide ? Metrics.l : Metrics.m
+        let spacing = tileSpacing
         if dynamicTypeSize.isAccessibilitySize {
             VStack(alignment: .leading, spacing: spacing) {
                 netWorthTile
@@ -367,6 +395,9 @@ struct OverviewHeader: View {
 
     /// The Mac and iPad.
     private var isWide: Bool { navigation.layout == .sidebar }
+
+    /// Between the tiles: 12 points on iPhone, 16 on the Mac and iPad.
+    private var tileSpacing: CGFloat { isWide ? Metrics.l : Metrics.m }
 
     /// Whether the results shown no longer fit the plan or the library.
     private var isStale: Bool {
