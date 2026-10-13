@@ -16,9 +16,9 @@ enum AccountDefaults {
     }
 
     /// Whether a new account of `kind` counts in plans by default: a home,
-    /// vehicles and the mortgage on the home usually don't.
+    /// belongings and the mortgage on the home usually don't.
     static func includedInPlan(_ kind: AccountKind) -> Bool {
-        !(kind == .property || kind == .vehicle || kind == .mortgage)
+        !(kind == .property || kind == .belongings || kind == .mortgage)
     }
 }
 
@@ -244,9 +244,9 @@ struct AccountForm: Hashable, Sendable {
         !kind.isLiability && (!holdsPositions || balanceValueCount > 0)
     }
 
-    /// Whether it asks for an estimated loss of value a year: vehicles and
-    /// belongings, and other accounts.
-    var takesDepreciation: Bool { kind == .vehicle || kind == .other }
+    /// Whether it asks for an estimated loss of value a year: belongings
+    /// and other accounts.
+    var takesDepreciation: Bool { kind == .belongings || kind == .other }
 
     /// The loss of value a year as a share ("15" is 0.15); `nil` when
     /// empty, unreadable or not between 0 and 100.

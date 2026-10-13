@@ -67,11 +67,11 @@ struct AccountFormTests {
         #expect(form.valuationMode == .holdings)
     }
 
-    /// A vehicle asks for its loss of value a year, in per cent.
-    @Test func aVehicleTakesItsLossOfValueAYear() {
+    /// Belongings ask for their loss of value a year, in per cent.
+    @Test func belongingsTakeTheirLossOfValueAYear() {
         var form = AccountForm(residence: "IT", currency: .eur, today: today)
         #expect(!form.takesDepreciation)
-        form.setKind(.vehicle)
+        form.setKind(.belongings)
         form.name = "Car"
         form.depreciation = "15"
         #expect(form.problems(locale: locale).isEmpty)
@@ -80,7 +80,7 @@ struct AccountFormTests {
         #expect(form.problems(locale: locale) == ["Type the loss of value a year as a percentage from 0 to 99."])
         form.depreciation = ""
         #expect(form.account(id: "car", locale: locale).depreciation == nil)
-        var car = Account(id: "car", name: "Car", kind: .vehicle, currency: .eur, opened: "2026-01-01")
+        var car = Account(id: "car", name: "Car", kind: .belongings, currency: .eur, opened: "2026-01-01")
         car.depreciation = Decimal(string: "0.12")
         #expect(AccountForm(editing: car, locale: locale).depreciation == "12")
     }

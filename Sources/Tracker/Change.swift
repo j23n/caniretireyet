@@ -327,11 +327,11 @@ extension Valuator {
 
 extension Account {
     /// Whether all of the account's change in value is new money, never
-    /// markets: a vehicle's, and any account's with a depreciation. So its
+    /// markets: belongings', and any account's with a depreciation. So its
     /// loss of value is spent (PROGRESS.md, "Savings rate"), and a typed
     /// value trues up what was estimated before it.
     var changeIsNewMoney: Bool {
-        kind == .vehicle || depreciation != nil
+        kind == .belongings || depreciation != nil
     }
 
     /// `balance`, a value dated `from`, as estimated on `date` from

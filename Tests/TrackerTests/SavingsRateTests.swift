@@ -152,7 +152,7 @@ struct SavingsRateTests {
     /// of value is spent, and selling it cancels out.
     @Test func aCarsLossOfValueIsSpent() throws {
         var library = month
-        library.accounts["car"] = Account(id: "car", name: "Car", kind: .vehicle, currency: .eur,
+        library.accounts["car"] = Account(id: "car", name: "Car", kind: .belongings, currency: .eur,
                                           opened: "2026-01-10")
         // Bought for 20,000 from the current account in January.
         library.upsert(Valuation(account: "bank", date: "2026-01-31", balance: -10550, flow: -20550, moneyIn: 4000,
@@ -172,7 +172,7 @@ struct SavingsRateTests {
     /// is spent month by month, and the next typed value trues it up.
     @Test func aCarsEstimatedLossOfValueIsSpentAndTrueUp() throws {
         var library = month
-        library.accounts["car"] = Account(id: "car", name: "Car", kind: .vehicle, currency: .eur,
+        library.accounts["car"] = Account(id: "car", name: "Car", kind: .belongings, currency: .eur,
                                           opened: "2026-01-10", depreciation: d("0.12"))
         library.upsert(Valuation(account: "bank", date: "2026-01-31", balance: -10550, flow: -20550, moneyIn: 4000,
                                  moneyOut: 4550))
