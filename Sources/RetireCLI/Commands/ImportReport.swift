@@ -539,7 +539,7 @@ struct ImportReport: CommandReport {
         if let price = record.price { parts.append("\(Format.exact(price)) \(record.currency?.rawValue ?? "")") }
         if let rate = record.rate { parts.append(Format.exact(rate)) }
         if let trade = record.trade { parts.append(values(trade)) }
-        parts += moneyInOut(record.moneyIn, record.moneyOut, record.interest)
+        parts += moneyInOut(record.moneyIn, record.moneyOut, record.interest, record.oneOff)
         return parts.joined(separator: ", ").trimmingCharacters(in: .whitespaces)
     }
 
@@ -556,7 +556,7 @@ struct ImportReport: CommandReport {
                     + (position.costBasis.map { " (cost \(Format.amount($0)))" } ?? ""))
             }
             if imported?.moneyIn != nil || imported?.moneyOut != nil {
-                parts += moneyInOut(valuation.moneyIn, valuation.moneyOut, valuation.interest)
+                parts += moneyInOut(valuation.moneyIn, valuation.moneyOut, valuation.interest, valuation.oneOff)
             }
             return parts.joined(separator: ", ")
         case .price(let price): return "\(Format.exact(price.price)) \(price.currency)"
@@ -566,8 +566,9 @@ struct ImportReport: CommandReport {
     }
 
     /// `in 2,800.00`, `out 1,266.40`, `interest 1.20`, for those recorded.
-    static func moneyInOut(_ moneyIn: Decimal?, _ moneyOut: Decimal?, _ interest: Decimal?) -> [String] {
-        [("in", moneyIn), ("out", moneyOut), ("interest", interest)].compactMap { label, value in
+    static func moneyInOut(_ moneyIn: Decimal?, _ moneyOut: Decimal?, _ interest: Decimal?,
+                           _ oneOff: Decimal?) -> [String] {
+        [("in", moneyIn), ("out", moneyOut), ("interest", interest), ("one-off", oneOff)].compactMap { label, value in
             value.map { "\(label) \(Format.amount($0))" }
         }
     }
