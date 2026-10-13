@@ -8,11 +8,11 @@ import UniformTypeIdentifiers
 /// Importing a spreadsheet or CSV export (UI.md, "Import"; IMPORT.md, "Steps"),
 /// or a broker's transactions (IMPORT.md, "Broker transactions": a Types step
 /// after Columns), or a bank statement (IMPORT.md, "Bank statements": File,
-/// with the account, then Classify).
+/// with the account, then Income).
 ///
 /// - **Mac and iPad:** every step, along the top: File, Format, Columns,
 ///   Types when the file needs it, Accounts, Preview and Done; for a bank
-///   statement File, Classify, Preview and Done, with Format and Columns in
+///   statement File, Income, Preview and Done, with Format and Columns in
 ///   a sheet. The page keeps its import while you visit other pages.
 /// - **iPhone:** a sheet that starts as "Import with profile…": the file and
 ///   a saved profile, the preview, Done. "Set up the columns step by step"

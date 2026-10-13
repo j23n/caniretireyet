@@ -4,7 +4,7 @@ import Model
 
 /// A step of the import, shown along the top (UI.md, "Import"; IMPORT.md, "Steps").
 /// A broker's transactions (the trades layout) have Types after Columns. A
-/// bank statement (the statement layout) has File, Classify and Preview, with
+/// bank statement (the statement layout) has File, Income and Preview, with
 /// Format and Columns in a sheet the File step opens.
 enum ImportStep: Int, Hashable, Sendable, Comparable {
     case file
@@ -22,7 +22,7 @@ enum ImportStep: Int, Hashable, Sendable, Comparable {
         case .format: "Format"
         case .columns: "Columns"
         case .types: "Types"
-        case .classify: "Classify"
+        case .classify: "Income"
         case .accounts: "Accounts"
         case .preview: "Preview"
         case .done: "Done"
