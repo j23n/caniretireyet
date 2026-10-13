@@ -23,6 +23,9 @@ public struct ImportSession: Sendable {
     /// They belong to this file, so they aren't saved in the profile; a rule
     /// is (``setStatementRule(_:for:)``).
     public var statementLineClasses: [Int: StatementClass] = [:]
+    /// Statement layout: lines answered as a purchase you keep or a sale,
+    /// by 1-based row, for this file only (``setStatementAsset(_:forRow:)``).
+    public var statementAssets: [Int: StatementAsset] = [:]
     /// Statement layout: the account's balance before the file's first line,
     /// for a file without a balance column that doesn't follow on from the
     /// library's values.

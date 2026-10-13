@@ -49,12 +49,21 @@ public struct StatementLine: Hashable, Sendable, Identifiable {
     /// `nil` when it counts in none: a period the file doesn't cover from
     /// the account's previous value, or after the file's last value.
     public var period: CalendarDate?
-    /// Whether the line is money in too large to be paid back without
-    /// asking, which nothing classified: more than a typical month's
+    /// Whether the line is too large to count by its sign without asking,
+    /// and nothing classified it. Money in: more than a typical month's
     /// spending in the file, or more than a sender who pays every month
-    /// usually pays, whatever its size. Income, a one-off or paid back?
-    /// Until it's answered it counts as paid back.
+    /// usually pays, whatever its size. Income, a one-off, paid back or a
+    /// sale? Until it's answered it counts as paid back. Money out: more
+    /// than a typical month's spending, without the line. Spending or a
+    /// purchase you keep? Until it's answered it counts as spending.
     public var needsAnswer = false
+    /// The line's answer as a purchase you keep or a sale
+    /// (``ImportSession/setStatementAsset(_:forRow:)``), when the import
+    /// records it: the line is then a transfer, chosen.
+    public var asset: StatementAsset?
+    /// The account the answer starts or sells: a purchase's new account
+    /// (``ImportPreview/newAccounts``), or the account sold.
+    public var assetAccount: AccountID?
 
     public var id: Int { row }
 

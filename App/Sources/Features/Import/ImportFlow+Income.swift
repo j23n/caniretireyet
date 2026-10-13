@@ -53,7 +53,7 @@ extension ImportFlow {
     /// Money in that needs an answer: income, a one-off or paid back,
     /// largest first.
     var statementQuestions: [StatementLine] {
-        statementLines.filter(\.needsAnswer).sorted { $0.amount > $1.amount }
+        statementLines.filter { $0.amount > 0 && $0.needsAnswer }.sorted { $0.amount > $1.amount }
     }
 
     /// The money in of `statementClass` that doesn't need an answer, by
