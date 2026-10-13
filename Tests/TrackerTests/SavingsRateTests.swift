@@ -186,6 +186,21 @@ struct SavingsRateTests {
         #expect(savings.rate?.rounded(scale: 4) == d("0.3372"))
     }
 
+    /// A transfer between two cash or savings accounts doesn't offset a new
+    /// debt: in the example library's September, the standing order into
+    /// the savings account is money moved into it, but out of the current
+    /// account too.
+    @Test func aTransferBetweenCashAccountsDoesNotOffsetANewDebt() throws {
+        var library = try Fixtures.exampleLibrary()
+        let before = try #require(Valuator(library: library).savingsRate(from: "2026-09-01", through: "2026-09-30"))
+        library.accounts["auto"] = Account(id: "auto", name: "Car loan", kind: .loan, currency: .eur,
+                                           opened: "2026-09-10")
+        library.upsert(Valuation(account: "auto", date: "2026-09-30", balance: -10000, flow: -10000))
+        let savings = try #require(Valuator(library: library).savingsRate(from: "2026-09-01", through: "2026-09-30"))
+        #expect(savings.savedByAccount["auto"] == 0)
+        #expect(savings.saved == before.saved)
+    }
+
     /// Only accounts in net worth count: a current account left out of it
     /// adds nothing to what came in.
     @Test func countsOnlyAccountsInNetWorth() throws {

@@ -51,6 +51,30 @@ struct SpendingCommandTests {
         #expect(object["saved"] == nil)
     }
 
+    /// A current account left out of net worth isn't in the table, as it
+    /// isn't in what came in.
+    @Test func leavesOutAccountsOutsideNetWorth() async throws {
+        let library = try TemporaryFolder.exampleLibrary()
+        let side = Account(id: "side", name: "Side", kind: .cash, currency: .eur, opened: "2026-08-01",
+                           includeIn: IncludeIn(netWorth: false))
+        try library.write("accounts/side.json", JSONEncoder().encode(side))
+        for (path, value) in [
+            ("history/2026/2026-08.json", Valuation(account: "side", date: "2026-08-31", balance: 0, flow: 0)),
+            ("history/2026/2026-09.json", Valuation(account: "side", date: "2026-09-30", balance: 0, flow: 0,
+                                                    moneyIn: 700, moneyOut: 700)),
+        ] {
+            var month = try Fixtures.decode(MonthFile.self, from: path)
+            month.valuations.append(value)
+            try library.write(path, JSONEncoder().encode(month))
+        }
+        let run = await retire(["spending", "--library", library.path])
+        #expect(run.status == 0, "\(run.all)")
+        #expect(run.output.contains("10,200.00"))
+        #expect(!run.output.contains("10,900.00"))
+        let all = await retire(["spending", "--library", library.path, "--json"])
+        #expect(try parseJSON(all.output)["moneyIn"] as? String == "10200")
+    }
+
     @Test func saysWhenNothingIsRecorded() async throws {
         let library = try TemporaryFolder.exampleLibrary()
         let run = await retire(["spending", "--year", "2025", "--library", library.path])
