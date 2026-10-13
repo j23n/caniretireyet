@@ -397,8 +397,10 @@ struct LibraryLoader {
 
     /// Warns about money in and out (`moneyIn`, `moneyOut`) that summaries
     /// leave out: on an account whose kind doesn't record it, only one of the
-    /// two, or negative; and about interest on an account whose kind doesn't
-    /// record it. Every value is still loaded.
+    /// two, or negative; about interest on an account whose kind doesn't
+    /// record it; and about a one-off (`oneOff`) summaries leave out: on such
+    /// an account, without both amounts, or negative. Every value is still
+    /// loaded.
     mutating func checkMoneyInOut(in library: Library) {
         for valuation in library.allValuations where valuation.interest != nil {
             guard let account = library.accounts[valuation.account], !account.kind.recordsInterest else { continue }
@@ -416,6 +418,18 @@ struct LibraryLoader {
             } else if (valuation.moneyIn ?? 0) < 0 || (valuation.moneyOut ?? 0) < 0 {
                 warn(path, "The valuation of \(valuation.account) on \(valuation.date) has negative money in or out; "
                     + "both are amounts without a sign. It isn't counted.")
+            }
+        }
+        for valuation in library.allValuations {
+            guard let oneOff = valuation.oneOff else { continue }
+            let path = LibraryFile.month(valuation.date.yearMonth).path
+            let whose = "The valuation of \(valuation.account) on \(valuation.date)"
+            if let account = library.accounts[valuation.account], !account.kind.recordsMoneyInOut {
+                warn(path, "\(whose) records a one-off, but only cash and savings accounts do; it isn't counted.")
+            } else if valuation.moneyIn == nil || valuation.moneyOut == nil {
+                warn(path, "\(whose) records a one-off without both money in and out; it isn't counted.")
+            } else if oneOff < 0 {
+                warn(path, "\(whose) has a negative one-off, an amount without a sign; it isn't counted.")
             }
         }
     }

@@ -111,11 +111,11 @@ public enum CSVExport {
         let rows = months.flatMap(\.valuations).sortedByKey().map { valuation in
             [valuation.date.description, valuation.account.rawValue, exact(valuation.balance), exact(valuation.cash),
              String(valuation.positions.count), exact(valuation.flow), exact(valuation.moneyIn),
-             exact(valuation.moneyOut), exact(valuation.interest), valuation.note ?? "",
+             exact(valuation.moneyOut), exact(valuation.oneOff), exact(valuation.interest), valuation.note ?? "",
              valuation.source?.rawValue ?? ""]
         }
         return table("valuations.csv", ["date", "account", "balance", "cash", "positions", "flow", "money_in",
-                                         "money_out", "interest", "note", "source"], rows)
+                                         "money_out", "one_off", "interest", "note", "source"], rows)
     }
 
     /// `positions.csv`: the quantities recorded in valuations.

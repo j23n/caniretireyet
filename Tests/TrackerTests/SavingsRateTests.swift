@@ -146,6 +146,13 @@ struct SavingsRateTests {
         #expect(savings.rate?.rounded(scale: 4) == d("0.3372"))
         // What moved between the accounts leaves the one-off out too.
         #expect(library.months["2026-01"]?.valuations.first { $0.account == "bank" }?.moved == 0)
+        // So does the Overview's Saved bar: the one-off is under Other.
+        let valuator = Valuator(library: library)
+        let report = valuator.change(from: "2025-12-31", to: "2026-01-31")
+        let split = valuator.savedSplit(of: report)
+        #expect(split.newMoney == savings.saved)
+        #expect(split.other == report.total.other + 20000)
+        #expect(split.start + split.market + split.newMoney + split.other == split.end)
     }
 
     /// A car bought from the current account is saved, not spent; its loss
@@ -208,6 +215,20 @@ struct SavingsRateTests {
         #expect(paidOut.byAccount.values.reduce(Decimal(0), +) == 1450)
     }
 
+    /// A loan you start tracking at a regular check-in doesn't take that
+    /// month's saving: only money moved into the current account offsets
+    /// it, not the broker's deposit or the mortgage's principal.
+    @Test func aDebtAddedAtARegularCheckInKeepsTheMonthsSaving() throws {
+        var library = month
+        library.accounts["auto"] = Account(id: "auto", name: "Car loan", kind: .loan, currency: .eur,
+                                           opened: "2026-01-10")
+        library.upsert(Valuation(account: "auto", date: "2026-01-31", balance: -10000, flow: -10000))
+        let savings = try #require(Valuator(library: library).savingsRate(from: "2026-01-01", through: "2026-01-31"))
+        #expect(savings.savedByAccount["auto"] == 0)
+        #expect(savings.saved == 1450)
+        #expect(savings.rate?.rounded(scale: 4) == d("0.3372"))
+    }
+
     /// Only accounts in net worth count: a current account left out of it
     /// adds nothing to what came in.
     @Test func countsOnlyAccountsInNetWorth() throws {
@@ -220,6 +241,9 @@ struct SavingsRateTests {
         let savings = try #require(Valuator(library: library).savingsRate(from: "2026-01-01", through: "2026-01-31"))
         #expect(savings.income == 4300)
         #expect(savings.savedByAccount["side"] == nil)
+        // Trends' money in and out recorded counts the same accounts.
+        let series = Valuator(library: library).moneyInOutSeries(.months, through: "2026-01-31")
+        #expect(series.recorded.moneyIn == 4000)
     }
 
     @Test func needsMoneyInAndOutAndSomethingComingIn() throws {
