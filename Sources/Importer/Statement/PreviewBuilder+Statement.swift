@@ -316,10 +316,9 @@ extension PreviewBuilder {
     /// The session's answers as a purchase or a sale that the import can
     /// record, by row (docs/IMPORT.md, "Purchases and sales"): a purchase
     /// of money out, of a kind it can start; a sale of money in, of an
-    /// account other than `account` that can be sold from a statement
-    /// (``Model/Account/canBeSoldFromStatement``), in its currency, with no
-    /// values after the line, the first sale of it in the file; or one
-    /// this sale already closed (``soldBefore(_:on:)``).
+    /// account that can be sold from `account`'s statement
+    /// (``Library/canSellFromStatement(_:of:on:)``), the first sale of it
+    /// in the file.
     private func answeredAssets(_ read: [ReadLine], account: Account) -> [Int: StatementAsset] {
         var answered: [Int: StatementAsset] = [:]
         var sold = Set<AccountID>()
@@ -329,31 +328,14 @@ extension PreviewBuilder {
             case .purchase(_, let kind):
                 guard StatementAsset.purchaseKinds.contains(kind) else { continue }
             case .sale(let id):
-                guard id != account.id, let other = library.accounts[id], other.currency == account.currency,
-                      other.opened <= line.date, !sold.contains(id)
+                guard let other = library.accounts[id], !sold.contains(id),
+                      library.canSellFromStatement(other, of: account, on: line.date)
                 else { continue }
-                let unsold = other.canBeSoldFromStatement
-                    && !library.valuations(for: id).contains(where: { $0.date > line.date })
-                guard unsold || soldBefore(other, on: line.date) else { continue }
                 sold.insert(id)
             }
             answered[line.row] = asset
         }
         return answered
-    }
-
-    /// Whether `account` is closed the day after a value of 0 on or after
-    /// `date`, its only value after `date`: sold on `date` by importing this
-    /// statement before, so importing it again with the same answer finds
-    /// the same sale. A value on `date` itself is from before the sale.
-    private func soldBefore(_ account: Account, on date: CalendarDate) -> Bool {
-        guard let closed = account.closed, closed > date else { return false }
-        let zeroDay = closed.adding(days: -1)
-        let after = library.valuations(for: account.id).filter { $0.date > date || $0.date == zeroDay }
-        guard after.count == 1, let zero = after.first, zero.date == zeroDay, (zero.balance ?? 0) == 0 else {
-            return false
-        }
-        return !account.recordsTrades && !account.kind.recordsMoneyInOut && !account.kind.isLiability
     }
 
     /// The records of the lines answered as a purchase or a sale, at the
