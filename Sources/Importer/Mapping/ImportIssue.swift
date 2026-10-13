@@ -98,9 +98,9 @@ public struct ImportIssue: Hashable, Sendable, CustomStringConvertible {
         /// by its class. A purchase must be money out and start a
         /// belongings, property or other account; a sale must be money in,
         /// of an account that ``Model/Account/canBeSoldFromStatement``, in
-        /// the statement's currency, with no values after the line, sold
-        /// once (`account`). Either needs a value of the file's on or after
-        /// the line.
+        /// the statement's currency, opened by the line, with no values
+        /// after it, sold once (`account`). Either needs to count in a value
+        /// whose money in and out the file covers (``StatementLine/period``).
         case statementAssetLeftOut(row: Int, account: AccountID?)
     }
 
@@ -223,12 +223,12 @@ public struct ImportIssue: Hashable, Sendable, CustomStringConvertible {
                 + "until its money in and out are only those after the file's last value, they count twice."
         case .statementAssetLeftOut(let row, let account?):
             return "Row \(row) can't sell \(account): it needs to be an open account of the library valued by its "
-                + "balance in the statement's currency, not a cash or savings account or a debt, with no values after "
-                + "the line, sold once. The line counts by its class."
+                + "balance in the statement's currency, not a cash or savings account or a debt, opened by the line, "
+                + "with no values after it, sold once. The line counts by its class."
         case .statementAssetLeftOut(let row, nil):
             return "Row \(row) can't be a purchase or a sale: a purchase is money out that starts a belongings, "
-                + "property or other account, and a sale is money in, each before the file's last value. The line "
-                + "counts by its class."
+                + "property or other account, and a sale is money in, each counted in a value whose money in and out "
+                + "the file covers. The line counts by its class."
         }
     }
 }
