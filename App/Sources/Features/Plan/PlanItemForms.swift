@@ -323,19 +323,21 @@ struct PlanWorkingSpendingForm: View {
         return "\(money) \(spentNote)"
     }
 
-    /// What the cash and savings accounts that record money in and out
-    /// spent over the last twelve months, a month on average, loan and
-    /// mortgage payments included, to set the plan's spending against
-    /// (PROGRESS.md, "Money in and out"); `nil`
-    /// when nothing was recorded. The amount hides with the eye.
+    /// What was spent over the last twelve months, a month on average
+    /// (``Tracker/SavingsRate/spent``: what came in less what was saved),
+    /// to set the plan's spending against (PROGRESS.md, "Savings rate");
+    /// `nil` when no money in and out was recorded, or nothing was spent.
+    /// The amount hides with the eye.
     private var spentNote: AmountSentence? {
-        let summary = library.valuator.moneyInOut(overYearEndingOn: .today())
-        guard let perYear = summary.moneyOutPerYear else { return nil }
+        guard let savings = library.valuator.savingsRate(overYearEndingOn: .today()), savings.spent > 0
+        else { return nil }
         let amount = AmountSentence.amount(
-            AmountFormat.amount(perYear / 12, currency: summary.currency, locale: locale))
-        var note: AmountSentence = "Your accounts recorded \(amount) a month on average going out in the last year, "
-        note += "loan, mortgage and credit card payments included. Money moved between your own accounts is left out."
-        if !summary.isComplete { note += " Values without an exchange rate are left out too." }
+            AmountFormat.amount(savings.spentPerYear / 12, currency: savings.moneyInOut.currency, locale: locale))
+        var note: AmountSentence = "You spent \(amount) a month on average in the last year: what came in, "
+        note += "less what you saved. A loan's interest counts as spent, its principal as saved."
+        if !savings.moneyInOut.isComplete || !savings.isPriced {
+            note += " Values without a price or an exchange rate are left out."
+        }
         return note
     }
 }

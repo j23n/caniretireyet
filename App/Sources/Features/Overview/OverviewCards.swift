@@ -48,7 +48,8 @@ struct OverviewChangeCard: View {
 
     /// What the bars mean, under them; *Other* only when there is some.
     static func explanation(_ change: ValueChange) -> String {
-        var text = "Markets: prices, exchange rates and interest. New money: what you added or took out."
+        var text = "Markets: prices, exchange rates and interest. Saved: what you added or took out; "
+        text += "money moved between your own accounts cancels out."
         if change.other != 0 {
             text += " Other: changes in accounts without new money recorded."
         }

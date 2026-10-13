@@ -70,10 +70,9 @@ extension AccountKind {
         self == .brokerage || self == .crypto || self == .metals
     }
 
-    /// Whether a drop in what the account owes counts as kept in the
-    /// savings rate, as principal repaid: loans and mortgages, whose
-    /// payments are money out of the account they leave. A credit card's
-    /// drop doesn't count: it's paying for what was spent.
+    /// Whether a drop in what the account owes is principal repaid: loans
+    /// and mortgages, whose payments are money out of the account they
+    /// leave. A credit card's drop isn't: it's paying for what was spent.
     public var countsPrincipalRepaid: Bool {
         self == .loan || self == .mortgage
     }

@@ -52,10 +52,12 @@ struct ChangeBars: Hashable, Sendable {
         }
     }
 
-    /// Markets, new money and other, from Tracker's split of a change.
+    /// Markets, new money and other, from Tracker's split of a change. Net
+    /// worth's new money is what was saved: money moved between your
+    /// accounts cancels out, so its bar is *Saved*.
     init(_ change: ValueChange) {
         self.init(start: change.start.doubleValue, end: change.end.doubleValue,
-                  parts: [("Markets", change.market.doubleValue), ("New money", change.newMoney.doubleValue),
+                  parts: [("Markets", change.market.doubleValue), ("Saved", change.newMoney.doubleValue),
                           ("Other", change.other.doubleValue)])
     }
 }

@@ -278,7 +278,7 @@ struct PlanLastTwelveMonths: Hashable {
         var value: Value
         /// 1 up, −1 down, 0 for none.
         var direction: Int
-        /// Whether it's good news (more kept, less went out): green, else orange.
+        /// Whether it's good news (more saved, less spent): green, else orange.
         var isGood: Bool
 
         /// "▲ 4 points", "▲ 2.100 €", "▼ 2%", or "No change" for one that
@@ -294,16 +294,15 @@ struct PlanLastTwelveMonths: Hashable {
         }
     }
 
-    /// Savings rate, Kept, Came in and Went out, in that order.
+    /// Savings rate, Saved, Came in and Spent, in that order.
     var tiles: [Tile] {
         [
             Tile(title: "Savings rate", figure: .rate(current.rate), change: rateChange),
-            Tile(title: "Kept", figure: .amount(current.saved), change: keptChange),
+            Tile(title: "Saved", figure: .amount(current.saved), change: savedChange),
             Tile(title: "Came in", figure: .amount(current.income),
                  change: Self.share(current.income, before: previous?.income, moreIsGood: true)),
-            Tile(title: "Went out", figure: .amount(current.moneyInOut.moneyOut),
-                 change: Self.share(current.moneyInOut.moneyOut, before: previous?.moneyInOut.moneyOut,
-                                    moreIsGood: false)),
+            Tile(title: "Spent", figure: .amount(current.spent),
+                 change: Self.share(current.spent, before: previous?.spent, moreIsGood: false)),
         ]
     }
 
@@ -314,8 +313,8 @@ struct PlanLastTwelveMonths: Hashable {
         return TileChange(value: .points(points), direction: points.signum(), isGood: points >= 0)
     }
 
-    /// What was kept, in money.
-    private var keptChange: TileChange? {
+    /// What was saved, in money.
+    private var savedChange: TileChange? {
         guard let before = previous?.saved else { return nil }
         let change = current.saved - before
         let direction = DeltaFormat.direction(of: change, precision: .whole)
@@ -336,11 +335,12 @@ struct PlanLastTwelveMonths: Hashable {
     static let sameSpendingTolerance = Decimal(2) / 100
 
     /// "Your plan spends 36.000 € a year while you work: you spent 12%
-    /// less.", "… 8% more.", "… about the same." within 2%: money out a
-    /// year against the plan's spending while working. `nil` when the plan
-    /// is past working, or nothing went out.
+    /// less.", "… 8% more.", "… about the same." within 2%: what was spent
+    /// a year against the plan's spending while working. `nil` when the
+    /// plan is past working, or nothing was spent.
     func spendingWords(planned: Decimal?, locale: Locale = .current) -> AmountSentence? {
-        guard let planned, planned > 0, let perYear = current.moneyInOut.moneyOutPerYear else { return nil }
+        guard let planned, planned > 0, current.spent > 0 else { return nil }
+        let perYear = current.spentPerYear
         let amount = AmountSentence.amount(AmountFormat.amount(planned, currency: current.moneyInOut.currency,
                                                                locale: locale))
         let difference = (perYear - planned) / planned

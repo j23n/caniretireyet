@@ -8,6 +8,7 @@ import Tracker
 /// `retire spending` against the example library, whose current account
 /// records money in and out from July to September 2026, whose pension fund
 /// is paid 1,325 on 30 September, and whose mortgage repays 650 a month.
+/// The savings rate's figures are worked out in `SavingsRateTests`.
 struct SpendingCommandTests {
     @Test func sumsTheTwelveMonthsToToday() async throws {
         let library = try TemporaryFolder.exampleLibrary()
@@ -20,16 +21,20 @@ struct SpendingCommandTests {
         #expect(run.output.contains("38,006.82"))
         #expect(run.output.contains("3 months recorded (2026-07 to 2026-09); out a year scales each account's "
             + "money out to 365 days by the days its values cover."))
-        // (10,200 − 9,579.8 + 1,325 + 1,950) / (10,200 + 1,325).
-        #expect(run.output.contains("Savings rate 33.8%: you kept 3,895.20 of the 11,525.00 that came in from "
-            + "2026-07-01 to 2026-09-30, with the 1,325.00 paid into pension funds and TFR counted as both and "
-            + "the 1,950.00 of loans and mortgages repaid counted as kept."))
+        // 1,956.05 / (10,200 + 1,325).
+        #expect(run.output.contains("Savings rate 17.0%: you saved 1,956.05 of the 11,525.00 that came in from "
+            + "2026-07-01 to 2026-09-30, 1,325.00 of it paid into pension funds and TFR, and spent 9,568.95 "
+            + "(37,963.77 a year)."))
+        #expect(!run.output.contains("some income may not be recorded"))
         let all = await retire(["spending", "--library", library.path, "--json"])
         #expect(all.status == 0, "\(all.all)")
         let rate = try parseJSON(all.output)
-        #expect(rate["savingsRate"] as? String == "0.338")
+        #expect(rate["savingsRate"] as? String == "0.1697")
+        #expect(rate["cameIn"] as? String == "11525")
         #expect(rate["pensionContributions"] as? String == "1325")
-        #expect(rate["principalRepaid"] as? String == "1950")
+        #expect(rate["saved"] as? String == "1956.05")
+        #expect(rate["spent"] as? String == "9568.95")
+        #expect(rate["spentPerYear"] as? String == "37963.77")
 
         let json = await retire(["spending", "--year", "2026", "--account", "conto-fineco", "--library", library.path,
                                  "--json"])
@@ -43,7 +48,7 @@ struct SpendingCommandTests {
         #expect(object["months"] as? [String] == ["2026-07", "2026-08", "2026-09"])
         // One account has no savings rate.
         #expect(object["savingsRate"] == nil)
-        #expect(object["principalRepaid"] == nil)
+        #expect(object["saved"] == nil)
     }
 
     @Test func saysWhenNothingIsRecorded() async throws {
@@ -60,12 +65,13 @@ struct SpendingCommandTests {
         #expect(year.errors.contains("--year must be between 1 and 9999."))
     }
 
-    @Test func helpSaysLoanPaymentsAreMoneyOut() async {
+    @Test func helpSaysWhatSavedMeans() async {
         let help = await retire(["help", "spending"])
         #expect(help.status == 0)
         let words = help.output.split(whereSeparator: \.isWhitespace).joined(separator: " ")
         #expect(words.contains("credit card, loan and mortgage payments are money out"))
-        #expect(words.contains("the principal repaid on loans and mortgages counted as kept"))
+        #expect(words.contains("so money moved between your accounts cancels out and a loan's principal repaid is "
+            + "saved"))
         #expect(!words.contains("moneyInOut"))
     }
 

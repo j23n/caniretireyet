@@ -5,7 +5,7 @@ import Tracker
 
 /// Trends' *Savings rate* (UI.md, "Trends"): a bar per month or year, the
 /// savings rate over the values of that period, below the zero line when
-/// more went out than came in. With months, a line through the rate over
+/// more was spent than came in. With months, a line through the rate over
 /// the 12 months ending at each month, from the twelfth month recorded. A
 /// dashed rule at the plan's own savings rate while working. The value axis
 /// fits the line, the rule and the bars within ±100%

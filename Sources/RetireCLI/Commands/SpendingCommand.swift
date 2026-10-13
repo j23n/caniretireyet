@@ -6,8 +6,8 @@ import Tracker
 
 /// `retire spending`: the money in and out recorded at check-ins on cash and
 /// savings accounts, summed over a year (Tracker's
-/// `Valuator.moneyInOut(from:through:accounts:)`), and the savings rate
-/// (`Valuator.savingsRate(from:through:)`).
+/// `Valuator.moneyInOut(from:through:accounts:)`), and the savings rate:
+/// what came in, was saved and was spent (`Valuator.savingsRate(from:through:)`).
 struct SpendingCommand: RetireSubcommand {
     static let configuration = CommandConfiguration(
         commandName: "spending",
@@ -18,9 +18,10 @@ struct SpendingCommand: RetireSubcommand {
             currency. Money out is roughly what you spent: money moved between your own accounts isn't \
             in either, but credit card, loan and mortgage payments are money out. Values without both \
             amounts, and an account's first value, aren't counted. Without --account, also the savings \
-            rate: what you kept of what came in, with what was paid into pension funds and TFR over the \
-            same days counted on both sides, and the principal repaid on loans and mortgages counted as \
-            kept.
+            rate: what you saved of what came in. Saved is the new money of every account, worked out \
+            from balances and trades, so money moved between your accounts cancels out and a loan's \
+            principal repaid is saved. Came in is money in plus what was paid into pension funds and \
+            TFR. Spent is what came in less what was saved.
             """)
 
     @OptionGroup var options: LibraryOptions
@@ -87,19 +88,15 @@ struct SpendingCommand: RetireSubcommand {
                 + "(\(Format.range(summary.months[0], summary.months[months - 1]))); out a year scales each account's "
                 + "money out to 365 days by the days its values cover.")
             if let savings, let rate = savings.rate {
-                var counted: [String] = []
-                if savings.pensionContributions > 0 {
-                    counted.append("the \(Format.amount(savings.pensionContributions)) paid into pension funds "
-                        + "and TFR counted as both")
-                }
-                if savings.principalRepaid > 0 {
-                    counted.append("the \(Format.amount(savings.principalRepaid)) of loans and mortgages repaid "
-                        + "counted as kept")
-                }
-                let with = counted.isEmpty ? "" : ", with " + counted.joined(separator: " and ")
-                lines.append("Savings rate \(Format.percent(rate)): you kept \(Format.amount(savings.saved)) of the "
+                let pensions = savings.pensionContributions > 0
+                    ? ", \(Format.amount(savings.pensionContributions)) of it paid into pension funds and TFR" : ""
+                lines.append("Savings rate \(Format.percent(rate)): you saved \(Format.amount(savings.saved)) of the "
                     + "\(Format.amount(savings.income)) that came in from \(savings.from.adding(days: 1)) to "
-                    + "\(savings.through)\(with).")
+                    + "\(savings.through)\(pensions), and spent \(Format.amount(savings.spent)) "
+                    + "(\(Format.amount(savings.spentPerYear)) a year).")
+                if savings.spent < 0 {
+                    lines.append("More was saved than came in: some income may not be recorded.")
+                }
                 if !savings.plannedContributionAccounts.isEmpty {
                     lines.append("Paid into pensions as the main plan pays, since check-ins didn't record it: "
                         + savings.plannedContributionAccounts.map(\.rawValue).joined(separator: ", ") + ".")
@@ -116,8 +113,11 @@ struct SpendingCommand: RetireSubcommand {
                  net: Format.json(summary.net), moneyOutPerYear: summary.moneyOutPerYear.map { Format.json($0) },
                  months: summary.months.map(\.description), unconverted: summary.unconverted.map(\.rawValue),
                  savingsRate: savings?.rate.map { Format.json($0, places: 4) },
+                 cameIn: savings.map { Format.json($0.income) },
                  pensionContributions: savings.map { Format.json($0.pensionContributions) },
-                 principalRepaid: savings.map { Format.json($0.principalRepaid) })
+                 saved: savings.map { Format.json($0.saved) },
+                 spent: savings.map { Format.json($0.spent) },
+                 spentPerYear: savings.map { Format.json($0.spentPerYear) })
         }
 
         struct JSON: Encodable {
@@ -135,18 +135,22 @@ struct SpendingCommand: RetireSubcommand {
             /// The months with a value counted.
             var months: [String]
             var unconverted: [String]
-            /// What was kept of what came in, as a fraction; absent for one
+            /// What was saved of what came in, as a fraction; absent for one
             /// account, when no money in and out was counted, or when nothing
             /// came in.
             var savingsRate: String?
-            /// What was paid into pension funds and TFR over the days the pay
-            /// covers, counted as both kept and come in; absent for one account
-            /// or when no money in and out was counted.
+            /// Money in plus the pension contributions, over the days the pay
+            /// covers; absent for one account or when no money in and out was
+            /// counted. So are the four below.
+            var cameIn: String?
+            /// What was paid into pension funds and TFR over those days.
             var pensionContributions: String?
-            /// What loans and mortgages owe less over those days, each
-            /// account's at least zero, counted as kept; absent for one account
-            /// or when no money in and out was counted.
-            var principalRepaid: String?
+            /// Every account's new money over those days.
+            var saved: String?
+            /// What came in less what was saved.
+            var spent: String?
+            /// Spent, scaled to a year by the days.
+            var spentPerYear: String?
         }
     }
 }

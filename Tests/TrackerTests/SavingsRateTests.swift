@@ -4,40 +4,49 @@ import Testing
 import TestSupport
 import Tracker
 
-/// The savings rate of the example library, whose current account records
-/// money in and out from July to September 2026, whose pension fund is paid
-/// 1,325 a quarter and whose mortgage repays 650 a month, worked out by
-/// hand.
+/// The savings rate (PROGRESS.md, "Savings rate"): what was saved, worked out
+/// from balances and trades, over what came in.
 struct SavingsRateTests {
-    @Test func countsPensionsOnBothSidesAndThePrincipalRepaidAsKept() throws {
+    /// The example library, whose current account records money in and out
+    /// from July to September 2026, whose pension fund is paid 1,325 a
+    /// quarter and whose mortgage repays 650 a month from the current
+    /// account, worked out by hand.
+    @Test func savesEveryAccountsNewMoney() throws {
         let valuator = Valuator(library: try Fixtures.exampleLibrary())
         let savings = try #require(valuator.savingsRate(overYearEndingOn: "2026-09-30"))
         // The current account's values cover 2026-06-30 to 2026-09-30.
         #expect(savings.from == "2026-06-30")
         #expect(savings.through == "2026-09-30")
         #expect(savings.moneyInOut.moneyIn == d("10200"))
-        #expect(savings.moneyInOut.moneyOut == d("9579.8"))
         // The pension fund's 1,325 on 2026-09-30; the TFR has no value in those days.
         #expect(savings.pensionContributions == d("1325"))
         #expect(savings.plannedContributionAccounts.isEmpty)
-        // The mortgage's 650 a month for July, August and September, though the plan leaves it out.
-        #expect(savings.principalRepaid == 1950)
         #expect(savings.income == d("11525"))
-        // 10,200 − 9,579.8 + 1,325 + 1,950.
-        #expect(savings.saved == d("3895.2"))
-        // 3,895.2 / 11,525.
-        #expect(savings.rate?.rounded(scale: 4) == d("0.338"))
+        // The current account's −2,030.4 is the 500 to the savings account, the 200.6 to the broker and the
+        // mortgage's 1,950, which come back as their new money, less what was spent.
+        #expect(savings.savedByAccount["conto-fineco"] == d("-2030.4"))
+        #expect(savings.savedByAccount["conto-deposito"] == 500)
+        #expect(savings.savedByAccount["directa"] == d("211.45"))
+        #expect(savings.savedByAccount["mutuo-casa"] == 1950)
+        #expect(savings.savedByAccount["fondo-pensione"] == 1325)
+        #expect(savings.saved == d("1956.05"))
+        #expect(savings.spent == d("9568.95"))
+        // 9,568.95 × 365 / 92 days.
+        #expect(savings.spentPerYear == d("37963.77"))
+        // 1,956.05 / 11,525.
+        #expect(savings.rate?.rounded(scale: 4) == d("0.1697"))
+        #expect(savings.isPriced)
     }
 
-    @Test func countsPensionsOnlyOverTheDaysMoneyInAndOutCover() throws {
+    @Test func countsOverTheDaysMoneyInCovers() throws {
         let valuator = Valuator(library: try Fixtures.exampleLibrary())
         let august = try #require(valuator.savingsRate(from: "2026-08-01", through: "2026-08-31"))
         // August's value is measured from July's.
         #expect(august.from == "2026-07-31")
         #expect(august.pensionContributions == 0)
-        #expect(august.principalRepaid == 650)
-        // (3,400 − 2,014.6 + 650) / 3,400.
-        #expect(august.rate?.rounded(scale: 4) == d("0.5986"))
+        // The current account's 534.8, the broker's deposit of 200.6 and the mortgage's 650.
+        #expect(august.saved == d("1385.4"))
+        #expect(august.rate?.rounded(scale: 4) == d("0.4075"))
     }
 
     /// The savings account records money in and out on 2026-09-30 for the
@@ -76,33 +85,65 @@ struct SavingsRateTests {
         let savings = try #require(Valuator(library: library).savingsRate(overYearEndingOn: "2026-09-30"))
         #expect(savings.pensionContributions == 0)
         #expect(savings.income == d("10200"))
-        #expect(savings.saved == d("2570.2"))
+        // 1,956.05 without the 1,325 paid in, and with the 500 taken out.
+        #expect(savings.saved == d("131.05"))
     }
 
-    /// docs/ACCOUNTS.md, "Settled questions" 10: every loan and mortgage
-    /// counts, whether the plan includes it or not; a credit card doesn't,
-    /// and a debt that grew counts as nothing.
-    @Test func countsEveryLoanAndMortgageButNoCreditCard() throws {
-        var library = try Fixtures.exampleLibrary()
-        #expect(library.accounts["mutuo-casa"]?.includedInPlan == false)
-        library.accounts["prestito"] = Account(id: "prestito", name: "Prestito", kind: .loan, currency: .eur,
-                                               opened: "2026-06-30")
-        library.accounts["carta"] = Account(id: "carta", name: "Carta", kind: .creditCard, currency: .eur,
-                                            opened: "2026-06-30")
-        library.accounts["auto"] = Account(id: "auto", name: "Car loan", kind: .loan, currency: .eur,
-                                           opened: "2026-06-30")
-        library.upsert(Valuation(account: "prestito", date: "2026-06-30", balance: -5000))
-        library.upsert(Valuation(account: "prestito", date: "2026-09-30", balance: -4400, flow: 600))
-        library.upsert(Valuation(account: "carta", date: "2026-06-30", balance: -900))
-        library.upsert(Valuation(account: "carta", date: "2026-09-30", balance: -300, flow: 600))
-        // Paid out more than was repaid: nothing kept, and nothing taken away.
-        library.upsert(Valuation(account: "auto", date: "2026-06-30", balance: -1000))
-        library.upsert(Valuation(account: "auto", date: "2026-09-30", balance: -3000, flow: -2000))
-        let savings = try #require(Valuator(library: library).savingsRate(overYearEndingOn: "2026-09-30"))
-        // The mortgage's 1,950 and the loan's 600.
-        #expect(savings.principalRepaid == 2550)
-        #expect(savings.saved == d("4495.2"))
-        #expect(savings.income == d("11525"))
+    /// A month of made-up accounts (plans/savings-rate-rethink.md, "A month,
+    /// worked through"): pay of 4,000 and a refund of 150 into the current
+    /// account, which pays rent and groceries (1,800), the card's bill
+    /// (1,100), 1,000 to the broker and the mortgage (500 principal, 300
+    /// interest); 900 bought by card; 300 paid into the pension fund by the
+    /// employer.
+    let month: Library = {
+        var library = Library(settings: LibrarySettings(baseCurrency: .eur))
+        let accounts = [
+            Account(id: "bank", name: "Bank", kind: .cash, currency: .eur, opened: "2025-12-01"),
+            Account(id: "card", name: "Card", kind: .creditCard, currency: .eur, opened: "2025-12-01"),
+            Account(id: "broker", name: "Broker", kind: .brokerage, currency: .eur, opened: "2025-12-01",
+                    valuation: .trades),
+            Account(id: "fondo", name: "Fondo", kind: .pensionFund, currency: .eur, opened: "2025-12-01"),
+            Account(id: "mortgage", name: "Mortgage", kind: .mortgage, currency: .eur, opened: "2025-12-01"),
+        ]
+        for account in accounts { library.accounts[account.id] = account }
+        library.upsert(Valuation(account: "bank", date: "2025-12-31", balance: 10000, flow: 10000))
+        library.upsert(Valuation(account: "card", date: "2025-12-31", balance: -300, flow: -300))
+        library.upsert(Valuation(account: "broker", date: "2025-12-31", cash: 0, flow: 0))
+        library.upsert(Valuation(account: "fondo", date: "2025-12-31", balance: 5000))
+        library.upsert(Valuation(account: "mortgage", date: "2025-12-31", balance: -100_000))
+        library.upsert(Trade(account: "broker", date: "2026-01-26", id: "dep1", type: .deposit, amount: 1000))
+        // Income only: the refund isn't.
+        library.upsert(Valuation(account: "bank", date: "2026-01-31", balance: 9450, flow: -550, moneyIn: 4000,
+                                 moneyOut: 4550))
+        library.upsert(Valuation(account: "card", date: "2026-01-31", balance: -100, flow: 200))
+        library.upsert(Valuation(account: "broker", date: "2026-01-31", cash: 1000, flow: 1000))
+        library.upsert(Valuation(account: "fondo", date: "2026-01-31", balance: 5300, flow: 300))
+        library.upsert(Valuation(account: "mortgage", date: "2026-01-31", balance: -99500, flow: 500))
+        return library
+    }()
+
+    @Test func transfersCancelOutAndARefundLowersSpending() throws {
+        let savings = try #require(Valuator(library: month).savingsRate(from: "2026-01-01", through: "2026-01-31"))
+        #expect(savings.from == "2025-12-31")
+        #expect(savings.income == 4300)
+        // −550 + 200 + 1,000 + 300 + 500.
+        #expect(savings.saved == 1450)
+        // Rent and groceries, the card's purchases and the mortgage's interest, less the refund.
+        #expect(savings.spent == 2850)
+        #expect(savings.rate?.rounded(scale: 4) == d("0.3372"))
+    }
+
+    /// A check-in fills in a new account's whole amount as its flow: only the
+    /// part that left an account already tracked is saved.
+    @Test func aNewAccountsFirstValueIsSavedOnlyAsFarAsItMovedFromAnother() throws {
+        var library = month
+        library.accounts["old-savings"] = Account(id: "old-savings", name: "Old savings", kind: .savings,
+                                                  currency: .eur, opened: "2026-01-15")
+        library.upsert(Valuation(account: "old-savings", date: "2026-01-31", balance: 20000, flow: 20000))
+        let savings = try #require(Valuator(library: library).savingsRate(from: "2026-01-01", through: "2026-01-31"))
+        // The bank's 550 drop is the only negative new money at that check-in.
+        #expect(savings.savedByAccount["old-savings"] == 550)
+        #expect(savings.saved == 2000)
     }
 
     @Test func needsMoneyInAndOutAndSomethingComingIn() throws {
@@ -112,8 +153,9 @@ struct SavingsRateTests {
         let nothingIn = SavingsRate(
             moneyInOut: MoneyInOutSummary(from: "2026-01-01", through: "2026-12-31", currency: .eur, moneyOut: 800,
                                           months: ["2026-03"], measuredFrom: "2026-02-28"),
-            from: "2026-02-28", through: "2026-12-31")
+            from: "2026-02-28", through: "2026-12-31", savedByAccount: ["bank": -800])
         #expect(nothingIn.saved == -800)
+        #expect(nothingIn.spent == 800)
         #expect(nothingIn.rate == nil)
     }
 }

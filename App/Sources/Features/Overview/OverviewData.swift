@@ -140,10 +140,11 @@ struct OverviewHistory: Hashable, Sendable {
 
 /// The words of the Overview's *This year* card (UI.md, "This year").
 enum OverviewYearText {
-    /// "Savings rate 17%: you kept 1.945 € of the 11.525 € that came in
-    /// since 30 Jun, with 1.325 € paid into pensions counted as both and
-    /// 1.950 € of loan principal repaid counted as kept." The amounts hide
-    /// with the eye; the rate stays. `nil` when nothing came in.
+    /// "Savings rate 17%: you saved 1.956 € of the 11.525 € that came in
+    /// since 30 Jun, 1.325 € of it paid into pensions, and spent 9.569 €."
+    /// When more was saved than came in, it says some income may not be
+    /// recorded. The amounts hide with the eye; the rate stays. `nil` when
+    /// nothing came in.
     static func savings(_ savings: SavingsRate, today: CalendarDate, locale: Locale) -> AmountSentence? {
         guard let rate = savings.rate else { return nil }
         let percent = AmountFormat.percent(rate, digits: 0, locale: locale)
@@ -152,17 +153,15 @@ enum OverviewYearText {
         func amount(_ value: Decimal) -> AmountSentence {
             .amount(AmountFormat.amount(value, currency: currency, locale: locale))
         }
-        var text: AmountSentence = "Savings rate \(percent): you kept \(amount(savings.saved)) of the "
+        var text: AmountSentence = "Savings rate \(percent): you saved \(amount(savings.saved)) of the "
         text += "\(amount(savings.income)) that came in since \(since)"
-        let pensions = savings.pensionContributions > 0
-        if pensions {
-            text += ", with \(amount(savings.pensionContributions)) paid into pensions counted as both"
+        if savings.pensionContributions > 0 {
+            text += ", \(amount(savings.pensionContributions)) of it paid into pensions"
         }
-        if savings.principalRepaid > 0 {
-            text += pensions ? " and " : ", with "
-            text += "\(amount(savings.principalRepaid)) of loan principal repaid counted as kept"
+        guard savings.spent >= 0 else {
+            return text + ". More was saved than came in: some income may not be recorded."
         }
-        return text + "."
+        return text + ", and spent \(amount(savings.spent))."
     }
 }
 

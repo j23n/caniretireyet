@@ -72,12 +72,8 @@ Most money in a savings account moves between your own accounts, so its money in
 ### Loans and mortgages
 
 - **Payments are money out** of the account they leave, like rent, so money out a year matches a plan whose spending includes them. Today they're transfers between tracked accounts and left out of money out ([PROGRESS.md](PROGRESS.md#money-in-and-out)).
-- **The principal repaid** counts as kept in the savings rate, the same way pension contributions are added today: the drop in what's owed (the debt's new money), at least zero per account, over the same days. Every loan and mortgage counts, whether the plan includes it or not, as pension contributions do.
-- **Credit card payments** stay money out, as today. A card's drop isn't counted as kept.
-
-The savings rate becomes:
-
-> (money in − money out + pension contributions + principal repaid) ÷ (money in + pension contributions)
+- **The principal repaid** is saved in the savings rate: the savings rate works out what was saved from every account's new money ([PROGRESS.md](PROGRESS.md#money-in-and-out), *Savings rate*), and a loan's or mortgage's new money is the drop in what's owed. Its interest is spent.
+- **Credit card payments** stay money out, as today. A card's purchases are spent when they're made: its new money is the change in what's owed.
 
 ### Investment accounts record trades only
 

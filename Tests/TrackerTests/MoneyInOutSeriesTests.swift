@@ -6,8 +6,7 @@ import Tracker
 
 /// Trends' money in and out by period (PROGRESS.md, "Trends") on the example
 /// library, whose current account records money in and out from July to
-/// September 2026: each period matches the savings rate and the money in and
-/// out over it.
+/// September 2026: each period matches the savings rate over it.
 struct MoneyInOutSeriesTests {
     let library: Library
 
@@ -21,7 +20,7 @@ struct MoneyInOutSeriesTests {
             #expect(period.savings == valuator.savingsRate(from: period.from, through: period.through))
             let money = valuator.moneyInOut(from: period.from, through: period.through)
             #expect(period.moneyIn == money.moneyIn)
-            #expect(period.moneyOut == money.moneyOut)
+            #expect(period.spent == period.cameIn - period.saved)
         }
     }
 
@@ -39,17 +38,17 @@ struct MoneyInOutSeriesTests {
         #expect(series.periods.allSatisfy { $0.lastTwelveMonths == nil })
     }
 
-    @Test func aPeriodCountsPensionsAndThePrincipalRepaid() throws {
+    @Test func aPeriodCountsPensionsAndSavesEveryAccountsNewMoney() throws {
         let valuator = Valuator(library: library)
         let series = valuator.moneyInOutSeries(.months, through: "2026-09-30")
         let august = try #require(series.periods.first { $0.from == "2026-08-01" })
         #expect(august.moneyIn == 3400)
-        #expect(august.moneyOut == d("2014.6"))
         #expect(august.pensionContributions == 0)
         #expect(august.cameIn == 3400)
-        // 3,400 − 2,014.6 + the mortgage's 650.
-        #expect(august.kept == d("2035.4"))
-        #expect(august.rate?.rounded(scale: 4) == d("0.5986"))
+        // The current account's 534.8, the broker's deposit of 200.6 and the mortgage's 650.
+        #expect(august.saved == d("1385.4"))
+        #expect(august.spent == d("2014.6"))
+        #expect(august.rate?.rounded(scale: 4) == d("0.4075"))
         // The pension fund's quarterly 1,325 is paid in September.
         let september = try #require(series.periods.last)
         #expect(september.pensionContributions == 1325)
@@ -65,7 +64,7 @@ struct MoneyInOutSeriesTests {
         let year = try #require(series.periods.first)
         let months = valuator.moneyInOutSeries(.months, through: "2026-09-30").periods
         #expect(year.moneyIn == months.reduce(Decimal(0)) { $0 + $1.moneyIn })
-        #expect(year.moneyOut == months.reduce(Decimal(0)) { $0 + $1.moneyOut })
+        #expect(year.saved == months.reduce(Decimal(0)) { $0 + $1.saved })
         #expect(year.lastTwelveMonths == nil)
     }
 

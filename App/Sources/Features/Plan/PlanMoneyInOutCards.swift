@@ -3,7 +3,7 @@ import SwiftUI
 import Tracker
 
 /// Trends' *Your last 12 months* (UI.md, "Trends"): the savings rate, what
-/// was kept, what came in and what went out over the 12 months that end at
+/// was saved, what came in and what was spent over the 12 months that end at
 /// the latest check-in, each with its change against the 12 months before,
 /// in four tiles, two by two on iPhone and in a row on the Mac and iPad.
 /// Then one sentence against the plan's spending while working. With less

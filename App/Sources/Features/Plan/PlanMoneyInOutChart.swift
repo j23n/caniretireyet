@@ -4,8 +4,8 @@ import SwiftUI
 import Tracker
 
 /// Trends' *Money in and out* (UI.md, "Trends"): per month or year, what
-/// came in and what went out as a pair of bars from zero, and what was kept
-/// as a dot, counted as the savings rate counts them (came in and kept
+/// came in and what was spent as a pair of bars from zero, and what was saved
+/// as a dot, counted as the savings rate counts them (came in and saved
 /// include the pension contributions), in the base currency at each value's
 /// date. A dashed rule at the plan's spending while working, for a month or
 /// a year. A period whose values cover more than it, after a skipped
@@ -25,10 +25,10 @@ struct PlanMoneyInOutChart: View {
 
     static let height: CGFloat = 200
 
-    /// Came in: the accent; went out: orange; kept: ink.
+    /// Came in: the accent; spent: orange; saved: ink.
     static let cameInColor = ChartColor.accent
-    static let wentOutColor = ChartColor.series(1)
-    static let keptColor = ChartColor.ink
+    static let spentColor = ChartColor.series(1)
+    static let savedColor = ChartColor.ink
 
     private var hidesAmounts: Bool { redactionReasons.hidesAmounts }
 
@@ -37,12 +37,12 @@ struct PlanMoneyInOutChart: View {
         var period: MoneyInOutPeriod
         var cameInStart: Date
         var cameInEnd: Date
-        var wentOutStart: Date
-        var wentOutEnd: Date
+        var spentStart: Date
+        var spentEnd: Date
         var middle: Date
         var cameIn: Double
-        var wentOut: Double
-        var kept: Double
+        var spent: Double
+        var saved: Double
         var isSoFar: Bool
         var coversMore: Bool
 
@@ -56,17 +56,17 @@ struct PlanMoneyInOutChart: View {
             let span = money.timeSpan(of: period)
             return Pair(period: period, cameInStart: PlanMoneyInOut.date(0.12, across: span),
                         cameInEnd: PlanMoneyInOut.date(0.47, across: span),
-                        wentOutStart: PlanMoneyInOut.date(0.53, across: span),
-                        wentOutEnd: PlanMoneyInOut.date(0.88, across: span), middle: money.middle(of: period),
-                        cameIn: period.cameIn.doubleValue, wentOut: period.moneyOut.doubleValue,
-                        kept: period.kept.doubleValue, isSoFar: money.isSoFar(period),
+                        spentStart: PlanMoneyInOut.date(0.53, across: span),
+                        spentEnd: PlanMoneyInOut.date(0.88, across: span), middle: money.middle(of: period),
+                        cameIn: period.cameIn.doubleValue, spent: period.spent.doubleValue,
+                        saved: period.saved.doubleValue, isSoFar: money.isSoFar(period),
                         coversMore: money.coversMore(period))
         }
     }
 
     var body: some View {
         let pairs = self.pairs
-        let scale = AmountScale(values: pairs.flatMap { [$0.cameIn, $0.wentOut, $0.kept] }
+        let scale = AmountScale(values: pairs.flatMap { [$0.cameIn, $0.spent, $0.saved] }
             + [planSpending?.doubleValue].compactMap { $0 })
         let domain = money.domain ?? (Date.now...Date.now.addingTimeInterval(31 * 86_400))
         chart(pairs, scale: scale, domain: domain)
@@ -100,10 +100,10 @@ struct PlanMoneyInOutChart: View {
         let base: Double? = money.relativeBase
         return Chart {
             cameInBars(pairs)
-            wentOutBars(pairs)
+            spentBars(pairs)
             zeroRule()
             planRule()
-            keptDots(pairs)
+            savedDots(pairs)
             selectionRule(selectedPeriod)
         }
         .chartLegend(.hidden)
@@ -130,17 +130,17 @@ struct PlanMoneyInOutChart: View {
         }
     }
 
-    /// Each period's went out, drawn as ``cameInBars(_:)`` draws came in.
+    /// What each period spent, drawn as ``cameInBars(_:)`` draws came in.
     @ChartContentBuilder
-    private func wentOutBars(_ pairs: [Pair]) -> some ChartContent {
+    private func spentBars(_ pairs: [Pair]) -> some ChartContent {
         ForEach(pairs) { pair in
-            AreaMark(x: .value("Date", pair.wentOutStart), yStart: .value("From", 0.0),
-                     yEnd: .value("Went out", pair.wentOut), series: .value("Bar", "Went out " + pair.key))
-                .foregroundStyle(Self.fill(Self.wentOutColor, of: pair))
+            AreaMark(x: .value("Date", pair.spentStart), yStart: .value("From", 0.0),
+                     yEnd: .value("Spent", pair.spent), series: .value("Bar", "Spent " + pair.key))
+                .foregroundStyle(Self.fill(Self.spentColor, of: pair))
                 .spokenValueHidden(hidesAmounts)
-            AreaMark(x: .value("Date", pair.wentOutEnd), yStart: .value("From", 0.0),
-                     yEnd: .value("Went out", pair.wentOut), series: .value("Bar", "Went out " + pair.key))
-                .foregroundStyle(Self.fill(Self.wentOutColor, of: pair))
+            AreaMark(x: .value("Date", pair.spentEnd), yStart: .value("From", 0.0),
+                     yEnd: .value("Spent", pair.spent), series: .value("Bar", "Spent " + pair.key))
+                .foregroundStyle(Self.fill(Self.spentColor, of: pair))
                 .spokenValueHidden(hidesAmounts)
         }
     }
@@ -163,12 +163,12 @@ struct PlanMoneyInOutChart: View {
         }
     }
 
-    /// What each period kept, a dot.
+    /// What each period saved, a dot.
     @ChartContentBuilder
-    private func keptDots(_ pairs: [Pair]) -> some ChartContent {
+    private func savedDots(_ pairs: [Pair]) -> some ChartContent {
         ForEach(pairs) { pair in
-            PointMark(x: .value("Date", pair.middle), y: .value("Kept", pair.kept))
-                .foregroundStyle(Palette.stroke(for: Self.keptColor).opacity(pair.isSoFar ? Self.soFarOpacity : 1))
+            PointMark(x: .value("Date", pair.middle), y: .value("Saved", pair.saved))
+                .foregroundStyle(Palette.stroke(for: Self.savedColor).opacity(pair.isSoFar ? Self.soFarOpacity : 1))
                 .symbolSize(36)
                 .spokenValueHidden(hidesAmounts)
         }
@@ -200,18 +200,18 @@ struct PlanMoneyInOutChart: View {
         let unit = money.grain == .months ? "month" : "year"
         return ChartSummary(
             title: "Money in and out",
-            summary: "What came in, what went out and what you kept, each \(unit).",
+            summary: "What came in, what was spent and what you saved, each \(unit).",
             xTitle: "Date", yTitle: "Amount",
             series: [
                 ChartSummary.Series(name: "Came in", points: spoken(\.cameIn)),
-                ChartSummary.Series(name: "Went out", points: spoken(\.wentOut)),
-                ChartSummary.Series(name: "Kept", points: spoken(\.kept)),
+                ChartSummary.Series(name: "Spent", points: spoken(\.spent)),
+                ChartSummary.Series(name: "Saved", points: spoken(\.saved)),
             ],
             describeValue: ChartStyle.spokenAmount(currency: money.currency, hidden: hidesAmounts))
     }
 }
 
-/// The key of *Money in and out*: came in, went out and kept; the plan's
+/// The key of *Money in and out*: came in, spent and saved; the plan's
 /// spending while working when it's drawn; and the hatching when a period
 /// covers more than itself.
 struct PlanMoneyInOutLegend: View {
@@ -221,8 +221,8 @@ struct PlanMoneyInOutLegend: View {
     var body: some View {
         var items = [
             ChartLegendItem(name: "Came in", swatch: .bar(PlanMoneyInOutChart.cameInColor)),
-            ChartLegendItem(name: "Went out", swatch: .bar(PlanMoneyInOutChart.wentOutColor)),
-            ChartLegendItem(name: "Kept", swatch: .dot(PlanMoneyInOutChart.keptColor)),
+            ChartLegendItem(name: "Spent", swatch: .bar(PlanMoneyInOutChart.spentColor)),
+            ChartLegendItem(name: "Saved", swatch: .dot(PlanMoneyInOutChart.savedColor)),
         ]
         if showsPlanSpending {
             items.append(ChartLegendItem(name: "Your plan's spending while working",
@@ -239,7 +239,7 @@ struct PlanMoneyInOutLegend: View {
 /// What a period of *Savings rate* or *Money in and out* reads where the
 /// pointer or a finger is (UI.md, "Trends"): its last day, with "so far"
 /// or what it covers, then its rows: "Savings rate 34%", "Last 12 months
-/// 31%", "Came in 4.100 €", "Went out 2.600 €", "Kept 1.500 €". Rates stay
+/// 31%", "Came in 4.100 €", "Spent 2.600 €", "Saved 1.500 €". Rates stay
 /// with the eye; amounts hide.
 struct PlanMoneyInOutCallout: View {
     let money: PlanMoneyInOut
@@ -263,10 +263,10 @@ struct PlanMoneyInOutCallout: View {
                 }
                 ChartCalloutRow("Came in", swatch: Palette.color(for: PlanMoneyInOutChart.cameInColor),
                                 amount: period.cameIn.doubleValue, currency: money.currency)
-                ChartCalloutRow("Went out", swatch: Palette.color(for: PlanMoneyInOutChart.wentOutColor),
-                                amount: period.moneyOut.doubleValue, currency: money.currency)
-                ChartCalloutRow("Kept", swatch: Palette.stroke(for: PlanMoneyInOutChart.keptColor),
-                                amount: period.kept.doubleValue, currency: money.currency)
+                ChartCalloutRow("Spent", swatch: Palette.color(for: PlanMoneyInOutChart.spentColor),
+                                amount: period.spent.doubleValue, currency: money.currency)
+                ChartCalloutRow("Saved", swatch: Palette.stroke(for: PlanMoneyInOutChart.savedColor),
+                                amount: period.saved.doubleValue, currency: money.currency)
             }
         }
     }
