@@ -1042,6 +1042,7 @@ A bank's statement of a current or savings account is recognized when the file i
   - **Classes:** income, spending, transfer, interest and *Left out*, each with its number of lines and its money in and out.
   - **Lines:** each line's text, date, amount and class, and why it has it: your rule, a trade of another account, another account's name, the usual words, or *By its sign*, in the warning color, since nothing else said. A menu changes the class for that line alone, or *Make a Rule…* opens a sheet: the words a line's text must have (starting from its text up to the first number), the class, and how many lines of the file the rule takes.
   - **Rules:** the profile's rules, each with a button to remove it. Saving the profile keeps them for next month's file.
+- **Preview** charts the import under its counts, to check it before it's written: money in and out by month as Trends will show it with the file imported, and the file's balance as a line with the account's values before the import as dots, orange where the file's balance on that day differs. A caption counts how many agree.
 - **Preview** shows each value's money in and out, after its balance. When the balance before the first line is needed, Preview asks for it with the same field, so the iPhone's "Import with profile…", which skips Classify, can still import the file; the field stays once a balance is given, so a mistyped one can be corrected.
 
 On iPhone, a CSV opened from Files goes straight to "Import with profile…": choose the profile, preview, import.
