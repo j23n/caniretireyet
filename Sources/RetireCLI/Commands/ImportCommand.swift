@@ -145,8 +145,8 @@ struct ImportCommand: RetireSubcommand {
     var account: String?
 
     @Option(name: .customLong("class"), parsing: .singleValue,
-            help: ArgumentHelp("Statement: make every line whose text has these words income, spending, transfer, "
-                                   + "interest or ignore. Repeatable.", valueName: "words=class"))
+            help: ArgumentHelp("Statement: make every line whose text has these words income, spending, paidBack, "
+                                   + "oneOff, transfer, interest or ignore. Repeatable.", valueName: "words=class"))
     var classes: [String] = []
 
     @Option(help: ArgumentHelp("Statement: the account's balance before the file's first line, for a file without a "
@@ -258,8 +258,8 @@ struct ImportCommand: RetireSubcommand {
                 + "“\(mapping)”.")
         }
         for rule in classes where Self.classRule(rule) == nil {
-            throw ValidationError("--class needs words and a class (income, spending, transfer, interest or ignore), "
-                + "e.g. --class \"Giroconto=transfer\", not “\(rule)”.")
+            throw ValidationError("--class needs words and a class (income, spending, paidBack, oneOff, transfer, "
+                + "interest or ignore), e.g. --class \"Giroconto=transfer\", not “\(rule)”.")
         }
         if let openingBalance, Decimal(fileString: openingBalance) == nil {
             throw ValidationError("--opening-balance needs a number such as 1234.56, not “\(openingBalance)”.")

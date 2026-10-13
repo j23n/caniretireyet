@@ -17,10 +17,16 @@ public struct StatementLine: Hashable, Sendable, Identifiable {
         /// The description names another account of the library (or its
         /// institution): a transfer, or a payment of a debt (spending).
         case account(AccountID)
-        /// The usual words for pay, transfers between your own accounts and
-        /// interest (``StatementWords``).
+        /// The usual words for pay, refunds, transfers between your own
+        /// accounts and interest (``StatementWords``).
         case words
-        /// Nothing else said: money in is income, money out spending.
+        /// Money in from a sender the file has paid within the 90 days
+        /// before: paid back.
+        case paidBefore
+        /// Money in from a sender who pays similar amounts in at least 3 of
+        /// the file's months: income, those amounts and smaller ones.
+        case recurring
+        /// Nothing else said: money in is paid back, money out spending.
         case sign
     }
 
@@ -31,6 +37,10 @@ public struct StatementLine: Hashable, Sendable, Identifiable {
     public var amount: Decimal
     /// The description and counterparty columns, joined.
     public var text: String
+    /// Who paid or was paid, as words of the text a rule can match: the
+    /// counterparty, else the description's first words that name someone
+    /// (``StatementWords/sender(of:)``); empty when nothing does.
+    public var sender: String
     /// The account's balance after the line, when the file has it.
     public var balance: Decimal?
     public var statementClass: StatementClass
@@ -39,19 +49,45 @@ public struct StatementLine: Hashable, Sendable, Identifiable {
     /// `nil` when it counts in none: a period the file doesn't cover from
     /// the account's previous value, or after the file's last value.
     public var period: CalendarDate?
+    /// Whether the line is money in too large to be paid back without
+    /// asking, which nothing classified: more than a typical month's
+    /// spending in the file, or more than a sender who pays every month
+    /// usually pays, whatever its size. Income, a one-off or paid back?
+    /// Until it's answered it counts as paid back.
+    public var needsAnswer = false
 
     public var id: Int { row }
 
-    /// What the line adds to money in, money out and interest, each by its
-    /// sign: income or spending that came in is money in (a refund), and
-    /// interest is an account's `interest` only if it records interest
-    /// (`recordsInterest`); otherwise it's money in.
-    func counted(recordsInterest: Bool) -> (moneyIn: Decimal, moneyOut: Decimal, interest: Decimal) {
+    /// What a line adds to its value's amounts (docs/IMPORT.md, "Classes").
+    struct Counted {
+        var moneyIn: Decimal = 0
+        /// Lowered by money paid back, so it can be negative.
+        var moneyOut: Decimal = 0
+        var oneOff: Decimal = 0
+        var interest: Decimal = 0
+    }
+
+    /// What the line adds to money in, money out, one-offs and interest.
+    /// Income that came in is money in, and so is interest unless the
+    /// account records interest (`recordsInterest`); a one-off that came in
+    /// is a one-off. Money in that is spending or paid back lowers money
+    /// out. Any of them that went out is money out.
+    func counted(recordsInterest: Bool) -> Counted {
+        var counted = Counted()
         switch statementClass {
-        case .interest where recordsInterest: (0, 0, amount)
-        case .income, .spending, .interest: amount >= 0 ? (amount, 0, 0) : (0, -amount, 0)
-        default: (0, 0, 0)
+        case .interest where recordsInterest: counted.interest = amount
+        case .income, .interest, .oneOff:
+            if amount < 0 {
+                counted.moneyOut = -amount
+            } else if statementClass == .oneOff {
+                counted.oneOff = amount
+            } else {
+                counted.moneyIn = amount
+            }
+        case .spending, .paidBack: counted.moneyOut = -amount
+        default: break
         }
+        return counted
     }
 }
 
@@ -59,9 +95,12 @@ public struct StatementLine: Hashable, Sendable, Identifiable {
 /// folded (lowercase, no accents), that classify a line no rule and no
 /// account does. Pay and interest count only for money in.
 public enum StatementWords {
-    /// Pay: income when the line is money in.
-    static let income = ["stipendio", "stipendi", "emolumenti", "retribuzione", "salario", "salary", "payroll",
-                         "wages", "gehalt", "lohn", "bezuge"]
+    /// Pay and pensions: income when the line is money in.
+    static let income = ["stipendio", "stipendi", "emolumenti", "retribuzione", "salario", "pensione", "salary",
+                         "payroll", "wages", "pension", "gehalt", "lohn", "bezuge", "rente"]
+    /// Money paid back: a refund or a reversal, when the line is money in.
+    static let paidBack = ["rimborso", "storno", "stornierung", "erstattung", "ruckerstattung", "refund", "reversal",
+                           "chargeback"]
     /// Money moved between your own accounts.
     static let transfer = ["giroconto", "girofondi", "giro conto", "trasferimento tra conti", "umbuchung", "ubertrag",
                            "eigenubertrag", "own account transfer", "transfer between accounts", "transfer to savings",
@@ -78,6 +117,44 @@ public enum StatementWords {
         guard amount > 0 else { return nil }
         if TextTools.contains(words, anyOf: interest) { return .interest }
         if TextTools.contains(words, anyOf: income) { return .income }
+        if TextTools.contains(words, anyOf: paidBack) { return .paidBack }
         return nil
+    }
+
+    /// Words every bank puts in its texts, which say nothing about who paid:
+    /// the kind of payment, its references, articles and prepositions, a
+    /// company's legal form, months and currencies.
+    static let noise: Set<String> = [
+        "a", "al", "alla", "da", "dal", "dalla", "de", "del", "della", "di", "e", "il", "la", "per", "su", "un", "una",
+        "von", "vom", "zu", "zur", "der", "die", "das", "und", "fur", "mit", "an", "auf", "aus",
+        "the", "of", "to", "from", "for", "and", "on", "at", "by", "in",
+        "bonifico", "bonif", "vostro", "vs", "nostro", "ns", "disposto", "ordine", "sepa", "sct", "sdd", "ordinante", "beneficiario", "favore", "pagamento", "pagam", "pos",
+        "carta", "card", "karte", "addebito", "accredito", "disposizione", "operazione", "causale", "rif", "ref", "cro",
+        "trn", "id", "iban", "bic", "swift", "eur", "euro", "usd", "chf", "gbp", "istantaneo", "instant",
+        "uberweisung", "ueberweisung", "gutschrift", "lastschrift", "dauerauftrag", "kartenzahlung", "zahlung",
+        "buchung", "verwendungszweck", "auftraggeber", "empfanger", "kundenreferenz", "mandatsreferenz", "end",
+        "transfer", "payment", "receipt", "credit", "debit", "direct", "purchase", "received", "sent", "faster",
+        "srl", "spa", "sas", "snc", "gmbh", "ag", "kg", "ltd", "llc", "inc", "plc", "co",
+        "gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno", "luglio", "agosto", "settembre", "ottobre",
+        "novembre", "dicembre", "januar", "februar", "marz", "mai", "juni", "juli", "august", "oktober", "dezember",
+        "january", "february", "march", "april", "may", "june", "july", "september", "october", "november",
+        "december",
+    ]
+
+    /// Who paid or was paid, from a counterparty or a description: its
+    /// first run of up to 4 words that aren't ``noise`` or numbers, as the
+    /// text writes them, so a rule with them matches the line. Empty when
+    /// no word names anyone.
+    public static func sender(of text: String) -> String {
+        let folded = TextTools.words(text)
+        let written = text.split { !($0.isLetter || $0.isNumber) }.map(String.init)
+        let shown = written.count == folded.count ? written : folded
+        let names = { (index: Int) in
+            let word = folded[index]
+            return word.count > 1 && !noise.contains(word) && !word.contains { $0.isNumber }
+        }
+        guard let start = folded.indices.first(where: names) else { return "" }
+        let run = folded.indices[start...].prefix { names($0) }.prefix(4)
+        return run.map { shown[$0] }.joined(separator: " ")
     }
 }

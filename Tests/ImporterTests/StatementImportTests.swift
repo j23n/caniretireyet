@@ -125,8 +125,9 @@ struct StatementImportTests {
         #expect(try Self.line(preview, row: 12).statementClass == .spending)
         #expect(try Self.line(preview, row: 12).source == .sign)
         #expect(try Self.line(preview, row: 6).statementClass == .interest)
-        #expect(try Self.line(preview, row: 9).statementClass == .income)
-        #expect(try Self.line(preview, row: 9).source == .sign)
+        // A refund isn't income: it lowers money out.
+        #expect(try Self.line(preview, row: 9).statementClass == .paidBack)
+        #expect(try Self.line(preview, row: 9).source == .words)
     }
 
     @Test func anotherAccountNamedInALineIsATransferOrADebtPayment() throws {
@@ -205,9 +206,9 @@ struct StatementImportTests {
         #expect(february.imported.flow == d("833.60"))
         #expect(february.imported.interest == nil)
         let march = try #require(preview.record(.valuation("conto", "2026-03-31")))
-        // A current account's interest is money in.
-        #expect(march.imported.moneyIn == d("2836.20"))
-        #expect(march.imported.moneyOut == 60)
+        // A current account's interest is money in; the refund lowers money out.
+        #expect(march.imported.moneyIn == d("2801.20"))
+        #expect(march.imported.moneyOut == 25)
         #expect(march.imported.balance == d("8820.65"))
         // April isn't over: its line waits for the next statement.
         #expect(try Self.line(preview, row: 5).period == nil)
@@ -247,7 +248,7 @@ struct StatementImportTests {
             account: "conto", date: "2026-02-20", balance: d("6244.45"), flow: d("1033.60"), moneyIn: 2800,
             moneyOut: d("1266.40"), source: .import)))
         let march = try #require(preview.record(.valuation("conto", "2026-03-31")))
-        #expect(march.imported.moneyOut == 60)
+        #expect(march.imported.moneyOut == 25)
         #expect(march.imported.flow == d("2576.20"))
         let written = preview.apply(to: library).library.valuations(for: "conto").first { $0.date == "2026-02-20" }
         #expect(written?.moneyOut == d("1266.40"))
@@ -337,7 +338,7 @@ struct StatementImportTests {
         #expect(withOpening.issues.contains {
             $0.kind == .moneyInOutFrom("conto", value: "2026-02-28", previous: "2025-12-31")
         })
-        #expect(withOpening.record(.valuation("conto", "2026-03-31"))?.imported.moneyIn == d("2836.20"))
+        #expect(withOpening.record(.valuation("conto", "2026-03-31"))?.imported.moneyIn == d("2801.20"))
     }
 
     @Test func aRunningBalanceThatAgreesWithTheLibraryBridgesAGap() throws {

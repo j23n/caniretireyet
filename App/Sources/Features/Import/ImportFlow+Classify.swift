@@ -34,7 +34,9 @@ extension ImportFlow {
     var statementLines: [StatementLine] { preview?.statementLines ?? [] }
 
     /// The classes a line can have, in menu order.
-    static let statementClasses: [StatementClass] = [.income, .spending, .transfer, .interest, .ignore]
+    static let statementClasses: [StatementClass] = [
+        .income, .spending, .paidBack, .oneOff, .transfer, .interest, .ignore,
+    ]
 
     /// The account the statement is of, if it's chosen.
     var statementAccount: Account? {
@@ -194,11 +196,13 @@ extension ImportFlow {
 
     // MARK: Names
 
-    /// "Income", "Spending", "Transfer", "Interest", "Left out".
+    /// "Income", "Spending", "Paid back", "One-off", "Transfer", "Interest", "Left out".
     static func statementClassName(_ statementClass: StatementClass) -> String {
         switch statementClass {
         case .income: "Income"
         case .spending: "Spending"
+        case .paidBack: "Paid back"
+        case .oneOff: "One-off"
         case .transfer: "Transfer"
         case .interest: "Interest"
         case .ignore: "Left out"
@@ -211,6 +215,8 @@ extension ImportFlow {
         switch statementClass {
         case .income: "Money in"
         case .spending: "Money out"
+        case .paidBack: "Lowers money out: a refund, a share paid back"
+        case .oneOff: "Neither income nor spending: an inheritance, a gift, a sale"
         case .transfer: "Moved between your accounts: neither"
         case .interest: "Interest: money in, or a savings account's own interest"
         case .ignore: "Not counted"
@@ -226,6 +232,8 @@ extension ImportFlow {
         case .trade(let key): "Matches a trade of \(accountName(key.account))"
         case .account(let id): "Names \(accountName(id))"
         case .words: "The usual words"
+        case .paidBefore: "Its sender was paid before"
+        case .recurring: "Pays you every month"
         case .sign: "By its sign"
         }
     }
