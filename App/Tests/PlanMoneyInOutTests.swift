@@ -20,13 +20,13 @@ struct PlanMoneyInOutTests {
                               firstRecord: valuator.firstValuationDate(in: .planAssets), through: end)
     }
 
-    private func savings(moneyIn: Decimal, moneyOut: Decimal, pensions: Decimal = 0,
-                         perYear: Decimal? = nil) -> SavingsRate {
+    /// What came in and what was spent over 365 days, so what was spent a
+    /// year is what was spent.
+    private func savings(moneyIn: Decimal, spent: Decimal) -> SavingsRate {
         let summary = MoneyInOutSummary(from: "2025-10-01", through: "2026-09-30", currency: .eur, moneyIn: moneyIn,
-                                        moneyOut: moneyOut, months: ["2026-09"], moneyOutPerYear: perYear ?? moneyOut,
-                                        measuredFrom: "2025-09-30", lastCounted: "2026-09-30")
+                                        months: ["2026-09"], measuredFrom: "2025-09-30", lastCounted: "2026-09-30")
         return SavingsRate(moneyInOut: summary, from: "2025-09-30", through: "2026-09-30",
-                           pensionContributions: pensions)
+                           savedByAccount: ["bank": moneyIn - spent])
     }
 
     // MARK: Where it starts
@@ -96,15 +96,15 @@ struct PlanMoneyInOutTests {
         #expect(years.timeSpan(of: year).upperBound == CalendarDate("2027-01-01").dateValue)
     }
 
-    /// A month of money in and out, as the series counts it.
-    private func period(_ month: YearMonth, moneyIn: Decimal, moneyOut: Decimal,
+    /// A month of what came in and was spent, as the series counts it.
+    private func period(_ month: YearMonth, moneyIn: Decimal, spent: Decimal,
                         lastTwelveMonths: SavingsRate? = nil) -> MoneyInOutPeriod {
         let money = MoneyInOutSummary(from: month.firstDay, through: month.lastDay, currency: .eur, moneyIn: moneyIn,
-                                      moneyOut: moneyOut, months: [month],
-                                      measuredFrom: month.firstDay.adding(days: -1), lastCounted: month.lastDay)
+                                      months: [month], measuredFrom: month.firstDay.adding(days: -1),
+                                      lastCounted: month.lastDay)
         return MoneyInOutPeriod(from: month.firstDay, through: month.lastDay,
                                 savings: SavingsRate(moneyInOut: money, from: month.firstDay.adding(days: -1),
-                                                     through: month.lastDay),
+                                                     through: month.lastDay, savedByAccount: ["bank": moneyIn - spent]),
                                 lastTwelveMonths: lastTwelveMonths)
     }
 
@@ -121,9 +121,9 @@ struct PlanMoneyInOutTests {
     }
 
     @Test func theRateAxisFitsBarsWithinAHundredPercent() {
-        // July keeps 30%, August 5 € in and 2.000 € out: −39.900%.
-        let money = series([period("2026-07", moneyIn: 3_000, moneyOut: 2_100),
-                            period("2026-08", moneyIn: 5, moneyOut: 2_000)])
+        // July saves 30%, August 5 € in and 2.000 € spent: −39.900%.
+        let money = series([period("2026-07", moneyIn: 3_000, spent: 2_100),
+                            period("2026-08", moneyIn: 5, spent: 2_000)])
         let values = money.rateAxisValues(planRate: Decimal(string: "0.1"))
         #expect(percents(values) == [30, -100, 10])
         #expect(values.min() == -PlanMoneyInOut.rateAxisLimit)
@@ -136,9 +136,9 @@ struct PlanMoneyInOutTests {
         // A rate over the last 12 months below −100%, and a plan that spends more than its pay.
         let rolling = SavingsRate(
             moneyInOut: MoneyInOutSummary(from: "2025-10-01", through: "2026-09-30", currency: .eur, moneyIn: 1_000,
-                                          moneyOut: 3_000, months: ["2026-09"], measuredFrom: "2025-09-30"),
-            from: "2025-09-30", through: "2026-09-30")
-        let money = series([period("2026-09", moneyIn: 3_000, moneyOut: 2_100, lastTwelveMonths: rolling)])
+                                          months: ["2026-09"], measuredFrom: "2025-09-30"),
+            from: "2025-09-30", through: "2026-09-30", savedByAccount: ["bank": -2_000])
+        let money = series([period("2026-09", moneyIn: 3_000, spent: 2_100, lastTwelveMonths: rolling)])
         #expect(percents(money.rateAxisValues(planRate: Decimal(string: "-1.5"))) == [30, -200, -150])
         #expect(percents(money.rateAxisValues(planRate: nil)) == [30, -200])
     }
@@ -159,27 +159,27 @@ struct PlanMoneyInOutTests {
         #expect(year.title(locale: locale) == "Since Jun 30, 2026")
         // Less than two years: no change.
         #expect(year.previous == nil)
-        #expect(year.tiles.map(\.title) == ["Savings rate", "Kept", "Came in", "Went out"])
+        #expect(year.tiles.map(\.title) == ["Savings rate", "Saved", "Came in", "Spent"])
         #expect(year.tiles.allSatisfy { $0.change == nil })
         #expect(year.tiles[0].figure == .rate(year.current.rate))
         #expect(year.tiles[1].figure == .amount(year.current.saved))
         #expect(year.tiles[2].figure == .amount(year.current.income))
-        #expect(year.tiles[3].figure == .amount(year.current.moneyInOut.moneyOut))
+        #expect(year.tiles[3].figure == .amount(year.current.spent))
     }
 
     @Test func twelveMonthsAgainstTheTwelveBefore() throws {
-        let year = PlanLastTwelveMonths(current: savings(moneyIn: 45_800, moneyOut: 31_600),
-                                        previous: savings(moneyIn: 44_400, moneyOut: 32_200), since: nil)
+        let year = PlanLastTwelveMonths(current: savings(moneyIn: 45_800, spent: 31_600),
+                                        previous: savings(moneyIn: 44_400, spent: 32_200), since: nil)
         #expect(year.title(locale: locale) == "Your last 12 months")
         let changes = year.tiles.map(\.change)
         // 31% against 27%.
         #expect(changes[0] == PlanLastTwelveMonths.TileChange(value: .points(4), direction: 1, isGood: true))
-        // Kept 14.200 € against 12.200 €.
+        // Saved 14.200 € against 12.200 €.
         #expect(changes[1] == PlanLastTwelveMonths.TileChange(value: .amount(2_000), direction: 1, isGood: true))
         // Came in 3% more: good news.
         #expect(changes[2]?.direction == 1)
         #expect(changes[2]?.isGood == true)
-        // Went out 2% less: good news too.
+        // Spent 2% less: good news too.
         #expect(changes[3]?.direction == -1)
         #expect(changes[3]?.isGood == true)
 
@@ -190,22 +190,21 @@ struct PlanMoneyInOutTests {
         let one = PlanLastTwelveMonths.TileChange(value: .points(-1), direction: -1, isGood: false)
         #expect(one.text(currency: .eur, locale: locale) == "▼ 1 point")
 
-        let worse = PlanLastTwelveMonths(current: savings(moneyIn: 40_000, moneyOut: 36_000),
-                                         previous: savings(moneyIn: 45_800, moneyOut: 31_600), since: nil)
+        let worse = PlanLastTwelveMonths(current: savings(moneyIn: 40_000, spent: 36_000),
+                                         previous: savings(moneyIn: 45_800, spent: 31_600), since: nil)
         #expect(worse.tiles.map { $0.change?.isGood } == [false, false, false, false])
     }
 
     @Test func spendingAgainstThePlanWhileWorking() throws {
         func words(perYear: Decimal) -> String? {
-            PlanLastTwelveMonths(current: savings(moneyIn: 45_000, moneyOut: perYear, perYear: perYear),
-                                 previous: nil, since: nil)
+            PlanLastTwelveMonths(current: savings(moneyIn: 45_000, spent: perYear), previous: nil, since: nil)
                 .spendingWords(planned: 36_000, locale: locale)?.text
         }
         #expect(words(perYear: 31_680) == "Your plan spends €36,000 a year while you work: you spent 12% less.")
         #expect(words(perYear: 38_880) == "Your plan spends €36,000 a year while you work: you spent 8% more.")
         #expect(words(perYear: 36_500) == "Your plan spends €36,000 a year while you work: you spent about "
             + "the same.")
-        let year = PlanLastTwelveMonths(current: savings(moneyIn: 45_000, moneyOut: 30_000), previous: nil, since: nil)
+        let year = PlanLastTwelveMonths(current: savings(moneyIn: 45_000, spent: 30_000), previous: nil, since: nil)
         // Past working: left out.
         #expect(year.spendingWords(planned: nil, locale: locale) == nil)
         #expect(year.spendingWords(planned: 36_000, locale: locale)?.hasAmounts == true)

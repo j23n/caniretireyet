@@ -5,7 +5,7 @@ import Tracker
 
 /// Trends' *Savings rate* (UI.md, "Trends"): a bar per month or year, the
 /// savings rate over the values of that period, below the zero line when
-/// more went out than came in. With months, a line through the rate over
+/// more was spent than came in. With months, a line through the rate over
 /// the 12 months ending at each month, from the twelfth month recorded. A
 /// dashed rule at the plan's own savings rate while working. The value axis
 /// fits the line, the rule and the bars within ±100%
@@ -188,7 +188,7 @@ struct PlanSavingsRateChart: View {
             name: "Savings rate", points: bars.compactMap { bar in bar.rate.map { (day(bar), $0) } })]
         let rolling = bars.compactMap { bar in bar.lastTwelveMonths.map { (day(bar), $0) } }
         if !rolling.isEmpty { series.append(ChartSummary.Series(name: "The last 12 months", points: rolling)) }
-        var text = "What you kept of what came in, each \(unit)."
+        var text = "What you saved of what came in, each \(unit)."
         if let planRate {
             text += " Your plan's savings rate is \(AmountFormat.percent(planRate, digits: 0, locale: locale))."
         }

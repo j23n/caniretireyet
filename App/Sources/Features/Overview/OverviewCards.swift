@@ -19,6 +19,9 @@ import Tracker
 /// it covers when the check-in before was the end of the month before.
 struct OverviewChangeCard: View {
     let report: ChangeReport
+    /// Its split with new money as what was saved (Tracker's
+    /// `Valuator.savedSplit(of:)`).
+    let split: ValueChange
     @Environment(\.locale) private var locale
 
     private var title: String {
@@ -31,11 +34,11 @@ struct OverviewChangeCard: View {
     var body: some View {
         Card {
             VStack(alignment: .leading, spacing: Metrics.m) {
-                WaterfallChart(change: report.total,
+                WaterfallChart(change: split,
                                from: AmountFormat.shortDate(report.from, relativeTo: .today(), locale: locale),
                                to: AmountFormat.shortDate(report.to, relativeTo: .today(), locale: locale),
                                showsChange: false)
-                Text(Self.explanation(report.total))
+                Text(Self.explanation(split))
                     .font(.footnote)
                     .foregroundStyle(Palette.mutedInk)
                     .fixedSize(horizontal: false, vertical: true)
@@ -48,9 +51,10 @@ struct OverviewChangeCard: View {
 
     /// What the bars mean, under them; *Other* only when there is some.
     static func explanation(_ change: ValueChange) -> String {
-        var text = "Markets: prices, exchange rates and interest. New money: what you added or took out."
+        var text = "Markets: prices, exchange rates and interest. Saved: what you added or took out; "
+        text += "money moved between your own accounts cancels out."
         if change.other != 0 {
-            text += " Other: changes in accounts without new money recorded."
+            text += " Other: what new accounts already held, and changes in accounts without new money recorded."
         }
         return text
     }
@@ -68,6 +72,9 @@ struct OverviewChangeCard: View {
 struct OverviewYearCard: View {
     /// Tracker's `Valuator.changeThisYear(asOf:)`.
     let report: ChangeReport
+    /// Its split with new money as what was saved (Tracker's
+    /// `Valuator.savedSplit(of:)`).
+    let split: ValueChange
     /// Tracker's `Valuator.savingsRate(from:through:)` over the values
     /// recorded this year; `nil` without money in and out.
     var savings: SavingsRate?
@@ -76,10 +83,10 @@ struct OverviewYearCard: View {
     var body: some View {
         Card("This year") {
             VStack(alignment: .leading, spacing: Metrics.m) {
-                WaterfallChart(change: report.total,
+                WaterfallChart(change: split,
                                from: AmountFormat.shortDate(report.from, relativeTo: .today(), locale: locale),
                                to: AmountFormat.shortDate(report.to, relativeTo: .today(), locale: locale))
-                Text(OverviewChangeCard.explanation(report.total))
+                Text(OverviewChangeCard.explanation(split))
                     .font(.footnote)
                     .foregroundStyle(Palette.mutedInk)
                     .fixedSize(horizontal: false, vertical: true)
@@ -409,10 +416,10 @@ struct OverviewAllocationCard: View {
         ScrollView {
             VStack(spacing: Metrics.l) {
                 if let report = valuator.changeSinceLastCheckIn(asOf: date) {
-                    OverviewChangeCard(report: report)
+                    OverviewChangeCard(report: report, split: valuator.savedSplit(of: report))
                 }
                 if let report = valuator.changeThisYear(asOf: date) {
-                    OverviewYearCard(report: report,
+                    OverviewYearCard(report: report, split: valuator.savedSplit(of: report),
                                      savings: valuator.savingsRate(from: report.from.adding(days: 1), through: date))
                 }
                 // Before the main plan's first calculation.

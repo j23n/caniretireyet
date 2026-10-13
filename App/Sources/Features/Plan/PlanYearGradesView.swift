@@ -107,9 +107,9 @@ struct PlanYearGradesTable: View {
         return "\(amount(grade.putIn)) · planned \(amount(planned))\(byNow)"
     }
 
-    /// "31.600 € a year · planned 36.000 €"; `nil` without money out recorded.
+    /// "31.600 € a year · planned 36.000 €"; `nil` without money in and out recorded.
     private func spentAmounts(_ grade: PlanYearGrade) -> AmountSentence? {
-        guard let spent = grade.moneyOutPerYear else { return nil }
+        guard let spent = grade.spentPerYear else { return nil }
         guard let planned = grade.plannedSpending else { return "\(amount(spent)) a year" }
         return "\(amount(spent)) a year · planned \(amount(planned))"
     }

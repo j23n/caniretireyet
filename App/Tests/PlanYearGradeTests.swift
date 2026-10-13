@@ -6,11 +6,11 @@ import Testing
 /// you saved and spent against the year's baseline, as planned within 5%,
 /// and what markets did, by the rule Progress's year words use.
 struct PlanYearGradeTests {
-    private func grade(putIn: Decimal = 0, plannedSaving: Decimal? = nil, moneyOut: Decimal? = nil,
+    private func grade(putIn: Decimal = 0, plannedSaving: Decimal? = nil, spent: Decimal? = nil,
                        plannedSpending: Decimal? = nil, hasBaseline: Bool = true,
                        marketYear: MarketYear? = .average) -> PlanYearGrade {
         PlanYearGrade(year: 2025, isSoFar: false, hasBaseline: hasBaseline, putIn: putIn,
-                      plannedSaving: plannedSaving, moneyOutPerYear: moneyOut, plannedSpending: plannedSpending,
+                      plannedSaving: plannedSaving, spentPerYear: spent, plannedSpending: plannedSpending,
                       markets: 0, start: 100_000, marketYear: marketYear)
     }
 
@@ -46,17 +46,17 @@ struct PlanYearGradeTests {
 
     // MARK: You spent
 
-    @Test func spentIsMoneyOutAgainstSpendingWhileWorking() {
-        #expect(grade(moneyOut: 30_000, plannedSpending: 36_000).spent == .less)
-        #expect(grade(moneyOut: 37_000, plannedSpending: 36_000).spent == .asPlanned)
-        #expect(grade(moneyOut: 40_000, plannedSpending: 36_000).spent == .more)
+    @Test func spentIsWhatWasSpentAgainstSpendingWhileWorking() {
+        #expect(grade(spent: 30_000, plannedSpending: 36_000).spent == .less)
+        #expect(grade(spent: 37_000, plannedSpending: 36_000).spent == .asPlanned)
+        #expect(grade(spent: 40_000, plannedSpending: 36_000).spent == .more)
     }
 
-    @Test func spentNeedsMoneyOutAndAPlanStillWorking() {
+    @Test func spentNeedsMoneyInAndOutAndAPlanStillWorking() {
         // No money in and out recorded in the year.
         #expect(grade(plannedSpending: 36_000).spent == nil)
         // The baseline's plan was past working.
-        #expect(grade(moneyOut: 30_000).spent == nil)
+        #expect(grade(spent: 30_000).spent == nil)
     }
 
     // MARK: Markets
@@ -78,7 +78,7 @@ struct PlanYearGradeTests {
     // MARK: VoiceOver
 
     @Test func voiceOverReadsTheYearAndItsThreeWords() {
-        let graded = grade(putIn: 20_000, plannedSaving: 13_000, moneyOut: 30_000, plannedSpending: 36_000,
+        let graded = grade(putIn: 20_000, plannedSaving: 13_000, spent: 30_000, plannedSpending: 36_000,
                            marketYear: .strong)
         #expect(graded.spoken == "2025: you saved more than planned, you spent less than planned, markets strong.")
         let ungraded = grade(putIn: 5_000, plannedSaving: 0)

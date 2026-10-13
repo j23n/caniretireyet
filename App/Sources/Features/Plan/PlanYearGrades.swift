@@ -92,9 +92,9 @@ struct PlanYearGrade: Hashable, Sendable, Identifiable {
     /// year still going, in money of the year's end where the inflation
     /// index allows (else as recorded); `nil` without a baseline or its year.
     var plannedSaving: Decimal?
-    /// Money out over the year, scaled to a year; `nil` without money in
-    /// and out recorded in it.
-    var moneyOutPerYear: Decimal?
+    /// What was spent over the year (``Tracker/SavingsRate/spent``), scaled
+    /// to a year; `nil` without money in and out recorded in it.
+    var spentPerYear: Decimal?
     /// The baseline plan's spending while working, a year, in money of the
     /// year's end where the inflation index allows (else as recorded);
     /// `nil` without a baseline, or when its plan was past working.
@@ -117,12 +117,12 @@ struct PlanYearGrade: Hashable, Sendable, Identifiable {
         plannedSaving.flatMap { PlanComparison(putIn, planned: $0) }
     }
 
-    /// You spent: money out a year against the baseline plan's spending
-    /// while working; `nil` ("—") without money in and out recorded, or
-    /// when its plan was past working.
+    /// You spent: what was spent a year against the baseline plan's
+    /// spending while working; `nil` ("—") without money in and out
+    /// recorded, or when its plan was past working.
     var spent: PlanComparison? {
-        guard let moneyOutPerYear, let plannedSpending else { return nil }
-        return PlanComparison(moneyOutPerYear, planned: plannedSpending)
+        guard let spentPerYear, let plannedSpending else { return nil }
+        return PlanComparison(spentPerYear, planned: plannedSpending)
     }
 
     /// What a column says when it has no grade.
@@ -165,7 +165,7 @@ struct PlanYearGrade: Hashable, Sendable, Identifiable {
                                                    isLatest: isLatest)
             else { return nil }
             let change = valuator.change(from: span.from, to: span.to, in: .planAssets).total
-            let money = valuator.moneyInOut(from: CalendarDate.firstDay(ofYear: year), through: span.to)
+            let savings = valuator.savingsRate(from: CalendarDate.firstDay(ofYear: year), through: span.to)
             let baseline = PlanProgressYear.baseline(for: year, in: baselines)?.baseline
             // Put in over the days the baseline planned saving for: from its
             // start when it starts later in the year.
@@ -181,7 +181,7 @@ struct PlanYearGrade: Hashable, Sendable, Identifiable {
                         index?.convert($0, from: baseline.start.date, to: span.to) ?? $0
                     }
                 },
-                moneyOutPerYear: money.isEmpty ? nil : money.moneyOutPerYear,
+                spentPerYear: savings?.spentPerYear,
                 plannedSpending: baseline.flatMap { baseline in
                     plannedSpending(of: baseline, in: year, birthDate: birthDate).map {
                         index?.convert($0, from: baseline.start.date, to: span.to) ?? $0

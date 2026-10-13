@@ -1,7 +1,8 @@
 import Foundation
 import Model
 
-/// Money in and out and the savings rate over one month or calendar year
+/// What came in, was saved and was spent, and the savings rate, over one
+/// month or calendar year
 /// (PROGRESS.md, "Trends"): over the values dated in it, even when one
 /// covers more (after a skipped check-in), as
 /// ``Valuator/savingsRate(from:through:)`` counts them. In the base
@@ -34,9 +35,6 @@ public struct MoneyInOutPeriod: Hashable, Sendable {
     /// Money in: what arrived in cash and savings accounts from outside them.
     public var moneyIn: Decimal { savings?.moneyInOut.moneyIn ?? 0 }
 
-    /// Money out: what left them.
-    public var moneyOut: Decimal { savings?.moneyInOut.moneyOut ?? 0 }
-
     /// What was paid into pension funds and TFR over the days the pay covers.
     public var pensionContributions: Decimal { savings?.pensionContributions ?? 0 }
 
@@ -44,9 +42,12 @@ public struct MoneyInOutPeriod: Hashable, Sendable {
     /// (``SavingsRate/income``).
     public var cameIn: Decimal { savings?.income ?? 0 }
 
-    /// What was kept: money in less money out, plus the pension
-    /// contributions and the principal repaid (``SavingsRate/saved``).
-    public var kept: Decimal { savings?.saved ?? 0 }
+    /// What was saved: every account's new money (``SavingsRate/saved``).
+    public var saved: Decimal { savings?.saved ?? 0 }
+
+    /// What was spent: what came in less what was saved
+    /// (``SavingsRate/spent``).
+    public var spent: Decimal { savings?.spent ?? 0 }
 
     /// The savings rate; `nil` when nothing came in.
     public var rate: Decimal? { savings?.rate }
@@ -86,8 +87,9 @@ public struct MoneyInOutSeries: Hashable, Sendable {
     /// value counted through the end, those without one too; empty without
     /// money in and out.
     public let periods: [MoneyInOutPeriod]
-    /// Every value counted through the end: where money in and out starts
-    /// (``MoneyInOutSummary/measuredFrom``) and the months it was recorded.
+    /// Every value of ``Valuator/cameInAccounts`` counted through the end:
+    /// where money in and out starts (``MoneyInOutSummary/measuredFrom``)
+    /// and the months it was recorded.
     public let recorded: MoneyInOutSummary
 
     public init(currency: CurrencyCode, grain: PeriodGrain, periods: [MoneyInOutPeriod],
@@ -111,9 +113,8 @@ extension Valuator {
     /// month (``savingsRate(overYearEndingOn:)``), from the twelfth month
     /// on, since a single month's rate is noisy.
     public func moneyInOutSeries(_ grain: PeriodGrain, through end: CalendarDate) -> MoneyInOutSeries {
-        let firstValue = accounts.values.filter(\.kind.recordsMoneyInOut)
-            .compactMap { valuations(for: $0.id).first?.date }.min()
-        let recorded = moneyInOut(from: min(firstValue ?? end, end), through: end)
+        let firstValue = cameInAccounts.compactMap { valuations(for: $0).first?.date }.min()
+        let recorded = moneyInOut(from: min(firstValue ?? end, end), through: end, accounts: cameInAccounts)
         guard let firstMonth = recorded.months.first else {
             return MoneyInOutSeries(currency: baseCurrency, grain: grain, periods: [], recorded: recorded)
         }
