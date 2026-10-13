@@ -176,6 +176,23 @@ struct ImportStatementFlowTests {
         #expect(charts.balanceCaption.hasSuffix("0 of 1 agree."))
     }
 
+    @Test func moneyInAndOutEndsWithTheMonthWhenTheLibraryGoesOn() throws {
+        var library = PreviewLibrary.library
+        for var valuation in library.months["2026-09"]?.valuations ?? [] {
+            _ = library.removeValuation(valuation.key)
+            valuation.date = "2026-10-31"
+            library.upsert(valuation)
+        }
+        var flow = ImportFlow(library: library)
+        flow.open(Data(Self.csv.utf8), fileName: "settembre.csv")
+        flow.setConstants { $0.account = "conto-fineco" }
+        flow.setStatementThrough("2026-09-26")
+        let charts = try #require(flow.statementCharts)
+        let last = try #require(charts.money.periods.last)
+        #expect(last.through == "2026-09-30")
+        #expect(!charts.money.isSoFar(last))
+    }
+
     @Test func theBalanceLineLeavesOutLinesAfterTheLastValue() {
         let lines: [(date: CalendarDate, amount: Decimal)] = [("2026-09-02", -100), ("2026-10-02", 50)]
         let days = ImportStatementCharts.dayEnds(lines: lines, values: [.init(date: "2026-09-30", balance: 900)])
