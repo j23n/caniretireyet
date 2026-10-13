@@ -4,6 +4,7 @@
     text { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif; }
     .lt { font-size: 34px; font-weight: 700; }
     .ti { font-size: 28px; font-weight: 700; }
+    .qt { font-size: 22px; font-weight: 700; }
     .hd { font-size: 17px; font-weight: 600; }
     .sh { font-size: 15px; }
     .lg { font-size: 13px; }
@@ -184,17 +185,22 @@
       <path d="M16 201 H386" fill="none" class="s-zero" stroke-width="1"/>
     </g>
 
-    <!-- The run status line under the ring: "◷ 30 Sep  ⓘ", centered, from its baseline -->
-    <g id="status">
-      <use href="#clock" x="162" y="-5"/>
-      <text x="173" y="0" class="sh sec">30 Sep</text>
-      <use href="#info" x="236" y="-5"/>
+    <!-- The question with its ⓘ: "Can I retire yet? ⓘ", centered, from its baseline -->
+    <g id="question">
+      <text x="270" y="0" class="qt ink end">Can I retire yet?</text>
+      <use href="#info" x="288" y="-7.5"/>
+    </g>
+
+    <!-- The run status inside the ring: "◷ 30 Sep", centered, from its baseline -->
+    <g id="date">
+      <use href="#clock" x="176" y="-5"/>
+      <text x="183" y="0" class="sh sec">30 Sep</text>
     </g>
   </defs>
 
   <rect width="1430" height="1110" class="sheet"/>
   <text x="56" y="62" class="ink" style="font-size: 30px; font-weight: 700;">Sketch B: the ring with the answer</text>
-  <text x="56" y="92" class="sec" style="font-size: 17px;">iPhone, light mode. The headline sits inside a ring 200 points across, which fills with the readiness. Made-up values from UI.md.</text>
+  <text x="56" y="92" class="sec" style="font-size: 17px;">iPhone, light mode. The question leads; the headline and its date sit inside a ring 200 points across, which fills with the readiness. Made-up values from UI.md.</text>
 
   <!-- 1. Not yet, 58% -->
   <g transform="translate(56 120)">
@@ -205,23 +211,23 @@
       <use href="#navbar"/>
       <use href="#eye" x="318" y="78"/>
 
-      <text x="201" y="180" class="sh sec mid">Can I retire yet?</text>
-      <circle cx="201" cy="292" r="94" fill="none" class="s-grid" stroke-width="12"/>
-      <circle cx="201" cy="292" r="94" fill="none" class="s-acc" stroke-width="12" stroke-linecap="round" stroke-dasharray="342.56 1000" transform="rotate(-90 201 292)"/>
-      <text x="201" y="289" class="ti ink mid">In 15 years</text>
-      <text x="201" y="316" class="sh mid"><tspan class="ink sb">58%</tspan><tspan class="sec"> ready</tspan></text>
-      <use href="#status" y="420"/>
+      <use href="#question" y="186"/>
+      <circle cx="201" cy="305" r="94" fill="none" class="s-grid" stroke-width="12"/>
+      <circle cx="201" cy="305" r="94" fill="none" class="s-acc" stroke-width="12" stroke-linecap="round" stroke-dasharray="342.56 1000" transform="rotate(-90 201 305)"/>
+      <text x="201" y="291" class="ti ink mid">In 15 years</text>
+      <text x="201" y="318" class="sh mid"><tspan class="ink sb">58%</tspan><tspan class="sec"> ready</tspan></text>
+      <use href="#date" y="344"/>
 
-      <g transform="translate(16 436)">
+      <g transform="translate(16 425)">
         <rect x="0.5" y="0.5" width="178" height="167" rx="15.5" class="cardf s-border"/>
         <use href="#nw"/>
       </g>
-      <g transform="translate(207 436)">
+      <g transform="translate(207 425)">
         <rect x="0.5" y="0.5" width="178" height="167" rx="15.5" class="cardf s-border"/>
         <use href="#ot"/>
         <use href="#coast"/>
       </g>
-      <use href="#below" y="628"/>
+      <use href="#below" y="617"/>
       <use href="#tabbar"/>
     </g>
   </g>
@@ -235,22 +241,22 @@
       <use href="#navbar"/>
       <use href="#eye" x="318" y="78"/>
 
-      <text x="201" y="180" class="sh sec mid">Can I retire yet?</text>
-      <circle cx="201" cy="292" r="94" fill="none" class="s-acc" stroke-width="12"/>
-      <circle cx="201" cy="292" r="94" fill="none" class="s-deep" stroke-width="12" stroke-linecap="round" stroke-dasharray="177.19 1000" transform="rotate(-90 201 292)"/>
-      <text x="201" y="289" class="ti ink mid">Yes</text>
-      <text x="201" y="316" class="sh mid"><tspan class="ink sb">130%</tspan><tspan class="sec"> ready</tspan></text>
-      <use href="#status" y="420"/>
+      <use href="#question" y="186"/>
+      <circle cx="201" cy="305" r="94" fill="none" class="s-acc" stroke-width="12"/>
+      <circle cx="201" cy="305" r="94" fill="none" class="s-deep" stroke-width="12" stroke-linecap="round" stroke-dasharray="177.19 1000" transform="rotate(-90 201 305)"/>
+      <text x="201" y="291" class="ti ink mid">Yes</text>
+      <text x="201" y="318" class="sh mid"><tspan class="ink sb">130%</tspan><tspan class="sec"> ready</tspan></text>
+      <use href="#date" y="344"/>
 
-      <g transform="translate(16 436)">
+      <g transform="translate(16 425)">
         <rect x="0.5" y="0.5" width="178" height="145" rx="15.5" class="cardf s-border"/>
         <use href="#nw"/>
       </g>
-      <g transform="translate(207 436)">
+      <g transform="translate(207 425)">
         <rect x="0.5" y="0.5" width="178" height="145" rx="15.5" class="cardf s-border"/>
         <use href="#ot"/>
       </g>
-      <use href="#below" y="606"/>
+      <use href="#below" y="595"/>
       <use href="#tabbar"/>
     </g>
   </g>
@@ -264,23 +270,23 @@
       <use href="#navbar"/>
       <use href="#eyeslash" x="318" y="78"/>
 
-      <text x="201" y="180" class="sh sec mid">Can I retire yet?</text>
-      <circle cx="201" cy="292" r="94" fill="none" class="s-grid" stroke-width="12"/>
-      <circle cx="201" cy="292" r="94" fill="none" class="s-acc" stroke-width="12" stroke-linecap="round" stroke-dasharray="342.56 1000" transform="rotate(-90 201 292)"/>
-      <text x="201" y="289" class="ti ink mid">In 15 years</text>
-      <text x="201" y="316" class="sh mid"><tspan class="ink sb">58%+</tspan><tspan class="sec"> ready</tspan></text>
-      <use href="#status" y="420"/>
+      <use href="#question" y="186"/>
+      <circle cx="201" cy="305" r="94" fill="none" class="s-grid" stroke-width="12"/>
+      <circle cx="201" cy="305" r="94" fill="none" class="s-acc" stroke-width="12" stroke-linecap="round" stroke-dasharray="342.56 1000" transform="rotate(-90 201 305)"/>
+      <text x="201" y="291" class="ti ink mid">In 15 years</text>
+      <text x="201" y="318" class="sh mid"><tspan class="ink sb">58%+</tspan><tspan class="sec"> ready</tspan></text>
+      <use href="#date" y="344"/>
 
-      <g transform="translate(16 436)">
+      <g transform="translate(16 425)">
         <rect x="0.5" y="0.5" width="178" height="167" rx="15.5" class="cardf s-border"/>
         <use href="#nw-hidden"/>
       </g>
-      <g transform="translate(207 436)">
+      <g transform="translate(207 425)">
         <rect x="0.5" y="0.5" width="178" height="167" rx="15.5" class="cardf s-border"/>
         <use href="#ot-hidden"/>
         <use href="#coast"/>
       </g>
-      <use href="#below" y="628"/>
+      <use href="#below" y="617"/>
       <use href="#tabbar"/>
     </g>
   </g>

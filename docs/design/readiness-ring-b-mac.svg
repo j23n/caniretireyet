@@ -3,6 +3,7 @@
   <style>
     text { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif; }
     .ti { font-size: 28px; font-weight: 700; }
+    .qt { font-size: 22px; font-weight: 700; }
     .hd { font-size: 17px; font-weight: 600; }
     .wt { font-size: 15px; font-weight: 700; }
     .sh { font-size: 15px; }
@@ -127,25 +128,25 @@
       <text x="30" y="433" class="sd ink">Instruments</text>
       <text x="30" y="459" class="sd ink">Sync &amp; backups</text>
 
-      <!-- The answer: question, ring with the headline, run status -->
-      <text x="466" y="84" class="sh sec mid">Can I retire yet?</text>
-      <circle cx="466" cy="196" r="94" fill="none" class="s-grid" stroke-width="12"/>
-      <circle cx="466" cy="196" r="94" fill="none" class="s-acc" stroke-width="12" stroke-linecap="round" stroke-dasharray="342.56 1000" transform="rotate(-90 466 196)"/>
-      <text x="466" y="193" class="ti ink mid">In 15 years</text>
-      <text x="466" y="220" class="sh mid"><tspan class="ink sb">58%</tspan><tspan class="sec"> ready</tspan></text>
-      <use href="#clock" x="427" y="319"/>
-      <text x="438" y="324" class="sh sec">30 Sep</text>
-      <use href="#info" x="501" y="319"/>
+      <!-- The answer: the question with its ⓘ, then the ring with the headline and the run status inside -->
+      <text x="535" y="86" class="qt ink end">Can I retire yet?</text>
+      <use href="#info" x="553" y="78.5"/>
+      <circle cx="466" cy="205" r="94" fill="none" class="s-grid" stroke-width="12"/>
+      <circle cx="466" cy="205" r="94" fill="none" class="s-acc" stroke-width="12" stroke-linecap="round" stroke-dasharray="342.56 1000" transform="rotate(-90 466 205)"/>
+      <text x="466" y="191" class="ti ink mid">In 15 years</text>
+      <text x="466" y="218" class="sh mid"><tspan class="ink sb">58%</tspan><tspan class="sec"> ready</tspan></text>
+      <use href="#clock" x="441" y="239"/>
+      <text x="448" y="244" class="sh sec">30 Sep</text>
 
       <!-- Tiles: on the Mac and iPad each part of a line is on one row -->
-      <g transform="translate(590 96)">
+      <g transform="translate(590 105)">
         <rect x="0.5" y="0.5" width="243" height="199" rx="15.5" class="cardf s-border"/>
         <text x="12" y="27" class="sh sec">Net worth</text>
         <text x="12" y="61" class="ti ink">312.480 €</text>
         <text x="12" y="85" class="sh"><tspan class="up">▲ 4.210 €</tspan><tspan class="sec"> in September</tspan></text>
         <text x="12" y="107" class="sh"><tspan class="up">▲ 6,2%</tspan><tspan class="sec"> this year</tspan></text>
       </g>
-      <g transform="translate(850 96)">
+      <g transform="translate(850 105)">
         <rect x="0.5" y="0.5" width="243" height="199" rx="15.5" class="cardf s-border"/>
         <text x="12" y="27" class="sh sec">On track?</text>
         <use href="#chev" x="229" y="22"/>
@@ -197,5 +198,5 @@
     <rect x="0.5" y="0.5" width="1199" height="799" rx="13.5" fill="none" class="s-window"/>
   </g>
 
-  <text x="40" y="958" class="sh sec">On an iPad the sidebar and the content area are laid out the same way. The header is as tall as the question, the ring and the run status, about 260 points.</text>
+  <text x="40" y="958" class="sh sec">On an iPad the sidebar and the content area are laid out the same way. The header is as tall as the question and the ring, about 240 points.</text>
 </svg>

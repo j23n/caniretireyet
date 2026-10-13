@@ -153,7 +153,7 @@ The tiles are as in *Not yet*, without the coast point line (UI.md: not with "Ye
 
 ## Sketch B: ring with the answer
 
-The headline goes inside a large ring, about 200 points across, with readiness as its fill. The ring is the answer.
+The headline and the run status go inside a large ring, about 200 points across, with readiness as its fill. The ring is the answer, and "Can I retire yet?" above it is the header's title.
 
 ### Not yet
 
@@ -161,19 +161,19 @@ The headline goes inside a large ring, about 200 points across, with readiness a
 ┌──────────────────────────────────────────┐
 │ Overview                        👁   ⚙︎   │
 │                                          │
-│            Can I retire yet?             │
+│            Can I retire yet? ⓘ           │
 │        ╭───────────━━━━━━━━━━━━┓         │
-│        │                       ┃         │
 │        │                       ┃         │
 │        │                       ┃         │
 │        │      In 15 years      ┃         │
 │        │                       ┃         │
 │        │       58% ready       ┃         │
 │        │                       ┃         │
+│        │       ◷ 30 Sep        ┃         │
 │        │                       ┃         │
 │        │                       ┃         │
 │        ╰───────━━━━━━━━━━━━━━━━┛         │
-│               ◷ 30 Sep  ⓘ                │
+│                                          │
 │ ╭──────────────────╮╭──────────────────╮ │
 │ │ Net worth        ││ On track?      › │ │
 │ │ 312.480 €        ││ On plan          │ │
@@ -189,19 +189,18 @@ The headline goes inside a large ring, about 200 points across, with readiness a
 
 ```
 ┌──────────────────────────────────────────┐
-│            Can I retire yet?             │
+│            Can I retire yet? ⓘ           │
 │        ┏━━━━━━━━━━━════════════╗         │
-│        ┃                       ║         │
 │        ┃                       ║         │
 │        ┃                       ║         │
 │        ┃          Yes          ║         │
 │        ┃                       ║         │
 │        ┃      130% ready       ║         │
 │        ┃                       ║         │
+│        ┃       ◷ 30 Sep        ║         │
 │        ┃                       ┃         │
 │        ┃                       ┃         │
 │        ┗━━━━━━━━━━━━━━━━━━━━━━━┛         │
-│               ◷ 30 Sep  ⓘ                │
 └──────────────────────────────────────────┘
 ```
 
@@ -213,19 +212,19 @@ The tiles are as in *Not yet*, without the coast point line.
 ┌──────────────────────────────────────────┐
 │ Overview                        👁   ⚙︎   │
 │                                          │
-│            Can I retire yet?             │
+│            Can I retire yet? ⓘ           │
 │        ╭───────────━━━━━━━━━━━━┓         │
-│        │                       ┃         │
 │        │                       ┃         │
 │        │                       ┃         │
 │        │      In 15 years      ┃         │
 │        │                       ┃         │
 │        │      58%+ ready       ┃         │
 │        │                       ┃         │
+│        │       ◷ 30 Sep        ┃         │
 │        │                       ┃         │
 │        │                       ┃         │
 │        ╰───────━━━━━━━━━━━━━━━━┛         │
-│               ◷ 30 Sep  ⓘ                │
+│                                          │
 │ ╭──────────────────╮╭──────────────────╮ │
 │ │ Net worth        ││ On track?      › │ │
 │ │ ▬▬▬▬▬▬           ││ On plan          │ │
@@ -239,11 +238,11 @@ The tiles are as in *Not yet*, without the coast point line.
 
 ### Notes
 
-- **What it changes:** the answer and the readiness become one figure: the words say when, the fill says how close. The headline is title, inside the ring; "58% ready" is subheadline under it. "Can I retire yet?" is the ring's caption, centered above it. The ring's line is about 12 points wide.
-- **What it gives up:** the headline has to fit inside the ring. "In 15 years", "Yes" and "Not yet" do; "In under a month" and "In 18 months" wrap onto two lines, and at the largest text sizes the headline is capped smaller than today's. The header grows by about 180 points, as in Sketch A. The ring reads as a progress bar toward the date in the headline, which it isn't: 58% ready doesn't mean 58% of the 15 years have passed.
-- **The label row's items:** there's no label row. The run status and the ⓘ go on a line under the ring, centered. The chevron goes: the ring and the headline are one element for VoiceOver already, and it becomes the button that opens the plan (the button trait and the default action), where the chevron is that button today. On the Mac and iPad that element also takes keyboard focus.
-- **Large text:** the headline and "58% ready" inside the ring are capped so the longest headline fits on two lines; the ring keeps its size.
-- **iPad and Mac:** the ring stays about 200 points across, at the left, with "Can I retire yet?" above it and the run status line under it; the two tiles stand side by side at its right, as tall as the ring.
+- **What it changes:** the answer and the readiness become one figure: the words say when, the fill says how close. The headline is title, inside the ring; "58% ready" is subheadline under it, and the run status ("◷ 30 Sep") is under that, in subheadline and the secondary color. "Can I retire yet?" is the header's title, centered above the ring in title2, bold, in the ink color. The ring's line is about 12 points wide.
+- **What it gives up:** the headline has to fit inside the ring. "In 15 years", "Yes" and "Not yet" do; "In under a month" and "In 18 months" wrap onto two lines, and at the largest text sizes the headline is capped smaller than today's. The header grows by about 170 points. The ring reads as a progress bar toward the date in the headline, which it isn't: 58% ready doesn't mean 58% of the 15 years have passed.
+- **The label row's items:** there's no label row. The ⓘ follows the question ("Can I retire yet? ⓘ"), since it explains the whole answer. The run status goes inside the ring, under "58% ready": "◷ 30 Sep", *Calculate*, or "Calculating 29%". *Calculate* is a button of its own inside the ring's button, as the ⓘ and *Calculate* are inside the header today. The chevron goes: the ring and the headline are one element for VoiceOver already, and it becomes the button that opens the plan (the button trait and the default action), where the chevron is that button today. On the Mac and iPad that element also takes keyboard focus.
+- **Large text:** the headline, "58% ready" and the run status inside the ring are capped so the longest headline fits on two lines with both under it; the ring keeps its size. The question above the ring wraps.
+- **iPad and Mac:** the ring stays about 200 points across, at the left, with "Can I retire yet? ⓘ" above it; the two tiles stand side by side at its right, as tall as the ring.
 
 ### Mockups
 
@@ -253,7 +252,7 @@ Sketch B drawn in the app's colors (the asset catalog's light and dark variants)
 
 ![Sketch B on iPhone in dark mode: Not yet at 58% and Yes lapping at 130%](readiness-ring-b-dark.svg)
 
-The header's other states: "<5%" with an empty ring; out of date, where the headline and the ring dim and *Calculate* takes the run status's place; a headline that wraps inside the ring; and an answer recorded before readiness existed, which has no ring, so the headline leads in largeTitle with "Calculate the plan to see how close you are to retiring today." under it, and the tiles move up.
+The header's other states: "<5%" with an empty ring; out of date, where the ring and its text dim and *Calculate* takes the run status's place inside the ring; a headline that wraps inside the ring, with the run status under it; and an answer recorded before readiness existed, which has no ring, so the headline leads in largeTitle with "Calculate the plan to see how close you are to retiring today." and the run status under it, and the tiles move up.
 
 ![Sketch B's other states on iPhone: less than 5%, out of date, a long headline, and no ring](readiness-ring-b-states.svg)
 
@@ -340,9 +339,9 @@ The tiles are as in *Not yet*, without the coast point line.
 | Ring on iPhone | about 160 points, centered | about 200 points, centered | about 96 points, at the right |
 | Headline | title, under the ring | title, inside the ring | largeTitle, at the left |
 | The percentage | largeTitle, inside the ring | subheadline, inside under the headline | title, inside the ring |
-| Run status and ⓘ | a line under the headline | a line under the ring | ⓘ after the question; run status under the headline |
+| Run status and ⓘ | a line under the headline | ⓘ after the question; run status inside the ring | ⓘ after the question; run status under the headline |
 | Chevron | stays, alone on the label row | goes: the answer is the button | goes: the answer is the button |
-| Header height on iPhone | about 180 points more | about 180 points more | about one line more |
+| Header height on iPhone | about 180 points more | about 170 points more | about one line more |
 
 ## Open questions
 
