@@ -53,7 +53,7 @@ struct SpendingCommand: RetireSubcommand {
         let valuator = Valuator(library: loaded.library)
         let from = year.map { CalendarDate.firstDay(ofYear: $0) } ?? context.today.adding(years: -1).adding(days: 1)
         let through = year.map { CalendarDate.lastDay(ofYear: $0) } ?? context.today
-        let summary = valuator.moneyInOut(from: from, through: through, accounts: only)
+        let summary = valuator.moneyInOut(from: from, through: through, accounts: only ?? valuator.cameInAccounts)
         let savings = only == nil ? valuator.savingsRate(from: from, through: through) : nil
         try context.console.print(Report(summary: summary, account: only?.first, savings: savings), json: json)
     }
