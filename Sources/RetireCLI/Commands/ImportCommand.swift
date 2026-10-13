@@ -67,7 +67,10 @@ struct ImportCommand: RetireSubcommand {
             another account's name in the text, the usual words, else its sign. The lines become \
             the account's values at its values in the file's months and at the end of the other \
             months, with the balance and money in and out. Correct classes with --class \
-            "Giroconto=transfer"; --save-profile keeps them. The file is taken to cover whole \
+            "Giroconto=transfer"; --save-profile keeps them. A large line out for something you \
+            keep starts an account with --purchase "Autosalone=belongings:Car" (or property, \
+            other), and a line in from selling one closes it with --sale "Rogito=casa"; name \
+            the line by words in its text or by its row. The file is taken to cover whole \
             months; --from and --through give the days a file of the last 90 days, or one \
             exported mid-month, covers. A file without a balance column that doesn't follow on \
             from the library's values needs --opening-balance.
@@ -148,6 +151,18 @@ struct ImportCommand: RetireSubcommand {
             help: ArgumentHelp("Statement: make every line whose text has these words income, spending, paidBack, "
                                    + "oneOff, transfer, interest or ignore. Repeatable.", valueName: "words=class"))
     var classes: [String] = []
+
+    @Option(name: .customLong("purchase"), parsing: .singleValue,
+            help: ArgumentHelp("Statement: the line out, by its row or words in its text, is a purchase you keep: it "
+                                   + "starts an account of this kind (belongings, property or other) and name, worth "
+                                   + "the amount. Repeatable.", valueName: "row|words=kind:name"))
+    var purchases: [String] = []
+
+    @Option(name: .customLong("sale"), parsing: .singleValue,
+            help: ArgumentHelp("Statement: the line in, by its row or words in its text, is the sale of this account: "
+                                   + "it's worth nothing after it, and closes. Repeatable.",
+                               valueName: "row|words=account"))
+    var sales: [String] = []
 
     @Option(help: ArgumentHelp("Statement: the account's balance before the file's first line, for a file without a "
                                    + "balance column that doesn't follow on from the library's values.",
@@ -261,6 +276,14 @@ struct ImportCommand: RetireSubcommand {
             throw ValidationError("--class needs words and a class (income, spending, paidBack, oneOff, transfer, "
                 + "interest or ignore), e.g. --class \"Giroconto=transfer\", not “\(rule)”.")
         }
+        for purchase in purchases where Self.assetAnswer(purchase, sale: false) == nil {
+            throw ValidationError("--purchase needs a line's row or words, a kind (belongings, property or other) and a "
+                + "name, e.g. --purchase \"Autosalone=belongings:Car\", not “\(purchase)”.")
+        }
+        for sale in sales where Self.assetAnswer(sale, sale: true) == nil {
+            throw ValidationError("--sale needs a line's row or words and an account ID, e.g. --sale \"Rogito=casa\", "
+                + "not “\(sale)”.")
+        }
         if let openingBalance, Decimal(fileString: openingBalance) == nil {
             throw ValidationError("--opening-balance needs a number such as 1234.56, not “\(openingBalance)”.")
         }
@@ -279,6 +302,44 @@ struct ImportCommand: RetireSubcommand {
             .trimmingCharacters(in: .whitespaces))
         guard !words.isEmpty, statementClass.isKnown else { return nil }
         return (words, statementClass)
+    }
+
+    /// `Autosalone=belongings:Car` (a purchase) or `Rogito=casa` (a sale) →
+    /// the line's row or words, and the answer; `nil` unless the kind is
+    /// one a purchase can start and the name or account ID is there.
+    static func assetAnswer(_ text: String, sale: Bool) -> (line: String, asset: StatementAsset)? {
+        guard let equals = text.firstIndex(of: "=") else { return nil }
+        let line = text[..<equals].trimmingCharacters(in: .whitespaces)
+        let answer = text[text.index(after: equals)...].trimmingCharacters(in: .whitespaces)
+        guard !line.isEmpty else { return nil }
+        if sale {
+            guard Slug.isValid(answer) else { return nil }
+            return (line, .sale(AccountID(answer)))
+        }
+        guard let colon = answer.firstIndex(of: ":") else { return nil }
+        let kind = AccountKind(rawValue: answer[..<colon].trimmingCharacters(in: .whitespaces))
+        let name = answer[answer.index(after: colon)...].trimmingCharacters(in: .whitespaces)
+        guard StatementAsset.purchaseKinds.contains(kind), !name.isEmpty else { return nil }
+        return (line, .purchase(name: name, kind: kind))
+    }
+
+    /// Answers the statement's lines that --purchase and --sale name, each
+    /// by its row or by words only one line's text has.
+    func answerAssets(_ session: inout ImportSession, library: Library, today: CalendarDate) throws {
+        let answers = purchases.compactMap { Self.assetAnswer($0, sale: false) }
+            + sales.compactMap { Self.assetAnswer($0, sale: true) }
+        guard !answers.isEmpty else { return }
+        let lines = session.preview(against: library, today: today).statementLines
+        for (named, asset) in answers {
+            let matches = Int(named).map { row in lines.filter { $0.row == row } } ?? lines.filter { $0.hasWords(named) }
+            guard matches.count == 1, let line = matches.first else {
+                let option = if case .sale = asset { "--sale" } else { "--purchase" }
+                throw CLIError(matches.isEmpty ? "\(option): no line of the statement is “\(named)”."
+                    : "\(option): “\(named)” is in \(matches.count) lines (rows "
+                        + matches.map { "\($0.row)" }.joined(separator: ", ") + "): name one by its row.")
+            }
+            session.setStatementAsset(asset, forRow: line.row)
+        }
     }
 
     /// `Giroconto=deposit` → the word and the type; `nil` unless the type is
@@ -324,7 +385,8 @@ struct ImportCommand: RetireSubcommand {
         if let through = try parseDate(through, option: "--through"), through > context.today {
             throw ValidationError("--through can't be after today, \(context.today).")
         }
-        let session = try makeSession(data, library: loaded.library)
+        var session = try makeSession(data, library: loaded.library)
+        try answerAssets(&session, library: loaded.library, today: context.today)
         var preview = session.preview(against: loaded.library, today: context.today)
         decide(&preview)
 
@@ -413,13 +475,18 @@ struct ImportCommand: RetireSubcommand {
     }
 
     /// Accepts or rejects the proposals by the flags, so a dry run shows
-    /// exactly what the same command with --apply would do.
+    /// exactly what the same command with --apply would do. A statement's
+    /// purchases and sales stay accepted: --purchase and --sale asked for them.
     func decide(_ preview: inout ImportPreview) {
-        for index in preview.newAccounts.indices { preview.newAccounts[index].isAccepted = acceptNewAccounts }
+        for index in preview.newAccounts.indices where preview.newAccounts[index].statementRow == nil {
+            preview.newAccounts[index].isAccepted = acceptNewAccounts
+        }
         for index in preview.newInstruments.indices { preview.newInstruments[index].isAccepted = acceptNewInstruments }
         for index in preview.accountChanges.indices {
             switch preview.accountChanges[index].change {
-            case .close: preview.accountChanges[index].isAccepted = acceptClosings
+            case .close:
+                guard preview.accountChanges[index].statementRow == nil else { continue }
+                preview.accountChanges[index].isAccepted = acceptClosings
             case .recordTrades: preview.accountChanges[index].isAccepted = acceptTradesMode
             case .openEarlier: break
             }
