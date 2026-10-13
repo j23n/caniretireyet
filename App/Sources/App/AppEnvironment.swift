@@ -27,8 +27,8 @@ extension View {
     /// `redactionReasons.hidesAmounts` (AmountRedaction.swift). In Debug
     /// builds it hides the person's data in a feedback screenshot: FeedbackKit
     /// redacts the scene for `.privacy` while capturing, and
-    /// `hidesPersonalData` marks the views with the rest of the person's data
-    /// `.privacySensitive()` (PersonalDataRedaction.swift, Feedback.swift).
+    /// `hidesPersonalData` redacts the views with the rest of the person's
+    /// data (PersonalDataRedaction.swift, Feedback.swift).
     func appEnvironment(_ model: AppModel) -> some View {
         modifier(AppEnvironmentModifier(model: model))
     }
@@ -51,7 +51,7 @@ private struct AppEnvironmentModifier: ViewModifier {
             #if FEEDBACK
             // While a feedback screenshot is taken, FeedbackKit's `.privacySensitiveViews` redacts
             // the scene for `.privacy` itself, which hides amounts as the eye does; the rest of the
-            // person's data is `.privacySensitive()` only then (Feedback.swift).
+            // person's data is redacted only then (Feedback.swift).
             .environment(\.hidesPersonalData, model.feedback.isCapturing)
             .feedbackRedaction(model.feedback)
             .environment(model.feedback)
