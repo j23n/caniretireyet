@@ -155,6 +155,39 @@ struct SavingsRateTests {
         #expect(split.start + split.market + split.newMoney + split.other == split.end)
     }
 
+    /// A car bought from the current account is saved, not spent; its loss
+    /// of value is spent, and selling it cancels out.
+    @Test func aCarsLossOfValueIsSpent() throws {
+        var library = month
+        library.accounts["car"] = Account(id: "car", name: "Car", kind: .vehicle, currency: .eur,
+                                          opened: "2026-01-10")
+        // Bought for 20,000 from the current account in January.
+        library.upsert(Valuation(account: "bank", date: "2026-01-31", balance: -10550, flow: -20550, moneyIn: 4000,
+                                 moneyOut: 4550))
+        library.upsert(Valuation(account: "car", date: "2026-01-31", balance: 20000, flow: 20000))
+        // Worth 19,000 at the end of February, a value without a flow.
+        library.upsert(Valuation(account: "car", date: "2026-02-28", balance: 19000))
+        let valuator = Valuator(library: library)
+        let january = try #require(valuator.savingsRate(from: "2026-01-01", through: "2026-01-31"))
+        #expect(january.saved == 1450)
+        #expect(january.spent == 2850)
+        let february = valuator.saved(after: "2026-01-31", through: "2026-02-28")
+        #expect(february.byAccount["car"] == -1000)
+
+        // Sold for 18,500 into the current account in March: only the 500 below its value is spent.
+        library.upsert(Valuation(account: "car", date: "2026-03-31", balance: 0))
+        library.upsert(Valuation(account: "bank", date: "2026-03-31", balance: 7950, flow: 18500, moneyIn: 0,
+                                 moneyOut: 0))
+        let sold = Valuator(library: library)
+        let march = sold.saved(after: "2026-02-28", through: "2026-03-31")
+        #expect(march.byAccount["car"] == -19000)
+        #expect(march.byAccount["bank"] == 18500)
+        #expect(march.byAccount.values.reduce(Decimal(0), +) == -500)
+        // Over the car's two months, what's spent is its loss of value: 20,000 less the 18,500 it sold for.
+        let both = sold.saved(after: "2026-01-31", through: "2026-03-31")
+        #expect(both.byAccount.values.reduce(Decimal(0), +) == -1500)
+    }
+
     /// A check-in fills in a new account's whole amount as its flow: only the
     /// part that left an account already tracked is saved.
     @Test func aNewAccountsFirstValueIsSavedOnlyAsFarAsItMovedFromAnother() throws {
