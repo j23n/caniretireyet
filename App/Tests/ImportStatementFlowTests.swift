@@ -5,7 +5,8 @@ import Testing
 @testable import CanIRetireYet
 
 /// The Import screen's steps for a bank statement (UI.md, "Import";
-/// IMPORT.md, "Bank statements"): Classify after Columns, a line's class
+/// IMPORT.md, "Bank statements"): the account asked on the File step,
+/// Classify after it, a line's class
 /// changed alone or by a rule, and the days the file covers, on a made-up
 /// September statement of the example library's current account.
 struct ImportStatementFlowTests {
@@ -29,16 +30,64 @@ struct ImportStatementFlowTests {
         try #require(flow.statementLines.first { $0.text.hasPrefix(text) })
     }
 
-    @Test func aStatementHasAClassifyStepAfterColumns() {
+    @Test func aStatementHasAClassifyStepAfterTheFile() {
         let flow = flow()
         #expect(flow.layout == .statement)
-        #expect(flow.steps == [.file, .format, .columns, .classify, .accounts, .preview, .done])
+        #expect(flow.steps == [.file, .classify, .preview, .done])
         #expect(ColumnUse.options(for: .statement).contains(.field(.credit)))
         #expect(ColumnUse.field(.amount).title(in: .statement) == "Amount (+ in, − out)")
         let choices = flow.statementAccountChoices.map(\.id)
         #expect(choices.contains("conto-fineco"))
         #expect(choices.contains("conto-deposito"))
         #expect(!choices.contains("directa"))
+    }
+
+    @Test func aStatementWaitsForItsAccountOnTheFileStep() {
+        var flow = ImportFlow(library: PreviewLibrary.library)
+        flow.open(Data(Self.csv.utf8), fileName: "settembre.csv")
+        #expect(flow.needsStatementAccount)
+        #expect(flow.nextStep == nil)
+        #expect(!flow.canShow(.classify))
+        #expect(!flow.canShow(.preview))
+        #expect(flow.continueHint == "Choose the account this statement is of.")
+        flow.setConstants { $0.account = "conto-fineco" }
+        #expect(!flow.needsStatementAccount)
+        #expect(flow.nextStep == .classify)
+        #expect(flow.continueHint == nil)
+    }
+
+    @Test func anAccountThatCantBeTheStatementsWaitsToo() {
+        var flow = flow()
+        flow.setConstants { $0.account = "directa" }
+        #expect(flow.needsStatementAccount)
+        #expect(!flow.canShow(.classify))
+        flow.setConstants { $0.account = "no-such-account" }
+        #expect(flow.needsStatementAccount)
+    }
+
+    @Test func anAccountOpenedLaterAddsTheAccountsStepUntilItsGone() throws {
+        var library = PreviewLibrary.library
+        let opened = try #require(library.accounts["conto-fineco"]?.opened)
+        library.accounts["conto-fineco"]?.opened = "2026-10-01"
+        var flow = ImportFlow(library: library)
+        flow.open(Data(Self.csv.utf8), fileName: "settembre.csv")
+        flow.setConstants { $0.account = "conto-fineco" }
+        #expect(flow.steps == [.file, .classify, .accounts, .preview, .done])
+        flow.show(.accounts)
+        #expect(flow.step == .accounts)
+        library.accounts["conto-fineco"]?.opened = opened
+        flow.setLibrary(library)
+        #expect(flow.steps == [.file, .classify, .preview, .done])
+        #expect(flow.step == .classify)
+    }
+
+    @Test func aStepTheLayoutTakesAwayGoesBackToTheFile() {
+        var flow = flow()
+        flow.setLayout(.wide)
+        flow.show(.columns)
+        #expect(flow.step == .columns)
+        flow.setLayout(.statement)
+        #expect(flow.step == .file)
     }
 
     @Test func aLineChangedAloneGoesBackWhenUndone() throws {
