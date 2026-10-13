@@ -1,3 +1,5 @@
+import Foundation
+
 /// `accounts/<id>.json`: an account, open or closed. Its history lives in the
 /// monthly files and refers to it by ID.
 public struct Account: Hashable, Sendable, Identifiable, KnownKeysProviding {
