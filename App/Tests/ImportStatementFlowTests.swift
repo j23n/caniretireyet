@@ -115,4 +115,22 @@ struct ImportStatementFlowTests {
         #expect(notes.contains { $0.contains("isn't the balance before the file's first line") })
         #expect(!notes.contains { $0.contains("not the day before the file") })
     }
+
+    @Test func previewChartsTheFilesBalanceAgainstTheAccountsValues() throws {
+        let charts = try #require(flow().statementCharts)
+        #expect(!charts.money.counted.isEmpty)
+        #expect(charts.file.first == .init(date: "2026-09-01", balance: Decimal(string: "4515.2") ?? 0))
+        #expect(charts.fileBalance(on: "2026-09-12") == Decimal(string: "6715.2"))
+        #expect(charts.file.last == .init(date: "2026-09-30", balance: Decimal(string: "6104.8") ?? 0))
+        #expect(charts.before.map(\.date) == ["2026-09-30"])
+        #expect(!charts.agrees(try #require(charts.before.first)))
+        #expect(charts.balanceCaption.hasSuffix("0 of 1 agree."))
+    }
+
+    @Test func theBalanceLineLeavesOutLinesAfterTheLastValue() {
+        let lines: [(date: CalendarDate, amount: Decimal)] = [("2026-09-02", -100), ("2026-10-02", 50)]
+        let days = ImportStatementCharts.dayEnds(lines: lines, values: [.init(date: "2026-09-30", balance: 900)])
+        #expect(days == [.init(date: "2026-09-01", balance: 1000), .init(date: "2026-09-02", balance: 900),
+                         .init(date: "2026-09-30", balance: 900)])
+    }
 }

@@ -5,7 +5,7 @@ import SwiftUI
 
 /// Step 5, Preview: nothing is written yet. What's in the way, the counts
 /// (new, updated, identical, conflicting, skipped) and what importing
-/// would do, the conflict policy (keep, overwrite, or decide one by one),
+/// would do, a bank statement's charts, the conflict policy (keep, overwrite, or decide one by one),
 /// notes, the file as a grid with unreadable cells highlighted, and the
 /// list of those cells.
 struct ImportPreviewStep: View {
@@ -29,6 +29,9 @@ struct ImportPreviewStep: View {
                     }
                 }
                 ImportSummaryCard(flow: flow)
+                if let charts = flow.statementCharts {
+                    ImportStatementChartsCard(charts: charts)
+                }
                 if flow.isGuided {
                     ImportGuidedProposals(model: model)
                 }
