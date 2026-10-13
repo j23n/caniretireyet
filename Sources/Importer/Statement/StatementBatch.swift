@@ -129,7 +129,9 @@ public struct StatementBatch: Sendable {
     /// The one account the file follows on from, and the day of its value
     /// it does: a file with a balance column whose balance before its first
     /// line is the account's value on the day before the file (IMPORT.md,
-    /// "Values").
+    /// "Values"). The file's first day's lines can be in any order, so the
+    /// balance before is a line's balance less its amount, or less the
+    /// whole day's.
     private static func followsOn(_ session: ImportSession, from candidates: [Account], library: Library,
                                   today: CalendarDate) -> (account: AccountID, date: CalendarDate)? {
         var found: [(account: AccountID, date: CalendarDate)] = []
@@ -137,27 +139,35 @@ public struct StatementBatch: Sendable {
             var trial = session
             trial.profile.constants.account = account.id
             let preview = trial.preview(against: library, today: today)
-            guard preview.statementLines.contains(where: { $0.balance != nil }) else { return nil }
-            guard let period = preview.statementPeriod,
+            let lines = preview.statementLines
+            guard lines.contains(where: { $0.balance != nil }) else { return nil }
+            guard let period = preview.statementPeriod, let first = lines.map(\.date).min(),
                   let before = library.valuations(for: account.id).last(where: { $0.date < period.from }),
-                  before.date == period.from.adding(days: -1),
-                  !preview.issues.contains(where: { if case .moneyInOutFrom = $0.kind { true } else { false } })
+                  before.date == period.from.adding(days: -1), let value = before.balance
             else { continue }
-            found.append((account.id, before.date))
+            // The first day's lines can be listed in any order: one of them is its first, or its last.
+            let day = lines.filter { $0.date == first }
+            let dayTotal = day.reduce(Decimal(0)) { $0 + $1.amount }
+            let opening = day.contains { line in
+                guard let balance = line.balance else { return false }
+                return balance - line.amount == value || balance - dayTotal == value
+            }
+            if opening { found.append((account.id, before.date)) }
         }
         return found.count == 1 ? found.first : nil
     }
 
     /// The one account whose name or institution `text` has as whole
-    /// words. Names of four letters or fewer, and names made only of words
-    /// any account could have, say too little.
+    /// words, leaving out the words any account could have (`Conto`,
+    /// `Savings`). What's left of four letters or fewer says too little.
     private static func named(in text: String, from candidates: [Account]) -> AccountID? {
         let words = TextTools.words(text)
         let generic = Set(Keywords.genericAccountWords)
         let matches = candidates.filter { account in
             [account.name, account.institution].compactMap { $0 }.map(TextTools.words).contains { name in
-                name.joined().count > 4 && !name.allSatisfy(generic.contains)
-                    && TextTools.contains(words, anyOf: [name.joined(separator: " ")])
+                // "Conto Fineco" is named by "fineco".
+                let own = name.filter { !generic.contains($0) }
+                return own.joined().count > 4 && TextTools.contains(words, anyOf: [own.joined(separator: " ")])
             }
         }
         return matches.count == 1 ? matches.first?.id : nil
