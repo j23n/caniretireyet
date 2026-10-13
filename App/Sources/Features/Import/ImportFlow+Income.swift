@@ -70,9 +70,10 @@ extension ImportFlow {
     /// Gives every line of a sender a class: a rule with the sender's
     /// words, kept in the profile, so next month's lines from them get it
     /// too. A rule has no direction, so it's made only when it takes none
-    /// of the file's other lines (money out, another sender's). The lines
-    /// it doesn't take (chosen alone, or a longer rule's), and every line
-    /// when no rule is made, get the class line by line, for this file.
+    /// of the file's other lines: money out, another sender's, or one of
+    /// the sender's that needs an answer, which the rule would answer. The
+    /// lines it doesn't take (chosen alone, or a longer rule's), and every
+    /// line when no rule is made, get the class line by line, for this file.
     mutating func setStatementClass(_ statementClass: StatementClass, for group: StatementSenderGroup) {
         let rows = Set(group.lines.map(\.row))
         let ruled: Set<Int> = group.sender.isEmpty ? [] : rowsMatching(rule: group.sender) ?? []

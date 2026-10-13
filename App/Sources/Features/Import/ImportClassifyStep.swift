@@ -63,7 +63,7 @@ struct ImportClassifyStep: View {
                     Text("Income")
                 } footer: {
                     Text("Pay, a pension, rent, a client: what came in. A sender's class is kept for next month's "
-                        + "file.")
+                        + "file, unless its words also match other lines.")
                 }
             }
 
