@@ -53,6 +53,21 @@ struct StatementIncomeTests {
         #expect(StatementWords.sender(of: "Überweisung von Müller Anna Kundenreferenz 123")
             == "Müller Anna")
         #expect(StatementWords.sender(of: "SEPA 0126 EUR").isEmpty)
+        #expect(StatementWords.sender(of: "Bonifico a vostro favore disposto da: Mario Rossi") == "Mario Rossi")
+    }
+
+    @Test func aLargeLineFromASenderWhoPaysEveryMonthStillNeedsAnAnswer() throws {
+        let csv = Self.csv + "\n30/03/2026;15.000,00;Bonifico SEPA da ACME GmbH rif TFR"
+        var session = try ImportSession(data: Data(csv.utf8))
+        session.proposeMapping(layout: .statement)
+        session.profile.constants.account = "conto"
+        let preview = session.preview(against: Self.library(), today: Self.today)
+        let salary = try Self.line(preview, "Bonifico SEPA da ACME GmbH rif 0326")
+        #expect(salary.statementClass == .income)
+        #expect(salary.source == .recurring)
+        let severance = try Self.line(preview, "Bonifico SEPA da ACME GmbH rif TFR")
+        #expect(severance.source == .sign)
+        #expect(severance.needsAnswer)
     }
 
     @Test func moneyInIsPaidBackUnlessASenderPaysEveryMonth() throws {

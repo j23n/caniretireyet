@@ -167,7 +167,8 @@ extension PreviewBuilder {
 
     /// Money in classified by its sign alone from a sender who pays similar
     /// amounts (within a quarter of their median) in at least 3 of the
-    /// file's months is income, all of that sender's lines.
+    /// file's months is income: those similar lines. Another line from the
+    /// sender keeps its sign's class, so a large one still needs an answer.
     private static func markRecurring(_ lines: inout [StatementLine]) {
         let open = lines.indices.filter { index in
             lines[index].source == .sign && lines[index].amount > 0 && !lines[index].sender.isEmpty
@@ -178,7 +179,7 @@ extension PreviewBuilder {
             let median = amounts[amounts.count / 2]
             let similar = indices.filter { abs(lines[$0].amount - median) <= median / 4 }
             guard Set(similar.map { lines[$0].date.yearMonth }).count >= 3 else { continue }
-            for index in indices {
+            for index in similar {
                 lines[index].statementClass = .income
                 lines[index].source = .recurring
             }
