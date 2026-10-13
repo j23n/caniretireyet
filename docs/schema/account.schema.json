@@ -63,7 +63,7 @@
     "tags": { "description": "Free-form. Left out when empty.", "type": "array", "items": { "type": "string" } },
     "notes": { "description": "Free-form.", "type": "string" },
     "depreciation": {
-      "description": "The share of its value a balance account is estimated to lose a year, such as \"0.15\" for a car, from 0 to 1. After each value, its value on a later day is estimated from it, compounding a year at a time, until the next value is typed; the next value trues it up. Left out, it keeps its value until then. Belongings' change in value is new money, so its loss of value is spent (PROGRESS.md, \"Savings rate\").",
+      "description": "The share of its value a belongings account is estimated to lose a year, such as \"0.15\" for a car, above 0 and below 1; other kinds, and other values, ignore it. After each value, its value on a later day is estimated from it, compounding a year at a time, until the next value is typed; the next value trues it up. Left out, it keeps its value until then. Belongings' change in value is new money, so its loss of value is spent (PROGRESS.md, \"Savings rate\").",
       "$ref": "common.schema.json#/$defs/decimal"
     }
   },

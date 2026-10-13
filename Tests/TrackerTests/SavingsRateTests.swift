@@ -211,6 +211,25 @@ struct SavingsRateTests {
         #expect(later.saved(after: "2027-08-31", through: "2029-09-01").byAccount["car"] == d("-2261.09"))
     }
 
+    /// Marked unchanged at a later check-in, a car that loses value records
+    /// its estimate: the months keep their estimated loss, with no jump
+    /// back up at the check-in.
+    @Test func aCarMarkedUnchangedKeepsItsEstimatedLoss() throws {
+        var library = month
+        library.accounts["car"] = Account(id: "car", name: "Car", kind: .belongings, currency: .eur,
+                                          opened: "2026-01-10", depreciation: d("0.12"))
+        library.upsert(Valuation(account: "car", date: "2026-01-31", balance: 20000, flow: 20000))
+        var draft = CheckInDraft(date: "2026-02-28", library: library)
+        draft["car"]?.markUnchanged()
+        let written = try #require(draft.review(in: library).row(for: "car")?.valuation)
+        library.upsert(written)
+        let valuator = Valuator(library: library)
+        // 28 days at 12% a year: 20,000 × 12% × 28 / 365 = 184.11.
+        #expect(valuator.saved(after: "2026-01-31", through: "2026-02-28").byAccount["car"] == d("-184.11"))
+        let lateFebruary = try #require(valuator.saved(after: "2026-02-15", through: "2026-02-28").byAccount["car"])
+        #expect(lateFebruary < 0)
+    }
+
     /// A check-in fills in a new account's whole amount as its flow: only the
     /// part that left an account already tracked is saved.
     @Test func aNewAccountsFirstValueIsSavedOnlyAsFarAsItMovedFromAnother() throws {

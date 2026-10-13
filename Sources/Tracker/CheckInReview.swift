@@ -285,8 +285,10 @@ extension CheckInDraft {
         let unchanged = row.state == .unchanged && !row.isTrades
         // The flow of a savings account is the change minus the interest.
         if !unchanged { valuation.interest = row.interest }
-        // Unchanged is no new money, except in a trades account: its deposits and withdrawals since.
-        let defaultFlow = unchanged ? 0 : valuator.defaultFlow(for: valuation, previous: row.previous)
+        // Unchanged is no new money, except in a trades account (its deposits and withdrawals since) and
+        // in belongings that lose value (the estimated loss).
+        let defaultFlow = unchanged && row.estimatedBalance == nil
+            ? 0 : valuator.defaultFlow(for: valuation, previous: row.previous)
         var written: Valuation?
         if row.state == .updated || row.state == .unchanged, ignoringConflict || row.conflict == nil {
             var record = valuation

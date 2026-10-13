@@ -244,14 +244,13 @@ struct AccountForm: Hashable, Sendable {
         !kind.isLiability && (!holdsPositions || balanceValueCount > 0)
     }
 
-    /// Whether it asks for an estimated loss of value a year: belongings
-    /// and other accounts.
-    var takesDepreciation: Bool { kind == .belongings || kind == .other }
+    /// Whether it asks for an estimated loss of value a year: belongings.
+    var takesDepreciation: Bool { kind == .belongings }
 
     /// The loss of value a year as a share ("15" is 0.15); `nil` when
-    /// empty, unreadable or not between 0 and 100.
+    /// empty, unreadable, 0 (no loss) or not between 0 and 100.
     func depreciationShare(locale: Locale = .current) -> Decimal? {
-        guard let percent = AmountInput.parse(depreciation, locale: locale).value, percent >= 0, percent < 100
+        guard let percent = AmountInput.parse(depreciation, locale: locale).value, percent > 0, percent < 100
         else { return nil }
         return percent / 100
     }
@@ -266,9 +265,12 @@ struct AccountForm: Hashable, Sendable {
         if trimmedName.isEmpty { problems.append("Give the account a name.") }
         if !currency.isWellFormed { problems.append("Choose a currency.") }
         if takesAssetMix, let problem = assetMix.problem(required: false, locale: locale) { problems.append(problem) }
-        if takesDepreciation, AmountInput.parse(depreciation, locale: locale) != .empty,
-           depreciationShare(locale: locale) == nil {
-            problems.append("Type the loss of value a year as a percentage from 0 to 99.")
+        if takesDepreciation {
+            switch AmountInput.parse(depreciation, locale: locale) {
+            case .empty: break
+            case .value(let percent) where percent >= 0 && percent < 100: break
+            default: problems.append("Type the loss of value a year as a percentage from 0 to 99.")
+            }
         }
         if let closed = original?.closed, closed < opened {
             problems.append("It can't open after the day it closed.")
@@ -301,7 +303,8 @@ struct AccountForm: Hashable, Sendable {
         account.notes = trimmedNotes.isEmpty ? nil : trimmedNotes
 
         account.availableFromAge = availableFromAge
-        account.depreciation = takesDepreciation ? depreciationShare(locale: locale) : original?.depreciation
+        // A kind that doesn't lose value drops it, so nothing hidden keeps estimating.
+        account.depreciation = takesDepreciation ? depreciationShare(locale: locale) : nil
 
         if let original, original.includedInNetWorth == includedInNetWorth, original.includedInPlan == includedInPlan {
             account.includeIn = original.includeIn

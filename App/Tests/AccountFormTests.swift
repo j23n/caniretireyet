@@ -80,8 +80,19 @@ struct AccountFormTests {
         #expect(form.problems(locale: locale) == ["Type the loss of value a year as a percentage from 0 to 99."])
         form.depreciation = ""
         #expect(form.account(id: "car", locale: locale).depreciation == nil)
+        // 0 is no loss of value: nothing is stored.
+        form.depreciation = "0"
+        #expect(form.problems(locale: locale).isEmpty)
+        #expect(form.account(id: "car", locale: locale).depreciation == nil)
         var car = Account(id: "car", name: "Car", kind: .belongings, currency: .eur, opened: "2026-01-01")
         car.depreciation = Decimal(string: "0.12")
         #expect(AccountForm(editing: car, locale: locale).depreciation == "12")
+        // Another kind doesn't lose value: it drops the loss of value.
+        var edited = AccountForm(editing: car, locale: locale)
+        edited.setKind(.property)
+        #expect(!edited.takesDepreciation)
+        #expect(edited.account(id: "car", locale: locale).depreciation == nil)
+        edited.setKind(.other)
+        #expect(!edited.takesDepreciation)
     }
 }

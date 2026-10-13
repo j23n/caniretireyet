@@ -327,20 +327,27 @@ extension Valuator {
 
 extension Account {
     /// Whether all of the account's change in value is new money, never
-    /// markets: belongings', and any account's with a depreciation. So its
-    /// loss of value is spent (PROGRESS.md, "Savings rate"), and a typed
-    /// value trues up what was estimated before it.
+    /// markets: belongings'. So its loss of value is spent (PROGRESS.md,
+    /// "Savings rate"), and a typed value trues up what was estimated
+    /// before it.
     var changeIsNewMoney: Bool {
-        kind == .belongings || depreciation != nil
+        kind == .belongings
+    }
+
+    /// The share of its value the account is estimated to lose a year
+    /// (``Model/Account/depreciation``): a belongings account's, when it's
+    /// above 0 and below 1. `nil` otherwise, as other kinds ignore it.
+    var lossOfValue: Decimal? {
+        guard kind == .belongings, let rate = depreciation, rate > 0, rate < 1 else { return nil }
+        return rate
     }
 
     /// `balance`, a value dated `from`, as estimated on `date` from
-    /// ``Model/Account/depreciation``: less that share a year, compounding
-    /// over whole years and in proportion over the days left, rounded to
-    /// cents. Unchanged without a depreciation between 0 and 1, or on
-    /// `from` itself.
+    /// ``lossOfValue``: less that share a year, compounding over whole
+    /// years and in proportion over the days left, rounded to cents.
+    /// Unchanged without a loss of value, or on `from` itself.
     func estimated(_ balance: Decimal, from: CalendarDate, on date: CalendarDate) -> Decimal {
-        guard let rate = depreciation, rate > 0, rate < 1, date > from else { return balance }
+        guard let rate = lossOfValue, date > from else { return balance }
         let days = from.days(to: date)
         var factor = Decimal(1)
         for _ in 0..<(days / 365) { factor *= 1 - rate }

@@ -33,10 +33,11 @@ public struct Account: Hashable, Sendable, Identifiable, KnownKeysProviding {
     public var tags: [String]
     /// Free-form notes.
     public var notes: String?
-    /// The share of its value a balance account is estimated to lose a
-    /// year, such as `0.15` for a car: after each value, its value on a
-    /// later day is estimated from it until the next value is typed.
-    /// `nil` means it keeps its value until then.
+    /// The share of its value a belongings account is estimated to lose a
+    /// year, such as `0.15` for a car, above 0 and below 1: after each
+    /// value, its value on a later day is estimated from it until the next
+    /// value is typed. `nil` means it keeps its value until then. Other
+    /// kinds ignore it.
     public var depreciation: Decimal?
 
     public init(
