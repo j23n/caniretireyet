@@ -95,6 +95,10 @@ struct SpendingCommand: RetireSubcommand {
                 lines.append("Savings rate \(Format.percent(rate)): you saved \(Format.amount(savings.saved)) of the "
                     + "\(Format.amount(savings.income)) that came in from \(savings.from.adding(days: 1)) to "
                     + "\(savings.through)\(pensions)\(spent).")
+                if savings.oneOffs > 0 {
+                    lines.append("One-offs of \(Format.amount(savings.oneOffs)), such as an inheritance, are left out: "
+                        + "they're neither came in nor spent.")
+                }
                 if savings.spent < 0 {
                     lines.append("More was saved than came in: some income may not be recorded.")
                 }
@@ -118,7 +122,8 @@ struct SpendingCommand: RetireSubcommand {
                  pensionContributions: savings.map { Format.json($0.pensionContributions) },
                  saved: savings.map { Format.json($0.saved) },
                  spent: savings.map { Format.json($0.spent) },
-                 spentPerYear: savings.map { Format.json($0.spentPerYear) })
+                 spentPerYear: savings.map { Format.json($0.spentPerYear) },
+                 oneOffs: savings.map { Format.json($0.oneOffs) })
         }
 
         struct JSON: Encodable {
@@ -152,6 +157,9 @@ struct SpendingCommand: RetireSubcommand {
             var spent: String?
             /// Spent, scaled to a year by the days.
             var spentPerYear: String?
+            /// Money from outside that was neither income nor spending, left
+            /// out of saved.
+            var oneOffs: String?
         }
     }
 }

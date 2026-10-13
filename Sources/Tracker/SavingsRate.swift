@@ -49,10 +49,16 @@ public struct SavingsRate: Hashable, Sendable {
     /// What came in: money in, plus the pension contributions.
     public var income: Decimal { moneyInOut.moneyIn + pensionContributions }
 
-    /// What was saved: every account's new money over the days, added up.
+    /// What was saved: every account's new money over the days, added up,
+    /// less the one-offs (``MoneyInOutSummary/oneOffs``), which are neither
+    /// came in nor spent.
     public var saved: Decimal {
-        savedByAccount.keys.sorted().reduce(Decimal(0)) { $0 + (savedByAccount[$1] ?? 0) }
+        savedByAccount.keys.sorted().reduce(Decimal(0)) { $0 + (savedByAccount[$1] ?? 0) } - oneOffs
     }
+
+    /// Money from outside that was neither income nor spending, such as an
+    /// inheritance: left out of what was saved.
+    public var oneOffs: Decimal { moneyInOut.oneOffs }
 
     /// What was spent: what came in less what was saved. Below zero when
     /// more was saved than came in, usually because some income wasn't
@@ -115,10 +121,13 @@ extension Valuator {
     /// `report`'s split of net worth's change with its new money as the
     /// savings rate counts what was saved (``saved(after:through:)``) over
     /// its days: the part of new accounts' first values counted as what
-    /// they already held moves to other. For the Overview's bars.
+    /// they already held, and the one-offs (``MoneyInOutSummary/oneOffs``),
+    /// move to other. For the Overview's bars.
     public func savedSplit(of report: ChangeReport) -> ValueChange {
         var change = report.total
-        let saved = saved(after: report.from, through: report.to).byAccount.values.reduce(Decimal(0), +)
+        let oneOffs = moneyInOut(from: report.from.adding(days: 1), through: report.to,
+                                 accounts: cameInAccounts).oneOffs
+        let saved = saved(after: report.from, through: report.to).byAccount.values.reduce(Decimal(0), +) - oneOffs
         change.other += change.newMoney - saved
         change.newMoney = saved
         return change

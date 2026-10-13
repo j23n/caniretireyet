@@ -132,6 +132,29 @@ struct SavingsRateTests {
         #expect(savings.rate?.rounded(scale: 4) == d("0.3372"))
     }
 
+    /// An inheritance of 20,000 into the current account is neither came in
+    /// nor spent: saved, spent and the rate stay as they were.
+    @Test func aOneOffIsLeftOutOfWhatWasSaved() throws {
+        var library = month
+        library.upsert(Valuation(account: "bank", date: "2026-01-31", balance: 29450, flow: 19450, moneyIn: 4000,
+                                 moneyOut: 4550, oneOff: 20000))
+        let savings = try #require(Valuator(library: library).savingsRate(from: "2026-01-01", through: "2026-01-31"))
+        #expect(savings.oneOffs == 20000)
+        #expect(savings.savedByAccount["bank"] == 19450)
+        #expect(savings.saved == 1450)
+        #expect(savings.spent == 2850)
+        #expect(savings.rate?.rounded(scale: 4) == d("0.3372"))
+        // What moved between the accounts leaves the one-off out too.
+        #expect(library.months["2026-01"]?.valuations.first { $0.account == "bank" }?.moved == 0)
+        // So does the Overview's Saved bar: the one-off is under Other.
+        let valuator = Valuator(library: library)
+        let report = valuator.change(from: "2025-12-31", to: "2026-01-31")
+        let split = valuator.savedSplit(of: report)
+        #expect(split.newMoney == savings.saved)
+        #expect(split.other == report.total.other + 20000)
+        #expect(split.start + split.market + split.newMoney + split.other == split.end)
+    }
+
     /// A check-in fills in a new account's whole amount as its flow: only the
     /// part that left an account already tracked is saved.
     @Test func aNewAccountsFirstValueIsSavedOnlyAsFarAsItMovedFromAnother() throws {

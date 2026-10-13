@@ -85,6 +85,10 @@
           "description": "Money that left your tracked accounts since the account's previous valuation (spending, bills, rent, credit card, loan and mortgage payments), in the account's currency, never negative. Money moved to another tracked account isn't counted, unless it paid a debt. Absent means not recorded for the period; recorded together with moneyIn. Cash and savings accounts record it at every value after their first (ACCOUNTS.md); other kinds don't.",
           "$ref": "common.schema.json#/$defs/decimal"
         },
+        "oneOff": {
+          "description": "Money that arrived from outside your tracked accounts since the account's previous valuation that is neither income nor paid back, such as an inheritance or the sale of something you didn't track, in the account's currency, never negative. Absent means none. It isn't in moneyIn; the savings rate leaves it out of what was saved, so it's neither came in nor spent (PROGRESS.md, \"Money in and out\"). Only cash and savings accounts record it, on a value with money in and out.",
+          "$ref": "common.schema.json#/$defs/decimal"
+        },
         "interest": {
           "description": "The interest a savings account earned since its previous valuation, in the account's currency. Absent means none was recorded. The flow is the change minus it, so it counts as market, as a fund's return does. Only savings accounts record it.",
           "$ref": "common.schema.json#/$defs/decimal"
