@@ -74,7 +74,7 @@
           "items": { "$ref": "#/$defs/position" }
         },
         "flow": {
-          "description": "The net money added (+) or taken out (−) since the account's previous valuation, in the account's currency. Absent means unknown. The sum of all flows over a period is what you saved. The check-in works it out from what's typed, by the kind of account (ACCOUNTS.md): the whole change for cash accounts, debts and vehicles, the change minus the interest for savings; an account that records trades gets it from its trades and cash, and it's written for the record. Pension funds, TFR, property and other accounts ask for it.",
+          "description": "The net money added (+) or taken out (−) since the account's previous valuation, in the account's currency. Absent means unknown. The sum of all flows over a period is what you saved. The check-in works it out from what's typed, by the kind of account (ACCOUNTS.md): the whole change for cash accounts, debts and belongings, the change minus the interest for savings; an account that records trades gets it from its trades and cash, and it's written for the record. Pension funds, TFR, property and other accounts ask for it.",
           "$ref": "common.schema.json#/$defs/decimal"
         },
         "moneyIn": {

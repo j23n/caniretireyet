@@ -159,7 +159,7 @@ struct SavingsRateTests {
     /// of value is spent, and selling it cancels out.
     @Test func aCarsLossOfValueIsSpent() throws {
         var library = month
-        library.accounts["car"] = Account(id: "car", name: "Car", kind: .vehicle, currency: .eur,
+        library.accounts["car"] = Account(id: "car", name: "Car", kind: .belongings, currency: .eur,
                                           opened: "2026-01-10")
         // Bought for 20,000 from the current account in January.
         library.upsert(Valuation(account: "bank", date: "2026-01-31", balance: -10550, flow: -20550, moneyIn: 4000,
@@ -186,6 +186,48 @@ struct SavingsRateTests {
         // Over the car's two months, what's spent is its loss of value: 20,000 less the 18,500 it sold for.
         let both = sold.saved(after: "2026-01-31", through: "2026-03-31")
         #expect(both.byAccount.values.reduce(Decimal(0), +) == -1500)
+    }
+
+    /// A car that loses an estimated 12% a year: its estimated loss of value
+    /// is spent month by month, and the next typed value trues it up.
+    @Test func aCarsEstimatedLossOfValueIsSpentAndTrueUp() throws {
+        var library = month
+        library.accounts["car"] = Account(id: "car", name: "Car", kind: .belongings, currency: .eur,
+                                          opened: "2026-01-10", depreciation: d("0.12"))
+        library.upsert(Valuation(account: "bank", date: "2026-01-31", balance: -10550, flow: -20550, moneyIn: 4000,
+                                 moneyOut: 4550))
+        library.upsert(Valuation(account: "car", date: "2026-01-31", balance: 20000, flow: 20000))
+        let valuator = Valuator(library: library)
+        // 181 days at 12% a year: 20,000 × 12% × 181 / 365.
+        #expect(valuator.saved(after: "2026-01-31", through: "2026-07-31").byAccount["car"] == d("-1190.14"))
+        // Worth 17,000 at the end of August: the rest of the 3,000 it lost.
+        library.upsert(Valuation(account: "car", date: "2026-08-31", balance: 17000))
+        let typed = Valuator(library: library)
+        #expect(typed.saved(after: "2026-07-31", through: "2026-08-31").byAccount["car"] == d("-1809.86"))
+        #expect(typed.saved(after: "2026-01-31", through: "2026-08-31").byAccount["car"] == -3000)
+        // Two years and two days on (2028 is a leap year), compounding: 10,000 × 0.88² × (1 − 0.12 × 2 / 365).
+        library.upsert(Valuation(account: "car", date: "2027-08-31", balance: 10000))
+        let later = Valuator(library: library)
+        #expect(later.saved(after: "2027-08-31", through: "2029-09-01").byAccount["car"] == d("-2261.09"))
+    }
+
+    /// Marked unchanged at a later check-in, a car that loses value records
+    /// its estimate: the months keep their estimated loss, with no jump
+    /// back up at the check-in.
+    @Test func aCarMarkedUnchangedKeepsItsEstimatedLoss() throws {
+        var library = month
+        library.accounts["car"] = Account(id: "car", name: "Car", kind: .belongings, currency: .eur,
+                                          opened: "2026-01-10", depreciation: d("0.12"))
+        library.upsert(Valuation(account: "car", date: "2026-01-31", balance: 20000, flow: 20000))
+        var draft = CheckInDraft(date: "2026-02-28", library: library)
+        draft["car"]?.markUnchanged()
+        let written = try #require(draft.review(in: library).row(for: "car")?.valuation)
+        library.upsert(written)
+        let valuator = Valuator(library: library)
+        // 28 days at 12% a year: 20,000 × 12% × 28 / 365 = 184.11.
+        #expect(valuator.saved(after: "2026-01-31", through: "2026-02-28").byAccount["car"] == d("-184.11"))
+        let lateFebruary = try #require(valuator.saved(after: "2026-02-15", through: "2026-02-28").byAccount["car"])
+        #expect(lateFebruary < 0)
     }
 
     /// A check-in fills in a new account's whole amount as its flow: only the

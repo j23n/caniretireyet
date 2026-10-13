@@ -278,7 +278,7 @@ enum CheckInRowDisplay {
     /// Whether the row's new money can be typed (docs/ACCOUNTS.md, "New
     /// money"): only when the account's kind asks for it (`rule` is
     /// `.ask`: a pension fund's "contributions since …", property). Cash,
-    /// savings, credit cards, loans, mortgages and vehicles work it out
+    /// savings, credit cards, loans, mortgages and belongings work it out
     /// from what's typed, and a trades account from its trades, unless a
     /// cash from a statement makes part of it a guess
     /// (``canEditTradeFlow(_:)``).

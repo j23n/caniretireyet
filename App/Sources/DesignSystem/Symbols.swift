@@ -15,7 +15,7 @@ extension AccountKind {
         case .pensionFund: "umbrella"
         case .tfr: "briefcase"
         case .property: "house"
-        case .vehicle: "car"
+        case .belongings: "bicycle"
         case .loan: "arrow.down.circle"
         case .mortgage: "house.lodge"
         case .creditCard: "creditcard"
@@ -35,7 +35,7 @@ extension AccountKind {
         // Italy's trattamento di fine rapporto, by what it is for anyone else.
         case .tfr: "Severance pay (TFR)"
         case .property: "Property"
-        case .vehicle: "Vehicle"
+        case .belongings: "Belongings"
         case .loan: "Loan"
         case .mortgage: "Mortgage"
         case .creditCard: "Credit card"

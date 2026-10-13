@@ -74,6 +74,12 @@ public struct CheckInRow: Hashable, Sendable, Identifiable {
     /// the row writes nothing, so the saved valuation isn't overwritten.
     public internal(set) var conflict: Valuation?
     public private(set) var balance: Decimal?
+    /// The ``previous`` balance as estimated on the check-in date, for a
+    /// belongings account with a loss of value a year
+    /// (``Model/Account/depreciation``): what the row starts from and
+    /// what "unchanged" records, so the estimated loss is kept. `nil`
+    /// otherwise.
+    public private(set) var estimatedBalance: Decimal?
     public private(set) var cash: Decimal?
     public private(set) var positions: [CheckInPosition]
     /// Whether the flow was entered by hand (or kept as saved on the date);
@@ -166,6 +172,12 @@ public struct CheckInRow: Hashable, Sendable, Identifiable {
         opensLater = account.opened > date
         self.existing = existing
         conflict = nil
+        if let previous, let balance = previous.balance {
+            let estimate = account.estimated(balance, from: previous.date, on: date)
+            estimatedBalance = estimate == balance ? nil : estimate
+        } else {
+            estimatedBalance = nil
+        }
         isTrades = account.recordsTrades
         hasNewTrades = isTrades
             && Self.hasTrades(of: account.id, after: previous?.date, through: date, in: valuator.library)
@@ -202,7 +214,7 @@ public struct CheckInRow: Hashable, Sendable, Identifiable {
         } else {
             mode = .balance
             state = existing?.balance == nil ? .notReviewed : .updated
-            balance = (existing ?? previous)?.balance
+            balance = existing?.balance ?? estimatedBalance ?? previous?.balance
             cash = nil
             positions = []
         }
@@ -423,7 +435,9 @@ public struct CheckInRow: Hashable, Sendable, Identifiable {
 
     /// Confirms the account is the same as in the previous valuation:
     /// restores its balance, with flow 0, and for a cash or savings account
-    /// money in and out 0. Does nothing, and returns `false`, when there's
+    /// money in and out 0. A belongings account with a loss of value a
+    /// year records its estimated balance (``estimatedBalance``) instead,
+    /// with the estimated loss as its flow. Does nothing, and returns `false`, when there's
     /// no previous value to keep (see ``canMarkUnchanged``).
     ///
     /// For a trades account, "unchanged" means as its trades say
@@ -441,7 +455,7 @@ public struct CheckInRow: Hashable, Sendable, Identifiable {
             cash = derived.cash
             positions = []
         } else {
-            guard let balance = previous?.balance else { return false }
+            guard let balance = estimatedBalance ?? previous?.balance else { return false }
             mode = .balance
             self.balance = balance
             cash = nil
@@ -752,7 +766,7 @@ extension CheckInRow: Codable {
     enum CodingKeys: String, CodingKey {
         case account, kind, state, mode, previous, existing, conflict, balance, cash, positions, isFlowEdited,
              enteredFlow, moneyIn, enteredMoneyOut, interest, note, source, isEdited, resetsFlowOnEdit,
-             resetsMoneyOutOnEdit, opensLater, isTrades, hasNewTrades, derived, holdsCash
+             resetsMoneyOutOnEdit, opensLater, isTrades, hasNewTrades, derived, holdsCash, estimatedBalance
     }
 
     public init(from decoder: any Decoder) throws {
@@ -766,6 +780,7 @@ extension CheckInRow: Codable {
         existing = try c.decodeIfPresent(Valuation.self, forKey: .existing)
         conflict = try c.decodeIfPresent(Valuation.self, forKey: .conflict)
         balance = try c.decodeDecimalIfPresent(forKey: .balance)
+        estimatedBalance = try c.decodeDecimalIfPresent(forKey: .estimatedBalance)
         cash = try c.decodeDecimalIfPresent(forKey: .cash)
         positions = try c.decodeIfPresent([CheckInPosition].self, forKey: .positions) ?? []
         isFlowEdited = try c.decodeIfPresent(Bool.self, forKey: .isFlowEdited) ?? false
@@ -814,6 +829,7 @@ extension CheckInRow: Codable {
         try c.encodeIfPresent(existing, forKey: .existing)
         try c.encodeIfPresent(conflict, forKey: .conflict)
         try c.encodeDecimalIfPresent(balance, forKey: .balance)
+        try c.encodeDecimalIfPresent(estimatedBalance, forKey: .estimatedBalance)
         try c.encodeDecimalIfPresent(cash, forKey: .cash)
         try c.encode(positions, forKey: .positions)
         try c.encode(isFlowEdited, forKey: .isFlowEdited)

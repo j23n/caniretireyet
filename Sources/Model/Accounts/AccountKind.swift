@@ -2,7 +2,8 @@
 /// mix and flows.
 public struct AccountKind: OpenEnum {
     public let rawValue: String
-    public init(rawValue: String) { self.rawValue = rawValue }
+    /// `vehicle`, the name `belongings` had before, reads as `belongings`.
+    public init(rawValue: String) { self.rawValue = rawValue == "vehicle" ? "belongings" : rawValue }
 
     /// A current account.
     public static let cash: AccountKind = "cash"
@@ -13,7 +14,9 @@ public struct AccountKind: OpenEnum {
     public static let pensionFund: AccountKind = "pensionFund"
     public static let tfr: AccountKind = "tfr"
     public static let property: AccountKind = "property"
-    public static let vehicle: AccountKind = "vehicle"
+    /// Things you own that lose value and might sell: a car, a bike, a
+    /// boat, electronics. Written as `vehicle` before.
+    public static let belongings: AccountKind = "belongings"
     public static let loan: AccountKind = "loan"
     public static let mortgage: AccountKind = "mortgage"
     public static let creditCard: AccountKind = "creditCard"
@@ -21,7 +24,7 @@ public struct AccountKind: OpenEnum {
 
     public static let knownValues: [AccountKind] = [
         .cash, .savings, .brokerage, .crypto, .metals, .pensionFund, .tfr,
-        .property, .vehicle, .loan, .mortgage, .creditCard, .other,
+        .property, .belongings, .loan, .mortgage, .creditCard, .other,
     ]
 }
 
@@ -78,11 +81,11 @@ extension AccountKind {
     }
 
     /// How a valuation's `flow` is worked out for this kind (PROGRESS.md,
-    /// "Data this needs from day one"). A vehicle's is its whole change, so
-    /// its loss of value is spent, a little each year.
+    /// "Data this needs from day one"). Belongings' is their whole change,
+    /// so their loss of value is spent, a little each year.
     public var defaultFlow: FlowDefault {
         switch self {
-        case .cash, .creditCard, .loan, .mortgage, .vehicle: .wholeChange
+        case .cash, .creditCard, .loan, .mortgage, .belongings: .wholeChange
         case .savings: .changeLessInterest
         case .brokerage, .crypto, .metals: .trades
         default: .ask
@@ -114,7 +117,7 @@ public struct ValuationMode: OpenEnum {
 /// How a valuation's `flow` is worked out, by account kind.
 public enum FlowDefault: String, Hashable, Sendable, CaseIterable {
     /// The whole change is new money (current accounts, cards, loans,
-    /// mortgages, vehicles).
+    /// mortgages, belongings).
     case wholeChange
     /// The change minus the interest recorded with the value (savings), so
     /// the interest counts as market.

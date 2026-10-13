@@ -16,9 +16,9 @@ enum AccountDefaults {
     }
 
     /// Whether a new account of `kind` counts in plans by default: a home,
-    /// vehicles and the mortgage on the home usually don't.
+    /// belongings and the mortgage on the home usually don't.
     static func includedInPlan(_ kind: AccountKind) -> Bool {
-        !(kind == .property || kind == .vehicle || kind == .mortgage)
+        !(kind == .property || kind == .belongings || kind == .mortgage)
     }
 }
 
@@ -105,6 +105,9 @@ struct AccountForm: Hashable, Sendable {
     var isPlanInclusionChosen: Bool
     /// The mix of a balance account; empty for the kind's default.
     var assetMix: AccountsAssetMixForm
+    /// An estimated loss of value a year, in per cent as typed
+    /// ("15"); empty for none (``Model/Account/depreciation``).
+    var depreciation: String
     var notes: String
     /// The account being edited, whose other fields are kept.
     private(set) var original: Account?
@@ -131,6 +134,7 @@ struct AccountForm: Hashable, Sendable {
         includedInPlan = true
         isPlanInclusionChosen = false
         assetMix = AccountsAssetMixForm()
+        depreciation = ""
         notes = ""
         original = nil
     }
@@ -153,6 +157,7 @@ struct AccountForm: Hashable, Sendable {
         includedInPlan = account.includedInPlan
         isPlanInclusionChosen = true
         assetMix = AccountsAssetMixForm(account.assetClasses, locale: locale)
+        depreciation = account.depreciation.map { AmountInput.text(for: $0 * 100, locale: locale) } ?? ""
         notes = account.notes ?? ""
         original = account
     }
@@ -239,6 +244,17 @@ struct AccountForm: Hashable, Sendable {
         !kind.isLiability && (!holdsPositions || balanceValueCount > 0)
     }
 
+    /// Whether it asks for an estimated loss of value a year: belongings.
+    var takesDepreciation: Bool { kind == .belongings }
+
+    /// The loss of value a year as a share ("15" is 0.15); `nil` when
+    /// empty, unreadable, 0 (no loss) or not between 0 and 100.
+    func depreciationShare(locale: Locale = .current) -> Decimal? {
+        guard let percent = AmountInput.parse(depreciation, locale: locale).value, percent > 0, percent < 100
+        else { return nil }
+        return percent / 100
+    }
+
     var trimmedName: String {
         name.trimmingCharacters(in: .whitespacesAndNewlines)
     }
@@ -249,6 +265,13 @@ struct AccountForm: Hashable, Sendable {
         if trimmedName.isEmpty { problems.append("Give the account a name.") }
         if !currency.isWellFormed { problems.append("Choose a currency.") }
         if takesAssetMix, let problem = assetMix.problem(required: false, locale: locale) { problems.append(problem) }
+        if takesDepreciation {
+            switch AmountInput.parse(depreciation, locale: locale) {
+            case .empty: break
+            case .value(let percent) where percent >= 0 && percent < 100: break
+            default: problems.append("Type the loss of value a year as a percentage from 0 to 99.")
+            }
+        }
         if let closed = original?.closed, closed < opened {
             problems.append("It can't open after the day it closed.")
         }
@@ -280,6 +303,8 @@ struct AccountForm: Hashable, Sendable {
         account.notes = trimmedNotes.isEmpty ? nil : trimmedNotes
 
         account.availableFromAge = availableFromAge
+        // A kind that doesn't lose value drops it, so nothing hidden keeps estimating.
+        account.depreciation = takesDepreciation ? depreciationShare(locale: locale) : nil
 
         if let original, original.includedInNetWorth == includedInNetWorth, original.includedInPlan == includedInPlan {
             account.includeIn = original.includeIn

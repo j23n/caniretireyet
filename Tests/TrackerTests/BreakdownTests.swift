@@ -143,7 +143,8 @@ struct AssetMixBreakdownTests {
         #expect(keys.sorted() == [.assetClass(.cash), .assetClass(.equity), .assetClass(.other),
                                   .assetClass("art"), .debts])
         #expect(AccountGroup.allCases.sorted() == AccountGroup.allCases)
-        #expect(AccountGroup(kind: .vehicle) == .property)
+        #expect(AccountGroup(kind: .belongings) == .property)
+        #expect(AccountGroup(kind: "vehicle") == .property)
         #expect(AccountGroup(kind: "boat") == .other)
         #expect(Liquidity(kind: .mortgage) == .locked)
         #expect(Liquidity(kind: .creditCard) == .liquid)

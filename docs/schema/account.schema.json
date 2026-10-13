@@ -8,7 +8,7 @@
     "id": { "description": "The same as the file name.", "$ref": "common.schema.json#/$defs/slug" },
     "name": { "description": "Display name; change it whenever you like.", "type": "string" },
     "kind": {
-      "description": "What kind of account it is. The kind decides what the account records (ACCOUNTS.md): cash and savings accounts a balance with money in and out, savings also its interest; loan, mortgage and creditCard are debts, recorded as negative balances; brokerage, crypto and metals accounts record trades; the others a balance. It also sets the default of assetClasses, and how a check-in works out a value's flow.",
+      "description": "What kind of account it is. The kind decides what the account records (ACCOUNTS.md): cash and savings accounts a balance with money in and out, savings also its interest; loan, mortgage and creditCard are debts, recorded as negative balances; brokerage, crypto and metals accounts record trades; the others a balance. belongings are things you own that lose value and might sell (a car, a bike, a boat); vehicle is their name before, and reads as belongings. It also sets the default of assetClasses, and how a check-in works out a value's flow.",
       "$comment": "Open enum.",
       "enum": [
         "cash",
@@ -19,6 +19,7 @@
         "pensionFund",
         "tfr",
         "property",
+        "belongings",
         "vehicle",
         "loan",
         "mortgage",
@@ -60,7 +61,11 @@
       "$ref": "common.schema.json#/$defs/slug"
     },
     "tags": { "description": "Free-form. Left out when empty.", "type": "array", "items": { "type": "string" } },
-    "notes": { "description": "Free-form.", "type": "string" }
+    "notes": { "description": "Free-form.", "type": "string" },
+    "depreciation": {
+      "description": "The share of its value a belongings account is estimated to lose a year, such as \"0.15\" for a car, above 0 and below 1; other kinds, and other values, ignore it. After each value, its value on a later day is estimated from it, compounding a year at a time, until the next value is typed; the next value trues it up. Left out, it keeps its value until then. Belongings' change in value is new money, so its loss of value is spent (PROGRESS.md, \"Savings rate\").",
+      "$ref": "common.schema.json#/$defs/decimal"
+    }
   },
   "examples": [
     {
