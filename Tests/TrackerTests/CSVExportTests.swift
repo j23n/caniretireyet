@@ -107,6 +107,19 @@ import TestSupport
         #expect(!accounts[0].contains("money_in_out"))
     }
 
+    @Test func aOneOffIsExportedAfterMoneyOut() throws {
+        var library = self.library
+        let index = try #require(library.months["2026-09"]?.valuations.firstIndex { $0.account == "conto-fineco" })
+        library.months["2026-09"]?.valuations[index].oneOff = 250
+        let valuations = rows(CSVExport.valuations(Array(library.months.values)))
+        let oneOff = try #require(valuations[0].firstIndex(of: "one_off"))
+        #expect(valuations[0][oneOff - 1] == "money_out")
+        let fineco = try #require(valuations.first { $0[0] == "2026-09-30" && $0[1] == "conto-fineco" })
+        #expect(fineco[oneOff] == "250")
+        let deposit = try #require(valuations.first { $0[0] == "2026-09-30" && $0[1] == "conto-deposito" })
+        #expect(deposit[oneOff].isEmpty)
+    }
+
     @Test func fieldsAreQuotedWhenNeeded() {
         #expect(CSVExport.field("plain") == "plain")
         #expect(CSVExport.field("a, b") == "\"a, b\"")

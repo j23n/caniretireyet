@@ -87,14 +87,15 @@ extension Valuator {
     /// account checked rarely, or recording money in for longer, doesn't
     /// stretch them. `nil` when no money in and out was counted.
     public func savingsRate(from: CalendarDate, through: CalendarDate) -> SavingsRate? {
-        let cash = accounts.values.filter { $0.kind.recordsMoneyInOut && $0.includedInNetWorth }
-        let money = moneyInOut(from: from, through: through, accounts: Set(cash.map(\.id)))
-        guard let counted = money.measuredFrom else { return nil }
+        let counted = cameInAccounts
+        let cash = accounts.values.filter { counted.contains($0.id) }
+        let money = moneyInOut(from: from, through: through, accounts: counted)
+        guard let measuredFrom = money.measuredFrom else { return nil }
         let pay = cash.sorted { $0.id < $1.id }
             .map { moneyInOut(from: from, through: through, accounts: [$0.id]) }
             .filter { $0.moneyIn > 0 }
             .max { $0.moneyIn < $1.moneyIn }
-        let start = pay?.measuredFrom ?? counted
+        let start = pay?.measuredFrom ?? measuredFrom
         var contributions: Decimal = 0
         var planned: [AccountID] = []
         for account in accounts.values.sorted(by: { $0.id < $1.id })
@@ -111,13 +112,22 @@ extension Valuator {
                            isPriced: saved.isPriced)
     }
 
+    /// The accounts whose money in counts as came in: the cash and savings
+    /// accounts in net worth.
+    public var cameInAccounts: Set<AccountID> {
+        Set(accounts.values.filter { $0.kind.recordsMoneyInOut && $0.includedInNetWorth }.map(\.id))
+    }
+
     /// `report`'s split of net worth's change with its new money as the
     /// savings rate counts what was saved (``saved(after:through:)``) over
     /// its days: the part of new accounts' first values counted as what
-    /// they already held moves to other. For the Overview's bars.
+    /// they already held, and the one-offs (``MoneyInOutSummary/oneOffs``),
+    /// move to other. For the Overview's bars.
     public func savedSplit(of report: ChangeReport) -> ValueChange {
         var change = report.total
-        let saved = saved(after: report.from, through: report.to).byAccount.values.reduce(Decimal(0), +)
+        let oneOffs = moneyInOut(from: report.from.adding(days: 1), through: report.to,
+                                 accounts: cameInAccounts).oneOffs
+        let saved = saved(after: report.from, through: report.to).byAccount.values.reduce(Decimal(0), +) - oneOffs
         change.other += change.newMoney - saved
         change.newMoney = saved
         return change
@@ -138,8 +148,10 @@ extension Valuator {
     /// the check-in before to the one it's in, offsets it (money moved from
     /// an account already tracked), shared over that stretch's first values
     /// in proportion to their flows. A debt's first flow, negative, stays
-    /// only as far as their positive new money offsets it (a loan paid out
-    /// into the current account), so a debt you start tracking isn't spent.
+    /// only as far as money moved into cash and savings accounts already
+    /// tracked offsets it (a loan paid out into the current account,
+    /// ``movedIn(_:after:through:)``), so a debt you start tracking isn't
+    /// spent, and doesn't take a month's saving with it.
     public func saved(after from: CalendarDate, through: CalendarDate)
         -> (byAccount: [AccountID: Decimal], isPriced: Bool) {
         let report = change(from: from, to: through, in: .netWorth)
@@ -168,7 +180,7 @@ extension Valuator {
                     if flow < 0 { debts.append((account: account.account, flow: flow)) }
                 } else {
                     takenOut += max(-account.change.newMoney, 0)
-                    putIn += max(account.change.newMoney, 0)
+                    putIn += movedIn(account, after: start, through: end) ?? 0
                 }
             }
             // Each first flow stays saved in the share of them the other side offsets.
@@ -181,5 +193,23 @@ extension Valuator {
             }
         }
         return (saved, report.isPriced)
+    }
+
+    /// What moved into a cash or savings account from your other accounts
+    /// after `from` through `through`, in the base currency: the sum of its
+    /// valuations' ``Model/Valuation/moved`` where positive. Where one of
+    /// them doesn't record money in and out, the new money of `change`, its
+    /// change over those days, where positive, as nothing tells a transfer
+    /// apart. `nil` for other kinds.
+    func movedIn(_ change: AccountChange, after from: CalendarDate, through: CalendarDate) -> Decimal? {
+        guard let account = accounts[change.account], account.kind.recordsMoneyInOut else { return nil }
+        var total: Decimal = 0
+        for valuation in valuations(for: account.id) where valuation.date > from && valuation.date <= through {
+            guard let moved = valuation.moved,
+                  let inBase = fx.convert(moved, from: account.currency, to: baseCurrency, on: valuation.date)
+            else { return max(change.change.newMoney, 0) }
+            total += max(inBase, 0)
+        }
+        return total
     }
 }

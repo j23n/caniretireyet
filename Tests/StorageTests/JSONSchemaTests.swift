@@ -224,7 +224,7 @@ import TestSupport
               ],
               "valuations": [
                 { "account": "conto-fineco", "balance": "4210.55", "date": "2026-09-30", "flow": "-310.2", "interest": "1.5",
-                  "moneyIn": "3400", "moneyOut": "3710.2", "note": "statement", "source": "manual" },
+                  "moneyIn": "3400", "moneyOut": "3710.2", "note": "statement", "oneOff": "250", "source": "manual" },
                 { "account": "directa", "cash": "312.1", "date": "2026-09-30", "positions": [{ "costBasis": "50000", "instrument": "vwce", "quantity": "423" }] }
               ]
             }
