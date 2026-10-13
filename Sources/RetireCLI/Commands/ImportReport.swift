@@ -234,7 +234,13 @@ struct ImportReport: CommandReport {
         for line in ordered.prefix(rows) {
             let source = Self.source(line.source)
             let named = source.detail.map { "\(source.name): \($0)" } ?? source.name
-            let why = line.needsAnswer ? "needs an answer" : named
+            let why = if line.needsAnswer {
+                "needs an answer (row \(line.row))"
+            } else if let account = line.assetAccount, let asset = line.asset {
+                "\(Self.assetName(asset)): \(account)"
+            } else {
+                named
+            }
             table.add([line.date.description, Format.amount(line.amount), line.statementClass.rawValue,
                        Self.clip(why, 32), Self.clip(line.text, 48)])
         }
@@ -245,7 +251,19 @@ struct ImportReport: CommandReport {
         }
         result.append("  Correct a class with --class \"<words in the text>=<class>\" (income, spending, paidBack, "
             + "oneOff, transfer, interest or ignore); --save-profile keeps it for the next statement.")
+        if lines.contains(where: \.needsAnswer) {
+            result.append("  A line out for something you keep: --purchase \"<row or words>=belongings:<name>\" (or "
+                + "property, other); a line in from selling one: --sale \"<row or words>=<account>\".")
+        }
         return result
+    }
+
+    /// `purchase` or `sale`.
+    static func assetName(_ asset: StatementAsset) -> String {
+        switch asset {
+        case .purchase: "purchase"
+        case .sale: "sale"
+        }
     }
 
     /// Why a line has its class: `rule`, `trade`, …, and what it refers to.
@@ -365,7 +383,8 @@ struct ImportReport: CommandReport {
             case .close(let date):
                 let what = proposal.isAccepted ? (apply ? "closed" : "closed with --apply")
                     : "not closed: pass --accept-closings"
-                return "  Close \(proposal.account) on \(date), the day after its last value (\(what))"
+                let why = proposal.statementRow.map { "sold in row \($0)" } ?? "the day after its last value"
+                return "  Close \(proposal.account) on \(date), \(why) (\(what))"
             case .openEarlier(let date):
                 let was = library.accounts[proposal.account].map { " (was \($0.opened))" } ?? ""
                 return "  Open \(proposal.account) on \(date), its first value\(was)"
@@ -607,7 +626,8 @@ struct ImportReport: CommandReport {
                 JSON.StatementLine(row: line.row, date: line.date.description, amount: Format.exact(line.amount),
                                    text: line.text, sender: line.sender, class: line.statementClass.rawValue,
                                    source: Self.source(line.source).name, sourceDetail: Self.source(line.source).detail,
-                                   value: line.period?.description, needsAnswer: line.needsAnswer)
+                                   value: line.period?.description, needsAnswer: line.needsAnswer,
+                                   asset: line.asset.map(Self.assetName), assetAccount: line.assetAccount?.rawValue)
             },
             ambiguities: preview.ambiguities.map {
                 JSON.Ambiguity(kind: $0.kind.rawValue, column: $0.column, header: $0.header, message: $0.description,
@@ -736,8 +756,13 @@ struct ImportReport: CommandReport {
             var sourceDetail: String?
             /// The date of the value whose money in and out the line counts in.
             var value: String?
-            /// Money in too large to count as paid back without asking.
+            /// Too large to count by its sign without asking: money in as
+            /// paid back, money out as spending.
             var needsAnswer: Bool
+            /// purchase or sale, when the line is answered as one.
+            var asset: String?
+            /// The account the purchase starts or the sale closes.
+            var assetAccount: String?
         }
 
         struct Ambiguity: Encodable {
