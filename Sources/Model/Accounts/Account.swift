@@ -1,3 +1,5 @@
+import Foundation
+
 /// `accounts/<id>.json`: an account, open or closed. Its history lives in the
 /// monthly files and refers to it by ID.
 public struct Account: Hashable, Sendable, Identifiable, KnownKeysProviding {
@@ -31,13 +33,19 @@ public struct Account: Hashable, Sendable, Identifiable, KnownKeysProviding {
     public var tags: [String]
     /// Free-form notes.
     public var notes: String?
+    /// The share of its value a belongings account is estimated to lose a
+    /// year, such as `0.15` for a car, above 0 and below 1: after each
+    /// value, its value on a later day is estimated from it until the next
+    /// value is typed. `nil` means it keeps its value until then. Other
+    /// kinds ignore it.
+    public var depreciation: Decimal?
 
     public init(
         id: AccountID, name: String, kind: AccountKind, currency: CurrencyCode, opened: CalendarDate,
         closed: CalendarDate? = nil, institution: String? = nil, country: CountryCode? = nil,
         valuation: ValuationMode? = nil, assetClasses: AssetMix? = nil, availableFromAge: Int? = nil,
         includeIn: IncludeIn? = nil, successor: AccountID? = nil, tags: [String] = [],
-        notes: String? = nil
+        notes: String? = nil, depreciation: Decimal? = nil
     ) {
         self.id = id
         self.name = name
@@ -54,6 +62,7 @@ public struct Account: Hashable, Sendable, Identifiable, KnownKeysProviding {
         self.successor = successor
         self.tags = tags
         self.notes = notes
+        self.depreciation = depreciation
     }
 }
 
@@ -112,7 +121,7 @@ extension Account {
 extension Account: Codable {
     enum CodingKeys: String, CodingKey, CaseIterable {
         case id, name, kind, currency, opened, closed, institution, country, valuation, assetClasses,
-             availableFromAge, includeIn, successor, tags, notes
+             availableFromAge, includeIn, successor, tags, notes, depreciation
     }
 
     public static var knownKeys: Set<String> { Set(CodingKeys.allCases.map(\.stringValue)) }
@@ -134,6 +143,7 @@ extension Account: Codable {
         successor = try c.decodeIfPresent(AccountID.self, forKey: .successor)
         tags = try c.decodeArray([String].self, forKey: .tags)
         notes = try c.decodeIfPresent(String.self, forKey: .notes)
+        depreciation = try c.decodeDecimalIfPresent(forKey: .depreciation)
     }
 
     public func encode(to encoder: any Encoder) throws {
@@ -153,6 +163,7 @@ extension Account: Codable {
         try c.encodeIfPresent(successor, forKey: .successor)
         try c.encodeIfNotEmpty(tags, forKey: .tags)
         try c.encodeIfPresent(notes, forKey: .notes)
+        try c.encodeDecimalIfPresent(depreciation, forKey: .depreciation)
     }
 }
 

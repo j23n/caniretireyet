@@ -57,7 +57,7 @@ struct KnownKeysTests {
         (Account(id: "a", name: "A", kind: .cash, currency: .eur, opened: "2020-01-01", closed: "2025-01-01",
                  institution: "Bank", country: .it, valuation: .balance, assetClasses: .single(.cash),
                  availableFromAge: 60, includeIn: IncludeIn(netWorth: true, plan: false),
-                 successor: "b", tags: ["t"], notes: "n"), Account.knownKeys),
+                 successor: "b", tags: ["t"], notes: "n", depreciation: d("0.15")), Account.knownKeys),
         (IncludeIn(netWorth: true, plan: false), IncludeIn.knownKeys),
         (Instrument(id: "vwce", name: "V", kind: .etf, currency: .eur, unit: .share, assetClasses: .single(.equity),
                     isin: "X", ticker: "V", priceSource: PriceSource(provider: .yahoo, symbol: "V")),

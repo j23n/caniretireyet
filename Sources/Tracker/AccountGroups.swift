@@ -28,7 +28,7 @@ public enum AccountGroup: String, Hashable, Sendable, CaseIterable, Comparable, 
     case cryptoAndGold
     /// Pension funds and TFR.
     case pension
-    /// Property and vehicles.
+    /// Property and belongings.
     case property
     /// Loans, mortgages and credit cards.
     case debts
@@ -42,7 +42,7 @@ public enum AccountGroup: String, Hashable, Sendable, CaseIterable, Comparable, 
         case .brokerage: self = .investments
         case .crypto, .metals: self = .cryptoAndGold
         case .pensionFund, .tfr: self = .pension
-        case .property, .vehicle: self = .property
+        case .property, .belongings: self = .property
         case .loan, .mortgage, .creditCard: self = .debts
         default: self = .other
         }
@@ -69,15 +69,15 @@ public enum AccountGroup: String, Hashable, Sendable, CaseIterable, Comparable, 
 /// Whether money can be reached before retirement.
 public enum Liquidity: String, Hashable, Sendable, CaseIterable, Comparable, CustomStringConvertible {
     case liquid
-    /// Pension funds, TFR and property (with vehicles and the mortgage secured on it).
+    /// Pension funds, TFR and property (with belongings and the mortgage secured on it).
     case locked
 
-    /// Locked: pension funds, TFR, property and vehicles, and mortgages, which
+    /// Locked: pension funds, TFR, property and belongings, and mortgages, which
     /// are secured on property and only go away when it is sold. Everything
     /// else, including other debts, is liquid.
     public init(kind: AccountKind) {
         switch kind {
-        case .pensionFund, .tfr, .property, .vehicle, .mortgage: self = .locked
+        case .pensionFund, .tfr, .property, .belongings, .mortgage: self = .locked
         default: self = .liquid
         }
     }

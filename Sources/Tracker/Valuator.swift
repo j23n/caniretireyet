@@ -133,8 +133,9 @@ public struct Valuator: Sendable {
     /// status. For a trades account, the valuation's positions are those its
     /// trades leave on the valuation's date (see ``tradeSnapshot(for:in:)``),
     /// and its cash comes from the cash rule when it has none, or when
-    /// `cashIsDerived` (a snapshot). Amounts are converted to `currency`
-    /// (the base currency when `nil`).
+    /// `cashIsDerived` (a snapshot). A balance is estimated on `date` from
+    /// the account's depreciation, as `Account.estimated(_:from:on:)` says.
+    /// Amounts are converted to `currency` (the base currency when `nil`).
     func value(of account: Account, valuation original: Valuation, on date: CalendarDate,
                cashIsDerived: Bool = false, in currency: CurrencyCode? = nil) -> AccountValue {
         let target = currency ?? baseCurrency
@@ -158,7 +159,8 @@ public struct Valuator: Sendable {
         }
 
         if let balance = valuation.balance {
-            add(.balance, amount: balance, currency: account.currency)
+            add(.balance, amount: account.estimated(balance, from: valuation.date, on: date),
+                currency: account.currency)
         } else {
             if let cash = valuation.cash {
                 add(.cash, amount: cash, currency: account.currency)

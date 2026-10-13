@@ -66,6 +66,39 @@ struct CheckInDraftTests {
         #expect(draft.currencies(in: library) == [.usd])
     }
 
+    /// A car bought for 20,000 on 31 January that loses 12% a year: its
+    /// row starts from the estimate on the check-in's date, and *Unchanged*
+    /// records that estimate, with the estimated loss as its flow.
+    @Test func belongingsThatLoseValueStartFromTheEstimate() throws {
+        var library = Library(settings: LibrarySettings(baseCurrency: .eur))
+        library.accounts["car"] = Account(id: "car", name: "Car", kind: .belongings, currency: .eur,
+                                          opened: "2026-01-10", depreciation: d("0.12"))
+        library.upsert(Valuation(account: "car", date: "2026-01-31", balance: 20000, flow: 20000))
+        var draft = CheckInDraft(date: "2026-07-31", library: library)
+        // 181 days at 12% a year: 20,000 × 12% × 181 / 365 = 1,190.14.
+        #expect(draft["car"]?.estimatedBalance == d("18809.86"))
+        #expect(draft["car"]?.balance == d("18809.86"))
+        draft["car"]?.markUnchanged()
+        let written = try #require(draft.review(in: library).row(for: "car")?.valuation)
+        #expect(written.balance == d("18809.86"))
+        #expect(written.flow == d("-1190.14"))
+        let kept = try JSONDecoder().decode(CheckInDraft.self, from: try JSONEncoder().encode(draft))
+        #expect(kept["car"]?.estimatedBalance == d("18809.86"))
+
+        // Marking the rest unchanged does the same.
+        var rest = CheckInDraft(date: "2026-07-31", library: library)
+        rest.markRestUnchanged()
+        #expect(rest.review(in: library).row(for: "car")?.valuation?.balance == d("18809.86"))
+
+        // Without a loss of value, unchanged writes the value back with no new money.
+        library.accounts["car"]?.depreciation = nil
+        var plain = CheckInDraft(date: "2026-07-31", library: library)
+        #expect(plain["car"]?.estimatedBalance == nil)
+        plain["car"]?.markUnchanged()
+        #expect(plain.review(in: library).row(for: "car")?.valuation?.balance == 20000)
+        #expect(plain.review(in: library).row(for: "car")?.valuation?.flow == 0)
+    }
+
     @Test func editsSetTheRowState() throws {
         let draft = filledIn()
         #expect(draft.count(.updated) == 3)

@@ -101,7 +101,7 @@ enum Keywords {
         (.tfr, ["tfr", "liquidazione"]),
         (.property, ["casa", "house", "home", "immobile", "appartamento", "apartment", "flat", "property",
                      "real estate"]),
-        (.vehicle, ["auto", "car", "macchina", "moto", "vehicle"]),
+        (.belongings, ["auto", "car", "macchina", "moto", "vehicle", "bike", "boat"]),
         (.crypto, ["crypto", "cripto", "bitcoin", "btc", "eth", "ethereum", "wallet", "ledger", "coinbase",
                    "binance", "kraken"]),
         (.metals, ["oro", "gold", "argento", "silver", "metal", "metalli", "metals"]),
