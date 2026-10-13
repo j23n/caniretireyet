@@ -154,14 +154,14 @@ struct ImportCommand: RetireSubcommand {
     var classes: [String] = []
 
     @Option(name: .customLong("purchase"), parsing: .singleValue,
-            help: ArgumentHelp("Statement: the line out, by its row or words in its text, is a purchase you keep: it "
-                                   + "starts an account of this kind (belongings, property or other) and name, worth "
-                                   + "the amount. Repeatable.", valueName: "row|words=kind:name"))
+            help: ArgumentHelp("Statement: the line out, by its row (a number) or words in its text, is a purchase "
+                                   + "you keep: it starts an account of this kind (belongings, property or other) "
+                                   + "and name, worth the amount. Repeatable.", valueName: "row|words=kind:name"))
     var purchases: [String] = []
 
     @Option(name: .customLong("sale"), parsing: .singleValue,
-            help: ArgumentHelp("Statement: the line in, by its row or words in its text, is the sale of this account: "
-                                   + "it's worth nothing after it, and closes. Repeatable.",
+            help: ArgumentHelp("Statement: the line in, by its row (a number) or words in its text, is the sale of "
+                                   + "this account: it's worth nothing after it, and closes. Repeatable.",
                                valueName: "row|words=account"))
     var sales: [String] = []
 
@@ -331,6 +331,9 @@ struct ImportCommand: RetireSubcommand {
             + sales.compactMap { Self.assetAnswer($0, sale: true) }
         guard !answers.isEmpty else { return }
         let lines = session.preview(against: library, today: today).statementLines
+        // Without lines the report says why: the account, the layout or the file.
+        guard !lines.isEmpty else { return }
+        var answered: [Int: String] = [:]
         for (named, asset) in answers {
             let matches = Int(named).map { row in lines.filter { $0.row == row } } ?? lines.filter { $0.hasWords(named) }
             guard matches.count == 1, let line = matches.first else {
@@ -339,6 +342,10 @@ struct ImportCommand: RetireSubcommand {
                     : "\(option): “\(named)” is in \(matches.count) lines (rows "
                         + matches.map { "\($0.row)" }.joined(separator: ", ") + "): name one by its row.")
             }
+            if let earlier = answered[line.row] {
+                throw CLIError("“\(earlier)” and “\(named)” both answer row \(line.row): give it one answer.")
+            }
+            answered[line.row] = named
             session.setStatementAsset(asset, forRow: line.row)
         }
     }

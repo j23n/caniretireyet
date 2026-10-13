@@ -351,7 +351,8 @@ struct ImportReport: CommandReport {
     var newAccountsTitle: String {
         guard !preview.newAccounts.isEmpty else { return "New accounts" }
         let leftOut = preview.leftOutRecords
-        let accepted = preview.newAccounts.allSatisfy(\.isAccepted)
+        // A statement's purchase starts its account whatever the flag says.
+        let accepted = preview.newAccounts.filter { $0.statementRow == nil }.allSatisfy(\.isAccepted)
         return "New accounts (\(acceptance(accepted, flag: "--accept-new-accounts"))"
             + (leftOut > 0 && !accepted ? "; \(Wording.count(leftOut, "record")) left out" : "") + ")"
     }
@@ -361,8 +362,10 @@ struct ImportReport: CommandReport {
                                   .left("In the file")])
         for proposal in preview.newAccounts {
             let account = proposal.account
+            let named = proposal.statementRow.map { "bought in row \($0)" }
+                ?? proposal.names.map { "“\($0)”" }.joined(separator: ", ")
             accounts.add([account.id.rawValue, account.name, account.kind.rawValue, account.currency.rawValue,
-                          account.opened.description, proposal.names.map { "“\($0)”" }.joined(separator: ", ")])
+                          account.opened.description, named])
         }
         return accounts.rows.isEmpty ? [] : accounts.lines()
     }

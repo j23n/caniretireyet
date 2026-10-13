@@ -513,6 +513,8 @@ struct ImportTests {
         #expect(run.output.contains("purchase: auto"))
         #expect(run.output.contains("sale: casa"))
         #expect(run.output.contains("Close casa on 2026-11-01, sold in row 8 (closed with --apply)"))
+        #expect(run.output.contains("New accounts (created with --apply)"))
+        #expect(run.output.contains("bought in row 7"))
         #expect(!run.output.contains("needs an answer"))
         let json = try parseJSON(await runCLI(answered + ["--json"]).output)
         let lines = try #require(json["statementLines"] as? [[String: Any]])
@@ -534,6 +536,8 @@ struct ImportTests {
         #expect(many.all.contains("is in 2 lines (rows 4, 7)"))
         let badKind = await runCLI(arguments + ["--purchase", "Autosalone=cash:Auto"])
         #expect(badKind.status == 64)
+        let twice = await runCLI(arguments + ["--purchase", "7=belongings:Auto", "--sale", "Autosalone=casa"])
+        #expect(twice.all.contains("“7” and “Autosalone” both answer row 7: give it one answer."))
     }
 
     @Test func aStatementNeedsAnAccountThatRecordsMoneyInAndOut() async throws {
