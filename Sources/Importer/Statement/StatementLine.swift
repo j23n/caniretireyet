@@ -67,6 +67,13 @@ public struct StatementLine: Hashable, Sendable, Identifiable {
 
     public var id: Int { row }
 
+    /// Whether the text has `phrase` as whole words, ignoring case, accents
+    /// and punctuation, as a rule matches it.
+    public func hasWords(_ phrase: String) -> Bool {
+        let words = TextTools.words(phrase)
+        return !words.isEmpty && TextTools.contains(TextTools.words(text), anyOf: [words.joined(separator: " ")])
+    }
+
     /// What a line adds to its value's amounts (docs/IMPORT.md, "Classes").
     struct Counted {
         var moneyIn: Decimal = 0
