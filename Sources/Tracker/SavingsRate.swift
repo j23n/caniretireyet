@@ -144,10 +144,10 @@ extension Valuator {
     /// new account's first value that it already held. A check-in fills in
     /// a new account's whole amount as its flow; as Trends' *put in*
     /// counts it (``moneySources(_:through:)``), that flow stays saved only
-    /// as far as negative new money of accounts with a record before it, from
-    /// the check-in before to the one it's in, offsets it (money moved from
-    /// an account already tracked), shared over that stretch's first values
-    /// in proportion to their flows. A debt's first flow, negative, stays
+    /// as far as what accounts with a record before it gave up, from the
+    /// check-in before to the one it's in, offsets it (money moved from an
+    /// account already tracked, ``offsets(of:after:through:)``), shared over
+    /// that stretch's first values in proportion to their flows. A debt's first flow, negative, stays
     /// only as far as money moved into the cash and savings accounts already
     /// tracked, taken together, offsets it (a loan paid out into the current
     /// account, ``moved(into:after:through:)``), so a debt you start
@@ -169,8 +169,7 @@ extension Valuator {
             guard let firsts = firstValues[end] else { continue }
             let start = cuts.last(where: { $0 < end }) ?? from
             let stretch = change(from: start, to: end, in: .netWorth)
-            var takenOut: Decimal = 0
-            var moved: Decimal = 0
+            var tracked: [AccountChange] = []
             var assets: [(account: AccountID, flow: Decimal)] = []
             var debts: [(account: AccountID, flow: Decimal)] = []
             for account in stretch.accounts {
@@ -179,12 +178,10 @@ extension Valuator {
                     if flow > 0 { assets.append((account: account.account, flow: flow)) }
                     if flow < 0 { debts.append((account: account.account, flow: flow)) }
                 } else {
-                    takenOut += max(-account.change.newMoney, 0)
-                    moved += self.moved(into: account, after: start, through: end) ?? 0
+                    tracked.append(account)
                 }
             }
-            // Transfers between cash and savings accounts cancel out; what's left came from elsewhere.
-            let putIn = max(moved, 0)
+            let (takenOut, putIn) = offsets(of: tracked, after: start, through: end)
             // Each first flow stays saved in the share of them the other side offsets.
             for (flows, offset) in [(assets, takenOut), (debts, putIn)] {
                 let total = flows.reduce(Decimal(0)) { $0 + abs($1.flow) }
@@ -195,6 +192,35 @@ extension Valuator {
             }
         }
         return (saved, report.isPriced)
+    }
+
+    /// What the accounts `tracked`, those with a record before a stretch
+    /// after `from` through `through`, gave up and took in for the first
+    /// values in it (PROGRESS.md, "Savings rate"). *Taken out* is their
+    /// negative new money; for the cash and savings accounts, taken
+    /// together, it's at least what moved out of them, less the positive
+    /// new money of the other accounts: pay that came in over the same
+    /// stretch hides money moved out to a new account, such as a car you
+    /// bought. *Put in* is what moved into the cash and savings accounts,
+    /// taken together, so a transfer between two of them cancels out; at
+    /// least zero.
+    func offsets(of tracked: [AccountChange], after from: CalendarDate, through: CalendarDate)
+        -> (takenOut: Decimal, putIn: Decimal) {
+        var takenOut: Decimal = 0
+        var cashTakenOut: Decimal = 0
+        var moved: Decimal = 0
+        var putIntoOthers: Decimal = 0
+        for account in tracked {
+            let newMoney = account.change.newMoney
+            if let into = self.moved(into: account, after: from, through: through) {
+                cashTakenOut += max(-newMoney, 0)
+                moved += into
+            } else {
+                takenOut += max(-newMoney, 0)
+                putIntoOthers += max(newMoney, 0)
+            }
+        }
+        return (takenOut + max(cashTakenOut, -moved - putIntoOthers), max(moved, 0))
     }
 
     /// What moved into a cash or savings account from your other accounts

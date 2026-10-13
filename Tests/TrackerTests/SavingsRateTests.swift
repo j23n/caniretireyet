@@ -250,6 +250,63 @@ struct SavingsRateTests {
         #expect(split.start + split.market + split.newMoney + split.other == split.end)
     }
 
+    /// A current account with pay of 3,000 and rent of 900 in January,
+    /// imported from a statement, so what moved to your other accounts is
+    /// known; `extra` adds to its flow and money in and out.
+    func paidMonth(flow extra: Decimal = 0, moneyIn: Decimal = 3000, moneyOut: Decimal = 900) -> Library {
+        var library = Library(settings: LibrarySettings(baseCurrency: .eur))
+        library.accounts["bank"] = Account(id: "bank", name: "Bank", kind: .cash, currency: .eur,
+                                           opened: "2025-12-01")
+        library.upsert(Valuation(account: "bank", date: "2025-12-31", balance: 20000, flow: 20000))
+        library.upsert(Valuation(account: "bank", date: "2026-01-31", balance: 22100 + extra, flow: 2100 + extra,
+                                 moneyIn: moneyIn, moneyOut: moneyOut))
+        return library
+    }
+
+    /// A car bought from the current account, recorded as moved to a new
+    /// account, is saved, not spent, though the month's pay covers part of
+    /// it.
+    @Test func aPurchaseMovedToANewAccountIsSaved() throws {
+        var library = paidMonth(flow: -15000)
+        library.accounts["car"] = Account(id: "car", name: "Car", kind: .belongings, currency: .eur,
+                                          opened: "2026-01-20")
+        library.upsert(Valuation(account: "car", date: "2026-01-31", balance: 15000, flow: 15000))
+        let savings = try #require(Valuator(library: library).savingsRate(from: "2026-01-01", through: "2026-01-31"))
+        // The bank's new money is −12,900, but 15,000 moved out of it.
+        #expect(savings.savedByAccount["car"] == 15000)
+        #expect(savings.saved == 2100)
+        #expect(savings.spent == 900)
+    }
+
+    /// Money moved between accounts already tracked doesn't offset a new
+    /// account's first value: not a transfer to the savings account, nor a
+    /// deposit into the broker that the money out leaves out.
+    @Test func aTransferBetweenTrackedAccountsDoesNotOffsetAFirstValue() throws {
+        func withOldAccount(_ library: Library) -> Library {
+            var library = library
+            library.accounts["old"] = Account(id: "old", name: "Old savings", kind: .savings, currency: .eur,
+                                              opened: "2026-01-15")
+            library.upsert(Valuation(account: "old", date: "2026-01-31", balance: 20000, flow: 20000))
+            return library
+        }
+        var toSavings = paidMonth(flow: -1000)
+        toSavings.accounts["savings"] = Account(id: "savings", name: "Savings", kind: .savings, currency: .eur,
+                                                opened: "2025-12-01")
+        toSavings.upsert(Valuation(account: "savings", date: "2025-12-31", balance: 0, flow: 0))
+        toSavings.upsert(Valuation(account: "savings", date: "2026-01-31", balance: 1000, flow: 1000, moneyIn: 0,
+                                   moneyOut: 0))
+        let saved = Valuator(library: withOldAccount(toSavings)).saved(after: "2025-12-31", through: "2026-01-31")
+        #expect(saved.byAccount["old"] == 0)
+
+        var toBroker = paidMonth(flow: -1000)
+        toBroker.accounts["broker"] = Account(id: "broker", name: "Broker", kind: .brokerage, currency: .eur,
+                                              opened: "2025-12-01", valuation: .balance)
+        toBroker.upsert(Valuation(account: "broker", date: "2025-12-31", balance: 0, flow: 0))
+        toBroker.upsert(Valuation(account: "broker", date: "2026-01-31", balance: 1000, flow: 1000))
+        let deposit = Valuator(library: withOldAccount(toBroker)).saved(after: "2025-12-31", through: "2026-01-31")
+        #expect(deposit.byAccount["old"] == 0)
+    }
+
     /// A loan you start tracking at a check-in of its own owed what it owes
     /// already: it isn't spent. One paid out into the current account at
     /// that check-in cancels out against the money it brought.

@@ -110,10 +110,11 @@ extension Valuator {
     /// stretch is split as ``change(from:to:in:)`` splits it. An account's
     /// first value is the value at the end of the stretch its first record
     /// falls in. Its recorded flow (a check-in fills in the whole amount)
-    /// stays put in only as far as negative new money, in the same stretch,
-    /// of accounts with a record before it offsets it, shared over the
-    /// stretch's first values in proportion to their positive flows; the
-    /// rest of the first value is started with. A first value without a
+    /// stays put in only as far as what accounts with a record before it
+    /// gave up in the same stretch offsets it (``offsets(of:after:through:)``:
+    /// their negative new money, or what moved out of the cash and savings
+    /// accounts), shared over the stretch's first values in proportion to
+    /// their positive flows; the rest of the first value is started with. A first value without a
     /// flow is all started with. Every other account's new money is put in,
     /// and markets is the rest, so the parts add up to the total.
     public func moneySources(_ grain: PeriodGrain, through end: CalendarDate) -> MoneySources {
@@ -136,16 +137,17 @@ extension Valuator {
         var nextOutput = outputs.startIndex
         for to in cuts {
             let report = change(from: from, to: to, in: scope)
-            var offset: Decimal = 0
+            var tracked: [AccountChange] = []
             var firstValues: [(value: Decimal, flow: Decimal)] = []
             for account in report.accounts {
                 if let record = firstRecords[account.account], record > from, record <= to {
                     firstValues.append((value: account.change.end, flow: max(account.flow ?? 0, 0)))
                 } else {
                     putIn += account.change.newMoney
-                    offset += max(-account.change.newMoney, 0)
+                    tracked.append(account)
                 }
             }
+            let offset = firstValues.isEmpty ? 0 : offsets(of: tracked, after: from, through: to).takenOut
             let flows = firstValues.reduce(Decimal(0)) { $0 + $1.flow }
             let share: Decimal = flows == 0 ? 0 : min(offset / flows, 1)
             for firstValue in firstValues {
