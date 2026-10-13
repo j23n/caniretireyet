@@ -247,6 +247,35 @@ struct LoaderTests {
         #expect(fineco?.moneyOut == -1)
     }
 
+    @Test func aOneOffThatIsNotCountedIsAWarning() throws {
+        let folder = try TemporaryFolder.exampleLibrary()
+        var month = try Fixtures.decode(MonthFile.self, from: "history/2026/2026-09.json")
+        for index in month.valuations.indices {
+            switch month.valuations[index].account {
+            case "fondo-pensione":
+                month.valuations[index].oneOff = 100
+            case "conto-deposito":
+                month.valuations[index].moneyIn = nil
+                month.valuations[index].moneyOut = nil
+                month.valuations[index].oneOff = 100
+            case "conto-fineco":
+                month.valuations[index].oneOff = -5
+            default:
+                break
+            }
+        }
+        try folder.write("history/2026/2026-09.json", JSONEncoder().encode(month))
+
+        let result = try load(folder)
+        let issues = result.report.issues(for: "history/2026/2026-09.json").filter { $0.message.contains("one-off") }
+        #expect(issues.count == 3)
+        #expect(issues.allSatisfy { $0.severity == .warning })
+        let messages = issues.map(\.message)
+        #expect(messages.contains { $0.contains("fondo-pensione on 2026-09-30 records a one-off, but only") })
+        #expect(messages.contains { $0.contains("conto-deposito on 2026-09-30 records a one-off without both") })
+        #expect(messages.contains { $0.contains("conto-fineco on 2026-09-30 has a negative one-off") })
+    }
+
     @Test func brokenReferencesAreWarnings() throws {
         let folder = try TemporaryFolder.exampleLibrary()
         try FileManager.default.removeItem(at: folder.url.appendingPathComponent("instruments/btc.json"))

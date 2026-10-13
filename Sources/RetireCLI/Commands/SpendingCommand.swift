@@ -53,7 +53,7 @@ struct SpendingCommand: RetireSubcommand {
         let valuator = Valuator(library: loaded.library)
         let from = year.map { CalendarDate.firstDay(ofYear: $0) } ?? context.today.adding(years: -1).adding(days: 1)
         let through = year.map { CalendarDate.lastDay(ofYear: $0) } ?? context.today
-        let summary = valuator.moneyInOut(from: from, through: through, accounts: only)
+        let summary = valuator.moneyInOut(from: from, through: through, accounts: only ?? valuator.cameInAccounts)
         let savings = only == nil ? valuator.savingsRate(from: from, through: through) : nil
         try context.console.print(Report(summary: summary, account: only?.first, savings: savings), json: json)
     }
@@ -90,10 +90,11 @@ struct SpendingCommand: RetireSubcommand {
             if let savings, let rate = savings.rate {
                 let pensions = savings.pensionContributions > 0
                     ? ", \(Format.amount(savings.pensionContributions)) of it paid into pension funds and TFR" : ""
+                let spent = savings.spent < 0 ? ""
+                    : ", and spent \(Format.amount(savings.spent)) (\(Format.amount(savings.spentPerYear)) a year)"
                 lines.append("Savings rate \(Format.percent(rate)): you saved \(Format.amount(savings.saved)) of the "
                     + "\(Format.amount(savings.income)) that came in from \(savings.from.adding(days: 1)) to "
-                    + "\(savings.through)\(pensions), and spent \(Format.amount(savings.spent)) "
-                    + "(\(Format.amount(savings.spentPerYear)) a year).")
+                    + "\(savings.through)\(pensions)\(spent).")
                 if savings.oneOffs > 0 {
                     lines.append("One-offs of \(Format.amount(savings.oneOffs)), such as an inheritance, are left out: "
                         + "they're neither came in nor spent.")

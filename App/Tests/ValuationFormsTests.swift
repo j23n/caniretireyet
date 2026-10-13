@@ -167,6 +167,20 @@ struct ValuationFormsTests {
         #expect(try #require(form.valuation(in: library, locale: locale)).flow != 900)
     }
 
+    /// The form doesn't show a one-off: editing a value's note or its
+    /// balance keeps it.
+    @Test func editValueKeepsAOneOff() throws {
+        var library = self.library
+        var typed = try #require(library.valuations(for: "conto-fineco").first { $0.date == "2026-09-30" })
+        typed.oneOff = 250
+        library.upsert(typed)
+        var form = AccountValuationForm(typed, kind: .cash, holdsPositions: false, locale: locale)
+        form.note = "Statement checked"
+        #expect(try #require(form.valuation(in: library, locale: locale)).oneOff == 250)
+        form.balance = "5000"
+        #expect(try #require(form.valuation(in: library, locale: locale)).oneOff == 250)
+    }
+
     /// A value from before money in and out were asked for has neither;
     /// saving it records them as *Update Value* would.
     @Test func editValueOfAnOlderValueRecordsMoneyInAndOut() throws {

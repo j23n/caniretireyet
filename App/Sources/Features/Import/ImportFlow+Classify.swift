@@ -26,7 +26,7 @@ extension ImportIssue {
     }
 }
 
-/// The Classify step of a bank statement (the statement layout; IMPORT.md,
+/// The Income step of a bank statement (the statement layout; IMPORT.md,
 /// "Bank statements"): each line with its class and why it has it, the
 /// rules that classify lines, and the days the file covers.
 extension ImportFlow {

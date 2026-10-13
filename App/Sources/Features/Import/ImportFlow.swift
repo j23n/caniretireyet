@@ -72,6 +72,9 @@ struct ImportFlow: Sendable {
     /// What importing would do now: the preview applied to ``library``,
     /// with the later values' new money in step (``ImportPreview/applyFollowingFlows(to:)``).
     private(set) var planned: ImportResult?
+    /// A bank statement's charts of ``planned`` (``makeStatementCharts()``),
+    /// kept so Preview doesn't work them out again on every redraw.
+    private(set) var statementCharts: ImportStatementCharts?
     /// What the user decided about proposals and conflicts.
     private(set) var decisions = ImportDecisions()
     /// Why the file, or the last change to how it's read, didn't work.
@@ -277,6 +280,7 @@ struct ImportFlow: Sendable {
         basePreview = base
         preview = base.map { decisions.applied(to: $0) }
         planned = preview?.applyFollowingFlows(to: library)
+        statementCharts = makeStatementCharts()
         // A change of layout, or of what the preview proposes, can take away
         // the step on screen: show the nearest one before it.
         if step != .done, !steps.contains(step) {
