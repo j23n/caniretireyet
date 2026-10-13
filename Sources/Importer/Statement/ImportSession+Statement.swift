@@ -34,9 +34,11 @@ extension ImportSession {
     }
 
     /// Chooses the class of one line, by its 1-based row, for this file
-    /// only; `nil` classifies it again by the rules.
+    /// only; `nil` classifies it again by the rules. A class replaces the
+    /// line's answer as a purchase or a sale.
     public mutating func setStatementClass(_ statementClass: StatementClass?, forRow row: Int) {
         statementLineClasses[row] = statementClass
+        if statementClass != nil { statementAssets[row] = nil }
     }
 
     // MARK: - Detecting a statement

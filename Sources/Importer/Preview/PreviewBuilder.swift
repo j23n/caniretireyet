@@ -79,6 +79,8 @@ struct PreviewBuilder {
     var removedTrades: [(trade: Trade, cells: [ImportCellRef])] = []
     /// Statement layout: the lines read, with their classes.
     var statementLines: [StatementLine] = []
+    /// Statement layout: the accounts the file's sales close.
+    var statementCloses: [AccountChangeProposal] = []
 
     var table: ImportTable { session.table }
     var profile: ImportProfile { session.profile }
@@ -526,7 +528,7 @@ struct PreviewBuilder {
         let usedAccounts = Set(records.compactMap(\.imported.key.account))
         preview.newAccounts = accountProposals.filter { usedAccounts.contains($0.account.id) }
         preview.accountChanges = accountChanges(records, converted: converted, lastDate: preview.lastDate,
-                                                newAccounts: preview.newAccounts)
+                                                newAccounts: preview.newAccounts) + statementCloses
     }
 
     mutating func failCost(_ accumulator: Accumulator, _ instrument: InstrumentID) {

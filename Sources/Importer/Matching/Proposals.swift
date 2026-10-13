@@ -37,6 +37,8 @@ public struct AccountProposal: Hashable, Sendable {
     public var names: [String]
     /// Whether applying creates it (default `true`).
     public var isAccepted = true
+    /// The statement's row whose purchase starts it, for a purchase you keep.
+    public var statementRow: Int?
 }
 
 /// A new instrument for names the library doesn't know. Edit it before
@@ -71,11 +73,14 @@ public struct AccountChangeProposal: Hashable, Sendable, CustomStringConvertible
     /// (an account updated less often than the file isn't closed); earlier
     /// openings are accepted.
     public var isAccepted: Bool
+    /// The statement's row whose sale closes the account.
+    public var statementRow: Int?
 
-    public init(account: AccountID, change: Change, isAccepted: Bool = true) {
+    public init(account: AccountID, change: Change, isAccepted: Bool = true, statementRow: Int? = nil) {
         self.account = account
         self.change = change
         self.isAccepted = isAccepted
+        self.statementRow = statementRow
     }
 
     public var description: String {

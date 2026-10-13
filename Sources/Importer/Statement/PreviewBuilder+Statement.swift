@@ -39,7 +39,9 @@ extension PreviewBuilder {
         let read = readStatementLines(dateColumn: dateColumn, dates: dates)
         guard !read.isEmpty else { return [:] }
         var lines = classify(read, account: account)
-        let records = statementValues(&lines, read: read, account: account)
+        var records = statementValues(&lines, read: read, account: account)
+        let cuts = records.keys.map(\.date).sorted()
+        records.merge(statementAssetRecords(&lines, cuts: cuts, read: read, account: account)) { $1 }
         statementLines = lines
         return records
     }
@@ -118,14 +120,19 @@ extension PreviewBuilder {
     /// recurring one; else the sign. Then the money in that needs an answer.
     private func classify(_ read: [ReadLine], account: Account) -> [StatementLine] {
         let names = accountNames(excluding: account)
+        let answered = answeredAssets(read, account: account)
         let open = read.indices.filter { index in
             session.statementLineClasses[read[index].row] == nil && session.statementRule(for: read[index].text) == nil
+                && answered[read[index].row] == nil
         }
         let trades = matchTrades(read, lines: open, excluding: account.id)
         var lines = read.indices.map { index in
             let line = read[index]
             let chosen: (StatementClass, StatementLine.Source)
-            if let statementClass = session.statementLineClasses[line.row] {
+            if answered[line.row] != nil {
+                // A purchase or a sale moves money between your accounts.
+                chosen = (.transfer, .chosen)
+            } else if let statementClass = session.statementLineClasses[line.row] {
                 chosen = (statementClass, .chosen)
             } else if let rule = session.statementRule(for: line.text) {
                 chosen = (rule.statementClass, .rule(rule.match))
@@ -147,6 +154,10 @@ extension PreviewBuilder {
         }
         Self.markRecurring(&lines)
         Self.markQuestions(&lines)
+        let firstDate = read.first?.date
+        let history = library.valuations(for: account.id).filter { date in firstDate.map { date.date < $0 } ?? false }
+            .suffix(12).compactMap(\.moneyOut)
+        Self.markPurchaseQuestions(&lines, history: history)
         return lines
     }
 
@@ -202,6 +213,35 @@ extension PreviewBuilder {
         let typical = months[months.count / 2]
         for index in lines.indices where lines[index].source == .sign && lines[index].amount > typical {
             lines[index].needsAnswer = true
+        }
+    }
+
+    /// Money out classified by its sign alone that is more than a typical
+    /// month's spending needs an answer: spending, or a purchase you keep.
+    /// The typical month is the median of the file's months' money out
+    /// without the line itself, and of `history`, the money out of the
+    /// account's last 12 values before the file; a month whose only
+    /// spending is the line doesn't count.
+    private static func markPurchaseQuestions(_ lines: inout [StatementLine], history: [Decimal]) {
+        let spending = lines.indices.filter { lines[$0].amount < 0 && lines[$0].statementClass == .spending }
+        var months: [YearMonth: (total: Decimal, count: Int)] = [:]
+        for index in spending {
+            let month = months[lines[index].date.yearMonth] ?? (0, 0)
+            months[lines[index].date.yearMonth] = (month.total - lines[index].amount, month.count + 1)
+        }
+        for index in spending where lines[index].source == .sign {
+            let own = lines[index].date.yearMonth
+            var totals = history
+            for (month, spent) in months {
+                if month != own {
+                    totals.append(spent.total)
+                } else if spent.count > 1 {
+                    totals.append(spent.total + lines[index].amount)
+                }
+            }
+            guard !totals.isEmpty else { continue }
+            totals.sort()
+            if -lines[index].amount > totals[totals.count / 2] { lines[index].needsAnswer = true }
         }
     }
 
@@ -267,6 +307,94 @@ extension PreviewBuilder {
         let words = TextTools.words(text)
         return names.filter { TextTools.contains(words, anyOf: [$0.phrase]) }
             .max { $0.phrase.count < $1.phrase.count }.map { ($0.id, $0.isLiability) }
+    }
+
+    // MARK: - Purchases and sales
+
+    /// The session's answers as a purchase or a sale that the import can
+    /// record, by row (docs/IMPORT.md, "Purchases and sales"): a purchase
+    /// of money out, of a kind it can start; a sale of money in, of an
+    /// account other than `account` that can be sold from a statement
+    /// (``Model/Account/canBeSoldFromStatement``), in its currency, with no
+    /// values after the line, the first sale of it in the file.
+    private func answeredAssets(_ read: [ReadLine], account: Account) -> [Int: StatementAsset] {
+        var answered: [Int: StatementAsset] = [:]
+        var sold = Set<AccountID>()
+        for line in read {
+            guard let asset = session.statementAssets[line.row], asset.fits(line.amount) else { continue }
+            switch asset {
+            case .purchase(_, let kind):
+                guard StatementAsset.purchaseKinds.contains(kind) else { continue }
+            case .sale(let id):
+                guard id != account.id, let other = library.accounts[id], other.canBeSoldFromStatement,
+                      other.currency == account.currency, other.opened <= line.date, !sold.contains(id),
+                      !library.valuations(for: id).contains(where: { $0.date > line.date })
+                else { continue }
+                sold.insert(id)
+            }
+            answered[line.row] = asset
+        }
+        return answered
+    }
+
+    /// The records of the lines answered as a purchase or a sale, at the
+    /// file's value on or after each line (one of `cuts`), where the
+    /// account's money moved. A purchase starts a new account (proposed,
+    /// accepted), opened and worth 0 on the line's day (the day before,
+    /// when that's the value's), then worth the line's amount, with the
+    /// amount as its flow: its first value is 0, so the amount is new
+    /// money moved from the account, not what it already held. A sale
+    /// values the account sold at 0, with the amount as its flow out, and
+    /// closes it the day after (proposed, accepted). Answers it can't
+    /// record are issues: one that doesn't fit leaves the line classified
+    /// as if it had none, and a line after the file's last value counts in
+    /// no value anyway.
+    private mutating func statementAssetRecords(_ lines: inout [StatementLine], cuts: [CalendarDate],
+                                                read: [ReadLine], account: Account)
+        -> [ImportRecordKey: Accumulator] {
+        let answered = answeredAssets(read, account: account)
+        var records: [ImportRecordKey: Accumulator] = [:]
+        var taken = Set(library.accounts.keys.map(\.rawValue) + accountProposals.map(\.account.id.rawValue))
+        for row in session.statementAssets.keys.sorted() {
+            guard let index = lines.firstIndex(where: { $0.row == row }) else { continue }
+            let line = lines[index]
+            guard let asset = answered[row], let cut = cuts.first(where: { $0 >= line.date }) else {
+                var account: AccountID?
+                if case .sale(let id)? = session.statementAssets[row], answered[row] == nil { account = id }
+                issues.append(ImportIssue(kind: .statementAssetLeftOut(row: row, account: account)))
+                continue
+            }
+            let amount = -line.amount
+            let id: AccountID
+            switch asset {
+            case .purchase(let name, let kind):
+                let opened = min(line.date, cut.adding(days: -1))
+                let slug = Slug.make(from: name)
+                if let existing = library.accounts[AccountID(slug)], existing.kind == kind, existing.name == name {
+                    // Importing the file again with the same answer finds the account it started.
+                    id = existing.id
+                } else {
+                    id = AccountID(Slug.unique(slug, among: taken))
+                    taken.insert(id.rawValue)
+                    let new = Account(id: id, name: name, kind: kind, currency: account.currency, opened: opened)
+                    accountProposals.append(AccountProposal(account: new, names: [name], statementRow: row))
+                }
+                var start = ImportedRecord(key: .valuation(ValuationKey(account: id, date: opened)))
+                start.balance = 0
+                records[start.key] = Accumulator(record: start, cells: read.first { $0.row == row }?.cells ?? [])
+            case .sale(let sold):
+                id = sold
+                statementCloses.append(AccountChangeProposal(account: sold, change: .close(on: cut.adding(days: 1)),
+                                                             statementRow: row))
+            }
+            var record = ImportedRecord(key: .valuation(ValuationKey(account: id, date: cut)))
+            record.balance = line.amount < 0 ? amount : 0
+            record.flow = amount
+            records[record.key] = Accumulator(record: record, cells: read.first { $0.row == row }?.cells ?? [])
+            lines[index].asset = asset
+            lines[index].assetAccount = id
+        }
+        return records
     }
 
     // MARK: - Values
