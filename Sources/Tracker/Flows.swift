@@ -37,8 +37,8 @@ extension Valuator {
     /// and rounded to cents; `previous` is the account's latest valuation
     /// before it.
     ///
-    /// - Whole change (current accounts, cards, loans, mortgages): the new
-    ///   amount minus the previous one.
+    /// - Whole change (current accounts, cards, loans, mortgages, vehicles):
+    ///   the new amount minus the previous one.
     /// - Change less interest (savings): the whole change minus the
     ///   valuation's `interest`, so the interest counts as market.
     /// - Asked (pension fund, TFR, property, other): `nil`, i.e. unknown until

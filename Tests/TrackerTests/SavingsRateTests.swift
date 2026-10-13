@@ -173,6 +173,19 @@ struct SavingsRateTests {
         #expect(january.spent == 2850)
         let february = valuator.saved(after: "2026-01-31", through: "2026-02-28")
         #expect(february.byAccount["car"] == -1000)
+
+        // Sold for 18,500 into the current account in March: only the 500 below its value is spent.
+        library.upsert(Valuation(account: "car", date: "2026-03-31", balance: 0))
+        library.upsert(Valuation(account: "bank", date: "2026-03-31", balance: 7950, flow: 18500, moneyIn: 0,
+                                 moneyOut: 0))
+        let sold = Valuator(library: library)
+        let march = sold.saved(after: "2026-02-28", through: "2026-03-31")
+        #expect(march.byAccount["car"] == -19000)
+        #expect(march.byAccount["bank"] == 18500)
+        #expect(march.byAccount.values.reduce(Decimal(0), +) == -500)
+        // Over the car's two months, what's spent is its loss of value: 20,000 less the 18,500 it sold for.
+        let both = sold.saved(after: "2026-01-31", through: "2026-03-31")
+        #expect(both.byAccount.values.reduce(Decimal(0), +) == -1500)
     }
 
     /// A check-in fills in a new account's whole amount as its flow: only the

@@ -113,7 +113,8 @@ public struct ValuationMode: OpenEnum {
 
 /// How a valuation's `flow` is worked out, by account kind.
 public enum FlowDefault: String, Hashable, Sendable, CaseIterable {
-    /// The whole change is new money (current accounts, cards, loans, mortgages).
+    /// The whole change is new money (current accounts, cards, loans,
+    /// mortgages, vehicles).
     case wholeChange
     /// The change minus the interest recorded with the value (savings), so
     /// the interest counts as market.
