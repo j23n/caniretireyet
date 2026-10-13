@@ -2,7 +2,7 @@
 
 The readiness ring is the Overview's most important figure, but it doesn't read that way. On iPhone it's 48 points across, at the headline's right. The label row's run status, ⓘ and chevron sit right above it, and its "58% ready" label sits to its left, so that corner is crowded, and the headline and the tiles draw the eye first.
 
-This note sketches three directions that make the ring the header's focus, for the owner to pick one. Nothing here is built. The chosen direction gets a follow-up issue that builds it in `OverviewHeader` and updates [UI.md](../UI.md#overview), "Can I retire yet?".
+This note sketches three directions that make the ring the header's focus. The owner chose Sketch B; its [mockups](#mockups) show it in the app's colors. Nothing here is built. The chosen direction gets a follow-up issue that builds it in `OverviewHeader` and updates [UI.md](../UI.md#overview), "Can I retire yet?".
 
 All values are UI.md's made-up ones.
 
@@ -244,6 +244,20 @@ The tiles are as in *Not yet*, without the coast point line.
 - **The label row's items:** there's no label row. The run status and the ⓘ go on a line under the ring, centered. The chevron goes: the ring and the headline are one element for VoiceOver already, and it becomes the button that opens the plan (the button trait and the default action), where the chevron is that button today. On the Mac and iPad that element also takes keyboard focus.
 - **Large text:** the headline and "58% ready" inside the ring are capped so the longest headline fits on two lines; the ring keeps its size.
 - **iPad and Mac:** the ring stays about 200 points across, at the left, with "Can I retire yet?" above it and the run status line under it; the two tiles stand side by side at its right, as tall as the ring.
+
+### Mockups
+
+Sketch B drawn in the app's colors (the asset catalog's light and dark variants), text styles and spacing, on a 6.3-inch iPhone (402 × 874 points) and in a Mac window of 1200 × 800. The status bar, toolbar and tab bar are there only for context.
+
+![Sketch B on iPhone in light mode: Not yet at 58%, Yes lapping at 130%, and hidden amounts at 58%+](readiness-ring-b-iphone.svg)
+
+![Sketch B on iPhone in dark mode: Not yet at 58% and Yes lapping at 130%](readiness-ring-b-dark.svg)
+
+The header's other states: "<5%" with an empty ring; out of date, where the headline and the ring dim and *Calculate* takes the run status's place; a headline that wraps inside the ring; and an answer recorded before readiness existed, which has no ring, so the headline leads in largeTitle with "Calculate the plan to see how close you are to retiring today." under it, and the tiles move up.
+
+![Sketch B's other states on iPhone: less than 5%, out of date, a long headline, and no ring](readiness-ring-b-states.svg)
+
+![Sketch B on the Mac: the ring at the left of the content area, the tiles at its right](readiness-ring-b-mac.svg)
 
 ## Sketch C: quiet header
 

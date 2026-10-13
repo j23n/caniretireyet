@@ -1,0 +1,159 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="948" height="970" viewBox="0 0 948 970">
+  <title>Sketch B, the readiness ring with the answer: the header's other states on iPhone</title>
+  <style>
+    text { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif; }
+    .lt { font-size: 34px; font-weight: 700; }
+    .ti { font-size: 28px; font-weight: 700; }
+    .hd { font-size: 17px; font-weight: 600; }
+    .sh { font-size: 15px; }
+    .btn { font-size: 15px; font-weight: 600; }
+    .sb { font-weight: 600; }
+    .mid { text-anchor: middle; }
+    .sheet { fill: #E8E7E2; }
+    .ink { fill: #0B0B0B; }
+    .sec { fill: #52514E; }
+    .acc { fill: #2A78D6; }
+    .accf { fill: #2A78D6; fill-opacity: 0.14; }
+    .up { fill: #006300; }
+    .page { fill: #F4F4F1; }
+    .cardf { fill: #FCFCFB; }
+    .s-sec { stroke: #52514E; }
+    .s-mut { stroke: #898781; }
+    .s-acc { stroke: #2A78D6; }
+    .s-grid { stroke: #E1E0D9; }
+    .s-border { stroke: #E1E0D9; }
+    .s-frame { stroke: #D3D2CB; }
+  </style>
+
+  <defs>
+    <clipPath id="crop">
+      <rect width="402" height="320" rx="28"/>
+    </clipPath>
+
+    <path id="chev" d="M-2.5 -5 L2.5 0 L-2.5 5" fill="none" class="s-mut" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <g id="clock">
+      <circle r="6" fill="none" class="s-sec" stroke-width="1.5"/>
+      <path d="M0 -3.4 V0 H2.6" fill="none" class="s-sec" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <g id="info">
+      <circle r="8.5" fill="none" class="s-acc" stroke-width="1.5"/>
+      <circle cy="-3.9" r="1.15" class="acc"/>
+      <rect x="-0.85" y="-1.3" width="1.7" height="6.6" rx="0.85" class="acc"/>
+    </g>
+
+    <!-- The run status line: "◷ 30 Sep  ⓘ", centered, from its baseline -->
+    <g id="status">
+      <use href="#clock" x="162" y="-5"/>
+      <text x="173" y="0" class="sh sec">30 Sep</text>
+      <use href="#info" x="236" y="-5"/>
+    </g>
+
+    <!-- The two tiles, from their top -->
+    <g id="tiles">
+      <g transform="translate(16 0)">
+        <rect x="0.5" y="0.5" width="178" height="167" rx="15.5" class="cardf s-border"/>
+        <text x="12" y="27" class="sh sec">Net worth</text>
+        <text x="12" y="61" class="ti ink">312.480 €</text>
+        <text x="12" y="85" class="sh up">▲ 4.210 €</text>
+        <text x="12" y="107" class="sh sec">in September</text>
+        <text x="12" y="129" class="sh"><tspan class="up">▲ 6,2%</tspan><tspan class="sec"> this year</tspan></text>
+      </g>
+      <g transform="translate(207 0)">
+        <rect x="0.5" y="0.5" width="178" height="167" rx="15.5" class="cardf s-border"/>
+        <text x="12" y="27" class="sh sec">On track?</text>
+        <use href="#chev" x="164" y="22"/>
+        <text x="12" y="61" class="ti up">On plan</text>
+        <text x="12" y="85" class="sh ink">12.400 € ahead</text>
+        <text x="12" y="107" class="sh sec">of January</text>
+        <text x="12" y="129" class="sh ink">Past the coast point:</text>
+        <text x="12" y="151" class="sh ink">63 without saving</text>
+      </g>
+    </g>
+
+    <rect id="frame" x="0.5" y="0.5" width="401" height="319" rx="27.5" fill="none" class="s-frame"/>
+  </defs>
+
+  <rect width="948" height="970" class="sheet"/>
+  <text x="48" y="62" class="ink" style="font-size: 30px; font-weight: 700;">Sketch B: the other states</text>
+  <text x="48" y="92" class="sec" style="font-size: 17px;">The top of the Overview on iPhone, under the navigation bar. The tiles start at each crop's bottom edge.</text>
+
+  <!-- 1. Less than 5%: an empty ring -->
+  <g transform="translate(48 120)">
+    <g clip-path="url(#crop)">
+      <rect width="402" height="320" class="page"/>
+      <text x="201" y="36" class="sh sec mid">Can I retire yet?</text>
+      <circle cx="201" cy="148" r="94" fill="none" class="s-grid" stroke-width="12"/>
+      <text x="201" y="145" class="ti ink mid">Not yet</text>
+      <text x="201" y="172" class="sh mid"><tspan class="ink sb">&lt;5%</tspan><tspan class="sec"> ready</tspan></text>
+      <use href="#status" y="276"/>
+      <use href="#tiles" y="292"/>
+    </g>
+    <use href="#frame"/>
+  </g>
+
+  <!-- 2. Out of date: the answer dims, Calculate takes the run status's place -->
+  <g transform="translate(498 120)">
+    <g clip-path="url(#crop)">
+      <rect width="402" height="320" class="page"/>
+      <text x="201" y="36" class="sh sec mid">Can I retire yet?</text>
+      <g opacity="0.7">
+        <circle cx="201" cy="148" r="94" fill="none" class="s-grid" stroke-width="12"/>
+        <circle cx="201" cy="148" r="94" fill="none" class="s-acc" stroke-width="12" stroke-linecap="round" stroke-dasharray="342.56 1000" transform="rotate(-90 201 148)"/>
+        <text x="201" y="145" class="ti ink mid">In 15 years</text>
+        <text x="201" y="172" class="sh mid"><tspan class="ink sb">58%</tspan><tspan class="sec"> ready</tspan></text>
+      </g>
+      <rect x="141.5" y="257" width="90" height="28" rx="14" class="accf"/>
+      <text x="186.5" y="276" class="btn acc mid">Calculate</text>
+      <use href="#info" x="252" y="271"/>
+      <use href="#tiles" y="292"/>
+    </g>
+    <use href="#frame"/>
+  </g>
+
+  <!-- 3. A long headline wraps inside the ring -->
+  <g transform="translate(48 540)">
+    <g clip-path="url(#crop)">
+      <rect width="402" height="320" class="page"/>
+      <text x="201" y="36" class="sh sec mid">Can I retire yet?</text>
+      <circle cx="201" cy="148" r="94" fill="none" class="s-grid" stroke-width="12"/>
+      <circle cx="201" cy="148" r="94" fill="none" class="s-acc" stroke-width="12" stroke-linecap="round" stroke-dasharray="572.90 1000" transform="rotate(-90 201 148)"/>
+      <text x="201" y="128" class="ti ink mid">In under</text>
+      <text x="201" y="162" class="ti ink mid">a month</text>
+      <text x="201" y="189" class="sh mid"><tspan class="ink sb">97%</tspan><tspan class="sec"> ready</tspan></text>
+      <use href="#status" y="276"/>
+      <use href="#tiles" y="292"/>
+    </g>
+    <use href="#frame"/>
+  </g>
+
+  <!-- 4. No readiness recorded: no ring, the headline leads -->
+  <g transform="translate(498 540)">
+    <g clip-path="url(#crop)">
+      <rect width="402" height="320" class="page"/>
+      <text x="201" y="36" class="sh sec mid">Can I retire yet?</text>
+      <text x="201" y="82" class="lt ink mid">In 15 years</text>
+      <text x="201" y="112" class="sh sec mid">Calculate the plan to see how close you</text>
+      <text x="201" y="132" class="sh sec mid">are to retiring today.</text>
+      <use href="#status" y="164"/>
+      <use href="#tiles" y="184"/>
+    </g>
+    <use href="#frame"/>
+  </g>
+
+  <!-- Captions -->
+  <text x="48" y="472" class="hd ink">Less than 5% · an empty ring</text>
+  <text x="48" y="496" class="sh sec">Retiring today would need more than 20 times the</text>
+  <text x="48" y="516" class="sh sec">plan assets: the track alone, around “&lt;5%”.</text>
+
+  <text x="498" y="472" class="hd ink">Out of date</text>
+  <text x="498" y="496" class="sh sec">The headline and the ring dim to 70%. Calculate,</text>
+  <text x="498" y="516" class="sh sec">or “Calculating 29%”, takes the date’s place.</text>
+
+  <text x="48" y="892" class="hd ink">A long headline · 97% ready</text>
+  <text x="48" y="916" class="sh sec">“In under a month” and “In 18 months” wrap</text>
+  <text x="48" y="936" class="sh sec">onto two lines; the ring keeps its size.</text>
+
+  <text x="498" y="892" class="hd ink">No ring</text>
+  <text x="498" y="916" class="sh sec">An answer recorded before readiness existed: the</text>
+  <text x="498" y="936" class="sh sec">headline leads in largeTitle and the tiles move up.</text>
+</svg>
