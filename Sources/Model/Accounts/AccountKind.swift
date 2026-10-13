@@ -78,10 +78,11 @@ extension AccountKind {
     }
 
     /// How a valuation's `flow` is worked out for this kind (PROGRESS.md,
-    /// "Data this needs from day one").
+    /// "Data this needs from day one"). A vehicle's is its whole change, so
+    /// its loss of value is spent, a little each year.
     public var defaultFlow: FlowDefault {
         switch self {
-        case .cash, .creditCard, .loan, .mortgage: .wholeChange
+        case .cash, .creditCard, .loan, .mortgage, .vehicle: .wholeChange
         case .savings: .changeLessInterest
         case .brokerage, .crypto, .metals: .trades
         default: .ask

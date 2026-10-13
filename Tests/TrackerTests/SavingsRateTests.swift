@@ -149,6 +149,26 @@ struct SavingsRateTests {
         #expect(library.months["2026-01"]?.valuations.first { $0.account == "bank" }?.moved == 0)
     }
 
+    /// A car bought from the current account is saved, not spent; its loss
+    /// of value is spent, and selling it cancels out.
+    @Test func aCarsLossOfValueIsSpent() throws {
+        var library = month
+        library.accounts["car"] = Account(id: "car", name: "Car", kind: .vehicle, currency: .eur,
+                                          opened: "2026-01-10")
+        // Bought for 20,000 from the current account in January.
+        library.upsert(Valuation(account: "bank", date: "2026-01-31", balance: -10550, flow: -20550, moneyIn: 4000,
+                                 moneyOut: 4550))
+        library.upsert(Valuation(account: "car", date: "2026-01-31", balance: 20000, flow: 20000))
+        // Worth 19,000 at the end of February, a value without a flow.
+        library.upsert(Valuation(account: "car", date: "2026-02-28", balance: 19000))
+        let valuator = Valuator(library: library)
+        let january = try #require(valuator.savingsRate(from: "2026-01-01", through: "2026-01-31"))
+        #expect(january.saved == 1450)
+        #expect(january.spent == 2850)
+        let february = valuator.saved(after: "2026-01-31", through: "2026-02-28")
+        #expect(february.byAccount["car"] == -1000)
+    }
+
     /// A check-in fills in a new account's whole amount as its flow: only the
     /// part that left an account already tracked is saved.
     @Test func aNewAccountsFirstValueIsSavedOnlyAsFarAsItMovedFromAnother() throws {

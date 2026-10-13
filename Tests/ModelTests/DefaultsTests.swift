@@ -51,6 +51,8 @@ struct AccountDefaultsTests {
         #expect(AccountKind.savings.defaultFlow == .changeLessInterest)
         #expect(AccountKind.metals.defaultFlow == .trades)
         #expect(AccountKind.pensionFund.defaultFlow == .ask)
+        #expect(AccountKind.vehicle.defaultFlow == .wholeChange)
+        #expect(AccountKind.property.defaultFlow == .ask)
         #expect(AccountKind.mortgage.isLiability)
     }
 

@@ -170,7 +170,7 @@ Two kinds of data are needed for the comparisons above.
 
   | Account kind | Default flow |
   | --- | --- |
-  | Current accounts, credit cards, loans, mortgages | The whole change. Money arriving or leaving (salary, spending, repayments) is new money, and interest is small. A current account's is worked out, never typed. |
+  | Current accounts, credit cards, loans, mortgages, vehicles | The whole change. Money arriving or leaving (salary, spending, repayments) is new money, and interest is small. A current account's is worked out, never typed. A vehicle's loss of value is new money too, so the savings rate counts it as spent, a little each year, and selling it cancels out against the money it brings in. |
   | Savings accounts | The change minus the interest recorded with the value, so the interest counts as market, as a fund's return does. Worked out, never typed. |
   | Brokerage, crypto, metals | They record trades: see the last row. |
   | Pension fund, TFR, property, other balance accounts | Asked for: e.g. contributions from the pension fund's statement. If left empty, the flow is unknown: what the main plan pays into the account since the value before (its `contributions`, a yearly amount for the days it covers) counts as new money instead, and the rest as market, so nothing paid in (a home) leaves all of the change to market. An account's first value without a flow, what it held when its records start, counts as "other". |
