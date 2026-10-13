@@ -26,6 +26,9 @@ public struct ImportTable: Hashable, Sendable {
     public var rows: [ImportRow]
     /// Rows left out: empty, above the header, or matching the footer rule.
     public var skippedRows: [SkippedRow]
+    /// The text of the rows above the header, such as a bank's title rows
+    /// naming the account, its cells joined with spaces, one row a line.
+    public var titleText: String
     /// The number of columns: the widest row, ignoring trailing empty cells.
     public var columnCount: Int
     /// Other delimiters that split the file just as well, if any.
@@ -64,6 +67,7 @@ public struct ImportTable: Hashable, Sendable {
         let rules = excludeRows.map(TextTools.fold).filter { !$0.isEmpty }
         var rows: [ImportRow] = []
         var skipped: [SkippedRow] = []
+        var titles: [String] = []
         for (offset, cells) in records.enumerated() {
             let number = offset + 1
             if number == header { continue }
@@ -73,6 +77,7 @@ public struct ImportTable: Hashable, Sendable {
             }
             if number < header {
                 skipped.append(SkippedRow(number: number, reason: .aboveHeader))
+                titles.append(cells.filter { !$0.isEmpty }.joined(separator: " "))
             } else {
                 let folded = TextTools.fold(first)
                 if let rule = zip(rules, excludeRows).first(where: { folded.hasPrefix($0.0) })?.1 {
@@ -84,6 +89,7 @@ public struct ImportTable: Hashable, Sendable {
         }
         self.rows = rows
         skippedRows = skipped
+        titleText = titles.joined(separator: "\n")
 
         let headerCells = header > 0 ? records[header - 1] : []
         let width = ([headerCells] + rows.map(\.cells)).map(Self.usedWidth).max() ?? 0

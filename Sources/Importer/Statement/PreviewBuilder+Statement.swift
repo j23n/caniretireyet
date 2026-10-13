@@ -114,7 +114,8 @@ extension PreviewBuilder {
     // MARK: - Classifying
 
     /// Each line's class and why: chosen for the line, a rule, a trade of
-    /// another account moving the same amount, another account named in
+    /// another account moving the same amount, a line of another account's
+    /// statement imported with it moving it the other way, another account named in
     /// the text, the usual words; for money in, a sender paid before or a
     /// recurring one; else the sign. Then the money in that needs an answer.
     private func classify(_ read: [ReadLine], account: Account) -> [StatementLine] {
@@ -122,7 +123,7 @@ extension PreviewBuilder {
         let answered = answeredAssets(read, account: account)
         let open = read.indices.filter { index in
             session.statementLineClasses[read[index].row] == nil && session.statementRule(for: read[index].text) == nil
-                && answered[read[index].row] == nil
+                && answered[read[index].row] == nil && session.statementPairs[read[index].row] == nil
         }
         let trades = matchTrades(read, lines: open, excluding: account.id)
         var lines = read.indices.map { index in
@@ -137,6 +138,8 @@ extension PreviewBuilder {
                 chosen = (rule.statementClass, .rule(rule.match))
             } else if let trade = trades[index] {
                 chosen = (.transfer, .trade(trade))
+            } else if let other = session.statementPairs[line.row] {
+                chosen = (.transfer, .paired(other))
             } else if let named = Self.namedAccount(in: line.text, names: names) {
                 // Paying a debt is spending; a loan paid out into the account is moved between accounts.
                 chosen = (named.isLiability && line.amount < 0 ? .spending : .transfer, .account(named.id))

@@ -254,6 +254,7 @@ struct ImportReport: CommandReport {
         case .chosen: ("chosen", nil)
         case .rule(let phrase): ("rule", "“\(phrase)”")
         case .trade(let key): ("trade", "\(key.account) on \(key.date)")
+        case .paired(let account): ("paired", account.rawValue)
         case .account(let account): ("account", account.rawValue)
         case .words: ("usual words", nil)
         case .paidBefore: ("paid before", nil)
