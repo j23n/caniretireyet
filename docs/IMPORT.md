@@ -43,7 +43,7 @@ It also imports a broker's transactions as trades (see [Broker transactions](#br
   Data operazione;Tipo operazione;ISIN;Quantità;Prezzo;Importo euro;Commissioni
   12/01/2026;Acquisto;IE00BK5BQT80;15;102,30;-1.539,50;5,00
   ```
-- **Statement:** one row per line of a bank statement of one cash or savings account. Each line is income, spending, a transfer between your accounts, interest, or left out. See [Bank statements](#bank-statements).
+- **Statement:** one row per line of a bank statement of one cash or savings account. Each line is income, spending, paid back, a one-off, a transfer between your accounts, interest, or left out. See [Bank statements](#bank-statements).
 
   ```
   Data operazione;Data valuta;Entrate;Uscite;Descrizione
@@ -332,13 +332,15 @@ The account is the profile's `constants.account` (`--account` on the command lin
 
 | Class | Counts as |
 | --- | --- |
-| `income` | Money in: pay, refunds, gifts. |
+| `income` | Money in: pay, a pension, rent, a client's payment. |
 | `spending` | Money out: shopping, rent, bills, and the payments of a credit card, a loan or a mortgage. |
+| `paidBack` | Lowers money out: a refund, a friend's share of a bill, an insurance payout. It isn't income. |
+| `oneOff` | The value's `oneOff`: money from outside that is neither income nor spending, such as an inheritance, a gift you keep or the sale of something you didn't track. |
 | `transfer` | Neither: money moved between your accounts. |
 | `interest` | A savings account's `interest`; a current account's money in. |
 | `ignore` | Neither. It still counts in the balance. |
 
-Income and spending count by the line's sign, so a refund classed as spending is money in.
+Money in that is spending is paid back, and any line that went out is money out, whatever its class. A period with more paid back than spent has no money out, and the rest counts as moved between your accounts.
 
 Each line gets the class of the first of these that says one:
 
@@ -346,17 +348,22 @@ Each line gets the class of the first of these that says one:
 2. **A rule** in the profile's `rules`: a phrase the line's text has as whole words, ignoring case, accents and punctuation. The longest phrase wins. `--class "Giroconto=transfer"` adds one, and saving the profile keeps the rules, so a correction made once holds for the next statement.
 3. **A trade of another account** that moves the same amount within 4 days: a transfer. It's a deposit (a deposit of 500 is −500 on the statement), a withdrawal, or a buy, sale, fee or tax [paid from outside its account](TRADES.md#paid-from-outside-the-account). Each trade matches one line and each line one trade, the pairs nearest in date first.
 4. **Another account's name** in the text, or its institution when it isn't this account's bank: a transfer. Money out to a credit card, a loan or a mortgage is spending, since paying a debt is (money in from one, such as a loan paid out, is a transfer). Names of four letters or fewer, and names made only of words any account could have (`Conto corrente`, `Savings`), don't count.
-5. **The usual words:** `Giroconto`, `Girofondi`, `Umbuchung`, `Übertrag` or `Internal transfer` for a transfer. For money in only, `Stipendio`, `Emolumenti`, `Gehalt`, `Lohn`, `Salary` or `Payroll` for income, and `Interessi`, `Zinsen` or `Interest` for interest.
-6. **The sign:** money in is income, money out spending.
+5. **The usual words:** `Giroconto`, `Girofondi`, `Umbuchung`, `Übertrag` or `Internal transfer` for a transfer. For money in only, `Stipendio`, `Emolumenti`, `Pensione`, `Gehalt`, `Lohn`, `Rente`, `Salary`, `Payroll` or `Pension` for income, `Interessi`, `Zinsen` or `Interest` for interest, and `Rimborso`, `Storno`, `Erstattung`, `Refund` or `Reversal` for paid back.
+6. **Paid before** (money in only): the file paid its sender at least as much in the 90 days before. Paid back.
+7. **The sign:** money in is paid back, money out spending.
 
-Nothing is left out unclassified, so a statement imports without any rules; the classes are there to be corrected. The preview lists each line with its class and why (`ImportPreview.statementLines`).
+Then a sender whose money in was classified by its sign in step 7, with similar amounts (within a quarter of their median) in at least 3 of the file's months, is income: all its lines are. Its **sender** is who paid or was paid: the counterparty column, else the description's first words that aren't the bank's own (`Bonifico`, `SEPA`, `Überweisung`, a company's `GmbH` or `Srl`, a month), as the text writes them (`StatementLine.sender`). A rule with the sender's words classifies every line from them, so income is marked once per sender.
+
+Money in classified by its sign that is more than a typical month's spending in the file (the median of its months' money out) **needs an answer** (`StatementLine.needsAnswer`): income, a one-off or paid back. Until it has one it counts as paid back.
+
+Nothing is left out unclassified, so a statement imports without any rules; the classes are there to be corrected. Why money in defaults to paid back: what you saved comes from the balances, so a wrong class never changes it. A missed income lowers what came in and what you spent by the same amount, and a large one is asked about, while counting every refund as income would raise both with nothing to show it. The preview lists each line with its class and why (`ImportPreview.statementLines`).
 
 ### Values
 
 - **The days the file covers** are taken to be whole months: from the first day of the first line's month to the last day of the last line's month, or to today if that month isn't over. The preview notes them. A bank's export of the last 90 days, or one made in the middle of a month, covers less: `--from` and `--through` (`ImportSession.statementFrom`, `statementThrough`) give its first and last days; the last can't be after today. A line outside them is a problem, and nothing is imported.
 - **Where.** At each of the account's values in those days, at the end of each month without one, and on the `--through` day when it's given, so the next file follows on from it. Lines after the last value count toward the next one, and the preview notes how many.
 - **The balance** comes from the balance column: the balance at the end of each day that has one, plus the lines after it. A day's lines can be listed in any order, so its end is the balance that follows from the day before and the day's lines; a day where none does is noted. Without the column, the balance is the balance before the file plus the lines. That's the account's value on the day before the file's first day, or `--opening-balance` (`ImportSession.statementOpeningBalance`). With neither, nothing is imported, and the preview says why.
-- **Money in and out** (and a savings account's interest) are the sums of the lines since the value before. The first value gets them only when the file covers its whole period: the account's value before is on the day before the file's first day, or the balance column's first balance follows on from it. A balance before the file's first line (from the column or `--opening-balance`) that differs from the value before means it doesn't. Otherwise the preview notes where money in and out start. An account's first value has none, as at a check-in.
+- **Money in and out** (and one-offs and a savings account's interest) are the sums of the lines since the value before. The first value gets them only when the file covers its whole period: the account's value before is on the day before the file's first day, or the balance column's first balance follows on from it. A balance before the file's first line (from the column or `--opening-balance`) that differs from the value before means it doesn't. Otherwise the preview notes where money in and out start. An account's first value has none, as at a check-in.
 - **The flow** is worked out as a check-in's is: the change, less a savings account's interest. So what moved between your accounts is the transfers ([PROGRESS.md](PROGRESS.md#money-in-and-out)).
 - **Values already in the library** are compared like any record ([Preview, conflicts and undo](#preview-conflicts-and-undo)): money in and out they lack are filled in. When the value's balance agrees with the file's, the money in and out (and interest) counted from the lines replace the library's, since the lines say what they were: a check-in's money out left as suggested, with a transfer in it, or an earlier import of the file before a line's class was changed. When the balance differs, the value is a conflict and follows the conflict policy. Importing the same file again with the same classes changes nothing. When the file's new values come before a later value with money in and out, the preview notes it: that value's money in and out still cover the months the file now has, so they count twice until it's corrected.
 

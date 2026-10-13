@@ -15,6 +15,7 @@ extension PreviewBuilder {
         var date: CalendarDate
         var amount: Decimal
         var text: String
+        var sender: String
         var balance: Decimal?
         var cells: [ImportCellRef]
     }
@@ -50,10 +51,14 @@ extension PreviewBuilder {
     private mutating func readStatementLines(dateColumn: Int, dates: DateParser) -> [ReadLine] {
         var single: [ImportField: Int] = [:]
         var texts: [Int] = []
+        var counterparties: [Int] = []
         for (column, index) in bindings.columns.sorted(by: { $0.key < $1.key }) {
             guard let field = profile.columns[index].field else { continue }
             switch field {
-            case .description, .counterparty: texts.append(column)
+            case .description: texts.append(column)
+            case .counterparty:
+                texts.append(column)
+                counterparties.append(column)
             case .amount, .credit, .debit, .balance: if single[field] == nil { single[field] = column }
             default: continue
             }
@@ -94,8 +99,10 @@ extension PreviewBuilder {
                 cells.append(ImportCellRef(row: row.number, column: column))
             }
             let text = texts.map { row[$0] }.filter { !$0.isEmpty }.joined(separator: " · ")
-            lines.append(ReadLine(row: row.number, date: date, amount: amount, text: text, balance: balance,
-                                  cells: cells))
+            let counterparty = StatementWords.sender(of: counterparties.map { row[$0] }.joined(separator: " "))
+            lines.append(ReadLine(row: row.number, date: date, amount: amount, text: text,
+                                  sender: counterparty.isEmpty ? StatementWords.sender(of: text) : counterparty,
+                                  balance: balance, cells: cells))
         }
         if let first = lines.first, let last = lines.last, first.date > last.date { lines.reverse() }
         // A stable sort: lines on one day keep their order.
@@ -107,14 +114,15 @@ extension PreviewBuilder {
 
     /// Each line's class and why: chosen for the line, a rule, a trade of
     /// another account moving the same amount, another account named in
-    /// the text, the usual words, else the sign.
+    /// the text, the usual words; for money in, a sender paid before or a
+    /// recurring one; else the sign. Then the money in that needs an answer.
     private func classify(_ read: [ReadLine], account: Account) -> [StatementLine] {
         let names = accountNames(excluding: account)
         let open = read.indices.filter { index in
             session.statementLineClasses[read[index].row] == nil && session.statementRule(for: read[index].text) == nil
         }
         let trades = matchTrades(read, lines: open, excluding: account.id)
-        return read.indices.map { index in
+        var lines = read.indices.map { index in
             let line = read[index]
             let chosen: (StatementClass, StatementLine.Source)
             if let statementClass = session.statementLineClasses[line.row] {
@@ -128,11 +136,66 @@ extension PreviewBuilder {
                 chosen = (named.isLiability && line.amount < 0 ? .spending : .transfer, .account(named.id))
             } else if let suggested = StatementWords.suggestion(for: line.text, amount: line.amount) {
                 chosen = (suggested, .words)
+            } else if line.amount > 0, Self.paidBefore(line, in: read) {
+                chosen = (.paidBack, .paidBefore)
             } else {
-                chosen = (line.amount >= 0 ? .income : .spending, .sign)
+                chosen = (line.amount >= 0 ? .paidBack : .spending, .sign)
             }
             return StatementLine(row: line.row, date: line.date, amount: line.amount, text: line.text,
-                                 balance: line.balance, statementClass: chosen.0, source: chosen.1)
+                                 sender: line.sender, balance: line.balance, statementClass: chosen.0,
+                                 source: chosen.1)
+        }
+        Self.markRecurring(&lines)
+        Self.markQuestions(&lines)
+        return lines
+    }
+
+    /// How many days before money in a payment to its sender can be for
+    /// the money in to be paid back.
+    static let paidBackDays = 90
+
+    /// Whether the file paid at least `line`'s amount to its sender in the
+    /// days before it: a refund, or a share of a bill paid back.
+    private static func paidBefore(_ line: ReadLine, in read: [ReadLine]) -> Bool {
+        guard !line.sender.isEmpty else { return false }
+        let since = line.date.adding(days: -paidBackDays)
+        return read.contains { out in
+            out.amount <= -line.amount && out.date >= since && out.date <= line.date
+                && TextTools.words(out.sender) == TextTools.words(line.sender)
+        }
+    }
+
+    /// Money in classified by its sign alone from a sender who pays similar
+    /// amounts (within a quarter of their median) in at least 3 of the
+    /// file's months is income, all of that sender's lines.
+    private static func markRecurring(_ lines: inout [StatementLine]) {
+        let open = lines.indices.filter { index in
+            lines[index].source == .sign && lines[index].amount > 0 && !lines[index].sender.isEmpty
+        }
+        let senders = Dictionary(grouping: open) { TextTools.words(lines[$0].sender) }
+        for indices in senders.values {
+            let amounts = indices.map { lines[$0].amount }.sorted()
+            let median = amounts[amounts.count / 2]
+            let similar = indices.filter { abs(lines[$0].amount - median) <= median / 4 }
+            guard Set(similar.map { lines[$0].date.yearMonth }).count >= 3 else { continue }
+            for index in indices {
+                lines[index].statementClass = .income
+                lines[index].source = .recurring
+            }
+        }
+    }
+
+    /// Money in classified by its sign alone that is more than a typical
+    /// month's spending in the file (the median of its months' money out)
+    /// needs an answer: income, a one-off or paid back.
+    private static func markQuestions(_ lines: inout [StatementLine]) {
+        let spending = lines.filter { $0.amount < 0 && $0.statementClass == .spending }
+        let months = Dictionary(grouping: spending, by: \.date.yearMonth).values
+            .map { $0.reduce(Decimal(0)) { $0 - $1.amount } }.sorted()
+        guard !months.isEmpty else { return }
+        let typical = months[months.count / 2]
+        for index in lines.indices where lines[index].source == .sign && lines[index].amount > typical {
+            lines[index].needsAnswer = true
         }
     }
 
@@ -267,16 +330,20 @@ extension PreviewBuilder {
             record.balance = balance
             var cells = inPeriod.flatMap { read[$0].cells }
             if covered, previous != nil {
-                var moneyIn: Decimal = 0, moneyOut: Decimal = 0, interest: Decimal = 0
+                var total = StatementLine.Counted()
                 for index in inPeriod {
                     lines[index].period = cut
                     let counted = lines[index].counted(recordsInterest: account.kind.recordsInterest)
-                    moneyIn += counted.moneyIn
-                    moneyOut += counted.moneyOut
-                    interest += counted.interest
+                    total.moneyIn += counted.moneyIn
+                    total.moneyOut += counted.moneyOut
+                    total.oneOff += counted.oneOff
+                    total.interest += counted.interest
                 }
-                record.moneyIn = moneyIn
-                record.moneyOut = moneyOut
+                let interest = total.interest
+                record.moneyIn = total.moneyIn
+                // More paid back than spent in a period leaves money out at 0, and the rest counts as moved.
+                record.moneyOut = max(total.moneyOut, 0)
+                if total.oneOff != 0 { record.oneOff = total.oneOff }
                 record.countsMoneyInOutFromLines = true
                 if interest != 0 { record.interest = interest }
                 if let previousBalance = previous?.balance {

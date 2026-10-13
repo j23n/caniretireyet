@@ -233,7 +233,8 @@ struct ImportReport: CommandReport {
         var table = TextTable([.left("Date"), .right("Amount"), .left("Class"), .left("Why"), .left("Text")])
         for line in ordered.prefix(rows) {
             let source = Self.source(line.source)
-            let why = source.detail.map { "\(source.name): \($0)" } ?? source.name
+            let named = source.detail.map { "\(source.name): \($0)" } ?? source.name
+            let why = line.needsAnswer ? "needs an answer" : named
             table.add([line.date.description, Format.amount(line.amount), line.statementClass.rawValue,
                        Self.clip(why, 32), Self.clip(line.text, 48)])
         }
@@ -242,8 +243,8 @@ struct ImportReport: CommandReport {
         if lines.count > rows {
             result.append("  … and \(Wording.count(lines.count - rows, "more line")) (--rows to list more).")
         }
-        result.append("  Correct a class with --class \"<words in the text>=<class>\" (income, spending, transfer, "
-            + "interest or ignore); --save-profile keeps it for the next statement.")
+        result.append("  Correct a class with --class \"<words in the text>=<class>\" (income, spending, paidBack, "
+            + "oneOff, transfer, interest or ignore); --save-profile keeps it for the next statement.")
         return result
     }
 
@@ -255,6 +256,8 @@ struct ImportReport: CommandReport {
         case .trade(let key): ("trade", "\(key.account) on \(key.date)")
         case .account(let account): ("account", account.rawValue)
         case .words: ("usual words", nil)
+        case .paidBefore: ("paid before", nil)
+        case .recurring: ("recurring", nil)
         case .sign: ("sign", nil)
         }
     }
@@ -600,9 +603,9 @@ struct ImportReport: CommandReport {
             },
             statementLines: preview.statementLines.map { line in
                 JSON.StatementLine(row: line.row, date: line.date.description, amount: Format.exact(line.amount),
-                                   text: line.text, class: line.statementClass.rawValue,
+                                   text: line.text, sender: line.sender, class: line.statementClass.rawValue,
                                    source: Self.source(line.source).name, sourceDetail: Self.source(line.source).detail,
-                                   value: line.period?.description)
+                                   value: line.period?.description, needsAnswer: line.needsAnswer)
             },
             ambiguities: preview.ambiguities.map {
                 JSON.Ambiguity(kind: $0.kind.rawValue, column: $0.column, header: $0.header, message: $0.description,
@@ -722,13 +725,17 @@ struct ImportReport: CommandReport {
             var date: String
             var amount: String
             var text: String
+            /// Who paid or was paid; empty when the text names no one.
+            var sender: String
             var `class`: String
-            /// chosen, rule, trade, account, words or sign.
+            /// chosen, rule, trade, account, usual words, paid before, recurring or sign.
             var source: String
             /// The rule's phrase, the trade, or the account.
             var sourceDetail: String?
             /// The date of the value whose money in and out the line counts in.
             var value: String?
+            /// Money in too large to count as paid back without asking.
+            var needsAnswer: Bool
         }
 
         struct Ambiguity: Encodable {
