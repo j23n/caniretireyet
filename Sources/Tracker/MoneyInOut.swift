@@ -18,6 +18,9 @@ public struct MoneyInOutSummary: Hashable, Sendable {
     public var moneyIn: Decimal
     /// Money out, summed over the valuations counted.
     public var moneyOut: Decimal
+    /// One-offs (``Model/Valuation/oneOff``), summed over the valuations
+    /// counted: money from outside that is neither income nor spending.
+    public var oneOffs: Decimal
     /// The months with at least one valuation counted, sorted.
     public var months: [YearMonth]
     /// The date of the earliest valuation a counted value is measured from
@@ -39,13 +42,14 @@ public struct MoneyInOutSummary: Hashable, Sendable {
     public var moneyOutPerYear: Decimal?
 
     public init(from: CalendarDate, through: CalendarDate, currency: CurrencyCode, moneyIn: Decimal = 0,
-                moneyOut: Decimal = 0, months: [YearMonth] = [], unconverted: [AccountID] = [],
+                moneyOut: Decimal = 0, oneOffs: Decimal = 0, months: [YearMonth] = [], unconverted: [AccountID] = [],
                 moneyOutPerYear: Decimal? = nil, measuredFrom: CalendarDate? = nil, lastCounted: CalendarDate? = nil) {
         self.from = from
         self.through = through
         self.currency = currency
         self.moneyIn = moneyIn
         self.moneyOut = moneyOut
+        self.oneOffs = oneOffs
         self.months = months
         self.unconverted = unconverted
         self.moneyOutPerYear = moneyOutPerYear
@@ -71,6 +75,7 @@ extension Valuator {
     /// A valuation counts when its account is known, its kind records money
     /// in and out (``Model/AccountKind/recordsMoneyInOut``), it has both
     /// amounts, neither negative, and the account has a valuation before it.
+    /// Its one-off counts with it, when it isn't negative.
     /// Each value covers the days since that valuation, which is what
     /// ``MoneyInOutSummary/moneyOutPerYear`` scales by; an account's first
     /// value covers no known period. `accounts` limits the sum to those
@@ -91,13 +96,16 @@ extension Valuator {
                       moneyIn >= 0, moneyOut >= 0
                 else { continue }
                 guard let inBase = fx.convert(moneyIn, from: account.currency, to: baseCurrency, on: valuation.date),
-                      let outBase = fx.convert(moneyOut, from: account.currency, to: baseCurrency, on: valuation.date)
+                      let outBase = fx.convert(moneyOut, from: account.currency, to: baseCurrency, on: valuation.date),
+                      let oneOffBase = fx.convert(max(valuation.oneOff ?? 0, 0), from: account.currency,
+                                                  to: baseCurrency, on: valuation.date)
                 else {
                     unconverted.insert(account.id)
                     continue
                 }
                 summary.moneyIn += inBase
                 summary.moneyOut += outBase
+                summary.oneOffs += oneOffBase
                 accountOut += outBase
                 let previous = values[index - 1].date
                 days += max(1, previous.days(to: valuation.date))
@@ -124,12 +132,12 @@ extension Valuator {
 extension Valuation {
     /// What a cash or savings account's value says moved between your own
     /// accounts since the value before it (docs/ACCOUNTS.md, "Moved between
-    /// your accounts"): its flow minus money in plus money out, in the
-    /// account's currency. The flow is the change (less the interest, for
-    /// savings), so it's what's left once money in and out are taken out.
-    /// `nil` unless the flow and both amounts are recorded.
+    /// your accounts"): its flow minus money in and the one-off, plus money
+    /// out, in the account's currency. The flow is the change (less the
+    /// interest, for savings), so it's what's left once money in and out
+    /// are taken out. `nil` unless the flow and both amounts are recorded.
     public var moved: Decimal? {
         guard let flow, let moneyIn, let moneyOut else { return nil }
-        return flow - moneyIn + moneyOut
+        return flow - moneyIn - (oneOff ?? 0) + moneyOut
     }
 }

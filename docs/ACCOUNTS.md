@@ -52,9 +52,9 @@ The check-in, *Update Value* and *Edit Value* ask for the same fields: those in 
 
 What's left over. It's shown, and neither typed nor stored:
 
-> moved = balance − previous balance − money in + money out (− interest, for savings)
+> moved = balance − previous balance − money in − one-off + money out (− interest, for savings)
 
-The flow is the change (cash) or the change minus the interest (savings), so this is **flow − money in + money out** for both kinds, and it can always be worked out from what's stored.
+The flow is the change (cash) or the change minus the interest (savings), so this is **flow − money in − the one-off + money out** for both kinds, and it can always be worked out from what's stored.
 
 - **The check-in review** adds it up across cash, savings and investment accounts. A trades account's part is its flow, so a transfer from the bank to the broker cancels out against the broker's deposit trade, and a buy paid from outside the account against the bank's. A loan's or a mortgage's new money is in the sum when it's negative, so a loan or a mortgage paid out cancels out against the account it lands in; repayments are money out, so they aren't. Credit cards aren't in the sum, since a card's balance grows with purchases that go to shops, so a card's cash advance shows as not cancelling out. The review points out what doesn't cancel out.
 - **Interest on a current account** isn't asked for; it ends up in "moved".
