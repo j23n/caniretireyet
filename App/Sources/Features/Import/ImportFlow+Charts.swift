@@ -70,8 +70,10 @@ struct ImportStatementCharts {
 
 extension ImportFlow {
     /// A bank statement's charts, once its account and the days it covers
-    /// are known; `nil` for any other file.
-    var statementCharts: ImportStatementCharts? {
+    /// are known; `nil` for any other file. Money in and out ends where
+    /// Trends' would in the file's last month: at the planned library's
+    /// last value in it, when that's after the file's last day.
+    func makeStatementCharts() -> ImportStatementCharts? {
         guard layout == .statement, let account = constants.account, let period = statementPeriod,
               let after = planned?.library else { return nil }
         let values = (preview?.records ?? []).compactMap { record -> ImportStatementCharts.Balance? in
@@ -86,8 +88,10 @@ extension ImportFlow {
             .compactMap { valuation in
                 valuation.balance.map { ImportStatementCharts.Balance(date: valuation.date, balance: $0) }
             }
-        let money = PlanMoneyInOut(Tracker.Valuator(library: after).moneyInOutSeries(.months, through: period.through),
-                                   from: period.from, firstRecord: nil, through: period.through)
+        let lastValue = after.months[period.through.yearMonth]?.valuations.map(\.date).max()
+        let end = max(period.through, lastValue ?? period.through)
+        let money = PlanMoneyInOut(Tracker.Valuator(library: after).moneyInOutSeries(.months, through: end),
+                                   from: period.from, firstRecord: nil, through: end)
         return ImportStatementCharts(money: money, file: ImportStatementCharts.dayEnds(lines: lines, values: values),
                                      before: before)
     }

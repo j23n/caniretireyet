@@ -182,4 +182,24 @@ struct ImportStatementFlowTests {
         #expect(days == [.init(date: "2026-09-01", balance: 1000), .init(date: "2026-09-02", balance: 900),
                          .init(date: "2026-09-30", balance: 900)])
     }
+
+    @Test func eachStretchOfTheLineIsWorkedBackFromItsOwnValue() {
+        let lines: [(date: CalendarDate, amount: Decimal)] = [("2026-09-02", -100), ("2026-09-20", 300)]
+        let days = ImportStatementCharts.dayEnds(lines: lines, values: [
+            .init(date: "2026-09-15", balance: 900), .init(date: "2026-09-30", balance: 1250),
+        ])
+        #expect(days == [.init(date: "2026-09-01", balance: 1000), .init(date: "2026-09-02", balance: 900),
+                         .init(date: "2026-09-15", balance: 900), .init(date: "2026-09-20", balance: 1250),
+                         .init(date: "2026-09-30", balance: 1250)])
+    }
+
+    @Test func theCaptionCountsTheValuesThatAgree() throws {
+        var charts = try #require(flow().statementCharts)
+        let agreeing = ImportStatementCharts.Balance(date: "2026-09-12", balance: Decimal(string: "6715.2") ?? 0)
+        #expect(charts.agrees(agreeing))
+        charts.before = [agreeing]
+        #expect(charts.balanceCaption.hasSuffix(": it agrees."))
+        charts.before = [agreeing, .init(date: "2026-09-30", balance: Decimal(string: "6104.8") ?? 0)]
+        #expect(charts.balanceCaption.hasSuffix(": all 2 agree."))
+    }
 }
