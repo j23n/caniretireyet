@@ -12,13 +12,14 @@ struct ImportGroupCommand: AsyncParsableCommand {
         abstract: "Import a spreadsheet (CSV or TSV) into the library.",
         discussion: """
             retire import <file>             a CSV or TSV file (`retire import csv`)
+            retire import statements <file>…  several bank statements at once
             retire import --undo             undo the latest import
 
             Common options: --library <path>, --profile <id>, --save-profile <id>, --apply, \
             --accept-new-accounts, --accept-new-instruments, --accept-closings, and --on-conflict \
             keep|overwrite|ask. `retire help import csv` lists them all.
             """,
-        subcommands: [ImportCommand.self],
+        subcommands: [ImportCommand.self, ImportStatementsCommand.self],
         defaultSubcommand: ImportCommand.self)
 }
 

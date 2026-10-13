@@ -24,6 +24,9 @@ struct ImportReport: CommandReport {
     var outcome: Outcome?
     /// The profile saved in a dry run.
     var savedProfile: String?
+    /// Whether the statement's lines end with the options that correct
+    /// them; `retire import statements` gives its own.
+    var showsStatementOptions = true
 
     private var table: ImportTable { session.table }
     private var profile: ImportProfile { session.profile }
@@ -249,6 +252,7 @@ struct ImportReport: CommandReport {
         if lines.count > rows {
             result.append("  … and \(Wording.count(lines.count - rows, "more line")) (--rows to list more).")
         }
+        guard showsStatementOptions else { return result }
         result.append("  Correct a class with --class \"<words in the text>=<class>\" (income, spending, paidBack, "
             + "oneOff, transfer, interest or ignore); --save-profile keeps it for the next statement.")
         if lines.contains(where: \.needsAnswer) {
@@ -460,44 +464,53 @@ struct ImportReport: CommandReport {
     func closingLines() -> [String] {
         var lines: [String] = []
         if let outcome {
-            let result = outcome.result
-            if !result.hasChanges, result.kept > 0 {
-                lines.append("Nothing changed: every record that differs is a conflict, and the library's values "
-                    + "were kept (--on-conflict overwrite imports the file's).")
-            } else if !result.hasChanges {
-                lines.append("Nothing to import: the library already has everything in the file.")
-            } else {
-                lines.append("Imported: \(result.added) added, \(result.updated) updated, "
-                    + "\(result.overwritten) overwritten, \(result.kept) kept"
-                    + (result.undecided > 0 ? " (\(result.undecided) undecided)" : "")
-                    + (result.removed > 0 ? ", \(result.removed) removed" : "")
-                    + ", \(result.identical) identical, \(result.skipped) left out.")
-            }
-            lines += Self.recomputedFlowLines(result)
-            if !result.createdAccounts.isEmpty {
-                lines.append("Created accounts: \(result.createdAccounts.map(\.rawValue).joined(separator: ", ")).")
-            }
-            if !result.closedAccounts.isEmpty {
-                lines.append("Closed accounts: \(result.closedAccounts.map(\.rawValue).joined(separator: ", ")).")
-            }
-            if !result.createdInstruments.isEmpty {
-                lines.append("Created instruments: "
-                    + "\(result.createdInstruments.map(\.rawValue).joined(separator: ", ")).")
-            }
-            if !result.tradesAccounts.isEmpty {
-                lines.append("Switched to recording trades: "
-                    + "\(result.tradesAccounts.map(\.rawValue).joined(separator: ", ")).")
-            }
-            if !outcome.written.isEmpty {
-                lines.append("Wrote \(Wording.count(outcome.written.count, "file")):")
-                lines += outcome.written.map { "  \($0)" }
-            }
-            if let backup = outcome.backup {
-                lines.append("Backed up the files it changed to \(backup); undo with `retire import --undo`.")
-            }
+            lines += Self.outcomeLines(outcome)
         } else {
             if let savedProfile { lines.append("Saved the mapping as \(savedProfile).") }
             lines.append(apply ? "Nothing was written." : "Dry run: nothing was written. To import, run again with --apply.")
+        }
+        return lines
+    }
+
+    /// What `--apply` did: the records, the accounts and instruments it
+    /// created or changed, and the files it wrote and backed up.
+    static func outcomeLines(_ outcome: Outcome, files: Int = 1) -> [String] {
+        var lines: [String] = []
+        let result = outcome.result
+        if !result.hasChanges, result.kept > 0 {
+            lines.append("Nothing changed: every record that differs is a conflict, and the library's values "
+                + "were kept (--on-conflict overwrite imports the file's).")
+        } else if !result.hasChanges {
+            lines.append(files == 1 ? "Nothing to import: the library already has everything in the file."
+                : "Nothing to import: the library already has everything in the files.")
+        } else {
+            lines.append("Imported: \(result.added) added, \(result.updated) updated, "
+                + "\(result.overwritten) overwritten, \(result.kept) kept"
+                + (result.undecided > 0 ? " (\(result.undecided) undecided)" : "")
+                + (result.removed > 0 ? ", \(result.removed) removed" : "")
+                + ", \(result.identical) identical, \(result.skipped) left out.")
+        }
+        lines += Self.recomputedFlowLines(result)
+        if !result.createdAccounts.isEmpty {
+            lines.append("Created accounts: \(result.createdAccounts.map(\.rawValue).joined(separator: ", ")).")
+        }
+        if !result.closedAccounts.isEmpty {
+            lines.append("Closed accounts: \(result.closedAccounts.map(\.rawValue).joined(separator: ", ")).")
+        }
+        if !result.createdInstruments.isEmpty {
+            lines.append("Created instruments: "
+                + "\(result.createdInstruments.map(\.rawValue).joined(separator: ", ")).")
+        }
+        if !result.tradesAccounts.isEmpty {
+            lines.append("Switched to recording trades: "
+                + "\(result.tradesAccounts.map(\.rawValue).joined(separator: ", ")).")
+        }
+        if !outcome.written.isEmpty {
+            lines.append("Wrote \(Wording.count(outcome.written.count, "file")):")
+            lines += outcome.written.map { "  \($0)" }
+        }
+        if let backup = outcome.backup {
+            lines.append("Backed up the files it changed to \(backup); undo with `retire import --undo`.")
         }
         return lines
     }
@@ -685,19 +698,7 @@ struct ImportReport: CommandReport {
                 JSON.CellError(row: $0.row, column: $0.column, header: $0.header, raw: $0.raw,
                                problem: $0.problem.description)
             },
-            result: outcome.map { outcome in
-                let result = outcome.result
-                return JSON.Result(
-                    added: result.added, updated: result.updated, overwritten: result.overwritten, kept: result.kept,
-                    undecided: result.undecided, removed: result.removed, identical: result.identical,
-                    skipped: result.skipped,
-                    createdAccounts: result.createdAccounts.map(\.rawValue),
-                    closedAccounts: result.closedAccounts.map(\.rawValue),
-                    createdInstruments: result.createdInstruments.map(\.rawValue),
-                    tradesAccounts: result.tradesAccounts.map(\.rawValue),
-                    recomputedFlows: result.recomputedFlows.map { ImportRecordKey.valuation($0).description },
-                    written: outcome.written, deleted: outcome.deleted, backup: outcome.backup)
-            },
+            result: outcome.map(JSON.Result.init),
             savedProfile: outcome?.savedProfile ?? savedProfile)
     }
 
@@ -871,6 +872,26 @@ struct ImportReport: CommandReport {
             var written: [String]
             var deleted: [String]
             var backup: String?
+
+            init(_ outcome: Outcome) {
+                let result = outcome.result
+                added = result.added
+                updated = result.updated
+                overwritten = result.overwritten
+                kept = result.kept
+                undecided = result.undecided
+                removed = result.removed
+                identical = result.identical
+                skipped = result.skipped
+                createdAccounts = result.createdAccounts.map(\.rawValue)
+                closedAccounts = result.closedAccounts.map(\.rawValue)
+                createdInstruments = result.createdInstruments.map(\.rawValue)
+                tradesAccounts = result.tradesAccounts.map(\.rawValue)
+                recomputedFlows = result.recomputedFlows.map { ImportRecordKey.valuation($0).description }
+                written = outcome.written
+                deleted = outcome.deleted
+                backup = outcome.backup
+            }
         }
 
         var file: String

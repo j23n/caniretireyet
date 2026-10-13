@@ -46,6 +46,7 @@ swift run retire init <folder> --currency CHF --residence CH --birth-date 1985-0
 swift run retire settings --library <folder>          # --inflation-index sets it
 swift run retire import --library <folder> export.csv            # preview; --apply writes
 swift run retire import --library <folder> movimenti.csv --account directa   # a broker's export, as trades
+swift run retire import statements --library <folder> conto-*.csv deposito-*.csv   # several bank statements
 swift run retire trades list directa --library <folder>          # also summary: a year's gains and dividends
 swift run retire instruments --library <folder>
 swift run retire instruments find vwce --library <folder>    # Yahoo Finance listings; --set <symbol> saves one
