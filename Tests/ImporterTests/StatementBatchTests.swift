@@ -55,6 +55,26 @@ struct StatementBatchTests {
         #expect(unknown.files.first?.accountSource == nil)
     }
 
+    /// In a month that isn't over the file makes no value yet, and its
+    /// balance still says which account it follows on from. An account's
+    /// own word names it: "Conto Arancio" is "arancio".
+    @Test func anUnfinishedMonthsFileFollowsOnByItsBalance() {
+        var library = Self.library()
+        library.accounts["arancio"] = Account(id: "arancio", name: "Conto Arancio", kind: .cash, currency: .eur,
+                                              opened: "2020-01-01")
+        for (id, balance) in [("conto", 5000), ("risparmio", 10000), ("arancio", 300)] as [(AccountID, Decimal)] {
+            library.upsert(Valuation(account: id, date: "2026-03-31", balance: balance))
+        }
+        let april = """
+            Data;Importo;Descrizione;Saldo
+            02/04/2026;-200,00;Bonifico a Mario Rossi;9.800,00
+            02/04/2026;50,00;Rimborso;9.850,00
+            """
+        let batch = Self.batch([("export.csv", april), ("arancio.csv", Self.current)], library: library)
+        #expect(batch.files.map(\.account) == ["risparmio", "arancio"])
+        #expect(batch.files.first?.accountSource == .balance("2026-03-31"))
+    }
+
     @Test func aTransferBetweenTheFilesIsPaired() throws {
         let batch = Self.batch([("fineco-gennaio.csv", Self.current), ("export.csv", Self.savings)])
         let out = try #require(Self.lines(batch, 0).first { $0.amount == -1000 })
