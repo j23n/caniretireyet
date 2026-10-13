@@ -1,8 +1,8 @@
-# Readiness ring: three directions for the Overview's header
+# Readiness ring: directions for the Overview's header
 
 The readiness ring is the Overview's most important figure, but it doesn't read that way. On iPhone it's 48 points across, at the headline's right. The label row's run status, ⓘ and chevron sit right above it, and its "58% ready" label sits to its left, so that corner is crowded, and the headline and the tiles draw the eye first.
 
-This note sketches three directions that make the ring the header's focus. The owner chose Sketch B; its [mockups](#mockups) show it in the app's colors. Nothing here is built. The chosen direction gets a follow-up issue that builds it in `OverviewHeader` and updates [UI.md](../UI.md#overview), "Can I retire yet?".
+This note sketches three directions that make the ring the header's focus. The owner chose Sketch B; its [mockups](#mockups) show it in the app's colors. [Three more directions](#aligning-the-header-sketches-d-e-and-f) keep B's large ring and fix how it lines up with the screen's title. Nothing here is built. The chosen direction gets a follow-up issue that builds it in `OverviewHeader` and updates [UI.md](../UI.md#overview), "Can I retire yet?".
 
 All values are UI.md's made-up ones.
 
@@ -342,6 +342,62 @@ The tiles are as in *Not yet*, without the coast point line.
 | Run status and ⓘ | a line under the headline | ⓘ after the question; run status inside the ring | ⓘ after the question; run status under the headline |
 | Chevron | stays, alone on the label row | goes: the answer is the button | goes: the answer is the button |
 | Header height on iPhone | about 180 points more | about 170 points more | about one line more |
+
+## Aligning the header: Sketches D, E and F
+
+In Sketch B, the header's parts each line up with something different. "Overview", the navigation bar's large title, is at the leading edge. "Can I retire yet?" is centered, but its ⓘ hangs off its end, so the pair sits right of the screen's center. The ring is centered on the screen, and the tiles under it span the width. That makes two titles of different sizes, one at the left and one in the middle, over a ring that lines up with neither.
+
+Each sketch below keeps B's large ring and picks one rule for everything above the tiles:
+
+- **D: the ring in a card:** the ring gets a card of its own, drawn and aligned as the tiles are.
+- **E: one centered axis:** the bar's title becomes inline, and the question takes the large title's place; everything is centered.
+- **F: one leading edge:** everything starts 16 points in, and the answer's words stand at the ring's right.
+
+They're drawn as B's mockups are: in the app's light colors, on a 6.3-inch iPhone, with the status bar, toolbar and tab bar for context. The values are UI.md's made-up ones.
+
+### Sketch D: the ring in a card
+
+![Sketch D on iPhone: the ring in a card above the tiles, at Not yet 58%, Yes lapping at 130%, and with no ring](readiness-ring-d-card.svg)
+
+- **What it changes:** the question, the ring and the answer go in a card as wide as the two tiles, drawn as they are (the card's background and border, 16-point corners). The card's title row is laid out like a tile's label row: "Can I retire yet?" at the card's leading edge in title2, bold, its ⓘ after it, and the chevron at its trailing edge, above *On track?*'s chevron. The ring is 200 points across, centered in the card, with the headline, "58% ready" and "◷ 30 Sep" inside, as in B. "Overview" stays the large title.
+- **What it gives up:** the card adds its padding to B's height, so the tiles start about 20 points lower. The ring is centered under a title at the card's leading edge, as in a widget.
+- **The chevron:** the whole card is the button that opens the plan, as *On track?* is the button that opens Progress; the chevron says so. The ⓘ and *Calculate* stay buttons of their own inside it.
+- **No ring:** the card keeps its title row. The headline leads in largeTitle, with "Calculate the plan to see how close you are to retiring today." and the run status under it, and the card shrinks.
+- **iPad and Mac:** the card takes the ring's place in B's [Mac mockup](readiness-ring-b-mac.svg), at the left, as tall as the tiles beside it.
+
+### Sketch E: one centered axis
+
+![Sketch E on iPhone: an inline title, the question as the large title and a 240-point ring, at Not yet 58%, Yes lapping at 130%, and a headline that wraps](readiness-ring-e-centered.svg)
+
+- **What it changes:** the navigation bar's title is inline ("Overview", small and centered in the bar, as iOS draws an inline title), and "Can I retire yet?" takes the large title's place, in largeTitle, centered. The ring grows to 240 points with a 14-point line. Inside it, the headline is largeTitle, "58% ready" is body, and the run status with the ⓘ after it ("◷ 30 Sep ⓘ") is under that. Everything above the tiles is on the screen's center line.
+- **What it gives up:** the Overview is the only tab without a large title, so its top doesn't match Accounts and Plan. The ⓘ moves inside the ring, a button inside the ring's button, as *Calculate* is in B. The header is as tall as B's.
+- **The chevron:** none, as in B: the ring is the button that opens the plan.
+- **Large text:** the question wraps onto two centered lines; the text inside the ring is capped as in B. "In under a month" wraps onto two lines inside the ring at the default size.
+- **iPad and Mac:** the window's title is "Overview" already. The question and the ring are centered over the two tiles, which stand side by side under them, so the header is taller than in B's Mac layout.
+
+### Sketch F: one leading edge
+
+![Sketch F on iPhone: the question and the ring at the leading edge, the answer's words at the ring's right, at Not yet 58%, Yes lapping at 130%, and out of date](readiness-ring-f-leading.svg)
+
+- **What it changes:** "Overview", "Can I retire yet?", the ring and the tiles all start at the 16-point leading edge. The question is title2, bold, with its ⓘ after it and the chevron at the row's trailing edge, above *On track?*'s chevron. The ring is 180 points across, with "58%" inside in a 36-point bold figure and "ready" under it. The answer's words stand at its right: the headline in title, then "At 54 · March 2042" and "in 9 of 10 futures" (what the ⓘ says today, and what the *Time to retire* widget shows), then the run status. With "Yes" the lines read "Today, in at least" and "9 of 10 futures", from VoiceOver's "You could retire today, in at least 9 of 10 futures."
+- **What it gives up:** the headline leaves the ring, so the ring and the words stand side by side again, as today and in Sketch C, only larger; B's "the ring is the answer" is gone. The column at the ring's right is about 174 points wide, so "In under a month" wraps there. It's the shortest of the three: the tiles start about 20 points higher than in B.
+- **The chevron:** the question row, the ring and the words are one element and the button that opens the plan; the chevron on the question's row marks it, as on *On track?*.
+- **Out of date:** the ring and the words dim, and *Calculate* takes the run status's place in the column, at full strength. It's no longer a button drawn inside the ring.
+- **Large text:** when the column doesn't fit at the ring's right, it goes under the ring, at the leading edge.
+- **iPad and Mac:** the ring and its column stand at the left of the content area, the two tiles at their right.
+
+### Comparing D, E and F
+
+| | D: the ring in a card | E: one centered axis | F: one leading edge |
+| --- | --- | --- | --- |
+| Lines up with | the tiles' edges and labels | the screen's center | the screen's leading edge |
+| "Overview" | the large title | inline in the bar | the large title |
+| The question | the card's title, title2 | the large title, largeTitle | title2, at the leading edge |
+| Ring on iPhone | 200 points, centered in the card | 240 points, centered | 180 points, at the leading edge |
+| Inside the ring | the headline, the readiness, the run status | the headline, the readiness, the run status and ⓘ | the percentage |
+| The ⓘ | after the question | inside the ring, after the run status | after the question |
+| Chevron | the card's, at its trailing edge | none: the ring is the button | at the question's row's trailing edge |
+| Tiles on iPhone, against B | about 20 points lower | where they are in B | about 20 points higher |
 
 ## Open questions
 
