@@ -188,7 +188,7 @@ struct PlanSavingsRateChart: View {
             name: "Savings rate", points: bars.compactMap { bar in bar.rate.map { (day(bar), $0) } })]
         let rolling = bars.compactMap { bar in bar.lastTwelveMonths.map { (day(bar), $0) } }
         if !rolling.isEmpty { series.append(ChartSummary.Series(name: "The last 12 months", points: rolling)) }
-        var text = "What you kept of what came in, each \(unit)."
+        var text = "What you saved of what came in, each \(unit)."
         if let planRate {
             text += " Your plan's savings rate is \(AmountFormat.percent(planRate, digits: 0, locale: locale))."
         }

@@ -89,8 +89,7 @@ struct SavingsRateTests {
         #expect(savings.saved == d("131.05"))
     }
 
-    /// A month of made-up accounts (plans/savings-rate-rethink.md, "A month,
-    /// worked through"): pay of 4,000 and a refund of 150 into the current
+    /// A month of made-up accounts: pay of 4,000 and a refund of 150 into the current
     /// account, which pays rent and groceries (1,800), the card's bill
     /// (1,100), 1,000 to the broker and the mortgage (500 principal, 300
     /// interest); 900 bought by card; 300 paid into the pension fund by the
@@ -144,6 +143,47 @@ struct SavingsRateTests {
         // The bank's 550 drop is the only negative new money at that check-in.
         #expect(savings.savedByAccount["old-savings"] == 550)
         #expect(savings.saved == 2000)
+        // The Overview's bars move what it already held from new money to other.
+        let valuator = Valuator(library: library)
+        let report = valuator.change(from: "2025-12-31", to: "2026-01-31")
+        let split = valuator.savedSplit(of: report)
+        #expect(split.newMoney == 2000)
+        #expect(split.other == report.total.other + 19450)
+        #expect(split.start + split.market + split.newMoney + split.other == split.end)
+    }
+
+    /// A loan you start tracking at a check-in of its own owed what it owes
+    /// already: it isn't spent. One paid out into the current account at
+    /// that check-in cancels out against the money it brought.
+    @Test func aDebtsFirstValueIsSavedOnlyAsFarAsItMovedIntoAnother() throws {
+        var library = month
+        library.accounts["auto"] = Account(id: "auto", name: "Car loan", kind: .loan, currency: .eur,
+                                           opened: "2026-02-10")
+        library.upsert(Valuation(account: "auto", date: "2026-02-15", balance: -10000, flow: -10000))
+        let tracked = Valuator(library: library).saved(after: "2025-12-31", through: "2026-02-15")
+        #expect(tracked.byAccount["auto"] == 0)
+        #expect(tracked.byAccount.values.reduce(Decimal(0), +) == 1450)
+
+        library.upsert(Valuation(account: "bank", date: "2026-02-15", balance: 19450, flow: 10000, moneyIn: 0,
+                                 moneyOut: 0))
+        let paidOut = Valuator(library: library).saved(after: "2025-12-31", through: "2026-02-15")
+        #expect(paidOut.byAccount["auto"] == -10000)
+        #expect(paidOut.byAccount["bank"] == 9450)
+        #expect(paidOut.byAccount.values.reduce(Decimal(0), +) == 1450)
+    }
+
+    /// Only accounts in net worth count: a current account left out of it
+    /// adds nothing to what came in.
+    @Test func countsOnlyAccountsInNetWorth() throws {
+        var library = month
+        library.accounts["side"] = Account(id: "side", name: "Side", kind: .cash, currency: .eur,
+                                           opened: "2025-12-01", includeIn: IncludeIn(netWorth: false))
+        library.upsert(Valuation(account: "side", date: "2025-12-31", balance: 0, flow: 0))
+        library.upsert(Valuation(account: "side", date: "2026-01-31", balance: 0, flow: 0, moneyIn: 700,
+                                 moneyOut: 700))
+        let savings = try #require(Valuator(library: library).savingsRate(from: "2026-01-01", through: "2026-01-31"))
+        #expect(savings.income == 4300)
+        #expect(savings.savedByAccount["side"] == nil)
     }
 
     @Test func needsMoneyInAndOutAndSomethingComingIn() throws {

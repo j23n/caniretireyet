@@ -90,10 +90,11 @@ struct SpendingCommand: RetireSubcommand {
             if let savings, let rate = savings.rate {
                 let pensions = savings.pensionContributions > 0
                     ? ", \(Format.amount(savings.pensionContributions)) of it paid into pension funds and TFR" : ""
+                let spent = savings.spent < 0 ? ""
+                    : ", and spent \(Format.amount(savings.spent)) (\(Format.amount(savings.spentPerYear)) a year)"
                 lines.append("Savings rate \(Format.percent(rate)): you saved \(Format.amount(savings.saved)) of the "
                     + "\(Format.amount(savings.income)) that came in from \(savings.from.adding(days: 1)) to "
-                    + "\(savings.through)\(pensions), and spent \(Format.amount(savings.spent)) "
-                    + "(\(Format.amount(savings.spentPerYear)) a year).")
+                    + "\(savings.through)\(pensions)\(spent).")
                 if savings.spent < 0 {
                     lines.append("More was saved than came in: some income may not be recorded.")
                 }
