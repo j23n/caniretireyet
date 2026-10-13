@@ -38,8 +38,9 @@ struct ImportClassifyStep: View {
             Section {
                 if flow.statementLines.isEmpty {
                     Text(flow.statementAccount == nil
-                         ? "Choose the statement's account in Columns to see its lines."
-                         : "No lines can be read yet: say which columns hold the dates and amounts in Columns.")
+                         ? "Choose the statement's account on the File step to see its lines."
+                         : "No lines can be read yet: say which columns hold the dates and amounts in How It's "
+                            + "Read… on the File step.")
                         .foregroundStyle(Palette.secondaryInk)
                 }
                 ForEach(flow.statementLines) { line in

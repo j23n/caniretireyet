@@ -214,6 +214,25 @@ private struct ImportDateColumnPicker: View {
     }
 }
 
+/// The cash or savings account a bank statement is of, asked on the File
+/// step and in Columns.
+struct ImportStatementAccountPicker: View {
+    let model: ImportController
+
+    var body: some View {
+        Picker("Account", selection: Binding(get: { model.flow.constants.account }, set: { account in
+            model.flow.setConstants { $0.account = account }
+        })) {
+            Text("Choose…").tag(AccountID?.none)
+            ForEach(model.flow.statementAccountChoices) { account in
+                Text(account.name).tag(AccountID?.some(account.id))
+            }
+        }
+        .pickerStyle(.menu)
+        .personalControl()
+    }
+}
+
 /// Long layout: the account, instrument and currency of every row, when
 /// the file has no column for them. Trades layout: the account. Statement
 /// layout: the cash or savings account the statement is of.
@@ -223,16 +242,7 @@ private struct ImportConstantsPickers: View {
     var body: some View {
         let flow = model.flow
         if flow.layout == .statement {
-            Picker("Account", selection: Binding(get: { model.flow.constants.account }, set: { account in
-                model.flow.setConstants { $0.account = account }
-            })) {
-                Text("Choose…").tag(AccountID?.none)
-                ForEach(flow.statementAccountChoices) { account in
-                    Text(account.name).tag(AccountID?.some(account.id))
-                }
-            }
-            .pickerStyle(.menu)
-            .personalControl()
+            ImportStatementAccountPicker(model: model)
         } else {
             Picker("Account of every row", selection: Binding(get: { model.flow.constants.account },
                                                               set: { account in

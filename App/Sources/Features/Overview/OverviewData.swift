@@ -213,6 +213,28 @@ struct OverviewAnswerText {
         return parts.joined(separator: ", ")
     }
 
+    /// The line under the headline in the *Can I retire yet?* tile: when
+    /// ("At 54 · March 2042"; "March 2042" when the headline is "At 54";
+    /// "Today" when you could retire today, "No age works" when none does).
+    /// `nil` when the headline already says all of it.
+    var whenLine: String? {
+        if headline.canRetireNow { return "Today" }
+        guard let age = headline.earliestAge else { return "No age works" }
+        var parts: [String] = []
+        if countdown != nil { parts.append("At \(age)") }
+        if let earliestDate { parts.append(GlanceText.monthAndYear(earliestDate, locale: locale)) }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+    }
+
+    /// How sure, under ``whenLine``: "in 9 of 10 futures", "in at least 9 of
+    /// 10 futures" when you could retire today, "in 9 of 10 futures yet"
+    /// when no age works out.
+    var futuresLine: String {
+        let futures = GlanceText.futures(headline.confidence)
+        if headline.canRetireNow { return "in at least \(futures) futures" }
+        return headline.earliestAge == nil ? "in \(futures) futures yet" : "in \(futures) futures"
+    }
+
     /// What the headline and the ring say to VoiceOver: "Not yet. In about
     /// 15 years, at 54, in March 2042, in 9 of 10 futures. 58% of what
     /// you'd need to retire today."
