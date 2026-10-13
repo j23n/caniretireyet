@@ -148,10 +148,10 @@ extension Valuator {
     /// the check-in before to the one it's in, offsets it (money moved from
     /// an account already tracked), shared over that stretch's first values
     /// in proportion to their flows. A debt's first flow, negative, stays
-    /// only as far as money moved into cash and savings accounts already
-    /// tracked offsets it (a loan paid out into the current account,
-    /// ``movedIn(_:after:through:)``), so a debt you start tracking isn't
-    /// spent, and doesn't take a month's saving with it.
+    /// only as far as money moved into the cash and savings accounts already
+    /// tracked, taken together, offsets it (a loan paid out into the current
+    /// account, ``moved(into:after:through:)``), so a debt you start
+    /// tracking isn't spent, and doesn't take a month's saving with it.
     public func saved(after from: CalendarDate, through: CalendarDate)
         -> (byAccount: [AccountID: Decimal], isPriced: Bool) {
         let report = change(from: from, to: through, in: .netWorth)
@@ -170,7 +170,7 @@ extension Valuator {
             let start = cuts.last(where: { $0 < end }) ?? from
             let stretch = change(from: start, to: end, in: .netWorth)
             var takenOut: Decimal = 0
-            var putIn: Decimal = 0
+            var moved: Decimal = 0
             var assets: [(account: AccountID, flow: Decimal)] = []
             var debts: [(account: AccountID, flow: Decimal)] = []
             for account in stretch.accounts {
@@ -180,9 +180,11 @@ extension Valuator {
                     if flow < 0 { debts.append((account: account.account, flow: flow)) }
                 } else {
                     takenOut += max(-account.change.newMoney, 0)
-                    putIn += movedIn(account, after: start, through: end) ?? 0
+                    moved += self.moved(into: account, after: start, through: end) ?? 0
                 }
             }
+            // Transfers between cash and savings accounts cancel out; what's left came from elsewhere.
+            let putIn = max(moved, 0)
             // Each first flow stays saved in the share of them the other side offsets.
             for (flows, offset) in [(assets, takenOut), (debts, putIn)] {
                 let total = flows.reduce(Decimal(0)) { $0 + abs($1.flow) }
@@ -196,19 +198,19 @@ extension Valuator {
     }
 
     /// What moved into a cash or savings account from your other accounts
-    /// after `from` through `through`, in the base currency: the sum of its
-    /// valuations' ``Model/Valuation/moved`` where positive. Where one of
-    /// them doesn't record money in and out, the new money of `change`, its
-    /// change over those days, where positive, as nothing tells a transfer
+    /// after `from` through `through` (negative: out of it), in the base
+    /// currency: the sum of its valuations' ``Model/Valuation/moved``. Where
+    /// one of them doesn't record money in and out, the new money of
+    /// `change`, its change over those days, as nothing tells a transfer
     /// apart. `nil` for other kinds.
-    func movedIn(_ change: AccountChange, after from: CalendarDate, through: CalendarDate) -> Decimal? {
+    func moved(into change: AccountChange, after from: CalendarDate, through: CalendarDate) -> Decimal? {
         guard let account = accounts[change.account], account.kind.recordsMoneyInOut else { return nil }
         var total: Decimal = 0
         for valuation in valuations(for: account.id) where valuation.date > from && valuation.date <= through {
             guard let moved = valuation.moved,
                   let inBase = fx.convert(moved, from: account.currency, to: baseCurrency, on: valuation.date)
-            else { return max(change.change.newMoney, 0) }
-            total += max(inBase, 0)
+            else { return change.change.newMoney }
+            total += inBase
         }
         return total
     }
