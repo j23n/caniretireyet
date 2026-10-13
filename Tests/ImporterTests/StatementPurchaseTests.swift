@@ -133,10 +133,43 @@ struct StatementPurchaseTests {
 
         let library = preview.apply(to: Self.library()).library
         #expect(library.accounts["moto"]?.closed == "2026-04-01")
+        // Importing the file again with the same answer finds the same sale.
+        let again = session.preview(against: library, today: Self.today)
+        #expect(again.records.allSatisfy { $0.status == .identical })
+        #expect(again.accountChanges.isEmpty)
+        #expect(!again.issues.contains { !$0.isNote })
         // What it sold for comes back into the current account: only the change since its last value is spent.
         let saved = Valuator(library: library).saved(after: "2026-02-28", through: "2026-03-31")
         #expect(saved.byAccount["conto"] == 13700)
         #expect(saved.byAccount.values.reduce(Decimal(0), +) == 700)
+    }
+
+    /// An older account with the purchase's name, such as the car before,
+    /// isn't the one it starts.
+    @Test func aPurchaseDoesntTakeAnOlderAccountsName() throws {
+        var library = Self.library()
+        library.accounts["auto"] = Account(id: "auto", name: "Auto", kind: .belongings, currency: .eur,
+                                           opened: "2018-03-01", closed: "2025-06-01")
+        var session = try Self.session()
+        let row = try Self.line(session.preview(against: library, today: Self.today), "Bonifico a Autosalone").row
+        session.setStatementAsset(.purchase(name: "Auto", kind: .belongings), forRow: row)
+        let preview = session.preview(against: library, today: Self.today)
+        #expect(preview.newAccounts.map(\.account.id) == ["auto-2"])
+        #expect(try Self.line(preview, "Bonifico a Autosalone").assetAccount == "auto-2")
+    }
+
+    /// A file that doesn't follow on from a value of the account has no
+    /// money in and out in its first value: a line in it moves nothing.
+    @Test func aLineThatCountsInNoValueCantBeAnswered() throws {
+        var library = Self.library()
+        library.months = [:]
+        var session = try Self.session()
+        session.statementOpeningBalance = 20000
+        let row = try Self.line(session.preview(against: library, today: Self.today), "Affitto gennaio").row
+        session.setStatementAsset(.purchase(name: "Auto", kind: .belongings), forRow: row)
+        let preview = session.preview(against: library, today: Self.today)
+        #expect(preview.newAccounts.isEmpty)
+        #expect(preview.issues.contains { $0.kind == .statementAssetLeftOut(row: row, account: nil) })
     }
 
     @Test func anAnswerThatDoesntFitIsLeftOut() throws {
@@ -152,6 +185,8 @@ struct StatementPurchaseTests {
         #expect(try Self.line(preview, "Bonifico da Mario Verdi").statementClass == .paidBack)
         #expect(try Self.line(preview, "Bonifico a Autosalone Neri").statementClass == .spending)
         #expect(try Self.line(preview, "Affitto marzo").asset == nil)
+        // A sale of money out is left out for its sign, not for the account.
+        #expect(preview.issues.contains { $0.kind == .statementAssetLeftOut(row: rent, account: nil) })
         #expect(preview.newAccounts.isEmpty)
         #expect(preview.issues.filter {
             if case .statementAssetLeftOut = $0.kind { true } else { false }
