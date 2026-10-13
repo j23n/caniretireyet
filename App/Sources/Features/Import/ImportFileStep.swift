@@ -4,15 +4,19 @@ import Model
 import SwiftUI
 
 /// Step 1, File: a drop zone and a file importer, what was read, and the
-/// mapping to read it with: a saved profile or a proposed one. On iPhone
-/// this is "Import with profile…", with a way into every step.
+/// mapping to read it with: a saved profile or a proposed one. A bank
+/// statement's account is asked here, before any other step, with its
+/// format and columns in a sheet. On iPhone this is "Import with
+/// profile…", with a way into every step.
 struct ImportFileStep: View {
     let model: ImportController
+    let isCompact: Bool
     let chooseFile: () -> Void
     let openFile: (URL) -> Void
 
     @Environment(LibraryStore.self) private var library
     @State private var isTargeted = false
+    @State private var isShowingReading = false
 
     var body: some View {
         let flow = model.flow
@@ -40,6 +44,9 @@ struct ImportFileStep: View {
                                        value: "\(AmountFormat.mediumDate(first)) – \(AmountFormat.mediumDate(last))")
                             .privacySensitiveInFeedback()
                     }
+                }
+                if flow.layout == .statement {
+                    statementSection(flow)
                 }
                 mappingSection(flow)
             }
@@ -71,6 +78,29 @@ struct ImportFileStep: View {
         } isTargeted: { targeted in
             isTargeted = targeted
         }
+        .sheet(isPresented: $isShowingReading) {
+            ImportReadingSheet(model: model, isCompact: isCompact)
+        }
+    }
+
+    /// A bank statement: the account it's of, which every later step needs,
+    /// and how the file is read.
+    private func statementSection(_ flow: ImportFlow) -> some View {
+        Section {
+            ImportStatementAccountPicker(model: model)
+            Button("How It's Read…") {
+                isShowingReading = true
+            }
+        } header: {
+            Text("Bank statement")
+        } footer: {
+            if flow.needsStatementAccount {
+                Text("Which account is this a statement of? A cash or savings account that doesn't record trades.")
+                    .foregroundStyle(Palette.warning)
+            } else {
+                Text("Its format and columns were read from the file. How It's Read… shows them, to correct.")
+            }
+        }
     }
 
     /// The saved profiles, best fit first, and (except on iPhone's "Import
@@ -101,6 +131,47 @@ struct ImportFileStep: View {
         } footer: {
             Text("A profile is a saved mapping: the next file of the same shape imports in one step.")
         }
+    }
+}
+
+/// How a bank statement is read: the Format and Columns steps in a sheet,
+/// for a file the importer read wrongly (UI.md, "Import").
+struct ImportReadingSheet: View {
+    let model: ImportController
+    let isCompact: Bool
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var page: ImportStep = .columns
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                if page == .format {
+                    ImportFormatStep(model: model)
+                } else {
+                    ImportColumnsStep(model: model, isCompact: isCompact)
+                }
+            }
+            .navigationTitle("How It's Read")
+            .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Picker("Show", selection: $page) {
+                        Text("Format").tag(ImportStep.format)
+                        Text("Columns").tag(ImportStep.columns)
+                    }
+                    .pickerStyle(.segmented)
+                    .fixedSize()
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") {
+                        dismiss()
+                    }
+                }
+            }
+        }
+        #if os(macOS)
+        .frame(minWidth: 820, idealWidth: 960, minHeight: 600, idealHeight: 720)
+        #endif
     }
 }
 

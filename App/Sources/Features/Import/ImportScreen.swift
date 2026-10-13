@@ -7,12 +7,13 @@ import UniformTypeIdentifiers
 
 /// Importing a spreadsheet or CSV export (UI.md, "Import"; IMPORT.md, "Steps"),
 /// or a broker's transactions (IMPORT.md, "Broker transactions": a Types step
-/// after Columns), or a bank statement (IMPORT.md, "Bank statements": a
-/// Classify step after Columns).
+/// after Columns), or a bank statement (IMPORT.md, "Bank statements": File,
+/// with the account, then Classify).
 ///
 /// - **Mac and iPad:** every step, along the top: File, Format, Columns,
-///   Types or Classify when the file needs them, Accounts, Preview and Done. The page keeps its import while you visit
-///   other pages.
+///   Types when the file needs it, Accounts, Preview and Done; for a bank
+///   statement File, Classify, Preview and Done, with Format and Columns in
+///   a sheet. The page keeps its import while you visit other pages.
 /// - **iPhone:** a sheet that starts as "Import with profile…": the file and
 ///   a saved profile, the preview, Done. "Set up the columns step by step"
 ///   switches to every step, for a file no profile fits.
@@ -171,7 +172,7 @@ struct ImportStepContent: View {
     var body: some View {
         switch model.flow.step {
         case .file:
-            ImportFileStep(model: model, chooseFile: chooseFile, openFile: openFile)
+            ImportFileStep(model: model, isCompact: isCompact, chooseFile: chooseFile, openFile: openFile)
         case .format:
             ImportFormatStep(model: model)
         case .columns:
@@ -310,6 +311,11 @@ struct ImportBottomBar: View {
                 }
                 .disabled(model.isWorking)
             default:
+                if let hint = flow.continueHint {
+                    Text(hint)
+                        .font(.footnote)
+                        .foregroundStyle(Palette.warning)
+                }
                 Button("Continue") {
                     model.flow.goForward()
                 }

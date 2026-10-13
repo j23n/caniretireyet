@@ -3,8 +3,9 @@ import Importer
 import Model
 
 /// A step of the import, shown along the top (UI.md, "Import"; IMPORT.md, "Steps").
-/// A broker's transactions (the trades layout) have Types after Columns, and
-/// a bank statement (the statement layout) has Classify.
+/// A broker's transactions (the trades layout) have Types after Columns. A
+/// bank statement (the statement layout) has File, Classify and Preview, with
+/// Format and Columns in a sheet the File step opens.
 enum ImportStep: Int, Hashable, Sendable, Comparable {
     case file
     case format
@@ -171,13 +172,16 @@ struct ImportFlow: Sendable {
         if isGuided { return [.file, .preview, .done] }
         if session?.profile.layout == .trades { return [.file, .format, .columns, .types, .accounts, .preview, .done] }
         if session?.profile.layout == .statement {
-            return [.file, .format, .columns, .classify, .accounts, .preview, .done]
+            // Accounts only for a proposed opening or closing.
+            let accounts: [ImportStep] = preview?.accountChanges.isEmpty ?? true ? [] : [.accounts]
+            return [.file, .classify] + accounts + [.preview, .done]
         }
         return [.file, .format, .columns, .accounts, .preview, .done]
     }
 
     /// Whether `step` can be shown now: every step but the first needs a
-    /// file, Done comes only from importing, and nothing goes back from Done.
+    /// file (and a bank statement its account), Done comes only from
+    /// importing, and nothing goes back from Done.
     func canShow(_ step: ImportStep) -> Bool {
         guard steps.contains(step) else { return false }
         switch step {
@@ -185,9 +189,20 @@ struct ImportFlow: Sendable {
         case .file: return self.step != .done
         case .preview where isGuided:
             // "Import with profile…" needs a profile; the full flow is the fallback.
-            return hasFile && source != .proposed && self.step != .done
-        default: return hasFile && self.step != .done
+            return hasFile && source != .proposed && !needsStatementAccount && self.step != .done
+        default: return hasFile && !needsStatementAccount && self.step != .done
         }
+    }
+
+    /// Whether the file is a bank statement whose account hasn't been
+    /// chosen yet: no step after File can be shown until it is.
+    var needsStatementAccount: Bool {
+        hasFile && layout == .statement && constants.account == nil
+    }
+
+    /// Why Continue waits, next to it; `nil` when it doesn't wait for you.
+    var continueHint: String? {
+        needsStatementAccount ? "Choose the account this statement is of." : nil
     }
 
     /// Shows a step, if it can be shown.
@@ -260,6 +275,11 @@ struct ImportFlow: Sendable {
         basePreview = base
         preview = base.map { decisions.applied(to: $0) }
         planned = preview?.applyFollowingFlows(to: library)
+        // A change of layout, or of what the preview proposes, can take away
+        // the step on screen: show the nearest one before it.
+        if step != .done, !steps.contains(step) {
+            step = steps.last { $0 < step } ?? .file
+        }
     }
 
     /// A readable message for an error from the importer or the file system.
