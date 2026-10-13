@@ -56,8 +56,9 @@ struct StatementIncomeTests {
         #expect(StatementWords.sender(of: "Bonifico a vostro favore disposto da: Mario Rossi") == "Mario Rossi")
     }
 
-    @Test func aLargeLineFromASenderWhoPaysEveryMonthStillNeedsAnAnswer() throws {
+    @Test func aLargerLineFromASenderWhoPaysEveryMonthNeedsAnAnswer() throws {
         let csv = Self.csv + "\n30/03/2026;15.000,00;Bonifico SEPA da ACME GmbH rif TFR"
+            + "\n15/01/2026;1.500,00;Bonifico SEPA da ACME GmbH rif anticipo"
         var session = try ImportSession(data: Data(csv.utf8))
         session.proposeMapping(layout: .statement)
         session.profile.constants.account = "conto"
@@ -68,6 +69,9 @@ struct StatementIncomeTests {
         let severance = try Self.line(preview, "Bonifico SEPA da ACME GmbH rif TFR")
         #expect(severance.source == .sign)
         #expect(severance.needsAnswer)
+        let advance = try Self.line(preview, "Bonifico SEPA da ACME GmbH rif anticipo")
+        #expect(advance.statementClass == .income)
+        #expect(advance.source == .recurring)
     }
 
     @Test func moneyInIsPaidBackUnlessASenderPaysEveryMonth() throws {
