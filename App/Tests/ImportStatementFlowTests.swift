@@ -6,9 +6,9 @@ import Testing
 
 /// The Import screen's steps for a bank statement (UI.md, "Import";
 /// IMPORT.md, "Bank statements"): the account asked on the File step,
-/// Classify after it, a line's class
-/// changed alone or by a rule, and the days the file covers, on a made-up
-/// September statement of the example library's current account.
+/// Income after it, money in by sender, a line's class changed alone or by
+/// a rule, and the days the file covers, on a made-up September statement
+/// of the example library's current account.
 struct ImportStatementFlowTests {
     private static let csv = """
         Data;Importo;Descrizione
@@ -19,9 +19,9 @@ struct ImportStatementFlowTests {
         25/09/2026;-500,00;Giroconto conto deposito
         """
 
-    private func flow() -> ImportFlow {
+    private func flow(adding lines: String = "") -> ImportFlow {
         var flow = ImportFlow(library: PreviewLibrary.library)
-        flow.open(Data(Self.csv.utf8), fileName: "settembre.csv")
+        flow.open(Data((Self.csv + lines).utf8), fileName: "settembre.csv")
         flow.setConstants { $0.account = "conto-fineco" }
         return flow
     }
@@ -30,7 +30,7 @@ struct ImportStatementFlowTests {
         try #require(flow.statementLines.first { $0.text.hasPrefix(text) })
     }
 
-    @Test func aStatementHasAClassifyStepAfterTheFile() {
+    @Test func aStatementHasAnIncomeStepAfterTheFile() {
         let flow = flow()
         #expect(flow.layout == .statement)
         #expect(flow.steps == [.file, .classify, .preview, .done])
@@ -165,6 +165,63 @@ struct ImportStatementFlowTests {
         #expect(!notes.contains { $0.contains("not the day before the file") })
     }
 
+    @Test func incomeIsListedBySenderAndChangedForAllItsLines() throws {
+        var flow = flow()
+        let income = flow.incomingGroups(.income)
+        #expect(income.map(\.sender) == ["Stipendio"])
+        #expect(income.first?.total == 3400)
+        #expect(flow.statementQuestions.isEmpty)
+        flow.setStatementClass(.paidBack, for: try #require(income.first))
+        #expect(flow.incomingGroups(.income).isEmpty)
+        #expect(flow.statementRules.map(\.match) == ["Stipendio"])
+        #expect(flow.incomingGroups(.paidBack).map(\.sender) == ["Stipendio"])
+    }
+
+    @Test func aSenderBehindALongerRuleIsChangedLineByLine() throws {
+        var flow = flow()
+        flow.setStatementRule(.paidBack, for: "Stipendio settembre")
+        let group = try #require(flow.incomingGroups(.paidBack).first { $0.sender == "Stipendio" })
+        flow.setStatementClass(.income, for: group)
+        #expect(flow.incomingGroups(.income).map(\.sender) == ["Stipendio"])
+        #expect(flow.statementRules.map(\.match) == ["Stipendio settembre"])
+    }
+
+    @Test func noRuleIsMadeWhenItWouldTakeMoneyOut() throws {
+        var flow = flow(adding: "\n20/09/2026;-80,00;Stipendio trattenuta")
+        let group = try #require(flow.incomingGroups(.income).first)
+        flow.setStatementClass(.paidBack, for: group)
+        #expect(flow.incomingGroups(.paidBack).map(\.sender) == ["Stipendio"])
+        #expect(flow.statementRules.isEmpty)
+        #expect(try line(flow, "Stipendio trattenuta").statementClass == .spending)
+    }
+
+    @Test func theSumsSayWhatCameInAndWhatWasSpent() {
+        let sums = flow().statementSums
+        #expect(sums.cameIn == 3400)
+        #expect(sums.wentOut == Decimal(string: "1310.4"))
+        #expect(sums.paidBack == 0)
+        #expect(sums.spent == Decimal(string: "1310.4"))
+        #expect(sums.moved == -500)
+    }
+
+    @Test func aLargeLineIsAnsweredAloneAndChangedBackWithItsGroup() throws {
+        var flow = flow(adding: "\n15/09/2026;5.000,00;Bonifico da Notaio Bianchi")
+        let question = try #require(flow.statementQuestions.first)
+        #expect(flow.statementQuestions.count == 1)
+        #expect(question.sender == "Notaio Bianchi")
+        #expect(flow.incomingGroups(.paidBack).isEmpty)
+        flow.setStatementClass(.oneOff, forRow: question.row)
+        #expect(flow.statementQuestions.isEmpty)
+        let oneOff = try #require(flow.incomingGroups(.oneOff).first)
+        #expect(oneOff.total == 5000)
+        #expect(flow.statementSums.oneOffs == 5000)
+        // Its class was chosen alone, so it changes alone: no rule.
+        flow.setStatementClass(.paidBack, for: oneOff)
+        #expect(flow.incomingGroups(.oneOff).isEmpty)
+        #expect(flow.statementRules.isEmpty)
+        #expect(flow.statementSums.paidBack == 5000)
+    }
+
     @Test func previewChartsTheFilesBalanceAgainstTheAccountsValues() throws {
         let charts = try #require(flow().statementCharts)
         #expect(!charts.money.counted.isEmpty)
@@ -180,7 +237,7 @@ struct ImportStatementFlowTests {
         var library = PreviewLibrary.library
         for var valuation in library.months["2026-09"]?.valuations ?? [] {
             _ = library.removeValuation(valuation.key)
-            valuation.date = "2026-10-31"
+            valuation.date = "2026-10-01"
             library.upsert(valuation)
         }
         var flow = ImportFlow(library: library)

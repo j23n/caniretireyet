@@ -26,7 +26,7 @@ extension ImportIssue {
     }
 }
 
-/// The Classify step of a bank statement (the statement layout; IMPORT.md,
+/// The Income step of a bank statement (the statement layout; IMPORT.md,
 /// "Bank statements"): each line with its class and why it has it, the
 /// rules that classify lines, and the days the file covers.
 extension ImportFlow {
@@ -79,15 +79,21 @@ extension ImportFlow {
     /// whose class was chosen alone. `nil` when `phrase` has no words to
     /// match (e.g. "–"), so no rule can be made from it.
     func linesMatching(rule phrase: String) -> Int? {
+        rowsMatching(rule: phrase)?.count
+    }
+
+    /// The rows of the lines a rule for `phrase` would classify, as
+    /// ``linesMatching(rule:)`` counts them.
+    func rowsMatching(rule phrase: String) -> Set<Int>? {
         guard var session else { return nil }
         var alone = session
         alone.profile.rules = []
         alone.setStatementRule(.ignore, for: phrase)
         guard let rule = alone.profile.rules.first else { return nil }
         session.setStatementRule(.ignore, for: phrase)
-        return statementLines.filter { line in
+        return Set(statementLines.filter { line in
             line.source != .chosen && session.statementRule(for: line.text)?.match == rule.match
-        }.count
+        }.map(\.row))
     }
 
     /// The phrase to start a rule from: the line's text up to its first
