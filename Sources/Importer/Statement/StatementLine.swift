@@ -24,7 +24,7 @@ public struct StatementLine: Hashable, Sendable, Identifiable {
         /// before: paid back.
         case paidBefore
         /// Money in from a sender who pays similar amounts in at least 3 of
-        /// the file's months: income.
+        /// the file's months: income, those amounts and smaller ones.
         case recurring
         /// Nothing else said: money in is paid back, money out spending.
         case sign
@@ -51,8 +51,9 @@ public struct StatementLine: Hashable, Sendable, Identifiable {
     public var period: CalendarDate?
     /// Whether the line is money in too large to be paid back without
     /// asking, which nothing classified: more than a typical month's
-    /// spending in the file. Income, a one-off or paid back? Until it's
-    /// answered it counts as paid back.
+    /// spending in the file, or more than a sender who pays every month
+    /// usually pays, whatever its size. Income, a one-off or paid back?
+    /// Until it's answered it counts as paid back.
     public var needsAnswer = false
 
     public var id: Int { row }

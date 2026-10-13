@@ -74,6 +74,23 @@ struct StatementIncomeTests {
         #expect(advance.source == .recurring)
     }
 
+    @Test func aRegularPayersLargerLineNeedsAnAnswerWhateverItsSize() throws {
+        let csv = Self.csv + "\n10/01/2026;500,00;Bonifico da Affitti Bianchi rif 0126"
+            + "\n10/02/2026;500,00;Bonifico da Affitti Bianchi rif 0226"
+            + "\n10/03/2026;500,00;Bonifico da Affitti Bianchi rif 0326"
+            + "\n20/03/2026;700,00;Bonifico da Affitti Bianchi rif 9999"
+        var session = try ImportSession(data: Data(csv.utf8))
+        session.proposeMapping(layout: .statement)
+        session.profile.constants.account = "conto"
+        let preview = session.preview(against: Self.library(), today: Self.today)
+        let rent = try Self.line(preview, "Bonifico da Affitti Bianchi rif 0326")
+        #expect(rent.statementClass == .income)
+        #expect(rent.source == .recurring)
+        let larger = try Self.line(preview, "Bonifico da Affitti Bianchi rif 9999")
+        #expect(larger.source == .sign)
+        #expect(larger.needsAnswer)
+    }
+
     @Test func moneyInIsPaidBackUnlessASenderPaysEveryMonth() throws {
         let preview = try Self.session().preview(against: Self.library(), today: Self.today)
         #expect(preview.issues.filter { !$0.isNote }.isEmpty, "\(preview.issues)")
