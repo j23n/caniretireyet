@@ -4,17 +4,22 @@ import Model
 import SwiftUI
 
 /// Step 4 of a bank statement (the statement layout), Income: the days the
-/// file covers, what its lines add up to, the money in that needs an
-/// answer, and the rest of its money in by sender, income or paid back.
-/// Money out needs nothing: it's spending unless a rule, a trade or an
-/// account's name says it's a transfer. A sender's class is a rule, which
-/// the profile keeps for next month's file; *All Lines* lists every line to
-/// change one alone (IMPORT.md, "Bank statements").
+/// file covers, what its lines add up to, the large lines that need an
+/// answer, what was bought and sold, and the rest of its money in by
+/// sender, income or paid back. Other money out is spending unless a rule,
+/// a trade or an account's name says it's a transfer. A sender's class is a
+/// rule, which the profile keeps for next month's file; *All Lines* lists
+/// every line to change one alone (IMPORT.md, "Bank statements",
+/// "Purchases and sales").
 struct ImportClassifyStep: View {
     let model: ImportController
 
     @State private var isShowingLines = false
     @State private var showsAllPaidBack = false
+    /// The line out being answered as a purchase you keep.
+    @State private var purchaseLine: StatementLine?
+    /// The line in being answered as a sale.
+    @State private var saleLine: StatementLine?
 
     /// How many senders of money paid back show before *Show All*.
     private static let paidBackShown = 5
@@ -41,14 +46,33 @@ struct ImportClassifyStep: View {
             if !questions.isEmpty {
                 Section {
                     ForEach(questions) { line in
-                        ImportStatementQuestionRow(model: model, line: line, currency: currency)
+                        ImportStatementQuestionRow(model: model, line: line, currency: currency,
+                                                   askPurchase: { purchaseLine = line },
+                                                   askSale: { saleLine = line })
                     }
                 } header: {
                     Text("Needs an answer")
                 } footer: {
-                    Text("More than a month's spending, or more than a regular payer's usual amount, came in, and "
-                        + "nothing says what it is. A one-off, such as an inheritance or the sale of something you "
-                        + "didn't track, is neither income nor spending. Until it's answered it counts as paid back.")
+                    Text("More than a month's spending, or more than a regular payer's usual amount, came in or "
+                        + "went out, and nothing says what it is. A one-off, such as an inheritance or the sale of "
+                        + "something you didn't track, is neither income nor spending. A purchase you keep, such as "
+                        + "a car or a home, starts an account worth what you paid, and a sale closes one. Until "
+                        + "it's answered, money in counts as paid back and money out as spending.")
+                }
+            }
+
+            let assets = flow.statementAssetLines
+            if !assets.isEmpty {
+                Section {
+                    ForEach(assets) { line in
+                        ImportStatementAssetRow(model: model, line: line, currency: currency)
+                    }
+                } header: {
+                    Text("Bought and sold")
+                } footer: {
+                    Text("Importing starts an account for each purchase, worth what you paid, and closes each "
+                        + "account sold. Both are money moved between your accounts, so they're neither spent "
+                        + "nor came in.")
                 }
             }
 
@@ -124,6 +148,12 @@ struct ImportClassifyStep: View {
         .formStyle(.grouped)
         .sheet(isPresented: $isShowingLines) {
             ImportStatementLinesSheet(model: model)
+        }
+        .sheet(item: $purchaseLine) { line in
+            ImportStatementPurchaseSheet(model: model, line: line, currency: currency)
+        }
+        .sheet(item: $saleLine) { line in
+            ImportStatementSaleSheet(model: model, line: line, currency: currency)
         }
     }
 }
@@ -236,6 +266,8 @@ private struct ImportStatementSumsSection: View {
             row("Came in", sums.cameIn)
             if sums.interest != 0 { row("Interest", sums.interest) }
             if sums.oneOffs != 0 { row("One-offs", sums.oneOffs) }
+            if sums.bought != 0 { row("Bought to keep", sums.bought) }
+            if sums.sold != 0 { row("Sold", sums.sold) }
             row("Spent", sums.spent, detail: sums.paidBack == 0 ? nil : "after paid back")
             if sums.paidBack != 0 { row("Paid back", sums.paidBack) }
             if sums.moved != 0 { row("Moved between your accounts", sums.moved, signed: true) }
@@ -266,12 +298,16 @@ private struct ImportStatementSumsSection: View {
     }
 }
 
-/// Money in that needs an answer: who sent it, when, how much, and a
-/// choice of income, one-off or paid back for this line.
+/// A line that needs an answer: who sent or was paid it, when, how much,
+/// and the answers for this line. Money in: income, one-off or paid back,
+/// and *A Sale…* when an account could have been sold. Money out:
+/// spending, or *A Purchase You'll Keep…*.
 private struct ImportStatementQuestionRow: View {
     let model: ImportController
     let line: StatementLine
     let currency: CurrencyCode?
+    let askPurchase: () -> Void
+    let askSale: () -> Void
 
     private static let answers: [StatementClass] = [.income, .oneOff, .paidBack]
 
@@ -290,15 +326,199 @@ private struct ImportStatementQuestionRow: View {
                 Spacer()
                 AmountText(line.amount, currency: currency, precision: .cents, signed: true)
             }
-            Picker("What is it?", selection: Binding(get: { StatementClass?.none }, set: { answer in
-                if let answer { model.flow.setStatementClass(answer, forRow: line.row) }
-            })) {
-                ForEach(Self.answers, id: \.self) { answer in
-                    Text(ImportFlow.statementClassName(answer)).tag(StatementClass?.some(answer))
+            if line.amount > 0 {
+                Picker("What is it?", selection: Binding(get: { StatementClass?.none }, set: { answer in
+                    if let answer { model.flow.setStatementClass(answer, forRow: line.row) }
+                })) {
+                    ForEach(Self.answers, id: \.self) { answer in
+                        Text(ImportFlow.statementClassName(answer)).tag(StatementClass?.some(answer))
+                    }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                if !model.flow.saleChoices(for: line).isEmpty {
+                    Button("A Sale…", action: askSale)
+                        .buttonStyle(.bordered)
+                }
+            } else {
+                HStack(spacing: Metrics.m) {
+                    Button(ImportFlow.statementClassName(.spending)) {
+                        model.flow.setStatementClass(.spending, forRow: line.row)
+                    }
+                    Button("A Purchase You'll Keep…", action: askPurchase)
+                }
+                .buttonStyle(.bordered)
+            }
+        }
+    }
+}
+
+/// A line answered as a purchase you keep or a sale: what was bought or
+/// sold, when, the amount, and *Undo*, which asks again.
+private struct ImportStatementAssetRow: View {
+    let model: ImportController
+    let line: StatementLine
+    let currency: CurrencyCode?
+
+    var body: some View {
+        LabeledContent {
+            HStack(spacing: Metrics.m) {
+                AmountText(line.amount, currency: currency, precision: .cents, signed: true)
+                Button("Undo") {
+                    model.flow.setStatementAsset(nil, forRow: line.row)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+            }
+        } label: {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(verbatim: title)
+                    .lineLimit(1)
+                    .privacySensitiveInFeedback()
+                Text(detail)
+                    .font(.caption)
+                    .foregroundStyle(Palette.secondaryInk)
+                    .privacySensitiveInFeedback()
+            }
+        }
+    }
+
+    /// The new account's name, or the account sold.
+    private var title: String {
+        switch line.asset {
+        case .purchase(let name, _)?: name
+        case .sale(let id)?: model.flow.accountName(id)
+        case nil: line.text
+        }
+    }
+
+    /// "Belongings · bought 20 Feb 2026", "Sold 18 Mar 2026".
+    private var detail: String {
+        switch line.asset {
+        case .purchase(_, let kind)?: "\(kind.displayName) · bought \(AmountFormat.mediumDate(line.date))"
+        default: "Sold \(AmountFormat.mediumDate(line.date))"
+        }
+    }
+}
+
+/// Answers a line out as a purchase you keep: the new account's name and
+/// kind.
+private struct ImportStatementPurchaseSheet: View {
+    let model: ImportController
+    let line: StatementLine
+    let currency: CurrencyCode?
+
+    @State private var name = ""
+    @State private var kind: AccountKind = .belongings
+    @Environment(\.dismiss) private var dismiss
+
+    private var trimmedName: String { name.trimmingCharacters(in: .whitespacesAndNewlines) }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    TextField("Name", text: $name, prompt: Text("Car"))
+                    Picker("Kind", selection: $kind) {
+                        ForEach(StatementAsset.purchaseKinds, id: \.self) { kind in
+                            Text(kind.displayName).tag(kind)
+                        }
+                    }
+                } footer: {
+                    Text("Importing starts this account, worth what you paid from the day you paid it. The money "
+                        + "moved from this account into something you keep, so it counts as saved, not spent. As "
+                        + "it gains or loses value, update it at a check-in.")
+                }
+                ImportStatementLineSection(line: line, currency: currency)
+            }
+            .formStyle(.grouped)
+            .navigationTitle("A Purchase You'll Keep")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") {
+                        model.flow.setStatementAsset(.purchase(name: trimmedName, kind: kind), forRow: line.row)
+                        dismiss()
+                    }
+                    .disabled(trimmedName.isEmpty)
                 }
             }
-            .pickerStyle(.segmented)
-            .labelsHidden()
+        }
+        .frame(minWidth: 380, minHeight: 320)
+    }
+}
+
+/// Answers a line in as the sale of one of your accounts.
+private struct ImportStatementSaleSheet: View {
+    let model: ImportController
+    let line: StatementLine
+    let currency: CurrencyCode?
+
+    @State private var account: AccountID?
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        let choices = model.flow.saleChoices(for: line)
+        NavigationStack {
+            Form {
+                Section {
+                    Picker("Account", selection: $account) {
+                        Text("Choose…").tag(AccountID?.none)
+                        ForEach(choices, id: \.id) { choice in
+                            Text(verbatim: choice.name).tag(AccountID?.some(choice.id))
+                        }
+                    }
+                    .personalControl()
+                } footer: {
+                    Text("Importing values the account at nothing after the sale and closes it. What it sold for, "
+                        + "less its last value, is a gain or a loss. The money moved from it into this account, so "
+                        + "it didn't come in.")
+                }
+                ImportStatementLineSection(line: line, currency: currency)
+            }
+            .formStyle(.grouped)
+            .navigationTitle("A Sale")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") {
+                        if let account { model.flow.setStatementAsset(.sale(account), forRow: line.row) }
+                        dismiss()
+                    }
+                    .disabled(account == nil)
+                }
+            }
+        }
+        .frame(minWidth: 380, minHeight: 300)
+    }
+}
+
+/// The line a sheet answers: its text, date and amount.
+private struct ImportStatementLineSection: View {
+    let line: StatementLine
+    let currency: CurrencyCode?
+
+    var body: some View {
+        Section {
+            LabeledContent {
+                AmountText(line.amount, currency: currency, precision: .cents, signed: true)
+            } label: {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(verbatim: line.text.isEmpty ? "—" : line.text)
+                        .lineLimit(2)
+                        .privacySensitiveInFeedback()
+                    Text(AmountFormat.mediumDate(line.date))
+                        .font(.caption)
+                        .foregroundStyle(Palette.secondaryInk)
+                        .privacySensitiveInFeedback()
+                }
+            }
+        } header: {
+            Text("The line")
         }
     }
 }
@@ -448,7 +668,11 @@ private struct ImportStatementLineRow: View {
                     .pickerStyle(.inline)
                     Divider()
                     Button("Make a Rule…", action: makeRule)
-                    if line.source == .chosen {
+                    if line.asset != nil {
+                        Button("Undo This Line's Answer") {
+                            model.flow.setStatementAsset(nil, forRow: line.row)
+                        }
+                    } else if line.source == .chosen {
                         Button("Undo This Line's Choice") {
                             model.flow.setStatementClass(nil, forRow: line.row)
                         }
@@ -463,7 +687,8 @@ private struct ImportStatementLineRow: View {
                 Text(verbatim: line.text.isEmpty ? "—" : line.text)
                     .lineLimit(2)
                     .privacySensitiveInFeedback()
-                Text(AmountFormat.mediumDate(line.date) + " · " + model.flow.statementSourceText(line.source))
+                Text(AmountFormat.mediumDate(line.date) + " · "
+                    + (model.flow.statementAssetText(line) ?? model.flow.statementSourceText(line.source)))
                     .font(.caption)
                     .foregroundStyle(line.source == .sign ? Palette.warning : Palette.secondaryInk)
                     .privacySensitiveInFeedback()

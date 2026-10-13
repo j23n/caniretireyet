@@ -222,6 +222,41 @@ struct ImportStatementFlowTests {
         #expect(flow.statementSums.paidBack == 5000)
     }
 
+    @Test func aLargeLineOutIsAnsweredAsAPurchaseYouKeep() throws {
+        var flow = flow(adding: "\n18/09/2026;-18.000,00;Bonifico a Autosalone Neri")
+        let question = try #require(flow.statementQuestions.first)
+        #expect(flow.statementQuestions.count == 1)
+        #expect(question.amount == -18000)
+        flow.setStatementAsset(.purchase(name: "Car", kind: .belongings), forRow: question.row)
+        #expect(flow.statementQuestions.isEmpty)
+        let bought = try #require(flow.statementAssetLines.first)
+        #expect(flow.statementAssetText(bought) == "A purchase you keep: Car")
+        #expect(flow.statementSums.bought == 18000)
+        #expect(flow.statementSums.spent == Decimal(string: "1310.4"))
+        #expect(flow.statementSums.moved == -500)
+        #expect(flow.preview?.newAccounts.map(\.account.name) == ["Car"])
+        #expect(flow.steps == [.file, .classify, .preview, .done])
+        // Undone, it's asked again.
+        flow.setStatementAsset(nil, forRow: question.row)
+        #expect(flow.statementAssetLines.isEmpty)
+        #expect(flow.statementQuestions.count == 1)
+        #expect(flow.preview?.newAccounts.isEmpty == true)
+    }
+
+    @Test func aLargeLineInIsAnsweredAsTheSaleOfAnAccount() throws {
+        var flow = flow(adding: "\n22/09/2026;250.000,00;Rogito notaio vendita")
+        let question = try #require(flow.statementQuestions.first)
+        #expect(flow.saleChoices(for: question).map(\.id) == ["casa"])
+        flow.setStatementAsset(.sale("casa"), forRow: question.row)
+        let sold = try #require(flow.statementAssetLines.first)
+        #expect(flow.statementAssetText(sold) == "The sale of Home")
+        #expect(flow.statementSums.sold == 250_000)
+        #expect(flow.statementSums.paidBack == 0)
+        #expect(flow.preview?.accountChanges.map(\.account) == ["casa"])
+        // The Income step answered it: no Accounts step.
+        #expect(flow.steps == [.file, .classify, .preview, .done])
+    }
+
     @Test func previewChartsTheFilesBalanceAgainstTheAccountsValues() throws {
         let charts = try #require(flow().statementCharts)
         #expect(!charts.money.counted.isEmpty)

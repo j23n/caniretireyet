@@ -37,6 +37,10 @@ struct StatementSums: Hashable, Sendable {
     var leftOut: Decimal = 0
     /// Interest that came in; interest that went out is in `wentOut`.
     var interest: Decimal = 0
+    /// Money out for purchases you keep, a positive sum.
+    var bought: Decimal = 0
+    /// Money in from sales of your accounts.
+    var sold: Decimal = 0
 
     /// What was spent: went out less paid back, at least 0.
     var spent: Decimal { max(wentOut - paidBack, 0) }
@@ -50,10 +54,52 @@ extension ImportFlow {
         sender.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil)
     }
 
-    /// Money in that needs an answer: income, a one-off or paid back,
-    /// largest first.
+    /// The lines that need an answer, largest first: money in is income,
+    /// a one-off, paid back or a sale; money out spending or a purchase
+    /// you keep.
     var statementQuestions: [StatementLine] {
-        statementLines.filter { $0.amount > 0 && $0.needsAnswer }.sorted { $0.amount > $1.amount }
+        statementLines.filter(\.needsAnswer).sorted { abs($0.amount) > abs($1.amount) }
+    }
+
+    /// The lines answered as a purchase you keep or a sale, in date order.
+    var statementAssetLines: [StatementLine] {
+        statementLines.filter { $0.asset != nil }
+    }
+
+    /// The accounts a line in can be the sale of, by name: the library's
+    /// open accounts valued by their balance that aren't cash, savings or
+    /// a debt (``Model/Account/canBeSoldFromStatement``), in the
+    /// statement's currency, opened by the line's day, with no values
+    /// after it, and not sold by another line of the file.
+    func saleChoices(for line: StatementLine) -> [Account] {
+        guard let statement = statementAccount else { return [] }
+        let sold = Set(statementLines.compactMap { other -> AccountID? in
+            guard other.row != line.row, case .sale(let id)? = other.asset else { return nil }
+            return id
+        })
+        return library.accounts.values
+            .filter { account in
+                account.canBeSoldFromStatement && account.id != statement.id && account.currency == statement.currency
+                    && account.opened <= line.date && !sold.contains(account.id)
+                    && !library.valuations(for: account.id).contains { $0.date > line.date }
+            }
+            .sorted { ($0.name, $0.id) < ($1.name, $1.id) }
+    }
+
+    /// Answers one line as a purchase you keep or a sale, for this file;
+    /// `nil` takes the answer back.
+    mutating func setStatementAsset(_ asset: StatementAsset?, forRow row: Int) {
+        editSession { $0.setStatementAsset(asset, forRow: row) }
+    }
+
+    /// What a line answered as a purchase or a sale is, e.g. "A purchase
+    /// you keep: Car", "The sale of Home"; `nil` for another line.
+    func statementAssetText(_ line: StatementLine) -> String? {
+        switch line.asset {
+        case .purchase(let name, _)?: "A purchase you keep: \(name)"
+        case .sale(let id)?: "The sale of \(accountName(id))"
+        case nil: nil
+        }
     }
 
     /// The money in of `statementClass` that doesn't need an answer, by
@@ -94,6 +140,15 @@ extension ImportFlow {
         var sums = StatementSums()
         for line in statementLines {
             let amount = line.amount
+            switch line.asset {
+            case .purchase?:
+                sums.bought -= amount
+                continue
+            case .sale?:
+                sums.sold += amount
+                continue
+            case nil: break
+            }
             switch line.statementClass {
             case .transfer: sums.moved += amount
             case .ignore: sums.leftOut += amount
