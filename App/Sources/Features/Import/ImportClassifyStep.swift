@@ -377,7 +377,7 @@ private struct ImportStatementAssetRow: View {
                     .privacySensitiveInFeedback()
                 Text(detail)
                     .font(.caption)
-                    .foregroundStyle(Palette.secondaryInk)
+                    .foregroundStyle(line.asset == nil ? Palette.warning : Palette.secondaryInk)
                     .privacySensitiveInFeedback()
             }
         }
@@ -385,18 +385,23 @@ private struct ImportStatementAssetRow: View {
 
     /// The new account's name, or the account sold.
     private var title: String {
-        switch line.asset {
+        switch model.flow.statementAnswer(line) {
         case .purchase(let name, _)?: name
         case .sale(let id)?: model.flow.accountName(id)
         case nil: line.text
         }
     }
 
-    /// "Belongings · bought 20 Feb 2026", "Sold 18 Mar 2026".
+    /// "Belongings · bought 20 Feb 2026", "Sold 18 Mar 2026", or why it
+    /// isn't recorded.
     private var detail: String {
-        switch line.asset {
+        if line.asset == nil, model.flow.statementAnswer(line) != nil {
+            return "Not recorded: " + model.flow.statementAssetLeftOutReason(line)
+        }
+        return switch model.flow.statementAnswer(line) {
         case .purchase(_, let kind)?: "\(kind.displayName) · bought \(AmountFormat.mediumDate(line.date))"
-        default: "Sold \(AmountFormat.mediumDate(line.date))"
+        case .sale?: "Sold \(AmountFormat.mediumDate(line.date))"
+        case nil: AmountFormat.mediumDate(line.date)
         }
     }
 }
@@ -668,7 +673,7 @@ private struct ImportStatementLineRow: View {
                     .pickerStyle(.inline)
                     Divider()
                     Button("Make a Rule…", action: makeRule)
-                    if line.asset != nil {
+                    if model.flow.statementAnswer(line) != nil {
                         Button("Undo This Line's Answer") {
                             model.flow.setStatementAsset(nil, forRow: line.row)
                         }

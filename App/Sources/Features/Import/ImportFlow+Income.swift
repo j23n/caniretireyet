@@ -58,31 +58,35 @@ extension ImportFlow {
     /// a one-off, paid back or a sale; money out spending or a purchase
     /// you keep.
     var statementQuestions: [StatementLine] {
-        statementLines.filter(\.needsAnswer).sorted { abs($0.amount) > abs($1.amount) }
+        statementLines.filter { $0.needsAnswer && statementAnswer($0) == nil }
+            .sorted { abs($0.amount) > abs($1.amount) }
     }
 
-    /// The lines answered as a purchase you keep or a sale, in date order.
+    /// The lines answered as a purchase you keep or a sale, in date order,
+    /// recorded or not (``StatementLine/asset`` is `nil` for one the import
+    /// can't record).
     var statementAssetLines: [StatementLine] {
-        statementLines.filter { $0.asset != nil }
+        statementLines.filter { statementAnswer($0) != nil }
     }
 
-    /// The accounts a line in can be the sale of, by name: the library's
-    /// open accounts valued by their balance that aren't cash, savings or
-    /// a debt (``Model/Account/canBeSoldFromStatement``), in the
-    /// statement's currency, opened by the line's day, with no values
-    /// after it, and not sold by another line of the file.
+    /// The line's answer as a purchase you keep or a sale, for this file,
+    /// whether or not the import can record it.
+    func statementAnswer(_ line: StatementLine) -> StatementAsset? {
+        session?.statementAssets[line.row]
+    }
+
+    /// The accounts a line in can be the sale of, by name: those the
+    /// importer can record the sale of
+    /// (``Model/Library/canSellFromStatement(_:of:on:)``), the one this
+    /// line sold before included, and not sold by another line of the file.
     func saleChoices(for line: StatementLine) -> [Account] {
         guard let statement = statementAccount else { return [] }
         let sold = Set(statementLines.compactMap { other -> AccountID? in
-            guard other.row != line.row, case .sale(let id)? = other.asset else { return nil }
+            guard other.row != line.row, case .sale(let id)? = statementAnswer(other) else { return nil }
             return id
         })
         return library.accounts.values
-            .filter { account in
-                account.canBeSoldFromStatement && account.id != statement.id && account.currency == statement.currency
-                    && account.opened <= line.date && !sold.contains(account.id)
-                    && !library.valuations(for: account.id).contains { $0.date > line.date }
-            }
+            .filter { !sold.contains($0.id) && library.canSellFromStatement($0, of: statement, on: line.date) }
             .sorted { ($0.name, $0.id) < ($1.name, $1.id) }
     }
 
@@ -93,13 +97,22 @@ extension ImportFlow {
     }
 
     /// What a line answered as a purchase or a sale is, e.g. "A purchase
-    /// you keep: Car", "The sale of Home"; `nil` for another line.
+    /// you keep: Car", "The sale of Home", or why the import can't record
+    /// it; `nil` for another line.
     func statementAssetText(_ line: StatementLine) -> String? {
-        switch line.asset {
-        case .purchase(let name, _)?: "A purchase you keep: \(name)"
-        case .sale(let id)?: "The sale of \(accountName(id))"
-        case nil: nil
+        guard let answer = statementAnswer(line) else { return nil }
+        guard line.asset != nil else { return "Not recorded: " + statementAssetLeftOutReason(line) }
+        return switch answer {
+        case .purchase(let name, _): "A purchase you keep: \(name)"
+        case .sale(let id): "The sale of \(accountName(id))"
         }
+    }
+
+    /// Why an answered line isn't recorded: it counts in no value whose
+    /// money in and out the file covers, or the answer doesn't fit it.
+    func statementAssetLeftOutReason(_ line: StatementLine) -> String {
+        line.period == nil ? "the file doesn't cover the value it counts in"
+            : "the answer doesn't fit this line"
     }
 
     /// The money in of `statementClass` that doesn't need an answer, by
