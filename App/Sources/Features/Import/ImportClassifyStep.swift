@@ -46,9 +46,9 @@ struct ImportClassifyStep: View {
                 } header: {
                     Text("Needs an answer")
                 } footer: {
-                    Text("More than a month's spending came in, and nothing says what it is. A one-off, such as an "
-                        + "inheritance or the sale of something you didn't track, is neither income nor spending. "
-                        + "Until it's answered it counts as paid back.")
+                    Text("More than a month's spending, or more than a regular payer's usual amount, came in, and "
+                        + "nothing says what it is. A one-off, such as an inheritance or the sale of something you "
+                        + "didn't track, is neither income nor spending. Until it's answered it counts as paid back.")
                 }
             }
 
