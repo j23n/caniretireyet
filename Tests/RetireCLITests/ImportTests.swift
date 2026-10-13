@@ -493,6 +493,49 @@ struct ImportTests {
         #expect(!oneOff.output.contains("needs an answer"))
     }
 
+    @Test func aPurchaseStartsAnAccountAndASaleClosesOne() async throws {
+        let library = try TemporaryFolder.exampleLibrary()
+        let folder = try TemporaryFolder()
+        let csv = try String(contentsOf: Samples.url("statement.csv"), encoding: .utf8)
+            + "21/10/2026;-18.000,00;Bonifico a Autosalone Neri\n"
+            + "22/10/2026;320.000,00;Rogito notaio vendita\n"
+        try folder.write("statement.csv", Data(csv.utf8))
+        let arguments = ["import", folder.url("statement.csv").path, "--library", library.path,
+                         "--account", "conto-fineco"]
+        let asked = await runCLI(arguments)
+        #expect(asked.status == 0, "\(asked.all)")
+        #expect(asked.output.contains("needs an answer (row 7)"))
+        #expect(asked.output.contains("--purchase \"<row or words>=belongings:<name>\""))
+
+        let answered = arguments + ["--purchase", "Autosalone=belongings:Auto", "--sale", "8=casa"]
+        let run = await runCLI(answered)
+        #expect(run.status == 0, "\(run.all)")
+        #expect(run.output.contains("purchase: auto"))
+        #expect(run.output.contains("sale: casa"))
+        #expect(run.output.contains("Close casa on 2026-11-01, sold in row 8 (closed with --apply)"))
+        #expect(!run.output.contains("needs an answer"))
+        let json = try parseJSON(await runCLI(answered + ["--json"]).output)
+        let lines = try #require(json["statementLines"] as? [[String: Any]])
+        let car = try #require(lines.first { $0["row"] as? Int == 7 })
+        #expect(car["class"] as? String == "transfer")
+        #expect(car["asset"] as? String == "purchase")
+        #expect(car["assetAccount"] as? String == "auto")
+
+        let applied = await runCLI(answered + ["--apply"])
+        #expect(applied.status == 0, "\(applied.all)")
+        let written = try library.load()
+        #expect(written.accounts["auto"]?.kind == .belongings)
+        #expect(written.valuations(for: "auto").map(\.balance) == [0, 18000])
+        #expect(written.accounts["casa"]?.closed == "2026-11-01")
+        #expect(written.valuations(for: "casa").last?.balance == 0)
+
+        let many = await runCLI(arguments + ["--purchase", "Bonifico=belongings:Auto"])
+        #expect(many.status != 0)
+        #expect(many.all.contains("is in 2 lines (rows 4, 7)"))
+        let badKind = await runCLI(arguments + ["--purchase", "Autosalone=cash:Auto"])
+        #expect(badKind.status == 64)
+    }
+
     @Test func aStatementNeedsAnAccountThatRecordsMoneyInAndOut() async throws {
         let library = try TemporaryFolder.exampleLibrary()
         let statement = try Samples.url("statement.csv").path
