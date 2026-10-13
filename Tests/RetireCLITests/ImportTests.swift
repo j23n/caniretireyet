@@ -468,6 +468,31 @@ struct ImportTests {
         #expect(again.output.contains("Nothing to import: the library already has everything in the file.\n"))
     }
 
+    @Test func aLargeLineInNeedsAnAnswerAndCanBeAOneOff() async throws {
+        let library = try TemporaryFolder.exampleLibrary()
+        let folder = try TemporaryFolder()
+        let csv = try String(contentsOf: Samples.url("statement.csv"), encoding: .utf8)
+            + "20/10/2026;5.000,00;Bonifico da Notaio Bianchi\n"
+        try folder.write("statement.csv", Data(csv.utf8))
+        let arguments = ["import", folder.url("statement.csv").path, "--library", library.path,
+                         "--account", "conto-fineco"]
+        let run = await runCLI(arguments)
+        #expect(run.status == 0, "\(run.all)")
+        #expect(run.output.contains("needs an answer"))
+
+        let json = try parseJSON(await runCLI(arguments + ["--json"]).output)
+        let lines = try #require(json["statementLines"] as? [[String: Any]])
+        let large = try #require(lines.first { $0["text"] as? String == "Bonifico da Notaio Bianchi" })
+        #expect(large["sender"] as? String == "Notaio Bianchi")
+        #expect(large["needsAnswer"] as? Bool == true)
+        #expect(large["class"] as? String == "paidBack")
+
+        let oneOff = await runCLI(arguments + ["--class", "Notaio Bianchi=oneOff"])
+        #expect(oneOff.status == 0, "\(oneOff.all)")
+        #expect(oneOff.output.contains("one-off 5,000.00"))
+        #expect(!oneOff.output.contains("needs an answer"))
+    }
+
     @Test func aStatementNeedsAnAccountThatRecordsMoneyInAndOut() async throws {
         let library = try TemporaryFolder.exampleLibrary()
         let statement = try Samples.url("statement.csv").path

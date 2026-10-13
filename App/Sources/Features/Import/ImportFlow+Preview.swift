@@ -255,6 +255,7 @@ extension ImportFlow {
             if let moneyIn = valuation.moneyIn { parts.append("in \(amount(moneyIn))") }
             if let moneyOut = valuation.moneyOut { parts.append("out \(amount(moneyOut))") }
             if let interest = valuation.interest { parts.append("interest \(amount(interest))") }
+            if let oneOff = valuation.oneOff { parts.append("one-off \(amount(oneOff))") }
             if let cash = valuation.cash { parts.append("cash \(amount(cash))") }
             for position in valuation.positions {
                 var text = "\(AmountFormat.number(position.quantity, maxDigits: 8, locale: locale)) "

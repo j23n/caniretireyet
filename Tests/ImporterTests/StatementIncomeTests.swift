@@ -56,6 +56,12 @@ struct StatementIncomeTests {
         #expect(StatementWords.sender(of: "Bonifico a vostro favore disposto da: Mario Rossi") == "Mario Rossi")
     }
 
+    @Test func aPensionAndARefundAreKnownByTheirWords() {
+        #expect(StatementWords.suggestion(for: "Accredito pensione INPS", amount: 1200) == .income)
+        #expect(StatementWords.suggestion(for: "Rimborso Amazon", amount: 30) == .paidBack)
+        #expect(StatementWords.suggestion(for: "Rimborso Amazon", amount: -30) != .paidBack)
+    }
+
     @Test func aLargerLineFromASenderWhoPaysEveryMonthNeedsAnAnswer() throws {
         let csv = Self.csv + "\n30/03/2026;15.000,00;Bonifico SEPA da ACME GmbH rif TFR"
             + "\n15/01/2026;1.500,00;Bonifico SEPA da ACME GmbH rif anticipo"
