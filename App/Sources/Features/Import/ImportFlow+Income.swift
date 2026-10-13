@@ -31,8 +31,11 @@ struct StatementSums: Hashable, Sendable {
     var oneOffs: Decimal = 0
     /// Money out before what was paid back.
     var wentOut: Decimal = 0
-    /// Transfers in and out, and lines left out.
+    /// Transfers in and out.
     var moved: Decimal = 0
+    /// Lines left out, in and out.
+    var leftOut: Decimal = 0
+    /// Interest that came in; interest that went out is in `wentOut`.
     var interest: Decimal = 0
 
     /// What was spent: went out less paid back, at least 0.
@@ -66,16 +69,20 @@ extension ImportFlow {
 
     /// Gives every line of a sender a class: a rule with the sender's
     /// words, kept in the profile, so next month's lines from them get it
-    /// too. Lines whose class was chosen alone, and a group without a
-    /// sender, get it line by line, for this file.
+    /// too. A rule has no direction, so it's made only when it takes none
+    /// of the file's other lines (money out, another sender's). The lines
+    /// it doesn't take (chosen alone, or a longer rule's), and every line
+    /// when no rule is made, get the class line by line, for this file.
     mutating func setStatementClass(_ statementClass: StatementClass, for group: StatementSenderGroup) {
-        let byRule = !group.sender.isEmpty && linesMatching(rule: group.sender) != nil
+        let rows = Set(group.lines.map(\.row))
+        let ruled: Set<Int> = group.sender.isEmpty ? [] : rowsMatching(rule: group.sender) ?? []
+        let byRule = !ruled.isEmpty && ruled.isSubset(of: rows)
         // One edit, so the preview is made again once.
         editSession { session in
-            for line in group.lines where line.source == .chosen || !byRule {
+            for line in group.lines where !byRule || !ruled.contains(line.row) {
                 session.setStatementClass(statementClass, forRow: line.row)
             }
-            if byRule, group.lines.contains(where: { $0.source != .chosen }) {
+            if byRule {
                 session.setStatementRule(statementClass, for: group.sender)
             }
         }
@@ -87,8 +94,9 @@ extension ImportFlow {
         for line in statementLines {
             let amount = line.amount
             switch line.statementClass {
-            case .transfer, .ignore: sums.moved += amount
-            case .interest: sums.interest += amount
+            case .transfer: sums.moved += amount
+            case .ignore: sums.leftOut += amount
+            case .interest where amount > 0: sums.interest += amount
             case .income where amount > 0: sums.cameIn += amount
             case .oneOff where amount > 0: sums.oneOffs += amount
             case .paidBack where amount > 0, .spending where amount > 0: sums.paidBack += amount

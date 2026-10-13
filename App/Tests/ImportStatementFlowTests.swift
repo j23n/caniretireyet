@@ -177,6 +177,24 @@ struct ImportStatementFlowTests {
         #expect(flow.incomingGroups(.paidBack).map(\.sender) == ["Stipendio"])
     }
 
+    @Test func aSenderBehindALongerRuleIsChangedLineByLine() throws {
+        var flow = flow()
+        flow.setStatementRule(.paidBack, for: "Stipendio settembre")
+        let group = try #require(flow.incomingGroups(.paidBack).first { $0.sender == "Stipendio" })
+        flow.setStatementClass(.income, for: group)
+        #expect(flow.incomingGroups(.income).map(\.sender) == ["Stipendio"])
+        #expect(flow.statementRules.map(\.match) == ["Stipendio settembre"])
+    }
+
+    @Test func noRuleIsMadeWhenItWouldTakeMoneyOut() throws {
+        var flow = flow(adding: "\n20/09/2026;-80,00;Stipendio trattenuta")
+        let group = try #require(flow.incomingGroups(.income).first)
+        flow.setStatementClass(.paidBack, for: group)
+        #expect(flow.incomingGroups(.paidBack).map(\.sender) == ["Stipendio"])
+        #expect(flow.statementRules.isEmpty)
+        #expect(try line(flow, "Stipendio trattenuta").statementClass == .spending)
+    }
+
     @Test func theSumsSayWhatCameInAndWhatWasSpent() {
         let sums = flow().statementSums
         #expect(sums.cameIn == 3400)

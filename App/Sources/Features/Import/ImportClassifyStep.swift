@@ -77,7 +77,8 @@ struct ImportClassifyStep: View {
                 }
             }
 
-            let paidBack = flow.incomingGroups(.paidBack) + flow.incomingGroups(.spending)
+            let paidBack = (flow.incomingGroups(.paidBack) + flow.incomingGroups(.spending))
+                .sorted { ($0.total, $1.sender) > ($1.total, $0.sender) }
             if !paidBack.isEmpty {
                 Section {
                     let shown = showsAllPaidBack ? paidBack : Array(paidBack.prefix(Self.paidBackShown))
@@ -238,6 +239,7 @@ private struct ImportStatementSumsSection: View {
             row("Spent", sums.spent, detail: sums.paidBack == 0 ? nil : "after paid back")
             if sums.paidBack != 0 { row("Paid back", sums.paidBack) }
             if sums.moved != 0 { row("Moved between your accounts", sums.moved, signed: true) }
+            if sums.leftOut != 0 { row("Left out", sums.leftOut, signed: true) }
         } header: {
             Text("This file")
         } footer: {
@@ -328,6 +330,7 @@ private struct ImportStatementSenderRow: View {
                 Text(detail)
                     .font(.caption)
                     .foregroundStyle(Palette.secondaryInk)
+                    .privacySensitiveInFeedback()
             }
         }
     }
