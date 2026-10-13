@@ -105,7 +105,7 @@ struct AccountForm: Hashable, Sendable {
     var isPlanInclusionChosen: Bool
     /// The mix of a balance account; empty for the kind's default.
     var assetMix: AccountsAssetMixForm
-    /// A vehicle's estimated loss of value a year, in per cent as typed
+    /// An estimated loss of value a year, in per cent as typed
     /// ("15"); empty for none (``Model/Account/depreciation``).
     var depreciation: String
     var notes: String
@@ -244,8 +244,9 @@ struct AccountForm: Hashable, Sendable {
         !kind.isLiability && (!holdsPositions || balanceValueCount > 0)
     }
 
-    /// Whether it asks for an estimated loss of value a year: vehicles.
-    var takesDepreciation: Bool { kind == .vehicle }
+    /// Whether it asks for an estimated loss of value a year: vehicles and
+    /// belongings, and other accounts.
+    var takesDepreciation: Bool { kind == .vehicle || kind == .other }
 
     /// The loss of value a year as a share ("15" is 0.15); `nil` when
     /// empty, unreadable or not between 0 and 100.

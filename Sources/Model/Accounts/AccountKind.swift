@@ -13,6 +13,8 @@ public struct AccountKind: OpenEnum {
     public static let pensionFund: AccountKind = "pensionFund"
     public static let tfr: AccountKind = "tfr"
     public static let property: AccountKind = "property"
+    /// A vehicle, or other things you own that lose value and might sell:
+    /// a bike, a boat, electronics.
     public static let vehicle: AccountKind = "vehicle"
     public static let loan: AccountKind = "loan"
     public static let mortgage: AccountKind = "mortgage"

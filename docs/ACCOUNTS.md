@@ -23,7 +23,7 @@ This document records the decisions and what they change. The documents they cha
 | `pensionFund` | A balance; new money is asked for ("Paid in since …"), and left empty, what the main plan pays in counts | Unchanged | Unchanged |
 | `tfr` | As a pension fund | Unchanged | Unchanged |
 | `property` | A balance; new money is asked for, and left empty, what the main plan pays in counts (usually nothing) | Unchanged | Unchanged |
-| `vehicle` | As property | Unchanged; optionally an estimated loss of value a year (`depreciation`) | The whole change, as a current account's, so its loss of value is spent; between typed values, the estimated loss |
+| `vehicle` | As property | Unchanged; also other things you own that lose value and might sell (a bike, a boat, electronics), shown as *Vehicles and belongings*; optionally an estimated loss of value a year (`depreciation`) | The whole change, as a current account's, so its loss of value is spent; between typed values, the estimated loss |
 | `other` | As property | Unchanged; a brokerage, crypto or metals account recorded as a balance becomes `other` ([Migration](#migration)) | Unchanged; asked for, as for property |
 
 Today's rules are in `Sources/Model/Accounts/`: `AccountKind.defaultValuationMode`, `AccountKind.defaultFlow` (`FlowDefault`), `AccountKind.recordsMoneyInOut`, `Account.valuationMode` and `Account.tracksMoneyInOut`.
