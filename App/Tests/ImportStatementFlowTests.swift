@@ -5,7 +5,8 @@ import Testing
 @testable import CanIRetireYet
 
 /// The Import screen's steps for a bank statement (UI.md, "Import";
-/// IMPORT.md, "Bank statements"): Classify after Columns, a line's class
+/// IMPORT.md, "Bank statements"): the account asked on the File step,
+/// Classify after it, a line's class
 /// changed alone or by a rule, and the days the file covers, on a made-up
 /// September statement of the example library's current account.
 struct ImportStatementFlowTests {
@@ -29,16 +30,64 @@ struct ImportStatementFlowTests {
         try #require(flow.statementLines.first { $0.text.hasPrefix(text) })
     }
 
-    @Test func aStatementHasAClassifyStepAfterColumns() {
+    @Test func aStatementHasAClassifyStepAfterTheFile() {
         let flow = flow()
         #expect(flow.layout == .statement)
-        #expect(flow.steps == [.file, .format, .columns, .classify, .accounts, .preview, .done])
+        #expect(flow.steps == [.file, .classify, .preview, .done])
         #expect(ColumnUse.options(for: .statement).contains(.field(.credit)))
         #expect(ColumnUse.field(.amount).title(in: .statement) == "Amount (+ in, − out)")
         let choices = flow.statementAccountChoices.map(\.id)
         #expect(choices.contains("conto-fineco"))
         #expect(choices.contains("conto-deposito"))
         #expect(!choices.contains("directa"))
+    }
+
+    @Test func aStatementWaitsForItsAccountOnTheFileStep() {
+        var flow = ImportFlow(library: PreviewLibrary.library)
+        flow.open(Data(Self.csv.utf8), fileName: "settembre.csv")
+        #expect(flow.needsStatementAccount)
+        #expect(flow.nextStep == nil)
+        #expect(!flow.canShow(.classify))
+        #expect(!flow.canShow(.preview))
+        #expect(flow.continueHint == "Choose the account this statement is of.")
+        flow.setConstants { $0.account = "conto-fineco" }
+        #expect(!flow.needsStatementAccount)
+        #expect(flow.nextStep == .classify)
+        #expect(flow.continueHint == nil)
+    }
+
+    @Test func anAccountThatCantBeTheStatementsWaitsToo() {
+        var flow = flow()
+        flow.setConstants { $0.account = "directa" }
+        #expect(flow.needsStatementAccount)
+        #expect(!flow.canShow(.classify))
+        flow.setConstants { $0.account = "no-such-account" }
+        #expect(flow.needsStatementAccount)
+    }
+
+    @Test func anAccountOpenedLaterAddsTheAccountsStepUntilItsGone() throws {
+        var library = PreviewLibrary.library
+        let opened = try #require(library.accounts["conto-fineco"]?.opened)
+        library.accounts["conto-fineco"]?.opened = "2026-10-01"
+        var flow = ImportFlow(library: library)
+        flow.open(Data(Self.csv.utf8), fileName: "settembre.csv")
+        flow.setConstants { $0.account = "conto-fineco" }
+        #expect(flow.steps == [.file, .classify, .accounts, .preview, .done])
+        flow.show(.accounts)
+        #expect(flow.step == .accounts)
+        library.accounts["conto-fineco"]?.opened = opened
+        flow.setLibrary(library)
+        #expect(flow.steps == [.file, .classify, .preview, .done])
+        #expect(flow.step == .classify)
+    }
+
+    @Test func aStepTheLayoutTakesAwayGoesBackToTheFile() {
+        var flow = flow()
+        flow.setLayout(.wide)
+        flow.show(.columns)
+        #expect(flow.step == .columns)
+        flow.setLayout(.statement)
+        #expect(flow.step == .file)
     }
 
     @Test func aLineChangedAloneGoesBackWhenUndone() throws {
@@ -114,5 +163,60 @@ struct ImportStatementFlowTests {
         let notes = flow.statementNotes.map(\.text)
         #expect(notes.contains { $0.contains("isn't the balance before the file's first line") })
         #expect(!notes.contains { $0.contains("not the day before the file") })
+    }
+
+    @Test func previewChartsTheFilesBalanceAgainstTheAccountsValues() throws {
+        let charts = try #require(flow().statementCharts)
+        #expect(!charts.money.counted.isEmpty)
+        #expect(charts.file.first == .init(date: "2026-09-01", balance: Decimal(string: "4515.2") ?? 0))
+        #expect(charts.fileBalance(on: "2026-09-12") == Decimal(string: "6715.2"))
+        #expect(charts.file.last == .init(date: "2026-09-30", balance: Decimal(string: "6104.8") ?? 0))
+        #expect(charts.before.map(\.date) == ["2026-09-30"])
+        #expect(!charts.agrees(try #require(charts.before.first)))
+        #expect(charts.balanceCaption.hasSuffix("0 of 1 agree."))
+    }
+
+    @Test func moneyInAndOutEndsWithTheMonthWhenTheLibraryGoesOn() throws {
+        var library = PreviewLibrary.library
+        for var valuation in library.months["2026-09"]?.valuations ?? [] {
+            _ = library.removeValuation(valuation.key)
+            valuation.date = "2026-10-31"
+            library.upsert(valuation)
+        }
+        var flow = ImportFlow(library: library)
+        flow.open(Data(Self.csv.utf8), fileName: "settembre.csv")
+        flow.setConstants { $0.account = "conto-fineco" }
+        flow.setStatementThrough("2026-09-26")
+        let charts = try #require(flow.statementCharts)
+        let last = try #require(charts.money.periods.last)
+        #expect(last.through == "2026-09-30")
+        #expect(!charts.money.isSoFar(last))
+    }
+
+    @Test func theBalanceLineLeavesOutLinesAfterTheLastValue() {
+        let lines: [(date: CalendarDate, amount: Decimal)] = [("2026-09-02", -100), ("2026-10-02", 50)]
+        let days = ImportStatementCharts.dayEnds(lines: lines, values: [.init(date: "2026-09-30", balance: 900)])
+        #expect(days == [.init(date: "2026-09-01", balance: 1000), .init(date: "2026-09-02", balance: 900),
+                         .init(date: "2026-09-30", balance: 900)])
+    }
+
+    @Test func eachStretchOfTheLineIsWorkedBackFromItsOwnValue() {
+        let lines: [(date: CalendarDate, amount: Decimal)] = [("2026-09-02", -100), ("2026-09-20", 300)]
+        let days = ImportStatementCharts.dayEnds(lines: lines, values: [
+            .init(date: "2026-09-15", balance: 900), .init(date: "2026-09-30", balance: 1250),
+        ])
+        #expect(days == [.init(date: "2026-09-01", balance: 1000), .init(date: "2026-09-02", balance: 900),
+                         .init(date: "2026-09-15", balance: 900), .init(date: "2026-09-20", balance: 1250),
+                         .init(date: "2026-09-30", balance: 1250)])
+    }
+
+    @Test func theCaptionCountsTheValuesThatAgree() throws {
+        var charts = try #require(flow().statementCharts)
+        let agreeing = ImportStatementCharts.Balance(date: "2026-09-12", balance: Decimal(string: "6715.2") ?? 0)
+        #expect(charts.agrees(agreeing))
+        charts.before = [agreeing]
+        #expect(charts.balanceCaption.hasSuffix(": it agrees."))
+        charts.before = [agreeing, .init(date: "2026-09-30", balance: Decimal(string: "6104.8") ?? 0)]
+        #expect(charts.balanceCaption.hasSuffix(": all 2 agree."))
     }
 }

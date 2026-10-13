@@ -251,7 +251,7 @@ extension CheckInDraft {
     /// and a savings account's 0 until typed; both are 0 when it's marked
     /// unchanged. Its flow is worked out: the change, less the interest for
     /// savings. A value saved on the date that the row left as it was is
-    /// written back as it was.
+    /// written back as it was, and one the row changed keeps its one-off.
     func proposal(for row: CheckInRow, using valuator: Valuator, ignoringConflict: Bool = false) -> Proposal {
         var valuation = Valuation(account: row.account, date: date, note: row.note, source: row.source)
         var reviews: [CheckInPositionReview] = []
@@ -320,6 +320,9 @@ extension CheckInDraft {
                 record.moneyIn = recordsBoth ? moneyIn : nil
                 record.moneyOut = recordsBoth ? moneyOut : nil
             }
+            // The check-in doesn't ask for a one-off: a value saved on the date keeps its own, unless
+            // marked unchanged, which moved nothing.
+            if !unchanged { record.oneOff = row.existing?.oneOff }
             written = record
         }
         return Proposal(valuation: valuation, written: written, defaultFlow: defaultFlow, positions: reviews)

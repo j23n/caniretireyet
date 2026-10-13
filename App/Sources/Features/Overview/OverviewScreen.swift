@@ -69,11 +69,11 @@ struct OverviewScreen: View {
                     planName: mainPlan?.name, range: $range, showsFuture: $navigation.showsFuture)
                 VStack(alignment: .leading, spacing: Metrics.l) {
                     if let report = valuator.changeSinceLastCheckIn(asOf: today) {
-                        OverviewChangeCard(report: report)
+                        OverviewChangeCard(report: report, split: valuator.savedSplit(of: report))
                     }
                     if let report = valuator.changeThisYear(asOf: today) {
                         OverviewYearCard(
-                            report: report,
+                            report: report, split: valuator.savedSplit(of: report),
                             savings: valuator.savingsRate(from: report.from.adding(days: 1), through: today))
                     }
                     if headline == nil {

@@ -5,9 +5,9 @@ import SwiftUI
 
 /// Step 5, Preview: nothing is written yet. What's in the way, the counts
 /// (new, updated, identical, conflicting, skipped) and what importing
-/// would do, the conflict policy (keep, overwrite, or decide one by one),
-/// notes, the file as a grid with unreadable cells highlighted, and the
-/// list of those cells.
+/// would do, a bank statement's charts, the conflict policy (keep,
+/// overwrite, or decide one by one), notes, the file as a grid with
+/// unreadable cells highlighted, and the list of those cells.
 struct ImportPreviewStep: View {
     let model: ImportController
 
@@ -29,6 +29,9 @@ struct ImportPreviewStep: View {
                     }
                 }
                 ImportSummaryCard(flow: flow)
+                if let charts = flow.statementCharts {
+                    ImportStatementChartsCard(charts: charts)
+                }
                 if flow.isGuided {
                     ImportGuidedProposals(model: model)
                 }
@@ -68,7 +71,7 @@ struct ImportPreviewStep: View {
                             .fixedSize()
                     }
                 }
-                ImportCellErrorsCard(errors: flow.preview?.cellErrors ?? [])
+                ImportCellErrorsCard(errors: flow.preview?.cellErrors ?? [], isStatement: flow.layout == .statement)
             }
             .padding(Metrics.l)
         }
@@ -379,6 +382,8 @@ private struct ImportGridCell: View {
 /// Every cell that can't be read: row, column, what it says and why.
 private struct ImportCellErrorsCard: View {
     let errors: [ImportCellError]
+    /// A bank statement's format and columns are in How It's Read… on the File step.
+    var isStatement = false
 
     /// Cells listed, at most.
     private static let limit = 200
@@ -412,8 +417,11 @@ private struct ImportCellErrorsCard: View {
                         .font(.footnote)
                         .foregroundStyle(Palette.secondaryInk)
                 }
-                Text("These cells are left out; the rest of their rows is imported. Change the formats in Format or "
-                    + "Columns to read them.")
+                Text(isStatement
+                     ? "These cells are left out; the rest of their rows is imported. Change the formats in How "
+                        + "It's Read… on the File step to read them."
+                     : "These cells are left out; the rest of their rows is imported. Change the formats in Format "
+                        + "or Columns to read them.")
                     .font(.footnote)
                     .foregroundStyle(Palette.secondaryInk)
                     .fixedSize(horizontal: false, vertical: true)
