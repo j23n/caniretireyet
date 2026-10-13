@@ -194,10 +194,12 @@ struct ImportFlow: Sendable {
         }
     }
 
-    /// Whether the file is a bank statement whose account hasn't been
-    /// chosen yet: no step after File can be shown until it is.
+    /// Whether the file is a bank statement without an account it can be
+    /// of: none chosen yet, or one a saved profile or another layout left
+    /// that isn't a choice (``statementAccountChoices``). No step after
+    /// File can be shown until it is.
     var needsStatementAccount: Bool {
-        hasFile && layout == .statement && constants.account == nil
+        hasFile && layout == .statement && !statementAccountChoices.contains { $0.id == constants.account }
     }
 
     /// Why Continue waits, next to it; `nil` when it doesn't wait for you.

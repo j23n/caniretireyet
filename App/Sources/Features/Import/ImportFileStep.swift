@@ -97,6 +97,8 @@ struct ImportFileStep: View {
             if flow.needsStatementAccount {
                 Text("Which account is this a statement of? A cash or savings account that doesn't record trades.")
                     .foregroundStyle(Palette.warning)
+            } else if flow.source != .proposed {
+                Text("Its format and columns come from the chosen profile. How It's Read… shows them, to correct.")
             } else {
                 Text("Its format and columns were read from the file. How It's Read… shows them, to correct.")
             }
@@ -109,7 +111,9 @@ struct ImportFileStep: View {
         Section {
             if !flow.isGuided {
                 ImportChoiceRow(title: "Propose a new mapping",
-                                detail: "The importer reads the headers and values; check them step by step.",
+                                detail: flow.layout == .statement
+                                    ? "The importer reads the headers and values; How It's Read… shows them."
+                                    : "The importer reads the headers and values; check them step by step.",
                                 isSelected: flow.source == .proposed) {
                     model.flow.useProfile(nil)
                 }

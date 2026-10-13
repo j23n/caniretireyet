@@ -56,6 +56,31 @@ struct ImportStatementFlowTests {
         #expect(flow.continueHint == nil)
     }
 
+    @Test func anAccountThatCantBeTheStatementsWaitsToo() {
+        var flow = flow()
+        flow.setConstants { $0.account = "directa" }
+        #expect(flow.needsStatementAccount)
+        #expect(!flow.canShow(.classify))
+        flow.setConstants { $0.account = "no-such-account" }
+        #expect(flow.needsStatementAccount)
+    }
+
+    @Test func anAccountOpenedLaterAddsTheAccountsStepUntilItsGone() throws {
+        var library = PreviewLibrary.library
+        let opened = try #require(library.accounts["conto-fineco"]?.opened)
+        library.accounts["conto-fineco"]?.opened = "2026-10-01"
+        var flow = ImportFlow(library: library)
+        flow.open(Data(Self.csv.utf8), fileName: "settembre.csv")
+        flow.setConstants { $0.account = "conto-fineco" }
+        #expect(flow.steps == [.file, .classify, .accounts, .preview, .done])
+        flow.show(.accounts)
+        #expect(flow.step == .accounts)
+        library.accounts["conto-fineco"]?.opened = opened
+        flow.setLibrary(library)
+        #expect(flow.steps == [.file, .classify, .preview, .done])
+        #expect(flow.step == .classify)
+    }
+
     @Test func aStepTheLayoutTakesAwayGoesBackToTheFile() {
         var flow = flow()
         flow.setLayout(.wide)
