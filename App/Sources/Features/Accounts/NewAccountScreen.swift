@@ -305,6 +305,17 @@ struct AccountPlanFields: View {
             Text("Plans usually leave out your home and its mortgage. Money available only from an age, such as a "
                 + "pension fund, can't pay for the years before it.")
         }
+        if form.takesDepreciation {
+            Section {
+                AccountsNumberField(title: "Loses a year", text: $form.depreciation, prompt: "None", suffix: "%",
+                                    allowsNegative: false)
+            } header: {
+                Text("Loss of value")
+            } footer: {
+                Text("Between the values you type, its value is estimated from this, and its loss of value counts as "
+                    + "spent. The next value you type corrects the estimate.")
+            }
+        }
         if form.takesAssetMix {
             Section {
                 AccountsAssetMixFields(mix: $form.assetMix)

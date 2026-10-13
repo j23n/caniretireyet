@@ -244,6 +244,10 @@ extension Valuator {
             parts.market = heldMarket
             parts.newMoney = end - heldAtEnd
         }
+        if account.changeIsNewMoney {
+            parts.newMoney += parts.market
+            parts.market = 0
+        }
         if closing != nil {
             parts.newMoney -= end
             parts.end = 0
@@ -318,5 +322,29 @@ extension Valuator {
             total += amount
         }
         return known ? total : nil
+    }
+}
+
+extension Account {
+    /// Whether all of the account's change in value is new money, never
+    /// markets: a vehicle's, and any account's with a depreciation. So its
+    /// loss of value is spent (PROGRESS.md, "Savings rate"), and a typed
+    /// value trues up what was estimated before it.
+    var changeIsNewMoney: Bool {
+        kind == .vehicle || depreciation != nil
+    }
+
+    /// `balance`, a value dated `from`, as estimated on `date` from
+    /// ``Model/Account/depreciation``: less that share a year, compounding
+    /// over whole years and in proportion over the days left, rounded to
+    /// cents. Unchanged without a depreciation between 0 and 1, or on
+    /// `from` itself.
+    func estimated(_ balance: Decimal, from: CalendarDate, on date: CalendarDate) -> Decimal {
+        guard let rate = depreciation, rate > 0, rate < 1, date > from else { return balance }
+        let days = from.days(to: date)
+        var factor = Decimal(1)
+        for _ in 0..<(days / 365) { factor *= 1 - rate }
+        factor *= 1 - rate * Decimal(days % 365) / 365
+        return (balance * factor).rounded(scale: 2)
     }
 }
