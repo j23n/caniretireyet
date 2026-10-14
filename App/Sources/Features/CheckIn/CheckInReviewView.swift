@@ -62,8 +62,9 @@ struct CheckInReviewView: View {
             CheckInSavingView()
         } else if let draft = checkIn.draft {
             ScrollView {
-                CheckInReviewContent(draft: draft, review: draft.review(in: library.library), session: session,
-                                     onSave: { save() }) { account, instrument in
+                // With the statements the check-in holds: they're saved with it.
+                CheckInReviewContent(draft: draft, review: draft.review(in: checkIn.statementsLibrary),
+                                     session: session, onSave: { save() }) { account, instrument in
                     tradeTarget = TradeEditorTarget(account: account, date: draft.date, instrument: instrument)
                 }
                 .padding(Metrics.l)

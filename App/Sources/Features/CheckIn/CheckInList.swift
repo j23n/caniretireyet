@@ -7,7 +7,13 @@ import Tracker
 /// The check-in on iPhone and iPad (UI.md, "Check-in"): one scrolling page,
 /// no wizard. The date and the prices' status at the top, then the accounts
 /// by group, each with its state (● updated, ✓ unchanged, ○ not reviewed),
-/// and a floating bar with the progress and "Mark rest unchanged".
+/// and a floating bar with the progress and "Mark Rest Unchanged".
+///
+/// With cash or savings accounts, it starts with their bank statements
+/// (UI.md, "Statements first"): a card that asks for them, over the
+/// accounts dimmed; then a line per statement file, the rows they fill in
+/// as read-only text ("From statement · in … · out …"), and the rest to
+/// type in two sections, Cash and To type.
 ///
 /// Fields use the decimal keypad. The bar above it moves between fields
 /// (▲ ▼), flips the sign (±, since the keypad has no minus) and closes it.
@@ -44,21 +50,29 @@ struct CheckInList: View {
     }
 
     var body: some View {
-        let snapshot = library.library
+        // The draft follows the library with the statements it holds imported.
+        let snapshot = checkIn.statementsLibrary
         let review = draft.review(in: snapshot)
-        let sections = CheckInSection.sections(of: draft, in: snapshot)
+        let statements = checkIn.heldStatements(for: draft)
+        let showsStart = library.canEdit && statements.showsStart(dismissed: session.typesEveryValue)
+        let forStatements = statements.groupsForStatements(dismissed: session.typesEveryValue)
+        let sections = CheckInSection.sections(of: draft, in: snapshot, forStatements: forStatements)
         let visible = CheckInSection.visibleRows(of: sections, showsOpenedLater: session.showsOpenedLater)
-        let moneyInOut = Set(visible.filter { CheckInRowDisplay.showsMoneyInOut($0) }.map(\.account))
+        let moneyInOut = Set(visible.filter { CheckInRowDisplay.showsMoneyInOut($0, forStatements: forStatements) }
+            .map(\.account))
+        let readOnly = Set(visible.filter { showsStart || statements.isFromStatement($0) }.map(\.account))
         let order = CheckInFieldOrder.list(rows: visible, review: review, expanded: session.expanded,
                                            editingFlows: session.editingFlows, editingCash: session.editingCash,
-                                           moneyInOut: moneyInOut)
+                                           moneyInOut: moneyInOut, readOnly: readOnly)
+        let shown = Shown(statements: statements, showsStart: showsStart, forStatements: forStatements)
         ScrollViewReader { proxy in
-            list(review: review, sections: sections, order: order, proxy: proxy)
+            list(review: review, sections: sections, order: order, shown: shown, proxy: proxy)
                 .listStyle(.insetGrouped)
                 .scrollDismissesKeyboard(.interactively)
                 .safeAreaInset(edge: .bottom) {
-                    if focus == nil {
-                        CheckInBottomBar(draft: draft, session: session)
+                    // While the card asks for the statements, there's nothing to mark yet.
+                    if focus == nil && !showsStart {
+                        CheckInBottomBar(draft: draft, statements: statements, session: session)
                     }
                 }
                 .toolbar {
@@ -79,13 +93,22 @@ struct CheckInList: View {
         }
     }
 
-    private func list(review: CheckInReview, sections: [CheckInSection], order: CheckInFieldOrder,
+    /// What the statements change about the list: the card that asks for
+    /// them first (rows dimmed and read-only under it), and the grouping
+    /// into Cash and To type.
+    private struct Shown {
+        var statements: CheckInStatements
+        var showsStart: Bool
+        var forStatements: Bool
+    }
+
+    private func list(review: CheckInReview, sections: [CheckInSection], order: CheckInFieldOrder, shown: Shown,
                       proxy: ScrollViewProxy) -> some View {
         let showsLater = CheckInSection.showsOpenedLater(in: sections, expanded: session.showsOpenedLater)
         let canCollapse = sections.contains { !$0.isOpenedLater }
         return List {
             Section {
-                CheckInListHeader(draft: draft, review: review, session: session)
+                CheckInListHeader(draft: draft, session: session)
                     .listRowBackground(Color.clear)
                     .listRowInsets(EdgeInsets(top: 0, leading: Metrics.xs, bottom: Metrics.s, trailing: Metrics.xs))
                 if let priceStatus {
@@ -97,7 +120,7 @@ struct CheckInList: View {
                 }
             }
             if library.canEdit {
-                statementsSection
+                statementsSection(shown)
             }
             ForEach(sections) { section in
                 Section {
@@ -105,8 +128,9 @@ struct CheckInList: View {
                         ForEach(section.rows) { row in
                             CheckInListRow(
                                 row: row, review: review.row(for: row.account), date: draft.date,
-                                previousCheckIn: review.previousCheckIn, session: session, focus: $focus,
-                                focused: focus, signToggle: signToggle
+                                previousCheckIn: review.previousCheckIn, statements: shown.statements,
+                                forStatements: shown.forStatements, isDimmed: shown.showsStart, session: session,
+                                focus: $focus, focused: focus, signToggle: signToggle
                             ) { field in
                                 if let target = order.next(after: field) { move(to: target, proxy: proxy) }
                             }
@@ -117,7 +141,7 @@ struct CheckInList: View {
                     if section.isOpenedLater && canCollapse {
                         openedLaterHeader(count: section.rows.count)
                     } else {
-                        Text(verbatim: section.title)
+                        Text(verbatim: shown.forStatements ? section.compactTitle : section.title)
                     }
                 } footer: {
                     if section.isOpenedLater && showsLater {
@@ -135,30 +159,32 @@ struct CheckInList: View {
     }
 
     /// The statements the check-in starts with (UI.md, "Statements first"):
-    /// the card that asks for them first, or a line per account and *Add
-    /// Statements…*.
+    /// the card that asks for them first, or a line per statement file and
+    /// *Add Statements…*.
     @ViewBuilder
-    private var statementsSection: some View {
-        let statements = CheckInStatements.make(draft: draft, library: library.library)
-        if statements.showsStart(dismissed: session.typesEveryValue) {
+    private func statementsSection(_ shown: Shown) -> some View {
+        let statements = shown.statements
+        if shown.showsStart {
             Section {
                 CheckInStatementsStart(statements: statements, session: session)
                     .padding(.vertical, Metrics.s)
             }
         } else {
             Section {
-                ForEach(statements.accounts) { account in
-                    CheckInStatementLine(account: account)
+                ForEach(statements.files) { file in
+                    CheckInStatementFileRow(file: file, session: session)
                 }
                 Button("Add Statements…") { session.choosesStatements = true }
             } header: {
                 Text("Statements")
             } footer: {
-                if statements.accounts.isEmpty {
+                if let note = statements.unreadableNote ?? session.statementsError {
+                    Text(verbatim: note)
+                        .foregroundStyle(Palette.warning)
+                        .privacySensitiveInFeedback()
+                } else if statements.accounts.isEmpty && !statements.isHeld {
                     Text("Your bank's CSV fills in a cash or savings account's balance and what came in and "
                         + "went out.")
-                } else {
-                    Text(verbatim: statements.progress)
                 }
             }
         }
@@ -250,11 +276,9 @@ struct CheckInList: View {
 
 // MARK: - Header
 
-/// The date ("30 September 2026 ▾", with the date panel), the line under it
-/// and the banners.
+/// The date ("30 September 2026 ⌄", with the date panel) and the banners.
 private struct CheckInListHeader: View {
     let draft: CheckInDraft
-    let review: CheckInReview
     @Bindable var session: CheckInSession
 
     @Environment(CheckInStore.self) private var checkIn
@@ -267,15 +291,14 @@ private struct CheckInListHeader: View {
                 Button {
                     session.showsDatePicker = true
                 } label: {
-                    HStack(spacing: 6) {
+                    HStack(spacing: 4) {
                         Text(verbatim: dateText)
-                            .font(.title2.bold())
-                            .foregroundStyle(Palette.ink)
+                            .font(.subheadline)
                             .privacySensitiveInFeedback()
                         Image(systemName: "chevron.down")
-                            .font(.body.weight(.bold))
-                            .foregroundStyle(Palette.accent)
+                            .font(.caption.weight(.semibold))
                     }
+                    .foregroundStyle(Palette.accent)
                 }
                 .buttonStyle(.borderless)
                 .accessibilityLabel(Text(verbatim: "Check-in date: \(dateText)"))
@@ -286,11 +309,6 @@ private struct CheckInListHeader: View {
                     }
                     .presentationDetents([.medium, .large])
                 }
-                Text(verbatim: CheckInWording.dateLine(previousCheckIn: review.previousCheckIn,
-                                                       accounts: CheckInWording.accountCount(draft), locale: locale))
-                    .font(.subheadline)
-                    .foregroundStyle(Palette.secondaryInk)
-                    .privacySensitiveInFeedback()
             }
             CheckInBanners(draft: draft, session: session)
         }
@@ -339,6 +357,15 @@ private struct CheckInListRow: View {
     /// The check-in's date.
     let date: CalendarDate
     let previousCheckIn: CalendarDate?
+    /// The statements the check-in holds: the rows they fill in are
+    /// read-only, and the others say what they can expect from them.
+    let statements: CheckInStatements
+    /// Whether the check-in starts with its statements: a row not reviewed
+    /// shows money in and out once its balance is typed.
+    let forStatements: Bool
+    /// While the card asks for the statements: the row is a dimmed line,
+    /// name and value, with nothing to type.
+    let isDimmed: Bool
     let session: CheckInSession
     let focus: FocusState<CheckInField?>.Binding
     let focused: CheckInField?
@@ -353,16 +380,42 @@ private struct CheckInListRow: View {
     @Environment(\.locale) private var locale
 
     var body: some View {
+        if isDimmed {
+            dimmed
+        } else {
+            full
+        }
+    }
+
+    /// "Conto Fineco   4.520,75 ○" at 55%, under the card that asks for the statements.
+    private var dimmed: some View {
+        HStack(spacing: Metrics.s) {
+            Text(verbatim: name)
+                .privacySensitiveInFeedback()
+            Spacer(minLength: Metrics.s)
+            CheckInPlainAmount(row.mode == .balance ? row.balance : review?.value?.knownValue)
+                .foregroundStyle(Palette.secondaryInk)
+            CheckInStateIndicator(row: row, size: 16)
+        }
+        .opacity(0.55)
+        .accessibilityElement(children: .combine)
+    }
+
+    private var isFromStatement: Bool { statements.isFromStatement(row) }
+
+    private var full: some View {
         VStack(alignment: .leading, spacing: Metrics.s) {
             if row.isTrades {
                 trades
+            } else if isFromStatement {
+                fromStatement
             } else {
                 balance
             }
         }
         .padding(.vertical, Metrics.xs)
         .swipeActions(edge: .leading, allowsFullSwipe: true) {
-            if row.canMarkUnchanged && row.state != .unchanged {
+            if row.canMarkUnchanged && row.state != .unchanged && !isFromStatement {
                 Button {
                     markUnchanged()
                 } label: {
@@ -372,7 +425,7 @@ private struct CheckInListRow: View {
             }
         }
         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-            if row.state != .skipped {
+            if row.state != .skipped && !isFromStatement {
                 Button {
                     skip()
                 } label: {
@@ -382,8 +435,38 @@ private struct CheckInListRow: View {
             }
         }
         .contextMenu {
-            CheckInRowMenu(row: row, rule: rule, date: date, session: session, checkIn: checkIn)
+            CheckInRowMenu(row: row, rule: rule, date: date, session: session, checkIn: checkIn,
+                           isFromStatement: isFromStatement,
+                           isFilledByStatement: statements.filled.contains(row.account))
         }
+    }
+
+    // MARK: From a statement
+
+    /// A row a statement filled in, read-only: "Conto Fineco   4.210,55 ●",
+    /// "From statement · in 3.400,00 · out 3.210,20" and what moved between
+    /// your accounts; a tax pot "+500,00 from Girokonto · counts as tax".
+    /// *Edit Value* in its menu types over it.
+    @ViewBuilder
+    private var fromStatement: some View {
+        HStack(spacing: Metrics.s) {
+            Text(verbatim: name)
+                .privacySensitiveInFeedback()
+                .frame(maxWidth: .infinity, alignment: .leading)
+            CheckInPlainAmount(row.balance)
+                .foregroundStyle(Palette.ink)
+            CheckInStateIndicator(row: row)
+        }
+        if let line = statements.statementLine(for: row, review: review, locale: locale) {
+            AmountSentenceText(line)
+                .font(.footnote)
+                .foregroundStyle(Palette.secondaryInk)
+                .monospacedDigit()
+        }
+        if statements.fileAccounts.contains(row.account) {
+            movedLine
+        }
+        openingNoteLabel
     }
 
     // MARK: Values
@@ -418,6 +501,10 @@ private struct CheckInListRow: View {
     @ViewBuilder
     private var balance: some View {
         let field = CheckInField.balance(row.account)
+        let style = CheckInRowDisplay.balanceStyle(of: row.account, in: library.library)
+        // Not reviewed, with money a statement moved into it: empty, with
+        // the balance it can expect as the prompt.
+        let suggestion = statements.suggestedBalance(for: row)
         HStack(spacing: Metrics.s) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(verbatim: name)
@@ -432,8 +519,9 @@ private struct CheckInListRow: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             HStack(spacing: Metrics.xs) {
                 CheckInNumberField(
-                    field, focus: focus, isFocused: focused == field, value: row.balance,
-                    style: CheckInRowDisplay.balanceStyle(of: row.account, in: library.library), prompt: "0",
+                    field, focus: focus, isFocused: focused == field, value: suggestion == nil ? row.balance : nil,
+                    style: style,
+                    prompt: suggestion.map { CheckInFieldFormat.text(for: $0, style: style, locale: locale) } ?? "0",
                     label: "\(name), value", signToggle: signToggle, onSubmit: { next(field) }
                 ) { amount in
                     guard let amount else { return }
@@ -447,9 +535,9 @@ private struct CheckInListRow: View {
             CheckInStateIndicator(row: row)
         }
         caption
-        if CheckInRowDisplay.showsMoneyInOut(row) {
+        if CheckInRowDisplay.showsMoneyInOut(row, forStatements: forStatements) {
             moneyInOutFields
-            if CheckInRowDisplay.showsInterest(row) {
+            if CheckInRowDisplay.showsInterest(row, forStatements: forStatements) {
                 interestField
             }
             movedLine
@@ -923,6 +1011,12 @@ private struct CheckInListRow: View {
             }
             .font(.footnote)
             .foregroundStyle(Palette.secondaryInk)
+        } else if let expectation = statements.expectation(for: row, compact: true, locale: locale) {
+            // "No statement · expects +500,00 from Conto Fineco", "Conto Fineco paid 725,00 to it".
+            AmountSentenceText(expectation)
+                .font(.footnote)
+                .foregroundStyle(Palette.secondaryInk)
+                .monospacedDigit()
         } else if let text = CheckInWording.caption(for: row, locale: locale) {
             Text(verbatim: text)
                 .font(.footnote)
@@ -991,30 +1085,39 @@ private struct CheckInListRow: View {
 
 // MARK: - Bottom bar
 
-/// "7 of 9 reviewed ▬▬▬▭ [Mark rest unchanged]", floating over the list on
-/// glass; "Review" once everything is reviewed.
+/// "4 of 8 done · 3 from statements   Mark Rest Unchanged", floating over
+/// the list on glass; "Review" once everything is done.
 private struct CheckInBottomBar: View {
     let draft: CheckInDraft
+    let statements: CheckInStatements
     let session: CheckInSession
 
     @Environment(CheckInStore.self) private var checkIn
 
     var body: some View {
+        let progress = CheckInWording.progress(draft, statements: statements, compact: true)
         HStack(spacing: Metrics.m) {
-            VStack(alignment: .leading, spacing: Metrics.xs) {
-                Text(verbatim: CheckInWording.reviewed(draft))
-                    .font(.subheadline.weight(.semibold))
-                    .monospacedDigit()
-                CheckInProgressBar(reviewed: draft.reviewedCount, total: draft.progressTotal)
-                    .frame(width: 112)
+            HStack(spacing: 0) {
+                Text(verbatim: progress.lead)
+                    .fontWeight(.semibold)
+                if let detail = progress.detail {
+                    Text(verbatim: " · " + detail)
+                        .foregroundStyle(Palette.secondaryInk)
+                }
             }
+            .font(.subheadline)
+            .monospacedDigit()
+            .lineLimit(1)
+            .minimumScaleFactor(0.8)
+            .accessibilityElement(children: .combine)
             Spacer(minLength: Metrics.s)
             if draft.isReadyToSave {
                 Button("Review") { session.page = .review }
                     .buttonStyle(.borderedProminent)
             } else {
-                Button("Mark rest unchanged") { checkIn.markRestUnchanged() }
-                    .buttonStyle(.bordered)
+                Button("Mark Rest Unchanged") { checkIn.markRestUnchanged() }
+                    .buttonStyle(.borderless)
+                    .fontWeight(.semibold)
             }
         }
         .padding(.leading, 20)

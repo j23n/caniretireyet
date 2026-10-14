@@ -68,6 +68,11 @@ final class ImportController {
 
     // MARK: - Importing
 
+    /// When set, *Import* hands the flow to this instead of writing it: the
+    /// import belongs to a check-in, which holds the statements and writes
+    /// them when it's saved (UI.md, "Statements first").
+    var holdsImport: (@MainActor (ImportFlow) -> Void)?
+
     /// Imports: applies the preview to the library as it is now and saves
     /// (only the files that changed), with exactly those files backed up
     /// into `backups/<timestamp>-import/` first, in the same queued
@@ -77,6 +82,7 @@ final class ImportController {
     /// an inserted one are part of the same change and backup
     /// (``ImportPreview/applyFollowingFlows(to:)``).
     func runImport(in store: LibraryStore) async {
+        if let holdsImport { return holdsImport(flow) }
         guard let preview = flow.preview, !isWorking else { return }
         isWorking = true
         defer { isWorking = false }

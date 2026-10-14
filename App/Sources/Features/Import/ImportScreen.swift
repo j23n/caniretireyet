@@ -22,12 +22,9 @@ import UniformTypeIdentifiers
 /// with the file if there is one; the sidebar's file is taken from
 /// `navigation.pendingImport` once read. First launch pushes it on its own
 /// stack with `close`, on every device. A check-in opens it in a sheet with
-/// `close`, the statements chosen and its date (UI.md, "Statements first").
+/// `close` on the statements it holds (UI.md, "Statements first").
 struct ImportScreen: View {
     let file: URL?
-    /// Files chosen before the screen opened (a check-in's *Add
-    /// Statements…*), read when it first appears.
-    let files: [URL]
     /// Closes the screen when it's pushed on another flow's stack (first
     /// launch's accounts step): it then has an import of its own, as the
     /// iPhone's sheet does, and *Close* or *Done* calls it. `nil` for the
@@ -51,17 +48,16 @@ struct ImportScreen: View {
 
     init(file: URL? = nil, close: (() -> Void)? = nil) {
         self.file = file
-        files = []
         self.close = close
     }
 
-    /// The import of a check-in on `checkIn`: its own, opening `files`;
-    /// *Close* or *Done* calls `close`.
-    init(files: [URL], checkIn: CalendarDate, close: @escaping () -> Void) {
+    /// The statements a check-in holds (UI.md, "Statements first"), in
+    /// `statements`: edited in place, and its *Import* hands them back
+    /// (``ImportController/holdsImport``). *Close* calls `close`.
+    init(statements: ImportController, close: @escaping () -> Void) {
         file = nil
-        self.files = files
         self.close = close
-        _sheetModel = State(initialValue: ImportController(checkIn: checkIn))
+        _sheetModel = State(initialValue: statements)
     }
 
     /// The import on screen: with tabs (iPhone) the screen is a sheet with
@@ -152,10 +148,6 @@ struct ImportScreen: View {
         if !model.flow.hasFile, model.flow.step == .file {
             // A check-in's statements show every step: their lines are answered on Income.
             model.flow.setGuided(isCompact && model.flow.checkIn == nil)
-        }
-        if !files.isEmpty {
-            let files = self.files
-            Task { await open(files) }
         }
     }
 
@@ -339,7 +331,7 @@ struct ImportBottomBar: View {
             }
             switch flow.step {
             case .preview:
-                Button("Import") {
+                Button(model.holdsImport == nil ? "Import" : "Back to Check-in") {
                     Task { await model.runImport(in: library) }
                 }
                 .buttonStyle(.borderedProminent)
