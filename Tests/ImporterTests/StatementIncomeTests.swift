@@ -164,4 +164,56 @@ struct StatementIncomeTests {
         #expect(marked.statementClass == .income)
         #expect(marked.source == .rule("Mario Neri"))
     }
+
+    static func passThroughSession() throws -> ImportSession {
+        let csv = Self.csv + "\n10/02/2026;6.000,00;Bonifico da Risparmio Esempio"
+            + "\n12/02/2026;-6.000,00;Bonifico a Broker Esempio rif 1"
+            + "\n20/02/2026;-6.000,00;Bonifico a Broker Esempio rif 2"
+            + "\n16/01/2026;-25,00;Pagamento POS Bar Centrale"
+        var session = try ImportSession(data: Data(csv.utf8))
+        session.proposeMapping(layout: .statement)
+        session.profile.constants.account = "conto"
+        return session
+    }
+
+    @Test func moneyThatPassesThroughIsATransfer() throws {
+        let preview = try Self.passThroughSession().preview(against: Self.library(), today: Self.today)
+        let incoming = try Self.line(preview, "Bonifico da Risparmio Esempio")
+        let out = try Self.line(preview, "Bonifico a Broker Esempio rif 1")
+        #expect(incoming.statementClass == .transfer)
+        #expect(incoming.source == .passThrough(row: out.row))
+        #expect(!incoming.needsAnswer)
+        #expect(out.statementClass == .transfer)
+        #expect(out.source == .passThrough(row: incoming.row))
+        #expect(!out.needsAnswer)
+        // The same amount further away is left to its sign, and asked about.
+        let later = try Self.line(preview, "Bonifico a Broker Esempio rif 2")
+        #expect(later.statementClass == .spending)
+        #expect(later.needsAnswer)
+        let february = try #require(preview.record(.valuation("conto", "2026-02-28"))?.imported)
+        #expect(february.moneyIn == 3050)
+        #expect(february.moneyOut == 7380)
+    }
+
+    @Test func smallLinesDontPassThrough() throws {
+        let preview = try Self.passThroughSession().preview(against: Self.library(), today: Self.today)
+        let share = try Self.line(preview, "Bonifico da Mario Neri")
+        #expect(share.statementClass == .paidBack)
+        #expect(share.source == .sign)
+        let bar = try Self.line(preview, "Pagamento POS Bar Centrale")
+        #expect(bar.statementClass == .spending)
+        #expect(bar.source == .sign)
+    }
+
+    @Test func aClassChosenForOneSideAsksAboutTheOther() throws {
+        var session = try Self.passThroughSession()
+        let row = try Self.line(session.preview(against: Self.library(), today: Self.today),
+                                "Bonifico da Risparmio Esempio").row
+        session.setStatementClass(.oneOff, forRow: row)
+        let preview = session.preview(against: Self.library(), today: Self.today)
+        #expect(try Self.line(preview, "Bonifico da Risparmio Esempio").source == .chosen)
+        let out = try Self.line(preview, "Bonifico a Broker Esempio rif 1")
+        #expect(out.statementClass == .spending)
+        #expect(out.needsAnswer)
+    }
 }

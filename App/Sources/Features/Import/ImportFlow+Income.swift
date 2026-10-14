@@ -69,6 +69,18 @@ extension ImportFlow {
         statementLines.filter { statementAnswer($0) != nil }
     }
 
+    /// The large lines that are money moved between your accounts: those
+    /// answered as a transfer, and money that passed through the account.
+    var statementTransferLines: [StatementLine] {
+        statementLines.filter { line in
+            switch line.source {
+            case .passThrough: true
+            case .chosen: line.statementClass == .transfer && statementAnswer(line) == nil
+            default: false
+            }
+        }
+    }
+
     /// The line's answer as a purchase you keep or a sale, for this file,
     /// whether or not the import can record it.
     func statementAnswer(_ line: StatementLine) -> StatementAsset? {

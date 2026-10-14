@@ -281,6 +281,7 @@ struct ImportReport: CommandReport {
         case .words: ("usual words", nil)
         case .paidBefore: ("paid before", nil)
         case .recurring: ("recurring", nil)
+        case .passThrough(let row): ("passed through", "row \(row)")
         case .sign: ("sign", nil)
         }
     }

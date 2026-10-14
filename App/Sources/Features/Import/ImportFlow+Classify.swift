@@ -241,6 +241,7 @@ extension ImportFlow {
         case .words: "The usual words"
         case .paidBefore: "Its sender was paid before"
         case .recurring: "Pays you every month"
+        case .passThrough: "The same amount moves the other way within days"
         case .sign: "By its sign"
         }
     }
