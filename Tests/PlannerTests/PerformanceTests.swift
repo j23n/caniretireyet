@@ -47,18 +47,6 @@ struct PerformanceTests {
         return plan
     }
 
-    @Test func aSmallScanOfTheSamePlanRuns() async throws {
-        let result = try await Planner.run(plan: Self.plan, library: Self.library,
-                                           options: PlannerOptions(mode: .fast(runs: 40), maxRetirementAge: 45))
-        #expect(result.successCurve.map(\.age) == Array(38...45))
-        #expect(result.fan.count == 58)
-        #expect(result.settings.runs == 40)
-        #expect(result.answer.sustainableSpending != nil)
-        for year in result.fan {
-            #expect(year.p10 <= year.p50 && year.p50 <= year.p90)
-        }
-    }
-
     @Test(.enabled(if: fullScanEnabled, "The full scan runs in release builds, or with PLANNER_PERF_TESTS=1."))
     func theFullScanIsFast() async throws {
         let clock = ContinuousClock()

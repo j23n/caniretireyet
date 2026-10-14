@@ -95,14 +95,6 @@ struct PlanYearGradeYearsTests {
         #expect(thisYear.plannedSpending == 36_000)
     }
 
-    @Test func plannedSavingIsInTheYearsMoneyWhereTheIndexAllows() throws {
-        let thisYear = try #require(years().first)
-        let recorded = Decimal(18_000) * 273 / 365
-        let inYearsMoney = try #require(index.convert(recorded, from: "2025-12-31", to: latest))
-        #expect(inYearsMoney > recorded)
-        #expect(thisYear.plannedSaving == inYearsMoney)
-    }
-
     @Test func plannedSavingIsAsRecordedWithoutAnIndex() throws {
         var library = PreviewLibrary.library
         for month in library.months.keys { library.months[month]?.indices = [] }

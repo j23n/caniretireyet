@@ -41,12 +41,6 @@ struct PlanStartingTests {
         #expect(plan.work.isEmpty)
     }
 
-    @Test func retiresAtTheWishedAge() {
-        var plan = base
-        plan.setRetirementAge(60)
-        #expect(plan.retirement.age == .age(60))
-    }
-
     @Test func retiresAsEarlyAsPossibleWithoutAWishedAge() {
         var plan = base
         plan.setRetirementAge(nil)

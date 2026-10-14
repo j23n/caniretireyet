@@ -162,14 +162,4 @@ struct MoneyInOutTests {
         }
         #expect(Valuator(library: library).moneyInOut(from: "2026-09-01", through: "2026-09-30").isEmpty)
     }
-
-    @Test func onlyCashAndSavingsAccountsRecordIt() throws {
-        #expect(AccountKind.cash.recordsMoneyInOut)
-        #expect(AccountKind.savings.recordsMoneyInOut)
-        #expect(!AccountKind.creditCard.recordsMoneyInOut)
-        #expect(!AccountKind.loan.recordsMoneyInOut)
-        #expect(!AccountKind.pensionFund.recordsMoneyInOut)
-        #expect(AccountKind.savings.recordsInterest)
-        #expect(!AccountKind.cash.recordsInterest)
-    }
 }

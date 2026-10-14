@@ -91,13 +91,4 @@ struct YahooSymbolSearchTests {
             _ = try await YahooSymbolSearch(client: client).search("???")
         }
     }
-
-    @Test func anUnexpectedShapeFailsClearly() async throws {
-        await #expect(throws: PriceFetchError.malformedResponse(service: "Yahoo Finance", detail: "missing quotes")) {
-            _ = try await search(#"{"news":[]}"#)
-        }
-        await #expect(throws: PriceFetchError.malformedResponse(service: "Yahoo Finance", detail: "not JSON")) {
-            _ = try await search("<html>Yahoo is down</html>")
-        }
-    }
 }

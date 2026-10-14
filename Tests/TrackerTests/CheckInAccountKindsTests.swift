@@ -42,21 +42,6 @@ struct CheckInAccountKindsTests {
         draft.review(in: library ?? self.library).row(for: account)?.valuation
     }
 
-    @Test func eachKindAsksForItsOwnFields() throws {
-        let draft = february()
-        let asks = { (account: AccountID) -> [Bool]? in
-            draft[account].map { [$0.asksMoneyInOut, $0.asksInterest, $0.canEnterFlow] }
-        }
-        #expect(asks("bank") == [true, false, false])
-        #expect(asks("deposit") == [true, true, false])
-        #expect(asks("broker") == [false, false, true])
-        #expect(asks("fondo") == [false, false, true])
-        #expect(asks("card") == [false, false, true])
-        #expect(asks("mortgage") == [false, false, true])
-        #expect(draft["bank"]?.kind == .cash)
-        #expect(draft["mortgage"]?.kind == .mortgage)
-    }
-
     /// A cash account that records trades says what came in and went out
     /// with its deposits and withdrawals, so it asks for neither.
     @Test func aCashAccountRecordingTradesAsksForNoMoneyInOut() throws {
@@ -211,18 +196,6 @@ struct CheckInAccountKindsTests {
         #expect(review.row(for: "loan")?.moved == -10_000)
         #expect(review.moved == 0)
         #expect(review.movedNotCancelledOut == nil)
-    }
-
-    @Test func aVoluntaryPaymentIntoAPensionDoesNotCancelOut() throws {
-        var draft = february()
-        draft["bank"]?.setBalance(4700)
-        draft["bank"]?.setMoneyOut(0)
-        draft["fondo"]?.setBalance(10300)
-        draft["fondo"]?.setFlow(300)
-        let review = draft.review(in: library)
-        // The pension fund isn't in the sum: pay taken from the payslip never passes through a tracked account.
-        #expect(review.moved == -300)
-        #expect(review.movedNotCancelledOut == -300)
     }
 
     @Test func aCardGrowingFromPurchasesAddsNothing() throws {

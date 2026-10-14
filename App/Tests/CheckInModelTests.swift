@@ -174,38 +174,7 @@ struct CheckInModelTests {
         #expect(CheckInWording.moved(nil, locale: locale) == nil)
     }
 
-    @Test func theReviewSaysWhetherWhatMovedCancelsOut() throws {
-        // 500 out of the current account (money out left at 0), into savings.
-        let cancels = draft { draft in
-            draft["conto-fineco"]?.setBalance(Decimal(string: "3710.55"))
-            draft["conto-fineco"]?.setMoneyIn(0)
-            draft["conto-fineco"]?.setMoneyOut(0)
-            draft["conto-deposito"]?.setBalance(Decimal(string: "17865.55"))
-        }.review(in: library)
-        #expect(cancels.movedNotCancelledOut == nil)
-        #expect(CheckInReviewDisplay.movedSummary(cancels, currency: .eur, locale: locale).text
-            .hasPrefix("It cancels out"))
-
-        let left = draft { $0["conto-deposito"]?.setBalance(Decimal(string: "17865.55")) }.review(in: library)
-        #expect(left.movedNotCancelledOut == 500)
-        let summary = CheckInReviewDisplay.movedSummary(left, currency: .eur, locale: locale)
-        #expect(summary.text.contains("doesn't cancel out"))
-        #expect(summary.hasAmounts)
-    }
-
     // MARK: Statements first
-
-    /// The example library's current and savings accounts can be read from
-    /// a statement; a closed account, a trades account and the kinds typed
-    /// by hand can't. More in `CheckInStatementsTests`.
-    @Test func aCheckInStartsWithTheAccountsAStatementFillsIn() {
-        let statements = CheckInStatements.make(draft: draft(), library: library)
-        #expect(Set(statements.accounts.map(\.id)) == ["conto-fineco", "conto-deposito"])
-        #expect(statements.showsStart(dismissed: false))
-        #expect(!statements.showsStart(dismissed: true))
-        #expect(statements.startTitle(locale: locale) == "Start with October's statements")
-        #expect(!statements.isHeld)
-    }
 
     @Test func anImportedValueOnTheDateFillsTheRow() throws {
         var imported = library

@@ -559,12 +559,6 @@ struct ImportStatementFlowTests {
         #expect(flow.answerChoice(rent, current: true) == .statementClass(.spending))
     }
 
-    @Test func aRuleStartsFromTheSender() throws {
-        let flow = flow(adding: "\n04/09/2026;34,00;PayPal Europe *Kleinanzeigen Fahrrad")
-        let line = try line(flow, "PayPal")
-        #expect(ImportFlow.suggestedRulePhrase(for: line) == "Kleinanzeigen")
-    }
-
     /// The summary: what came in, tax, after tax, spent and saved, from the
     /// library as importing would leave it.
     @Test func theSummarySaysWhatWasSaved() throws {

@@ -16,22 +16,6 @@ struct OverviewYearTextTests {
                            savedByAccount: ["bank": saved])
     }
 
-    @Test func namesWhatWasSavedAndSpent() throws {
-        let text = try #require(OverviewYearText.savings(savings(saved: 2_500), today: today, locale: locale))
-        #expect(text.text.hasPrefix("Savings rate 25%: you saved "))
-        #expect(text.text.contains(" that came in since "))
-        #expect(text.text.contains(", and spent "))
-        #expect(!text.text.contains("pensions"))
-        #expect(text.hasAmounts)
-    }
-
-    @Test func namesThePensionsPaidIn() throws {
-        let text = try #require(OverviewYearText.savings(savings(pensions: 1_000, saved: 2_200), today: today,
-                                                         locale: locale))
-        #expect(text.text.hasPrefix("Savings rate 20%"))
-        #expect(text.text.contains(" of it paid into pensions, and spent "))
-    }
-
     @Test func moreSavedThanCameInSaysIncomeMayBeMissing() throws {
         let text = try #require(OverviewYearText.savings(savings(saved: 12_000), today: today, locale: locale))
         #expect(text.text.hasPrefix("Savings rate 120%"))

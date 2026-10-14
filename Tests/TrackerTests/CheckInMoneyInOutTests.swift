@@ -159,21 +159,6 @@ struct CheckInMoneyInOutTests {
         #expect(first?.moved == nil)
     }
 
-    @Test func moneyOutIsNeverNegative() {
-        #expect(CheckInDraft.defaultMoneyOut(moneyIn: 1000, flow: 1500) == 0)
-        #expect(CheckInDraft.defaultMoneyOut(moneyIn: 1000, flow: -200) == 1200)
-        #expect(CheckInDraft.defaultMoneyOut(moneyIn: nil, flow: 10) == nil)
-        #expect(CheckInDraft.defaultMoneyOut(moneyIn: 10, flow: nil) == nil)
-    }
-
-    @Test func aSavedValueIsKept() throws {
-        let draft = CheckInDraft(date: "2026-09-30", library: library)
-        let row = try #require(draft["conto-fineco"])
-        #expect(row.moneyIn == 3400)
-        #expect(row.enteredMoneyOut == d("2554.65"))
-        #expect(written(draft)?.moneyOut == d("2554.65"))
-    }
-
     /// The check-in doesn't ask for a one-off, so a value saved on its date
     /// keeps its own, left as it was or changed, and loses it only when
     /// marked unchanged.

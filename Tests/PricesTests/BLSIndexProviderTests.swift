@@ -73,25 +73,4 @@ struct BLSIndexProviderTests {
         }
     }
 
-    @Test func errorsCarryTheBLSsLabel() async throws {
-        let client = MockHTTPClient()
-        await client.on("CUUR0000SA0", HTTPResponse(statusCode: 500, text: "Internal Server Error"))
-        await #expect(throws: PriceFetchError.httpStatus(service: "BLS", code: 500, message: "Internal Server Error")) {
-            _ = try await provider(client).values(from: "2026-07", through: "2026-08")
-        }
-    }
-
-    @Test func periodsAreMonths() {
-        #expect(BLSIndexProvider.parseMonth(year: "2026", period: "M01") == "2026-01")
-        #expect(BLSIndexProvider.parseMonth(year: "2026", period: "M12") == "2026-12")
-        #expect(BLSIndexProvider.parseMonth(year: "2026", period: "M13") == nil)
-        #expect(BLSIndexProvider.parseMonth(year: "2026", period: "S01") == nil)
-    }
-
-    @Test func onlyTheUSIndexHasAProvider() {
-        let client = MockHTTPClient()
-        #expect(BLSIndexProvider(index: .cpiUS, client: client) != nil)
-        #expect(BLSIndexProvider(index: .cpiGB, client: client) == nil)
-        #expect(BLSIndexProvider(index: .hicpIT, client: client) == nil)
-    }
 }

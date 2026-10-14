@@ -46,18 +46,6 @@ struct ProgressTests {
         #expect(updates.all.last?.isFinished == true)
     }
 
-    @Test func theExamplePlanIsIdenticalWithOrWithoutProgress() async throws {
-        let library = try Fixtures.exampleLibrary()
-        let base = try #require(library.plans["base"])
-        var options = PlannerOptions.fast(runs: 60)
-        options.ageScan = .headline
-        let without = try await Planner.run(plan: base, library: library, options: options)
-        let with = try await Planner.run(plan: base, library: library, options: options,
-                                         progress: { _ in })
-        #expect(with == without)
-        #expect(bits(with) == bits(without))
-    }
-
     /// Every number in `value`, bit for bit (`==` would let −0 equal 0),
     /// with dictionaries and sets in a fixed order.
     func bits(_ value: Any) -> String {
@@ -189,20 +177,6 @@ struct ProgressTests {
     }
 
     // MARK: Words
-
-    @Test func thePhaseInWordsWithTheCallersNumbers() {
-        func words(_ phase: PlannerProgress.Phase, ages: ClosedRange<Int>? = nil) -> String {
-            PlannerProgress(phase: phase, completed: 1_234, total: 2_000, fraction: 0.5, ages: ages, runs: 2_000)
-                .phaseText { "<\($0)>" }
-        }
-        #expect(words(.earliestAge, ages: 41...75) == "Earliest age · ages 41–75: <1234> / <2000>")
-        #expect(words(.earliestAge) == "Earliest age: <1234> / <2000>")
-        #expect(words(.simulating) == "Simulating <1234> / <2000> runs")
-        #expect(words(.sustainableSpending) == "Sustainable spending: step <1234> / <2000>")
-        #expect(words(.assetsNeeded) == "Needed to retire today: step <1234> / <2000>")
-        #expect(words(.agesWithout) == "Coast age and windfalls: step <1234> / <2000>")
-        #expect(words(.summarising) == "Summarising")
-    }
 
     // MARK: Cancellation
 

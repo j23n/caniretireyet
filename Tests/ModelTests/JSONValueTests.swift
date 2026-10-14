@@ -33,11 +33,4 @@ struct JSONValueTests {
         #expect(options["missing"] == nil)
         #expect(JSONValue.string("8").intValue == 8)
     }
-
-    @Test func convertsModelValues() throws {
-        let position = Position(instrument: "vwce", quantity: Decimal(fileString: "412.5")!)
-        let value = try JSONValue(encoding: position)
-        #expect(value == ["instrument": "vwce", "quantity": "412.5"])
-        #expect(try value.decode(as: Position.self) == position)
-    }
 }

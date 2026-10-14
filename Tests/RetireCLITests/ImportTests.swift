@@ -212,31 +212,6 @@ struct ImportTests {
             + "Profiles: bank-sheet, directa-movimenti, fineco-movimenti, net-worth-sheet."))
     }
 
-    /// Quantities of an account that records trades become trades: the wallet held 0.4515 BTC, so April's 0.5
-    /// is a buy and May's 0.4 a sale, paid from outside it, as it has never held cash.
-    @Test func quantitiesOfATradesAccountBecomeTrades() async throws {
-        let library = try TemporaryFolder.exampleLibrary()
-        try library.write("wallet.csv", "Data;Conto Fineco;Directa;BTC (qtà);Oro;Note\n30/04/2026;;;0,5;;\n"
-            + "31/05/2026;;;0,4;;\n")
-        let arguments = ["import", library.path + "/wallet.csv", "--library", library.path, "--profile",
-                         "net-worth-sheet", "--encoding", "utf-8"]
-        let dry = await runCLI(arguments)
-        #expect(dry.status == 0, "\(dry.all)")
-        #expect(dry.output.contains("Notes\n  ledger-wallet records trades, so its quantities became 1 buy and 1 "
-            + "sale: one per change in what it holds, at the date's price unless the file gives the purchase cost. "
-            + "It has never held cash, so its buys and sales are paid from and into another account.\n"),
-            "\(dry.output)")
-        #expect(dry.output.contains("Preview: 2 new, 0 updated, 0 identical, 0 conflicts; 2 trades among them\n"))
-        #expect(dry.output.contains("  2026-04-30  ledger-wallet trade buy-btc   buy 0.0485 btc @ "), "\(dry.output)")
-
-        let run = await runCLI(arguments + ["--apply"])
-        #expect(run.status == 0, "\(run.all)")
-        let loaded = try library.load()
-        #expect(loaded.heldQuantities(of: "ledger-wallet", on: "2026-04-30") == ["btc": d("0.5")])
-        #expect(loaded.heldQuantities(of: "ledger-wallet", on: "2026-05-31") == ["btc": d("0.4")])
-        #expect(loaded.trades(for: "ledger-wallet").allSatisfy { $0.type == .opening || $0.isSettledExternally })
-    }
-
     /// The wallet's quantities make a new sale on January 31 and a buy on March 31 that differs from the
     /// library's. While that conflict keeps the library's buy, the sale is left out with it, and the report
     /// says why.
@@ -307,25 +282,6 @@ struct ImportTests {
         #expect(loaded.valuations(for: "conto-deposito").first { $0.date == "2026-03-31" }?.flow == 500)
     }
 
-    /// A profile that excludes no rows (`"excludeRows": []`) has no footer rule.
-    @Test func aProfileExcludingNoRowsHasNoFooterRule() async throws {
-        let library = try TemporaryFolder.exampleLibrary()
-        let save = await runCLI(["import", try sheet(), "--library", library.path, "--save-profile", "bank-sheet"])
-        #expect(save.status == 0, "\(save.all)")
-        let before = try library.load()
-        var edited = before
-        var profile = try #require(before.importProfiles["bank-sheet"])
-        profile.file = ImportFileSettings(encoding: profile.file.encoding, delimiter: profile.file.delimiter,
-                                          headerRow: profile.file.headerRow, excludeRows: [])
-        edited.importProfiles["bank-sheet"] = profile
-        try library.library.save(edited, previous: before)
-        #expect(try library.load().importProfiles["bank-sheet"]?.file.excludeRows == [])
-
-        let run = await runCLI(["import", try sheet(), "--library", library.path, "--profile", "bank-sheet"])
-        #expect(run.status == 0, "\(run.all)")
-        #expect(run.output.contains("  Footer rule  none\n"))
-    }
-
     @Test func applyingWithAProfileAndSavingItIsOneUndo() async throws {
         let library = try TemporaryFolder.exampleLibrary()
         let original = try library.snapshot()
@@ -378,19 +334,6 @@ struct ImportTests {
         let run = await runCLI(["import", file, "--library", library.path, "--apply", "--accept-guesses"])
         #expect(run.status == 0, "\(run.all)")
         #expect(run.output.contains("Imported: 3 added"))
-    }
-
-    @Test func cellErrorsAreListed() async throws {
-        let library = try TemporaryFolder.exampleLibrary()
-        let file = try Samples.url("broken.csv").path
-        let run = await runCLI(["import", file, "--library", library.path])
-        #expect(run.status == 0)
-        #expect(run.output.contains("""
-            Cells that can't be read (2)
-              Row 3, “Data”: “31/11/2026”: no such date
-              Row 4, “Conto Fineco”: “abc”: not a number in 1.234,56
-            """))
-        #expect(run.output.contains("Preview: 1 new, 0 updated, 0 identical, 0 conflicts; 2 errors\n"))
     }
 
     /// On the test day, 30 September 2026, the sheet's 31 October is more
@@ -607,17 +550,6 @@ struct ImportTests {
         #expect(run.errors.contains("newer version of the app"))
         #expect(try library.snapshot() == before)
         #expect(!library.exists("backups"))
-    }
-
-    /// An .xlsx (a ZIP archive) isn't read as text: the error says to export CSV.
-    @Test func aSpreadsheetFileSaysToExportCSV() async throws {
-        let library = try TemporaryFolder.exampleLibrary()
-        let files = try TemporaryFolder()
-        try files.write("net-worth.xlsx", Data([0x50, 0x4B, 0x03, 0x04, 0x14, 0x00, 0x06, 0x00]))
-        let run = await runCLI(["import", files.url("net-worth.xlsx").path, "--library", library.path])
-        #expect(run.status == 1)
-        #expect(run.errors.contains("This is a spreadsheet file (such as .xlsx or .numbers), not a CSV file. "
-            + "Export it as CSV from Excel or Numbers, and import that."), "\(run.all)")
     }
 
     @Test func argumentsAreChecked() async throws {

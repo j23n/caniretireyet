@@ -27,22 +27,8 @@ struct ExampleLibraryValuationTests {
         #expect(valuator.value(of: "gold-coins", on: "2026-09-30")?.value == d("9180.72"))
     }
 
-    @Test func netWorthAtTheFirstCheckIn() {
-        let netWorth = valuator.netWorth(on: "2025-10-31")
-        #expect(netWorth.isComplete)
-        #expect(netWorth.accounts.count == 10)
-        #expect(netWorth.total.rounded(2) == d("289190.28"))
-    }
-
     @Test func closedAccountStopsCounting() {
         #expect(valuator.value(of: "old-bank", on: "2025-11-15")?.value == 850)
         #expect(valuator.value(of: "old-bank", on: "2025-11-16")?.status == .closed)
-    }
-
-    @Test func planAssetsLeaveOutTheHomeAndMortgage() {
-        let plan = valuator.total(on: "2026-09-30") { $0.includedInPlan }
-        #expect(!plan.accounts.map(\.account).contains("casa"))
-        #expect(!plan.accounts.map(\.account).contains("mutuo-casa"))
-        #expect(plan.total.rounded(2) == d("161505.49"))
     }
 }

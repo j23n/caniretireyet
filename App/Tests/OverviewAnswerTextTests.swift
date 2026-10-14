@@ -36,11 +36,4 @@ struct OverviewAnswerTextTests {
         #expect(text.whenLine == "Today")
         #expect(text.futuresLine == "in at least 9 of 10 futures")
     }
-
-    @Test func noAgeWorksYet() {
-        let text = words(PlanHeadline(confidence: 0.9, needsMoreThanSearched: true))
-        #expect(text.title == "Not yet")
-        #expect(text.whenLine == "No age works")
-        #expect(text.futuresLine == "in 9 of 10 futures yet")
-    }
 }

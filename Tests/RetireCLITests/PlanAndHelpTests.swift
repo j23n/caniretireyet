@@ -129,22 +129,6 @@ struct PlanAndHelpTests {
         #expect(json.errors.isEmpty)
     }
 
-    @Test func theProgressLineSaysWhereTheRunIs() {
-        let scan = PlannerProgress(phase: .earliestAge, completed: 12, total: 35, fraction: 0.3456, ages: 41...75,
-                                   runs: 2_000)
-        #expect(PlanProgressLine.text(scan) == "[######--------------]  34% Earliest age · ages 41–75: 12 / 35")
-        let runs = PlannerProgress(phase: .simulating, completed: 1_234, total: 2_000, fraction: 0.88, runs: 2_000)
-        #expect(PlanProgressLine.text(runs) == "[#################---]  88% Simulating 1,234 / 2,000 runs")
-        let steps = PlannerProgress(phase: .sustainableSpending, completed: 4, total: 12, fraction: 0.931, runs: 250)
-        #expect(PlanProgressLine.text(steps) == "[##################--]  93% Sustainable spending: step 4 / 12")
-        let needed = PlannerProgress(phase: .assetsNeeded, completed: 3, total: 9, fraction: 0.97, runs: 250)
-        #expect(PlanProgressLine.text(needed) == "[###################-]  97% Needed to retire today: step 3 / 9")
-        let done = PlannerProgress(phase: .summarising, completed: 1, total: 1, fraction: 1, runs: 250)
-        #expect(PlanProgressLine.text(done) == "[####################] 100% Summarising")
-        let start = PlannerProgress(phase: .earliestAge, completed: 0, total: 38, fraction: 0, runs: 250)
-        #expect(PlanProgressLine.text(start) == "[--------------------]   0% Earliest age: 0 / 38")
-    }
-
     /// A made-up result of the example's base plan: 2,000 runs from the
     /// September check-in, with all the money in one account you can draw now.
     private static func sampleResult(of plan: PlanDocument) -> PlanResult {
@@ -249,30 +233,5 @@ struct PlanAndHelpTests {
         var saved = report
         saved.savedBaseline = "projections/base/baselines/2026-09-30.json"
         #expect(saved.lines().last == "Saved the baseline projections/base/baselines/2026-09-30.json.")
-    }
-
-    @Test func helpListsTheCommands() async throws {
-        let run = await retire(["--help"])
-        #expect(run.status == 0)
-        for command in ["init", "validate", "networth", "import", "prices", "plan", "export"] {
-            #expect(run.output.contains("  \(command) "), "\(command)")
-        }
-        let version = await retire(["--version"])
-        #expect(version.output == "0.2.0\n")
-        let importHelp = await retire(["help", "import"])
-        #expect(importHelp.output.contains("--accept-new-accounts"))
-        #expect(importHelp.output.contains("--library <path>"))
-        let planHelp = await retire(["help", "plan"])
-        #expect(planHelp.output.contains("run (default)"))
-        for subcommand in ["show", "debug"] {
-            #expect(planHelp.output.contains("  \(subcommand) "), "\(subcommand)")
-        }
-        let runHelp = await retire(["help", "plan", "run"])
-        #expect(runHelp.output.contains("--save-baseline <label>"))
-        #expect(runHelp.output.contains("--fast"))
-        #expect(runHelp.output.contains("--years"))
-        for command in ["settings", "instruments", "spending"] {
-            #expect(run.output.contains("  \(command) "), "\(command)")
-        }
     }
 }

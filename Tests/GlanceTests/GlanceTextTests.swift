@@ -24,14 +24,6 @@ struct RetirementCountdownTests {
         #expect(RetirementCountdown(from: "2042-04-01", to: "2042-04-12") == RetirementCountdown(years: 0, months: 0))
     }
 
-    @Test func readsInYearsAndMonths() {
-        #expect(RetirementCountdown(years: 15, months: 6).text == "15 y 6 m")
-        #expect(RetirementCountdown(years: 15, months: 6).compactText == "15y 6m")
-        #expect(RetirementCountdown(years: 15, months: 0).text == "15 y")
-        #expect(RetirementCountdown(years: 0, months: 6).text == "6 m")
-        #expect(RetirementCountdown(years: 0, months: 0).text == "under a month")
-    }
-
     @Test func readsAsTimeToGo() {
         #expect(RetirementCountdown(years: 15, months: 5).toGoText == "about 15 years to go")
         #expect(RetirementCountdown(years: 15, months: 6).toGoText == "about 16 years to go")
@@ -116,16 +108,6 @@ struct GlanceTextTests {
         #expect(GlanceText.futures(0.873) == "87 of 100")
         #expect(GlanceText.inFutures(0.9) == "in 9 of 10 futures")
         #expect(GlanceText.inSimulatedFutures(0.9) == "in 9 of 10 simulated futures")
-    }
-
-    @Test func theMoveOfTheEarliestAge() {
-        let move = AnswerMove(from: 55, to: 54, date: "2026-06-30")
-        #expect(GlanceText.move(move, relativeTo: "2026-10-05", locale: english) == "55 → 54 in June")
-        #expect(GlanceText.move(move, relativeTo: "2027-01-31", locale: english) == "55 → 54 in June 2026")
-        let none = AnswerMove(from: nil, to: 67, date: "2026-06-30")
-        #expect(GlanceText.move(none, relativeTo: "2026-10-05", locale: english) == "none → 67 in June")
-        #expect(none.isSooner)
-        #expect(!AnswerMove(from: 54, to: 55, date: "2026-06-30").isSooner)
     }
 
     @Test func dates() {

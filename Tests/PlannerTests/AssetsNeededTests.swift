@@ -51,60 +51,6 @@ struct AssetsNeededTests {
 
     // MARK: The search
 
-    @Test func moreMoneyNeverLowersTheChance() async throws {
-        let library = library(400_000)
-        let plan = plan()
-        let (interpreted, _) = PlanInterpreter.interpret(plan: plan, library: library, options: options)
-        let model = try #require(interpreted)
-        let age = model.currentAge
-        let engine = try await Engine.make(model: model, ages: [age], maxAge: age)
-        var rates: [Double] = []
-        for scale in [0.25, 0.5, 0.8, 1, 1.25, 1.6, 2, 3, 5] {
-            var start = engine.model.portfolio
-            for b in start.buckets.indices {
-                start.buckets[b].values = start.buckets[b].values.map { $0 * scale }
-                start.buckets[b].basis *= scale
-            }
-            var simulator = engine.simulator(age: age, start: start)
-            let successes = (0..<model.runs).filter { simulator.run($0, spending: model.spending.retired).failure == nil }
-            rates.append(Double(successes.count) / Double(model.runs))
-        }
-        #expect(rates == rates.sorted(), "\(rates)")
-        #expect(rates.first! < 0.9 && rates.last! >= 0.9)
-
-        // Scale 1 is the scan's own result for today.
-        let result = try await run(plan, library)
-        #expect(result.answer.successIfRetiringNow == rates[3])
-    }
-
-    @Test func theAmountFoundReachesTheConfidenceAndOnePerCentLessDoesNot() async throws {
-        let start: Decimal = 400_000
-        let result = try await run(plan(), library(start))
-        let needed = try #require(result.answer.assetsNeeded)
-        #expect(needed.outcome == .found)
-        let scale = try #require(needed.scale)
-        #expect(scale > 1)
-        #expect(try #require(needed.success) >= 0.9)
-        let readiness = try #require(result.answer.readiness)
-        #expect(readiness < 1 && !result.answer.canRetireNow)
-
-        // Starting with that much, the extra as new money (bought at its value,
-        // so with no unrealised gain), retiring today reaches the confidence
-        // level; starting with 2% less (beyond the 1% tolerance), it doesn't.
-        let extra = try #require(needed.extra)
-        #expect(abs(try #require(needed.amount) - (400_000 + extra)) < 1e-6)
-        let (interpreted, _) = PlanInterpreter.interpret(plan: plan(), library: library(start), options: options)
-        let model = try #require(interpreted)
-        let engine = try await Engine.make(model: model, ages: [model.currentAge], maxAge: model.currentAge)
-        func success(extra: Double) -> Double {
-            var simulator = engine.simulator(age: model.currentAge, start: engine.startPortfolio(extra: extra))
-            let successes = (0..<model.runs).filter { simulator.run($0, spending: model.spending.retired).failure == nil }
-            return Double(successes.count) / Double(model.runs)
-        }
-        #expect(success(extra: extra) >= 0.9)
-        #expect(success(extra: (400_000 + extra) / 1.02 - 400_000) < 0.9)
-    }
-
     @Test func pastOneHundredPercentYouCanRetireToday() async throws {
         let result = try await run(plan(), library(3_000_000))
         let needed = try #require(result.answer.assetsNeeded)

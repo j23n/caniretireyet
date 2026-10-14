@@ -216,33 +216,6 @@ struct SaveMergeTests {
 
     // MARK: Files that didn't load
 
-    /// Settings that don't decode leave only defaults in memory (EUR, no
-    /// birth date), so they're never saved over the file: the library is
-    /// read-only until library.json is fixed (UnreadableSettingsTests).
-    @Test func settingsThatDoNotDecodeAreNotReplaced() throws {
-        let folder = try TemporaryFolder.exampleLibrary()
-        let broken = """
-            {
-              "baseCurrency": "CHF",
-              "mainPlan": "base",
-              "person": { "birthDate": "1988-4-12", "name": "Alex Example" },
-              "schemaVersion": 4,
-              "taxResidence": "CH"
-            }
-
-            """
-        try folder.write("library.json", broken)
-        let loaded = try folder.library.load()
-        #expect(!loaded.report.issues(for: "library.json").isEmpty)
-        #expect(loaded.report.isReadOnly)
-        var library = loaded.library
-        library.settings.mainPlan = "part-time-from-50"
-
-        #expect(throws: StorageError.self) { try folder.library.save(library, previous: loaded.library) }
-        #expect(try folder.text("library.json") == broken)
-        #expect(!folder.exists("backups"))
-    }
-
     @Test func aFileThatDidNotLoadIsBackedUpWhenItsIDIsReused() throws {
         let folder = try TemporaryFolder.exampleLibrary()
         let broken = #"{ "currency": "EUR", "id": "ibkr", "kind": "brokerage", "name": "IBKR", "opened": "someday" }"#

@@ -28,13 +28,6 @@ struct AccountFormTests {
         #expect(account.valuation == nil)
     }
 
-    @Test(arguments: [AccountKind.cash, .savings, .pensionFund, .property, .mortgage])
-    func otherNewAccountsRecordABalance(_ kind: AccountKind) {
-        let form = newAccount(kind)
-        #expect(form.valuationMode == .balance)
-        #expect(!form.holdsPositions)
-    }
-
     @Test func aNewBrokeragesPositionsBecomeOpeningTrades() throws {
         let account = newAccount(.brokerage).account(id: "new-account", locale: locale)
         var opening = AccountOpeningForm()

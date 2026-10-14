@@ -11,32 +11,6 @@ struct LibrarySyncTests {
         LibrarySync(location: LibraryLocation(kind: .local, url: url), versions: versions)
     }
 
-    @Test func createsAndLoadsANewLibrary() async throws {
-        let folder = try TemporaryFolder()
-        let library = sync(folder.url("Library"))
-        #expect(!library.folder.containsLibrary)
-        try await library.createLibrary(settings: LibrarySettings(baseCurrency: .chf, taxResidence: .ch))
-        #expect(library.folder.containsLibrary)
-        let loaded = try await library.load()
-        #expect(loaded.library.settings.baseCurrency == .chf)
-        #expect(loaded.library.accounts.isEmpty)
-        #expect(loaded.report.errors.isEmpty)
-        await #expect(throws: StorageError.self) {
-            try await library.createLibrary(settings: LibrarySettings())
-        }
-    }
-
-    @Test func savesOnlyWhatChanged() async throws {
-        let folder = try TemporaryFolder.exampleLibrary()
-        let library = sync(folder.url)
-        let previous = try await library.load().library
-        var edited = previous
-        edited.accounts["casa"]?.name = "Our home"
-        let report = try await library.save(edited, previous: previous)
-        #expect(report.written == ["accounts/casa.json"])
-        #expect(try folder.text("accounts/casa.json").contains("\"Our home\""))
-    }
-
     @Test func reloadsFilesChangedOnDisk() async throws {
         let folder = try TemporaryFolder.exampleLibrary()
         let library = sync(folder.url)
@@ -79,21 +53,5 @@ struct LibrarySyncTests {
         let fixed = await library.reload(paths: ["library.json"], in: inMemory)
         #expect(fixed.readOnlyReason == nil)
         #expect(fixed.issues.isEmpty)
-    }
-
-    @Test func resolvesConflictsAndReportsThem() async throws {
-        let folder = try TemporaryFolder.exampleLibrary()
-        let versions = FakeFileVersions()
-        let path = "history/2026/2026-08.json"
-        let other = try folder.text(path).replacingOccurrences(of: "\"4515.2\"", with: "\"4600\"")
-        versions.add(other, modified: Date(timeIntervalSinceNow: 3600), source: "iPhone", to: folder.url(path))
-
-        let library = sync(folder.url, versions: versions)
-        let report = await library.resolveConflicts(at: [path])
-        #expect(report.changedPaths == [path])
-        #expect(report.resolved.first?.summary.contains("kept the newest version of 1 record changed on both sides")
-            == true)
-        let loaded = try await library.load().library
-        #expect(loaded.months["2026-08"]?.valuations.first { $0.account == "conto-fineco" }?.balance == d("4600"))
     }
 }

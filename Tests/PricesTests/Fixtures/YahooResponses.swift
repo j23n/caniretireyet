@@ -8,18 +8,6 @@
 // which the CLI's tests use too, are TestSupport's `PriceResponses`.
 
 enum YahooResponses {
-    /// VWCE.DE around Christmas 2026: XETRA closed on 24 and 25 December
-    /// (a null bar on the 24th), bars at 09:00 CET (08:00 UTC).
-    static let vwceChristmas = """
-    {"chart":{"result":[{"meta":{"currency":"EUR","symbol":"VWCE.DE","exchangeName":"GER",\
-    "gmtoffset":3600,"timezone":"CET","exchangeTimezoneName":"Europe/Berlin","priceHint":2},\
-    "timestamp":[1797235200,1797321600,1797408000,1797494400,1797580800,1797840000,1797926400,1798012800,\
-    1798099200,1798444800,1798531200,1798617600],\
-    "indicators":{"quote":[{"close":[141.1199951171875,141.5,141.36000061035156,142.02000427246094,\
-    141.8800048828125,142.3000030517578,142.66000366210938,142.9199981689453,null,143.10000610351562,\
-    143.4199981689453,143.0399932861328]}]}}],"error":null}}
-    """
-
     /// VWRL.L on the London Stock Exchange, quoted in pence (`GBp`).
     static let vwrlPence = """
     {"chart":{"result":[{"meta":{"currency":"GBp","symbol":"VWRL.L","exchangeName":"LSE","gmtoffset":3600,\
@@ -43,18 +31,9 @@ enum YahooResponses {
     {"chart":{"result":null,"error":{"code":"Not Found","description":"No data found, symbol may be delisted"}}}
     """
 
-    /// A result without `indicators`: the kind of change that should fail clearly.
-    static let withoutIndicators = """
-    {"chart":{"result":[{"meta":{"currency":"EUR","symbol":"VWCE.DE","priceHint":2},\
-    "timestamp":[1790751600]}],"error":null}}
-    """
-
     /// A result without any bars in the range.
     static let noBars = """
     {"chart":{"result":[{"meta":{"currency":"EUR","symbol":"VWCE.DE","priceHint":2},\
     "indicators":{"quote":[{}]}}],"error":null}}
     """
-
-    /// 429 as plain text, as Yahoo sends it.
-    static let tooManyRequests = "Too Many Requests\r\n"
 }

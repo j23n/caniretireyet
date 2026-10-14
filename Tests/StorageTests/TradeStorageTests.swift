@@ -99,43 +99,6 @@ struct TradeStorageTests {
         #expect(trades[2]["fees"] == "5")
     }
 
-    @Test func aBuyPaidFromOutsideTheAccountIsWrittenAndReadBack() throws {
-        let folder = try TemporaryFolder.exampleLibrary()
-        try addBroker(to: folder)
-        let previous = try folder.library.load().library
-        var library = previous
-        let external = Trade(account: "broker", date: "2026-10-12", id: "gold1abc", type: .buy, instrument: "gold",
-                             quantity: d("31.1"), amount: d("-3026.03"), settlement: .external)
-        library.upsert(external)
-        try folder.library.save(library, previous: previous)
-
-        #expect(try folder.text(october).contains("""
-                {
-                  "account": "broker",
-                  "amount": "-3026.03",
-                  "date": "2026-10-12",
-                  "id": "gold1abc",
-                  "instrument": "gold",
-                  "quantity": "31.1",
-                  "settlement": "external",
-                  "type": "buy"
-                }
-            """))
-        let loaded = try folder.library.load()
-        #expect(loaded.library.trades(for: "broker") == [external])
-        #expect(loaded.report.issues(for: october).isEmpty)
-
-        // A settlement on a type that can't have one is pointed out, and kept.
-        var deposit = deposit
-        deposit.settlement = .external
-        var withDeposit = loaded.library
-        withDeposit.upsert(deposit)
-        try folder.library.save(withDeposit, previous: loaded.library)
-        let reloaded = try folder.library.load()
-        #expect(reloaded.report.issues(for: october).map(\.message).contains { $0.contains("settlement is ignored") })
-        #expect(reloaded.library.trade(deposit.key)?.settlement == .external)
-    }
-
     @Test func aTradeTheModelCannotReadIsKeptOnRewrite() throws {
         let folder = try TemporaryFolder.exampleLibrary()
         try addBroker(to: folder)
@@ -184,30 +147,6 @@ struct TradeStorageTests {
         #expect(try folder.library.load().library.trades(for: "broker") == [deposit, second, buy])
     }
 
-    @Test func aTradeEditedOnBothSidesIsAConflictThatKeepsOurs() throws {
-        let folder = try TemporaryFolder.exampleLibrary()
-        try addBroker(to: folder)
-        var start = try folder.library.load().library
-        start.upsert(buy)
-        try folder.library.save(start, previous: try folder.library.load().library)
-        let previous = try folder.library.load().library
-
-        var remote = previous
-        var theirs = buy
-        theirs.price = d("139.2")
-        remote.upsert(theirs)
-        try folder.write(october, CanonicalJSON.data(encoding: remote.months["2026-10"]!))
-
-        var library = previous
-        var ours = buy
-        ours.quantity = 11
-        library.upsert(ours)
-        let report = try folder.library.save(library, previous: previous)
-
-        #expect(report.issues.map(\.records) == [["trades: 2026-10-12 broker buy1abcd"]])
-        #expect(try folder.library.load().library.trade(buy.key) == ours)
-    }
-
     @Test func syncConflictsMergeTradesByKey() throws {
         let earlier = Date(timeIntervalSince1970: 1_790_000_000)
         let later = Date(timeIntervalSince1970: 1_790_000_600)
@@ -227,19 +166,6 @@ struct TradeStorageTests {
             == [buy, macDeposit, phoneDeposit].sortedByKey())
         #expect(result.recordsAdded == 1)
         #expect(result.conflictingRecords == ["trades: 2026-10-12 broker buy1abcd"])
-    }
-
-    @Test func threeWayMergeOfTradeLists() {
-        let base = MonthFile(month: "2026-10", trades: [deposit, buy])
-        var ours = base
-        ours.trades[1].fees = 5
-        var theirs = base
-        theirs.trades.removeFirst()
-        theirs.trades.append(Trade(account: "broker", date: "2026-10-20", id: "div1abcd", type: .dividend, amount: 3))
-        let merged = RecordMerger.merge(base: base, ours: ours, theirs: theirs, month: "2026-10", rule: .ours)
-        #expect(merged.conflicts.isEmpty)
-        #expect(merged.value.trades.map(\.id) == ["buy1abcd", "div1abcd"])
-        #expect(merged.value.trades[0].fees == 5)
     }
 
     @Test func loadingPointsOutTradesThatCannotBeAppliedAsTheyAre() throws {

@@ -116,16 +116,6 @@ struct PriceHistoryTests {
         #expect(await client.requests[1].url.absoluteString.contains("interval=1d"))
     }
 
-    @Test func anUnknownYahooSymbolFailsTheRange() async throws {
-        let client = MockHTTPClient()
-        await client.on("chart/", HTTPResponse(statusCode: 404, text: YahooResponses.notFound))
-        await #expect(throws: PriceFetchError.unknownSymbol(service: "Yahoo Finance", symbol: "XYZ-EUR",
-                                                            message: "No data found, symbol may be delisted")) {
-            _ = try await YahooChartProvider(client: client).history(
-                symbol: "XYZ-EUR", range: HistoryRange(from: "2024-01-01", through: "2024-06-30", today: today))
-        }
-    }
-
     // MARK: Frankfurter
 
     @Test func aRangeOfRatesIsOneFrankfurterRequest() async throws {

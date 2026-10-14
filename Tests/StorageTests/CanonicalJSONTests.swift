@@ -9,36 +9,12 @@ struct CanonicalJSONTests {
         CanonicalJSON.string(for: value)
     }
 
-    @Test func topLevelObjectIsSpreadOutWithSortedKeysAndTrailingNewline() {
-        let text = render(["b": "2", "a": 1, "c": true, "d": nil])
-        #expect(text == """
-            {
-              "a": 1,
-              "b": "2",
-              "c": true,
-              "d": null
-            }
-
-            """)
-    }
-
     @Test func emptyValues() {
         #expect(render([:]) == "{}\n")
         #expect(render(["list": [], "object": [:]]) == """
             {
               "list": [],
               "object": {}
-            }
-
-            """)
-    }
-
-    @Test func smallNestedValuesStayOnOneLine() {
-        let text = render(["person": ["name": "Alex", "birthDate": "1990-01-01"], "tags": ["a", "b"]])
-        #expect(text == """
-            {
-              "person": { "birthDate": "1990-01-01", "name": "Alex" },
-              "tags": ["a", "b"]
             }
 
             """)

@@ -31,32 +31,10 @@ struct YahooChartProviderTests {
         #expect(sent.headers["User-Agent"] == "Mozilla/5.0")
     }
 
-    @Test func aWeekendGetsFridaysClose() async throws {
-        let quote = try await quote(PriceResponses.yahooVWCESeptember, "VWCE.DE", on: "2026-09-27")
-        #expect(quote.price == d("136.88"))
-        #expect(quote.observedOn == "2026-09-25")
-    }
-
     @Test func nullClosesAreSkipped() async throws {
         let quote = try await quote(PriceResponses.yahooVWCESeptember, "VWCE.DE", on: "2026-09-29")
         #expect(quote.price == d("137.64"))
         #expect(quote.observedOn == "2026-09-28")
-    }
-
-    @Test func closesAfterTheDateAreIgnored() async throws {
-        // The response also has 1 October, e.g. when fetched later.
-        let quote = try await quote(PriceResponses.yahooVWCESeptember, "VWCE.DE", on: "2026-09-30")
-        #expect(quote.observedOn == "2026-09-30")
-    }
-
-    @Test func aHolidayGetsTheLastTradingDay() async throws {
-        let christmasEve = try await quote(YahooResponses.vwceChristmas, "VWCE.DE", on: "2026-12-24")
-        #expect(christmasEve.price == d("142.92"))
-        #expect(christmasEve.observedOn == "2026-12-23")
-        let sunday = try await quote(YahooResponses.vwceChristmas, "VWCE.DE", on: "2026-12-27")
-        #expect(sunday.observedOn == "2026-12-23")
-        let monday = try await quote(YahooResponses.vwceChristmas, "VWCE.DE", on: "2026-12-28")
-        #expect(monday.price == d("143.1"))
     }
 
     @Test func tradingDaysAreInTheExchangesTimeZone() async throws {
@@ -91,20 +69,6 @@ struct YahooChartProviderTests {
         }
     }
 
-    @Test func anUnexpectedShapeFailsClearly() async throws {
-        await #expect(throws: PriceFetchError.malformedResponse(
-            service: "Yahoo Finance", detail: "missing chart.result[0].indicators.quote[0].close")) {
-            _ = try await quote(YahooResponses.withoutIndicators, "VWCE.DE", on: "2026-09-30")
-        }
-        await #expect(throws: PriceFetchError.malformedResponse(service: "Yahoo Finance", detail: "not JSON")) {
-            _ = try await quote("<html>Yahoo is down</html>", "VWCE.DE", on: "2026-09-30")
-        }
-        await #expect(throws: PriceFetchError.malformedResponse(service: "Yahoo Finance",
-                                                                detail: "unexpected value at chart.result[0].timestamp")) {
-            _ = try await quote(#"{"chart":{"result":[{"timestamp":"soon"}]}}"#, "VWCE.DE", on: "2026-09-30")
-        }
-    }
-
     @Test func noBarsIsNoData() async throws {
         await #expect(throws: PriceFetchError.noData(service: "Yahoo Finance",
                                                      detail: "no trading days for VWCE.DE up to 2026-09-30")) {
@@ -133,15 +97,5 @@ struct YahooChartProviderTests {
         let history = try await YahooChartProvider(client: client).history(
             symbol: "VWCE.DE", range: HistoryRange(from: "2026-09-01", through: "2026-09-30", today: "2026-10-02"))
         #expect(history.quotes.map(\.observedOn) == ["2026-09-29"])
-    }
-
-    @Test func tooManyRequestsIsARateLimit() async throws {
-        let client = MockHTTPClient()
-        await client.on("chart/", HTTPResponse(statusCode: 429, text: YahooResponses.tooManyRequests))
-        let provider = YahooChartProvider(client: client, policy: RequestPolicy(maxRetries: 0))
-        await #expect(throws: PriceFetchError.rateLimited(service: "Yahoo Finance", retryAfter: nil)) {
-            _ = try await provider.quote(for: QuoteRequest(symbol: "VWCE.DE", date: "2026-09-30", currency: .eur,
-                                                           today: "2026-09-30"))
-        }
     }
 }

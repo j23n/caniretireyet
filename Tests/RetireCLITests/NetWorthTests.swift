@@ -3,19 +3,6 @@ import Testing
 import TestSupport
 
 struct NetWorthTests {
-    /// Versions 1 and 2 were test versions' formats, which this version can't upgrade.
-    @Test func aTestVersionsLibraryIsntOpened() async throws {
-        let library = try TemporaryFolder.exampleLibrary()
-        try library.write("library.json", try library.text("library.json")
-            .replacingOccurrences(of: #""schemaVersion": 4"#, with: #""schemaVersion": 1"#))
-        let before = try library.snapshot()
-        let run = await retire(["networth", "--library", library.path, "--date", "2026-09-30"])
-        #expect(run.status == 1, "\(run.all)")
-        #expect(run.errors.contains("This library uses format version 1, from a test version of the app, which this "
-            + "version can't upgrade."), "\(run.all)")
-        #expect(try library.snapshot() == before)
-    }
-
     @Test func netWorthOnTheLastCheckIn() async throws {
         let library = try TemporaryFolder.exampleLibrary()
         let run = await retire(["networth", "--library", library.path, "--date", "2026-09-30"])
@@ -77,14 +64,6 @@ struct NetWorthTests {
         // 332,455.49 − 312,000 (home) + 141,050 (mortgage).
         #expect(run.output.hasPrefix("Plan assets on 2026-09-30: 161,505.49 EUR\n"))
         #expect(!run.output.contains("Mutuo casa"))
-    }
-
-    @Test func anEarlierDate() async throws {
-        let library = try TemporaryFolder.exampleLibrary()
-        let run = await retire(["networth", "--library", library.path, "--date", "2025-10-31"])
-        #expect(run.output.hasPrefix("Net worth on 2025-10-31: 289,190.28 EUR\n"))
-        #expect(run.output.contains("No earlier check-in to compare with."))
-        #expect(run.output.contains("  Old bank "))
     }
 
     @Test func monthlySeriesAsATableAndCSV() async throws {

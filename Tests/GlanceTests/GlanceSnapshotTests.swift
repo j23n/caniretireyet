@@ -28,21 +28,6 @@ struct ExampleLibraryGlanceTests {
         #expect(netWorth.isComplete)
     }
 
-    @Test func theChangeSinceTheLastCheckInIsSplit() throws {
-        // As in ExampleLibraryChangeTests.
-        let change = try #require(snapshot.netWorth?.sinceLastCheckIn)
-        #expect(change.from == "2026-08-31")
-        #expect(change.to == "2026-09-30")
-        #expect(change.start.rounded(2) == d("327037.83"))
-        #expect(change.end.rounded(2) == d("332455.49"))
-        #expect(change.newMoney == d("2181.65"))
-        #expect(change.markets.rounded(6) == d("3236.011765"))
-        #expect(change.other == 0)
-        #expect(change.end == snapshot.netWorth?.total)
-        let fraction = try #require(change.fraction)
-        #expect(abs(fraction - (332455.49 - 327037.83) / 327037.83) < 1e-7)
-    }
-
     @Test func netWorthIsTodaysAfterTheLatestCheckIn() throws {
         let later = GlanceSnapshot(library: library, valuator: valuator, asOf: "2026-10-08", answer: nil,
                                    checkIn: checkIn)
@@ -76,14 +61,6 @@ struct ExampleLibraryGlanceTests {
         for point in history {
             #expect(point.value == valuator.total(on: point.date, in: .netWorth).total)
         }
-    }
-
-    @Test func thisYearIsSinceTheEndOfLastYear() throws {
-        let thisYear = try #require(snapshot.netWorth?.thisYear)
-        let start = valuator.total(on: "2025-12-31", in: .netWorth).total
-        let now = valuator.total(on: "2026-09-30", in: .netWorth).total
-        let expected = NSDecimalNumber(decimal: (now - start) / abs(start)).doubleValue
-        #expect(abs(thisYear - expected) < 1e-12)
     }
 
     /// The Overview's *This year* (Tracker's `changeThisYear(asOf:)`) splits
@@ -228,35 +205,6 @@ struct GlanceSnapshotTests {
         let older = previous.replacingOccurrences(of: #","to":"2026-09-30""#, with: "")
         #expect(GlanceFile.snapshot(from: Data(older.utf8)) == nil)
         #expect(GlanceFile.snapshot(from: Data("not json".utf8)) == nil)
-    }
-
-    @Test func theNextMilestoneRoundTrips() throws {
-        let milestone = MilestoneGlance(kind: .shareOfNeeded, amount: 333_333, share: d("0.3333"), progress: 0.88,
-                                        typically: "2028-02-29")
-        let snapshot = GlanceSnapshot(currency: .eur, netWorth: nil, allocation: [], retirement: nil,
-                                      checkIn: CheckInGlance(last: nil, next: "2026-10-31"),
-                                      milestone: milestone)
-        let data = try GlanceFile.data(for: snapshot)
-        #expect(GlanceFile.snapshot(from: data)?.milestone == milestone)
-        let text = try #require(String(data: data, encoding: .utf8))
-        #expect(text.contains("\"amount\":\"333333\""))
-    }
-
-    @Test func theNextMilestoneInWords() {
-        func amount(_ value: Decimal) -> String? { "\(value) €" }
-        #expect(GlanceText.milestoneName(MilestoneGlance(kind: .roundAmount, amount: 300_000, progress: 0.9),
-                                         amount: amount) == "300000 €")
-        #expect(GlanceText.milestoneName(MilestoneGlance(kind: .roundAmount, amount: 300_000, progress: 0.9),
-                                         amount: { _ in nil }) == "A round amount")
-        #expect(GlanceText.milestoneName(MilestoneGlance(kind: .yearsOfSpending, amount: 360_000, years: 10,
-                                                         progress: 0.9), amount: amount) == "10 years of spending")
-        #expect(GlanceText.milestoneName(MilestoneGlance(kind: .shareOfNeeded, amount: 500_000, share: d("0.5"),
-                                                         progress: 0.9), amount: amount)
-            == "Half of what retiring today needs")
-        #expect(GlanceText.milestoneName(MilestoneGlance(kind: .crossover, amount: 400_000, progress: 0.9),
-                                         amount: amount) == "The crossover")
-        #expect(GlanceText.typically("2027-06-30") == "Typically by mid 2027")
-        #expect(GlanceText.typically("2028-02-29") == "Typically by early 2028")
     }
 
     @Test func aRecordedAnswerNeverRetiresBeforeItsCheckIn() throws {

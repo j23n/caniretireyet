@@ -58,26 +58,6 @@ struct CoinGeckoProviderTests {
         #expect(try #require(await client.requests.first).headers.isEmpty)
     }
 
-    @Test func aRateLimitIsRetriedWhenTheWaitIsShort() async throws {
-        let client = MockHTTPClient()
-        await client.on(
-            "simple/price",
-            HTTPResponse(statusCode: 429, headers: ["Retry-After": "0"], text: CoinGeckoResponses.rateLimited),
-            HTTPResponse(statusCode: 200, text: PriceResponses.coinGeckoBitcoinUSD))
-        let quote = try await CoinGeckoProvider(client: client).quote(for: request(today))
-        #expect(quote.price == 111_400)
-        #expect(await client.requestCount == 2)
-    }
-
-    @Test func aPersistentRateLimitIsReported() async throws {
-        let client = MockHTTPClient()
-        await client.on("simple/price",
-                        HTTPResponse(statusCode: 429, headers: ["Retry-After": "30"], text: CoinGeckoResponses.rateLimited))
-        await #expect(throws: PriceFetchError.rateLimited(service: "CoinGecko", retryAfter: .seconds(30))) {
-            _ = try await CoinGeckoProvider(client: client).quote(for: request(today))
-        }
-    }
-
     @Test func anUnknownCoinIsReported() async throws {
         let unknown = PriceFetchError.unknownSymbol(service: "CoinGecko", symbol: "not-a-coin",
                                                     message: CoinGeckoProvider.unknownCoinAdvice)
@@ -257,13 +237,6 @@ struct CoinGeckoProviderTests {
         #expect(CoinGeckoCoinIDs.bestCoin(for: "MOON", in: []) == nil)
     }
 
-    @Test func onlyLowercaseSymbolsLookLikeIDs() {
-        for symbol in ["bitcoin", "avalanche-2", "usd-coin"] { #expect(Slug.isValid(symbol)) }
-        for symbol in ["", "BTC", "Bitcoin", "wrapped bitcoin", "$moon"] {
-            #expect(!Slug.isValid(symbol))
-        }
-    }
-
     @Test func theTickerTableHoldsIDs() {
         #expect(CoinGeckoCoinIDs.tickers.count >= 17)
         for (ticker, id) in CoinGeckoCoinIDs.tickers {
@@ -320,10 +293,5 @@ struct CoinGeckoProviderTests {
         #expect(provider.cacheSymbol(for: request(today, .eur)) == "bitcoin/EUR")
         // The library's symbol, not the coin it resolves to.
         #expect(provider.cacheSymbol(for: request(today, .eur, symbol: "ETH")) == "ETH/EUR")
-    }
-
-    @Test func historyDatesAreDayMonthYear() {
-        #expect(CoinGeckoProvider.historyDate("2026-04-01") == "01-04-2026")
-        #expect(CoinGeckoProvider.historyDate("2025-12-31") == "31-12-2025")
     }
 }

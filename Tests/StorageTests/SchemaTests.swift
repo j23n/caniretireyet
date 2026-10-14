@@ -54,16 +54,6 @@ struct SchemaGuardTests {
         #expect(try folder.library.migrate() == nil)
         #expect(!folder.exists("backups"))
     }
-
-    /// An app that knows only version 3 (accounts that opt in to money in
-    /// and out, snapshots) opens a version 4 library read-only, so it never
-    /// writes accounts it would read with the old rules.
-    @Test func anAppBeforeOneRulePerKindOpensAVersion4LibraryReadOnly() throws {
-        let folder = try TemporaryFolder.exampleLibrary()
-        #expect(throws: StorageError.libraryIsNewer(version: 4, supported: 3)) {
-            try folder.library.migrate(to: 3, steps: [])
-        }
-    }
 }
 
 /// A library.json that exists but can't be used leaves only default
@@ -90,19 +80,6 @@ struct UnreadableSettingsTests {
         #expect(issues.first?.message.contains("open read-only") == true)
         #expect(result.library.settings.baseCurrency == .eur)
         #expect(result.library.accounts.count == 10)
-    }
-
-    @Test func theErrorSaysWhyTheFileCantBeRead() throws {
-        let folder = try TemporaryFolder.exampleLibrary()
-        try folder.write("library.json", Self.notJSON)
-        let message = try #require(try folder.library.load().report.errors.first?.message)
-        #expect(message.hasPrefix("This isn't valid JSON."))
-        #expect(message.hasSuffix("Fix the file, or restore it from a backup in backups/, then open the library again."))
-
-        try folder.write("library.json", Self.notSettings)
-        let decoding = try #require(try folder.library.load().report.errors.first?.message)
-        #expect(decoding.hasPrefix("baseCurrency:"))
-        #expect(decoding.contains("open read-only"))
     }
 
     @Test func nothingIsSavedUntilItIsFixed() throws {

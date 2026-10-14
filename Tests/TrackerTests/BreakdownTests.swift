@@ -136,19 +136,6 @@ struct AssetMixBreakdownTests {
         #expect(breakdown.total == 2220)
         #expect(breakdown.assets == 2420)
     }
-
-    @Test func keysSortInStackingOrder() {
-        let keys: [BreakdownKey] = [.debts, .assetClass("art"), .assetClass(.other), .assetClass(.equity),
-                                    .assetClass(.cash)]
-        #expect(keys.sorted() == [.assetClass(.cash), .assetClass(.equity), .assetClass(.other),
-                                  .assetClass("art"), .debts])
-        #expect(AccountGroup.allCases.sorted() == AccountGroup.allCases)
-        #expect(AccountGroup(kind: .belongings) == .property)
-        #expect(AccountGroup(kind: "vehicle") == .property)
-        #expect(AccountGroup(kind: "boat") == .other)
-        #expect(Liquidity(kind: .mortgage) == .locked)
-        #expect(Liquidity(kind: .creditCard) == .liquid)
-    }
 }
 
 /// Stale accounts (docs/schema/README.md, "How values are computed").

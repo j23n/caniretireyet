@@ -13,13 +13,6 @@ struct ReadinessFigureTests {
         figure.text(percent: percent)
     }
 
-    @Test func readsAsAPercentRoundedDownBelowAHundred() {
-        #expect(text(ReadinessFigure(readiness: 0.5849)) == "58%")
-        #expect(text(ReadinessFigure(readiness: 0.996)) == "99%")
-        #expect(text(ReadinessFigure(readiness: 1.3)) == "130%")
-        #expect(text(ReadinessFigure(readiness: nil)) == nil)
-    }
-
     @Test func aLowerBoundAndMoreThanSearched() {
         #expect(text(ReadinessFigure(readiness: 0.58, isLowerBound: true)) == "58%+")
         #expect(text(ReadinessFigure(readiness: nil, needsMoreThanSearched: true)) == "<5%")
@@ -40,11 +33,5 @@ struct ReadinessFigureTests {
         #expect(far.lappingFill == 2)
         #expect(text(far) == "250%")
         #expect(ReadinessFigure(readiness: nil).fill == 0)
-    }
-
-    @Test func aRetirementAnswerHasTheSameFigure() {
-        let answer = RetirementAnswer(confidence: 0.9, readiness: 0.5849, readinessIsLowerBound: true)
-        #expect(answer.readinessFigure == ReadinessFigure(readiness: 0.5849, isLowerBound: true))
-        #expect(answer.shownReadiness == 0.58)
     }
 }

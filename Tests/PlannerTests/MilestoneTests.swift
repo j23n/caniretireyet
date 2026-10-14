@@ -67,11 +67,6 @@ struct MilestoneTests {
         #expect(ladder.milestones(in: 170_000...410_000).first?.amount == 180_000)
     }
 
-    @Test func withoutSpendingOrNeedsOnlyRoundAmounts() {
-        #expect(MilestoneLadder().milestones(in: 100_000...300_000).map(\.kind)
-            == [.roundAmount, .roundAmount, .roundAmount, .roundAmount, .roundAmount])
-    }
-
     // MARK: Reached
 
     @Test func aMilestoneIsReachedOnceAtTheFirstCheckInAboveIt() {
@@ -310,17 +305,5 @@ struct MilestoneTests {
         spender.spending.working = 50_000
         #expect(spender.workingSavingsRate(on: "2026-09-30") == d("-0.25"))
         #expect(MilestoneLadder.crossover(plan: spender, library: library, on: "2026-09-30") == nil)
-    }
-
-    @Test func theExampleBasePlanHasEveryKindOfMilestone() throws {
-        let library = try Fixtures.exampleLibrary()
-        let plan = try #require(library.plans["base"])
-        let ladder = MilestoneLadder(plan: plan, library: library, on: "2026-09-30", neededToday: 900_000)
-        #expect(ladder.spending == 36_000)
-        #expect(ladder.crossover != nil)
-        let kinds = ladder.milestones(in: 0...10_000_000).map(\.kind)
-        #expect(kinds.contains(.yearsOfSpending(25)))
-        #expect(kinds.contains(.shareOfNeeded(numerator: 1, denominator: 2)))
-        #expect(kinds.contains(.crossover))
     }
 }

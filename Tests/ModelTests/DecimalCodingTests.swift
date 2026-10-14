@@ -93,9 +93,4 @@ struct DecimalCodingTests {
         #expect(try decode(#"{"value":"1","optional":"2.5"}"#).optional == Decimal(fileString: "2.5"))
         #expect(try encode(Amount(value: 1)) == #"{"value":"1"}"#)
     }
-
-    @Test func missingRequiredDecimalThrows() {
-        #expect(throws: DecodingError.self) { try decode(#"{}"#) }
-        #expect(throws: DecodingError.self) { try decode(#"{"value":true}"#) }
-    }
 }

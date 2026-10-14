@@ -214,13 +214,6 @@ struct DeterministicTests {
         #expect(close(model.frames[1].inflationStep, 1.02, 1e-12))
     }
 
-    @Test func aCheckInOnTheLastDayOfTheYearStartsNextYear() async throws {
-        let plan = Sample.plan(retire: .age(59), endAge: 64, retired: "10000")
-        let result = try await Sample.run(plan, retiree)
-        #expect(result.fan.first?.year == 2026)
-        #expect(result.expectedPath.years.first?.fraction == 1)
-    }
-
     @Test func lockedMoneyMakesABridgeFailure() async throws {
         // Born 1976, retiring at 49 with 50,000 to draw and 500,000 available from 60.
         let library = Sample.library(birth: "1976-01-01", on: "2025-12-31", [

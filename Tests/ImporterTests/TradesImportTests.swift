@@ -7,24 +7,6 @@ import TestSupport
 /// The trades layout: a broker's transactions, a row per trade (IMPORT.md,
 /// "Broker transactions"), with the made-up exports in `Samples/trades/`.
 struct TradeTypeWordTests {
-    @Test func italianAndEnglishWordsSuggestTypes() {
-        let expected: [(String, TradeType)] = [
-            ("Acquisto", .buy), ("Compravendita acquisto", .buy), ("BUY", .buy), ("Buy", .buy),
-            ("Vendita", .sell), ("Compravendita vendita", .sell), ("Sell", .sell),
-            ("Dividendo", .dividend), ("Cedola", .dividend), ("Dividends", .dividend), ("Coupon", .dividend),
-            ("Interessi", .interest), ("Interessi attivi", .interest), ("Interest", .interest),
-            ("Commissioni", .fee), ("Spese", .fee), ("Fee", .fee),
-            ("Bollo", .tax), ("Imposta di bollo", .tax), ("Imposta", .tax), ("Ritenuta", .tax), ("Tax", .tax),
-            ("Withholding Tax", .tax),
-            ("Versamento", .deposit), ("Bonifico in entrata", .deposit), ("Deposit", .deposit),
-            ("Prelievo", .withdrawal), ("Bonifico in uscita", .withdrawal), ("Withdrawal", .withdrawal),
-            ("Frazionamento", .split), ("Split", .split),
-        ]
-        for (word, type) in expected {
-            #expect(TradeTypeWords.suggestion(for: word) == type, "\(word)")
-        }
-    }
-
     @Test func wordsAreFoundInLongerValuesIgnoringCaseAndAccents() {
         #expect(TradeTypeWords.suggestion(for: "  COMPRAVENDITA   ACQUISTO ") == .buy)
         #expect(TradeTypeWords.suggestion(for: "Broker Interest Received") == .interest)

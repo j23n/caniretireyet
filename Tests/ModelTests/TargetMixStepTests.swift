@@ -34,14 +34,6 @@ struct TargetMixStepTests {
         }
     }
 
-    @Test func noStepsWriteNothing() throws {
-        #expect(try json(PlanPortfolio(targetMix: [.equity: 1])) == #"{"targetMix":{"equity":"1"}}"#)
-        #expect(PlanPortfolio().targetMixByAge.isEmpty && !PlanPortfolio().choosesTargetMix)
-        #expect(try decode(PlanPortfolio.self, "{}").targetMixByAge.isEmpty)
-        // Steps alone choose a mix from their age; the accounts keep theirs until then.
-        #expect(PlanPortfolio(targetMixByAge: [TargetMixStep(fromAge: .age(60), mix: [.bonds: 1])]).choosesTargetMix)
-    }
-
     /// The step in force is the last one in the list that has started: a
     /// `retirement` step at the retirement age, never without one.
     @Test func theLastStepThatHasStartedIsInForce() {

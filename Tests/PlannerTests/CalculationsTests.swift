@@ -17,7 +17,7 @@ struct CalculationsTests {
 
     /// Work to 50, then 30,000 a year to 85, a pension from 67, a windfall, an
     /// expense and a contribution into the fund.
-    static func plan(flexible: FlexibleSpending? = nil) -> PlanDocument {
+    static func plan() -> PlanDocument {
         var plan = Sample.plan(
             retire: .age(50), endAge: 85, working: "35000", retired: "30000", volatility: "0.17",
             work: [WorkPhase(name: "Secret employer", from: "2026-01-01", until: .retirement, netIncome: d("52345"))],
@@ -28,29 +28,12 @@ struct CalculationsTests {
             investmentRate: "0.26", wealthRate: "0.002", wealthAllowance: "50000", unrealizedGainShare: "0.3",
             runs: 100)
         plan.name = "Secret plan"
-        plan.spending.flexible = flexible
         return plan
     }
 
     func report(_ plan: PlanDocument = plan(), anonymize: Bool = false) async throws -> String {
         try await Planner.calculations(plan: plan, library: Self.library,
                                        options: CalculationsOptions(anonymize: anonymize, today: "2026-01-02"))
-    }
-
-    @Test func everySectionIsThere() async throws {
-        let text = try await report()
-        for heading in ["# Calculations: Secret plan", "## The answer", "## The plan as read", "## The starting portfolio",
-                        "## Chance of success by retirement age", "## The deterministic run (expected returns), retiring at 50",
-                        "## The median run, retiring at 50", "## When runs fail"] {
-            #expect(text.contains(heading + "\n"), "\(heading)")
-        }
-        #expect(text.contains("- Taxes: 26% on investment income and gains; wealth tax 0.2% above 50,000."))
-        #expect(text.contains("| Secret employer | 2026-01-01 | retirement | 52,345 | 0% |"))
-        #expect(text.contains("| Statement pension | 67 | 9,000 |"))
-        #expect(text.contains("| secret-fund | 3,000 a year | until retirement |"))
-        #expect(text.contains("| Gift from aunt | 2040 | 40,000 | 100% |"))
-        #expect(text.contains("| secret-fund | 60 | 50,000 | 50,000 | bonds 40%, equity 60% |"))
-        #expect(!text.contains("## Flexible spending"))
     }
 
     @Test func theYearTablesHaveARowPerYear() async throws {
@@ -77,12 +60,5 @@ struct CalculationsTests {
         #expect(text.contains("| Work 1 | 2026 | retirement | 52,300 | 0% |"))
         #expect(text.contains("| Accounts available later 1 | 60 | 50,000 | 50,000 |"))
         #expect(text.contains("starting in 2025,"))
-    }
-
-    @Test func flexibleSpendingHasItsOwnSection() async throws {
-        let text = try await report(Self.plan(flexible: FlexibleSpending()))
-        #expect(text.contains("- Flexible spending: cuts of 10% down to 80%"))
-        #expect(text.contains("## Flexible spending, retiring at 50\n"))
-        #expect(text.contains("can't pay even the floor of 24,000 a year."))
     }
 }

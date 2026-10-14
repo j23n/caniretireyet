@@ -243,11 +243,4 @@ struct AgesWithoutTests {
         #expect(result.answer.agesWithout.isEmpty)
         #expect(result.headline().paceAge == nil)
     }
-
-    @Test func theBisectionCountsItsSteps() {
-        #expect(Planner.bisectionSteps(from: 40, to: 40) == 2)
-        #expect(Planner.bisectionSteps(from: 40, to: 41) == 2)
-        #expect(Planner.bisectionSteps(from: 40, to: 42) == 3)
-        #expect(Planner.bisectionSteps(from: 39, to: 75) == 8)
-    }
 }

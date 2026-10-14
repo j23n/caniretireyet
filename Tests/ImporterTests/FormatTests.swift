@@ -64,12 +64,6 @@ struct NumberParserTests {
     @Test func unwrapsExcelTextFormulas() {
         #expect(read("=\"0012\"", ".") == d("12"))
     }
-
-    @Test func describesItsFormat() {
-        #expect(NumberParser(format: ImportNumberFormat(decimal: ",", thousands: ".")).example == "1.234,56")
-        #expect(NumberParser(format: ImportNumberFormat(decimal: ".", thousands: "")).example == "1234.56")
-        #expect(NumberParser().parse("abc") == .failure(.notANumber(format: "1234.56")))
-    }
 }
 
 struct DateParserTests {

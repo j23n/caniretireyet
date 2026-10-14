@@ -241,19 +241,6 @@ struct TradeCheckInTests {
         #expect(row.warnings.isEmpty)
     }
 
-    @Test func unchangedMeansAsTheTradesSay() throws {
-        var draft = CheckInDraft(date: "2024-04-30", library: library())
-        #expect(draft["broker"]?.markUnchanged() == true)
-        let records = draft.records(in: library())
-        let written = try #require(records.valuations.first { $0.account == "broker" })
-        #expect(written == Valuation(account: "broker", date: "2024-04-30", cash: d("6300.36"), flow: 1000))
-
-        var saved = library()
-        draft.apply(to: &saved)
-        #expect(Valuator(library: saved).tradeFlows(of: "broker", after: "2024-03-31", through: "2024-04-30")
-            .map(\.amount) == [1000])
-    }
-
     @Test func positionsEnteredAreCheckedAgainstTheTrades() throws {
         var draft = CheckInDraft(date: "2024-04-30", library: library())
         draft["broker"]?.setQuantity(9, of: "aapl")

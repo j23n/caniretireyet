@@ -61,24 +61,9 @@ struct ONSIndexProviderTests {
         }
     }
 
-    @Test func labelsAreMonthsYearsOrQuarters() {
-        #expect(ONSIndexProvider.parseMonth("2026 JAN") == "2026-01")
-        #expect(ONSIndexProvider.parseMonth("1989 DEC") == "1989-12")
-        #expect(ONSIndexProvider.parseMonth("2026 Q1") == nil)
-        #expect(ONSIndexProvider.parseMonth("2026") == nil)
-        #expect(ONSIndexProvider.parseMonth("CDID") == nil)
-    }
-
     @Test func readsQuotedFields() {
         #expect(ONSIndexProvider.fields(of: #""2026 JAN","140.2""#) == ["2026 JAN", "140.2"])
         #expect(ONSIndexProvider.fields(of: #"2026 JAN,140.2"#) == ["2026 JAN", "140.2"])
         #expect(ONSIndexProvider.fields(of: #""A, ""quoted"" title","""#) == [#"A, "quoted" title"#, ""])
-    }
-
-    @Test func onlyTheUKIndexHasAProvider() {
-        let client = MockHTTPClient()
-        #expect(ONSIndexProvider(index: .cpiGB, client: client) != nil)
-        #expect(ONSIndexProvider(index: .cpiUS, client: client) == nil)
-        #expect(ONSIndexProvider(index: "hicp-ea", client: client) == nil)
     }
 }

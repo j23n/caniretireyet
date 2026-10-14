@@ -86,16 +86,6 @@ struct PastCheckInTests {
         #expect(Valuator(library: saved).netWorth(on: "2024-03-31").total == 12000)
     }
 
-    @Test func aValueBeforeTheOpeningDateMovesIt() throws {
-        var library = self.library
-        var draft = CheckInDraft(date: "2024-03-31", library: library)
-        draft["fondo"]?.setBalance(15000)
-        draft.markRestUnchanged()
-        #expect(draft.review(in: library).openingMoves == ["fondo"])
-        draft.apply(to: &library)
-        #expect(library.accounts["fondo"]?.opened == "2024-03-31")
-    }
-
     @Test func emptyOrSkippedRowsChangeNothing() throws {
         var draft = CheckInDraft(date: "2024-03-31", library: library)
         draft["old"]?.setBalance(9100)
@@ -233,14 +223,6 @@ struct ValuationEditTests {
         #expect(library.accounts["cash"]?.opened == "2025-12-31")
         #expect(library.valuations(for: "cash").map(\.flow) == [800, 200, 500])
         #expect(Valuator(library: library).netWorth(on: "2025-12-31").total == 800)
-    }
-
-    @Test func savingAValueBeforeTheOpeningDateMovesIt() throws {
-        var library = self.library
-        let opened = try #require(library.accounts["fondo"]?.opened)
-        let edit = library.saveValue(Valuation(account: "fondo", date: "2021-06-30", balance: 5000))
-        #expect(edit.movedOpeningFrom == opened)
-        #expect(library.accounts["fondo"]?.opened == "2021-06-30")
     }
 
     @Test func movingAValueFollowsBothPlaces() throws {

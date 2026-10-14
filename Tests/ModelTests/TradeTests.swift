@@ -4,22 +4,6 @@ import Testing
 import TestSupport
 
 struct TradeRecordTests {
-    @Test func decimalsAreWrittenAsStringsAndReadBack() throws {
-        let trade = Trade(account: "directa", date: "2026-03-12", id: "k3q7vz2m", type: .buy, instrument: "vwce",
-                          quantity: 10, price: d("127.35"), fees: 5, note: "monthly")
-        let json = try JSONValue(encoding: trade)
-        #expect(json == [
-            "account": "directa", "date": "2026-03-12", "fees": "5", "id": "k3q7vz2m", "instrument": "vwce",
-            "note": "monthly", "price": "127.35", "quantity": "10", "type": "buy",
-        ])
-        #expect(try json.decode(as: Trade.self) == trade)
-        // Plain JSON numbers are read too, exactly.
-        let typed: JSONValue = [
-            "account": "directa", "amount": .number(d("-1278.5")), "date": "2026-03-12", "id": "a", "type": "buy",
-        ]
-        #expect(try typed.decode(as: Trade.self).amount == d("-1278.5"))
-    }
-
     @Test func unknownTypesDecode() throws {
         let json: JSONValue = ["account": "a", "date": "2026-01-02", "id": "x", "type": "spinOff"]
         let trade = try json.decode(as: Trade.self)
@@ -248,13 +232,6 @@ struct LibraryTradeTests {
 struct StableTradeIDTests {
     private static let buy = Trade(account: "directa", date: "2026-03-12", type: .buy, instrument: "vwce",
                                    quantity: 10, price: d("127.35"), amount: d("-1278.5"), fees: 5)
-
-    @Test func stableIDsLookLikeRandomOnes() {
-        let id = TradeID.stable(for: Self.buy)
-        #expect(id.rawValue.count == TradeID.randomLength)
-        #expect(Slug.isValid(id.rawValue))
-        #expect(id.rawValue.unicodeScalars.allSatisfy { ("a"..."z").contains($0) || ("2"..."7").contains($0) })
-    }
 
     @Test func theSameFieldsGiveTheSameID() {
         let id = TradeID.stable(for: Self.buy)

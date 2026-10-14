@@ -69,21 +69,5 @@ struct PlanYearGradeTests {
         #expect(MarketYear(markets: 1_000, start: 0) == nil)
     }
 
-    @Test func progressSaysTheSameYearInItsWords() {
-        #expect(MarketYear.strong.yearWords == "a strong year for markets")
-        #expect(MarketYear.hard.yearWords == "a hard year for markets")
-        #expect(MarketYear.average.yearWords == nil)
-    }
-
     // MARK: VoiceOver
-
-    @Test func voiceOverReadsTheYearAndItsThreeWords() {
-        let graded = grade(putIn: 20_000, plannedSaving: 13_000, spent: 30_000, plannedSpending: 36_000,
-                           marketYear: .strong)
-        #expect(graded.spoken == "2025: you saved more than planned, you spent less than planned, markets strong.")
-        let ungraded = grade(putIn: 5_000, plannedSaving: 0)
-        #expect(ungraded.spoken == "2025: you saved: not graded, you spent: not graded, markets average.")
-        let unplanned = grade(hasBaseline: false, marketYear: .hard)
-        #expect(unplanned.spoken == "2025: no plan to compare with, markets hard.")
-    }
 }

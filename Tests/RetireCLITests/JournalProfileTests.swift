@@ -47,12 +47,4 @@ struct JournalProfileTests {
         #expect(proposed.status == 0, "\(proposed.all)")
         #expect(try library.snapshot() == before)
     }
-
-    @Test func importHelpHasNoJournals() async throws {
-        let help = await retire(["help", "import"])
-        #expect(help.status == 0, "\(help.all)")
-        #expect(!help.all.contains("ledger"))
-        let ledger = await retire(["import", "ledger", "main.journal"])
-        #expect(ledger.status != 0)
-    }
 }

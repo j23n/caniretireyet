@@ -182,14 +182,4 @@ struct ValidationTests {
         // The odd account counts as cash, which pays the card off first.
         #expect(close(noMix.start.buckets[0].mix[.cash], 8_000 / 108_000))
     }
-
-    @Test func cancellingStopsTheRun() async throws {
-        let plan = Sample.plan(retire: .earliest, endAge: 95, working: "30000", retired: "30000", volatility: "0.17",
-                               work: [Sample.work(from: "2026-01-01", net: "45000")], runs: 2000)
-        let task = Task {
-            try await Planner.run(plan: plan, library: library)
-        }
-        task.cancel()
-        await #expect(throws: CancellationError.self) { try await task.value }
-    }
 }

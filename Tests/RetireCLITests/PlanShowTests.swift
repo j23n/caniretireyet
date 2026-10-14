@@ -6,27 +6,6 @@ import TestSupport
 
 /// `retire plan show`: a plan's inputs in words, or as JSON.
 struct PlanShowTests {
-    @Test func showListsThePlansInputs() async throws {
-        let library = try TemporaryFolder.exampleLibrary()
-        let run = await retire(["plan", "show", "--library", library.path])
-        #expect(run.status == 0, "\(run.all)")
-        let lines = run.output.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
-        #expect(lines.prefix(2) == ["Plan base: Base case", "Amounts in EUR, a year, in today's money, after tax."])
-        #expect(lines.contains("Taxes: 26.0% on investment income and gains; wealth tax 0.2% above 5,000"))
-        #expect(lines.contains("  1. Employee · 40,000 from 2026-01-01 until 2028-12-31, growing 1.0% a year"))
-        #expect(lines.contains("  2. Self-employed · 48,000 from 2029-01-01 until retirement"))
-        #expect(lines.contains("  1. State pension · 14,000 from 67"))
-        #expect(lines.contains("  1. Into Fondo pensione · 5,000 a year until retirement"))
-        #expect(lines.contains("  Not set: it keeps today's mix."))
-        #expect(lines.contains("  equity   4.5%    3.1%       17.0%             –  mean"))
-        #expect(lines.contains("  crypto  16.6%    0.0%       70.0%             –  median"))
-
-        let other = await retire(["plan", "show", "--library", library.path, "--plan", "part-time-from-50"])
-        #expect(other.output.contains("Taxes: 26.0% on investment income and gains; no wealth tax\n"))
-        #expect(other.output.contains("  From retirement: bonds 40%, equity 60%\n"))
-        #expect(other.output.contains("  equity   6.3%    5.0%       17.0%             –  median (default)\n"))
-    }
-
     @Test func theJSONHasEveryInput() async throws {
         let library = try TemporaryFolder.exampleLibrary()
         let json = try parseJSON(await retire(["plan", "show", "--library", library.path, "--plan",

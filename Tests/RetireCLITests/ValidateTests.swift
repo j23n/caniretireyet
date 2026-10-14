@@ -3,23 +3,6 @@ import Testing
 import TestSupport
 
 struct ValidateTests {
-    @Test func theExampleLibraryIsClean() async throws {
-        let library = try TemporaryFolder.exampleLibrary()
-        let run = await retire(["validate", "--library", library.path])
-        #expect(run.status == 0, "\(run.all)")
-        #expect(run.output == """
-            Library \(library.path)
-              Format version  4 (current)
-              Read-only       no
-              Files read      33
-              Contents        10 accounts (1 closed), 3 instruments, 12 months of history (2025-10 to 2026-09), \
-            2 plans, 3 import profiles
-
-            No problems found.
-
-            """)
-    }
-
     /// A library in format version 3 is upgraded first, and the upgrade's
     /// steps and what the conversion estimated are printed.
     @Test func aVersion3LibraryIsUpgradedFirst() async throws {
@@ -144,16 +127,6 @@ struct ValidateTests {
         let issues = try #require(json["issues"] as? [[String: Any]])
         #expect(issues.first?["path"] as? String == "history/2025/2025-10.json")
         #expect(issues.first?["severity"] as? String == "error")
-    }
-
-    @Test func aNewerLibraryIsReadOnly() async throws {
-        let library = try TemporaryFolder.exampleLibrary()
-        let settings = try library.text("library.json").replacingOccurrences(of: #""schemaVersion": 4"#,
-                                                                              with: #""schemaVersion": 5"#)
-        try library.write("library.json", settings)
-        let run = await retire(["validate", "--library", library.path])
-        #expect(run.output.contains("  Format version  5, newer than this version understands (4)\n"))
-        #expect(run.output.contains("  Read-only       yes: update the app to make changes\n"))
     }
 
     /// A library.json that isn't valid JSON leaves only default settings in

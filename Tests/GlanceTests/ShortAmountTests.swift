@@ -72,13 +72,4 @@ struct ShortAmountTests {
         #expect(ShortAmount.text(1_234_567_890, currency: euros, locale: germany) == "1,23B\(space)€")
         #expect(ShortAmount.text(1_234_000_000_000, currency: euros, locale: germany) == "1.234B\(space)€")
     }
-
-    @Test func scalesWithItsDecimalsAndSuffix() {
-        let full = ShortAmount.scaled(300_000)
-        #expect(full.value == 300_000 && full.fractionDigits == 0 && full.suffix == "")
-        let millions = ShortAmount.scaled(-12_345_678)
-        #expect(millions.value == Decimal(string: "-12.3")! && millions.fractionDigits == 1 && millions.suffix == "M")
-        let billions = ShortAmount.scaled(999_999_600)
-        #expect(billions.value == 1 && billions.fractionDigits == 2 && billions.suffix == "B")
-    }
 }

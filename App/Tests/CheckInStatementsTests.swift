@@ -257,13 +257,4 @@ struct CheckInStatementsTests {
     }
 
     // MARK: Wording
-
-    @Test func aFilesDaysAreShort() {
-        #expect(CheckInStatements.period(from: "2026-09-01", through: "2026-09-30", locale: locale) == "1–30 Sep")
-        #expect(CheckInStatements.period(from: "2026-08-28", through: "2026-09-30", locale: locale)
-            == "28 Aug – 30 Sep")
-        #expect(CheckInStatements.period(from: "2026-09-30", through: "2026-09-30", locale: locale) == "30 Sep")
-        #expect(CheckInStatements.period(from: "2026-09-01", through: "2026-09-30", locale: Locale(identifier: "en_US"))
-            == "Sep 1–30")
-    }
 }

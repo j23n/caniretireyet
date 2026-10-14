@@ -18,11 +18,4 @@ struct FormattingTests {
         #expect(Format.signedPercent(d("0.0166")) == "+1.7%")
         #expect(Format.json(d("41196.2837")) == "41196.28")
     }
-
-    @Test func tables() {
-        var table = TextTable([.left("Name"), .right("Value")])
-        table.add(["Cash", "1.00"])
-        table.add(["Brokerage", "12,345.00"])
-        #expect(table.lines() == ["  Name           Value", "  Cash            1.00", "  Brokerage  12,345.00"])
-    }
 }

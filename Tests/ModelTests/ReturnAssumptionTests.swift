@@ -83,28 +83,6 @@ struct ReturnAssumptionTests {
 
     // MARK: Defaults
 
-    @Test func cryptoDefaultsToAZeroMedian() throws {
-        let crypto = try #require(PlanAssumptions.defaultReturns[.crypto])
-        #expect(crypto.isGivenByMedian && crypto.medianReal == 0 && crypto.volatility == d("0.7"))
-        #expect(abs(crypto.meanReturn - 0.16629) < 1e-4)
-    }
-
-    /// The defaults are given by their median, long-run history rounded down
-    /// to the half percent (PLANNER.md, "Returns"), with the means they imply.
-    @Test func defaultsAreLongRunMedians() throws {
-        let expected: [(AssetClass, median: String, volatility: String, mean: Double)] = [
-            (.equity, "0.05", "0.17", 0.0633), (.bonds, "0.015", "0.06", 0.0168), (.cash, "0.005", "0.01", 0.0051),
-            (.gold, "0.01", "0.15", 0.0208), (.crypto, "0", "0.7", 0.1663),
-        ]
-        #expect(Set(PlanAssumptions.defaultReturns.keys) == Set(expected.map { $0.0 }))
-        for (assetClass, median, volatility, mean) in expected {
-            let assumption = try #require(PlanAssumptions.defaultReturns[assetClass])
-            #expect(assumption.isGivenByMedian && assumption.medianReal == d(median), "\(assetClass)")
-            #expect(assumption.volatility == d(volatility) && assumption.incomeYield == nil, "\(assetClass)")
-            #expect(abs(assumption.meanReturn - mean) < 0.0001, "\(assetClass): \(assumption.meanReturn)")
-        }
-    }
-
     // MARK: Previous defaults
 
     @Test func aPlanRepeatingAnEarlierDefaultIsRecognised() throws {

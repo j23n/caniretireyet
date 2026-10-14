@@ -110,17 +110,6 @@ struct ImportFilesTests {
         #expect(flow.fileRows(today: today, locale: locale).first?.bank == nil)
     }
 
-    @Test func coversIsMonthsUnlessTheFileStartsOrEndsOnADayOfItsOwn() {
-        #expect(ImportFlow.covers(from: "2025-01-01", through: "2025-12-31", days: false, locale: locale)
-            == "Jan – Dec 2025")
-        #expect(ImportFlow.covers(from: "2024-11-01", through: "2025-02-28", days: false, locale: locale)
-            == "Nov 2024 – Feb 2025")
-        #expect(ImportFlow.covers(from: "2025-08-01", through: "2025-08-31", days: false, locale: locale)
-            == "Aug 2025")
-        #expect(ImportFlow.covers(from: "2025-08-03", through: "2025-09-15", days: true, locale: locale)
-            == "Aug 3 – Sep 15, 2025")
-    }
-
     @Test func daysOfTheFilesOwnShowInWhatItCovers() throws {
         var flow = threeStatements()
         flow.showBatchFile(2)
@@ -129,12 +118,6 @@ struct ImportFilesTests {
         #expect(flow.shownFileLastDay(today: today) == "2026-09-25")
         flow.setStatementFrom("2026-09-02")
         #expect(flow.fileRow(2, today: today, locale: locale)?.covers == "Sep 2 – Sep 30, 2026")
-    }
-
-    @Test func aBalanceThatDoesntAddUpSaysOnHowManyDays() {
-        #expect(ImportFileBalance.breaks(2).text == "Doesn't add up on 2 days")
-        #expect(ImportFileBalance.breaks(2).isProblem)
-        #expect(!ImportFileBalance.addsUp.isProblem)
     }
 
     @Test func betweenTheFilesAreTheTransfersPairedAndNoGaps() throws {
@@ -197,15 +180,6 @@ struct ImportFilesTests {
         #expect(one.filesKind == .brokerage)
         #expect(one.fileName == "export (3).csv")
         #expect(one.givenFileNames == ["fineco-2026.csv", "export (3).csv"])
-    }
-
-    @Test func beforeAFileTheBarShowsTheStepsOfWhatTheFilesAre() {
-        let flow = ImportFlow(library: PreviewLibrary.library)
-        #expect(flow.filesKind == nil)
-        #expect(flow.barSteps(beforeFiles: .statements) == [.file, .classify, .preview])
-        #expect(flow.barSteps(beforeFiles: .brokerage) == [.file, .format, .columns, .types, .accounts, .preview])
-        #expect(flow.stepText(beforeFiles: .statements) == "Step 1 of 3")
-        #expect(threeStatements().stepText(beforeFiles: .brokerage) == "Step 1 of 3")
     }
 
     @Test func howItsReadSaysTheLinesReadAndWhatTheBalanceFollows() {

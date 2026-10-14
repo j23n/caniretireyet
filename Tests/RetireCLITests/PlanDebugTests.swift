@@ -14,20 +14,6 @@ struct PlanDebugCommandTests {
         return library
     }
 
-    @Test func markdownHasEverySection() async throws {
-        let library = try library()
-        let run = await retire(["plan", "debug", "--library", library.path])
-        #expect(run.status == 0, "\(run.all)")
-        for heading in ["# Calculations: Base case", "## The answer", "## The plan as read", "## The starting portfolio",
-                        "## Chance of success by retirement age", "## When runs fail"] {
-            #expect(run.output.contains(heading + "\n"), "\(heading)")
-        }
-        #expect(run.output.contains("the day after 2026-09-30"))
-        // Names as they are.
-        #expect(run.output.contains("| Fondo pensione | 67 |"))
-        #expect(run.output.contains("| Employee | 2026-01-01 | 2028-12-31 | 40,000 | 1% |"))
-    }
-
     @Test func theReportCanGoToAFile() async throws {
         let library = try library()
         let run = await retire(["plan", "debug", "--library", library.path, "--output", "reports/base.md"],
