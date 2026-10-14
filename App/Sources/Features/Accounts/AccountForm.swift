@@ -16,9 +16,16 @@ enum AccountDefaults {
     }
 
     /// Whether a new account of `kind` counts in plans by default: a home,
-    /// belongings and the mortgage on the home usually don't.
+    /// belongings and the mortgage on the home usually don't, nor does a tax
+    /// pot, whose money is owed.
     static func includedInPlan(_ kind: AccountKind) -> Bool {
-        !(kind == .property || kind == .belongings || kind == .mortgage)
+        kind.isIncludedByDefault && !(kind == .property || kind == .belongings || kind == .mortgage)
+    }
+
+    /// Whether a new account of `kind` counts in net worth by default:
+    /// every kind but a tax pot.
+    static func includedInNetWorth(_ kind: AccountKind) -> Bool {
+        kind.isIncludedByDefault
     }
 }
 
@@ -100,6 +107,8 @@ struct AccountForm: Hashable, Sendable {
     /// Whether ``availableFromAge`` was set by hand; otherwise it follows the kind.
     var isAvailabilityChosen: Bool
     var includedInNetWorth: Bool
+    /// Whether "include in net worth" was set by hand; otherwise it follows the kind.
+    var isNetWorthInclusionChosen: Bool
     var includedInPlan: Bool
     /// Whether "include in plans" was set by hand; otherwise it follows the kind.
     var isPlanInclusionChosen: Bool
@@ -131,6 +140,7 @@ struct AccountForm: Hashable, Sendable {
         availableFromAge = AccountDefaults.availableFromAge(for: .cash)
         isAvailabilityChosen = false
         includedInNetWorth = true
+        isNetWorthInclusionChosen = false
         includedInPlan = true
         isPlanInclusionChosen = false
         assetMix = AccountsAssetMixForm()
@@ -154,6 +164,7 @@ struct AccountForm: Hashable, Sendable {
         availableFromAge = account.availableFromAge
         isAvailabilityChosen = true
         includedInNetWorth = account.includedInNetWorth
+        isNetWorthInclusionChosen = true
         includedInPlan = account.includedInPlan
         isPlanInclusionChosen = true
         assetMix = AccountsAssetMixForm(account.assetClasses, locale: locale)
@@ -173,6 +184,7 @@ struct AccountForm: Hashable, Sendable {
     mutating func setKind(_ kind: AccountKind) {
         self.kind = kind
         if !isAvailabilityChosen { availableFromAge = AccountDefaults.availableFromAge(for: kind) }
+        if !isNetWorthInclusionChosen { includedInNetWorth = AccountDefaults.includedInNetWorth(kind) }
         if !isPlanInclusionChosen { includedInPlan = AccountDefaults.includedInPlan(kind) }
     }
 
@@ -200,6 +212,15 @@ struct AccountForm: Hashable, Sendable {
         set {
             availableFromAge = newValue
             isAvailabilityChosen = true
+        }
+    }
+
+    /// Whether net worth includes it; setting it stops it following the kind.
+    var chosenNetWorthInclusion: Bool {
+        get { includedInNetWorth }
+        set {
+            includedInNetWorth = newValue
+            isNetWorthInclusionChosen = true
         }
     }
 
@@ -306,13 +327,16 @@ struct AccountForm: Hashable, Sendable {
         // A kind that doesn't lose value drops it, so nothing hidden keeps estimating.
         account.depreciation = takesDepreciation ? depreciationShare(locale: locale) : nil
 
-        if let original, original.includedInNetWorth == includedInNetWorth, original.includedInPlan == includedInPlan {
+        // What the file leaves out follows the kind: true, or false for a tax pot.
+        let byDefault = kind.isIncludedByDefault
+        if let original, original.kind.isIncludedByDefault == byDefault,
+           original.includedInNetWorth == includedInNetWorth, original.includedInPlan == includedInPlan {
             account.includeIn = original.includeIn
-        } else if includedInNetWorth && includedInPlan {
+        } else if includedInNetWorth == byDefault && includedInPlan == byDefault {
             account.includeIn = nil
         } else {
-            account.includeIn = IncludeIn(netWorth: includedInNetWorth ? nil : false,
-                                          plan: includedInPlan ? nil : false)
+            account.includeIn = IncludeIn(netWorth: includedInNetWorth == byDefault ? nil : includedInNetWorth,
+                                          plan: includedInPlan == byDefault ? nil : includedInPlan)
         }
 
         if !takesAssetMix {

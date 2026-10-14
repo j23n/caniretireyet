@@ -10,7 +10,7 @@ struct KnownKeysTests {
     private static let position = Position(instrument: "vwce", quantity: d("412.5"), costBasis: d("48200"))
     private static let valuation = Valuation(
         account: "directa", date: "2026-09-30", balance: d("1"), cash: d("312.1"), positions: [position],
-        flow: d("1500"), moneyIn: d("3400"), moneyOut: d("1900"), oneOff: d("5000"), interest: d("12.5"), note: "n", source: .manual)
+        flow: d("1500"), moneyIn: d("3400"), moneyOut: d("1900"), oneOff: d("5000"), tax: d("800"), interest: d("12.5"), note: "n", source: .manual)
     private static let trade = Trade(
         account: "directa", date: "2026-03-12", id: "k3q7vz2m", type: .buy, instrument: "vwce", quantity: 10,
         price: d("127.35"), currency: .eur, amount: d("-1278.5"), fees: 5, tax: 0, cost: 1, ratio: 1, note: "n",
@@ -94,7 +94,7 @@ struct KnownKeysTests {
                        matches: ImportMatches(accounts: ["A": "a"]), onConflict: .keep,
                        tradeTypes: ["Acquisto": .buy],
                        rules: [StatementRule(match: "Giroconto", statementClass: .transfer)]), ImportProfile.knownKeys),
-        (StatementRule(match: "Giroconto", statementClass: .transfer), StatementRule.knownKeys),
+        (StatementRule(match: "Accantonamento", statementClass: .transfer, account: "tax-pot"), StatementRule.knownKeys),
         (ImportFileSettings(encoding: .utf8, delimiter: ";", headerRow: 1, excludeRows: ["Totale"]), ImportFileSettings.knownKeys),
         (ImportColumn(header: "A", index: 1, target: .fx, field: .value, account: "a", instrument: "i", currency: .eur,
                       base: .eur, quote: .usd, format: format), ImportColumn.knownKeys),

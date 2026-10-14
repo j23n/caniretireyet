@@ -78,15 +78,19 @@
           "$ref": "common.schema.json#/$defs/decimal"
         },
         "moneyIn": {
-          "description": "Money that arrived from outside your tracked accounts since the account's previous valuation (salary, refunds, gifts), in the account's currency, never negative. Money moved from another tracked account isn't counted. Absent means not recorded for the period; recorded together with moneyOut, as a valuation with only one of them isn't counted. Cash and savings accounts record it at every value after their first (ACCOUNTS.md); other kinds don't.",
+          "description": "Money that arrived from outside your tracked accounts since the account's previous valuation (salary, refunds, gifts), in the account's currency, never negative. Money moved from another tracked account isn't counted. Absent means not recorded for the period; recorded together with moneyOut, as a valuation with only one of them isn't counted. Cash and savings accounts and tax pots record it at every value after their first (ACCOUNTS.md); other kinds don't. On a tax pot, money out is the tax paid from it and money in a refund of it.",
           "$ref": "common.schema.json#/$defs/decimal"
         },
         "moneyOut": {
-          "description": "Money that left your tracked accounts since the account's previous valuation (spending, bills, rent, credit card, loan and mortgage payments), in the account's currency, never negative. Money moved to another tracked account isn't counted, unless it paid a debt. Absent means not recorded for the period; recorded together with moneyIn. Cash and savings accounts record it at every value after their first (ACCOUNTS.md); other kinds don't.",
+          "description": "Money that left your tracked accounts since the account's previous valuation (spending, bills, rent, credit card, loan and mortgage payments), in the account's currency, never negative. Money moved to another tracked account isn't counted, unless it paid a debt. Absent means not recorded for the period; recorded together with moneyIn. Cash and savings accounts and tax pots record it at every value after their first (ACCOUNTS.md); other kinds don't. On a tax pot, money out is the tax paid from it and money in a refund of it.",
           "$ref": "common.schema.json#/$defs/decimal"
         },
         "oneOff": {
           "description": "Money that arrived from outside your tracked accounts since the account's previous valuation that is neither income nor paid back, such as an inheritance or the sale of something you didn't track, in the account's currency, never negative. Absent means none. It isn't in moneyIn; the savings rate leaves it out of what was saved, so it's neither came in nor spent (PROGRESS.md, \"Money in and out\"). Only cash and savings accounts record it, on a value with money in and out.",
+          "$ref": "common.schema.json#/$defs/decimal"
+        },
+        "tax": {
+          "description": "The part of moneyOut that was tax paid since the account's previous valuation, such as a yearly income tax bill paid from a current account, in the account's currency; negative for a refund, which lowers moneyOut. Absent means none. The savings rate takes it off what came in, so tax isn't spent (PROGRESS.md, \"Money in and out\"). Only cash and savings accounts record it, on a value with money in and out; a taxPot's tax is what moved into it.",
           "$ref": "common.schema.json#/$defs/decimal"
         },
         "interest": {

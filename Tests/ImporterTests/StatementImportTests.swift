@@ -126,7 +126,7 @@ struct StatementImportTests {
         #expect(try Self.line(preview, row: 12).source == .sign)
         #expect(try Self.line(preview, row: 6).statementClass == .interest)
         // A refund isn't income: it lowers money out.
-        #expect(try Self.line(preview, row: 9).statementClass == .paidBack)
+        #expect(try Self.line(preview, row: 9).statementClass == .spending)
         #expect(try Self.line(preview, row: 9).source == .words)
     }
 
@@ -372,6 +372,31 @@ struct StatementImportTests {
         let future = session.preview(against: Self.library(), today: Self.today)
         #expect(future.issues.contains { $0.kind == .statementThroughAfterToday("2026-04-13") })
         #expect(future.records.isEmpty)
+    }
+
+    @Test func aFileImportedForACheckInCoversThroughItsDate() throws {
+        var session = try Self.session("italian-bank.csv", account: "conto")
+        session.statementCheckIn = "2026-04-10"
+        let preview = session.preview(against: Self.library(), today: Self.today)
+        #expect(preview.issues.contains { $0.kind == .statementPeriod(from: "2026-02-01", through: "2026-04-10") })
+        let tenth = try #require(preview.record(.valuation("conto", "2026-04-10")))
+        #expect(tenth.imported.balance == d("8775.65"))
+
+        // A check-in before the file's last line, in a later month, or after today changes nothing.
+        for date: CalendarDate in ["2026-04-01", "2026-05-02"] {
+            session.statementCheckIn = date
+            let other = session.preview(against: Self.library(), today: Self.today)
+            #expect(other.issues.contains { $0.kind == .statementPeriod(from: "2026-02-01", through: "2026-04-12") })
+        }
+        session.statementCheckIn = "2026-05-31"
+        let may = session.preview(against: Self.library(), today: "2026-06-01")
+        #expect(may.issues.contains { $0.kind == .statementPeriod(from: "2026-02-01", through: "2026-04-30") })
+
+        // Days given on the Income step win.
+        session.statementCheckIn = "2026-04-10"
+        session.statementThrough = "2026-04-05"
+        let given = session.preview(against: Self.library(), today: Self.today)
+        #expect(given.issues.contains { $0.kind == .statementPeriod(from: "2026-02-01", through: "2026-04-05") })
     }
 
     @Test func aFileThatStartsMidMonthDoesntFollowOnFromTheMonthBefore() throws {

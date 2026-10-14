@@ -47,7 +47,10 @@ public struct StatementBatch: Sendable {
     /// profile (by name) that reads every column, else with a proposed
     /// mapping. Then finds each file's account (``recognizeAccounts(in:today:)``)
     /// and pairs the transfers between them (``pairTransfers(in:today:)``).
-    public init(files: [(name: String, data: Data)], library: Library, today: CalendarDate = .today()) {
+    /// `checkIn` is the date of the check-in the files are imported for
+    /// (``ImportSession/statementCheckIn``).
+    public init(files: [(name: String, data: Data)], library: Library, checkIn: CalendarDate? = nil,
+                today: CalendarDate = .today()) {
         let profiles = library.importProfiles.values.filter { $0.layout == .statement }
             .sorted { ($0.name, $0.id) < ($1.name, $1.id) }
         for (index, file) in files.enumerated() {
@@ -66,6 +69,7 @@ public struct StatementBatch: Sendable {
                     session = try ImportSession(data: file.data)
                     session.proposeMapping(layout: .statement)
                 }
+                session.statementCheckIn = checkIn
                 self.files.append(File(id: index, name: file.name, session: session))
             } catch {
                 unreadable.append(UnreadableFile(name: file.name, error: error))
@@ -188,7 +192,11 @@ public struct StatementBatch: Sendable {
     /// (``ImportSession/statementPairs``). Only lines that nothing surer
     /// than the usual words classified are paired.
     mutating func pairTransfers(in library: Library, today: CalendarDate) {
-        for index in files.indices { files[index].session.statementPairs = [:] }
+        let accounts = Set(files.compactMap(\.account))
+        for index in files.indices {
+            files[index].session.statementPairs = [:]
+            files[index].session.statementBatchAccounts = accounts.subtracting(files[index].account.map { [$0] } ?? [])
+        }
         var open: [(file: Int, account: AccountID, line: StatementLine)] = []
         for index in files.indices {
             guard let account = files[index].account else { continue }

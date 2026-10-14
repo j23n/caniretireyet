@@ -48,6 +48,13 @@ final class CheckInSession {
     var showsDatePicker = false
     /// Asks what to do with rows not reviewed yet before saving.
     var showsRestDialog = false
+    /// Shows the file chooser of *Add Statements…*.
+    var choosesStatements = false
+    /// The statements being imported in a sheet over the check-in.
+    var statementImport: CheckInStatementImport?
+    /// Whether the card that asks for the statements first was put away
+    /// (*Type Every Value Instead*).
+    var typesEveryValue = false
 
     private(set) var isSaving = false
     var saveError: String?
@@ -92,7 +99,17 @@ final class CheckInSession {
         editingFlows = []
         editingCash = []
         showsOpenedLater = false
+        typesEveryValue = false
         checkIn.begin()
+    }
+
+    // MARK: Statements
+
+    /// Imports the statements chosen with *Add Statements…* in a sheet,
+    /// for the check-in on `date`.
+    func importStatements(_ files: [URL], on date: CalendarDate) {
+        guard !files.isEmpty else { return }
+        statementImport = CheckInStatementImport(files: files, date: date)
     }
 
     // MARK: Rows

@@ -102,9 +102,13 @@
         "properties": {
           "match": { "type": "string", "minLength": 1 },
           "class": {
-            "description": "income: pay, a pension, rent; money in. spending: money out (a credit card, loan or mortgage payment too). paidBack: a refund or a share paid back; it lowers money out. oneOff: an inheritance, a gift, the sale of something untracked; the value's oneOff. transfer: moved between your accounts, neither. interest: a savings account's interest, a current account's money in. ignore: neither, still in the balance.",
+            "description": "income: pay, a pension, rent; money in. spending: money out (a credit card, loan or mortgage payment too); money in that is spending, such as a refund or a share paid back, lowers money out. oneOff: an inheritance, a gift, the sale of something untracked; the value's oneOff. tax: tax paid, part of money out and the value's tax; a refund lowers both. transfer: moved between your accounts, neither. interest: a savings account's interest, a current account's money in. ignore: neither, still in the balance. An older file's paidBack reads as spending.",
             "$comment": "Open enum.",
-            "enum": ["income", "spending", "paidBack", "oneOff", "transfer", "interest", "ignore"]
+            "enum": ["income", "spending", "oneOff", "tax", "transfer", "interest", "ignore"]
+          },
+          "account": {
+            "description": "With class transfer: the account the lines' money moves to or from. A tax pot gets its side of the move (IMPORT.md, Moved to or from an account).",
+            "$ref": "common.schema.json#/$defs/slug"
           }
         }
       }

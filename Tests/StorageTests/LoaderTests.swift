@@ -247,6 +247,37 @@ struct LoaderTests {
         #expect(fineco?.moneyOut == -1)
     }
 
+    @Test func taxThatIsNotCountedIsAWarning() throws {
+        let folder = try TemporaryFolder.exampleLibrary()
+        var month = try Fixtures.decode(MonthFile.self, from: "history/2026/2026-09.json")
+        for index in month.valuations.indices {
+            switch month.valuations[index].account {
+            case "fondo-pensione":
+                month.valuations[index].tax = 100
+            case "conto-deposito":
+                month.valuations[index].moneyIn = nil
+                month.valuations[index].moneyOut = nil
+                month.valuations[index].tax = 100
+            case "conto-fineco":
+                // Counted: tax paid from a current account, and a refund.
+                month.valuations[index].tax = -50
+            default:
+                break
+            }
+        }
+        try folder.write("history/2026/2026-09.json", JSONEncoder().encode(month))
+
+        let result = try load(folder)
+        let issues = result.report.issues(for: "history/2026/2026-09.json").filter { $0.message.contains("tax") }
+        #expect(issues.count == 2)
+        #expect(issues.allSatisfy { $0.severity == .warning })
+        let messages = issues.map(\.message)
+        #expect(messages.contains { $0.contains("fondo-pensione on 2026-09-30 records tax, but only") })
+        #expect(messages.contains { $0.contains("conto-deposito on 2026-09-30 records tax without both") })
+        let fineco = result.library.months["2026-09"]?.valuations.first { $0.account == "conto-fineco" }
+        #expect(fineco?.tax == -50)
+    }
+
     @Test func aOneOffThatIsNotCountedIsAWarning() throws {
         let folder = try TemporaryFolder.exampleLibrary()
         var month = try Fixtures.decode(MonthFile.self, from: "history/2026/2026-09.json")

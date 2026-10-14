@@ -80,7 +80,7 @@ struct StringValueTests {
     }
 
     @Test func knownValuesAreListed() {
-        #expect(AccountKind.knownValues.count == 13)
+        #expect(AccountKind.knownValues.count == 14)
         #expect(InstrumentKind.knownValues.contains(.metal))
         #expect(AssetClass.knownValues.contains(.realEstate))
         #expect(DataSource.knownValues.contains(.import))

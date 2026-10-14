@@ -23,10 +23,13 @@ struct StatementSenderGroup: Identifiable, Hashable, Sendable {
 }
 
 /// What a bank statement's lines add up to, as the Income step's summary
-/// says it: what came in, what was paid back, one-offs, what went out, and
-/// what was moved between your accounts.
+/// says it: what came in, tax, what was paid back, one-offs, what went
+/// out, and what was moved between your accounts.
 struct StatementSums: Hashable, Sendable {
     var cameIn: Decimal = 0
+    /// Tax paid, less refunds.
+    var tax: Decimal = 0
+    /// Money in that is spending: refunds, a share of a bill.
     var paidBack: Decimal = 0
     var oneOffs: Decimal = 0
     /// Money out before what was paid back.
@@ -44,6 +47,8 @@ struct StatementSums: Hashable, Sendable {
 
     /// What was spent: went out less paid back, at least 0.
     var spent: Decimal { max(wentOut - paidBack, 0) }
+    /// What came in after tax.
+    var afterTax: Decimal { cameIn - tax }
 }
 
 /// The Income step of a bank statement: its money in by sender, the lines
@@ -54,9 +59,8 @@ extension ImportFlow {
         sender.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil)
     }
 
-    /// The lines that need an answer, largest first: money in is income,
-    /// a one-off, paid back or a sale; money out spending or a purchase
-    /// you keep.
+    /// The lines that need an answer, largest first: income, spending, a
+    /// one-off, tax, or money moved to or from an account.
     var statementQuestions: [StatementLine] {
         statementLines.filter { $0.needsAnswer && statementAnswer($0) == nil }
             .sorted { abs($0.amount) > abs($1.amount) }
@@ -66,11 +70,35 @@ extension ImportFlow {
     /// recorded or not (``StatementLine/asset`` is `nil` for one the import
     /// can't record).
     var statementAssetLines: [StatementLine] {
-        statementLines.filter { statementAnswer($0) != nil }
+        statementLines.filter { line in
+            switch statementAnswer(line) {
+            case .purchase?, .sale?: true
+            case .moved?, nil: false
+            }
+        }
     }
 
-    /// The line's answer as a purchase you keep or a sale, for this file,
-    /// whether or not the import can record it.
+    /// The large lines that are money moved between your accounts: those
+    /// answered as a transfer or as moved to or from an account, and money
+    /// that passed through the account. A rule's moves are its rule's.
+    var statementTransferLines: [StatementLine] {
+        statementLines.filter { line in
+            switch line.source {
+            case .passThrough: true
+            case .chosen:
+                switch statementAnswer(line) {
+                case .moved?: true
+                case nil: line.statementClass == .transfer
+                default: false
+                }
+            default: false
+            }
+        }
+    }
+
+    /// The line's answer as money moved to or from an account, a purchase
+    /// you keep or a sale, for this file, whether or not the import can
+    /// record it.
     func statementAnswer(_ line: StatementLine) -> StatementAsset? {
         session?.statementAssets[line.row]
     }
@@ -90,28 +118,46 @@ extension ImportFlow {
             .sorted { ($0.name, $0.id) < ($1.name, $1.id) }
     }
 
-    /// Answers one line as a purchase you keep or a sale, for this file;
-    /// `nil` takes the answer back.
+    /// The accounts a line's money can move to or from, by name: the
+    /// library's accounts the importer can take a move to
+    /// (``Importer/Library/canMoveFromStatement(_:of:on:)``), tax pots first.
+    func moveChoices(for line: StatementLine) -> [Account] {
+        guard let statement = statementAccount else { return [] }
+        return library.accounts.values
+            .filter { library.canMoveFromStatement($0, of: statement, on: line.date) }
+            .sorted { lhs, rhs in
+                (lhs.kind == .taxPot ? 0 : 1, lhs.name, lhs.id) < (rhs.kind == .taxPot ? 0 : 1, rhs.name, rhs.id)
+            }
+    }
+
+    /// Answers one line as money moved to or from an account, a purchase
+    /// you keep or a sale, for this file; `nil` takes the answer back.
     mutating func setStatementAsset(_ asset: StatementAsset?, forRow row: Int) {
         editSession { $0.setStatementAsset(asset, forRow: row) }
     }
 
-    /// What a line answered as a purchase or a sale is, e.g. "A purchase
-    /// you keep: Car", "The sale of Home", or why the import can't record
-    /// it; `nil` for another line.
+    /// What a line answered as money moved to or from an account, a
+    /// purchase or a sale is, by itself or by a rule, e.g. "Moved to Tax
+    /// pot", "A purchase you keep: Car", "The sale of Home", or why the
+    /// import can't record it; `nil` for another line.
     func statementAssetText(_ line: StatementLine) -> String? {
-        guard let answer = statementAnswer(line) else { return nil }
+        guard let answer = statementAnswer(line) ?? line.asset else { return nil }
         guard line.asset != nil else { return "Not recorded: " + statementAssetLeftOutReason(line) }
         return switch answer {
+        case .moved(let id): (line.amount < 0 ? "Moved to " : "Moved from ") + accountName(id)
         case .purchase(let name, _): "A purchase you keep: \(name)"
         case .sale(let id): "The sale of \(accountName(id))"
         }
     }
 
-    /// Why an answered line isn't recorded: it counts in no value whose
-    /// money in and out the file covers, or the answer doesn't fit it.
+    /// Why an answered line isn't recorded: the account can't take the
+    /// move, it counts in no value whose money in and out the file covers,
+    /// or the answer doesn't fit it.
     func statementAssetLeftOutReason(_ line: StatementLine) -> String {
-        line.period == nil ? "the file doesn't cover the value it counts in"
+        if case .moved(let id)? = statementAnswer(line), line.period != nil {
+            return "\(accountName(id)) can't take money moved from this statement"
+        }
+        return line.period == nil ? "the file doesn't cover the value it counts in"
             : "the answer doesn't fit this line"
     }
 
@@ -160,7 +206,7 @@ extension ImportFlow {
             case .sale?:
                 sums.sold += amount
                 continue
-            case nil: break
+            case .moved?, nil: break
             }
             switch line.statementClass {
             case .transfer: sums.moved += amount
@@ -168,7 +214,8 @@ extension ImportFlow {
             case .interest where amount > 0: sums.interest += amount
             case .income where amount > 0: sums.cameIn += amount
             case .oneOff where amount > 0: sums.oneOffs += amount
-            case .paidBack where amount > 0, .spending where amount > 0: sums.paidBack += amount
+            case .tax: sums.tax -= amount
+            case .spending where amount > 0: sums.paidBack += amount
             default: sums.wentOut -= amount
             }
         }

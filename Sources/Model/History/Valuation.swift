@@ -34,6 +34,13 @@ public struct Valuation: Hashable, Sendable, KeyedRecord, KnownKeysProviding {
     /// was saved, so it's neither came in nor spent. `nil` means none.
     /// Only cash and savings accounts record it, with money in and out.
     public var oneOff: Decimal?
+    /// The part of money out that was tax paid since the account's previous
+    /// valuation, such as a yearly income tax bill paid from a current
+    /// account, in the account's currency; negative for a refund, which
+    /// lowers money out. The savings rate takes it off what came in, so tax
+    /// isn't spent. `nil` means none. Only cash and savings accounts record
+    /// it, with money in and out; a tax pot's tax is what moved into it.
+    public var tax: Decimal?
     /// The interest a savings account earned since its previous valuation,
     /// in the account's currency; the flow is the change minus it. `nil`
     /// means none was recorded. Only savings accounts record it.
@@ -45,7 +52,8 @@ public struct Valuation: Hashable, Sendable, KeyedRecord, KnownKeysProviding {
     public init(
         account: AccountID, date: CalendarDate, balance: Decimal? = nil, cash: Decimal? = nil,
         positions: [Position] = [], flow: Decimal? = nil, moneyIn: Decimal? = nil, moneyOut: Decimal? = nil,
-        oneOff: Decimal? = nil, interest: Decimal? = nil, note: String? = nil, source: DataSource? = nil
+        oneOff: Decimal? = nil, tax: Decimal? = nil, interest: Decimal? = nil, note: String? = nil,
+        source: DataSource? = nil
     ) {
         self.account = account
         self.date = date
@@ -56,6 +64,7 @@ public struct Valuation: Hashable, Sendable, KeyedRecord, KnownKeysProviding {
         self.moneyIn = moneyIn
         self.moneyOut = moneyOut
         self.oneOff = oneOff
+        self.tax = tax
         self.interest = interest
         self.note = note
         self.source = source
@@ -81,7 +90,7 @@ public struct Valuation: Hashable, Sendable, KeyedRecord, KnownKeysProviding {
 
 extension Valuation: Codable {
     enum CodingKeys: String, CodingKey, CaseIterable {
-        case account, date, balance, cash, positions, flow, moneyIn, moneyOut, oneOff, interest, note, source
+        case account, date, balance, cash, positions, flow, moneyIn, moneyOut, oneOff, tax, interest, note, source
     }
 
     public static var knownKeys: Set<String> { Set(CodingKeys.allCases.map(\.stringValue)) }
@@ -97,6 +106,7 @@ extension Valuation: Codable {
         moneyIn = try c.decodeDecimalIfPresent(forKey: .moneyIn)
         moneyOut = try c.decodeDecimalIfPresent(forKey: .moneyOut)
         oneOff = try c.decodeDecimalIfPresent(forKey: .oneOff)
+        tax = try c.decodeDecimalIfPresent(forKey: .tax)
         interest = try c.decodeDecimalIfPresent(forKey: .interest)
         note = try c.decodeIfPresent(String.self, forKey: .note)
         source = try c.decodeIfPresent(DataSource.self, forKey: .source)
@@ -113,6 +123,7 @@ extension Valuation: Codable {
         try c.encodeDecimalIfPresent(moneyIn, forKey: .moneyIn)
         try c.encodeDecimalIfPresent(moneyOut, forKey: .moneyOut)
         try c.encodeDecimalIfPresent(oneOff, forKey: .oneOff)
+        try c.encodeDecimalIfPresent(tax, forKey: .tax)
         try c.encodeDecimalIfPresent(interest, forKey: .interest)
         try c.encodeIfPresent(note, forKey: .note)
         try c.encodeIfPresent(source, forKey: .source)

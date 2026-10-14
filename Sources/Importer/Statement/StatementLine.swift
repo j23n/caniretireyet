@@ -21,16 +21,20 @@ public struct StatementLine: Hashable, Sendable, Identifiable {
         /// The description names another account of the library (or its
         /// institution): a transfer, or a payment of a debt (spending).
         case account(AccountID)
-        /// The usual words for pay, refunds, transfers between your own
-        /// accounts and interest (``StatementWords``).
+        /// The usual words for pay, refunds, tax, transfers between your
+        /// own accounts and interest (``StatementWords``).
         case words
         /// Money in from a sender the file has paid within the 90 days
-        /// before: paid back.
+        /// before: paid back, so spending.
         case paidBefore
         /// Money in from a sender who pays similar amounts in at least 3 of
         /// the file's months: income, those amounts and smaller ones.
         case recurring
-        /// Nothing else said: money in is paid back, money out spending.
+        /// Money in and out of the same amount within a few days, at least
+        /// one of them large enough to need an answer: money that passed
+        /// through the account. Both are transfers; `row` is the other line's.
+        case passThrough(row: Int)
+        /// Nothing else said: spending, which money in lowers.
         case sign
     }
 
@@ -56,17 +60,19 @@ public struct StatementLine: Hashable, Sendable, Identifiable {
     /// Whether the line is too large to count by its sign without asking,
     /// and nothing classified it. Money in: more than a typical month's
     /// spending in the file, or more than a sender who pays every month
-    /// usually pays, whatever its size. Income, a one-off, paid back or a
-    /// sale? Until it's answered it counts as paid back. Money out: more
-    /// than a typical month's spending, without the line. Spending or a
-    /// purchase you keep? Until it's answered it counts as spending.
+    /// usually pays, whatever its size. Money out: more than a typical
+    /// month's spending, without the line. Income, spending, a one-off,
+    /// tax, or moved to or from an account? Until it's answered it counts
+    /// as spending.
     public var needsAnswer = false
-    /// The line's answer as a purchase you keep or a sale
-    /// (``ImportSession/setStatementAsset(_:forRow:)``), when the import
-    /// records it: the line is then a transfer, chosen.
+    /// The line's answer as money moved to or from an account, a purchase
+    /// you keep or a sale (``ImportSession/setStatementAsset(_:forRow:)``,
+    /// or a rule with an account), when the import takes it: the line is
+    /// then a transfer.
     public var asset: StatementAsset?
-    /// The account the answer starts or sells: a purchase's new account
-    /// (``ImportPreview/newAccounts``), or the account sold.
+    /// The account the answer moves money to or from: the account named, a
+    /// purchase's new account (``ImportPreview/newAccounts``), or the
+    /// account sold.
     public var assetAccount: AccountID?
 
     public var id: Int { row }
@@ -84,14 +90,17 @@ public struct StatementLine: Hashable, Sendable, Identifiable {
         /// Lowered by money paid back, so it can be negative.
         var moneyOut: Decimal = 0
         var oneOff: Decimal = 0
+        /// Tax paid, lowered by a refund: part of money out.
+        var tax: Decimal = 0
         var interest: Decimal = 0
     }
 
-    /// What the line adds to money in, money out, one-offs and interest.
-    /// Income that came in is money in, and so is interest unless the
-    /// account records interest (`recordsInterest`); a one-off that came in
-    /// is a one-off. Money in that is spending or paid back lowers money
-    /// out. Any of them that went out is money out.
+    /// What the line adds to money in, money out, one-offs, tax and
+    /// interest. Income that came in is money in, and so is interest unless
+    /// the account records interest (`recordsInterest`); a one-off that
+    /// came in is a one-off. Money in that is spending lowers money out.
+    /// Any of them that went out is money out. Tax is money out and tax
+    /// both ways: paid, it adds to them; refunded, it lowers them.
     func counted(recordsInterest: Bool) -> Counted {
         var counted = Counted()
         switch statementClass {
@@ -104,7 +113,10 @@ public struct StatementLine: Hashable, Sendable, Identifiable {
             } else {
                 counted.moneyIn = amount
             }
-        case .spending, .paidBack: counted.moneyOut = -amount
+        case .spending: counted.moneyOut = -amount
+        case .tax:
+            counted.moneyOut = -amount
+            counted.tax = -amount
         default: break
         }
         return counted
@@ -113,18 +125,22 @@ public struct StatementLine: Hashable, Sendable, Identifiable {
 
 /// The usual words of bank statements, in Italian, German and English,
 /// folded (lowercase, no accents), that classify a line no rule and no
-/// account does. Pay and interest count only for money in.
+/// account does. Pay, interest and refunds count only for money in.
 public enum StatementWords {
     /// Pay and pensions: income when the line is money in.
     static let income = ["stipendio", "stipendi", "emolumenti", "retribuzione", "salario", "pensione", "salary",
                          "payroll", "wages", "pension", "gehalt", "lohn", "bezuge", "rente"]
     /// Money paid back: a refund or a reversal, when the line is money in.
+    /// It's spending, which it lowers.
     static let paidBack = ["rimborso", "storno", "stornierung", "erstattung", "ruckerstattung", "refund", "reversal",
                            "chargeback"]
     /// Money moved between your own accounts.
     static let transfer = ["giroconto", "girofondi", "giro conto", "trasferimento tra conti", "umbuchung", "ubertrag",
                            "eigenubertrag", "own account transfer", "transfer between accounts", "transfer to savings",
                            "transfer from savings", "internal transfer"]
+    /// The tax office, and tax on income: tax paid, or a refund.
+    static let tax = ["finanzamt", "agenzia entrate", "agenzia delle entrate", "f24", "einkommensteuer", "hmrc",
+                      "income tax", "self assessment"]
     /// Interest earned: interest when the line is money in.
     static let interest = ["interessi", "interessi creditori", "interessi attivi", "competenze creditorie", "zinsen",
                            "habenzinsen", "zinsgutschrift", "interest", "interest paid", "credit interest"]
@@ -134,10 +150,11 @@ public enum StatementWords {
         let words = TextTools.words(text)
         guard !words.isEmpty else { return nil }
         if TextTools.contains(words, anyOf: transfer) { return .transfer }
+        if TextTools.contains(words, anyOf: tax) { return .tax }
         guard amount > 0 else { return nil }
         if TextTools.contains(words, anyOf: interest) { return .interest }
         if TextTools.contains(words, anyOf: income) { return .income }
-        if TextTools.contains(words, anyOf: paidBack) { return .paidBack }
+        if TextTools.contains(words, anyOf: paidBack) { return .spending }
         return nil
     }
 

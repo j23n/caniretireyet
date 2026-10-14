@@ -30,6 +30,10 @@ public struct ImportSession: Sendable {
     /// imported with this one moves to or from, by 1-based row, with that
     /// account: transfers (``StatementBatch`` sets them).
     public var statementPairs: [Int: AccountID] = [:]
+    /// Statement layout: the accounts of the other statements imported with
+    /// this one (``StatementBatch`` sets them). Money moved to one of them
+    /// is that statement's to record, not this one's.
+    public var statementBatchAccounts: Set<AccountID> = []
     /// Statement layout: the account's balance before the file's first line,
     /// for a file without a balance column that doesn't follow on from the
     /// library's values.
@@ -41,6 +45,12 @@ public struct ImportSession: Sendable {
     /// month, covers part of a month. The last can't be after today.
     public var statementFrom: CalendarDate?
     public var statementThrough: CalendarDate?
+    /// Statement layout: the date of the check-in the file is imported
+    /// for. Unless ``statementThrough`` is given, the file is read as
+    /// covering through that date when its last line is in the same month
+    /// and not after it, so the account gets a value on the check-in's
+    /// date. Ignored when it's after today.
+    public var statementCheckIn: CalendarDate?
 
     /// Reads a file and proposes a mapping for it. Settings left `nil` are detected.
     public init(data: Data, settings: ImportFileSettings = ImportFileSettings()) throws(ImportError) {

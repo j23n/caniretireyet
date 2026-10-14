@@ -537,11 +537,18 @@ enum CheckInWording {
         return "Last check-in \(day) · " + count
     }
 
+    /// What an updated row with a value imported on the check-in's date
+    /// (from a statement, most often) says it is.
+    static let imported = "Imported"
+
     /// "Values from 30 September are already saved; saving updates them.",
-    /// when the library has a check-in on the draft's date.
+    /// when the library has a check-in on the draft's date. Values imported
+    /// on the date (a check-in's statements) don't count.
     static func existingCheckInNote(on date: CalendarDate, in library: Library,
                                     locale: Locale = .current) -> String? {
-        let hasValues = library.months[date.yearMonth]?.valuations.contains { $0.date == date } ?? false
+        let hasValues = library.months[date.yearMonth]?.valuations.contains {
+            $0.date == date && $0.source != .import
+        } ?? false
         guard hasValues else { return nil }
         let day = date.dateValue.formatted(.dateTime.day().month(.wide).locale(locale))
         return "There's already a check-in on \(day). Its values are filled in, and saving updates it."

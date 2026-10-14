@@ -24,6 +24,7 @@ This document records the decisions and what they change. The documents they cha
 | `tfr` | As a pension fund | Unchanged | Unchanged |
 | `property` | A balance; new money is asked for, and left empty, what the main plan pays in counts (usually nothing) | Unchanged | Unchanged |
 | `belongings` (`vehicle` before) | As property, as `vehicle` | Things you own that lose value and might sell (a car, a bike, a boat, electronics); `vehicle` reads as `belongings`; optionally an estimated loss of value a year (`depreciation`) | The whole change, as a current account's, so its loss of value is spent; between typed values, the estimated loss |
+| `taxPot` | — (added later) | Money set aside for a tax bill paid later, such as once a year: balance, money in (a refund of tax) and money out (tax paid from it), in neither net worth nor plans unless `includeIn` says so; what moves into it from your other accounts is tax, so came in is after it and it isn't spent ([PROGRESS.md](PROGRESS.md#money-in-and-out)) | The whole change, as a current account's |
 | `other` | As property | Unchanged; a brokerage, crypto or metals account recorded as a balance becomes `other` ([Migration](#migration)) | Unchanged; asked for, as for property |
 
 Today's rules are in `Sources/Model/Accounts/`: `AccountKind.defaultValuationMode`, `AccountKind.defaultFlow` (`FlowDefault`), `AccountKind.recordsMoneyInOut`, `Account.valuationMode` and `Account.tracksMoneyInOut`.

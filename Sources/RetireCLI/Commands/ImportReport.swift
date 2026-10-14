@@ -253,18 +253,20 @@ struct ImportReport: CommandReport {
             result.append("  … and \(Wording.count(lines.count - rows, "more line")) (--rows to list more).")
         }
         guard showsStatementOptions else { return result }
-        result.append("  Correct a class with --class \"<words in the text>=<class>\" (income, spending, paidBack, "
-            + "oneOff, transfer, interest or ignore); --save-profile keeps it for the next statement.")
+        result.append("  Correct a class with --class \"<words in the text>=<class>\" (income, spending, oneOff, "
+            + "tax, transfer, interest or ignore); --save-profile keeps it for the next statement.")
         if lines.contains(where: \.needsAnswer) {
-            result.append("  A line out for something you keep: --purchase \"<row or words>=belongings:<name>\" (or "
+            result.append("  Money moved to or from an account: --move \"<words>=<account>\". "
+                + "A line out for something you keep: --purchase \"<row or words>=belongings:<name>\" (or "
                 + "property, other); a line in from selling one: --sale \"<row or words>=<account>\".")
         }
         return result
     }
 
-    /// `purchase` or `sale`.
+    /// `moved`, `purchase` or `sale`.
     static func assetName(_ asset: StatementAsset) -> String {
         switch asset {
+        case .moved: "moved"
         case .purchase: "purchase"
         case .sale: "sale"
         }
@@ -281,6 +283,7 @@ struct ImportReport: CommandReport {
         case .words: ("usual words", nil)
         case .paidBefore: ("paid before", nil)
         case .recurring: ("recurring", nil)
+        case .passThrough(let row): ("passed through", "row \(row)")
         case .sign: ("sign", nil)
         }
     }
@@ -575,7 +578,7 @@ struct ImportReport: CommandReport {
         if let price = record.price { parts.append("\(Format.exact(price)) \(record.currency?.rawValue ?? "")") }
         if let rate = record.rate { parts.append(Format.exact(rate)) }
         if let trade = record.trade { parts.append(values(trade)) }
-        parts += moneyInOut(record.moneyIn, record.moneyOut, record.interest, record.oneOff)
+        parts += moneyInOut(record.moneyIn, record.moneyOut, record.interest, record.oneOff, record.tax)
         return parts.joined(separator: ", ").trimmingCharacters(in: .whitespaces)
     }
 
@@ -592,7 +595,8 @@ struct ImportReport: CommandReport {
                     + (position.costBasis.map { " (cost \(Format.amount($0)))" } ?? ""))
             }
             if imported?.moneyIn != nil || imported?.moneyOut != nil {
-                parts += moneyInOut(valuation.moneyIn, valuation.moneyOut, valuation.interest, valuation.oneOff)
+                parts += moneyInOut(valuation.moneyIn, valuation.moneyOut, valuation.interest, valuation.oneOff,
+                                   valuation.tax)
             }
             return parts.joined(separator: ", ")
         case .price(let price): return "\(Format.exact(price.price)) \(price.currency)"
@@ -601,12 +605,11 @@ struct ImportReport: CommandReport {
         }
     }
 
-    /// `in 2,800.00`, `out 1,266.40`, `interest 1.20`, for those recorded.
+    /// `in 2,800.00`, `out 1,266.40`, `interest 1.20`, `tax 3,200.00`, for those recorded.
     static func moneyInOut(_ moneyIn: Decimal?, _ moneyOut: Decimal?, _ interest: Decimal?,
-                           _ oneOff: Decimal?) -> [String] {
-        [("in", moneyIn), ("out", moneyOut), ("interest", interest), ("one-off", oneOff)].compactMap { label, value in
-            value.map { "\(label) \(Format.amount($0))" }
-        }
+                           _ oneOff: Decimal?, _ tax: Decimal?) -> [String] {
+        [("in", moneyIn), ("out", moneyOut), ("interest", interest), ("one-off", oneOff), ("tax", tax)]
+            .compactMap { label, value in value.map { "\(label) \(Format.amount($0))" } }
     }
 
     static func clip(_ text: String, _ length: Int) -> String {
@@ -754,18 +757,19 @@ struct ImportReport: CommandReport {
             /// Who paid or was paid; empty when the text names no one.
             var sender: String
             var `class`: String
-            /// chosen, rule, trade, account, usual words, paid before, recurring or sign.
+            /// chosen, rule, trade, paired, account, usual words, paid before, recurring, passed through or sign.
             var source: String
             /// The rule's phrase, the trade, or the account.
             var sourceDetail: String?
             /// The date of the value whose money in and out the line counts in.
             var value: String?
-            /// Too large to count by its sign without asking: money in as
-            /// paid back, money out as spending.
+            /// Too large to count by its sign without asking: spending
+            /// until it's answered.
             var needsAnswer: Bool
-            /// purchase or sale, when the line is answered as one.
+            /// moved, purchase or sale, when the line is answered as one.
             var asset: String?
-            /// The account the purchase starts or the sale closes.
+            /// The account the money moved to or from, the purchase starts
+            /// or the sale closes.
             var assetAccount: String?
         }
 

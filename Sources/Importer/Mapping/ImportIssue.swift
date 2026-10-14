@@ -102,6 +102,13 @@ public struct ImportIssue: Hashable, Sendable, CustomStringConvertible {
         /// after it, sold once (`account`). Either needs to count in a value
         /// whose money in and out the file covers (``StatementLine/period``).
         case statementAssetLeftOut(row: Int, account: AccountID?)
+        /// Statement layout: the answer of the line on `row` as money moved
+        /// to or from `account` (``StatementAsset/moved(_:)``) is left out,
+        /// and the line counts by its class. The account must be another
+        /// one of the library, not closed by the line; a tax pot in the
+        /// statement's currency, and the line counted in a value whose
+        /// money in and out the file covers (``StatementLine/period``).
+        case statementMoveLeftOut(row: Int, account: AccountID)
     }
 
     public var kind: Kind
@@ -226,6 +233,10 @@ public struct ImportIssue: Hashable, Sendable, CustomStringConvertible {
                 + "balance in the statement's currency, not a cash or savings account or a debt, opened by the line, "
                 + "with no values after it, sold once. The line counts by its class, or in no value if it counts in "
                 + "none."
+        case .statementMoveLeftOut(let row, let account):
+            return "Row \(row) can't move money to or from \(account): it needs to be another account of the library, "
+                + "not closed by the line; a tax pot needs to be in the statement's currency, with the line counted in "
+                + "a value whose money in and out the file covers. The line counts by its class."
         case .statementAssetLeftOut(let row, nil):
             return "Row \(row) can't be a purchase or a sale: a purchase is money out that starts a belongings, "
                 + "property or other account, and a sale is money in, each counted in a value whose money in and out "

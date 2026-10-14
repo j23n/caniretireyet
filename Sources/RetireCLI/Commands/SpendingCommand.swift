@@ -90,11 +90,12 @@ struct SpendingCommand: RetireSubcommand {
             if let savings, let rate = savings.rate {
                 let pensions = savings.pensionContributions > 0
                     ? ", \(Format.amount(savings.pensionContributions)) of it paid into pension funds and TFR" : ""
+                let tax = savings.tax > 0 ? " after \(Format.amount(savings.tax)) in tax" : ""
                 let spent = savings.spent < 0 ? ""
                     : ", and spent \(Format.amount(savings.spent)) (\(Format.amount(savings.spentPerYear)) a year)"
                 lines.append("Savings rate \(Format.percent(rate)): you saved \(Format.amount(savings.saved)) of the "
                     + "\(Format.amount(savings.income)) that came in from \(savings.from.adding(days: 1)) to "
-                    + "\(savings.through)\(pensions)\(spent).")
+                    + "\(savings.through)\(tax)\(pensions)\(spent).")
                 if savings.oneOffs > 0 {
                     lines.append("One-offs of \(Format.amount(savings.oneOffs)), such as an inheritance, are left out: "
                         + "they're neither came in nor spent.")
@@ -120,6 +121,7 @@ struct SpendingCommand: RetireSubcommand {
                  savingsRate: savings?.rate.map { Format.json($0, places: 4) },
                  cameIn: savings.map { Format.json($0.income) },
                  pensionContributions: savings.map { Format.json($0.pensionContributions) },
+                 tax: savings.map { Format.json($0.tax) },
                  saved: savings.map { Format.json($0.saved) },
                  spent: savings.map { Format.json($0.spent) },
                  spentPerYear: savings.map { Format.json($0.spentPerYear) },
@@ -145,12 +147,14 @@ struct SpendingCommand: RetireSubcommand {
             /// account, when no money in and out was counted, or when nothing
             /// came in.
             var savingsRate: String?
-            /// Money in plus the pension contributions, over the days the pay
-            /// covers; absent for one account or when no money in and out was
-            /// counted. So are the four below.
+            /// Money in plus the pension contributions, less tax, over the days the pay covers; absent for one account or
+            /// when no money in and out was counted. So are the five below.
             var cameIn: String?
             /// What was paid into pension funds and TFR over those days.
             var pensionContributions: String?
+            /// Tax over those days: tax money out recorded, less refunds,
+            /// plus what moved into tax pots. Not in came in.
+            var tax: String?
             /// Every account's new money over those days.
             var saved: String?
             /// What came in less what was saved.

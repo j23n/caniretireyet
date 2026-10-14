@@ -23,8 +23,9 @@ final class ImportController {
     /// A failure to show, e.g. files that couldn't be written.
     var errorMessage: String?
 
-    init(library: Library = Library(), guided: Bool = false) {
-        flow = ImportFlow(library: library, guided: guided)
+    /// `checkIn` is the date of the check-in the import is opened from, if any.
+    init(library: Library = Library(), guided: Bool = false, checkIn: CalendarDate? = nil) {
+        flow = ImportFlow(library: library, guided: guided, checkIn: checkIn)
     }
 
     /// The import of the Mac's and iPad's Import page, which survives

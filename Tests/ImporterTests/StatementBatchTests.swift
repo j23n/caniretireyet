@@ -55,6 +55,14 @@ struct StatementBatchTests {
         #expect(unknown.files.first?.accountSource == nil)
     }
 
+    @Test func eachFileOfACheckInCoversThroughItsDate() {
+        let batch = StatementBatch(files: [(name: "fineco-gennaio.csv", data: Data(Self.current.utf8))],
+                                   library: Self.library(), checkIn: "2026-01-29", today: Self.today)
+        #expect(batch.files.first?.session.statementCheckIn == "2026-01-29")
+        let preview = batch.files[0].session.preview(against: Self.library(), today: Self.today)
+        #expect(preview.issues.contains { $0.kind == .statementPeriod(from: "2026-01-01", through: "2026-01-29") })
+    }
+
     /// In a month that isn't over the file makes no value yet, and its
     /// balance still says which account it follows on from. An account's
     /// own word names it: "Conto Arancio" is "arancio".
