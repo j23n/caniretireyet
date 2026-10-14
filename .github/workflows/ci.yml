@@ -6,7 +6,8 @@ name: CI
 # apple-ci's workflows decide when each job runs (its README's "When CI runs"): Linux on every push;
 # macOS on pushes to main, runs by hand (Actions › CI › Run workflow), and a pull request once it's
 # labeled ci:mac, which Claude's review adds when the change needs the Mac's build. The screenshots
-# are taken only when someone asks: by hand, or on a pull request they label ci:screenshots.
+# are taken only when someone asks: by hand with "Take screenshots" ticked, or on a pull request they
+# label ci:screenshots.
 on:
   push:
   pull_request:
@@ -15,6 +16,11 @@ on:
     # CI runs").
     types: [labeled]
   workflow_dispatch:
+    inputs:
+      screenshots:
+        description: Take screenshots (about half an hour on the Mac)
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -32,18 +38,18 @@ jobs:
     with:
       name: Linux · swift build and test
 
-  # On a pull request only the app's builds (make ci-macos-app): Linux has tested the package on the
-  # same commit. On main, and by hand, the package's build and tests on the Mac too.
+  # On a pull request the app's builds and tests (make ci-macos-app): Linux has tested the package on
+  # the same commit. On main, and by hand, CloudSync's Apple-only tests too (make ci-macos).
   macos:
     uses: j23n/apple-ci/.github/workflows/macos.yml@main
     with:
       name: macOS · package and app (iOS Simulator and Mac)
       run: ${{ github.event_name == 'pull_request' && 'make ci-macos-app' || 'make ci-macos' }}
 
-  # Only when asked: by hand, or on a pull request once it's labeled ci:screenshots. Not on pushes,
-  # main's included, and the review never adds the label.
+  # Only when asked: by hand with the screenshots input, or on a pull request once it's labeled
+  # ci:screenshots. Not on pushes, main's included, and the review never adds the label.
   screenshots:
-    if: github.event_name != 'push'
+    if: github.event_name == 'pull_request' || inputs.screenshots
     uses: j23n/apple-ci/.github/workflows/macos.yml@main
     with:
       name: macOS · screenshots (Mac and iPhone Simulator)

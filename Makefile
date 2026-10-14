@@ -72,10 +72,13 @@ screenshots: project
 
 ci-linux: build-package test
 
-ci-macos: build-package build check-icons test test-app
+# The Mac's run on main and by hand: a pull request's run, plus CloudSync's tests, the only package
+# tests with Apple-only code. Linux builds and tests the whole package on every push, and building
+# the app builds every package module the app links for the Mac and the iOS Simulator.
+ci-macos: ci-macos-app
+	$(SWIFT) test --filter CloudSyncTests
 
-# A pull request's Mac run (ci.yml): the app's builds and its unit tests, which only a Mac runs. The
-# package's tests run on Linux on every push, and on the Mac on main.
+# A pull request's Mac run (ci.yml): the app's builds and its unit tests, which only a Mac runs.
 ci-macos-app: build check-icons test-app
 
 clean:
