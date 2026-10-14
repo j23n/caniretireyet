@@ -13,14 +13,13 @@ extension View {
     /// The Import screen's steps along the top and its bar at the bottom:
     /// Review's own bar for bank statements, and neither on their Done,
     /// which is a page of its own (``ImportFlow/showsImportBars``).
-    func importBars(model: ImportController, isCompact: Bool) -> some View {
-        modifier(ImportBars(model: model, isCompact: isCompact))
+    func importBars(model: ImportController) -> some View {
+        modifier(ImportBars(model: model))
     }
 }
 
 private struct ImportBars: ViewModifier {
     let model: ImportController
-    let isCompact: Bool
 
     func body(content: Content) -> some View {
         content
@@ -31,7 +30,7 @@ private struct ImportBars: ViewModifier {
             }
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 if model.flow.step == .preview, model.flow.layout == .statement {
-                    ImportReviewBottomBar(model: model, isCompact: isCompact)
+                    ImportReviewBottomBar(model: model)
                 } else if model.flow.showsImportBars {
                     ImportBottomBar(model: model)
                 }
@@ -53,17 +52,9 @@ struct ImportStatementDone: View {
     @Environment(AppNavigation.self) private var navigation
     @Environment(\.importClose) private var close
     @Environment(\.locale) private var locale
-    #if os(iOS)
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
-    #endif
+    @Environment(\.pageLayout) private var layout
 
-    private var isCompact: Bool {
-        #if os(iOS)
-        return horizontalSizeClass == .compact
-        #else
-        return false
-        #endif
-    }
+    private var isCompact: Bool { !layout.isWide }
 
     var body: some View {
         ScrollView {
@@ -94,7 +85,7 @@ struct ImportStatementDone: View {
                     }
                 }
                 if !receipt.isUndone, !receipt.remembered.isEmpty {
-                    ImportRememberedCard(items: receipt.remembered, isCompact: isCompact)
+                    ImportRememberedCard(items: receipt.remembered)
                 }
                 buttons
             }
@@ -179,7 +170,8 @@ struct ImportStatementDone: View {
 /// and the senders' answers, each with what it applies to on a wide screen.
 private struct ImportRememberedCard: View {
     let items: [ImportRemembered]
-    let isCompact: Bool
+    @Environment(\.pageLayout) private var layout
+    private var isCompact: Bool { !layout.isWide }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {

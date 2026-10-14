@@ -13,7 +13,8 @@ import SwiftUI
 /// profile or a proposed one. Files dropped or added join those listed.
 struct ImportFileStep: View {
     let model: ImportController
-    let isCompact: Bool
+    @Environment(\.pageLayout) private var layout
+    private var isCompact: Bool { !layout.isWide }
     /// Shows the file importer, which adds files.
     let chooseFile: () -> Void
     /// Adds files dropped on the step.
@@ -37,7 +38,7 @@ struct ImportFileStep: View {
             .sheet(item: $sheet) { sheet in
                 switch sheet {
                 case .reading:
-                    ImportReadingSheet(model: model, isCompact: isCompact)
+                    ImportReadingSheet(model: model)
                 case .days:
                     ImportFileDaysSheet(model: model)
                 }

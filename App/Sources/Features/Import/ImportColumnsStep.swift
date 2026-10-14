@@ -9,7 +9,8 @@ import SwiftUI
 /// on iPhone.
 struct ImportColumnsStep: View {
     let model: ImportController
-    let isCompact: Bool
+    @Environment(\.pageLayout) private var layout
+    private var isCompact: Bool { !layout.isWide }
 
     var body: some View {
         if isCompact {

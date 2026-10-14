@@ -13,7 +13,8 @@ import SwiftUI
 /// back as it was when the sheet opened, *Use* keeps it.
 struct ImportReadingSheet: View {
     let model: ImportController
-    let isCompact: Bool
+    @Environment(\.pageLayout) private var layout
+    private var isCompact: Bool { !layout.isWide }
 
     @Environment(\.dismiss) private var dismiss
     @Environment(LibraryStore.self) private var library
@@ -372,7 +373,7 @@ private struct ImportReadingPreview: View {
     var body: some View {
         Group {
             if let model {
-                ImportReadingSheet(model: model, isCompact: false)
+                ImportReadingSheet(model: model)
             } else {
                 ProgressView()
             }

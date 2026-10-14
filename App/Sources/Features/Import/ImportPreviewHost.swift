@@ -15,10 +15,10 @@ struct ImportPreviewHost: View {
     var body: some View {
         Group {
             if let model {
-                ImportStepContent(model: model, isCompact: false, chooseFile: {}, openFiles: { _ in })
+                ImportStepContent(model: model, chooseFile: {}, openFiles: { _ in })
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(Palette.page)
-                    .importBars(model: model, isCompact: false)
+                    .importBars(model: model)
             } else {
                 ProgressView()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
