@@ -81,49 +81,17 @@ struct NetWorthWidget: Widget {
     static let kind = "NetWorth"
 
     var body: some WidgetConfiguration {
-        StaticConfiguration(kind: Self.kind, provider: GlanceProvider()) { entry in
-            NetWorthView(entry: entry)
+        glance(kind: Self.kind, name: "Net worth",
+               description: "Your net worth at the latest check-in, and how it changed.",
+               families: [.small, .medium, .large, .rectangular, .circular], link: .overview) { entry, family in
+            switch family {
+            case .rectangular: NetWorthRectangular(entry: entry)
+            case .circular: NetWorthCircular(entry: entry)
+            case .large: NetWorthLarge(entry: entry)
+            case .medium: NetWorthMedium(entry: entry)
+            default: NetWorthSmall(entry: entry)
+            }
         }
-        .configurationDisplayName("Net worth")
-        .description("Your net worth at the latest check-in, and how it changed.")
-        .supportedFamilies(Self.families)
-    }
-
-    static var families: [WidgetFamily] {
-        #if os(iOS)
-        return [.systemSmall, .systemMedium, .systemLarge, .accessoryRectangular, .accessoryCircular]
-        #else
-        return [.systemSmall, .systemMedium, .systemLarge]
-        #endif
-    }
-}
-
-struct NetWorthView: View {
-    var entry: GlanceEntry
-    @Environment(\.widgetFamily) private var family
-
-    var body: some View {
-        content
-            .widgetURL(GlanceLink.overview.url)
-    }
-
-    @ViewBuilder
-    private var content: some View {
-        #if os(iOS)
-        switch family {
-        case .accessoryRectangular: NetWorthRectangular(entry: entry)
-        case .accessoryCircular: NetWorthCircular(entry: entry)
-        case .systemLarge: NetWorthLarge(entry: entry)
-        case .systemMedium: NetWorthMedium(entry: entry)
-        default: NetWorthSmall(entry: entry)
-        }
-        #else
-        switch family {
-        case .systemLarge: NetWorthLarge(entry: entry)
-        case .systemMedium: NetWorthMedium(entry: entry)
-        default: NetWorthSmall(entry: entry)
-        }
-        #endif
     }
 }
 
@@ -433,7 +401,6 @@ struct RetirementSection: View {
     }
 }
 
-#if os(iOS)
 /// Net worth's changes on the lock screen, in per cent only: the lock
 /// screen shows while the device is locked.
 struct NetWorthRectangular: View {
@@ -501,7 +468,6 @@ struct NetWorthCircular: View {
         return WidgetMoney(currency: snapshot.currency, locale: locale).percentChange(fraction).text
     }
 }
-#endif
 
 // MARK: - Since last check-in
 
@@ -512,13 +478,11 @@ struct SinceCheckInWidget: Widget {
     static let kind = "SinceCheckIn"
 
     var body: some WidgetConfiguration {
-        StaticConfiguration(kind: Self.kind, provider: GlanceProvider()) { entry in
+        glance(kind: Self.kind, name: "Since last check-in",
+               description: "What changed since your last check-in: what you saved, and what markets did.",
+               families: [.medium], link: .overview) { entry, _ in
             SinceCheckInView(entry: entry)
-                .widgetURL(GlanceLink.overview.url)
         }
-        .configurationDisplayName("Since last check-in")
-        .description("What changed since your last check-in: what you saved, and what markets did.")
-        .supportedFamilies([.systemMedium])
     }
 }
 
@@ -614,13 +578,11 @@ struct AllocationWidget: Widget {
     static let kind = "Allocation"
 
     var body: some WidgetConfiguration {
-        StaticConfiguration(kind: Self.kind, provider: GlanceProvider()) { entry in
+        glance(kind: Self.kind, name: "Allocation",
+               description: "What you own by asset class, at the latest check-in.",
+               families: [.medium], link: .overview) { entry, _ in
             AllocationView(entry: entry)
-                .widgetURL(GlanceLink.overview.url)
         }
-        .configurationDisplayName("Allocation")
-        .description("What you own by asset class, at the latest check-in.")
-        .supportedFamilies([.systemMedium])
     }
 }
 

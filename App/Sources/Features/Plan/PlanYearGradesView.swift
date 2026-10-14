@@ -9,11 +9,14 @@ import SwiftUI
 /// words alone. A row opens its year on Progress.
 struct PlanYearGradesTable: View {
     let years: [PlanProgressYear]
-    var isWide = false
     let onShowYear: (Int) -> Void
 
     @Environment(LibraryStore.self) private var library
+    @Environment(\.pageLayout) private var layout
     @Environment(\.locale) private var locale
+
+    /// The Mac and iPad: the amounts under the words.
+    private var isWide: Bool { layout.isWide }
 
     private var yearWidth: CGFloat { isWide ? 84 : 56 }
 

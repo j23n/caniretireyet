@@ -62,25 +62,10 @@ extension PlanBaselineComparison {
         }
     }
 
-    /// "61st", "22nd", "13th".
-    static func ordinal(_ number: Int) -> String {
-        let suffix: String
-        switch (number % 10, number % 100) {
-        case (_, 11...13): suffix = "th"
-        case (1, _): suffix = "st"
-        case (2, _): suffix = "nd"
-        case (3, _): suffix = "rd"
-        default: suffix = "th"
-        }
-        return "\(number)\(suffix)"
-    }
-
-    /// "61st percentile of what you expected", or where you are outside the band.
+    /// The line under the baseline's chart: "61 in 100 of the futures you
+    /// expected are below you"; empty when that isn't known.
     static func percentileText(_ position: Position) -> String {
-        if position.isBelowTenth { return "Below the 10th percentile of what you expected" }
-        if position.isAboveNinetieth { return "Above the 90th percentile of what you expected" }
-        guard let percentile = position.percentile else { return "" }
-        return "\(ordinal(Int(wholeNumber: percentile))) percentile of what you expected"
+        position.futuresBelow.map { "\($0) of the futures you expected are below you" } ?? ""
     }
 
     /// The picker's label: "Start of 2026 (automatic)", "Before going part-time (saved 12 Mar)".
@@ -294,9 +279,7 @@ struct PlanProgressTimeline {
     /// "You saved 9.000 €, more than usual.", "Markets fell 12.000 €, 6%.".
     static func note(_ event: PlanYearEvent, text: PlanMilestoneText) -> Note {
         let month = GlanceText.shortMonth(event.date, locale: text.locale)
-        func amount(_ value: Decimal) -> AmountSentence {
-            .amount(AmountFormat.amount(abs(value), currency: text.currency, locale: text.locale))
-        }
+        let money = PlanWords(currency: text.currency, locale: text.locale)
         let words: AmountSentence
         switch event.kind {
         case let .answerMoved(age, years, again, planChanged):
@@ -308,11 +291,11 @@ struct PlanProgressTimeline {
         case .noAge:
             words = "No age reached your bar."
         case .savedMore(let saved):
-            words = "You saved \(amount(saved)), more than usual."
+            words = "You saved \(money.unsigned(saved)), more than usual."
         case let .markets(markets, share):
             let percent = AmountFormat.percent(share.doubleValue, digits: 0, locale: text.locale)
-            words = markets < 0 ? "Markets fell \(amount(markets)), \(percent)."
-                : "Markets added \(amount(markets)), \(percent)."
+            words = markets < 0 ? "Markets fell \(money.unsigned(markets)), \(percent)."
+                : "Markets added \(money.unsigned(markets)), \(percent)."
         }
         return Note(date: event.date, month: month, text: words)
     }
@@ -322,11 +305,6 @@ struct PlanProgressTimeline {
 /// January, its story and January's note. Amounts hide with the eye
 /// (``AmountSentence``).
 enum PlanProgressText {
-    /// `value` without its sign: "18.400 €".
-    private static func amount(_ value: Decimal, currency: CurrencyCode, locale: Locale) -> AmountSentence {
-        .amount(AmountFormat.amount(abs(value), currency: currency, locale: locale))
-    }
-
     /// "+34.000 €", or "so far" for the year still going.
     static func change(_ year: PlanProgressYear, currency: CurrencyCode,
                        locale: Locale = .current) -> AmountSentence {
@@ -338,7 +316,7 @@ enum PlanProgressText {
     static func againstJanuary(_ year: PlanProgressYear, currency: CurrencyCode,
                                locale: Locale = .current) -> AmountSentence? {
         guard let position = year.position else { return nil }
-        let gap = Self.amount(position.gap, currency: currency, locale: locale)
+        let gap = PlanWords(currency: currency, locale: locale).unsigned(position.gap)
         let expectation = year.expectation(locale: locale)
         return position.gap >= 0 ? "\(gap) ahead of \(expectation)" : "\(gap) behind \(expectation)"
     }
@@ -347,20 +325,13 @@ enum PlanProgressText {
     /// 56 to 54, two years sooner."
     static func story(_ year: PlanProgressYear, currency: CurrencyCode,
                       locale: Locale = .current) -> AmountSentence {
-        func amount(_ value: Decimal) -> AmountSentence {
-            Self.amount(value, currency: currency, locale: locale)
-        }
         var sentences: [AmountSentence] = []
         if let note = pricesNote(year, locale: locale) {
             sentences.append(AmountSentence(note))
         }
         if year.from != year.to {
-            let saved = year.change.newMoney
-            let market = year.change.market
-            let savedText: AmountSentence = saved >= 0 ? "You saved \(amount(saved))" : "You took out \(amount(saved))"
-            let marketText: AmountSentence = market >= 0 ? "markets added \(amount(market))"
-                : "markets took \(amount(market))"
-            sentences.append("\(savedText) and \(marketText).")
+            sentences.append(PlanWords(currency: currency, locale: locale)
+                .savedAndMarkets(saved: year.change.newMoney, markets: year.change.market).capitalizedFirst)
         }
         if let from = year.answerFrom?.earliestAge, let to = year.answerTo?.earliestAge {
             if from == to {
@@ -394,9 +365,7 @@ enum PlanProgressText {
     /// in 68 of its 100 futures."
     static func january(_ year: PlanProgressYear, currency: CurrencyCode,
                         locale: Locale = .current) -> AmountSentence? {
-        func amount(_ value: Decimal) -> AmountSentence {
-            Self.amount(value, currency: currency, locale: locale)
-        }
+        let amount = PlanWords(currency: currency, locale: locale).unsigned
         guard let position = year.position, var text = expected(year, amount: amount, locale: locale)
         else { return nil }
         let december = CalendarDate.lastDay(ofYear: year.year)
@@ -407,16 +376,20 @@ enum PlanProgressText {
         text += ". "
         let side = position.gap >= 0 ? "ahead" : "behind"
         text += year.isLatest ? "You're \(amount(position.gap)) \(side)" : "You ended \(amount(position.gap)) \(side)"
-        if let percentile = position.percentile {
-            text += ", more than in \(Int(wholeNumber: percentile)) of its 100 futures."
-        } else if position.isAboveNinetieth {
-            text += ", above 9 in 10 of its futures."
-        } else if position.isBelowTenth {
-            text += ", below 9 in 10 of its futures."
-        } else {
-            text += "."
-        }
+        text += futuresClause(position)
         return text
+    }
+
+    /// How the money compares with the baseline's futures, ending a
+    /// sentence: ", more than in 68 of its 100 futures.", ", less than in 9
+    /// of its 10 futures."; "." when that isn't known.
+    private static func futuresClause(_ position: PlanBaselineComparison.Position) -> AmountSentence {
+        if let percentile = position.percentile {
+            return ", more than in \(Int(wholeNumber: percentile)) of its 100 futures."
+        }
+        if position.isAboveNinetieth { return ", more than in 9 of its 10 futures." }
+        if position.isBelowTenth { return ", less than in 9 of its 10 futures." }
+        return "."
     }
 
     /// The year in a line: how the answer moved, the milestone it passed, or
@@ -485,19 +458,21 @@ enum PlanProgressText {
             }
             return "A baseline is saved at the first check-in of each year. Save one now to measure against it."
         }
-        let gap = amount(position.gap, currency: currency, locale: locale)
+        let gap = PlanWords(currency: currency, locale: locale).unsigned(position.gap)
         let expectation = year.expectation(locale: locale)
-        var text: AmountSentence = position.gap >= 0 ? "You have \(gap) more than \(expectation) expected"
+        let text: AmountSentence = position.gap >= 0 ? "You have \(gap) more than \(expectation) expected"
             : "You have \(gap) less than \(expectation) expected"
-        if let percentile = position.percentile {
-            text += ", more than in \(Int(wholeNumber: percentile)) of its 100 futures."
-        } else if position.isAboveNinetieth {
-            text += ", more than in 9 of its 10 futures."
-        } else if position.isBelowTenth {
-            text += ", less than in 9 of its 10 futures."
-        } else {
-            text += "."
-        }
-        return text
+        return text + futuresClause(position)
+    }
+}
+
+extension PlanBaselineComparison.Position {
+    /// How many of the baseline's 100 futures are below your money: "61 in
+    /// 100", "Over 9 in 10", "Under 1 in 10"; `nil` when that isn't known.
+    var futuresBelow: String? {
+        if let percentile { return "\(Int(wholeNumber: percentile)) in 100" }
+        if isAboveNinetieth { return "Over 9 in 10" }
+        if isBelowTenth { return "Under 1 in 10" }
+        return nil
     }
 }

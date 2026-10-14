@@ -32,19 +32,14 @@ public enum PlanChapterMoney {
     }
 
     /// The tax a month in the median run, in the chapter's first whole
-    /// year of retirement, in the base currency as the bar's other amounts
-    /// are (``PlanResults/exchangeRate(into:valuator:)``, as the chapters'
-    /// money); `nil` without results for it, or without the rate for
-    /// results calculated before the base currency changed.
-    public static func monthlyTax(in chapter: PlanChapter, results: PlanResults?, valuator: Valuator) -> Double? {
-        guard let results, let rate = results.exchangeRate(into: valuator.baseCurrency, valuator: valuator) else {
-            return nil
-        }
+    /// year of retirement; `nil` without results for it.
+    public static func monthlyTax(in chapter: PlanChapter, results: PlanResults?) -> Double? {
+        guard let results else { return nil }
         let year = chapter.items.contains(.retirement) ? chapter.years.lowerBound + 1 : chapter.years.lowerBound
         guard chapter.years.contains(year) else { return nil }
         let taxes = results.taxes.filter { $0.year == year }
         guard !taxes.isEmpty else { return nil }
-        return taxes.reduce(0) { $0 + $1.amount } / 12 * rate
+        return taxes.reduce(0) { $0 + $1.amount } / 12
     }
 
     /// In the bridge, the account opening after the chapter starts that the

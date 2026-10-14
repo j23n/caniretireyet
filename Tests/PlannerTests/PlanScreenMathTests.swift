@@ -24,7 +24,7 @@ struct PlanScreenMathTests {
     }
 
     private func chapters(chosenAge: Int? = nil, recordedAge: Int? = nil) throws -> PlanChaptersModel {
-        try #require(PlanChaptersModel(plan: plan, library: library, valuator: valuator, results: nil,
+        try #require(PlanChaptersModel(plan: plan, library: library, results: nil,
                                        chosenAge: chosenAge, recordedAge: recordedAge, today: today))
     }
 

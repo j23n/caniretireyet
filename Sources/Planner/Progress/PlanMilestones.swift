@@ -7,8 +7,8 @@ import Tracker
 /// median future reaches, and the next with how far there.
 public struct PlanMilestones: Sendable {
     public let ladder: MilestoneLadder
-    /// Oldest first.
-    public let reached: [ReachedMilestone]
+    /// Oldest first; Progress sets those its ``PlanProgress`` worked out.
+    public var reached: [ReachedMilestone]
     /// Soonest first; empty without results.
     public let ahead: [ProjectedMilestone]
     public let next: NextMilestone?
@@ -29,21 +29,15 @@ public struct PlanMilestones: Sendable {
                 reached: [ReachedMilestone] = []) {
         let recorded = Self.latestRecord(of: plan.id, library: library, asOf: asOf)
         let readiness = results?.headline.readiness.map(Readiness.rounded) ?? recorded?.readiness
-        // What retiring today needs, in the base currency as the ladder's
-        // amounts are, converted as the median future is below (none without
-        // the rate); with a readiness, the ladder works it out from today's
-        // plan assets instead.
-        let needed = results?.exchangeRate(into: valuator.baseCurrency, valuator: valuator).flatMap { rate in
-            results?.details.assetsNeeded?.amount.map { Decimal(wholeNumber: $0 * rate) }
-        }
+        // What retiring today needs; with a readiness, the ladder works it
+        // out from today's plan assets instead.
+        let needed = results?.details.assetsNeeded?.amount.map { Decimal(wholeNumber: $0) }
         let ladder = MilestoneLadder(plan: plan, library: library, on: asOf, neededToday: needed)
         self.ladder = ladder
         self.reached = reached
         let current: Decimal
         let median: [SeriesPoint]
-        // In the base currency, as the ladder's amounts are: results calculated
-        // before it changed are converted, as the Overview's projection is.
-        let portfolio = results?.portfolio(in: valuator.baseCurrency, valuator: valuator) ?? []
+        let portfolio = results?.portfolio ?? []
         if let start = portfolio.first {
             current = Decimal(wholeNumber: start.p50)
             median = portfolio.map {

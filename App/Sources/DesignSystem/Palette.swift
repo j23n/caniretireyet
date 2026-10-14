@@ -145,6 +145,8 @@ enum Metrics {
     static let xl: CGFloat = 24
     /// Card corners.
     static let cardRadius: CGFloat = 16
+    /// The corners of a tile inside a card (``FigureTile``).
+    static let tileRadius: CGFloat = 12
     /// Chart lines (UI.md: 2 pt).
     static let lineWidth: CGFloat = 2
     /// Rounded bar ends.

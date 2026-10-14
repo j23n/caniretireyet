@@ -119,7 +119,7 @@ extension PlanTax {
         set {
             guard newValue != planHasWealthTax else { return }
             if newValue {
-                wealthRate = Decimal(string: "0.002")!
+                wealthRate = Decimal(sign: .plus, exponent: -3, significand: 2)
             } else {
                 wealthRate = nil
                 wealthAllowance = nil
