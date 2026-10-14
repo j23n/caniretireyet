@@ -96,6 +96,9 @@ struct CheckInList: View {
                     }
                 }
             }
+            if library.canEdit {
+                statementsSection
+            }
             ForEach(sections) { section in
                 Section {
                     if !section.isOpenedLater || showsLater {
@@ -127,6 +130,36 @@ struct CheckInList: View {
                 CheckInLegend(includesTrades: draft.rows.contains(where: \.isTrades))
                     .frame(maxWidth: .infinity)
                     .listRowBackground(Color.clear)
+            }
+        }
+    }
+
+    /// The statements the check-in starts with (UI.md, "Statements first"):
+    /// the card that asks for them first, or a line per account and *Add
+    /// Statements…*.
+    @ViewBuilder
+    private var statementsSection: some View {
+        let statements = CheckInStatements.make(draft: draft, library: library.library)
+        if statements.showsStart(dismissed: session.typesEveryValue) {
+            Section {
+                CheckInStatementsStart(statements: statements, session: session)
+                    .padding(.vertical, Metrics.s)
+            }
+        } else {
+            Section {
+                ForEach(statements.accounts) { account in
+                    CheckInStatementLine(account: account)
+                }
+                Button("Add Statements…") { session.choosesStatements = true }
+            } header: {
+                Text("Statements")
+            } footer: {
+                if statements.accounts.isEmpty {
+                    Text("Your bank's CSV fills in a cash or savings account's balance and what came in and "
+                        + "went out.")
+                } else {
+                    Text(verbatim: statements.progress)
+                }
             }
         }
     }
@@ -860,6 +893,9 @@ private struct CheckInListRow: View {
     private var caption: some View {
         if row.state == .updated {
             HStack(spacing: Metrics.xs) {
+                if row.source == .import {
+                    Text(verbatim: CheckInWording.imported + " ·")
+                }
                 if let previousAmount {
                     Text("was")
                     CheckInPlainAmount(previousAmount)

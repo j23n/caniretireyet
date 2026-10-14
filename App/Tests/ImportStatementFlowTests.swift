@@ -136,6 +136,22 @@ struct ImportStatementFlowTests {
         #expect(flow.statementNotes.contains { $0.isProblem })
     }
 
+    @Test func aCheckInsStatementsCoverThroughItsDate() throws {
+        var flow = ImportFlow(library: PreviewLibrary.library, checkIn: "2026-09-27")
+        flow.open(Data(Self.csv.utf8), fileName: "settembre.csv")
+        flow.setConstants { $0.account = "conto-fineco" }
+        #expect(flow.statementPeriod?.through == "2026-09-27")
+        #expect(flow.preview?.records.contains { $0.imported.key.date == "2026-09-27" } == true)
+        // Several statements too, and a file read with another profile.
+        var batch = ImportFlow(library: PreviewLibrary.library, checkIn: "2026-09-27")
+        batch.open(files: Self.twoStatements)
+        batch.showBatchFile(0)
+        #expect(batch.statementPeriod?.through == "2026-09-27")
+        flow.useProfile(nil)
+        flow.setConstants { $0.account = "conto-fineco" }
+        #expect(flow.statementPeriod?.through == "2026-09-27")
+    }
+
     @Test func aFileThatDoesNotFollowOnNeedsTheBalanceBeforeIt() throws {
         var library = PreviewLibrary.library
         library.months["2026-08"]?.valuations.removeAll { $0.account == "conto-fineco" }

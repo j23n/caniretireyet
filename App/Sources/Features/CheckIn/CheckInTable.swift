@@ -75,6 +75,12 @@ struct CheckInTable: View {
             CheckInBanners(draft: draft, session: session)
                 .padding(.horizontal, CheckInColumns.inset)
                 .padding(.vertical, Metrics.m)
+            if library.canEdit {
+                CheckInStatementsBox(statements: CheckInStatements.make(draft: draft, library: library.library),
+                                     session: session)
+                    .padding(.horizontal, CheckInColumns.inset)
+                    .padding(.bottom, Metrics.m)
+            }
             CheckInTableHeader(previousCheckIn: review.previousCheckIn)
             Divider()
             ForEach(sections) { section in
@@ -293,6 +299,7 @@ private struct CheckInTableRow: View {
     /// hides with the eye.
     private var detail: AmountSentence? {
         var parts: [AmountSentence] = []
+        if row.state == .updated, row.source == .import { parts.append(AmountSentence(CheckInWording.imported)) }
         if let opening = CheckInWording.openingDetail(for: row, opened: account?.opened, date: date,
                                                       locale: locale) {
             parts.append(AmountSentence(opening))

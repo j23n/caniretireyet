@@ -2,6 +2,7 @@ import Model
 import Prices
 import SwiftUI
 import Tracker
+import UniformTypeIdentifiers
 
 /// The monthly check-in (UI.md, "Check-in"): the flow that has to be fast.
 ///
@@ -53,6 +54,20 @@ struct CheckInScreen: View {
                 Button("Continue the check-in", role: .cancel) {}
             } message: {
                 Text("A draft stays on this device, and nothing is written to your library until you save.")
+            }
+            .fileImporter(isPresented: $session.choosesStatements, allowedContentTypes: ImportFileReader.contentTypes,
+                          allowsMultipleSelection: true) { result in
+                if case .success(let urls) = result, let date = checkIn.draft?.date {
+                    session.importStatements(urls, on: date)
+                }
+            }
+            .sheet(item: $session.statementImport) { item in
+                NavigationStack {
+                    ImportScreen(files: item.files, checkIn: item.date) { session.statementImport = nil }
+                }
+                #if os(macOS)
+                .frame(minWidth: 900, minHeight: 640)
+                #endif
             }
             #if os(iOS)
             .navigationDestination(item: $session.page) { page in

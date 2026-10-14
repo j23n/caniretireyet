@@ -100,9 +100,15 @@ struct ImportFlow: Sendable {
     /// the library with the files before it imported.
     private(set) var batchPreviews: [(file: Int, preview: ImportPreview)] = []
 
-    init(library: Library = Library(), guided: Bool = false) {
+    /// The date of the check-in the import is for, when it's opened from
+    /// one: a bank statement then covers through that date
+    /// (``ImportSession/statementCheckIn``).
+    private(set) var checkIn: CalendarDate?
+
+    init(library: Library = Library(), guided: Bool = false, checkIn: CalendarDate? = nil) {
         self.library = library
         prefersGuided = guided
+        self.checkIn = checkIn
     }
 
     // MARK: - The file
@@ -110,7 +116,7 @@ struct ImportFlow: Sendable {
     /// Reads a file. A saved profile that fits it exactly is used right away;
     /// otherwise the importer proposes a mapping.
     mutating func open(_ data: Data, fileName: String) {
-        self = ImportFlow(library: library, guided: prefersGuided)
+        self = ImportFlow(library: library, guided: prefersGuided, checkIn: checkIn)
         self.data = data
         self.fileName = fileName
         profileFits = ProfileFit.rank(data, profiles: Array(library.importProfiles.values))
@@ -129,8 +135,8 @@ struct ImportFlow: Sendable {
             if let file = files.first { open(file.data, fileName: file.name) }
             return
         }
-        self = ImportFlow(library: library, guided: prefersGuided)
-        let batch = StatementBatch(files: files, library: library)
+        self = ImportFlow(library: library, guided: prefersGuided, checkIn: checkIn)
+        let batch = StatementBatch(files: files, library: library, checkIn: checkIn)
         guard let first = batch.order(against: library).first ?? batch.files.first?.id else {
             fileName = Wording.count(files.count, "file")
             problem = "None of the files can be read as a bank statement. "
@@ -169,7 +175,7 @@ struct ImportFlow: Sendable {
 
     /// Records that a file couldn't be opened at all (e.g. no permission).
     mutating func failToOpen(fileName: String, message: String) {
-        self = ImportFlow(library: library, guided: prefersGuided)
+        self = ImportFlow(library: library, guided: prefersGuided, checkIn: checkIn)
         self.fileName = fileName
         problem = message
     }
@@ -182,7 +188,7 @@ struct ImportFlow: Sendable {
 
     /// Forgets the file: back to the first step.
     mutating func reset() {
-        self = ImportFlow(library: library, guided: prefersGuided)
+        self = ImportFlow(library: library, guided: prefersGuided, checkIn: checkIn)
     }
 
     /// Whether a file has been read.
@@ -204,6 +210,7 @@ struct ImportFlow: Sendable {
                 session = try ImportSession(data: data)
                 source = .proposed
             }
+            session?.statementCheckIn = checkIn
             problem = nil
         } catch {
             session = nil
