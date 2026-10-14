@@ -112,6 +112,7 @@ struct PlanContentView: View {
     @State private var progressYear: Int?
     @State private var showsInspector = false
     @State private var showsWhatIf = false
+    @State private var showsTargetMix = false
     @State private var isRenaming = false
     @State private var isDeleting = false
     @State private var isSavingBaseline = false
@@ -146,8 +147,8 @@ struct PlanContentView: View {
             .task(id: library.revision) {
                 await session.refresh()
             }
-            .task { takeRequests() }
-            .onChange(of: navigation.pendingPlanPart) { takePendingPart() }
+            .task { takeRoute() }
+            .onChange(of: navigation.planRoute) { takeRoute() }
             .overlay(alignment: .bottom) {
                 if let message {
                     Text(message)
@@ -194,23 +195,16 @@ struct PlanContentView: View {
             .onDisappear { session.saveNow() }
     }
 
-    /// A part, or What if, asked for at launch (``AppNavigation/requestedPlanPart``).
-    private func takeRequests() {
-        if let requested = navigation.requestedPlanPart {
-            part = requested
-        }
-        if navigation.requestsWhatIf {
+    /// Opens where ``AppNavigation/planRoute`` asks, once, when it's for
+    /// this plan: e.g. Progress from the Overview's *On track?*.
+    private func takeRoute() {
+        guard let route = navigation.planRoute, planID == route.plan ?? library.settings.mainPlan else { return }
+        navigation.planRoute = nil
+        part = route.part
+        if route.opensWhatIf {
             if isWide { showsInspector = true } else { showsWhatIf = true }
         }
-        takePendingPart()
-    }
-
-    /// A part asked for once, e.g. Progress from the Overview's *On track?*
-    /// (``AppNavigation/showPlanProgress()``); only the main plan takes it.
-    private func takePendingPart() {
-        guard let pending = navigation.pendingPlanPart, planID == library.settings.mainPlan else { return }
-        part = pending
-        navigation.pendingPlanPart = nil
+        if route.opensTargetMix { showsTargetMix = true }
     }
 
     // MARK: Layouts
@@ -263,8 +257,9 @@ struct PlanContentView: View {
     private var partView: some View {
         switch part {
         case .plan:
-            PlanTimelineView(session: session, onWhatIf: openWhatIfSheet,
-                             onShowProgress: { part = .progress }, onExport: { exportCalculations() })
+            PlanTimelineView(session: session, showsTargetMix: $showsTargetMix,
+                             onWhatIf: openWhatIfSheet, onShowProgress: { part = .progress },
+                             onExport: { exportCalculations() })
                 .environment(\.pageLayout, PageLayout(isWide: isWide, besideWhatIf: showsWhatIfColumn))
         case .progress:
             PlanProgressView(session: session, onSaveBaseline: { startSavingBaseline() },

@@ -320,7 +320,7 @@ struct OverviewHeader: View {
     /// VoiceOver reads the standing without the amount.
     private func onTrackTile(_ onTrack: OverviewOnTrack, dims: Bool) -> some View {
         Button {
-            navigation.showPlanProgress()
+            navigation.showPlan(at: PlanRoute(part: .progress))
         } label: {
             OverviewTile {
                 HStack(alignment: .firstTextBaseline, spacing: Metrics.xs) {

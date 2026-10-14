@@ -171,8 +171,7 @@ struct ImportStatementDone: View {
         } else {
             model.startOver()
         }
-        navigation.pendingPlanPart = .trends
-        navigation.showPlan()
+        navigation.showPlan(at: PlanRoute(part: .trends))
     }
 }
 

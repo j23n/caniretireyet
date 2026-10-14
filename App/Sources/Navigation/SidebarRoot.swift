@@ -281,14 +281,11 @@ private struct SidebarDetail: View {
             }
             // A fresh stack and screen state for each account.
             .id(id)
-        case .plan(let id):
+        case .plan, .plans:
+            // One branch for both: when "the main plan" becomes its row, its
+            // screen stays, with the part or What if it opened on.
             NavigationStack {
-                PlanScreen(planID: id)
-                    .appDestinations()
-            }
-        case .plans:
-            NavigationStack {
-                PlanScreen()
+                PlanScreen(planID: item.plan)
                     .appDestinations()
             }
         case .importData:

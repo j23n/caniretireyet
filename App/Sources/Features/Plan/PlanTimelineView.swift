@@ -13,6 +13,8 @@ import SwiftUI
 /// plan or the library changed, an *Out of date* banner offers *Recalculate*.
 struct PlanTimelineView: View {
     let session: PlanSession
+    /// The Target mix sheet, which the plan's screen opens too (``PlanRoute``).
+    @Binding var showsTargetMix: Bool
     /// Opens the What-if sheet (iPhone); on the Mac and iPad What if is in the toolbar.
     var onWhatIf: (() -> Void)?
     /// Shows Progress.
@@ -20,11 +22,9 @@ struct PlanTimelineView: View {
     /// Export Calculations…
     var onExport: (() -> Void)?
 
-    @Environment(AppNavigation.self) private var navigation
     @Environment(\.pageLayout) private var layout
     @Environment(\.locale) private var locale
     @State private var editing: PlanEditTarget?
-    @State private var showsTargetMix = false
     @State private var showsAssumptions = false
     @State private var showsMoreCharts = false
 
@@ -72,8 +72,6 @@ struct PlanTimelineView: View {
         .sheet(isPresented: $showsAssumptions) {
             PlanAlwaysSheet(session: session)
         }
-        // The Target mix sheet asked for at launch (``ScreenLaunch``).
-        .task { if navigation.requestsTargetMix { showsTargetMix = true } }
         .onDisappear { session.saveNow() }
     }
 
@@ -636,14 +634,15 @@ struct PlanAssumptionsFooter: View {
 
 #Preview("Plan · iPhone") {
     PlanPreviewHost(model: AppModel.preview()) { session in
-        PlanTimelineView(session: session, onWhatIf: {}, onShowProgress: {}, onExport: {})
+        PlanTimelineView(session: session, showsTargetMix: .constant(false), onWhatIf: {}, onShowProgress: {},
+                         onExport: {})
             .environment(\.pageLayout, PageLayout())
     }
 }
 
 #Preview("Plan · Mac") {
     PlanPreviewHost(model: AppModel.preview()) { session in
-        PlanTimelineView(session: session, onShowProgress: {}, onExport: {})
+        PlanTimelineView(session: session, showsTargetMix: .constant(false), onShowProgress: {}, onExport: {})
             .environment(\.pageLayout, PageLayout(isWide: true))
             .frame(width: 1_100, height: 1_000)
     }
