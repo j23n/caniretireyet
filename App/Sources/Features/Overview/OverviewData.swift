@@ -142,6 +142,8 @@ struct OverviewHistory: Hashable, Sendable {
 enum OverviewYearText {
     /// "Savings rate 17%: you saved 1.956 € of the 11.525 € that came in
     /// since 30 Jun, 1.325 € of it paid into pensions, and spent 9.569 €."
+    /// With a tax pot, what came in is after what was put into it: "… that
+    /// came in since 30 Jun after 3.000 € set aside for taxes, …".
     /// When more was saved than came in, it says some income may not be
     /// recorded. The amounts hide with the eye; the rate stays. `nil` when
     /// nothing came in.
@@ -155,6 +157,9 @@ enum OverviewYearText {
         }
         var text: AmountSentence = "Savings rate \(percent): you saved \(amount(savings.saved)) of the "
         text += "\(amount(savings.income)) that came in since \(since)"
+        if savings.taxSetAside > 0 {
+            text += " after \(amount(savings.taxSetAside)) set aside for taxes"
+        }
         if savings.pensionContributions > 0 {
             text += ", \(amount(savings.pensionContributions)) of it paid into pensions"
         }

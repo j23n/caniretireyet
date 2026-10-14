@@ -95,4 +95,29 @@ struct AccountFormTests {
         edited.setKind(.other)
         #expect(!edited.takesDepreciation)
     }
+
+    /// A tax pot counts in neither net worth nor plans unless chosen by
+    /// hand, and the file writes only what differs from the kind.
+    @Test func aTaxPotIsLeftOutOfNetWorthAndPlans() {
+        var form = newAccount(.taxPot)
+        #expect(!form.includedInNetWorth && !form.includedInPlan)
+        #expect(form.account(id: "pot", locale: locale).includeIn == nil)
+        form.chosenNetWorthInclusion = true
+        #expect(form.account(id: "pot", locale: locale).includeIn == IncludeIn(netWorth: true))
+        // Chosen by hand, it stays when the kind changes; the plan follows the kind.
+        form.setKind(.savings)
+        #expect(form.includedInNetWorth && form.includedInPlan)
+        #expect(form.account(id: "pot", locale: locale).includeIn == nil)
+    }
+
+    /// A current account turned into a tax pot keeps counting where it did,
+    /// so the file writes it.
+    @Test func anAccountTurnedIntoATaxPotKeepsItsInclusion() {
+        let bank = Account(id: "bank", name: "Bank", kind: .cash, currency: .eur, opened: "2026-01-01")
+        var form = AccountForm(editing: bank)
+        form.setKind(.taxPot)
+        let pot = form.account(id: "bank", locale: locale)
+        #expect(pot.includeIn == IncludeIn(netWorth: true, plan: true))
+        #expect(pot.includedInNetWorth && pot.includedInPlan)
+    }
 }

@@ -19,6 +19,7 @@ extension AccountKind {
         case .loan: "arrow.down.circle"
         case .mortgage: "house.lodge"
         case .creditCard: "creditcard"
+        case .taxPot: "percent"
         default: "square.stack"
         }
     }
@@ -39,6 +40,7 @@ extension AccountKind {
         case .loan: "Loan"
         case .mortgage: "Mortgage"
         case .creditCard: "Credit card"
+        case .taxPot: "Tax pot"
         case .other: "Other"
         default: rawValue
         }

@@ -289,7 +289,7 @@ struct AccountPlanFields: View {
 
     var body: some View {
         Section {
-            Toggle("Include in net worth", isOn: $form.includedInNetWorth)
+            Toggle("Include in net worth", isOn: $form.chosenNetWorthInclusion)
             Toggle("Include in plans", isOn: $form.chosenPlanInclusion)
             if form.includedInPlan && !form.kind.isLiability {
                 Toggle("Available only from an age", isOn: $form.chosenIsLocked)
@@ -302,8 +302,7 @@ struct AccountPlanFields: View {
         } header: {
             Text("Plans")
         } footer: {
-            Text("Plans usually leave out your home and its mortgage. Money available only from an age, such as a "
-                + "pension fund, can't pay for the years before it.")
+            Text(plansFooter)
         }
         if form.takesDepreciation {
             Section {
@@ -325,6 +324,15 @@ struct AccountPlanFields: View {
                 Text(mixFooter)
             }
         }
+    }
+
+    private var plansFooter: String {
+        if form.kind == .taxPot {
+            return "Money you set aside for a tax bill is owed, so net worth and plans leave it out. What you put "
+                + "in counts as tax: what came in is after it, and it isn't spent."
+        }
+        return "Plans usually leave out your home and its mortgage. Money available only from an age, such as a "
+            + "pension fund, can't pay for the years before it."
     }
 
     private var mixFooter: String {
