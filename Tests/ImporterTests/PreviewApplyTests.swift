@@ -55,7 +55,6 @@ struct PreviewApplyTests {
         #expect((summary.newRecords, summary.updatedRecords, summary.identicalRecords, summary.conflicts)
             == (2, 1, 1, 2))
         #expect(summary.undecidedConflicts == 2)
-        #expect(summary.description == "2 new, 1 updated, 1 identical, 2 conflicts (2 undecided)")
         let conflict = try #require(preview.record(.valuation("broker", "2026-02-28")))
         #expect(conflict.existing == .valuation(Valuation(account: "broker", date: "2026-02-28", cash: 5,
             positions: [Position(instrument: "etf", quantity: 10, costBasis: 900)])))

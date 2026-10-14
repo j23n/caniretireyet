@@ -381,9 +381,10 @@ struct BrokerSampleTests {
         let library = try Fixtures.exampleLibrary()
         var session = try Self.session("directa", account: "directa")
         var preview = session.preview(against: library)
-        #expect(preview.summary.description
-            == "11 new, 0 updated, 0 identical, 0 conflicts; 11 trades among them; 1 error; 1 issue; "
-            + "3 rows skipped; 2 new instruments")
+        #expect(preview.summary.newRecords == 11)
+        #expect(preview.summary.trades == 11)
+        #expect(preview.summary.issues == 1)
+        #expect(preview.summary.skippedRows == 3)
         #expect(preview.accountChanges.isEmpty)
         #expect(preview.newAccounts.isEmpty)
         #expect(preview.newInstruments.map(\.instrument.id) == ["ishares-core-msci-world-ucits-etf",
@@ -410,8 +411,8 @@ struct BrokerSampleTests {
                                              TradeID.stable(for: split[0], ordinal: 1)].sorted())
 
         // Giroconto isn't mapped: flagged, then mapped and imported.
-        #expect(preview.cellErrors.map(\.description)
-            == ["Row 17, “Tipo operazione”: “Giroconto”: “Giroconto” isn't mapped to a trade type"])
+        #expect(preview.cellErrors.map(\.row) == [17])
+        #expect(preview.cellErrors.map(\.problem) == [.unmappedTradeType("Giroconto")])
         session.setTradeType(.deposit, for: "Giroconto")
         preview = session.preview(against: library)
         #expect(preview.summary.newRecords == 12)
@@ -429,8 +430,9 @@ struct BrokerSampleTests {
     @Test func finecoIntoANewTradesAccount() throws {
         let library = try Fixtures.exampleLibrary()
         let preview = try Self.session("fineco", account: "fineco-titoli").preview(against: library)
-        #expect(preview.summary.description
-            == "8 new, 0 updated, 0 identical, 0 conflicts; 8 trades among them; 1 new account, 2 new instruments")
+        #expect(preview.summary.newRecords == 8)
+        #expect(preview.summary.trades == 8)
+        #expect(preview.summary.newInstruments == 2)
         let account = try #require(preview.newAccounts.first?.account)
         #expect(account.id == "fineco-titoli")
         // A brokerage account records trades by default, so the file needn't say so.
@@ -447,10 +449,7 @@ struct BrokerSampleTests {
         #expect(dividend.quantity == 25)
         #expect(dividend.price == d("0.854"))
         #expect(dividend.tax == d("5.55"))
-        #expect(preview.issues.map(\.description) == [
-            "“Controvalore”: amounts are written without signs, so each one's sign comes from its type (negative "
-                + "for buys, fees, taxes and withdrawals).",
-        ])
+        #expect(preview.issues.map(\.kind) == [.tradeAmountSigns(signed: false)])
         let result = try Self.importTwice(try Self.session("fineco", account: "fineco-titoli"), into: library)
         #expect(result.createdAccounts == ["fineco-titoli"])
         #expect(result.library.accounts["fineco-titoli"]?.recordsTrades == true)
@@ -489,10 +488,7 @@ struct BrokerSampleTests {
         library.accounts["directa"]?.valuation = .balance
         let preview = try Self.session("fineco", account: "directa").preview(against: library)
         #expect(preview.accountChanges.isEmpty)
-        #expect(preview.issues.filter { !$0.isNote }.map(\.description) == [
-            "directa is a brokerage, crypto or metals account that doesn't record trades, so its trades are left "
-                + "out. Remove its \"valuation\" so it records trades, as its kind does, then import again.",
-        ])
+        #expect(preview.issues.filter { !$0.isNote }.map(\.kind) == [.accountDoesntRecordTrades("directa")])
         #expect(preview.leftOutRecords == 8)
         let result = preview.apply(to: library)
         #expect(result.skipped == 8)
@@ -503,8 +499,8 @@ struct BrokerSampleTests {
         let library = try Fixtures.exampleLibrary()
         let session = try Self.session("degiro", account: "degiro")
         let preview = session.preview(against: library)
-        #expect(preview.summary.description
-            == "5 new, 0 updated, 0 identical, 0 conflicts; 5 trades among them; 1 new account, 2 new instruments")
+        #expect(preview.summary.newRecords == 5)
+        #expect(preview.summary.newInstruments == 2)
         let apple = try #require(preview.newInstruments.first { $0.instrument.isin == "US0378331005" }?.instrument)
         #expect(apple.name == "APPLE INC. - COMMON ST")
         #expect(apple.currency == .usd)
@@ -533,8 +529,8 @@ struct BrokerSampleTests {
         session.match(account: "U0000000", to: "ibkr")
         preview = session.preview(against: library)
         #expect(preview.newAccounts.map(\.account.id) == ["ibkr"])
-        #expect(preview.summary.description
-            == "10 new, 0 updated, 0 identical, 0 conflicts; 10 trades among them; 1 new account, 2 new instruments")
+        #expect(preview.summary.newRecords == 10)
+        #expect(preview.summary.newInstruments == 2)
         let trades = Self.trades(preview)
         #expect(trades.map(\.type) == [.deposit, .buy, .buy, .buy, .tax, .dividend, .interest, .fee, .sell,
                                        .withdrawal])

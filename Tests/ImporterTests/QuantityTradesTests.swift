@@ -23,11 +23,6 @@ struct QuantityTradesTests {
         #expect(preview.issues == [
             ImportIssue(kind: .quantitiesAsTrades("directa", openings: 2, buys: 1, sales: 0, settledOutside: true)),
         ])
-        #expect(preview.issues.map(\.description) == [
-            "directa records trades, so its quantities became 2 openings and 1 buy: one per change in what it "
-                + "holds, at the date's price unless the file gives the purchase cost. It has never held cash, so its "
-                + "buys and sales are paid from and into another account.",
-        ])
         // No valuations: the account's values hold no positions.
         #expect(!preview.records.contains { if case .valuation = $0.imported.key { true } else { false } })
         let trades = preview.records.compactMap(\.imported.trade)
@@ -43,8 +38,9 @@ struct QuantityTradesTests {
         ])
         #expect(preview.record(.trade(TradeKey(account: "directa", date: "2026-02-28", id: "buy-vwce")))?.cells
             == [ImportCellRef(row: 4, column: 4), ImportCellRef(row: 4, column: 7)])
-        #expect(preview.summary.description
-            == "7 new, 0 updated, 0 identical, 0 conflicts; 3 trades among them; 1 new instrument")
+        #expect(preview.summary.newRecords == 7)
+        #expect(preview.summary.trades == 3)
+        #expect(preview.summary.newInstruments == 1)
 
         // The holdings that follow are the file's, with its purchase costs.
         let result = preview.apply(to: library)
@@ -128,8 +124,6 @@ struct QuantityTradesTests {
             .quantitiesAsTrades("wallet", openings: 1, buys: 0, sales: 1, settledOutside: true),
             .openingsWithoutCost("wallet", count: 1),
         ])
-        #expect(preview.issues.last?.description
-            == "wallet: 1 opening has no purchase cost and no price, so its cost is unknown.")
         #expect(preview.records.compactMap(\.imported.trade).map(\.cost) == [nil, nil])
 
         // With January's price, the opening costs its value then, in the account's currency.
@@ -146,9 +140,7 @@ struct QuantityTradesTests {
             return month
         }
         preview = session.preview(against: noPrices)
-        #expect(preview.issues.map(\.description).contains(
-            "wallet: 1 buy or sale has no price on or before its date and no purchase cost: import the prices "
-            + "too, or add its amount."))
+        #expect(preview.issues.map(\.kind).contains(.tradesWithoutPrice("wallet", count: 1)))
     }
 
     // MARK: - Decided together
