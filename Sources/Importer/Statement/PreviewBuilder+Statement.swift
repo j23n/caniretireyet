@@ -451,14 +451,18 @@ extension PreviewBuilder {
         var moves: [AccountID: [StatementMove]] = [:]
         // The accounts this file's purchases start, by the purchase's day.
         var started: [AccountID: CalendarDate] = [:]
-        // A sale of an account a purchase starts comes after the purchase has its ID.
+        // Sales come after the purchases, so a sale of an account a purchase starts finds its ID, and
+        // bought and sold within one value, the sale's 0 is the account's value in any order of rows.
         let rows = Set(session.statementAssets.keys).union(answered.keys).sorted()
         let known = Set(library.accounts.keys)
+        let sells = { (row: Int) -> Bool in
+            if case .sale? = answered[row] { true } else { false }
+        }
         let sellsStarted = { (row: Int) -> Bool in
             guard case .sale(let id)? = answered[row] else { return false }
             return !known.contains(id)
         }
-        for row in rows.filter({ !sellsStarted($0) }) + rows.filter(sellsStarted) {
+        for row in rows.filter({ !sells($0) }) + rows.filter(sells) {
             guard let index = lines.firstIndex(where: { $0.row == row }) else { continue }
             let line = lines[index]
             let cells = read.first { $0.row == row }?.cells ?? []

@@ -212,6 +212,25 @@ struct StatementPurchaseTests {
         #expect(value.balance == 0)
         #expect(value.flow == 12000)
         #expect(preview.accountChanges.map(\.change) == [.close(on: "2026-03-01")])
+
+        // Newest first, as many banks export, importing again finds the same values.
+        let lines = Self.csv.split(separator: "\n")
+        let reversed = ([lines[0]] + lines.dropFirst().reversed()).joined(separator: "\n")
+        var newestFirst = try ImportSession(data: Data(reversed.utf8))
+        newestFirst.proposeMapping(layout: .statement)
+        newestFirst.profile.constants.account = "conto"
+        let rows = newestFirst.preview(against: Self.library(), today: Self.today).statementLines
+        let bought = try #require(rows.first { $0.text.hasPrefix("Bonifico a Autosalone") })
+        let paid = try #require(rows.first { $0.text.hasPrefix("Stipendio") && $0.date == "2026-02-27" })
+        #expect(paid.row < bought.row)
+        newestFirst.setStatementAsset(.purchase(name: "Auto", kind: .belongings), forRow: bought.row)
+        newestFirst.setStatementAsset(.sale("auto"), forRow: paid.row)
+        let library = newestFirst.preview(against: Self.library(), today: Self.today).apply(to: Self.library()).library
+        #expect(library.valuations(for: "auto").map(\.balance) == [0, 0])
+        let again = newestFirst.preview(against: library, today: Self.today)
+        #expect(try Self.value(again, "auto", "2026-02-28").balance == 0)
+        #expect(again.records.allSatisfy { $0.status == .identical })
+        #expect(again.accountChanges.isEmpty)
     }
 
     /// A sale before the purchase, or of an account no purchase starts, is
