@@ -335,6 +335,7 @@ struct ImportBottomBar: View {
                     Text(hint)
                         .font(.footnote)
                         .foregroundStyle(Palette.warning)
+                        .privacySensitiveInFeedback(flow.isBatch)
                 }
                 Button("Continue") {
                     model.flow.goForward()

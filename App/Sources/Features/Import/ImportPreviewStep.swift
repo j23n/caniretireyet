@@ -26,8 +26,10 @@ struct ImportPreviewStep: View {
                             .foregroundStyle(Palette.secondaryInk)
                     }
                 }
+                let batchBlockers = flow.batchBlockers
                 ForEach(flow.blockers, id: \.self) { blocker in
-                    StatusBanner(.info, blocker)
+                    // Another file's reasons name it.
+                    StatusBanner(.info, blocker, personal: batchBlockers.contains(blocker) ? .title : [])
                 }
                 if !flow.ambiguities.isEmpty {
                     Card("To confirm", systemImage: "questionmark.circle") {

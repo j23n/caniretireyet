@@ -128,6 +128,7 @@ struct ImportFileStep: View {
                 Text("Which account is \(file.name) a statement of? A cash or savings account that doesn't record "
                     + "trades.")
                     .foregroundStyle(Palette.warning)
+                    .privacySensitiveInFeedback()
             } else {
                 Text("Each file's account was recognized or chosen. They're imported one after another, so each "
                     + "month follows on from the one before.")
