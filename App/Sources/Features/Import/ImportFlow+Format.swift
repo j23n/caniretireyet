@@ -385,8 +385,9 @@ extension ImportFlow {
 
 /// *How It's Read*'s three pickers (UI.md, "Import"): the dates, the
 /// numbers and what splits the columns, each shown by an example. The
-/// first choice of each is what the file was read with (`nil`); a guess
-/// still to confirm offers its readings, and choosing one confirms it.
+/// first choice of each (`nil`) reads the file as detected: titled by the
+/// example it's read with until another is chosen, then "As detected". A
+/// guess still to confirm offers its readings, and choosing one confirms it.
 extension ImportFlow {
     /// The guess about the dates still to confirm, if any.
     var dateAmbiguity: ImportAmbiguity? { ambiguities.first { $0.kind == .dateFormat } }
@@ -405,14 +406,20 @@ extension ImportFlow {
         return dateColumn.flatMap { session.effectiveFormat(forColumn: $0).date?.pattern } ?? detectedDatePattern
     }
 
-    /// The patterns *Dates* offers after the one in use: the chosen one,
-    /// then the ones the importer knows, without the one in use unless
-    /// it's a guess to confirm.
+    /// The title of *Dates*' first choice, e.g. "31.12.2025".
+    var dateDetectedTitle: String {
+        guard datePattern == nil else { return "As detected" }
+        return datePatternInUse.map(ImportChoices.dateExample(of:)) ?? "Not found"
+    }
+
+    /// The patterns *Dates* offers after the first choice: the chosen one,
+    /// then the ones the importer knows, without the one the first choice
+    /// reads with unless it's a guess to confirm.
     var datePatternChoices: [String] {
         var patterns = ImportChoices.datePatterns
         if let chosen = datePattern, !patterns.contains(chosen) { patterns.insert(chosen, at: 0) }
-        if dateAmbiguity == nil, let inUse = datePatternInUse {
-            patterns.removeAll { $0 == inUse && $0 != datePattern }
+        if datePattern == nil, dateAmbiguity == nil, let inUse = datePatternInUse {
+            patterns.removeAll { $0 == inUse }
         }
         return patterns
     }
@@ -442,15 +449,20 @@ extension ImportFlow {
         return ImportNumberFormat(decimal: number?.decimal, thousands: number?.thousands)
     }
 
-    /// The separators *Numbers* offers after the detected ones: the chosen
+    /// The title of *Numbers*' first choice, e.g. "1.234,56".
+    var numberDetectedTitle: String {
+        numberStyle == nil ? ImportChoices.numberExample(detectedNumberStyle) : "As detected"
+    }
+
+    /// The separators *Numbers* offers after the first choice: the chosen
     /// ones, then the usual ones, without the detected ones unless they're
     /// a guess to confirm.
     var numberStyleChoices: [ImportNumberFormat] {
         var styles = ImportChoices.numberStyles
         if let chosen = numberStyle, !styles.contains(chosen) { styles.insert(chosen, at: 0) }
-        if numberAmbiguity == nil {
+        if numberStyle == nil, numberAmbiguity == nil {
             let detected = detectedNumberStyle
-            styles.removeAll { $0 == detected && $0 != numberStyle }
+            styles.removeAll { $0 == detected }
         }
         return styles
     }
@@ -472,12 +484,20 @@ extension ImportFlow {
 
     // MARK: Columns split by
 
-    /// The delimiters *Columns split by* offers after the one in use.
+    /// The title of *Columns split by*'s first choice, e.g. "Semicolon".
+    var delimiterDetectedTitle: String {
+        guard delimiter == nil else { return "As detected" }
+        return delimiterInUse.map(ImportChoices.delimiterWord) ?? "Not found"
+    }
+
+    /// The delimiters *Columns split by* offers after the first choice:
+    /// the chosen one, then the usual ones, without the one in use unless
+    /// it's a guess to confirm.
     var delimiterChoices: [String] {
         var delimiters = ImportChoices.delimiters
         if let chosen = delimiter, !delimiters.contains(chosen) { delimiters.insert(chosen, at: 0) }
-        if delimiterAmbiguity == nil, let inUse = delimiterInUse {
-            delimiters.removeAll { $0 == inUse && $0 != delimiter }
+        if delimiter == nil, delimiterAmbiguity == nil, let inUse = delimiterInUse {
+            delimiters.removeAll { $0 == inUse }
         }
         return delimiters
     }

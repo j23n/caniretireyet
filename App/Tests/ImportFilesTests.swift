@@ -221,7 +221,9 @@ struct ImportFilesTests {
         #expect(flow.sampleRows(limit: 2).map(\.cells) == [["02/09/2026", "-1.200,00", "Affitto settembre"],
                                                            ["10/09/2026", "3.400,00", "Stipendio settembre"]])
 
+        #expect(flow.shownFileBank == nil)
         flow.showBatchFile(0)
+        #expect(flow.shownFileBank == "Fineco")
         #expect(flow.readingSubtitle.hasPrefix("It's read as Fineco's statements are."))
         #expect(flow.readingStatus(today: today).text
             == "All 3 lines read. With no balance column, the balance follows on from Conto Fineco's last check-in.")
@@ -244,10 +246,15 @@ struct ImportFilesTests {
         #expect(flow.numberStyle == nil)
         #expect(!flow.numberStyleChoices.contains(flow.detectedNumberStyle))
 
+        #expect(flow.dateDetectedTitle == "31/12/2025")
+        #expect(flow.delimiterDetectedTitle == "Semicolon")
+        #expect(flow.numberDetectedTitle == "1.234,56")
+
         let style = ImportNumberFormat(decimal: ",", thousands: "")
         flow.useNumberStyle(style)
         #expect(flow.numberStyle == style)
         #expect(flow.numberStyleChoices.contains(style))
+        #expect(flow.numberDetectedTitle == "As detected")
         flow.useNumberStyle(nil)
         #expect(flow.numberStyle == nil)
     }

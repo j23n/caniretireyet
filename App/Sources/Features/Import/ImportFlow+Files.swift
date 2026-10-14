@@ -313,7 +313,8 @@ extension ImportFlow {
         switch source {
         case .profile?: compact ? "remembered from last time" : "Remembered from last time"
         case .balance(let date)?:
-            (compact ? "follows on from " : "Its balance follows on from ") + AmountFormat.mediumDate(date, locale: locale)
+            (compact ? "follows on from " : "Its balance follows on from ")
+                + AmountFormat.mediumDate(date, locale: locale)
         case .named?: compact ? "named in the file" : "Named in the file"
         case .chosen?, nil: nil
         }
@@ -410,9 +411,14 @@ extension ImportFlow {
         "How \(fileName ?? "the file") is read"
     }
 
+    /// The bank of the statement on screen, when it's known.
+    var shownFileBank: String? {
+        batch?.files.first { $0.id == batchFile }.flatMap(bankName(of:))
+    }
+
     /// What *How It's Read* is for: a bank it doesn't know, or one it does.
     var readingSubtitle: String {
-        if let file = batch?.files.first(where: { $0.id == batchFile }), let bank = bankName(of: file) {
+        if let bank = shownFileBank {
             return "It's read as \(bank)'s statements are. Say what each column holds if this one is read wrongly."
         }
         return "The bank isn't one it knows. Say what each column holds; the next statement from this bank is "
