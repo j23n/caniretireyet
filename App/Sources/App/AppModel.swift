@@ -18,13 +18,14 @@ final class AppModel {
     let plans: PlanStore
     let checkIn: CheckInStore
     let widgets: WidgetStore
+    let notes: NoteStore
     #if FEEDBACK
     /// In-app feedback, in Debug builds (`Feedback.swift`).
     let feedback: FeedbackCenter
     #endif
 
     init(preferences: AppPreferences, library: LibraryStore, prices: PriceStore, planEngine: any PlanEngine,
-         planResults: PlanResultsArchive? = nil, widgetSnapshotURL: URL? = nil) {
+         planResults: PlanResultsArchive? = nil, widgetSnapshotURL: URL? = nil, schedulesNotes: Bool = false) {
         self.preferences = preferences
         navigation = AppNavigation()
         self.library = library
@@ -32,6 +33,7 @@ final class AppModel {
         plans = PlanStore(library: library, engine: planEngine, archive: planResults)
         checkIn = CheckInStore(library: library, prices: prices, plans: plans, preferences: preferences)
         widgets = WidgetStore(library: library, plans: plans, snapshotURL: widgetSnapshotURL)
+        notes = NoteStore(preferences: preferences, widgets: widgets, schedules: schedulesNotes)
         #if FEEDBACK
         feedback = .caniretireyet(navigation: navigation)
         #endif
@@ -65,7 +67,7 @@ final class AppModel {
             prices: PriceStore(service: .standard(credentials: credentials)),
             planEngine: PlannerPlanEngine(),
             planResults: PlanResultsArchive.standard(),
-            widgetSnapshotURL: AppGroup.snapshotURL)
+            widgetSnapshotURL: AppGroup.snapshotURL, schedulesNotes: true)
     }
 
     /// Previews, the screen tests and ``ScreenLaunch``: `library` in memory (by default
@@ -81,14 +83,9 @@ final class AppModel {
             prices: PriceStore(service: nil), planEngine: planEngine, planResults: planResults)
     }
 
-    /// Launch work: find and load the library, and refresh the reminders
-    /// scheduled on this device.
+    /// Launch work: find and load the library. The notes are scheduled
+    /// once it's loaded, with the widgets' snapshot (`RootView`).
     func start() async {
-        #if canImport(UserNotifications)
-        if let reminder = preferences.reminder {
-            Task { await ReminderScheduler.apply(reminder) }
-        }
-        #endif
         guard library.phase == .starting else { return }
         await library.start()
     }

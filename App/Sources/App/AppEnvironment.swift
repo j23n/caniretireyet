@@ -46,6 +46,7 @@ private struct AppEnvironmentModifier: ViewModifier {
             .environment(model.plans)
             .environment(model.checkIn)
             .environment(model.widgets)
+            .environment(model.notes)
             .environment(\.baseCurrency, model.library.shownCurrency)
             .redacted(reason: model.preferences.hidesAmounts ? .privacy : [])
             #if FEEDBACK

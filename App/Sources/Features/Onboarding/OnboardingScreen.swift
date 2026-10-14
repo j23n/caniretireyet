@@ -1,4 +1,5 @@
 import CloudSync
+import Glance
 import Model
 import SwiftUI
 
@@ -27,6 +28,7 @@ struct OnboardingScreen: View {
     @Environment(LibraryStore.self) private var library
     @Environment(AppNavigation.self) private var navigation
     @Environment(AppPreferences.self) private var preferences
+    @Environment(NoteStore.self) private var notes
     @Environment(\.locale) private var locale
 
     @State private var step: OnboardingStep = .welcome
@@ -252,7 +254,8 @@ struct OnboardingScreen: View {
             .onboardingCard()
             VStack(alignment: .leading, spacing: Metrics.xs) {
                 Toggle("Remind me to check in each month", isOn: $remindsMonthly)
-                Text("On the last day of the month, on this device. Change it in Settings.")
+                Text("On the last day of the month, with where you stand, and once a year your year in review. "
+                     + "On this device. Change it in Settings.")
                     .font(.footnote)
                     .foregroundStyle(Palette.secondaryInk)
             }
@@ -485,19 +488,13 @@ struct OnboardingScreen: View {
         }
     }
 
-    /// The monthly check-in reminder on this device, as Settings turns it
-    /// on, unless one is set already. When notifications aren't allowed,
-    /// it's turned off again, so Settings doesn't show one that never comes.
+    /// The monthly note and *Your year* on this device, as Settings turns
+    /// them on (UI.md, "Notifications"), unless notes are set already. When
+    /// notifications aren't allowed they stay off, so Settings doesn't show
+    /// notes that never come.
     private func turnOnReminder() {
-        guard preferences.reminder == nil else { return }
-        let reminder = CheckInReminder.standard
-        preferences.reminder = reminder
-        #if canImport(UserNotifications)
-        Task {
-            let scheduled = await ReminderScheduler.apply(reminder)
-            if !scheduled { preferences.reminder = nil }
-        }
-        #endif
+        guard !preferences.notes.isAnyOn else { return }
+        Task { await notes.apply(.standard) }
     }
 }
 

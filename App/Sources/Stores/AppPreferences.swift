@@ -1,5 +1,6 @@
 import CloudSync
 import Foundation
+import Glance
 import Model
 import Observation
 import Tracker
@@ -24,17 +25,25 @@ final class AppPreferences {
         didSet { defaults.set(fetchPricesOnCheckIn, forKey: Keys.fetchPricesOnCheckIn) }
     }
 
-    /// The monthly check-in reminder, if it's on. This device only, so you
-    /// aren't reminded twice.
-    var reminder: CheckInReminder? {
+    /// Which notes this device shows and when (UI.md, "Notifications").
+    /// This device only, so you aren't told twice.
+    var notes: NoteSettings {
         didSet {
-            defaults.set(reminder != nil, forKey: Keys.reminderEnabled)
-            if let reminder {
-                defaults.set(reminder.day, forKey: Keys.reminderDay)
-                defaults.set(reminder.hour, forKey: Keys.reminderHour)
-                defaults.set(reminder.minute, forKey: Keys.reminderMinute)
-            }
+            defaults.set(notes.monthly, forKey: Keys.reminderEnabled)
+            defaults.set(notes.day, forKey: Keys.reminderDay)
+            defaults.set(notes.hour, forKey: Keys.reminderHour)
+            defaults.set(notes.minute, forKey: Keys.reminderMinute)
+            defaults.set(notes.yourYear, forKey: Keys.notesYourYear)
+            defaults.set(notes.birthday, forKey: Keys.notesBirthday)
+            defaults.set(notes.recordsAnniversary, forKey: Keys.notesRecordsAnniversary)
+            defaults.set(notes.planCheckUp, forKey: Keys.notesPlanCheckUp)
         }
+    }
+
+    /// Whether the Overview has offered the yearly notes once
+    /// (UI.md, "Notifications", "The offer").
+    var notesOffered: Bool {
+        didSet { defaults.set(notesOffered, forKey: Keys.notesOffered) }
     }
 
     /// The account groups (and *Closed*) that are collapsed on this device,
@@ -89,15 +98,20 @@ final class AppPreferences {
         collapsedAccountFolders = defaults.stringArray(forKey: Keys.collapsedAccountFolders).map(Set.init)
             ?? Self.defaultCollapsedAccountFolders
         futureHorizon = FutureHorizon(stored: defaults.string(forKey: Keys.futureHorizon))
-        if defaults.bool(forKey: Keys.reminderEnabled) {
-            let standard = CheckInReminder.standard
-            reminder = CheckInReminder(
-                day: defaults.object(forKey: Keys.reminderDay) as? Int ?? standard.day,
-                hour: defaults.object(forKey: Keys.reminderHour) as? Int ?? standard.hour,
-                minute: defaults.object(forKey: Keys.reminderMinute) as? Int ?? standard.minute)
-        } else {
-            reminder = nil
-        }
+        let standard = NoteSettings.standard
+        let monthly = defaults.bool(forKey: Keys.reminderEnabled)
+        notes = NoteSettings(
+            monthly: monthly,
+            day: defaults.object(forKey: Keys.reminderDay) as? Int ?? standard.day,
+            hour: defaults.object(forKey: Keys.reminderHour) as? Int ?? standard.hour,
+            minute: defaults.object(forKey: Keys.reminderMinute) as? Int ?? standard.minute,
+            // Until it's set, *Your year* is on when the monthly note is:
+            // notes were allowed then.
+            yourYear: defaults.object(forKey: Keys.notesYourYear) as? Bool ?? monthly,
+            birthday: defaults.bool(forKey: Keys.notesBirthday),
+            recordsAnniversary: defaults.bool(forKey: Keys.notesRecordsAnniversary),
+            planCheckUp: defaults.bool(forKey: Keys.notesPlanCheckUp))
+        notesOffered = defaults.bool(forKey: Keys.notesOffered)
         hideAmountsOnLaunch = defaults.bool(forKey: Keys.hideAmountsOnLaunch)
         hideInAppSwitcher = defaults.bool(forKey: Keys.hideInAppSwitcher)
         hidesAmounts = defaults.bool(forKey: Keys.hideAmountsOnLaunch)
@@ -115,39 +129,14 @@ final class AppPreferences {
         static let reminderDay = "checkInReminder.day"
         static let reminderHour = "checkInReminder.hour"
         static let reminderMinute = "checkInReminder.minute"
+        static let notesYourYear = "notes.yourYear"
+        static let notesBirthday = "notes.birthday"
+        static let notesRecordsAnniversary = "notes.recordsAnniversary"
+        static let notesPlanCheckUp = "notes.planCheckUp"
+        static let notesOffered = "notes.offered"
         static let collapsedAccountFolders = "sidebar.collapsedAccountFolders"
         static let futureHorizon = "charts.futureHorizon"
         static let hideAmountsOnLaunch = "privacy.hideAmountsOnLaunch"
         static let hideInAppSwitcher = "privacy.hideInAppSwitcher"
-    }
-}
-
-/// When to remind about the monthly check-in.
-struct CheckInReminder: Hashable, Sendable {
-    /// Stands for the last day of the month.
-    static let lastDay = 0
-
-    /// The reminder as it's turned on: the last day of the month at 19:00.
-    static let standard = CheckInReminder(day: lastDay, hour: 19, minute: 0)
-
-    /// Day of the month, 1...28, or ``lastDay``.
-    var day: Int
-    var hour: Int
-    var minute: Int
-
-    /// The reminder's date in `month`: the given day, or the month's last day.
-    func date(in month: YearMonth) -> CalendarDate {
-        guard day != Self.lastDay, let date = CalendarDate(year: month.year, month: month.month, day: min(day, 28))
-        else { return month.lastDay }
-        return date
-    }
-
-    /// The next `count` reminder dates from `today`, starting this month if
-    /// its reminder is still ahead (today counts when `timePassed` is false).
-    func upcomingDates(from today: CalendarDate, timePassed: Bool, count: Int = 12) -> [CalendarDate] {
-        let thisMonth = date(in: today.yearMonth)
-        let startsNextMonth = thisMonth < today || (thisMonth == today && timePassed)
-        let first = startsNextMonth ? today.yearMonth.next : today.yearMonth
-        return (0..<count).map { date(in: first.adding(months: $0)) }
     }
 }
