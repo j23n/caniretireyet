@@ -2,63 +2,234 @@ import Charts
 import Model
 import SwiftUI
 
-/// A bank statement's Preview charts (UI.md, "Import"): money in and out by
-/// month as Trends will show it once the file is imported, and the file's
-/// balance as a line with the account's values before the import as dots,
-/// orange where they differ from the file's.
-struct ImportStatementChartsCard: View {
+/// Bank statements' Review charts (UI.md, "Import"): what came in and was
+/// spent each month of the import's last year with the import applied, and
+/// on a wide screen, one account's balance by the files with its values
+/// before the import as rings, orange where they differ.
+struct ImportStatementChartsCards: View {
     let charts: ImportStatementCharts
+    /// The iPhone: no balance chart, shorter bars, month initials.
+    let isCompact: Bool
 
     var body: some View {
-        Card("Does this look right?", systemImage: "chart.bar.xaxis") {
-            if !charts.money.counted.isEmpty {
-                Text("Money in and out by month, as Trends will show it after the import.")
-                    .font(.footnote)
-                    .foregroundStyle(Palette.secondaryInk)
-                    .fixedSize(horizontal: false, vertical: true)
-                PlanMoneyInOutLegend(money: charts.money, showsPlanSpending: false)
-                PlanMoneyInOutChart(money: charts.money)
+        if isCompact {
+            ImportMoneyCard(charts: charts, isCompact: true)
+        } else if charts.file.count > 1 {
+            EqualColumns(spacing: Metrics.l) {
+                ImportMoneyCard(charts: charts, isCompact: false)
+                ImportBalanceCard(charts: charts)
             }
-            if charts.file.count > 1 {
-                ImportBalanceChart(charts: charts)
-                Text(charts.balanceCaption)
-                    .font(.footnote)
-                    .foregroundStyle(Palette.secondaryInk)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
+        } else {
+            ImportMoneyCard(charts: charts, isCompact: false)
         }
     }
 }
 
-/// The file's balance as a line, the account's values before the import as
-/// dots: ink where the file gives the same balance on that day, orange where
-/// it doesn't.
-private struct ImportBalanceChart: View {
+/// "Came in and spent, 2025": a pair of bars for each month, what came in
+/// in the accent and what was spent in grey, with no amounts on an axis.
+private struct ImportMoneyCard: View {
     let charts: ImportStatementCharts
-
-    @Environment(\.redactionReasons) private var redactionReasons
+    let isCompact: Bool
 
     var body: some View {
-        let scale = AmountScale(values: (charts.file + charts.before).map(\.balance.doubleValue))
+        ImportChartCard(title: charts.moneyTitle, isCompact: isCompact) {
+            ImportChartKey(swatch: .bar(Palette.color(for: .accent)), name: isCompact ? "In" : "Came in")
+            ImportChartKey(swatch: .bar(ImportMoneyBars.spentColor), name: "Spent")
+        } chart: {
+            ImportMoneyBars(months: charts.months, isCompact: isCompact)
+        }
+    }
+}
+
+/// "Girokonto, balance": the files' balance as a line, the account's
+/// values before the import as rings.
+private struct ImportBalanceCard: View {
+    let charts: ImportStatementCharts
+
+    var body: some View {
+        ImportChartCard(title: charts.balanceTitle, isCompact: false) {
+            ImportChartKey(swatch: .line, name: "From the file")
+            if !charts.before.isEmpty {
+                ImportChartKey(swatch: .ring, name: "Your check-ins")
+            }
+        } chart: {
+            ImportBalanceLine(charts: charts)
+        }
+    }
+}
+
+/// A chart's card: its title with the key at the right, then the chart.
+private struct ImportChartCard<Key: View, Chart: View>: View {
+    let title: String
+    let isCompact: Bool
+    @ViewBuilder let key: () -> Key
+    @ViewBuilder let chart: () -> Chart
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Metrics.s) {
+            HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
+                Text(title)
+                    .font(isCompact ? .subheadline.weight(.semibold) : .headline)
+                    .foregroundStyle(Palette.ink)
+                    .lineLimit(1)
+                    .privacySensitiveInFeedback()
+                    .accessibilityAddTraits(.isHeader)
+                Spacer(minLength: Metrics.s)
+                HStack(spacing: Metrics.m) {
+                    key()
+                }
+                .font(.caption2)
+                .foregroundStyle(Palette.secondaryInk)
+                .fixedSize()
+                .accessibilityElement(children: .combine)
+            }
+            chart()
+        }
+        .padding(isCompact ? Metrics.m : Metrics.l)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Palette.card, in: RoundedRectangle(cornerRadius: Metrics.cardRadius, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: Metrics.cardRadius, style: .continuous)
+                .strokeBorder(Palette.border, lineWidth: 1)
+        }
+    }
+}
+
+/// One item of a chart's key, its swatch mirroring the mark.
+private struct ImportChartKey: View {
+    enum Swatch {
+        case bar(Color)
+        case line
+        case ring
+    }
+
+    let swatch: Swatch
+    let name: String
+
+    var body: some View {
+        HStack(spacing: Metrics.xs) {
+            switch swatch {
+            case .bar(let color):
+                RoundedRectangle(cornerRadius: 2, style: .continuous)
+                    .fill(color)
+                    .frame(width: 8, height: 8)
+            case .line:
+                Capsule()
+                    .fill(Palette.accent)
+                    .frame(width: 10, height: 2.5)
+            case .ring:
+                Circle()
+                    .strokeBorder(Palette.ink, lineWidth: 2)
+                    .frame(width: 8, height: 8)
+            }
+            Text(name)
+                .lineLimit(1)
+        }
+    }
+}
+
+/// The month's pairs of bars, from zero, with gridlines and the months
+/// under them; the current month lighter, as it isn't over.
+private struct ImportMoneyBars: View {
+    let months: [ImportStatementCharts.Month]
+    let isCompact: Bool
+
+    @Environment(\.locale) private var locale
+
+    static let spentColor = Palette.color(for: .neutral)
+    private static let soFarOpacity = 0.45
+
+    var body: some View {
+        Chart {
+            ForEach(months) { month in
+                BarMark(x: .value("Month", month.month.description), y: .value("Came in", month.cameIn.doubleValue))
+                    .foregroundStyle(Palette.accent.opacity(month.isSoFar ? Self.soFarOpacity : 1))
+                    .position(by: .value("Kind", "Came in"))
+                    .cornerRadius(2)
+                BarMark(x: .value("Month", month.month.description),
+                        y: .value("Spent", max(month.spent, 0).doubleValue))
+                    .foregroundStyle(Self.spentColor.opacity(month.isSoFar ? Self.soFarOpacity : 1))
+                    .position(by: .value("Kind", "Spent"))
+                    .cornerRadius(2)
+            }
+        }
+        .chartLegend(.hidden)
+        .chartYAxis {
+            AxisMarks(values: .automatic(desiredCount: isCompact ? 1 : 3)) { _ in
+                AxisGridLine()
+            }
+        }
+        .chartXAxis {
+            AxisMarks { value in
+                AxisValueLabel {
+                    if let text = value.as(String.self) {
+                        Text(label(text))
+                    }
+                }
+            }
+        }
+        .frame(height: isCompact ? 96 : 150)
+        .privacySensitiveInFeedback()
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text("What came in and what was spent each month"))
+    }
+
+    /// "Jan", or "J" on the iPhone.
+    private func label(_ month: String) -> String {
+        guard let date = YearMonth(month)?.firstDay.dateValue else { return month }
+        return date.formatted(.dateTime.month(isCompact ? .narrow : .abbreviated).locale(locale))
+    }
+}
+
+/// The files' balance through the year as a line, the account's values
+/// before the import as rings: ink where the files give the same balance
+/// that day, orange where they don't.
+private struct ImportBalanceLine: View {
+    let charts: ImportStatementCharts
+
+    var body: some View {
+        let values = (charts.file + charts.before).map(\.balance.doubleValue)
+        let low = values.min() ?? 0
+        let high = values.max() ?? 1
+        let pad = max((high - low) * 0.1, 1)
+        let first = CalendarDate.firstDay(ofYear: charts.year)
+        let last = (charts.file + charts.before).map(\.date).max() ?? first
         Chart {
             ForEach(charts.file) { value in
                 LineMark(x: .value("Date", value.date.dateValue), y: .value("Balance", value.balance.doubleValue),
                          series: .value("Series", "File"))
                     .foregroundStyle(Palette.accent)
-                    .lineStyle(StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
+                    .lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round))
             }
             ForEach(charts.before) { value in
                 PointMark(x: .value("Date", value.date.dateValue), y: .value("Balance", value.balance.doubleValue))
-                    .foregroundStyle(charts.agrees(value) ? Palette.ink : Palette.warning)
-                    .symbolSize(charts.agrees(value) ? 36 : 64)
+                    .symbol {
+                        Circle()
+                            .fill(Palette.card)
+                            .overlay {
+                                Circle()
+                                    .strokeBorder(charts.agrees(value) ? Palette.ink : Palette.warning, lineWidth: 2)
+                            }
+                            .frame(width: 10, height: 10)
+                    }
             }
         }
-        .chartYScale(domain: scale.domain)
-        .chartYAxis { amountAxis(hidesAmounts: redactionReasons.hidesAmounts, scale: scale) }
+        .chartXScale(domain: min(first, charts.file.first?.date ?? first).dateValue...last.endOfMonth.dateValue)
+        .chartYScale(domain: (low - pad)...(high + pad))
         .chartLegend(.hidden)
-        .frame(height: 140)
+        .chartYAxis {
+            AxisMarks(values: .automatic(desiredCount: 3)) { _ in
+                AxisGridLine()
+            }
+        }
+        .chartXAxis {
+            AxisMarks(values: .stride(by: .month)) { _ in
+                AxisValueLabel(format: .dateTime.month(.abbreviated), centered: true)
+            }
+        }
+        .frame(height: 150)
         .privacySensitiveInFeedback()
-        .accessibilityElement()
-        .accessibilityLabel(Text("The file's balance, with the account's values before this import"))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text("The files' balance, with the account's values before this import"))
     }
 }

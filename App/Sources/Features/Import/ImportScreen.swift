@@ -86,12 +86,8 @@ struct ImportScreen: View {
         stepContent
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Palette.page)
-            .safeAreaInset(edge: .top, spacing: 0) {
-                ImportStepBar(model: model)
-            }
-            .safeAreaInset(edge: .bottom, spacing: 0) {
-                ImportBottomBar(model: model)
-            }
+            .importBars(model: model, isCompact: isCompact)
+            .environment(\.importClose, closeAction)
             .navigationTitle("Import")
             #if os(macOS)
             .personalNavigationSubtitle(model.flow.fileName ?? "")
@@ -100,11 +96,7 @@ struct ImportScreen: View {
                 if isSheet {
                     ToolbarItem(placement: .cancellationAction) {
                         Button(model.flow.step == .done ? "Done" : "Close") {
-                            if let close {
-                                close()
-                            } else {
-                                navigation.sheet = nil
-                            }
+                            closeAction?()
                         }
                     }
                 }
@@ -137,6 +129,14 @@ struct ImportScreen: View {
         ImportStepContent(model: model, isCompact: isCompact, chooseFile: { isChoosingFile = true }, openFiles: { urls in
             Task { await open(urls) }
         })
+    }
+
+    /// Closes the screen when it has an import of its own; `nil` for the page.
+    private var closeAction: (@MainActor () -> Void)? {
+        guard isSheet else { return nil }
+        if let close { return { close() } }
+        let navigation = navigation
+        return { navigation.sheet = nil }
     }
 
     private var isShowingError: Binding<Bool> {

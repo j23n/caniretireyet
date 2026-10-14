@@ -3,11 +3,11 @@ import Importer
 import Model
 import Tracker
 
-/// What a bank statement's Preview draws, to check the import before it's
-/// written (UI.md, "Import"): money in and out by month over the days the
-/// file covers, as Trends will show it with the import applied, and the
-/// account's balance day by day from the file against its values before
-/// the import.
+/// What bank statements' Review draws, to check the import before it's
+/// written (UI.md, "Import"): what came in and was spent each month of the
+/// import's last year, as Trends will count it with the import applied, and
+/// one account's balance by the files against its values before the
+/// import.
 struct ImportStatementCharts {
     /// A balance at the end of a day.
     struct Balance: Hashable, Identifiable {
@@ -17,19 +17,61 @@ struct ImportStatementCharts {
         var id: CalendarDate { date }
     }
 
-    /// Money in and out by month with the import applied.
+    /// One month's pair of bars.
+    struct Month: Hashable, Identifiable {
+        var month: YearMonth
+        var cameIn: Decimal
+        var spent: Decimal
+        /// The current month, not over yet.
+        var isSoFar: Bool
+
+        var id: YearMonth { month }
+    }
+
+    /// The year drawn: the year of the import's last day.
+    var year: Int
+    /// Money in and out by month with the import applied, from the year's
+    /// first day.
     var money: PlanMoneyInOut
-    /// The account's balance by the file at the end of each day with a line,
-    /// and the day before the first line, oldest first.
+    /// The account whose balance is drawn: the first with a value before
+    /// the import in the year that the files disagree with, else the first
+    /// file's.
+    var account: AccountID
+    /// Its name, for "Girokonto, balance".
+    var accountName: String
+    /// The account's balance by the files at the end of each day with a
+    /// line in the year, and of the day before, oldest first.
     var file: [Balance]
-    /// The account's values before the import in the days the file covers:
-    /// check-ins and earlier imports, oldest first.
+    /// The account's values before the import in the year, on the days the
+    /// files cover: check-ins and earlier imports, oldest first.
     var before: [Balance]
+
+    /// "Came in and spent, 2025".
+    var moneyTitle: String { "Came in and spent, \(year)" }
+
+    /// "Girokonto, balance".
+    var balanceTitle: String { "\(accountName), balance" }
+
+    /// The year's months from January, each with what came in and was
+    /// spent; nothing in the months before money in and out was recorded.
+    var months: [Month] {
+        let periods = money.periods.filter { $0.through.year == year }
+        guard let last = periods.last?.through.yearMonth, let january = YearMonth(year: year, month: 1) else {
+            return []
+        }
+        return (0...january.months(to: last)).map { offset in
+            let month = january.adding(months: offset)
+            guard let period = periods.first(where: { $0.through.yearMonth == month }) else {
+                return Month(month: month, cameIn: 0, spent: 0, isSoFar: false)
+            }
+            return Month(month: month, cameIn: period.cameIn, spent: period.spent, isSoFar: money.isSoFar(period))
+        }
+    }
 
     /// The file's balance at the end of `date`: the last day's before it,
     /// or the balance before the first line.
     func fileBalance(on date: CalendarDate) -> Decimal? {
-        (file.last { $0.date <= date } ?? file.first)?.balance
+        Self.balance(on: date, in: file)
     }
 
     /// Whether the file gives `value`'s balance on its day.
@@ -37,17 +79,10 @@ struct ImportStatementCharts {
         fileBalance(on: value.date) == value.balance
     }
 
-    /// "The line is the file's balance, the dots the account's values before
-    /// this import: 3 of 4 agree."
-    var balanceCaption: String {
-        guard !before.isEmpty else {
-            return "The line is the file's balance. The account has no values in these days yet."
-        }
-        let agreeing = before.filter(agrees).count
-        let count = agreeing == before.count
-            ? (before.count == 1 ? "it agrees" : "all \(before.count) agree")
-            : "\(agreeing) of \(before.count) agree"
-        return "The line is the file's balance, the dots the account's values before this import: \(count)."
+    /// The balance at the end of `date` by `file`'s day ends: the last
+    /// day's before it, or the first's.
+    static func balance(on date: CalendarDate, in file: [Balance]) -> Decimal? {
+        (file.last { $0.date <= date } ?? file.first)?.balance
     }
 
     /// The balance at the end of each day with a line, worked back from the
@@ -69,33 +104,96 @@ struct ImportStatementCharts {
 }
 
 extension ImportFlow {
-    /// A bank statement's charts, once its account and the days it covers
-    /// are known; `nil` for any other file. Money in and out ends where
-    /// Trends' would in the file's last month: Trends ends at the planned
-    /// library's latest check-in of the plan's accounts, so at the month's
-    /// last day when that check-in is in a later month, otherwise at it,
-    /// when that's after the file's last day.
+    /// The previews Review shows: every statement's of the batch, in the
+    /// order they're imported, each with its file's ID; or the one file's.
+    var reviewPreviews: [(file: Int?, preview: ImportPreview)] {
+        if isBatch { return batchPreviews.map { (file: Optional($0.file), preview: $0.preview) } }
+        return preview.map { [(file: nil, preview: $0)] } ?? []
+    }
+
+    /// The account a reviewed preview is a statement of: its file's, or
+    /// the one file's.
+    func statementAccount(ofFile file: Int?) -> AccountID? {
+        guard let file else { return constants.account }
+        return batch?.files.first { $0.id == file }?.account
+    }
+
+    /// The days the statements are read as covering: the first day of the
+    /// earliest and the last day of the latest.
+    var reviewPeriod: (from: CalendarDate, through: CalendarDate)? {
+        let periods = reviewPreviews.compactMap(\.preview.statementPeriod)
+        guard let from = periods.map(\.from).min(), let through = periods.map(\.through).max() else { return nil }
+        return (from, through)
+    }
+
+    /// Bank statements' charts, once their accounts and the days they
+    /// cover are known; `nil` for any other file. Money in and out starts
+    /// on the first day of the year of the import's last day, and ends
+    /// where Trends' would in the import's last month: Trends ends at the
+    /// planned library's latest check-in of the plan's accounts, so at the
+    /// month's last day when that check-in is in a later month, otherwise
+    /// at it, when that's after the import's last day.
     func makeStatementCharts() -> ImportStatementCharts? {
-        guard layout == .statement, let account = constants.account, let period = statementPeriod,
-              let after = planned?.library else { return nil }
-        let values = (preview?.records ?? []).compactMap { record -> ImportStatementCharts.Balance? in
-            guard case .valuation(let key) = record.imported.key, key.account == account,
-                  let balance = record.imported.balance else { return nil }
-            return ImportStatementCharts.Balance(date: key.date, balance: balance)
-        }
-        let lines = statementLines.filter { $0.date >= period.from && $0.date <= period.through }
-            .map { (date: $0.date, amount: $0.amount) }
-        let before = library.valuations(for: account)
-            .filter { $0.date >= period.from && $0.date <= period.through }
-            .compactMap { valuation in
-                valuation.balance.map { ImportStatementCharts.Balance(date: valuation.date, balance: $0) }
-            }
+        guard layout == .statement, let period = reviewPeriod, let after = planned?.library else { return nil }
+        let year = period.through.year
+        let start = CalendarDate.firstDay(ofYear: year)
+        let balances = reviewBalances(from: start)
+        guard let shown = balances.first(where: \.disagrees) ?? balances.first else { return nil }
         let valuator = Tracker.Valuator(library: after)
         let latest = valuator.latestCheckIn(onOrBefore: .today(), in: .planAssets) ?? period.through
         let end = latest.yearMonth > period.through.yearMonth ? period.through.endOfMonth : max(period.through, latest)
-        let money = PlanMoneyInOut(valuator.moneyInOutSeries(.months, through: end),
-                                   from: period.from, firstRecord: nil, through: end)
-        return ImportStatementCharts(money: money, file: ImportStatementCharts.dayEnds(lines: lines, values: values),
-                                     before: before)
+        let money = PlanMoneyInOut(valuator.moneyInOutSeries(.months, through: end), from: start, firstRecord: nil,
+                                   through: end)
+        let name = after.accounts[shown.account]?.name ?? accountName(shown.account)
+        return ImportStatementCharts(year: year, money: money, account: shown.account, accountName: name,
+                                     file: shown.file, before: shown.before)
     }
+
+    /// Each statement account's balance by its files from the day before
+    /// `start`, and its values before the import from `start` on the days
+    /// its files cover, in the order the files are imported.
+    private func reviewBalances(from start: CalendarDate) -> [ImportReviewBalance] {
+        var accounts: [AccountID] = []
+        for (file, _) in reviewPreviews {
+            if let account = statementAccount(ofFile: file), !accounts.contains(account) { accounts.append(account) }
+        }
+        return accounts.map { account in
+            let previews = reviewPreviews.filter { statementAccount(ofFile: $0.file) == account }.map(\.preview)
+            let values = previews.flatMap(\.records).compactMap { record -> ImportStatementCharts.Balance? in
+                guard case .valuation(let key) = record.imported.key, key.account == account,
+                      let balance = record.imported.balance else { return nil }
+                return ImportStatementCharts.Balance(date: key.date, balance: balance)
+            }
+            let periods = previews.compactMap(\.statementPeriod)
+            let lines = previews.flatMap { preview in
+                preview.statementLines.filter { line in
+                    preview.statementPeriod.map { line.date >= $0.from && line.date <= $0.through } ?? false
+                }
+            }.map { (date: $0.date, amount: $0.amount) }
+            let file = ImportStatementCharts.dayEnds(lines: lines, values: values)
+            let before = library.valuations(for: account)
+                .filter { valuation in
+                    valuation.date >= start
+                        && periods.contains { valuation.date >= $0.from && valuation.date <= $0.through }
+                }
+                .compactMap { valuation in
+                    valuation.balance.map { ImportStatementCharts.Balance(date: valuation.date, balance: $0) }
+                }
+            let disagrees = before.contains { ImportStatementCharts.balance(on: $0.date, in: file) != $0.balance }
+            // The year's days, and the last day before them for the line to start from.
+            let dayBefore = start.adding(days: -1)
+            let opening = file.last { $0.date <= dayBefore }
+            let shown = (opening.map { [$0] } ?? []) + file.filter { $0.date > dayBefore }
+            return ImportReviewBalance(account: account, file: shown, before: before, disagrees: disagrees)
+        }
+    }
+}
+
+/// A statement account's balance on Review, before one is chosen to draw.
+private struct ImportReviewBalance {
+    var account: AccountID
+    var file: [ImportStatementCharts.Balance]
+    var before: [ImportStatementCharts.Balance]
+    /// Whether a value before the import differs from the files'.
+    var disagrees: Bool
 }
