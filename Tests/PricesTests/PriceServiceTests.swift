@@ -94,7 +94,13 @@ struct PriceServiceTests {
         let result = await Self.service(client).fetch(for: library, on: Self.checkIn)
 
         #expect(result.isComplete)
-        #expect(result.prices == library.months["2026-09"]?.prices)
+        // The example library's own prices, with bitcoin's from CoinGecko this time.
+        let expected = library.months["2026-09"]?.prices.map { record in
+            var record = record
+            if record.instrument == "btc" { record.source = .coingecko }
+            return record
+        }
+        #expect(result.prices == expected)
         let btc = try #require(result.entry(for: .instrument("btc")))
         #expect(btc.symbol == "BTC")
         #expect(btc.resolvedSymbol == "bitcoin")

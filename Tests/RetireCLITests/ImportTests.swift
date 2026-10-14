@@ -389,9 +389,13 @@ struct ImportTests {
 
         let applied = await runCLI(arguments + ["--apply"])
         #expect(applied.status == 0, "\(applied.all)")
-        let written = try #require(try library.load().valuations(for: "conto-fineco").last)
+        let loaded = try library.load()
+        let values = loaded.valuations(for: "conto-fineco")
+        let written = try #require(values.last)
         #expect(written == Valuation(account: "conto-fineco", date: "2026-10-31", balance: d("5480.15"),
-                                     flow: d("1269.6"), moneyIn: 3400, moneyOut: d("1380.4"), source: .import))
+                                     moneyIn: 3400, moneyOut: d("1380.4"), source: .import))
+        // Its new money is worked out from the value before.
+        #expect(Valuator(library: loaded).flow(of: written, previous: values.dropLast().last) == d("1269.6"))
         let again = await runCLI(arguments + ["--apply"])
         #expect(again.output.contains("Nothing to import: the library already has everything in the file.\n"))
     }
