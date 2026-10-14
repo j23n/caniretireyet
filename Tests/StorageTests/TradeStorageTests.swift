@@ -35,7 +35,7 @@ struct TradeStorageTests {
         var library = previous
         library.upsert(buy)
         library.upsert(deposit)
-        library.upsert(Valuation(account: "broker", date: "2026-10-31", cash: d("604.0"), flow: 2000))
+        library.upsert(Valuation(account: "broker", date: "2026-10-31", cash: d("604.0"), saved: 2000))
         try folder.library.save(library, previous: previous)
 
         #expect(try folder.text(october) == """
@@ -58,7 +58,7 @@ struct TradeStorageTests {
                 }
               ],
               "valuations": [
-                { "account": "broker", "cash": "604", "date": "2026-10-31", "flow": "2000" }
+                { "account": "broker", "cash": "604", "date": "2026-10-31", "saved": "2000" }
               ]
             }
 

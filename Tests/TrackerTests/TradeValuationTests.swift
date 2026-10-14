@@ -65,9 +65,9 @@ enum TradeLibrary {
     static func typedCash() -> Library {
         var library = withMarketData(base)
         for trade in trades { library.upsert(trade) }
-        library.upsert(Valuation(account: "broker", date: "2024-01-31", cash: 5000, flow: 10005))
-        library.upsert(Valuation(account: "broker", date: "2024-02-29", cash: 5020, flow: 0))
-        library.upsert(Valuation(account: "broker", date: "2024-03-31", cash: d("5300.36"), flow: 550))
+        library.upsert(Valuation(account: "broker", date: "2024-01-31", cash: 5000, saved: 10005))
+        library.upsert(Valuation(account: "broker", date: "2024-02-29", cash: 5020, saved: 0))
+        library.upsert(Valuation(account: "broker", date: "2024-03-31", cash: d("5300.36"), saved: 550))
         return library
     }
 
@@ -139,22 +139,22 @@ struct TradeValuationTests {
         #expect(residuals[0].since == "2024-01-01")
         #expect(typed.tradeFlows(of: "bank", after: nil, through: "2024-03-31").isEmpty)
 
-        // The check-in's default flow is the same thing, since the previous valuation.
+        // What the check-in saved is the same thing, since the previous valuation.
         let library = TradeLibrary.typedCash()
         let valuations = library.valuations(for: "broker")
-        #expect(typed.defaultFlow(for: valuations[0], previous: nil) == 10005)
-        #expect(typed.defaultFlow(for: valuations[1], previous: valuations[0]) == 0)
-        #expect(typed.defaultFlow(for: valuations[2], previous: valuations[1]) == 550)
+        #expect(typed.workedOutSaved(for: valuations[0], previous: nil) == 10005)
+        #expect(typed.workedOutSaved(for: valuations[1], previous: valuations[0]) == 0)
+        #expect(typed.workedOutSaved(for: valuations[2], previous: valuations[1]) == 550)
         // Typed cash that's 12.5 more than the trades give adds a residual.
         var more = valuations[2]
         more.cash = d("5312.86")
-        #expect(typed.defaultFlow(for: more, previous: valuations[1]) == d("562.5"))
+        #expect(typed.workedOutSaved(for: more, previous: valuations[1]) == d("562.5"))
     }
 
     @Test func theChangeSplitsMarketFromSaved() throws {
         let valuator = Valuator(library: TradeLibrary.recordedDeposits())
         let change = try #require(valuator.change(of: "broker", from: "2024-01-31", to: "2024-03-31"))
-        #expect(change.flow == 550)
+        #expect(change.saved == 550)
         #expect(change.change.start == 10095)
         #expect(change.change.saved == 550)
         // The dividend, the gain on the sale and the price moves are market.
@@ -186,7 +186,7 @@ struct TradeValuationTests {
         var library = TradeLibrary.typedCash()
         library.upsert(Valuation(account: "broker", date: "2024-03-31", cash: d("5300.36"), positions: [
             Position(instrument: "aapl", quantity: 9), Position(instrument: "vwce", quantity: 40, costBasis: 3900),
-        ], flow: 550))
+        ], saved: 550))
         let valuator = Valuator(library: library)
         // The value comes from the trades, whatever the valuation lists.
         #expect(valuator.value(of: "broker", on: "2024-03-31")?.value?.rounded(20) == (4400 + TradeLibrary.apple + d("5300.36")).rounded(20))

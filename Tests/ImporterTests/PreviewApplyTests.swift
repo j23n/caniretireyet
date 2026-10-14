@@ -21,7 +21,7 @@ struct PreviewApplyTests {
                 Instrument(id: "etf", name: "ETF", kind: .etf, currency: .eur, unit: .share,
                            assetClasses: .single(.equity)),
             ])
-        library.upsert(Valuation(account: "cash", date: "2026-01-31", balance: 100, flow: 10, note: "kept"))
+        library.upsert(Valuation(account: "cash", date: "2026-01-31", balance: 100, saved: 10, note: "kept"))
         library.upsert(Valuation(account: "cash", date: "2026-02-28", balance: 200))
         library.upsert(Valuation(account: "broker", date: "2026-01-31", cash: 5,
                                  positions: [Position(instrument: "etf", quantity: 10)]))
@@ -100,7 +100,7 @@ struct PreviewApplyTests {
         preview.resolveConflicts(.overwrite)
         let result = preview.apply(to: base)
         let january = try #require(result.library.valuations(for: "cash").first)
-        #expect(january.flow == 10)
+        #expect(january.saved == 10)
         #expect(january.note == "kept")
         #expect(result.library.valuations(for: "broker")[1].cash == 5)
         #expect(result.library.valuations(for: "cash").last?.source == .import)

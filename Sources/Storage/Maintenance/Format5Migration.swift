@@ -11,11 +11,12 @@ extension Migration {
     /// 2. writes a plan's return given by both `real` and `medianReal` with
     ///    `medianReal` alone, in plans and in the copies of plans that baselines keep;
     /// 3. drops a valuation's `flow` where its account doesn't ask for one
-    ///    (``Model/Account/asksForFlow``): that flow is worked out from the
-    ///    account's records, so a missing one means "computed". A savings
-    ///    value without `interest` whose flow wasn't its change gets the
-    ///    difference as its interest, so what it saved stays; a note names
-    ///    each other balance whose flows weren't its change;
+    ///    (``Model/Account/asksForSaved``): what it saved is worked out from
+    ///    the account's records, so a missing one means "computed". A
+    ///    savings value without `interest` whose flow wasn't its change gets
+    ///    the difference as its interest, so what it saved stays; a note
+    ///    names each other balance whose flows weren't its change. Every
+    ///    other valuation's `flow` is renamed `saved`;
     /// 4. prices instruments priced from CoinGecko from Yahoo Finance, as
     ///    the coin's pair in the instrument's currency (`BTC-EUR`), when the
     ///    instrument says the coin's ticker; otherwise their `priceSource`
@@ -24,6 +25,7 @@ extension Migration {
         renameKinds(in: &files)
         dropBothReturns(in: &files)
         let flowNotes = dropComputedFlows(in: &files)
+        renameFlowsToSaved(in: &files)
         return flowNotes + priceCryptoFromYahoo(in: &files)
     }, from: 4, summary: "What you saved is stored only on accounts that ask for it: other values work it out from what's "
         + "recorded. Crypto is priced from Yahoo Finance, not CoinGecko.")
@@ -99,7 +101,7 @@ extension Migration {
             guard case .account(let id)? = LibraryFile(path: path),
                   let account = try? LenientDecoding.decode(Account.self,
                                                              from: json.withMember("id", to: .string(id.rawValue))),
-                  !account.asksForFlow
+                  !account.asksForSaved
             else { continue }
             computed[id.rawValue] = account
         }
@@ -130,7 +132,7 @@ extension Migration {
                 }
                 if !account.recordsTrades, let before = previousBalance, let now = members["balance"]?.decimalValue {
                     let change = now - before
-                    if account.kind.defaultFlow == .changeLessInterest {
+                    if account.kind.savedRule == .changeLessInterest {
                         let interest = members["interest"]?.decimalValue
                         if interest == nil, change != flow {
                             members["interest"] = .string((change - flow).fileString)
@@ -150,6 +152,23 @@ extension Migration {
             }
         }
         return notes
+    }
+
+    /// Renames the `flow` of every valuation left (one whose account asks
+    /// for it, or an unknown account's) to `saved`.
+    private static func renameFlowsToSaved(in files: inout [String: JSONValue]) {
+        for (path, json) in files {
+            guard case .month? = LibraryFile(path: path), let valuations = json["valuations"]?.arrayValue else {
+                continue
+            }
+            let renamed = valuations.map { valuation -> JSONValue in
+                guard case .object(var members) = valuation, let flow = members["flow"] else { return valuation }
+                members["flow"] = nil
+                members["saved"] = flow
+                return .object(members)
+            }
+            if renamed != valuations { files[path] = json.withMember("valuations", to: .array(renamed)) }
+        }
     }
 
     private static func drop(_ entry: (date: String, path: String, index: Int, valuation: JSONValue),

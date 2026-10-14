@@ -8,7 +8,7 @@ import Tracker
 // "Account detail").
 
 /// A new-money event on the account's history chart.
-struct AccountFlowTick: Hashable, Sendable, Identifiable {
+struct AccountSavedTick: Hashable, Sendable, Identifiable {
     var date: CalendarDate
     /// In the account's currency: added (+) or taken out (−).
     var amount: Decimal
@@ -69,9 +69,9 @@ struct AccountValuationRow: Hashable, Sendable, Identifiable {
     /// The value on its own date, in the base currency (what could be valued).
     var value: Decimal
     /// What was saved since the value before, in the account's currency
-    /// (Tracker's `Valuator.flow(of:previous:)`): recorded, or worked out
+    /// (Tracker's `Valuator.saved(_:previous:)`): recorded, or worked out
     /// from the balances; `nil` when it's unknown, as for the first value.
-    var flow: Decimal? = nil
+    var saved: Decimal? = nil
     /// For a cash or savings account's value that records money in and
     /// out: the money moved between your own accounts, in the account's
     /// currency (Tracker's `Valuator.moved(_:previous:)`); `nil` otherwise.
@@ -154,7 +154,7 @@ struct AccountDetailData: Hashable, Sendable {
     /// `nil` when there are none.
     var missingBaseRates: MissingValues?
     /// New-money events, oldest first.
-    var flows: [AccountFlowTick]
+    var savedTicks: [AccountSavedTick]
     /// For an account that records trades: the positions its trades hold.
     var holdings: [AccountHoldingRow] = []
     /// For an account that records trades: its cash, in the account's currency.
@@ -260,8 +260,8 @@ struct AccountDetailData: Hashable, Sendable {
                 }
             }
         }
-        flows = valuator.flowsByDate(of: account.id, through: date).map {
-            AccountFlowTick(date: $0.date, amount: $0.amount)
+        savedTicks = valuator.savedByDate(of: account.id, through: date).map {
+            AccountSavedTick(date: $0.date, amount: $0.amount)
         }
         if account.recordsTrades {
             let rows = valuator.holdings(of: account.id, on: date).map { holding in
@@ -284,7 +284,7 @@ struct AccountDetailData: Hashable, Sendable {
                     valuation: valuation,
                     amount: valuator.amountInAccountCurrency(of: valuation, on: valuation.date),
                     value: valuator.value(of: valuation, on: valuation.date)?.knownValue ?? 0,
-                    flow: valuator.flow(of: valuation, previous: previous),
+                    saved: valuator.saved(valuation, previous: previous),
                     moved: recordsMoneyInOut ? valuator.moved(valuation, previous: previous) : nil)
             }
         }

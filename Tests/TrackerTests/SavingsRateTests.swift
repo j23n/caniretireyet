@@ -72,7 +72,7 @@ struct SavingsRateTests {
     @Test func aPensionWithoutWhatWasSavedPaysNothingIn() throws {
         var library = try Fixtures.exampleLibrary()
         let pension = try #require(library.months["2026-09"]?.valuations.firstIndex { $0.account == "fondo-pensione" })
-        library.months["2026-09"]?.valuations[pension].flow = nil
+        library.months["2026-09"]?.valuations[pension].saved = nil
         let savings = try #require(Valuator(library: library).savingsRate(overYearEndingOn: "2026-09-30"))
         #expect(savings.pensionContributions == 0)
         #expect(savings.saved == d("631.05"))
@@ -81,7 +81,7 @@ struct SavingsRateTests {
     @Test func moneyTakenOutOfAPensionIsNotIncome() throws {
         var library = try Fixtures.exampleLibrary()
         let pension = try #require(library.months["2026-09"]?.valuations.firstIndex { $0.account == "fondo-pensione" })
-        library.months["2026-09"]?.valuations[pension].flow = -500
+        library.months["2026-09"]?.valuations[pension].saved = -500
         let savings = try #require(Valuator(library: library).savingsRate(overYearEndingOn: "2026-09-30"))
         #expect(savings.pensionContributions == 0)
         #expect(savings.income == d("10200"))
@@ -105,19 +105,19 @@ struct SavingsRateTests {
             Account(id: "mortgage", name: "Mortgage", kind: .mortgage, currency: .eur, opened: "2025-12-01"),
         ]
         for account in accounts { library.accounts[account.id] = account }
-        library.upsert(Valuation(account: "bank", date: "2025-12-31", balance: 10000, flow: 10000))
-        library.upsert(Valuation(account: "card", date: "2025-12-31", balance: -300, flow: -300))
-        library.upsert(Valuation(account: "broker", date: "2025-12-31", cash: 0, flow: 0))
+        library.upsert(Valuation(account: "bank", date: "2025-12-31", balance: 10000, saved: 10000))
+        library.upsert(Valuation(account: "card", date: "2025-12-31", balance: -300, saved: -300))
+        library.upsert(Valuation(account: "broker", date: "2025-12-31", cash: 0, saved: 0))
         library.upsert(Valuation(account: "fondo", date: "2025-12-31", balance: 5000))
         library.upsert(Valuation(account: "mortgage", date: "2025-12-31", balance: -100_000))
         library.upsert(Trade(account: "broker", date: "2026-01-26", id: "dep1", type: .deposit, amount: 1000))
         // Income only: the refund isn't.
-        library.upsert(Valuation(account: "bank", date: "2026-01-31", balance: 9450, flow: -550, moneyIn: 4000,
+        library.upsert(Valuation(account: "bank", date: "2026-01-31", balance: 9450, saved: -550, moneyIn: 4000,
                                  moneyOut: 4550))
-        library.upsert(Valuation(account: "card", date: "2026-01-31", balance: -100, flow: 200))
-        library.upsert(Valuation(account: "broker", date: "2026-01-31", cash: 1000, flow: 1000))
-        library.upsert(Valuation(account: "fondo", date: "2026-01-31", balance: 5300, flow: 300))
-        library.upsert(Valuation(account: "mortgage", date: "2026-01-31", balance: -99500, flow: 500))
+        library.upsert(Valuation(account: "card", date: "2026-01-31", balance: -100, saved: 200))
+        library.upsert(Valuation(account: "broker", date: "2026-01-31", cash: 1000, saved: 1000))
+        library.upsert(Valuation(account: "fondo", date: "2026-01-31", balance: 5300, saved: 300))
+        library.upsert(Valuation(account: "mortgage", date: "2026-01-31", balance: -99500, saved: 500))
         return library
     }()
 
@@ -136,7 +136,7 @@ struct SavingsRateTests {
     /// nor spent: saved, spent and the rate stay as they were.
     @Test func aOneOffIsLeftOutOfWhatWasSaved() throws {
         var library = month
-        library.upsert(Valuation(account: "bank", date: "2026-01-31", balance: 29450, flow: 19450, moneyIn: 4000,
+        library.upsert(Valuation(account: "bank", date: "2026-01-31", balance: 29450, saved: 19450, moneyIn: 4000,
                                  moneyOut: 4550, oneOff: 20000))
         let savings = try #require(Valuator(library: library).savingsRate(from: "2026-01-01", through: "2026-01-31"))
         #expect(savings.oneOffs == 20000)
@@ -164,10 +164,10 @@ struct SavingsRateTests {
         library.accounts["car"] = Account(id: "car", name: "Car", kind: .belongings, currency: .eur,
                                           opened: "2026-01-10")
         // Bought for 20,000 from the current account in January.
-        library.upsert(Valuation(account: "bank", date: "2026-01-31", balance: -10550, flow: -20550, moneyIn: 4000,
+        library.upsert(Valuation(account: "bank", date: "2026-01-31", balance: -10550, saved: -20550, moneyIn: 4000,
                                  moneyOut: 4550))
-        library.upsert(Valuation(account: "car", date: "2026-01-31", balance: 20000, flow: 20000))
-        // Worth 19,000 at the end of February, a value without a flow.
+        library.upsert(Valuation(account: "car", date: "2026-01-31", balance: 20000, saved: 20000))
+        // Worth 19,000 at the end of February, a value without a saved amount.
         library.upsert(Valuation(account: "car", date: "2026-02-28", balance: 19000))
         let valuator = Valuator(library: library)
         let january = try #require(valuator.savingsRate(from: "2026-01-01", through: "2026-01-31"))
@@ -178,7 +178,7 @@ struct SavingsRateTests {
 
         // Sold for 18,500 into the current account in March: only the 500 below its value is spent.
         library.upsert(Valuation(account: "car", date: "2026-03-31", balance: 0))
-        library.upsert(Valuation(account: "bank", date: "2026-03-31", balance: 7950, flow: 18500, moneyIn: 0,
+        library.upsert(Valuation(account: "bank", date: "2026-03-31", balance: 7950, saved: 18500, moneyIn: 0,
                                  moneyOut: 0))
         let sold = Valuator(library: library)
         let march = sold.saved(after: "2026-02-28", through: "2026-03-31")
@@ -196,9 +196,9 @@ struct SavingsRateTests {
         var library = month
         library.accounts["car"] = Account(id: "car", name: "Car", kind: .belongings, currency: .eur,
                                           opened: "2026-01-10", depreciation: d("0.12"))
-        library.upsert(Valuation(account: "bank", date: "2026-01-31", balance: -10550, flow: -20550, moneyIn: 4000,
+        library.upsert(Valuation(account: "bank", date: "2026-01-31", balance: -10550, saved: -20550, moneyIn: 4000,
                                  moneyOut: 4550))
-        library.upsert(Valuation(account: "car", date: "2026-01-31", balance: 20000, flow: 20000))
+        library.upsert(Valuation(account: "car", date: "2026-01-31", balance: 20000, saved: 20000))
         let valuator = Valuator(library: library)
         // 181 days at 12% a year: 20,000 × 12% × 181 / 365.
         #expect(valuator.saved(after: "2026-01-31", through: "2026-07-31").byAccount["car"] == d("-1190.14"))
@@ -213,13 +213,13 @@ struct SavingsRateTests {
         #expect(later.saved(after: "2027-08-31", through: "2029-09-01").byAccount["car"] == d("-2261.09"))
     }
 
-    /// A check-in fills in a new account's whole amount as its flow: only the
+    /// A check-in fills in a new account's whole amount as its saved: only the
     /// part that left an account already tracked is saved.
     @Test func aNewAccountsFirstValueIsSavedOnlyAsFarAsItMovedFromAnother() throws {
         var library = month
         library.accounts["old-savings"] = Account(id: "old-savings", name: "Old savings", kind: .savings,
                                                   currency: .eur, opened: "2026-01-15")
-        library.upsert(Valuation(account: "old-savings", date: "2026-01-31", balance: 20000, flow: 20000))
+        library.upsert(Valuation(account: "old-savings", date: "2026-01-31", balance: 20000, saved: 20000))
         let savings = try #require(Valuator(library: library).savingsRate(from: "2026-01-01", through: "2026-01-31"))
         // The bank's 550 drop is the only negative saved amount at that check-in.
         #expect(savings.savedByAccount["old-savings"] == 550)
@@ -240,12 +240,12 @@ struct SavingsRateTests {
         var library = month
         library.accounts["auto"] = Account(id: "auto", name: "Car loan", kind: .loan, currency: .eur,
                                            opened: "2026-02-10")
-        library.upsert(Valuation(account: "auto", date: "2026-02-15", balance: -10000, flow: -10000))
+        library.upsert(Valuation(account: "auto", date: "2026-02-15", balance: -10000, saved: -10000))
         let tracked = Valuator(library: library).saved(after: "2025-12-31", through: "2026-02-15")
         #expect(tracked.byAccount["auto"] == 0)
         #expect(tracked.byAccount.values.reduce(Decimal(0), +) == 1450)
 
-        library.upsert(Valuation(account: "bank", date: "2026-02-15", balance: 19450, flow: 10000, moneyIn: 0,
+        library.upsert(Valuation(account: "bank", date: "2026-02-15", balance: 19450, saved: 10000, moneyIn: 0,
                                  moneyOut: 0))
         let paidOut = Valuator(library: library).saved(after: "2025-12-31", through: "2026-02-15")
         #expect(paidOut.byAccount["auto"] == -10000)
@@ -260,7 +260,7 @@ struct SavingsRateTests {
         var library = month
         library.accounts["auto"] = Account(id: "auto", name: "Car loan", kind: .loan, currency: .eur,
                                            opened: "2026-01-10")
-        library.upsert(Valuation(account: "auto", date: "2026-01-31", balance: -10000, flow: -10000))
+        library.upsert(Valuation(account: "auto", date: "2026-01-31", balance: -10000, saved: -10000))
         let savings = try #require(Valuator(library: library).savingsRate(from: "2026-01-01", through: "2026-01-31"))
         #expect(savings.savedByAccount["auto"] == 0)
         #expect(savings.saved == 1450)
@@ -276,7 +276,7 @@ struct SavingsRateTests {
         let before = try #require(Valuator(library: library).savingsRate(from: "2026-09-01", through: "2026-09-30"))
         library.accounts["auto"] = Account(id: "auto", name: "Car loan", kind: .loan, currency: .eur,
                                            opened: "2026-09-10")
-        library.upsert(Valuation(account: "auto", date: "2026-09-30", balance: -10000, flow: -10000))
+        library.upsert(Valuation(account: "auto", date: "2026-09-30", balance: -10000, saved: -10000))
         let savings = try #require(Valuator(library: library).savingsRate(from: "2026-09-01", through: "2026-09-30"))
         #expect(savings.savedByAccount["auto"] == 0)
         #expect(savings.saved == before.saved)
@@ -288,8 +288,8 @@ struct SavingsRateTests {
         var library = month
         library.accounts["side"] = Account(id: "side", name: "Side", kind: .cash, currency: .eur,
                                            opened: "2025-12-01", includeIn: IncludeIn(netWorth: false))
-        library.upsert(Valuation(account: "side", date: "2025-12-31", balance: 0, flow: 0))
-        library.upsert(Valuation(account: "side", date: "2026-01-31", balance: 0, flow: 0, moneyIn: 700,
+        library.upsert(Valuation(account: "side", date: "2025-12-31", balance: 0, saved: 0))
+        library.upsert(Valuation(account: "side", date: "2026-01-31", balance: 0, saved: 0, moneyIn: 700,
                                  moneyOut: 700))
         let savings = try #require(Valuator(library: library).savingsRate(from: "2026-01-01", through: "2026-01-31"))
         #expect(savings.income == 4300)
@@ -319,18 +319,18 @@ struct SavingsRateTests {
         var library = Library(settings: LibrarySettings(baseCurrency: .eur))
         library.accounts["bank"] = Account(id: "bank", name: "Bank", kind: .cash, currency: .eur, opened: "2025-12-01")
         library.accounts["pot"] = Account(id: "pot", name: "Taxes", kind: .taxPot, currency: .eur, opened: "2025-12-01")
-        library.upsert(Valuation(account: "bank", date: "2025-12-31", balance: 10000, flow: 10000))
-        library.upsert(Valuation(account: "pot", date: "2025-12-31", balance: 0, flow: 0))
+        library.upsert(Valuation(account: "bank", date: "2025-12-31", balance: 10000, saved: 10000))
+        library.upsert(Valuation(account: "pot", date: "2025-12-31", balance: 0, saved: 0))
         let ends: [CalendarDate] = ["2026-01-31", "2026-02-28", "2026-03-31", "2026-04-30", "2026-05-31"]
         for (index, end) in ends.enumerated() {
             let kept = Decimal(index + 1) * 1000
-            library.upsert(Valuation(account: "bank", date: end, balance: 10000 + kept, flow: 1000, moneyIn: 4000,
+            library.upsert(Valuation(account: "bank", date: end, balance: 10000 + kept, saved: 1000, moneyIn: 4000,
                                      moneyOut: 3000))
-            library.upsert(Valuation(account: "pot", date: end, balance: kept, flow: 1000))
+            library.upsert(Valuation(account: "pot", date: end, balance: kept, saved: 1000))
         }
-        library.upsert(Valuation(account: "bank", date: "2026-06-30", balance: 17000, flow: 2000, moneyIn: 4000,
+        library.upsert(Valuation(account: "bank", date: "2026-06-30", balance: 17000, saved: 2000, moneyIn: 4000,
                                  moneyOut: 2000))
-        library.upsert(Valuation(account: "pot", date: "2026-06-30", balance: 0, flow: -5000))
+        library.upsert(Valuation(account: "pot", date: "2026-06-30", balance: 0, saved: -5000))
         return library
     }()
 
@@ -373,20 +373,20 @@ struct SavingsRateTests {
     @Test func aTaxPotsTaxIsWhatMovedIntoIt() throws {
         var library = taxPot
         // June: 1,000 more set aside, and the 6,000 bill paid from the pot.
-        library.upsert(Valuation(account: "bank", date: "2026-06-30", balance: 16000, flow: 1000, moneyIn: 4000,
+        library.upsert(Valuation(account: "bank", date: "2026-06-30", balance: 16000, saved: 1000, moneyIn: 4000,
                                  moneyOut: 3000))
-        library.upsert(Valuation(account: "pot", date: "2026-06-30", balance: 0, flow: -5000, moneyIn: 0,
+        library.upsert(Valuation(account: "pot", date: "2026-06-30", balance: 0, saved: -5000, moneyIn: 0,
                                  moneyOut: 6000))
         let june = try #require(Valuator(library: library).savingsRate(from: "2026-06-01", through: "2026-06-30"))
         #expect(june.tax == 1000)
         #expect(june.income == 3000)
         #expect(june.spent == 2000)
         // July: 500 of a pot's leftover moved back to the current account.
-        library.upsert(Valuation(account: "pot", date: "2026-06-30", balance: 500, flow: -4500, moneyIn: 0,
+        library.upsert(Valuation(account: "pot", date: "2026-06-30", balance: 500, saved: -4500, moneyIn: 0,
                                  moneyOut: 5500))
-        library.upsert(Valuation(account: "bank", date: "2026-07-31", balance: 18500, flow: 2500, moneyIn: 4000,
+        library.upsert(Valuation(account: "bank", date: "2026-07-31", balance: 18500, saved: 2500, moneyIn: 4000,
                                  moneyOut: 2000))
-        library.upsert(Valuation(account: "pot", date: "2026-07-31", balance: 0, flow: -500, moneyIn: 0,
+        library.upsert(Valuation(account: "pot", date: "2026-07-31", balance: 0, saved: -500, moneyIn: 0,
                                  moneyOut: 0))
         let july = try #require(Valuator(library: library).savingsRate(from: "2026-07-01", through: "2026-07-31"))
         #expect(july.tax == -500)
@@ -399,7 +399,7 @@ struct SavingsRateTests {
     @Test func taxPaidFromACurrentAccountIsNotSpent() throws {
         var library = month
         // January also paid 1,200 of tax from the current account, which is in its money out.
-        library.upsert(Valuation(account: "bank", date: "2026-01-31", balance: 8250, flow: -1750, moneyIn: 4000,
+        library.upsert(Valuation(account: "bank", date: "2026-01-31", balance: 8250, saved: -1750, moneyIn: 4000,
                                  moneyOut: 5750, tax: 1200))
         var savings = try #require(Valuator(library: library).savingsRate(from: "2026-01-01", through: "2026-01-31"))
         #expect(savings.moneyInOut.taxes == 1200)
@@ -409,7 +409,7 @@ struct SavingsRateTests {
         // As in the month without the tax.
         #expect(savings.spent == 2850)
         // A refund of 300 instead lowers money out and the tax.
-        library.upsert(Valuation(account: "bank", date: "2026-01-31", balance: 9750, flow: -250, moneyIn: 4000,
+        library.upsert(Valuation(account: "bank", date: "2026-01-31", balance: 9750, saved: -250, moneyIn: 4000,
                                  moneyOut: 4250, tax: -300))
         savings = try #require(Valuator(library: library).savingsRate(from: "2026-01-01", through: "2026-01-31"))
         #expect(savings.tax == -300)

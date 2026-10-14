@@ -203,15 +203,15 @@ struct ImportTests {
 
         let loaded = try library.load()
         let valuator = Valuator(library: loaded)
-        func flow(_ account: AccountID) -> Decimal? {
+        func march(_ account: AccountID) -> Decimal? {
             let values = loaded.valuations(for: account)
             guard let index = values.firstIndex(where: { $0.date == "2026-03-31" }) else { return nil }
-            return valuator.flow(of: values[index], previous: values[index - 1])
+            return valuator.saved(values[index], previous: values[index - 1])
         }
         // What March saved is the change since February: 5530.10 − 4780.20.
-        #expect(flow("conto-fineco") == d("749.9"))
+        #expect(march("conto-fineco") == d("749.9"))
         // The savings account's is the change less March's interest: 16,159.50 − 15,626.95 − 32.55.
-        #expect(flow("conto-deposito") == 500)
+        #expect(march("conto-deposito") == 500)
     }
 
     @Test func applyingWithAProfileAndSavingItIsOneUndo() async throws {
@@ -326,7 +326,7 @@ struct ImportTests {
         #expect(written == Valuation(account: "conto-fineco", date: "2026-10-31", balance: d("5480.15"),
                                      moneyIn: 3400, moneyOut: d("1380.4"), source: .import))
         // What it saved is worked out from the value before.
-        #expect(Valuator(library: loaded).flow(of: written, previous: values.dropLast().last) == d("1269.6"))
+        #expect(Valuator(library: loaded).saved(written, previous: values.dropLast().last) == d("1269.6"))
         let afterApply = try library.snapshot()
         let again = await runCLI(arguments + ["--apply"])
         #expect(again.status == 0, "\(again.all)")

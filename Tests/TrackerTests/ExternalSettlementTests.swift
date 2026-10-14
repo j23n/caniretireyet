@@ -63,7 +63,7 @@ private enum GoldLibrary {
 }
 
 struct ExternalSettlementTests {
-    @Test func anExternalBuyLeavesTheCashAndAddsItsCostAsAFlow() throws {
+    @Test func anExternalBuyLeavesTheCashAndSavesItsCost() throws {
         let valuator = Valuator(library: GoldLibrary.external())
         let ledger = try #require(valuator.ledger(for: "coins"))
         let buy = ledger.entries[0]
@@ -156,7 +156,7 @@ struct ExternalSettlementTests {
         #expect(change.change.market == d("31.1") * 3 - 40)
     }
 
-    @Test func anExternalBuyWithoutARateIsAnUnknownFlowNotUnknownCash() throws {
+    @Test func anExternalBuyWithoutARateIsUnknownSavedNotUnknownCash() throws {
         var library = GoldLibrary.external()
         library.upsert(Trade(account: "coins", date: "2024-02-15", id: "usd", type: .buy, instrument: "gold",
                              quantity: 1, price: 70, currency: .usd, settlement: .external))
@@ -195,38 +195,38 @@ struct ExternalSettlementTests {
         #expect(valuator.ledger(for: "broker")?.summary(for: 2024).realizedGain == 50)
         // The deposit and the purchase from outside count as saved.
         let january = Valuation(account: "broker", date: "2024-01-31", cash: 200)
-        #expect(valuator.defaultFlow(for: january, previous: nil) == 1500)
+        #expect(valuator.workedOutSaved(for: january, previous: nil) == 1500)
     }
 }
 
-/// The default flow of a trades account at its first check-in.
-struct FirstCheckInFlowTests {
+/// What a trades account saved at its first check-in.
+struct FirstCheckInSavedTests {
     /// An account made of trades only, with no valuation yet: "unchanged" at
     /// a check-in counts as saved only what was bought since the
     /// previous check-in, not every purchase since the first trade.
-    @Test func aFirstCheckInCountsOnlyTheFlowsSinceThePreviousCheckIn() throws {
+    @Test func aFirstCheckInCountsOnlyWhatWasSavedSinceThePreviousCheckIn() throws {
         var library = GoldLibrary.external()
         // An earlier check-in of another account, on 29 February.
         library.upsert(Valuation(account: "broker", date: "2024-02-29", cash: 100))
         let valuator = Valuator(library: library)
         // The coins' first valuation, on 31 March: only the March sale is in the period.
         let march = Valuation(account: "coins", date: "2024-03-31", cash: 0)
-        #expect(valuator.defaultFlow(for: march, previous: nil) == -680)
+        #expect(valuator.workedOutSaved(for: march, previous: nil) == -680)
 
         // With no earlier check-in at all, the whole history counts.
         let alone = Valuator(library: GoldLibrary.external())
-        #expect(alone.defaultFlow(for: march, previous: nil) == 1196)
+        #expect(alone.workedOutSaved(for: march, previous: nil) == 1196)
 
         // A check-in where nothing was bought or sold: nothing saved.
         library.upsert(Valuation(account: "broker", date: "2024-03-31", cash: 100))
         let april = Valuation(account: "coins", date: "2024-04-30", cash: 0)
-        #expect(Valuator(library: library).defaultFlow(for: april, previous: nil) == 0)
+        #expect(Valuator(library: library).workedOutSaved(for: april, previous: nil) == 0)
     }
 
     /// The parts a check-in shows of what a trades account saved count
-    /// from the same start as the flow it saves: at the account's first
+    /// from the same start as what it saves: at the account's first
     /// check-in, the library's previous check-in, not its first trade.
-    @Test func theFlowPartsCountFromTheSameStartAsTheFlow() throws {
+    @Test func theFlowPartsCountFromTheSameStartAsWhatItSaved() throws {
         var library = GoldLibrary.external()
         library.upsert(Trade(account: "broker", date: "2024-01-10", id: "dep1", type: .deposit, amount: 1_000))
         library.upsert(Trade(account: "broker", date: "2024-03-10", id: "dep2", type: .deposit, amount: 500))
@@ -241,7 +241,7 @@ struct FirstCheckInFlowTests {
         let parts = valuator.tradeFlowParts(of: "broker", on: "2024-03-31", previous: nil)
         #expect(parts == TradeFlowParts(recorded: 710, paidOutside: 210))
         let march = Valuation(account: "broker", date: "2024-03-31")
-        #expect(valuator.defaultFlow(for: march, previous: nil) == parts.recorded)
+        #expect(valuator.workedOutSaved(for: march, previous: nil) == parts.recorded)
 
         // After a valuation of its own, from that one.
         let january = Valuation(account: "broker", date: "2024-01-31", cash: 1_000)

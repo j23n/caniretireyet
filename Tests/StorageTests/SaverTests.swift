@@ -25,14 +25,14 @@ struct SaverTests {
     @Test func onlyTheChangedMonthIsWritten() throws {
         let (folder, previous) = try exampleFolder()
         var library = previous
-        library.upsert(Valuation(account: "tfr", date: "2026-09-30", balance: d("9876.5"), flow: 0))
+        library.upsert(Valuation(account: "tfr", date: "2026-09-30", balance: d("9876.5"), saved: 0))
 
         let report = try folder.library.save(library, previous: previous)
         #expect(report.written == ["history/2026/2026-09.json"])
         #expect(report.deleted.isEmpty)
         #expect(try touchedFiles(folder) == ["history/2026/2026-09.json"])
         #expect(try folder.text("history/2026/2026-09.json").contains(
-            #"    { "account": "tfr", "balance": "9876.5", "date": "2026-09-30", "flow": "0" }"#))
+            #"    { "account": "tfr", "balance": "9876.5", "date": "2026-09-30", "saved": "0" }"#))
         #expect(try folder.library.load().library == library)
     }
 

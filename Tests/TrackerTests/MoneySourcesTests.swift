@@ -62,16 +62,16 @@ struct MoneySourcesTests {
     /// The example library with a new account whose first value is on 15
     /// October 2026, after the last check-in, and conto-fineco's balance
     /// then changed by `moved`.
-    private func withNewAccount(flow: Decimal?, moved: Decimal = 0) throws -> MoneySources {
+    private func withNewAccount(saved: Decimal?, moved: Decimal = 0) throws -> MoneySources {
         var library = self.library
         library.accounts["nuovo-broker"] = Account(id: "nuovo-broker", name: "Nuovo broker", kind: .savings,
                                                    currency: .eur, opened: "2026-10-01")
-        library.upsert(Valuation(account: "nuovo-broker", date: "2026-10-15", balance: 5000, flow: flow))
+        library.upsert(Valuation(account: "nuovo-broker", date: "2026-10-15", balance: 5000, saved: saved))
         if moved != 0 {
             let before = Valuator(library: library).latestValuation(for: "conto-fineco", onOrBefore: "2026-10-15")
             let balance = try #require(before?.balance)
             library.upsert(Valuation(account: "conto-fineco", date: "2026-10-15", balance: balance + moved,
-                                     flow: moved))
+                                     saved: moved))
         }
         return Valuator(library: library).moneySources(.months, through: "2026-10-31")
     }
@@ -83,21 +83,21 @@ struct MoneySourcesTests {
         return (after.startedWith - before.startedWith, after.saved - before.saved, after.markets - before.markets)
     }
 
-    /// A new account's first value of 5,000 with its flow is started with,
+    /// A new account's first value of 5,000 with what it saved is started with,
     /// less what a tracked account sent it.
     @Test(arguments: [(0, 5000), (-5000, 0), (-2000, 3000)] as [(Decimal, Decimal)])
     func aFirstValueIsStartedWithLessWhatWasMoved(moved: Decimal, startedWith: Decimal) throws {
-        let added = try added(withNewAccount(flow: 5000, moved: moved))
+        let added = try added(withNewAccount(saved: 5000, moved: moved))
         #expect(added.startedWith == startedWith)
         #expect(added.saved == 0)
         #expect(added.markets.rounded(10) == 0)
     }
 
-    @Test func theChangeSplitStillCountsAFirstValuesFlowAsSaved() throws {
+    @Test func theChangeSplitStillCountsAFirstValuesSavedAmountAsSaved() throws {
         var library = self.library
         library.accounts["nuovo-broker"] = Account(id: "nuovo-broker", name: "Nuovo broker", kind: .savings,
                                                    currency: .eur, opened: "2026-10-01")
-        library.upsert(Valuation(account: "nuovo-broker", date: "2026-10-15", balance: 5000, flow: 5000))
+        library.upsert(Valuation(account: "nuovo-broker", date: "2026-10-15", balance: 5000, saved: 5000))
         let change = Valuator(library: library).change(from: "2026-09-30", to: "2026-10-15", in: .planAssets)
         #expect(change.total.saved == 5000)
     }

@@ -282,7 +282,7 @@ struct PriceServiceTests {
 
         var amounts: Set<String> = []
         for valuation in library.allValuations {
-            for amount in [valuation.balance, valuation.cash, valuation.flow].compactMap({ $0 }) {
+            for amount in [valuation.balance, valuation.cash, valuation.saved].compactMap({ $0 }) {
                 amounts.insert(amount.fileString)
             }
             for position in valuation.positions {

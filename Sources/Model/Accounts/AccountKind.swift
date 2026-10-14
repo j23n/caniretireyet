@@ -1,5 +1,5 @@
 /// What kind of account this is. Drives defaults for valuation mode, asset
-/// mix and flows.
+/// mix and what its values saved.
 public struct AccountKind: OpenEnum {
     public let rawValue: String
     public init(rawValue: String) { self.rawValue = rawValue }
@@ -93,10 +93,10 @@ extension AccountKind {
         self == .loan || self == .mortgage
     }
 
-    /// How a valuation's `flow` is worked out for this kind (PROGRESS.md,
+    /// How a valuation's `saved` is worked out for this kind (PROGRESS.md,
     /// "Data this needs from day one"). Belongings' is their whole change,
     /// so their loss of value is spent, a little each year.
-    public var defaultFlow: FlowDefault {
+    public var savedRule: SavedRule {
         switch self {
         case .cash, .creditCard, .loan, .mortgage, .belongings, .taxPot: .wholeChange
         case .savings: .changeLessInterest
@@ -122,8 +122,8 @@ public struct ValuationMode: OpenEnum {
     public static let knownValues: [ValuationMode] = [.balance, .trades]
 }
 
-/// How a valuation's `flow` is worked out, by account kind.
-public enum FlowDefault: String, Hashable, Sendable, CaseIterable {
+/// How a valuation's `saved` is worked out, by account kind.
+public enum SavedRule: String, Hashable, Sendable, CaseIterable {
     /// The whole change is saved (current accounts, cards, loans,
     /// mortgages, belongings).
     case wholeChange

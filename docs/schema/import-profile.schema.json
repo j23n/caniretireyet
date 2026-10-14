@@ -152,7 +152,7 @@
   ],
   "$defs": {
     "target": {
-      "description": "balance: a valuation's balance. quantity: a position's quantity; in an account that records trades, an opening, a buy or a sale (IMPORT.md, \"Quantities in a trades account\"). costBasis: a position's purchase cost; in an account that records trades, an opening's cost or a buy's amount. cash: a valuation's cash. saved: what was saved into the account since its value before, a valuation's flow, kept only on an account that asks for one (pension fund, TFR, property, other). price: a price record. fx: an FX record. ignore: nothing.",
+      "description": "balance: a valuation's balance. quantity: a position's quantity; in an account that records trades, an opening, a buy or a sale (IMPORT.md, \"Quantities in a trades account\"). costBasis: a position's purchase cost; in an account that records trades, an opening's cost or a buy's amount. cash: a valuation's cash. saved: what was saved into the account since its value before, a valuation's saved, kept only on an account that asks for one (pension fund, TFR, property, other). price: a price record. fx: an FX record. ignore: nothing.",
       "$comment": "Open enum.",
       "enum": ["balance", "quantity", "costBasis", "cash", "saved", "price", "fx", "ignore"]
     },
