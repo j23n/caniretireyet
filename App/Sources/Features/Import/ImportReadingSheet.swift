@@ -39,7 +39,7 @@ struct ImportReadingSheet: View {
                     .sheetTitle("More Options") { showsMoreOptions = false }
             }
             #if os(macOS)
-            .frame(minWidth: 560, idealWidth: 620, minHeight: 520, idealHeight: 640)
+            .frame(minWidth: 640, idealWidth: 720, minHeight: 600, idealHeight: 700)
             #endif
         }
     }
@@ -116,7 +116,9 @@ struct ImportReadingSheet: View {
         }
         .background(Palette.card)
         #if os(macOS)
-        .frame(minWidth: 720, idealWidth: 860, minHeight: 520, idealHeight: 640)
+        .frame(minWidth: 900, idealWidth: 1000, minHeight: 640, idealHeight: 760)
+        #else
+        .presentationSizing(.page)
         #endif
     }
 

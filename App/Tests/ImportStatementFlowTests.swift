@@ -300,6 +300,57 @@ struct ImportStatementFlowTests {
         #expect(flow.steps == [.file, .classify, .preview, .done])
     }
 
+    /// A line in can sell what a purchase earlier in the import starts.
+    @Test func aSaleCanSellWhatAPurchaseStarts() throws {
+        var flow = flow(adding: "\n18/09/2026;-18.000,00;Bonifico a Autosalone Neri"
+            + "\n22/09/2026;15.000,00;Bonifico da Mario Verdi")
+        let car = try #require(flow.allStatementLines.first { $0.line.text.hasPrefix("Bonifico a Autosalone") })
+        flow.setStatementAsset(.purchase(name: "Car", kind: .belongings), for: car)
+        let sale = try #require(flow.allStatementLines.first { $0.line.text.hasPrefix("Bonifico da Mario") })
+        #expect(flow.saleChoices(for: sale).map(\.id).contains("car"))
+        // A line before the purchase can't sell it.
+        let earlier = try #require(flow.allStatementLines.first { $0.amount > 0 && $0.date < car.date })
+        #expect(!flow.saleChoices(for: earlier).map(\.id).contains("car"))
+        flow.setStatementAsset(.sale("car"), for: sale)
+        let sold = try #require(flow.allStatementLines.first { $0.id == sale.id })
+        #expect(flow.answerDetail(sold)?.text == "the sale of Car")
+        #expect(flow.preview?.accountChanges.map(\.account) == ["car"])
+        // Sold, it isn't offered to another line.
+        #expect(!flow.saleChoices(for: earlier).map(\.id).contains("car"))
+    }
+
+    /// A month's statement can sell what the month before's purchase starts.
+    @Test func aSaleCanSellWhatAnEarlierFilesPurchaseStarts() throws {
+        var library = Library(accounts: [
+            Account(id: "conto", name: "Conto corrente", kind: .cash, currency: .eur, opened: "2020-01-01"),
+        ])
+        library.upsert(Valuation(account: "conto", date: "2026-07-31", balance: 30000))
+        let august = """
+            Data;Importo;Descrizione
+            10/08/2026;3.400,00;Stipendio agosto
+            18/08/2026;-18.000,00;Bonifico a Autosalone Neri
+            """
+        let september = """
+            Data;Importo;Descrizione
+            10/09/2026;3.400,00;Stipendio settembre
+            22/09/2026;15.000,00;Bonifico da Mario Verdi
+            """
+        var flow = ImportFlow(library: library)
+        flow.open(statements: [(name: "agosto.csv", data: Data(august.utf8)),
+                               (name: "settembre.csv", data: Data(september.utf8))])
+        flow.setBatchAccount("conto", forFile: 0)
+        flow.setBatchAccount("conto", forFile: 1)
+        let car = try #require(flow.allStatementLines.first { $0.line.text.hasPrefix("Bonifico a Autosalone") })
+        flow.setStatementAsset(.purchase(name: "Car", kind: .belongings), for: car)
+        let sale = try #require(flow.allStatementLines.first { $0.line.text.hasPrefix("Bonifico da Mario") })
+        #expect(flow.saleChoices(for: sale).map(\.id) == ["car"])
+        flow.setStatementAsset(.sale("car"), for: sale)
+        let sold = try #require(flow.allStatementLines.first { $0.id == sale.id })
+        #expect(flow.answerDetail(sold)?.text == "the sale of Car")
+        let planned = try #require(flow.planned)
+        #expect(planned.library.accounts["car"]?.closed == "2026-10-01")
+    }
+
     /// Importing the file again with the same answer finds the same sale:
     /// the account it closed is still offered.
     @Test func aSaleImportedBeforeIsOfferedAgain() throws {

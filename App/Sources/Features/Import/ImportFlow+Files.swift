@@ -80,11 +80,9 @@ struct ImportFileRow: Identifiable, Hashable, Sendable {
     /// its account names it.
     var isBankKnown: Bool { bank != nil }
 
-    /// *How It's Read…* on the row itself, for a bank that isn't known.
+    /// *How It's Read…* under the row on the iPhone, for a bank that isn't
+    /// known; it's in every row's menu too.
     var showsReadingLink: Bool { !isBankKnown }
-
-    /// *How It's Read…* in the row's menu, for a known bank.
-    var offersReadingInMenu: Bool { isBankKnown }
 
     /// *Days…* in the row's menu, once lines can be read.
     var offersDays: Bool { lines != nil }

@@ -315,9 +315,11 @@ extension ImportFlow {
         return nil
     }
 
-    /// An account's name: the library's, a proposed one's, or its ID.
+    /// An account's name: the library's, a proposed one's (of any file
+    /// open), or its ID.
     func accountName(_ id: AccountID) -> String {
-        library.accounts[id]?.name ?? preview?.newAccounts.first { $0.account.id == id }?.account.name ?? id.rawValue
+        let proposals = (preview?.newAccounts ?? []) + batchPreviews.flatMap(\.preview.newAccounts)
+        return library.accounts[id]?.name ?? proposals.first { $0.account.id == id }?.account.name ?? id.rawValue
     }
 
     /// An instrument's name: the library's, a proposed one's, or its ID.

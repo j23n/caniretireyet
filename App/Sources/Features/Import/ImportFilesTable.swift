@@ -161,20 +161,11 @@ private struct ImportFileTableRow: View {
                     .lineLimit(1)
                     .truncationMode(.middle)
                     .privacySensitiveInFeedback()
-                HStack(spacing: 0) {
-                    Text(row.detail)
-                        .privacySensitiveInFeedback()
-                    if row.showsReadingLink {
-                        Text(verbatim: " · ")
-                        Button("How It's Read…") {
-                            showReading(row.id)
-                        }
-                        .importLinkStyle()
-                    }
-                }
-                .font(.caption)
-                .foregroundStyle(Palette.secondaryInk)
-                .lineLimit(1)
+                Text(row.detail)
+                    .font(.caption)
+                    .foregroundStyle(Palette.secondaryInk)
+                    .lineLimit(1)
+                    .privacySensitiveInFeedback()
             }
         }
     }
@@ -293,7 +284,7 @@ private struct ImportFileBalanceLabel: View {
     }
 }
 
-/// A file's menu: *How It's Read…* for a known bank, *Days…*, and *Remove*.
+/// A file's menu: *How It's Read…*, *Days…*, and *Remove*.
 struct ImportFileMenuItems: View {
     let model: ImportController
     let row: ImportFileRow
@@ -301,10 +292,8 @@ struct ImportFileMenuItems: View {
     let showDays: (Int) -> Void
 
     var body: some View {
-        if row.offersReadingInMenu {
-            Button("How It's Read…") {
-                showReading(row.id)
-            }
+        Button("How It's Read…") {
+            showReading(row.id)
         }
         Button("Days…") {
             showDays(row.id)

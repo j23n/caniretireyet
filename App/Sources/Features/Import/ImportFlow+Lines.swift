@@ -246,16 +246,41 @@ extension ImportFlow {
     /// The accounts a line in can be the sale of, by name: those the
     /// importer can record the sale of
     /// (``Importer/Library/canSellFromStatement(_:of:on:)``), the one this
-    /// line sold before included, and not sold by another line.
+    /// line sold before included, and those a purchase before it starts
+    /// (``startedAccounts(before:)``); not those sold by another line.
     func saleChoices(for line: BatchStatementLine) -> [Account] {
         guard line.amount > 0, let statement = library.accounts[line.account] else { return [] }
         let sold = Set(allStatementLines.compactMap { other -> AccountID? in
             guard other.id != line.id, case .sale(let id)? = statementAnswer(other) else { return nil }
             return id
         })
-        return library.accounts.values
-            .filter { !sold.contains($0.id) && library.canSellFromStatement($0, of: statement, on: line.date) }
+        let started = startedAccounts(before: line).filter { $0.currency == statement.currency }
+        return (library.accounts.values.filter { library.canSellFromStatement($0, of: statement, on: line.date) }
+            + started)
+            .filter { !sold.contains($0.id) }
             .sorted { ($0.name, $0.id) < ($1.name, $1.id) }
+    }
+
+    /// The new accounts the purchases of the statements open start, that a
+    /// line can sell: the accepted ones of a purchase on or before its day,
+    /// in its own file or one imported before it.
+    func startedAccounts(before line: BatchStatementLine) -> [Account] {
+        let previews: [ImportPreview]
+        if batch != nil {
+            let files = batchPreviews.map(\.file)
+            guard let file = line.file, let index = files.firstIndex(of: file) else { return [] }
+            previews = batchPreviews[...index].map(\.preview)
+        } else {
+            previews = preview.map { [$0] } ?? []
+        }
+        return previews.flatMap { preview in
+            preview.newAccounts.filter { proposal in
+                guard proposal.isAccepted, let row = proposal.statementRow,
+                      let bought = preview.statementLines.first(where: { $0.row == row }) else { return false }
+                return bought.date <= line.date
+            }
+            .map(\.account)
+        }
     }
 
     /// What an account is, after its name in *Your accounts*: "counts as

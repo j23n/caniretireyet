@@ -72,7 +72,6 @@ struct ImportFilesTests {
         #expect(fineco.account == "conto-fineco")
         #expect(fineco.accountSource == "Remembered from last time")
         #expect(fineco.compactDetail == "Sep 2026 · remembered from last time")
-        #expect(fineco.offersReadingInMenu)
         #expect(!fineco.showsReadingLink)
 
         // Before it has an account, a file still says what it covers.
@@ -85,7 +84,6 @@ struct ImportFilesTests {
         #expect(export.accountSource == nil)
         #expect(export.compactDetail == "Sep 2026 · bank not known · 5 lines")
         #expect(export.showsReadingLink)
-        #expect(!export.offersReadingInMenu)
         #expect(export.offersDays)
     }
 
