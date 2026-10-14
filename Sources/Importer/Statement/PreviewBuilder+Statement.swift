@@ -452,7 +452,8 @@ extension PreviewBuilder {
     /// Answers it can't take are issues: one that doesn't fit leaves the
     /// line classified as if it had none (a rule's move, a transfer, as the
     /// rule says), and a line that counts in no value has no money in and
-    /// out to move.
+    /// out to move; a sale is recorded at the value its line is in all the
+    /// same (``StatementLine/valueDate``), whatever that value counts.
     private mutating func statementAssetRecords(_ lines: inout [StatementLine], read: [ReadLine],
                                                 account: Account)
         -> [ImportRecordKey: Accumulator] {
@@ -500,17 +501,20 @@ extension PreviewBuilder {
                 lines[index].assetAccount = sold
                 continue
             }
+            // A sale is worth 0 at the value its line is in, even one whose money in and out the file
+            // doesn't cover: the account's flow out is what was sold, whatever the statement's value counts.
+            let cut = sells(row) ? line.valueDate : line.period
             // A sale found from an earlier import counts in the same value, or it's another sale.
             let soldElsewhere = answered[row].map { asset in
                 guard case .sale(let sold) = asset, let closed = library.accounts[sold]?.closed else { return false }
-                return closed != line.period?.adding(days: 1)
+                return closed != cut?.adding(days: 1)
             } ?? false
             // A sale of an account no purchase in the file started, or one started after the sale.
             let notStarted = sellsStarted(row) && answered[row].map { asset in
                 guard case .sale(let sold) = asset, let bought = started[sold] else { return true }
                 return bought > line.date
             } ?? false
-            guard let asset = answered[row], let cut = line.period, !soldElsewhere, !notStarted else {
+            guard let asset = answered[row], let cut, !soldElsewhere, !notStarted else {
                 if case .moved(let other)? = session.statementAssets[row] {
                     issues.append(ImportIssue(kind: .statementMoveLeftOut(row: row, account: other)))
                     continue
@@ -729,6 +733,7 @@ extension PreviewBuilder {
             let balance = balances.balance(on: cut, opening: opening)
             defer { previous = (cut, balance) }
             guard let balance else { continue }
+            for index in inPeriod { lines[index].valueDate = cut }
             var record = ImportedRecord(key: .valuation(ValuationKey(account: account.id, date: cut)))
             record.balance = balance
             var cells = inPeriod.flatMap { read[$0].cells }
