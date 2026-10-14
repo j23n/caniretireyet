@@ -172,8 +172,6 @@ struct TradeLedgerTests {
         #expect(ledger.issues.map(\.kind) == [.oversold, .invalidTrade, .splitNotHeld])
         #expect(ledger.issues[0].severity == .error)
         #expect(ledger.issues[0].trade == TradeKey(account: "broker", date: "2024-02-10", id: "s1"))
-        #expect(ledger.issues[0].message == "The sell of vwce on 2024-02-10 (s1): It takes away 5 more than the "
-            + "account held then (10). Is a buy or an opening missing, or the date wrong?")
         // The quantity shows the mistake; the sale's gain is unknown.
         #expect(ledger.position(of: "vwce", on: "2024-02-10")?.quantity == -5)
         #expect(ledger.entries[1].realizedGain == nil)

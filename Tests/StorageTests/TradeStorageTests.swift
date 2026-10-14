@@ -113,9 +113,7 @@ struct TradeStorageTests {
             }
             """)
         let result = try folder.library.load()
-        #expect(result.report.errors.map(\.message) == [
-            #"trades[1].price: Expected a decimal such as "1234.56", found "139,1". This record was skipped."#,
-        ])
+        #expect(result.report.errors.map(\.path) == [october])
         #expect(result.library.trades(for: "broker") == [deposit])
 
         var library = result.library

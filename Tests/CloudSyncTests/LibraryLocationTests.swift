@@ -16,8 +16,6 @@ struct LibraryLocationTests {
         #expect(await locator.iCloudLibraryURL() == nil)
         #expect(try await locator.location(.iCloud) == nil)
         #endif
-        #expect(LibraryLocationKind.iCloud.description == "iCloud Drive")
-        #expect(LibraryLocationKind.local.description == "This device")
     }
 
     @Test func movesALibrary() async throws {

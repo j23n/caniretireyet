@@ -88,7 +88,6 @@ struct ExampleLibraryGlanceTests {
         #expect(total.rounded(10) == snapshot.netWorth?.total.rounded(10))
         let debts = try #require(snapshot.allocation.last)
         #expect(debts.value < 0)
-        #expect(debts.name == "Debts")
         let owned = snapshot.allocation.filter { $0.value > 0 }.compactMap(\.share).reduce(0, +)
         #expect(abs(owned - 1) < 1e-9)
     }

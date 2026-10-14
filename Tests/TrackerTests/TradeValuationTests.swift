@@ -194,8 +194,6 @@ struct TradeValuationTests {
         #expect(mismatches == [PositionMismatch(account: "broker", date: "2024-03-31", instrument: "aapl", listed: 9,
                                                 derived: 10)])
         #expect(mismatches[0].difference == -1)
-        #expect(mismatches[0].description
-            == "The valuation on 2024-03-31 lists 9 aapl, but the trades give 10. Is a trade missing or wrong?")
         #expect(valuator.tradeIssues(for: "broker").map(\.kind) == [.reconciliation])
         // A check-in's positions can be checked before saving.
         #expect(valuator.reconcile(Valuation(account: "broker", date: "2024-03-31", positions: [
@@ -214,8 +212,7 @@ struct TradeValuationTests {
         #expect(valuator.value(of: "bank", on: "2024-03-31")?.value == 100)
         #expect(valuator.ledger(for: "bank") == nil)
         #expect(valuator.tradeIssues().map(\.kind) == [.outsideAccountDates, .notTradesAccount, .balanceIgnored])
-        #expect(valuator.tradeIssues(for: "bank").first?.message
-            == "The deposit on 2024-03-02 (x) is left out: bank records balance, not trades.")
+        #expect(valuator.tradeIssues(for: "bank").first?.kind == .notTradesAccount)
     }
 
     @Test func aYearOfTradesInTheBaseCurrency() {

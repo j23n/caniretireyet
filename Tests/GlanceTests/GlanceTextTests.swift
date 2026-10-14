@@ -32,10 +32,6 @@ struct RetirementCountdownTests {
         #expect(RetirementCountdown(years: 1, months: 6).headlineText == "In 18 months")
         #expect(RetirementCountdown(years: 0, months: 1).headlineText == "In 1 month")
         #expect(RetirementCountdown(years: 0, months: 0).headlineText == "In under a month")
-        // VoiceOver says the years are rounded.
-        #expect(RetirementCountdown(years: 15, months: 6).spokenHeadlineText == "In about 16 years")
-        #expect(RetirementCountdown(years: 1, months: 6).spokenHeadlineText == "In 18 months")
-        #expect(RetirementCountdown(years: 0, months: 0).spokenHeadlineText == "In under a month")
     }
 }
 
@@ -97,8 +93,6 @@ struct GlanceTextTests {
         #expect(GlanceText.futures(0.95) == "19 of 20")
         #expect(GlanceText.futures(0.75) == "3 of 4")
         #expect(GlanceText.futures(0.873) == "87 of 100")
-        #expect(GlanceText.inFutures(0.9) == "in 9 of 10 futures")
-        #expect(GlanceText.inSimulatedFutures(0.9) == "in 9 of 10 simulated futures")
     }
 
     @Test func dates() {

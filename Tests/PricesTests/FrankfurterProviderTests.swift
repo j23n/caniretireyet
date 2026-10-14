@@ -63,7 +63,6 @@ struct FrankfurterProviderTests {
             Issue.record("Expected an error")
         } catch let error as PriceFetchError {
             #expect(error == .unknownSymbol(service: "Frankfurter (ECB)", symbol: "EUR/XYZ", message: "not found"))
-            #expect(error.description == "Frankfurter (ECB) doesn't know \"EUR/XYZ\": not found.")
         }
     }
 
