@@ -136,7 +136,7 @@ extension PreviewBuilder {
         let open = read.indices.filter { index in
             session.statementLineClasses[read[index].row] == nil && remembered(read[index]) == nil
                 && read[index].rule == nil
-                && answered[read[index].row] == nil && session.statementPairs[read[index].row] == nil
+                && answered[read[index].row] == nil && batch.pairs[read[index].row] == nil
         }
         let trades = matchTrades(read, lines: open, excluding: account.id)
         var lines = read.indices.map { index in
@@ -158,7 +158,7 @@ extension PreviewBuilder {
                 chosen = (rule.statementClass, .rule(rule.match))
             } else if let trade = trades[index] {
                 chosen = (.transfer, .trade(trade))
-            } else if let other = session.statementPairs[line.row] {
+            } else if let other = batch.pairs[line.row] {
                 chosen = (.transfer, .paired(other))
             } else if let named = Self.namedAccount(in: line.words, names: names) {
                 // Paying a debt is spending; a loan paid out into the account is moved between accounts.
@@ -472,7 +472,7 @@ extension PreviewBuilder {
             let cells = read.first { $0.row == row }?.cells ?? []
             if case .moved(let other)? = answered[row] {
                 if let to = library.accounts[other], Self.followsMoves(to, of: account),
-                   !session.statementBatchAccounts.contains(other) {
+                   !batch.accounts.contains(other) {
                     if let cut = line.period {
                         moves[other, default: []].append(StatementMove(date: line.date, cut: cut,
                                                                        amount: -line.amount, cells: cells))

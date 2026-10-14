@@ -345,6 +345,6 @@ struct StatementBatchTests {
         #expect(imported.valuations(for: "auto").map { "\($0.date) \($0.balance ?? -1)" }
             == ["2024-12-19 0", "2024-12-20 4000", "2025-09-10 0"])
         #expect(imported.accounts["auto"]?.closed == "2025-09-11")
-        #expect(batch.files.allSatisfy { $0.session.statementPairs.isEmpty })
+        #expect(batch.files.allSatisfy(\.pairs.isEmpty))
     }
 }

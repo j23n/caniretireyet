@@ -6,9 +6,25 @@ extension ImportSession {
     /// resulting records with `library`. Nothing is written. A date before
     /// 1900 or more than a week after `today` is a cell problem.
     public func preview(against library: Library, today: CalendarDate = .today()) -> ImportPreview {
-        var builder = PreviewBuilder(session: self, library: library, today: today)
+        preview(against: library, today: today, batch: StatementBatchContext())
+    }
+
+    /// The preview of a statement imported with others (``StatementBatch``).
+    func preview(against library: Library, today: CalendarDate, batch: StatementBatchContext) -> ImportPreview {
+        var builder = PreviewBuilder(session: self, library: library, today: today, batch: batch)
         return builder.build()
     }
+}
+
+/// What a statement's preview takes from the other statements imported
+/// with it (``StatementBatch``), which its session doesn't hold.
+struct StatementBatchContext: Hashable, Sendable {
+    /// Lines that a line of another file moves to or from, by 1-based row,
+    /// with that file's account: transfers.
+    var pairs: [Int: AccountID] = [:]
+    /// The other files' accounts. Money moved to one of them is that file's
+    /// to record, not this one's.
+    var accounts: Set<AccountID> = []
 }
 
 /// One value read from the file, before names are matched.
@@ -48,6 +64,8 @@ struct PreviewBuilder {
     let session: ImportSession
     let library: Library
     let today: CalendarDate
+    /// Statement layout: what the other statements imported with it say.
+    let batch: StatementBatchContext
     /// The last date a row may have: a week after today.
     let latestDate: CalendarDate
     let bindings: ImportSession.Bindings
@@ -91,10 +109,12 @@ struct PreviewBuilder {
     /// The first date a row may have.
     static let earliestDate: CalendarDate = "1900-01-01"
 
-    init(session: ImportSession, library: Library, today: CalendarDate) {
+    init(session: ImportSession, library: Library, today: CalendarDate,
+         batch: StatementBatchContext = StatementBatchContext()) {
         self.session = session
         self.library = library
         self.today = today
+        self.batch = batch
         latestDate = today.adding(days: 7)
         bindings = session.bindings
         matcher = NameMatcher(library: library, matches: session.profile.matches)

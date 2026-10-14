@@ -29,6 +29,9 @@ public struct StatementBatch: Sendable {
         public var session: ImportSession
         /// How its account was found; `nil` while it has none.
         public var accountSource: AccountSource?
+        /// Its lines that a line of another file moves to or from, by
+        /// 1-based row, with that file's account (``pairTransfers(in:today:)``).
+        var pairs: [Int: AccountID] = [:]
 
         /// The account the file is a statement of, once known.
         public var account: AccountID? { session.profile.constants.account }
@@ -248,19 +251,17 @@ public struct StatementBatch: Sendable {
     /// in the same currency that moves the same amount within
     /// ``PreviewBuilder/transferDays``,
     /// the nearest in date first, each line once: both are transfers
-    /// (``ImportSession/statementPairs``). Only lines that nothing surer
+    /// (``File/pairs``). Only lines that nothing surer
     /// than the usual words classified, and that have no answer, are paired.
     mutating func pairTransfers(in library: Library, today: CalendarDate) {
-        let accounts = Set(files.compactMap(\.account))
         for index in files.indices {
-            files[index].session.statementPairs = [:]
-            files[index].session.statementBatchAccounts = accounts.subtracting(files[index].account.map { [$0] } ?? [])
+            files[index].pairs = [:]
         }
         var open: [(file: Int, account: AccountID, line: StatementLine)] = []
         firstDates = [:]
         for index in files.indices {
             guard let account = files[index].account else { continue }
-            let preview = files[index].session.preview(against: library, today: today)
+            let preview = self.preview(of: files[index], against: library, today: today)
             firstDates[files[index].id] = .some(preview.firstDate)
             // A line answered as a move, a purchase or a sale is never a transfer to pair.
             for line in preview.statementLines
@@ -287,8 +288,8 @@ public struct StatementBatch: Sendable {
         where !used.contains(pair.out) && !used.contains(pair.in) {
             used.formUnion([pair.out, pair.in])
             let out = open[pair.out], incoming = open[pair.in]
-            files[out.file].session.statementPairs[out.line.row] = incoming.account
-            files[incoming.file].session.statementPairs[incoming.line.row] = out.account
+            files[out.file].pairs[out.line.row] = incoming.account
+            files[incoming.file].pairs[incoming.line.row] = out.account
         }
     }
 
@@ -316,7 +317,7 @@ public struct StatementBatch: Sendable {
         }.compactMap(\.account))
         return files.filter { $0.account != nil }
             .map { file in
-                (file: file, first: firstDates[file.id] ?? file.session.preview(against: library, today: today).firstDate)
+                (file: file, first: firstDates[file.id] ?? preview(of: file, against: library, today: today).firstDate)
             }
             .sorted { lhs, rhs in
                 func key(_ entry: (file: File, first: CalendarDate?)) -> (Int, String, CalendarDate, Int) {
@@ -327,6 +328,14 @@ public struct StatementBatch: Sendable {
                 return key(lhs) < key(rhs)
             }
             .map(\.file.id)
+    }
+
+    /// `file`'s preview against `library` alone, with the transfers paired
+    /// with the other files and their accounts.
+    public func preview(of file: File, against library: Library, today: CalendarDate = .today()) -> ImportPreview {
+        let others = Set(files.compactMap(\.account)).subtracting(file.account.map { [$0] } ?? [])
+        return file.session.preview(against: library, today: today,
+                                    batch: StatementBatchContext(pairs: file.pairs, accounts: others))
     }
 
     /// Previews each file with an account, in ``order(against:today:)``,
@@ -342,7 +351,7 @@ public struct StatementBatch: Sendable {
         var previews: [(file: Int, preview: ImportPreview)] = []
         for id in order(against: library, today: today) {
             guard let file = files.first(where: { $0.id == id }) else { continue }
-            var preview = file.session.preview(against: current, today: today)
+            var preview = self.preview(of: file, against: current, today: today)
             decide(id, &preview)
             previews.append((id, preview))
             current = preview.apply(to: current).library

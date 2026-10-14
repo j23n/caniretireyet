@@ -218,7 +218,7 @@ struct StatementImport {
         guard !answers.isEmpty else { return }
         var lines: [(file: StatementBatch.File, line: StatementLine)] = []
         for file in batch.files {
-            lines += file.session.preview(against: library, today: today).statementLines.map { (file, $0) }
+            lines += batch.preview(of: file, against: library, today: today).statementLines.map { (file, $0) }
         }
         // Without lines the report says why: the account, the layout or the file.
         guard !lines.isEmpty else { return }
