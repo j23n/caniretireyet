@@ -16,8 +16,10 @@ struct JourneyWordsTests {
 
     @Test func theCheckInsAnswerIsASentence() {
         let answer = RetirementAnswer(confidence: 0.9, earliestAge: 54, earliestDate: "2042-03-12")
-        #expect(CheckInAnswer.make(answer, previous: headline("2026-08-31", age: 54), locale: english).text
+        #expect(CheckInAnswer.make(answer, previous: nil, locale: english).text
             == "Not yet. You could retire at 54, in March 2042.")
+        #expect(CheckInAnswer.make(answer, previous: headline("2026-08-31", age: 54), locale: english).text
+            == "Not yet. You could retire at 54, as in August.")
         #expect(CheckInAnswer.make(answer, previous: headline("2026-08-31", age: 55), locale: english).text
             == "Not yet. You could retire at 54, a year sooner than in August.")
         let later = RetirementAnswer(confidence: 0.9, earliestAge: 55)

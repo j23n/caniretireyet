@@ -19,7 +19,8 @@ struct CheckInJourneyCards: View {
     @Environment(\.baseCurrency) private var currency
 
     var body: some View {
-        let points = agePoints
+        // The last 12 check-ins.
+        let points = Array(answers.suffix(12))
         if points.count >= 2 {
             Card {
                 VStack(alignment: .leading, spacing: Metrics.s) {
@@ -78,21 +79,20 @@ struct CheckInJourneyCards: View {
 
     // MARK: The age
 
-    /// The main plan's answers recorded at the last 12 check-ins through this one.
-    private var agePoints: [JourneyPoint] {
+    /// The main plan's answers with an age recorded at check-ins through this one.
+    private var answers: [JourneyPoint] {
         guard let main = library.settings.mainPlan else { return [] }
         return library.library.headlines(for: main)
             .filter { $0.date <= date && $0.earliestAge != nil }
-            .suffix(12)
             .map { JourneyPoint(date: $0.date, earliestAge: $0.earliestAge, readiness: $0.readiness?.doubleValue) }
     }
 
     /// "2 years sooner than a year ago", against the answer a year before,
-    /// else the first of `points`: "A year later than in March 2026", "The
-    /// same as a year ago".
+    /// else the first of `points`, the chart's: "A year later than in March
+    /// 2026", "The same as a year ago".
     private func yearMove(_ points: [JourneyPoint]) -> String? {
         guard let now = points.last?.earliestAge else { return nil }
-        let yearAgo = points.last { $0.date <= date.adding(years: -1) }
+        let yearAgo = answers.last { $0.date <= date.adding(years: -1) }
         guard let reference = yearAgo ?? points.first, let before = reference.earliestAge,
               reference.date < date
         else { return nil }

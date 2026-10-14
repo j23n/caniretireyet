@@ -82,18 +82,18 @@ struct CheckInAnswer: Hashable, Sendable {
                                                locale: locale))
     }
 
-    /// ", 2 years sooner than in August.", ", a year later than in August.";
-    /// without a move ", in March 2042." (when you could retire), else ",
-    /// as in August." or ".".
+    /// ", 2 years sooner than in August.", ", a year later than in August.",
+    /// ", as in August."; without an age before, ", in March 2042." (when
+    /// you could retire), else ".".
     static func comparison(age: Int, previous: Headline?, date: CalendarDate?, locale: Locale = .current) -> String {
-        let month = previous.map { AmountFormat.monthName($0.date, locale: locale) }
-        if let previous, let month, let before = previous.earliestAge, before != age {
+        if let previous, let before = previous.earliestAge {
+            let month = AmountFormat.monthName(previous.date, locale: locale)
+            guard before != age else { return ", as in \(month)." }
             let years = abs(age - before)
             let span = years == 1 ? "a year" : "\(years) years"
             return ", \(span) \(age < before ? "sooner" : "later") than in \(month)."
         }
         if let date { return ", in \(GlanceText.monthAndYear(date, locale: locale))." }
-        if let month, previous?.earliestAge == age { return ", as in \(month)." }
         return "."
     }
 
