@@ -35,7 +35,7 @@ extension ImportFlow {
 
     /// The classes a line can have, in menu order.
     static let statementClasses: [StatementClass] = [
-        .income, .spending, .paidBack, .oneOff, .transfer, .interest, .ignore,
+        .income, .spending, .oneOff, .tax, .transfer, .interest, .ignore,
     ]
 
     /// The account the statement is of, if it's chosen.
@@ -69,6 +69,14 @@ extension ImportFlow {
         let phrase = phrase.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !phrase.isEmpty else { return }
         editSession { $0.setStatementRule(statementClass, for: phrase) }
+    }
+
+    /// Makes every line whose text has `phrase` money moved to or from
+    /// `account`, now and in next month's file; `nil` removes the rule.
+    mutating func setStatementRule(movingTo account: AccountID?, for phrase: String) {
+        let phrase = phrase.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !phrase.isEmpty else { return }
+        editSession { $0.setStatementRule(movingTo: account, for: phrase) }
     }
 
     /// The profile's rules, in the order they were made.
@@ -202,13 +210,13 @@ extension ImportFlow {
 
     // MARK: Names
 
-    /// "Income", "Spending", "Paid back", "One-off", "Transfer", "Interest", "Left out".
+    /// "Income", "Spending", "One-off", "Tax", "Transfer", "Interest", "Left out".
     static func statementClassName(_ statementClass: StatementClass) -> String {
         switch statementClass {
         case .income: "Income"
         case .spending: "Spending"
-        case .paidBack: "Paid back"
         case .oneOff: "One-off"
+        case .tax: "Tax"
         case .transfer: "Transfer"
         case .interest: "Interest"
         case .ignore: "Left out"
@@ -220,14 +228,22 @@ extension ImportFlow {
     static func statementClassMeaning(_ statementClass: StatementClass) -> String {
         switch statementClass {
         case .income: "Money in"
-        case .spending: "Money out"
-        case .paidBack: "Lowers money out: a refund, a share paid back"
+        case .spending: "Money out; money in, such as a refund, lowers it"
         case .oneOff: "Neither income nor spending: an inheritance, a gift, a sale"
+        case .tax: "Tax paid: taken off what came in, not spent"
         case .transfer: "Moved between your accounts: neither"
         case .interest: "Interest: money in, or a savings account's own interest"
         case .ignore: "Not counted"
         default: ""
         }
+    }
+
+    /// What a rule makes its lines, e.g. "Income", "Moved to or from Tax pot".
+    func statementRuleName(_ rule: StatementRule) -> String {
+        if let account = rule.account, rule.statementClass == .transfer {
+            return "Moved to or from \(accountName(account))"
+        }
+        return Self.statementClassName(rule.statementClass)
     }
 
     /// Why a line has its class, e.g. "Your rule “Spesa”", "Names Directa".

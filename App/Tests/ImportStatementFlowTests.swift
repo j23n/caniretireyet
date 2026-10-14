@@ -171,16 +171,16 @@ struct ImportStatementFlowTests {
         #expect(income.map(\.sender) == ["Stipendio"])
         #expect(income.first?.total == 3400)
         #expect(flow.statementQuestions.isEmpty)
-        flow.setStatementClass(.paidBack, for: try #require(income.first))
+        flow.setStatementClass(.spending, for: try #require(income.first))
         #expect(flow.incomingGroups(.income).isEmpty)
         #expect(flow.statementRules.map(\.match) == ["Stipendio"])
-        #expect(flow.incomingGroups(.paidBack).map(\.sender) == ["Stipendio"])
+        #expect(flow.incomingGroups(.spending).map(\.sender) == ["Stipendio"])
     }
 
     @Test func aSenderBehindALongerRuleIsChangedLineByLine() throws {
         var flow = flow()
-        flow.setStatementRule(.paidBack, for: "Stipendio settembre")
-        let group = try #require(flow.incomingGroups(.paidBack).first { $0.sender == "Stipendio" })
+        flow.setStatementRule(.spending, for: "Stipendio settembre")
+        let group = try #require(flow.incomingGroups(.spending).first { $0.sender == "Stipendio" })
         flow.setStatementClass(.income, for: group)
         #expect(flow.incomingGroups(.income).map(\.sender) == ["Stipendio"])
         #expect(flow.statementRules.map(\.match) == ["Stipendio settembre"])
@@ -189,8 +189,8 @@ struct ImportStatementFlowTests {
     @Test func noRuleIsMadeWhenItWouldTakeMoneyOut() throws {
         var flow = flow(adding: "\n20/09/2026;-80,00;Stipendio trattenuta")
         let group = try #require(flow.incomingGroups(.income).first)
-        flow.setStatementClass(.paidBack, for: group)
-        #expect(flow.incomingGroups(.paidBack).map(\.sender) == ["Stipendio"])
+        flow.setStatementClass(.spending, for: group)
+        #expect(flow.incomingGroups(.spending).map(\.sender) == ["Stipendio"])
         #expect(flow.statementRules.isEmpty)
         #expect(try line(flow, "Stipendio trattenuta").statementClass == .spending)
     }
@@ -209,14 +209,14 @@ struct ImportStatementFlowTests {
         let question = try #require(flow.statementQuestions.first)
         #expect(flow.statementQuestions.count == 1)
         #expect(question.sender == "Notaio Bianchi")
-        #expect(flow.incomingGroups(.paidBack).isEmpty)
+        #expect(flow.incomingGroups(.spending).isEmpty)
         flow.setStatementClass(.oneOff, forRow: question.row)
         #expect(flow.statementQuestions.isEmpty)
         let oneOff = try #require(flow.incomingGroups(.oneOff).first)
         #expect(oneOff.total == 5000)
         #expect(flow.statementSums.oneOffs == 5000)
         // Its class was chosen alone, so it changes alone: no rule.
-        flow.setStatementClass(.paidBack, for: oneOff)
+        flow.setStatementClass(.spending, for: oneOff)
         #expect(flow.incomingGroups(.oneOff).isEmpty)
         #expect(flow.statementRules.isEmpty)
         #expect(flow.statementSums.paidBack == 5000)
@@ -241,6 +241,32 @@ struct ImportStatementFlowTests {
         #expect(flow.statementAssetLines.isEmpty)
         #expect(flow.statementQuestions.count == 1)
         #expect(flow.preview?.newAccounts.isEmpty == true)
+    }
+
+    @Test func aLargeLineOutIsAnsweredAsMovedToATaxPot() throws {
+        var library = PreviewLibrary.library
+        library.accounts["tasse"] = Account(id: "tasse", name: "Tax pot", kind: .taxPot, currency: .eur,
+                                            opened: "2026-01-01")
+        var flow = ImportFlow(library: library)
+        flow.open(Data((Self.csv + "\n15/09/2026;-6.000,00;Accantonamento tasse").utf8), fileName: "settembre.csv")
+        flow.setConstants { $0.account = "conto-fineco" }
+        let question = try #require(flow.statementQuestions.first)
+        #expect(flow.moveChoices(for: question).first?.id == "tasse")
+        flow.setStatementAsset(.moved("tasse"), forRow: question.row)
+        #expect(flow.statementQuestions.isEmpty)
+        #expect(flow.statementAssetLines.isEmpty)
+        let moved = try #require(flow.statementTransferLines.first { $0.row == question.row })
+        #expect(flow.statementAssetText(moved) == "Moved to Tax pot")
+        #expect(flow.statementSums.moved == -6500)
+        #expect(flow.preview?.records.contains { $0.imported.key.account == "tasse" } == true)
+    }
+
+    @Test func taxIsTakenOffWhatCameIn() throws {
+        let flow = flow(adding: "\n16/09/2026;-800,00;Pagamento F24 Agenzia delle Entrate")
+        #expect(try line(flow, "Pagamento F24").statementClass == .tax)
+        #expect(flow.statementSums.tax == 800)
+        #expect(flow.statementSums.afterTax == 2600)
+        #expect(flow.statementSums.spent == Decimal(string: "1310.4"))
     }
 
     @Test func aLargeLineInIsAnsweredAsTheSaleOfAnAccount() throws {
