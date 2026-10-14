@@ -2,6 +2,7 @@ import Foundation
 import Model
 import Observation
 import Planner
+import Tracker
 
 /// One plan on screen: its edits, runs, what-if and focus age. Created by
 /// `PlanScreen` for the plan it shows; the numbers themselves live in
