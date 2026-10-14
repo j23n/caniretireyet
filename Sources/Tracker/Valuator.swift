@@ -31,15 +31,11 @@ public struct Valuator: Sendable {
     let ledgers: [AccountID: TradeLedger]
     /// Trades of accounts that don't record trades (or don't exist): left out.
     let ignoredTrades: [Trade]
-    /// What the main plan pays into each account: the new money of a balance
-    /// the check-in asks about, when it was left empty (``change(from:to:in:)``).
-    public let contributions: PlannedContributions
 
     /// A valuator over a library snapshot. For duplicate valuation or trade
     /// keys the last one wins. Trades count only for accounts that record trades.
     public init(library: Library) {
         baseCurrency = library.settings.baseCurrency
-        contributions = PlannedContributions(library: library)
         accounts = library.accounts
         instruments = library.instruments
         var byKey: [ValuationKey: Valuation] = [:]

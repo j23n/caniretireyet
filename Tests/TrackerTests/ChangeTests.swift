@@ -64,18 +64,17 @@ struct ExampleLibraryChangeTests {
         #expect(report.total.end.rounded(10) == valuator.total(on: "2026-10-10", in: .netWorth).total.rounded(10))
     }
 
-    /// The home's value went up 7.000 € without a flow, and the plan pays
-    /// nothing into it: its change is market (PlannedContributionsTests).
-    @Test func aBalanceTheCheckInAsksAboutWithoutAFlow() throws {
+    /// The home's value went up 7.000 € without a flow: nothing says what
+    /// was saved into it, so its change is other.
+    @Test func aBalanceThatAsksForAFlowWithoutOne() throws {
         let report = valuator.change(from: "2026-05-31", to: "2026-06-30")
         #expect(report.unknownFlowAccounts.isEmpty)
-        #expect(report.plannedFlowAccounts == ["casa"])
         let home = try #require(report.change(of: "casa"))
         #expect(home.flow == nil)
-        #expect(home.isFlowFromPlan)
-        #expect(home.change.market == 7000)
-        #expect(home.change.other == 0)
-        #expect(report.total.other == 0)
+        #expect(home.change.market == 0)
+        #expect(home.change.newMoney == 0)
+        #expect(home.change.other == 7000)
+        #expect(report.total.other == 7000)
         // Plan assets don't include the home.
         #expect(valuator.change(from: "2026-05-31", to: "2026-06-30", in: .planAssets).total.other == 0)
     }

@@ -20,7 +20,6 @@ struct SavingsRateTests {
         #expect(savings.moneyInOut.moneyIn == d("10200"))
         // The pension fund's 1,325 on 2026-09-30; the TFR has no value in those days.
         #expect(savings.pensionContributions == d("1325"))
-        #expect(savings.plannedContributionAccounts.isEmpty)
         #expect(savings.income == d("11525"))
         // The current account's −2,030.4 is the 500 to the savings account, the 200.6 to the broker and the
         // mortgage's 1,950, which come back as their new money, less what was spent.
@@ -68,14 +67,15 @@ struct SavingsRateTests {
         #expect(savings.pensionContributions == d("1325"))
     }
 
-    @Test func takesThePlansContributionsWhenACheckInLeftThemEmpty() throws {
+    /// A pension fund's value without what was saved into it: its change
+    /// is other, never what the plan pays in.
+    @Test func aPensionWithoutWhatWasSavedPaysNothingIn() throws {
         var library = try Fixtures.exampleLibrary()
         let pension = try #require(library.months["2026-09"]?.valuations.firstIndex { $0.account == "fondo-pensione" })
         library.months["2026-09"]?.valuations[pension].flow = nil
         let savings = try #require(Valuator(library: library).savingsRate(overYearEndingOn: "2026-09-30"))
-        // The base plan's 5,000 a year for 92 of 2026's 365 days.
-        #expect(savings.pensionContributions.rounded(scale: 2) == d("1260.27"))
-        #expect(savings.plannedContributionAccounts == ["fondo-pensione"])
+        #expect(savings.pensionContributions == 0)
+        #expect(savings.saved == d("631.05"))
     }
 
     @Test func moneyTakenOutOfAPensionIsNotIncome() throws {

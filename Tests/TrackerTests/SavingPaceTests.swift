@@ -55,7 +55,6 @@ struct SavingPaceTests {
         #expect(!pace.isScaled)
         #expect(!pace.isInTodaysMoney)
         #expect(pace.isComplete)
-        #expect(pace.leftOut.isEmpty)
     }
 
     /// Taking out 20,000 is as unusual as putting it in.
@@ -346,7 +345,6 @@ struct SavingPaceTests {
         #expect(pace.months.map { $0.newMoney.rounded(scale: 2) } == pension)
         #expect(pace.unusualMonths.isEmpty)
         #expect(pace.byAccount["pension"]?.rounded(scale: 2) == 12_000)
-        #expect(pace.leftOut.isEmpty)
     }
 
     /// A trades account's deposit after a long quiet stretch counts at the
@@ -409,18 +407,13 @@ struct SavingPaceTests {
     }
 
     /// A pension fund opened inside the months, with something in it at
-    /// its first record: what it held then isn't new money or taken from
-    /// the plan, and the months before it aren't missing anything. Opened
+    /// its first record: what it held then isn't new money, and the months
+    /// before it aren't missing anything. Opened
     /// before its first record, with no check-in between, it isn't missing
     /// any month either.
     @Test(arguments: ["2026-03-31", "2026-03-15"] as [CalendarDate])
     func anAccountWhoseRecordsStartInsideTheMonths(opened: CalendarDate) throws {
         var library = self.library(flows: [Decimal](repeating: 1_000, count: 12))
-        library.settings = LibrarySettings(person: Person(birthDate: "1988-04-12"), mainPlan: "base")
-        library.plans["base"] = PlanDocument(
-            id: "base", name: "Base", retirement: PlanRetirement(age: .age(55)),
-            spending: PlanSpending(working: 30_000, retired: 30_000),
-            contributions: [PlanContribution(account: "pension", perYear: 5_000)])
         library.accounts["pension"] = Account(id: "pension", name: "Pension", kind: .pensionFund, currency: .eur,
                                               opened: opened)
         library.upsert(Valuation(account: "pension", date: "2026-03-31", balance: 10_000))
@@ -429,7 +422,6 @@ struct SavingPaceTests {
         #expect(pace.months.allSatisfy { $0.newMoney == 1_000 })
         #expect(pace.perYear == 12_000)
         #expect(pace.byAccount == ["current": 12_000])
-        #expect(pace.leftOut.isEmpty)
         #expect(pace.isComplete)
     }
 
@@ -651,16 +643,15 @@ struct SavingPaceTests {
         #expect(pace.perYear == 12_200)
     }
 
-    /// A pension fund valued without new money and no main plan: its new
-    /// money is missing, so it's listed as left out.
-    @Test func anAccountWithoutRecordedNewMoneyOrAPlanIsLeftOut() throws {
+    /// A pension fund valued without what was saved into it: its change is
+    /// other, so it saved nothing.
+    @Test func anAccountWithoutWhatWasSavedSavesNothing() throws {
         var library = self.library(flows: [Decimal](repeating: 1_000, count: 12))
         library.accounts["pension"] = Account(id: "pension", name: "Pension", kind: .pensionFund, currency: .eur,
                                               opened: "2020-01-01")
         library.upsert(Valuation(account: "pension", date: "2025-09-30", balance: 10_000))
         library.upsert(Valuation(account: "pension", date: "2026-09-30", balance: 16_000))
         let pace = try #require(Valuator(library: library).savingPace(asOf: "2026-09-30"))
-        #expect(pace.leftOut == ["pension"])
         #expect(pace.byAccount == ["current": 12_000])
     }
 
@@ -699,46 +690,5 @@ struct SavingPaceTests {
         let pace = try #require(Valuator(library: library).savingPace(asOf: "2026-09-30"))
         #expect(pace.byAccount["pension"]?.rounded(scale: 2) == 12_000)
         #expect(pace.unusualMonths.map(\.end) == ["2026-09-30"])
-    }
-
-    /// A pension fund with new money recorded at one check-in and taken
-    /// from the plan at the next: the recorded 3,000 counts, the plan's
-    /// doesn't, and the account is listed as left out.
-    @Test func recordedNewMoneyCountsNextToTheLeftOut() throws {
-        var library = self.library(flows: [Decimal](repeating: 1_000, count: 12))
-        library.settings = LibrarySettings(person: Person(birthDate: "1988-04-12"), mainPlan: "base")
-        library.plans["base"] = PlanDocument(
-            id: "base", name: "Base", retirement: PlanRetirement(age: .age(55)),
-            spending: PlanSpending(working: 30_000, retired: 30_000),
-            contributions: [PlanContribution(account: "pension", perYear: 5_000)])
-        library.accounts["pension"] = Account(id: "pension", name: "Pension", kind: .pensionFund, currency: .eur,
-                                              opened: "2020-01-01")
-        library.upsert(Valuation(account: "pension", date: "2025-09-30", balance: 10_000, flow: 0))
-        library.upsert(Valuation(account: "pension", date: "2026-03-31", balance: 13_000, flow: 3_000))
-        library.upsert(Valuation(account: "pension", date: "2026-09-30", balance: 16_000))
-        let pace = try #require(Valuator(library: library).savingPace(asOf: "2026-09-30"))
-        #expect(pace.leftOut == ["pension"])
-        #expect(pace.byAccount.mapValues { $0.rounded(scale: 2) } == ["current": 12_000, "pension": 3_000])
-        #expect(pace.perYear.rounded(scale: 2) == 15_000)
-        #expect(pace.carriedForward.isEmpty)
-    }
-
-    /// A pension fund without recorded new money counts what the main plan
-    /// pays in: it's left out of the pace.
-    @Test func newMoneyFromThePlanIsLeftOut() throws {
-        var library = self.library(flows: [Decimal](repeating: 1_000, count: 12))
-        library.settings = LibrarySettings(person: Person(birthDate: "1988-04-12"), mainPlan: "base")
-        library.plans["base"] = PlanDocument(
-            id: "base", name: "Base", retirement: PlanRetirement(age: .age(55)),
-            spending: PlanSpending(working: 30_000, retired: 30_000),
-            contributions: [PlanContribution(account: "pension", perYear: 5_000)])
-        library.accounts["pension"] = Account(id: "pension", name: "Pension", kind: .pensionFund, currency: .eur,
-                                              opened: "2020-01-01")
-        library.upsert(Valuation(account: "pension", date: "2025-09-30", balance: 10_000))
-        library.upsert(Valuation(account: "pension", date: "2026-09-30", balance: 16_000))
-        let pace = try #require(Valuator(library: library).savingPace(asOf: "2026-09-30"))
-        #expect(pace.leftOut == ["pension"])
-        #expect(pace.perYear == 12_000)
-        #expect(pace.byAccount == ["current": 12_000])
     }
 }

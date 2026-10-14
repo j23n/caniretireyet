@@ -26,9 +26,6 @@ public struct SavingsRate: Hashable, Sendable {
     /// (``Valuator/taxSetAside(after:through:)``): tax, so neither came in
     /// nor spent.
     public var taxSetAside: Decimal
-    /// Pension accounts whose new money is what the main plan pays in,
-    /// because a check-in left their flow empty. Sorted.
-    public var plannedContributionAccounts: [AccountID]
     /// What each account in net worth saved over those days
     /// (``Valuator/saved(after:through:)``): its new money, less what a new
     /// account's first value already held.
@@ -38,14 +35,13 @@ public struct SavingsRate: Hashable, Sendable {
 
     public init(moneyInOut: MoneyInOutSummary, from: CalendarDate, through: CalendarDate,
                 pensionContributions: Decimal = 0, taxSetAside: Decimal = 0,
-                plannedContributionAccounts: [AccountID] = [], savedByAccount: [AccountID: Decimal] = [:],
+                savedByAccount: [AccountID: Decimal] = [:],
                 isPriced: Bool = true) {
         self.moneyInOut = moneyInOut
         self.from = from
         self.through = through
         self.pensionContributions = pensionContributions
         self.taxSetAside = taxSetAside
-        self.plannedContributionAccounts = plannedContributionAccounts
         self.savedByAccount = savedByAccount
         self.isPriced = isPriced
     }
@@ -110,20 +106,17 @@ extension Valuator {
             .max { $0.moneyIn < $1.moneyIn }
         let start = pay?.measuredFrom ?? measuredFrom
         var contributions: Decimal = 0
-        var planned: [AccountID] = []
         for account in accounts.values.sorted(by: { $0.id < $1.id })
         where SavingsRate.pensionKinds.contains(account.kind) && account.includedInNetWorth
             && account.isOpen(onAnyDayFrom: start, through: through) {
             let paid = change(of: account, from: start, to: through)
             guard paid.change.newMoney > 0 else { continue }
             contributions += paid.change.newMoney
-            if paid.isFlowFromPlan { planned.append(account.id) }
         }
         let saved = saved(after: start, through: through)
         let tax = taxSetAside(after: start, through: through)
         return SavingsRate(moneyInOut: money, from: start, through: through, pensionContributions: contributions,
-                           taxSetAside: tax.amount, plannedContributionAccounts: planned,
-                           savedByAccount: saved.byAccount, isPriced: saved.isPriced && tax.isPriced)
+                           taxSetAside: tax.amount, savedByAccount: saved.byAccount, isPriced: saved.isPriced && tax.isPriced)
     }
 
     /// What moved into tax pots outside net worth (``Model/AccountKind/taxPot``)

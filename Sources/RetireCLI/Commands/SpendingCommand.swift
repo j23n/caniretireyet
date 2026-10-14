@@ -103,10 +103,6 @@ struct SpendingCommand: RetireSubcommand {
                 if savings.spent < 0 {
                     lines.append("More was saved than came in: some income may not be recorded.")
                 }
-                if !savings.plannedContributionAccounts.isEmpty {
-                    lines.append("Paid into pensions as the main plan pays, since check-ins didn't record it: "
-                        + savings.plannedContributionAccounts.map(\.rawValue).joined(separator: ", ") + ".")
-                }
             }
             if !summary.isComplete { lines.append(unconverted) }
             return lines

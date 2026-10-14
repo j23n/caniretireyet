@@ -18,8 +18,7 @@ struct PlanPaceCommand: RetireSubcommand {
             median) saves something, a month that saves at least twice as much and at least 1% of \
             plan assets, or takes out at least 1% of plan assets, is unusual and counts as the usual \
             month: the pace is the year's total with those. With fewer than 12 months it's scaled to \
-            a year; with fewer than 3 there's none. Accounts whose new money wasn't recorded, so \
-            that it's taken from the main plan's contributions, are left out.
+            a year; with fewer than 3 there's none.
             """)
 
     @OptionGroup var options: LibraryOptions
@@ -86,10 +85,6 @@ struct PlanPaceCommand: RetireSubcommand {
                 }
                 lines += accounts.lines()
             }
-            if !pace.leftOut.isEmpty {
-                lines.append("")
-                lines.append("Left out, without recorded new money: " + pace.leftOut.map(name).joined(separator: ", "))
-            }
             if !pace.carriedForward.isEmpty {
                 lines.append("")
                 lines.append("Carried forward from their latest value: "
@@ -111,7 +106,7 @@ struct PlanPaceCommand: RetireSubcommand {
                     byAccount: Dictionary(uniqueKeysWithValues: pace.byAccount.map {
                         ($0.key.rawValue, Format.json($0.value))
                     }),
-                    leftOut: pace.leftOut.map(\.rawValue), carriedForward: pace.carriedForward.map(\.rawValue))
+                    carriedForward: pace.carriedForward.map(\.rawValue))
             })
         }
 
@@ -132,7 +127,6 @@ struct PlanPaceCommand: RetireSubcommand {
                 var perYear: String
                 var range: [String]?
                 var byAccount: [String: String]
-                var leftOut: [String]
                 var carriedForward: [String]
             }
 

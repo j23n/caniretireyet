@@ -44,9 +44,8 @@ public struct SavingPace: Hashable, Sendable {
     /// The lowest and highest pace of the 12 months ending at each of the
     /// last month ends, up to 12; `nil` without 13 months, or when the
     /// pace is in today's money and the inflation index doesn't cover
-    /// them all. The months
-    /// before `months` aren't checked for missing values (`isComplete`) or
-    /// left-out accounts (`leftOut`).
+    /// them all. The months before `months` aren't checked for missing
+    /// values (`isComplete`).
     public let range: ClosedRange<Decimal>?
     /// Each account's new money in `months` from outside plan assets,
     /// scaled to a year, unusual months included; an account with none is
@@ -60,13 +59,6 @@ public struct SavingPace: Hashable, Sendable {
     /// saved nothing or less). The shares add up to
     /// `perYear`. A pace made without them (in tests) takes `byAccount`.
     public let byAccountInPace: [AccountID: Decimal]
-    /// Accounts whose new money in `months` wasn't recorded, so that the
-    /// tracker counts what the main plan pays into them, nothing without a
-    /// contribution
-    /// (``AccountChange/isFlowFromPlan``). That new money is left out, at
-    /// each check-in where it came from the plan, since a pace that repeats
-    /// the plan says nothing about it.
-    public let leftOut: [AccountID]
     /// Accounts whose saving at the rate of their latest payment goes on to
     /// `asOf`, for at most as long again: paid regularly and not valued
     /// since, or paid less often than plan assets are valued, or valued
@@ -87,8 +79,7 @@ public struct SavingPace: Hashable, Sendable {
 
     public init(asOf: CalendarDate, currency: CurrencyCode, months: [Month], usualMonth: Decimal, perYear: Decimal,
                 range: ClosedRange<Decimal>?, byAccount: [AccountID: Decimal],
-                byAccountInPace: [AccountID: Decimal]? = nil, leftOut: [AccountID],
-                carriedForward: [AccountID], isInTodaysMoney: Bool, isComplete: Bool) {
+                byAccountInPace: [AccountID: Decimal]? = nil, carriedForward: [AccountID], isInTodaysMoney: Bool, isComplete: Bool) {
         self.asOf = asOf
         self.currency = currency
         self.months = months
@@ -97,7 +88,6 @@ public struct SavingPace: Hashable, Sendable {
         self.range = range
         self.byAccount = byAccount
         self.byAccountInPace = byAccountInPace ?? byAccount
-        self.leftOut = leftOut
         self.carriedForward = carriedForward
         self.isInTodaysMoney = isInTodaysMoney
         self.isComplete = isComplete
@@ -185,15 +175,6 @@ extension Valuator {
         let intervals = zip(checkIns, checkIns.dropFirst()).filter { $0.1 > ends[available] || $0.1 >= before }
         let reports = intervals.map { change(from: $0.0, to: $0.1, in: .planAssets) }
         let window = min(available, SavingPace.window)
-        // An account whose new money came from the plan, or would have with
-        // a contribution in it: it had a value before, so the money is
-        // missing, not what it held when its records start.
-        let leftOut = Set(reports.filter { $0.to > ends[window] }.flatMap { report in
-            report.accounts.filter { change in
-                change.isFlowFromPlan && (change.change.newMoney != 0
-                    || firstRecordDate(of: change.account).map { $0 <= report.from } == true)
-            }.map(\.account)
-        })
 
         // In today's money only when the index covers every month, so the
         // months never mix money of today and of each check-in; without
@@ -208,8 +189,8 @@ extension Valuator {
         // after money moved between plan assets cancels out.
         var paid: [(account: AccountID, from: CalendarDate, to: CalendarDate, amount: Decimal, isMissing: Bool)] = []
         for report in reports {
-            let included = report.accounts.filter { !$0.isFlowFromPlan }
-            if report.to > ends[window], included.contains(where: { !$0.problems.allSatisfy(\.isNotTrackedYet) }) {
+            if report.to > ends[window],
+               report.accounts.contains(where: { !$0.problems.allSatisfy(\.isNotTrackedYet) }) {
                 isComplete = false
             }
             // Money moved between plan assets at this check-in cancels out
@@ -218,10 +199,10 @@ extension Valuator {
             // spread over different days don't leave a month too high and
             // another too low. Only when the two are alike (the smaller at
             // least half the larger): a large withdrawal isn't a transfer.
-            let paidIn = included.reduce(Decimal(0)) { $0 + max($1.change.newMoney, 0) }
-            let takenOut = included.reduce(Decimal(0)) { $0 - min($1.change.newMoney, 0) }
+            let paidIn = report.accounts.reduce(Decimal(0)) { $0 + max($1.change.newMoney, 0) }
+            let takenOut = report.accounts.reduce(Decimal(0)) { $0 - min($1.change.newMoney, 0) }
             let moved = 2 * min(paidIn, takenOut) >= max(paidIn, takenOut) ? min(paidIn, takenOut) : 0
-            for account in included {
+            for account in report.accounts {
                 var amount = account.change.newMoney
                 if moved > 0, amount != 0 {
                     amount -= amount > 0 ? amount * moved / paidIn : amount * moved / takenOut
@@ -366,7 +347,7 @@ extension Valuator {
             },
             usualMonth: pace.usual, perYear: pace.perYear, range: range,
             byAccount: byAccount.mapValues { $0 * scale }, byAccountInPace: inPace.mapValues { $0 * scale },
-            leftOut: leftOut.sorted(), carriedForward: carriedForward.sorted(), isInTodaysMoney: index != nil,
+            carriedForward: carriedForward.sorted(), isInTodaysMoney: index != nil,
             isComplete: isComplete)
     }
 }
