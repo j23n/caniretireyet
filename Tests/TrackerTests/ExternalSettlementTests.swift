@@ -133,13 +133,13 @@ struct ExternalSettlementTests {
         #expect(valuator.netWorth(on: "2024-01-31").total == d("31.1") * 62)
         #expect(valuator.breakdown(by: .assetClass, on: "2024-01-31").value(of: .assetClass(.gold)) == d("31.1") * 62)
 
-        // The change since the start: the cost is new money, the rest is the market.
+        // The change since the start: the cost is saved, the rest is the market.
         let change = try #require(valuator.change(of: "coins", from: "2024-01-01", to: "2024-01-31"))
-        #expect(change.change.newMoney == 1876)
+        #expect(change.change.saved == 1876)
         #expect(change.change.market == d("31.1") * 62 - 1876)
         #expect(change.problems.isEmpty)
         let spring = try #require(valuator.change(of: "coins", from: "2024-01-31", to: "2024-03-31"))
-        #expect(spring.change.newMoney == -680)
+        #expect(spring.change.saved == -680)
         #expect(spring.change.market == d("21.1") * 70 - d("31.1") * 62 + 680)
     }
 
@@ -152,7 +152,7 @@ struct ExternalSettlementTests {
         #expect(valuator.tradeFlows(of: "coins", after: "2024-01-31", through: "2024-02-29").map(\.amount) == [40])
         #expect(valuator.ledger(for: "coins")?.summary(for: 2024).fees == 50)
         let change = try #require(valuator.change(of: "coins", from: "2024-01-31", to: "2024-02-29"))
-        #expect(change.change.newMoney == 40)
+        #expect(change.change.saved == 40)
         #expect(change.change.market == d("31.1") * 3 - 40)
     }
 
@@ -193,7 +193,7 @@ struct ExternalSettlementTests {
         #expect(valuator.ledger(for: "broker")?.positions(on: "2024-03-31")
             == [Position(instrument: "vwce", quantity: 8, costBasis: 800)])
         #expect(valuator.ledger(for: "broker")?.summary(for: 2024).realizedGain == 50)
-        // The deposit and the purchase from outside count as new money.
+        // The deposit and the purchase from outside count as saved.
         let january = Valuation(account: "broker", date: "2024-01-31", cash: 200)
         #expect(valuator.defaultFlow(for: january, previous: nil) == 1500)
     }
@@ -202,7 +202,7 @@ struct ExternalSettlementTests {
 /// The default flow of a trades account at its first check-in.
 struct FirstCheckInFlowTests {
     /// An account made of trades only, with no valuation yet: "unchanged" at
-    /// a check-in counts as new money only what was bought since the
+    /// a check-in counts as saved only what was bought since the
     /// previous check-in, not every purchase since the first trade.
     @Test func aFirstCheckInCountsOnlyTheFlowsSinceThePreviousCheckIn() throws {
         var library = GoldLibrary.external()
@@ -217,13 +217,13 @@ struct FirstCheckInFlowTests {
         let alone = Valuator(library: GoldLibrary.external())
         #expect(alone.defaultFlow(for: march, previous: nil) == 1196)
 
-        // A check-in where nothing was bought or sold: no new money.
+        // A check-in where nothing was bought or sold: nothing saved.
         library.upsert(Valuation(account: "broker", date: "2024-03-31", cash: 100))
         let april = Valuation(account: "coins", date: "2024-04-30", cash: 0)
         #expect(Valuator(library: library).defaultFlow(for: april, previous: nil) == 0)
     }
 
-    /// The parts a check-in shows of a trades account's new money count
+    /// The parts a check-in shows of what a trades account saved count
     /// from the same start as the flow it saves: at the account's first
     /// check-in, the library's previous check-in, not its first trade.
     @Test func theFlowPartsCountFromTheSameStartAsTheFlow() throws {

@@ -95,7 +95,7 @@ struct StatementPurchaseTests {
         #expect(try Self.value(preview, "auto", "2026-02-19").balance == 0)
         let value = try Self.value(preview, "auto", "2026-02-20")
         #expect(value.balance == 15000)
-        // Belongings' new money is worked out from the balances, not stored.
+        // What belongings saved is worked out from the balances, not stored.
         #expect(value.flow == nil)
         // Moved, not spent.
         let february = try Self.value(preview, "conto", "2026-02-28")
@@ -114,8 +114,8 @@ struct StatementPurchaseTests {
         #expect(again.records.allSatisfy { $0.status == .identical })
     }
 
-    /// A property asks for its new money, so its purchase stores it.
-    @Test func aPropertysPurchaseStoresItsNewMoney() throws {
+    /// A property asks for what it saved, so its purchase stores it.
+    @Test func aPropertysPurchaseStoresWhatWasSaved() throws {
         var session = try Self.session()
         let row = try Self.line(session.preview(against: Self.library(), today: Self.today), "Bonifico a Autosalone")
             .row

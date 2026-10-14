@@ -304,7 +304,7 @@ struct PlanProgressView: View {
         guard let report = library.valuator.changeSinceLastCheckIn(asOf: library.asOfDate, in: .planAssets) else {
             return nil
         }
-        let saved = report.total.newMoney
+        let saved = report.total.saved
         let markets = report.total.market
         let words = PlanWords(currency: report.currency, locale: locale)
         let took = saved >= 0 ? "Saved" : "Took out"

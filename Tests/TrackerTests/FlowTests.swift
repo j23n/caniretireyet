@@ -54,7 +54,7 @@ struct DefaultFlowTests {
         let fund = Valuation(account: "fondo-pensione", date: "2026-10-31", balance: 19000)
         let previousFund = valuator.previousValuation(for: "fondo-pensione", before: "2026-10-31")
         #expect(valuator.defaultFlow(for: fund, previous: previousFund) == nil)
-        // A first valuation is all new money, interest or not.
+        // A first valuation is all saved, interest or not.
         #expect(valuator.defaultFlow(for: savings, previous: nil) == d("17400.55"))
         #expect(valuator.defaultFlow(for: Valuation(account: "nope", date: "2026-10-31", balance: 1), previous: nil)
             == nil)

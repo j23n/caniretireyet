@@ -362,7 +362,7 @@ struct PreviewBuilder {
         var resolved: [(ExtractedValue, AccountID?, InstrumentID?)] = []
         for value in values {
             switch value.target {
-            case .balance, .cash, .quantity, .costBasis:
+            case .balance, .cash, .saved, .quantity, .costBasis:
                 guard let accountRef = value.account else { continue }
                 let account = matcher.account(accountRef)
                 let instrument = value.instrument.map { matcher.instrument($0) }
@@ -393,7 +393,7 @@ struct PreviewBuilder {
             let key: ImportRecordKey
             let field: RecordField
             switch value.target {
-            case .balance, .cash, .quantity, .costBasis:
+            case .balance, .cash, .saved, .quantity, .costBasis:
                 guard let accountID, let account = accounts[accountID] else { continue }
                 if let currency = value.currency, value.target != .quantity, currency != account.currency {
                     fail(value.cell.row, value.cell.column, value.raw,
@@ -404,6 +404,7 @@ struct PreviewBuilder {
                 switch (value.target, instrumentID) {
                 case (.balance, _): field = .balance
                 case (.cash, _): field = .cash
+                case (.saved, _): field = .saved
                 case (.quantity, let instrumentID?): field = .quantity(instrumentID)
                 case (_, let instrumentID?): field = .costBasis(instrumentID)
                 default: continue
@@ -520,9 +521,15 @@ struct PreviewBuilder {
                 .filter { $0.quantity == nil && !held.contains($0.instrument) }.map(\.instrument)
             for instrument in costOnly { failCost(accumulator, instrument) }
             accumulator.record.positions.removeAll { costOnly.contains($0.instrument) }
+            // What was saved goes with a value of the account, from the file or the library.
+            if accumulator.record.flow != nil, accumulator.record.balance == nil, accumulator.record.cash == nil,
+               accumulator.record.positions.isEmpty, existing == nil {
+                failSaved(accumulator)
+                accumulator.record.flow = nil
+            }
             let record = accumulator.record
-            if record.balance == nil, record.cash == nil, record.positions.isEmpty, record.price == nil,
-               record.rate == nil { continue }
+            if record.balance == nil, record.cash == nil, record.positions.isEmpty, record.flow == nil,
+               record.price == nil, record.rate == nil { continue }
             let outcome = RecordMerge.evaluate(record, existing: existing)
             records.append(ImportRecordPreview(
                 imported: record, status: outcome.status, existing: existing, incoming: outcome.overwritten,
@@ -560,6 +567,12 @@ struct PreviewBuilder {
         guard let cell = accumulator.sources[.costBasis(instrument)]?.cell else { return }
         let raw = table.rows.first { $0.number == cell.row }?[cell.column] ?? ""
         fail(cell.row, cell.column, raw, .costWithoutQuantity)
+    }
+
+    mutating func failSaved(_ accumulator: Accumulator) {
+        guard let cell = accumulator.sources[.saved]?.cell else { return }
+        let raw = table.rows.first { $0.number == cell.row }?[cell.column] ?? ""
+        fail(cell.row, cell.column, raw, .savedWithoutValue)
     }
 
     /// Accounts whose values stop before the file's last date are proposed
@@ -639,7 +652,7 @@ struct PreviewBuilder {
 
 /// Which value of a record a cell sets.
 enum RecordField: Hashable {
-    case balance, cash, price, rate
+    case balance, cash, saved, price, rate
     case quantity(InstrumentID)
     case costBasis(InstrumentID)
 }
@@ -652,6 +665,7 @@ extension ImportedRecord {
             balance = value
             writtenBalance = value
         case .cash: cash = value
+        case .saved: flow = value
         case .price:
             price = value
             self.currency = currency

@@ -63,7 +63,7 @@ extension GlanceSnapshot {
             GlancePoint(date: last.adding(months: index - (values.count - 1)).endOfMonth, value: value)
         }
         let change = NetWorthChange(from: history[history.count - 2].date, to: last, start: 308_270, markets: 2_950,
-                                    newMoney: 1_500, other: -240, end: 312_480)
+                                    saved: 1_500, other: -240, end: 312_480)
         let owned: [(String, String, Decimal)] = [
             ("cash", "Cash", 53_100), ("equity", "Equity", 182_400), ("gold", "Gold", 6_100),
             ("crypto", "Crypto", 40_100), ("other", "Other", 30_780),

@@ -125,7 +125,7 @@ extension SectionHeader where Accessory == EmptyView {
     ScrollView {
         VStack(spacing: Metrics.l) {
             Card("Since last check-in", systemImage: "arrow.left.arrow.right") {
-                Text("Markets, new money and other.")
+                Text("Markets, saved and other.")
             }
             Card {
                 Text("A card without a title.")

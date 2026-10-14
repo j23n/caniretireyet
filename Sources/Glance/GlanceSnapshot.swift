@@ -129,19 +129,19 @@ public struct NetWorthChange: Hashable, Sendable, Codable {
     /// Price and exchange-rate movements, interest, reinvested dividends.
     public var markets: Decimal
     /// Money added (+) or taken out (−).
-    public var newMoney: Decimal
+    public var saved: Decimal
     /// What can't be explained otherwise.
     public var other: Decimal
     /// Net worth on the latest check-in.
     public var end: Decimal
 
-    public init(from: CalendarDate, to: CalendarDate, start: Decimal, markets: Decimal, newMoney: Decimal,
+    public init(from: CalendarDate, to: CalendarDate, start: Decimal, markets: Decimal, saved: Decimal,
                 other: Decimal, end: Decimal) {
         self.from = from
         self.to = to
         self.start = start
         self.markets = markets
-        self.newMoney = newMoney
+        self.saved = saved
         self.other = other
         self.end = end
     }

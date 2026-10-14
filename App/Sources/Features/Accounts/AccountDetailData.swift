@@ -68,7 +68,7 @@ struct AccountValuationRow: Hashable, Sendable, Identifiable {
     var amount: Decimal?
     /// The value on its own date, in the base currency (what could be valued).
     var value: Decimal
-    /// The new money since the value before, in the account's currency
+    /// What was saved since the value before, in the account's currency
     /// (Tracker's `Valuator.flow(of:previous:)`): recorded, or worked out
     /// from the balances; `nil` when it's unknown, as for the first value.
     var flow: Decimal? = nil
@@ -90,7 +90,7 @@ struct AccountStatementRow: Hashable, Sendable, Identifiable {
     var valuation: Valuation
     /// The statement's cash minus the cash the trades give on its date, in
     /// the account's currency: money added (+) or taken out (−) that no
-    /// trade records, which counts as new money. `nil` when the value
+    /// trade records, which counts as saved. `nil` when the value
     /// records no cash, or the same cash as the trades.
     var cashDifference: Decimal?
     /// How many instruments' quantities differ from what the trades give
@@ -260,21 +260,8 @@ struct AccountDetailData: Hashable, Sendable {
                 }
             }
         }
-        if account.recordsTrades {
-            // Deposits, withdrawals, transfers and residuals, on their own dates.
-            var byDate: [CalendarDate: Decimal] = [:]
-            for flow in valuator.tradeFlows(of: account.id, after: nil, through: date) {
-                if let amount = flow.amount { byDate[flow.date, default: 0] += amount }
-            }
-            flows = byDate.filter { $0.value != 0 }.sorted { $0.key < $1.key }
-                .map { AccountFlowTick(date: $0.key, amount: $0.value) }
-        } else {
-            flows = all.indices.compactMap { index in
-                let valuation = all[index]
-                guard let flow = valuator.flow(of: valuation, previous: index > 0 ? all[index - 1] : nil), flow != 0
-                else { return nil }
-                return AccountFlowTick(date: valuation.date, amount: flow)
-            }
+        flows = valuator.flowsByDate(of: account.id, through: date).map {
+            AccountFlowTick(date: $0.date, amount: $0.amount)
         }
         if account.recordsTrades {
             let rows = valuator.holdings(of: account.id, on: date).map { holding in

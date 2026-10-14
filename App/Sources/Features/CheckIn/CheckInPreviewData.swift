@@ -92,7 +92,7 @@ enum CheckInPreviewData {
         CheckInSaveResult(
             date: date, netWorth: PreviewLibrary.d("312480"),
             change: ValueChange(start: PreviewLibrary.d("308270"), market: PreviewLibrary.d("2950"),
-                                newMoney: PreviewLibrary.d("1500"), other: PreviewLibrary.d("-240"),
+                                saved: PreviewLibrary.d("1500"), other: PreviewLibrary.d("-240"),
                                 end: PreviewLibrary.d("312480")))
     }
 

@@ -331,7 +331,7 @@ enum PlanProgressText {
         }
         if year.from != year.to {
             sentences.append(PlanWords(currency: currency, locale: locale)
-                .savedAndMarkets(saved: year.change.newMoney, markets: year.change.market).capitalizedFirst)
+                .savedAndMarkets(saved: year.change.saved, markets: year.change.market).capitalizedFirst)
         }
         if let from = year.answerFrom?.earliestAge, let to = year.answerTo?.earliestAge {
             if from == to {

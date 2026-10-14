@@ -11,7 +11,7 @@ struct NetWorthCommand: RetireSubcommand {
         discussion: """
             Prints each account's value on the date, a breakdown, the accounts that haven't \
             been valued recently, and the change since the last check-in split into market, \
-            new money and other. With --series, prints net worth over time instead, as a \
+            saved and other. With --series, prints net worth over time instead, as a \
             table or CSV.
             """)
 
@@ -207,7 +207,7 @@ struct NetWorthCommand: RetireSubcommand {
             var table = TextTable([.left(""), .right("")], showsHeader: false)
             table.add(["Start", Format.amount(parts.start)])
             table.add(["Market", Format.signed(parts.market)])
-            table.add(["New money", Format.signed(parts.newMoney)])
+            table.add(["Saved", Format.signed(parts.saved)])
             table.add(["Other", Format.signed(parts.other)])
             table.add(["End", Format.amount(parts.end)])
             lines += table.lines()
@@ -216,23 +216,18 @@ struct NetWorthCommand: RetireSubcommand {
             let moved = change.accounts.filter { $0.change.start != 0 || $0.change.end != 0 }
             if !moved.isEmpty {
                 lines.append("")
-                var accounts = TextTable([.left("Account"), .right("Start"), .right("Market"), .right("New money"),
+                var accounts = TextTable([.left("Account"), .right("Start"), .right("Market"), .right("Saved"),
                                           .right("Other"), .right("End")])
                 for account in moved.sorted(by: { (name($0.account), $0.account) < (name($1.account), $1.account) }) {
                     let parts = account.change
                     accounts.add([name(account.account), Format.amount(parts.start), Format.signed(parts.market),
-                                  Format.signed(parts.newMoney), Format.signed(parts.other), Format.amount(parts.end)])
+                                  Format.signed(parts.saved), Format.signed(parts.other), Format.amount(parts.end)])
                 }
                 lines += accounts.lines()
             }
-            let planned = change.plannedFlowAccounts
-            if !planned.isEmpty {
-                lines.append("  Money in or out not entered for \(Wording.list(planned.map(name))): what the main plan "
-                    + "pays in counts as new money, the rest as market.")
-            }
             let unknown = change.unknownFlowAccounts
             if !unknown.isEmpty {
-                lines.append("  New money unknown for \(Wording.list(unknown.map(name))): a price or an exchange "
+                lines.append("  What was saved is unknown for \(Wording.list(unknown.map(name))): a price or an exchange "
                     + "rate is missing, so the change counts as other.")
             }
             return lines
@@ -336,8 +331,7 @@ struct NetWorthCommand: RetireSubcommand {
                     JSON.Change(from: report.from.description, to: report.to.description,
                                 total: JSON.Parts(report.total, account: nil),
                                 accounts: report.accounts.map { JSON.Parts($0.change, account: $0) },
-                                unknownFlowAccounts: report.unknownFlowAccounts.map(\.rawValue),
-                                plannedFlowAccounts: report.plannedFlowAccounts.map(\.rawValue))
+                                unknownFlowAccounts: report.unknownFlowAccounts.map(\.rawValue))
                 },
                 problems: total.problems.map(\.description))
         }
@@ -377,7 +371,7 @@ struct NetWorthCommand: RetireSubcommand {
                 var account: String?
                 var start: String
                 var market: String
-                var newMoney: String
+                var saved: String
                 var other: String
                 var end: String
                 var flowKnown: Bool?
@@ -386,7 +380,7 @@ struct NetWorthCommand: RetireSubcommand {
                     self.account = account?.account.rawValue
                     start = Format.json(change.start)
                     market = Format.json(change.market)
-                    newMoney = Format.json(change.newMoney)
+                    saved = Format.json(change.saved)
                     other = Format.json(change.other)
                     end = Format.json(change.end)
                     flowKnown = account?.isFlowKnown
@@ -399,8 +393,6 @@ struct NetWorthCommand: RetireSubcommand {
                 var total: Parts
                 var accounts: [Parts]
                 var unknownFlowAccounts: [String]
-                /// Balances whose new money is what the main plan pays in.
-                var plannedFlowAccounts: [String]
             }
 
             var date: String

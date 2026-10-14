@@ -20,7 +20,7 @@ public struct GapExplanation: Hashable, Sendable {
     /// then as the library values it now against the value the baseline
     /// started from (they differ when past values changed since).
     public var start: Decimal
-    /// What you saved (new money) less what the baseline planned to save.
+    /// What you saved less what the baseline planned to save.
     public var saving: Decimal
     /// What markets did less what the baseline expected them to: its
     /// expected change less its planned saving.
@@ -42,8 +42,8 @@ public struct GapExplanation: Hashable, Sendable {
 
     /// The baseline's planned saving over the stretch.
     public var plannedSaving: Decimal
-    /// Your new money over the stretch.
-    public var newMoney: Decimal
+    /// What you saved over the stretch.
+    public var saved: Decimal
     /// What markets did to your money over the stretch.
     public var market: Decimal
     /// What markets were expected to do: the expected change less the planned saving.
@@ -61,7 +61,7 @@ public struct GapExplanation: Hashable, Sendable {
     ///     own start, the value it started from).
     ///   - plannedSaving: what it planned you'd save over the stretch.
     ///   - change: how your money changed over the stretch, as it happened,
-    ///     in the baseline's currency: its new money and what markets did
+    ///     in the baseline's currency: what it saved and what markets did
     ///     (``ValueChange``).
     ///   - asItWas: your money at the stretch's start and end in the
     ///     baseline's currency, not adjusted for inflation, when `actual` is
@@ -73,15 +73,15 @@ public struct GapExplanation: Hashable, Sendable {
         actualStart = actual.start
         expectedStart = expected.start
         self.plannedSaving = plannedSaving
-        newMoney = change.newMoney
+        saved = change.saved
         market = change.market
         expectedMarket = expectedChange - plannedSaving
-        saving = change.newMoney - plannedSaving
+        saving = change.saved - plannedSaving
         markets = change.market - expectedMarket
         inflation = asItWas.map { (actual.end - $0.end) - (actual.start - $0.start) }
         // What's left of the change as it happened.
         let nominal = asItWas ?? actual
-        other = nominal.end - nominal.start - change.newMoney - change.market
+        other = nominal.end - nominal.start - change.saved - change.market
     }
 }
 
@@ -99,11 +99,11 @@ extension GapExplanation {
         whole.actualStart = actualStart.rounded(scale: 0)
         whole.expectedStart = expectedStart.rounded(scale: 0)
         whole.plannedSaving = plannedSaving.rounded(scale: 0)
-        whole.newMoney = newMoney.rounded(scale: 0)
+        whole.saved = saved.rounded(scale: 0)
         whole.market = market.rounded(scale: 0)
         whole.expectedMarket = expectedMarket.rounded(scale: 0)
         whole.start = whole.actualStart - whole.expectedStart
-        whole.saving = whole.newMoney - whole.plannedSaving
+        whole.saving = whole.saved - whole.plannedSaving
         whole.markets = whole.market - whole.expectedMarket
         let left = end.rounded(scale: 0) - whole.start - whole.saving - whole.markets
         if inflation != nil {

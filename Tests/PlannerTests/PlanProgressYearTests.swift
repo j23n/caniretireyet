@@ -43,7 +43,7 @@ struct PlanProgressYearTests {
         #expect(thisYear.plannedSaving == planned)
         let valuator = Valuator(library: library)
         let sources = valuator.moneySources(.months, through: latest)
-        #expect(thisYear.putIn == sources.years.first { $0.year == 2026 }?.putIn)
+        #expect(thisYear.saved == sources.years.first { $0.year == 2026 }?.saved)
         // 2025 has no automatic baseline of its own, and no past baseline before it.
         let lastYear = try #require(years.first)
         #expect(!lastYear.isLatest)
@@ -51,7 +51,7 @@ struct PlanProgressYearTests {
         #expect(lastYear.baseline == nil)
         #expect(lastYear.plannedSaving == nil)
         #expect(lastYear.plannedSpending == nil)
-        #expect(lastYear.saved == nil)
+        #expect(lastYear.savedGrade == nil)
         #expect(lastYear.spent == nil)
     }
 
@@ -81,7 +81,7 @@ struct PlanProgressYearTests {
 
     // MARK: A baseline that starts in the middle of the year
 
-    @Test func putInCountsFromABaselineThatStartsInTheYear() throws {
+    @Test func savedCountsFromABaselineThatStartsInTheYear() throws {
         var library = self.library
         library.projections["base"]?.baselines["2026-01-05"]?.start.date = "2026-03-31"
         let valuator = Valuator(library: library)
@@ -91,10 +91,10 @@ struct PlanProgressYearTests {
         // in the year's money.
         let planned = try #require(index.convert(Decimal(18_000) * 183 / 275, from: "2026-03-31", to: latest))
         #expect(thisYear.plannedSaving == planned)
-        #expect(thisYear.putIn == PlanProgressYear.putIn(after: "2026-03-31", through: latest, valuator: valuator))
+        #expect(thisYear.saved == PlanProgressYear.saved(after: "2026-03-31", through: latest, valuator: valuator))
         // Less than the whole year's: the first quarter's saving isn't counted.
         let wholeYear = try #require(valuator.moneySources(.months, through: latest).years.first { $0.year == 2026 })
-        #expect(thisYear.putIn < wholeYear.putIn)
+        #expect(thisYear.saved < wholeYear.saved)
     }
 
     // MARK: Planned saving and spending in the year's money
@@ -116,11 +116,11 @@ struct PlanProgressYearTests {
 
     // MARK: Graded within 5%
 
-    /// The latest year with `putIn`, `plannedSaving`, `spent` and `plannedSpending` in place of its own.
-    private func graded(putIn: Decimal = 0, plannedSaving: Decimal? = nil, spent: Decimal? = nil,
+    /// The latest year with `saved`, `plannedSaving`, `spent` and `plannedSpending` in place of its own.
+    private func graded(saved: Decimal = 0, plannedSaving: Decimal? = nil, spent: Decimal? = nil,
                         plannedSpending: Decimal? = nil) throws -> PlanProgressYear {
         var year = try #require(years().last)
-        year.putIn = putIn
+        year.saved = saved
         year.plannedSaving = plannedSaving
         year.spentPerYear = spent
         year.plannedSpending = plannedSpending
@@ -136,13 +136,13 @@ struct PlanProgressYearTests {
         #expect(PlanComparison(5_000, planned: 0) == nil)
     }
 
-    @Test func savedIsPutInAgainstPlannedSaving() throws {
-        #expect(try graded(putIn: 20_486, plannedSaving: 13_463).saved == .more)
-        #expect(try graded(putIn: 13_000, plannedSaving: 13_463).saved == .asPlanned)
-        #expect(try graded(putIn: 4_000, plannedSaving: 13_463).saved == .less)
+    @Test func savedIsGradedAgainstPlannedSaving() throws {
+        #expect(try graded(saved: 20_486, plannedSaving: 13_463).savedGrade == .more)
+        #expect(try graded(saved: 13_000, plannedSaving: 13_463).savedGrade == .asPlanned)
+        #expect(try graded(saved: 4_000, plannedSaving: 13_463).savedGrade == .less)
         // No saving planned: not graded.
-        #expect(try graded(putIn: 5_000, plannedSaving: -2_000).saved == nil)
-        #expect(try graded(putIn: 5_000).saved == nil)
+        #expect(try graded(saved: 5_000, plannedSaving: -2_000).savedGrade == nil)
+        #expect(try graded(saved: 5_000).savedGrade == nil)
     }
 
     @Test func spentIsWhatWasSpentAgainstSpendingWhileWorking() throws {

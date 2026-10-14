@@ -24,17 +24,16 @@ public enum PeriodGrain: String, Hashable, Sendable, CaseIterable {
 }
 
 /// Plan assets on one day, split into where the money came from (PROGRESS.md,
-/// "Trends"): `startedWith + putIn + markets == total`, exactly.
+/// "Trends"): `startedWith + saved + markets == total`, exactly.
 public struct MoneySourcesPoint: Hashable, Sendable {
     public let date: CalendarDate
     /// Plan assets on the day, in the base currency.
     public let total: Decimal
-    /// What each account held when its records start: its first value,
-    /// less what offsetting flows kept as new money.
+    /// What each account held when its records start, as far as nothing
+    /// tracked before paid for it (``SavedStretch/startedWith``).
     public let startedWith: Decimal
-    /// Every check-in's flows up to the day, less the part of each first
-    /// value's flow that counts as started with.
-    public let putIn: Decimal
+    /// What was saved up to the day (``SavedStretch``).
+    public let saved: Decimal
     /// The rest: price and FX movement, interest, reinvested income, and
     /// what nothing explains.
     public let markets: Decimal
@@ -43,18 +42,18 @@ public struct MoneySourcesPoint: Hashable, Sendable {
     /// (``NetWorth/isPriced``).
     public let isPriced: Bool
 
-    public init(date: CalendarDate, total: Decimal, startedWith: Decimal, putIn: Decimal, isPriced: Bool = true) {
+    public init(date: CalendarDate, total: Decimal, startedWith: Decimal, saved: Decimal, isPriced: Bool = true) {
         self.date = date
         self.total = total
         self.startedWith = startedWith
-        self.putIn = putIn
-        markets = total - startedWith - putIn
+        self.saved = saved
+        markets = total - startedWith - saved
         self.isPriced = isPriced
     }
 }
 
 /// Trends' *Where your money came from*: plan assets at each month end or
-/// year end, split into started with, put in and markets.
+/// year end, split into started with, saved and markets.
 public struct MoneySources: Hashable, Sendable {
     /// The base currency.
     public let currency: CurrencyCode
@@ -69,30 +68,30 @@ public struct MoneySources: Hashable, Sendable {
     /// What one calendar year added to each part.
     public struct Year: Hashable, Sendable {
         public let year: Int
-        public let putIn: Decimal
+        public let saved: Decimal
         public let markets: Decimal
         /// Whether the year is still going: its last point isn't 31 December.
         public let isSoFar: Bool
     }
 
-    /// What each calendar year with a point added to put in and markets,
+    /// What each calendar year with a point added to saved and markets,
     /// from the point at the end of the year before (zero before the
     /// first), oldest first. Both grains have a point on every 31 December.
     public var years: [Year] {
         var years: [Year] = []
         var previous: MoneySourcesPoint?
         for point in points where point.date.isEndOfYear || point == points.last {
-            years.append(Year(year: point.date.year, putIn: point.putIn - (previous?.putIn ?? 0),
+            years.append(Year(year: point.date.year, saved: point.saved - (previous?.saved ?? 0),
                               markets: point.markets - (previous?.markets ?? 0), isSoFar: !point.date.isEndOfYear))
             previous = point
         }
         return years
     }
 
-    /// The first calendar year in which markets added more than you put in,
+    /// The first calendar year in which markets added more than you saved,
     /// and added something; `nil` when there's none.
     public var firstYearMarketsAddedMore: Int? {
-        years.first { $0.markets > 0 && $0.markets > $0.putIn }?.year
+        years.first { $0.markets > 0 && $0.markets > $0.saved }?.year
     }
 }
 
@@ -103,65 +102,37 @@ extension CalendarDate {
 
 extension Valuator {
     /// Plan assets from the first record of one through `end`, at each
-    /// period end of `grain`, split into started with, put in and markets
+    /// period end of `grain`, split into started with, saved and markets
     /// (PROGRESS.md, "Trends"), in the base currency, in money of the time.
     ///
     /// The days between are cut at every check-in and period end, and each
-    /// stretch is split as ``change(from:to:in:)`` splits it. An account's
-    /// first value is the value at the end of the stretch its first record
-    /// falls in. Its recorded flow (a check-in fills in the whole amount)
-    /// stays put in only as far as negative new money, in the same stretch,
-    /// of accounts with a record before it offsets it, shared over the
-    /// stretch's first values in proportion to their positive flows; the
-    /// rest of the first value is started with. A first value without a
-    /// flow is all started with. Every other account's new money is put in,
-    /// and markets is the rest, so the parts add up to the total.
+    /// stretch's saved amounts add up to saved and its started with
+    /// (``SavedStretch``) is started with; markets is the rest, so the
+    /// parts add up to the total.
     public func moneySources(_ grain: PeriodGrain, through end: CalendarDate) -> MoneySources {
         let scope = NetWorthScope.planAssets
         guard let first = firstValuationDate(in: scope), first <= end else {
             return MoneySources(currency: baseCurrency, points: [])
         }
         let outputs = grain.periodEnds(from: first, through: end)
-        let cuts = Set(outputs + checkInDates(in: scope, through: end).filter { $0 >= first }).sorted()
-        var firstRecords: [AccountID: CalendarDate] = [:]
-        for account in accounts.values where scope.includes(account) {
-            firstRecords[account.id] = firstRecordDate(of: account.id)
-        }
+        let cuts = savedCuts(after: first.adding(days: -1), through: end, in: scope, adding: outputs)
 
         var points: [MoneySourcesPoint] = []
         var startedWith: Decimal = 0
-        var putIn: Decimal = 0
+        var saved: Decimal = 0
         var isPriced = true
-        var from = first.adding(days: -1)
         var nextOutput = outputs.startIndex
-        for to in cuts {
-            let report = change(from: from, to: to, in: scope)
-            var offset: Decimal = 0
-            var firstValues: [(value: Decimal, flow: Decimal)] = []
-            for account in report.accounts {
-                if let record = firstRecords[account.account], record > from, record <= to {
-                    firstValues.append((value: account.change.end, flow: max(account.flow ?? 0, 0)))
-                } else {
-                    putIn += account.change.newMoney
-                    offset += max(-account.change.newMoney, 0)
-                }
-            }
-            let flows = firstValues.reduce(Decimal(0)) { $0 + $1.flow }
-            let share: Decimal = flows == 0 ? 0 : min(offset / flows, 1)
-            for firstValue in firstValues {
-                let kept = firstValue.flow * share
-                putIn += kept
-                startedWith += firstValue.value - kept
-            }
-            isPriced = isPriced && report.isPriced
-            if nextOutput < outputs.endIndex, outputs[nextOutput] == to {
-                let assets = total(on: to, in: scope)
-                points.append(MoneySourcesPoint(date: to, total: assets.total, startedWith: startedWith,
-                                                putIn: putIn, isPriced: isPriced && assets.isPriced))
+        for stretch in savedStretches(between: cuts, in: scope) {
+            saved += stretch.total
+            startedWith += stretch.totalStartedWith
+            isPriced = isPriced && stretch.report.isPriced
+            if nextOutput < outputs.endIndex, outputs[nextOutput] == stretch.to {
+                let assets = total(on: stretch.to, in: scope)
+                points.append(MoneySourcesPoint(date: stretch.to, total: assets.total, startedWith: startedWith,
+                                                saved: saved, isPriced: isPriced && assets.isPriced))
                 nextOutput += 1
                 isPriced = true
             }
-            from = to
         }
         return MoneySources(currency: baseCurrency, points: points)
     }

@@ -263,9 +263,9 @@ public struct PlanYearChart: Identifiable, Sendable {
         var events: [PlanYearEvent] = []
         for (index, step) in changes.enumerated() where step.to.year == year.year && step.to <= year.to {
             let change = step.change
-            let usual = median(changes[max(0, index - 12)..<index].map(\.change.newMoney))
-            if let usual, usual > 0, change.newMoney >= 2 * usual, change.newMoney >= change.start / 100 {
-                events.append(PlanYearEvent(date: step.to, kind: .savedMore(change.newMoney)))
+            let usual = median(changes[max(0, index - 12)..<index].map(\.change.saved))
+            if let usual, usual > 0, change.saved >= 2 * usual, change.saved >= change.start / 100 {
+                events.append(PlanYearEvent(date: step.to, kind: .savedMore(change.saved)))
             }
             if change.start > 0, abs(change.market) >= change.start / 20 {
                 events.append(PlanYearEvent(date: step.to,

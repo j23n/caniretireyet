@@ -5,7 +5,7 @@ import Tracker
 
 /// The change from one total to the next (UI.md, "Since last check-in"):
 /// a headline, "▲ +5.730 € since 31 Aug", the totals before and after in
-/// words, and one bar per part of the change (markets, new money, other)
+/// words, and one bar per part of the change (markets, saved, other)
 /// from a shared zero line, all to the same scale (``ChangeBars``).
 ///
 /// It used to be a waterfall, whose bars from zero made the totals huge
@@ -19,7 +19,7 @@ import Tracker
 ///
 ///     WaterfallChart(change: report.total, from: "31 Aug", to: "30 Sep")
 struct WaterfallChart: View {
-    /// Tracker's split of the change: markets, new money and other.
+    /// Tracker's split of the change: markets, saved and other.
     var change: ValueChange
     /// The dates of the totals before and after: "31 Aug", "30 Sep".
     var from: String
@@ -171,7 +171,7 @@ private struct ChangeBarTrack: View {
                 WaterfallChart(change: change, from: "31 Aug", to: "30 Sep")
             }
             Card("A loss, made up") {
-                WaterfallChart(change: ValueChange(start: 312_480, market: -8_950, newMoney: 1_500, other: -240,
+                WaterfallChart(change: ValueChange(start: 312_480, market: -8_950, saved: 1_500, other: -240,
                                                    end: 304_790),
                                from: "31 Aug", to: "30 Sep")
             }

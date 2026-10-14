@@ -144,7 +144,7 @@ The Valuator values a trades account on date *d* as Σ quantity × price(*d*) + 
 
 ## Flows
 
-A trades account's flows (the money in and out, which [PROGRESS.md](PROGRESS.md) counts as new money) come from its trades and cash (`Valuator.tradeFlows(of:after:through:)`, `TradeFlow`):
+A trades account's flows (the money in and out, which [PROGRESS.md](PROGRESS.md) counts as saved) come from its trades and cash (`Valuator.tradeFlows(of:after:through:)`, `TradeFlow`):
 
 - recorded **deposits** − **withdrawals**;
 - \+ securities **transferred in** − **transferred out**, and **openings**, at their market value on the transfer date (not their cost);
@@ -153,7 +153,7 @@ A trades account's flows (the money in and out, which [PROGRESS.md](PROGRESS.md)
 
 Dividends, interest, fees, taxes, buys and sells paid from or into the account's cash are not flows: they're the account's return, or move money within it.
 
-- The **default flow** of a trades account's valuation (`Valuator.defaultFlow(for:previous:)`) is this, since the previous valuation, or, for an account with none yet, since the library's previous check-in (so its first value doesn't count every purchase since its first trade as new money). A trades account's valuation stores no `flow`: it's always worked out from the trades.
+- The **default flow** of a trades account's valuation (`Valuator.defaultFlow(for:previous:)`) is this, since the previous valuation, or, for an account with none yet, since the library's previous check-in (so its first value doesn't count every purchase since its first trade as saved). A trades account's valuation stores no `flow`: it's always worked out from the trades.
 - The **change split** uses the flows themselves: a deposit counts at its own date, and a trade after the latest check-in counts too.
 
 ## Reconciliation

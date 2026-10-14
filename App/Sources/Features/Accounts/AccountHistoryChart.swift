@@ -17,7 +17,7 @@ import Tracker
 ///   own below it, pointing up for money added and down for money taken
 ///   out, so they never stretch the scale; their amounts are in the callout.
 /// - Time ticks fit the chart's width (``TimeTicks``).
-/// - Drag across it to read a month: the value and the new money recorded
+/// - Drag across it to read a month: the value and what was saved
 ///   since the point before. The callout stays inside the chart.
 struct AccountHistoryChart: View {
     /// In ``currency``; incomplete points are left out as gaps.
@@ -154,7 +154,7 @@ struct AccountHistoryChart: View {
         selectedPoint.flatMap { $0.isComplete ? $0 : nil }
     }
 
-    /// The new money recorded after the point before `point`, up to `point`.
+    /// What was saved after the point before `point`, up to `point`.
     private func flow(upTo point: ChartPoint) -> Decimal? {
         let before = points.last(where: { $0.date < point.date })?.date ?? .distantPast
         let amounts = flows.filter { $0.date.dateValue > before && $0.date.dateValue <= point.date }.map(\.amount)
@@ -176,7 +176,7 @@ struct AccountHistoryChart: View {
             }
             if let flow = flow(upTo: point) {
                 HStack(spacing: 4) {
-                    Text("New money")
+                    Text("Saved")
                         .foregroundStyle(Palette.secondaryInk)
                     DeltaText(flow, currency: currency, precision: .automatic, showsArrow: false)
                 }
@@ -203,7 +203,7 @@ struct AccountHistoryChart: View {
         }
         let ticks = shownFlows
         if !ticks.isEmpty {
-            text += " New money was recorded on \(ticks.count) \(ticks.count == 1 ? "date" : "dates")"
+            text += " Saved on \(ticks.count) \(ticks.count == 1 ? "date" : "dates")"
             if !hidesAmounts {
                 let total = ticks.reduce(Decimal(0)) { $0 + $1.amount }
                 text += ", \(AmountFormat.signedAmount(total, currency: currency)) in all"

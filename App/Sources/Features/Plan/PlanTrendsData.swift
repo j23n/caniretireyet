@@ -25,11 +25,11 @@ extension PlanTrends {
 }
 
 extension PlanMoneySources {
-    /// "You put in 164.000 € and markets added 98.000 €. In 2025 they added
+    /// "You saved 164.000 € and markets added 98.000 €. In 2025 they added
     /// more than you did, for the first time."
     func words(locale: Locale) -> AmountSentence {
         var sentence = PlanWords(currency: currency, locale: locale)
-            .savedAndMarkets(saved: putIn, markets: markets, verb: "put in").capitalizedFirst
+            .savedAndMarkets(saved: saved, markets: markets).capitalizedFirst
         if let year = firstYearMarketsAddedMore {
             sentence += " In \(String(year)) they added more than you did, for the first time."
         }

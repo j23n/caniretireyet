@@ -42,7 +42,7 @@ public struct MoneyInOutPeriod: Hashable, Sendable {
     /// (``SavingsRate/income``).
     public var cameIn: Decimal { savings?.income ?? 0 }
 
-    /// What was saved: every account's new money (``SavingsRate/saved``).
+    /// What was saved: what every account saved (``SavingsRate/saved``).
     public var saved: Decimal { savings?.saved ?? 0 }
 
     /// What was spent: what came in less what was saved

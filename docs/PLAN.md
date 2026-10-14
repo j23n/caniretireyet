@@ -43,7 +43,7 @@ All data lives in a folder of plain JSON files in iCloud Drive. The apps on your
 - Overview:
   - net worth over time;
   - breakdowns by category, asset class, currency and institution;
-  - the change since the last check-in, split into market movement and new money;
+  - the change since the last check-in, split into market movement and saved;
   - accounts that haven't been updated recently.
 - Import from any spreadsheet or CSV export: you map the columns, the importer handles the file's date and number formats, and the mapping can be saved and reused ([IMPORT.md](IMPORT.md)).
 - Money in and out of each account (the *flow*), recorded from the imported files with sensible defaults. Savings and returns can then be measured later ([PROGRESS.md](PROGRESS.md)).
@@ -172,7 +172,7 @@ The iPhone uses a tab bar and the Mac uses a sidebar. The iPad gets the sidebar 
   - the main plan's answer to *Can I retire yet?*, first when there is one: the time to go as a headline, with a ring for how close you are to retiring today;
   - net worth today, in a tile under the answer when there is one;
   - a chart over time, stacked by category;
-  - the change since the last check-in, split into market and new money;
+  - the change since the last check-in, split into market and saved;
   - the change this year, split the same way, with the savings rate when money in and out are recorded;
   - breakdowns;
   - accounts that haven't been updated recently;
@@ -188,7 +188,7 @@ The iPhone uses a tab bar and the Mac uses a sidebar. The iPad gets the sidebar 
 - **Plan.** Three parts:
   - *Plan*: the answer, then your life as a strip of chapters (working, retired before the pensions, with them), each with the money running through it and where it stands at its end, and the chosen chapter in words, with its settings, where the plan changes; the charts behind the answer fold away;
   - *Progress*: whether you're on track, then year by year your money against what January expected and how the answer moved, and your actual numbers against baselines.
-  - *Trends*: how you've actually been doing over the whole history, from your own records: the savings rate, money in and out, what you put in against what markets added, how the earliest age moved, and each year graded in words against what its baseline planned.
+  - *Trends*: how you've actually been doing over the whole history, from your own records: the savings rate, money in and out, what you saved against what markets added, how the earliest age moved, and each year graded in words against what its baseline planned.
 
   What-ifs are a sheet on iPhone and the inspector on the Mac. Plans can be duplicated as what-if scenarios. The screens are designed in [UI.md](UI.md).
 - **Settings.** Library location, price sources, a monthly reminder, app lock, and a description of the file format.
@@ -275,7 +275,7 @@ The importer works with any spreadsheet or export instead of a fixed layout. Det
 
 - Accounts and instruments: create, edit, close and reopen.
 - The check-in flow: the month's files imported, prices and FX rates fetched.
-- The Overview: net-worth history, breakdowns, and the change since the last check-in split into market and new money. Plus the account detail screen.
+- The Overview: net-worth history, breakdowns, and the change since the last check-in split into market and saved. Plus the account detail screen.
 - Flows recorded with each value, with defaults per kind of account.
 - Live sync: a check-in on the iPhone appears on the Mac, and edits made directly to files are picked up.
 - The importer: the engine, the mapping and preview flow in the app, saved profiles, and `retire import`.

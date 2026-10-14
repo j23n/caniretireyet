@@ -50,7 +50,7 @@ extension PlanProgressYear {
         let markets = "markets \(marketYear?.word ?? "not measured")"
         let title = isSoFar ? "\(year) so far" : "\(year)"
         guard baseline != nil else { return "\(title): \(Self.noPlan.lowercased()), \(markets)." }
-        let saved = self.saved.map { "you saved \($0.words)" } ?? "you saved: not graded"
+        let saved = self.savedGrade.map { "you saved \($0.words)" } ?? "you saved: not graded"
         let spent = self.spent.map { "you spent \($0.words)" } ?? "you spent: not graded"
         return "\(title): \(saved), \(spent), \(markets)."
     }

@@ -65,10 +65,10 @@ extension LibraryUpgrade {
     static let example = LibraryUpgrade(
         fromVersion: 4, toVersion: 5,
         steps: [
-            "New money is stored only where it was typed: other values work it out from what's recorded. "
+            "What you saved is stored only on accounts that ask for it: other values work it out from what's recorded. "
                 + "Crypto is priced from Yahoo Finance, not CoinGecko.",
         ],
-        notes: ["Old bank: the new money of 2 values wasn't the change in balance; it's now worked out from the "
+        notes: ["Old bank: what 2 values saved wasn't the change in balance; it's now worked out from the "
             + "balances."],
         backupPath: "backups/2026-10-11-v4")
 }

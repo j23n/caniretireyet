@@ -105,11 +105,12 @@ public struct ImportedRecord: Hashable, Sendable {
     public var oneOff: Decimal?
     public var tax: Decimal?
     public var interest: Decimal?
-    /// The new money of a statement's purchase or sale, for an account that
-    /// asks for one (``Model/Account/asksForFlow``). Applying drops it when
-    /// the account doesn't (a proposed account's kind edited since).
-    /// It's never a conflict of its own: it changes with the balance, or
-    /// fills in a missing one.
+    /// What was saved into the account since its value before: a
+    /// spreadsheet's saved column, or a statement's purchase or sale. Kept
+    /// only for an account that asks for one (``Model/Account/asksForFlow``):
+    /// applying drops it when the account doesn't (a proposed account's kind
+    /// edited since). It's never a conflict of its own: it changes with the
+    /// balance, or fills in a missing one.
     public var flow: Decimal?
     /// Whether money in and out (and interest) were counted from a bank
     /// statement's classified lines: they replace the library's when the
