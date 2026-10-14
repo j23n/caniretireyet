@@ -160,6 +160,7 @@ extension PreviewBuilder {
         let history = library.valuations(for: account.id).filter { date in firstDate.map { date.date < $0 } ?? false }
             .suffix(12).compactMap(\.moneyOut)
         Self.markPurchaseQuestions(&lines, history: history)
+        Self.markPassThroughs(&lines)
         return lines
     }
 
@@ -244,6 +245,33 @@ extension PreviewBuilder {
             guard !totals.isEmpty else { continue }
             totals.sort()
             if -lines[index].amount > totals[totals.count / 2] { lines[index].needsAnswer = true }
+        }
+    }
+
+    /// Money in and money out of the same amount within ``transferDays``,
+    /// both classified by their sign and at least one needing an answer,
+    /// passed through the account, such as savings moved to a broker by way
+    /// of the current account: both are transfers and need no answer. The
+    /// pairs nearest in date are taken first, each line once.
+    private static func markPassThroughs(_ lines: inout [StatementLine]) {
+        let open = lines.indices.filter { lines[$0].source == .sign && lines[$0].amount != 0 }
+        var pairs: [(in: Int, out: Int, days: Int)] = []
+        for incoming in open where lines[incoming].amount > 0 {
+            for out in open where lines[out].amount == -lines[incoming].amount
+                && (lines[incoming].needsAnswer || lines[out].needsAnswer) {
+                let days = abs(lines[incoming].date.days(to: lines[out].date))
+                if days <= transferDays { pairs.append((incoming, out, days)) }
+            }
+        }
+        var used = Set<Int>()
+        for pair in pairs.sorted(by: { ($0.days, $0.in, $0.out) < ($1.days, $1.in, $1.out) })
+        where !used.contains(pair.in) && !used.contains(pair.out) {
+            used.formUnion([pair.in, pair.out])
+            for (index, other) in [(pair.in, pair.out), (pair.out, pair.in)] {
+                lines[index].statementClass = .transfer
+                lines[index].source = .passThrough(row: lines[other].row)
+                lines[index].needsAnswer = false
+            }
         }
     }
 

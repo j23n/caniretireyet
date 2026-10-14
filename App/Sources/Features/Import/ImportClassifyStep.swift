@@ -62,9 +62,10 @@ struct ImportClassifyStep: View {
                 } footer: {
                     Text("More than a month's spending, or more than a regular payer's usual amount, came in or "
                         + "went out, and nothing says what it is. A one-off, such as an inheritance or the sale of "
-                        + "something you didn't track, is neither income nor spending. A purchase you keep, such as "
-                        + "a car or a home, starts an account worth what you paid, and a sale closes one. Until "
-                        + "it's answered, money in counts as paid back and money out as spending.")
+                        + "something you didn't track, is neither income nor spending, and so is a transfer between "
+                        + "your accounts. A purchase you keep, such as a car or a home, starts an account worth what "
+                        + "you paid, and a sale closes one. Until it's answered, money in counts as paid back and "
+                        + "money out as spending.")
                 }
             }
 
@@ -80,6 +81,20 @@ struct ImportClassifyStep: View {
                     Text("Importing starts an account for each purchase, worth what you paid, and closes each "
                         + "account sold. Both are money moved between your accounts, so they're neither spent "
                         + "nor came in.")
+                }
+            }
+
+            let transfers = flow.statementTransferLines
+            if !transfers.isEmpty {
+                Section {
+                    ForEach(transfers) { line in
+                        ImportStatementTransferRow(model: model, line: line, currency: currency)
+                    }
+                } header: {
+                    Text("Moved between your accounts")
+                } footer: {
+                    Text("Answered as a transfer, or the same amount came in and went out again within a few days: "
+                        + "money passing through. Neither came in nor was spent.")
                 }
             }
 
@@ -305,10 +320,11 @@ private struct ImportStatementSumsSection: View {
     }
 }
 
-/// A line that needs an answer: who sent or was paid it, when, how much,
-/// and the answers for this line. Money in: income, one-off or paid back,
-/// and *A Sale…* when an account could have been sold. Money out:
-/// spending, or *A Purchase You'll Keep…*.
+/// A line that needs an answer: who sent or was paid it, its description,
+/// when, how much, and the answers for this line. Money in: income,
+/// one-off, paid back or a transfer, and *A Sale…* when an account could
+/// have been sold. Money out: spending, a transfer, or *A Purchase You'll
+/// Keep…*.
 private struct ImportStatementQuestionRow: View {
     let model: ImportController
     let line: StatementLine
@@ -316,7 +332,7 @@ private struct ImportStatementQuestionRow: View {
     let askPurchase: () -> Void
     let askSale: () -> Void
 
-    private static let answers: [StatementClass] = [.income, .oneOff, .paidBack]
+    private static let answers: [StatementClass] = [.income, .oneOff, .paidBack, .transfer]
 
     var body: some View {
         VStack(alignment: .leading, spacing: Metrics.s) {
@@ -325,6 +341,13 @@ private struct ImportStatementQuestionRow: View {
                     Text(verbatim: line.sender.isEmpty ? line.text : line.sender)
                         .lineLimit(2)
                         .privacySensitiveInFeedback()
+                    if !line.sender.isEmpty && line.text != line.sender {
+                        Text(verbatim: line.text)
+                            .font(.caption)
+                            .foregroundStyle(Palette.secondaryInk)
+                            .lineLimit(3)
+                            .privacySensitiveInFeedback()
+                    }
                     Text(AmountFormat.mediumDate(line.date))
                         .font(.caption)
                         .foregroundStyle(Palette.secondaryInk)
@@ -348,13 +371,68 @@ private struct ImportStatementQuestionRow: View {
                         .buttonStyle(.bordered)
                 }
             } else {
-                HStack(spacing: Metrics.m) {
-                    Button(ImportFlow.statementClassName(.spending)) {
-                        model.flow.setStatementClass(.spending, forRow: line.row)
-                    }
-                    Button("A Purchase You'll Keep…", action: askPurchase)
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: Metrics.m) { moneyOutAnswers }
+                    VStack(alignment: .leading, spacing: Metrics.s) { moneyOutAnswers }
                 }
                 .buttonStyle(.bordered)
+            }
+        }
+    }
+
+    /// Money out's answers, in a row where they fit, else one under another.
+    @ViewBuilder private var moneyOutAnswers: some View {
+        Button(ImportFlow.statementClassName(.spending)) {
+            model.flow.setStatementClass(.spending, forRow: line.row)
+        }
+        Button(ImportFlow.statementClassName(.transfer)) {
+            model.flow.setStatementClass(.transfer, forRow: line.row)
+        }
+        Button("A Purchase You'll Keep…", action: askPurchase)
+    }
+}
+
+/// A large line that's money moved between your accounts: who sent or
+/// was paid it, its description, when, the amount, and a way back. A
+/// transfer chosen for the line has *Undo*, which asks again; money that
+/// passed through has *Not a Transfer*, which counts it by its sign.
+private struct ImportStatementTransferRow: View {
+    let model: ImportController
+    let line: StatementLine
+    let currency: CurrencyCode?
+
+    var body: some View {
+        LabeledContent {
+            HStack(spacing: Metrics.m) {
+                AmountText(line.amount, currency: currency, precision: .cents, signed: true)
+                if case .passThrough = line.source {
+                    Button("Not a Transfer") {
+                        model.flow.setStatementClass(line.amount > 0 ? .paidBack : .spending, forRow: line.row)
+                    }
+                } else {
+                    Button("Undo") {
+                        model.flow.setStatementClass(nil, forRow: line.row)
+                    }
+                }
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+        } label: {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(verbatim: line.sender.isEmpty ? line.text : line.sender)
+                    .lineLimit(1)
+                    .privacySensitiveInFeedback()
+                if !line.sender.isEmpty && line.text != line.sender {
+                    Text(verbatim: line.text)
+                        .font(.caption)
+                        .foregroundStyle(Palette.secondaryInk)
+                        .lineLimit(2)
+                        .privacySensitiveInFeedback()
+                }
+                Text(AmountFormat.mediumDate(line.date))
+                    .font(.caption)
+                    .foregroundStyle(Palette.secondaryInk)
+                    .privacySensitiveInFeedback()
             }
         }
     }

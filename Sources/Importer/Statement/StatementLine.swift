@@ -30,6 +30,10 @@ public struct StatementLine: Hashable, Sendable, Identifiable {
         /// Money in from a sender who pays similar amounts in at least 3 of
         /// the file's months: income, those amounts and smaller ones.
         case recurring
+        /// Money in and out of the same amount within a few days, at least
+        /// one of them large enough to need an answer: money that passed
+        /// through the account. Both are transfers; `row` is the other line's.
+        case passThrough(row: Int)
         /// Nothing else said: money in is paid back, money out spending.
         case sign
     }
