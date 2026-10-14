@@ -163,8 +163,6 @@ struct AccountDetailData: Hashable, Sendable {
     /// statement, newest first (``AccountStatementRow``). Its other values
     /// only follow the trades, so they aren't listed.
     var statements: [AccountStatementRow] = []
-    /// The date of the account's first value, if it has one.
-    var firstValueDate: CalendarDate?
     /// Set when the latest value is too old, unless the account is empty
     /// (``AccountStaleness``).
     var stale: StaleAccount?
@@ -205,18 +203,6 @@ struct AccountDetailData: Hashable, Sendable {
         return "Moved is the part of the change that money in and out"
             + (valuationsShowInterest ? " and interest" : "") + " don't explain: money moved between your own "
             + "accounts."
-    }
-
-    /// The date *Add Past Value…* starts on: the last day of the month
-    /// before the account's first value (or before ``date`` without one),
-    /// so the history fills in a month at a time.
-    var pastValueDate: CalendarDate {
-        Self.pastValueDate(firstValue: firstValueDate, date: date)
-    }
-
-    /// The month end before `firstValue` (or before `date` without one).
-    static func pastValueDate(firstValue: CalendarDate?, date: CalendarDate) -> CalendarDate {
-        (firstValue ?? date).startOfMonth.adding(days: -1)
     }
 
     init(account: Account, library: Library, valuator: Valuator, today: CalendarDate, stalenessThreshold: Int) {
@@ -290,7 +276,6 @@ struct AccountDetailData: Hashable, Sendable {
                     moved: recordsMoneyInOut ? valuation.moved : nil)
             }
         }
-        firstValueDate = all.first?.date
         tradeIssues = TradeIssueNote.notes(for: account.id, library: library, valuator: valuator)
         stale = account.isClosed
             ? nil : AccountStaleness.stale(account.id, valuator: valuator, on: today, threshold: stalenessThreshold)

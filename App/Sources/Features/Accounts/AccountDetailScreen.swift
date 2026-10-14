@@ -3,9 +3,9 @@ import SwiftUI
 import Tracker
 
 /// One account (UI.md, "Account detail"): its value and change, a history
-/// chart with new-money ticks, the editable list of valuations with *Add
-/// Past Value…* to fill in history, the details, and closing, reopening and
-/// deleting. On the Mac the valuations are a table.
+/// chart with new-money ticks, the list of valuations, read-only (they come
+/// from imports; a wrong one can be deleted), the details, and closing,
+/// reopening and deleting. On the Mac the valuations are a table.
 ///
 /// An account that records trades shows, instead of its values, its
 /// holdings with average cost and share, its trades by month (a table on
@@ -22,7 +22,6 @@ struct AccountDetailScreen: View {
     @Environment(\.locale) private var locale
 
     @State private var action: AccountAction?
-    @State private var editing: AccountValuationTarget?
     @State private var confirmsDelete = false
     @State private var deletingValuation: ValuationKey?
     @State private var confirmsValuationDelete = false
@@ -41,12 +40,13 @@ struct AccountDetailScreen: View {
     // The words the iPhone and Mac layouts share.
     private static let incomeNote =
         "Realised gains use the average cost. Dividends and interest are before tax withheld."
-    private static let noValues = "No values yet. Update the value, or record one in a check-in."
+    private static let noValues = "No values yet. Import a file for this account: a bank statement, a "
+        + "broker's export, or a spreadsheet you keep for it."
     private static let noTrades =
         "No trades yet. Add the account's buys, sells and dividends, or its opening positions."
     private static let statementsNote = "Values that record a broker statement, as a check on the trades. A cash "
         + "that differs from the trades counts as money added or taken out, and positions that differ are pointed "
-        + "out above. Update Cash… records another."
+        + "out above."
 
     var body: some View {
         if let account = library.account(accountID) {
@@ -70,14 +70,6 @@ struct AccountDetailScreen: View {
                     Text(verbatim: TradeEditNotes.removal(of: key, in: library.library, locale: locale))
                 }
                 .pastPricesSheet(isPresented: $fillsPastPrices)
-                .sheet(item: $editing) { target in
-                    NavigationStack {
-                        AccountValuationEditor(key: target.key)
-                    }
-                    #if os(macOS)
-                    .frame(minWidth: 440, idealWidth: 500, minHeight: 420, idealHeight: 540)
-                    #endif
-                }
                 .confirmationDialog("Delete \(account.name)?", isPresented: $confirmsDelete,
                                     titleVisibility: .visible) {
                     Button("Delete Account and Its History", role: .destructive) { delete(account) }
@@ -169,11 +161,31 @@ struct AccountDetailScreen: View {
                 if !data.statements.isEmpty {
                     Section {
                         ForEach(data.statements) { row in
-                            Button {
-                                editing = AccountValuationTarget(key: row.id)
-                            } label: {
-                                AccountStatementListRow(row: row, currency: currency)
-                            }
+                            AccountStatementListRow(row: row, currency: currency)
+                                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                    Button {
+                                        deletingValuation = row.id
+                                        confirmsValuationDelete = true
+                                    } label: {
+                                        Label("Delete", systemImage: "trash")
+                                    }
+                                    .tint(Palette.critical)
+                                }
+                        }
+                    } header: {
+                        Text("Statements")
+                    } footer: {
+                        Text(Self.statementsNote + " Swipe one to delete it.")
+                    }
+                }
+            } else {
+                Section {
+                    if data.valuations.isEmpty {
+                        Text(Self.noValues)
+                            .foregroundStyle(Palette.secondaryInk)
+                    }
+                    ForEach(data.valuations) { row in
+                        AccountValuationListRow(row: row, currency: currency)
                             .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                                 Button {
                                     deletingValuation = row.id
@@ -183,46 +195,12 @@ struct AccountDetailScreen: View {
                                 }
                                 .tint(Palette.critical)
                             }
-                        }
-                    } header: {
-                        Text("Statements")
-                    } footer: {
-                        Text(Self.statementsNote + " Tap one to change it.")
-                    }
-                }
-            } else {
-                Section {
-                    if data.valuations.isEmpty {
-                        Text(Self.noValues)
-                            .foregroundStyle(Palette.secondaryInk)
-                    }
-                    Button {
-                        addPastValue(data)
-                    } label: {
-                        Label("Add Past Value…", systemImage: "calendar.badge.plus")
-                    }
-                    .disabled(!library.canEdit)
-                    ForEach(data.valuations) { row in
-                        Button {
-                            editing = AccountValuationTarget(key: row.id)
-                        } label: {
-                            AccountValuationListRow(row: row, currency: currency)
-                        }
-                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                            Button {
-                                deletingValuation = row.id
-                                confirmsValuationDelete = true
-                            } label: {
-                                Label("Delete", systemImage: "trash")
-                            }
-                            .tint(Palette.critical)
-                        }
                     }
                 } header: {
                     Text("Values")
                 } footer: {
                     if !data.valuations.isEmpty {
-                        Text("Tap a value to change it. A value before the opening date moves it back."
+                        Text("Values come from your imports. Swipe a wrong one to delete it."
                             + (data.movedNote.map { " " + $0 } ?? ""))
                     }
                 }
@@ -295,7 +273,6 @@ struct AccountDetailScreen: View {
                         Card {
                             AccountStatementsTable(
                                 rows: data.statements, currency: currency,
-                                edit: { key in editing = AccountValuationTarget(key: key) },
                                 delete: { key in
                                     deletingValuation = key
                                     confirmsValuationDelete = true
@@ -304,11 +281,7 @@ struct AccountDetailScreen: View {
                                 .font(.caption)
                                 .foregroundStyle(Palette.mutedInk)
                         } header: {
-                            SectionHeader("Statements") {
-                                Text("Double-click a statement to edit it")
-                                    .font(.caption)
-                                    .foregroundStyle(Palette.mutedInk)
-                            }
+                            SectionHeader("Statements")
                         }
                     }
                 } else {
@@ -321,7 +294,6 @@ struct AccountDetailScreen: View {
                                 rows: data.valuations, currency: currency,
                                 showsMoneyInOut: data.valuationsShowMoneyInOut,
                                 showsInterest: data.valuationsShowInterest,
-                                edit: { key in editing = AccountValuationTarget(key: key) },
                                 delete: { key in
                                     deletingValuation = key
                                     confirmsValuationDelete = true
@@ -334,15 +306,9 @@ struct AccountDetailScreen: View {
                         }
                     } header: {
                         SectionHeader("Values") {
-                            HStack(spacing: Metrics.m) {
-                                Text("Double-click a value to edit it")
-                                    .font(.caption)
-                                    .foregroundStyle(Palette.mutedInk)
-                                Button("Add Past Value…") { addPastValue(data) }
-                                    .controlSize(.small)
-                                    .disabled(!library.canEdit)
-                                    .help("Adds a value on an earlier date. Before the opening date, it moves it back.")
-                            }
+                            Text("Values come from your imports")
+                                .font(.caption)
+                                .foregroundStyle(Palette.mutedInk)
                         }
                     }
                 }
@@ -494,10 +460,6 @@ struct AccountDetailScreen: View {
             Button("Reopen Account") { reopen() }
                 .disabled(!library.canEdit)
         } else {
-            Button(data.recordsTrades ? "Update Cash…" : "Update Value…") {
-                action = AccountAction(.updateValue, accountID)
-            }
-            .disabled(!library.canEdit)
             Button("Close Account…") { action = AccountAction(.close, accountID) }
                 .disabled(!library.canEdit)
         }
@@ -513,13 +475,6 @@ struct AccountDetailScreen: View {
                     tradeTarget = TradeEditorTarget(account: accountID)
                 } label: {
                     Label("Add Trade", systemImage: "plus")
-                }
-                .disabled(!library.canEdit)
-            } else if !data.account.isClosed {
-                Button {
-                    action = AccountAction(.updateValue, accountID)
-                } label: {
-                    Label("Update Value", systemImage: "square.and.pencil")
                 }
                 .disabled(!library.canEdit)
             }
@@ -561,17 +516,11 @@ struct AccountDetailScreen: View {
         }
     }
 
-    /// Opens *Update Value* on the month end before the first value.
-    private func addPastValue(_ data: AccountDetailData) {
-        action = AccountAction(.updateValue, accountID, date: data.pastValueDate)
-    }
-
     /// Does what a trade issue's banner offers.
     private func perform(_ action: TradeIssueAction) {
         switch action {
         case .editTrade(let key): tradeTarget = .editing(key)
         case .addTrade(let target): tradeTarget = target
-        case .editValuation(let key): editing = AccountValuationTarget(key: key)
         case .editAccount: self.action = AccountAction(.edit, accountID)
         }
     }
@@ -999,11 +948,10 @@ private struct AccountStatementListRow: View {
 #if os(macOS)
 /// A trades account's statements as a table on the Mac: date, cash, the
 /// part of it no trade records, positions and note, as tall as its lines
-/// (`PageTable`). Double-click (or the context menu) edits one.
+/// (`PageTable`). The context menu deletes one.
 private struct AccountStatementsTable: View {
     let rows: [AccountStatementRow]
     let currency: CurrencyCode
-    let edit: (ValuationKey) -> Void
     let delete: (ValuationKey) -> Void
 
     private enum Columns {
@@ -1015,7 +963,7 @@ private struct AccountStatementsTable: View {
     }
 
     var body: some View {
-        PageTable(rows, open: edit) {
+        PageTable(rows, open: { _ in }) {
             Text("Date").pageTableColumn(Columns.date)
             Text("Cash").pageTableColumn(Columns.cash)
             Text("Not in the trades").pageTableColumn(Columns.difference)
@@ -1052,7 +1000,6 @@ private struct AccountStatementsTable: View {
                 .privacySensitiveInFeedback()
                 .pageTableColumn(Columns.note)
         } menu: { row in
-            Button("Edit Statement…") { edit(row.id) }
             Button("Delete Statement…", role: .destructive) { delete(row.id) }
         }
     }
@@ -1064,13 +1011,12 @@ private struct AccountStatementsTable: View {
 /// and for a cash or savings account (`showsMoneyInOut`) money in, money
 /// out, the interest (a savings account's, `showsInterest`) and what moved
 /// between your own accounts. As tall as its lines, so the page scrolls
-/// them (`PageTable`). Double-click (or the context menu) edits one.
+/// them (`PageTable`). The context menu deletes one.
 private struct AccountValuationsTable: View {
     let rows: [AccountValuationRow]
     let currency: CurrencyCode
     let showsMoneyInOut: Bool
     let showsInterest: Bool
-    let edit: (ValuationKey) -> Void
     let delete: (ValuationKey) -> Void
 
     private enum Columns {
@@ -1082,7 +1028,7 @@ private struct AccountValuationsTable: View {
     }
 
     var body: some View {
-        PageTable(rows, open: edit) {
+        PageTable(rows, open: { _ in }) {
             Text("Date").pageTableColumn(Columns.date)
             Text("Value").pageTableColumn(Columns.value)
             Text("New money").pageTableColumn(Columns.flow)
@@ -1122,7 +1068,6 @@ private struct AccountValuationsTable: View {
                 .privacySensitiveInFeedback()
                 .pageTableColumn(Columns.note)
         } menu: { row in
-            Button("Edit Value…") { edit(row.id) }
             Button("Delete Value…", role: .destructive) { delete(row.id) }
         }
     }

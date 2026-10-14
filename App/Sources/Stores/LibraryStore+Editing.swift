@@ -83,15 +83,6 @@ extension LibraryStore {
 
     // MARK: History
 
-    /// Saves one account's value outside a check-in (*Update Value*, the
-    /// valuation editor), in place of the one at `old` when given, and
-    /// waits for the write. A value dated before the account's opening date
-    /// moves it back, and the automatic new money of the value after it is
-    /// worked out again (a typed one is kept): `Library.saveValue(_:replacing:)`.
-    func saveValue(_ valuation: Valuation, replacing old: ValuationKey? = nil) async throws {
-        try await commit { $0.saveValue(valuation, replacing: old) }
-    }
-
     /// Removes one value; the automatic new money of the value after it is
     /// worked out again (`Library.removeValue(_:)`).
     func removeValue(_ key: ValuationKey) throws {

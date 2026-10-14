@@ -28,27 +28,6 @@ struct AccountFormTests {
         #expect(account.valuation == nil)
     }
 
-    @Test func aNewBrokeragesPositionsBecomeOpeningTrades() throws {
-        let account = newAccount(.brokerage).account(id: "new-account", locale: locale)
-        var opening = AccountOpeningForm()
-        opening.cash = "250"
-        opening.addPosition("vwce")
-        opening[position: 0].quantity = "10"
-        opening[position: 0].cost = "1000"
-        #expect(opening.problems(holdsPositions: true, locale: locale).isEmpty)
-
-        let trades = opening.openingTrades(for: account, locale: locale)
-        #expect(trades.count == 1)
-        #expect(trades.first?.type == .opening)
-        #expect(trades.first?.quantity == 10)
-        #expect(trades.first?.cost == 1_000)
-
-        let valuation = try #require(opening.valuation(for: account, in: PreviewLibrary.library, locale: locale))
-        #expect(valuation.cash == 250)
-        #expect(valuation.positions.isEmpty)
-        #expect(valuation.balance == nil)
-    }
-
     /// An edited account keeps its own mode, also one written before
     /// format version 4.
     @Test func anEditedAccountKeepsItsMode() {

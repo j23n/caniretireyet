@@ -8,12 +8,11 @@ import Tracker
 /// 2. Name, institution, currency, country and opening date. The opening
 ///    date is today by default; set to when the account was opened, it
 ///    leaves room to add the account's history.
-/// 3. The positions (choose or create instruments) or the balance on the
-///    opening date, which becomes the first valuation. A brokerage, crypto
-///    or metals account records trades: its positions become opening
-///    trades.
-/// 4. Whether it counts in net worth and plans, and from what age plans can
+/// 3. Whether it counts in net worth and plans, and from what age plans can
 ///    draw on it (a pension fund from 65 by default).
+///
+/// It starts with no values: they come from importing its files (a bank's
+/// statement, a broker's export, or a spreadsheet you keep for it).
 ///
 /// ⌘N and the Accounts toolbar present it in a NavigationStack; first
 /// launch's accounts step pushes it on its own stack, which *Cancel* and
@@ -24,11 +23,9 @@ struct NewAccountScreen: View {
     @Environment(\.locale) private var locale
 
     @State private var form = AccountForm(residence: nil, currency: .eur, today: .today())
-    @State private var opening = AccountOpeningForm()
     /// The fields as the sheet opened with them, to tell whether anything was typed.
     @State private var initialForm: AccountForm?
     @State private var showsProblems = false
-    @State private var showsNewInstrument = false
     @State private var errorMessage: String?
 
     init() {}
@@ -41,7 +38,6 @@ struct NewAccountScreen: View {
                 Text("Kind")
             }
             AccountDetailsFields(form: $form, showsKindPicker: false)
-            openingSection
             AccountPlanFields(form: $form)
             if showsProblems {
                 AccountsProblemsSection(problems: problems)
@@ -61,102 +57,20 @@ struct NewAccountScreen: View {
         }
         .onAppear(perform: load)
         .interactiveDismissDisabled(hasUnsavedChanges)
-        .sheet(isPresented: $showsNewInstrument) {
-            NavigationStack {
-                InstrumentEditor(instrumentID: nil, currency: form.currency, isSheet: true) { id in
-                    opening.addPosition(id)
-                }
-            }
-            #if os(macOS)
-            .frame(minWidth: 460, idealWidth: 520, minHeight: 480, idealHeight: 620)
-            #endif
-        }
         #if os(macOS)
         .frame(minWidth: 480, idealWidth: 560, minHeight: 520, idealHeight: 720)
         #endif
     }
 
-    // MARK: Opening balance or positions
-
-    @ViewBuilder
-    private var openingSection: some View {
-        let symbol = AmountFormat.symbol(for: form.currency, locale: locale)
-        if form.holdsPositions {
-            Section {
-                ForEach(opening.positions) { position in
-                    Picker("Instrument", selection: $opening[position: position.id].instrument) {
-                        Text("Choose…").tag(InstrumentID?.none)
-                        ForEach(instruments) { instrument in
-                            Text(instrument.name).tag(Optional(instrument.id))
-                        }
-                    }
-                    .personalControl()
-                    AccountsNumberField(title: "Quantity", text: $opening[position: position.id].quantity, prompt: "0",
-                                        suffix: unit(of: position.instrument), allowsNegative: false)
-                    AccountsNumberField(title: "Paid in total", text: $opening[position: position.id].cost,
-                                        prompt: "Optional", suffix: symbol, allowsNegative: false)
-                    Button("Remove This Position", role: .destructive) {
-                        opening.removePosition(id: position.id)
-                    }
-                    .buttonStyle(.borderless)
-                }
-                Button {
-                    opening.addPosition()
-                } label: {
-                    Label("Add Position", systemImage: "plus.circle")
-                }
-                .buttonStyle(.borderless)
-                Button {
-                    showsNewInstrument = true
-                } label: {
-                    Label("New Instrument…", systemImage: AppSymbol.instruments)
-                }
-                .buttonStyle(.borderless)
-                AccountsNumberField(title: "Cash", text: $opening.cash, prompt: "0", suffix: symbol)
-            } header: {
-                Text(form.recordsTrades ? "Opening positions" : "Positions")
-            } footer: {
-                if form.recordsTrades {
-                    Text(verbatim: AccountOpeningForm.openingTradesFooter(opened: form.opened, today: .today(),
-                                                                          locale: locale))
-                        .privacySensitiveInFeedback()
-                } else {
-                    Text(verbatim: AccountOpeningForm.positionsFooter(opened: form.opened, today: .today(),
-                                                                      locale: locale))
-                        .privacySensitiveInFeedback()
-                }
-            }
-        } else {
-            Section {
-                AccountsNumberField(title: form.kind.isLiability ? "Owed" : "Balance", text: $opening.balance,
-                                    prompt: "0", suffix: symbol)
-            } header: {
-                Text("Opening balance")
-            } footer: {
-                Text(verbatim: AccountOpeningForm.balanceFooter(opened: form.opened, today: .today(),
-                                                                isLiability: form.kind.isLiability, locale: locale))
-                    .privacySensitiveInFeedback()
-            }
-        }
-    }
-
-    private var instruments: [Instrument] {
-        library.library.instruments.values.sorted { ($0.name, $0.id) < ($1.name, $1.id) }
-    }
-
-    private func unit(of instrument: InstrumentID?) -> String? {
-        QuantityFormat.unit(of: instrument.flatMap { library.library.instruments[$0] })
-    }
-
     private var problems: [String] {
-        form.problems(locale: locale) + opening.problems(holdsPositions: form.holdsPositions, locale: locale)
+        form.problems(locale: locale)
     }
 
     /// Whether anything was typed or chosen, so swiping the sheet down
     /// doesn't lose it: only Cancel does.
     private var hasUnsavedChanges: Bool {
         guard let initialForm else { return false }
-        return form != initialForm || opening != AccountOpeningForm()
+        return form != initialForm
     }
 
     // MARK: Actions
@@ -173,13 +87,9 @@ struct NewAccountScreen: View {
             return
         }
         let account = form.account(id: library.newAccountID(for: form.trimmedName), locale: locale)
-        let valuation = opening.valuation(for: account, in: library.library, locale: locale)
-        let trades = opening.openingTrades(for: account, locale: locale)
         do {
             try library.update { library in
                 library.accounts[account.id] = account
-                if let valuation { library.upsert(valuation) }
-                for trade in trades { library.upsert(trade) }
             }
             dismiss()
         } catch {

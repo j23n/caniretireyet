@@ -526,7 +526,7 @@ enum TradeEditNotes {
             sentences.append("Saving moves the account's opening date from \(AmountFormat.mediumDate(from, locale: locale)) "
                 + "to \(AmountFormat.mediumDate(to, locale: locale)).")
         }
-        if let flows = AccountValueNotes.flowFollowUp(edit.flows, locale: locale) {
+        if let flows = AccountValueNotes.flowFollowUp(edit.flows, by: "Saving", locale: locale) {
             sentences.append(flows)
         }
         return sentences

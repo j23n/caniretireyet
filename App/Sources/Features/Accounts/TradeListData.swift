@@ -390,8 +390,6 @@ enum TradeIssueAction: Hashable, Sendable {
     case editTrade(TradeKey)
     /// Open the editor on a new trade.
     case addTrade(TradeEditorTarget)
-    /// Open a value (a valuation) in the valuation editor.
-    case editValuation(ValuationKey)
     /// Open the account's form (its opening and closing dates).
     case editAccount
 }
@@ -488,10 +486,8 @@ struct TradeIssueNote: Hashable, Sendable, Identifiable {
         case .balanceIgnored:
             return TradeIssueNote(
                 id: id, isError: isError, title: "A balance that isn't used",
-                message: "The value on \(day) records a balance, but this account's holdings come from its trades. "
-                    + "Record its cash instead; the balance isn't counted.",
-                actionTitle: "Edit Value…",
-                action: .editValuation(ValuationKey(account: issue.account, date: issue.date)))
+                message: "The value on \(day) records a balance, but this account's holdings come from its trades, "
+                    + "so the balance isn't counted. Delete the value if it's wrong.")
         default:
             return TradeIssueNote(id: id, isError: isError, title: "Something to check", message: issue.message,
                                   actionTitle: issue.trade == nil ? nil : "Edit Trade…", action: edit)
