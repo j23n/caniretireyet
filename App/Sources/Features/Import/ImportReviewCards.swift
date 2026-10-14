@@ -439,7 +439,7 @@ struct ImportReviewBottomBar: View {
                         if model.isWorking {
                             ProgressView()
                         } else {
-                            Text("Import")
+                            Text(model.holdsImport == nil ? "Import" : "Back to Check-in")
                         }
                     }
                     .frame(maxWidth: .infinity)
@@ -469,7 +469,7 @@ struct ImportReviewBottomBar: View {
                     }
                     .disabled(model.isWorking)
                 }
-                Button("Import") {
+                Button(model.holdsImport == nil ? "Import" : "Back to Check-in") {
                     Task { await model.runImport(in: library) }
                 }
                 .buttonStyle(.borderedProminent)

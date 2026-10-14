@@ -9,11 +9,15 @@ import UniformTypeIdentifiers
 /// - **iPhone** (a full-screen cover, in a NavigationStack) and iPad: one
 ///   scrolling page (``CheckInList``), with Review pushed on top.
 /// - **Mac** (the sidebar's Check-in page): a table (``CheckInTable``) with
-///   the date and prices in the toolbar; Review opens as a sheet (⌘↩).
+///   the date as the window's subtitle, whose title menu changes it or
+///   cancels the check-in, and the prices in the middle of the toolbar;
+///   Review opens as a sheet (⌘↩).
 ///
 /// An unfinished check-in is a draft in `CheckInStore`, kept on this device
-/// and resumed here; Cancel asks whether to keep it or throw it away. After
-/// saving, the confirmation ends with this month's answer. Close with
+/// and resumed here; Cancel asks whether to keep it or throw it away. The
+/// bank statements it holds (UI.md, "Statements first") open in a sheet
+/// over it, on the import's steps, and are dropped on Cancel. After saving,
+/// the confirmation ends with this month's answer. Close with
 /// `navigation.finishCheckIn()`, which works in both layouts.
 struct CheckInScreen: View {
     @Environment(CheckInStore.self) private var checkIn
@@ -37,14 +41,22 @@ struct CheckInScreen: View {
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #else
-            .navigationSubtitle(subtitle)
+            .personalNavigationSubtitle(subtitle)
+            .toolbarTitleMenu { titleMenu }
+            .sheet(isPresented: $session.showsDatePicker) {
+                if let draft = checkIn.draft {
+                    CheckInDatePanel(date: draft.date, suggested: checkIn.suggestedDate) { date in
+                        checkIn.changeDate(to: date)
+                    }
+                }
+            }
             #endif
             .toolbar { toolbar }
             .onAppear { session.appear(checkIn: checkIn, library: library) }
             .confirmationDialog("Keep this check-in for later?", isPresented: $session.showsCancelDialog,
                                 titleVisibility: .visible) {
                 Button("Keep for later") {
-                    checkIn.persistNow()
+                    session.keepForLater(checkIn: checkIn)
                     close()
                 }
                 Button("Discard", role: .destructive) {
@@ -53,21 +65,36 @@ struct CheckInScreen: View {
                 }
                 Button("Continue the check-in", role: .cancel) {}
             } message: {
-                Text("A draft stays on this device, and nothing is written to your library until you save.")
+                Text(verbatim: checkIn.statements == nil
+                    ? "A draft stays on this device, and nothing is written to your library until you save."
+                    : "A draft stays on this device without its statements, which you add again. Nothing is "
+                        + "written to your library until you save.")
             }
             .fileImporter(isPresented: $session.choosesStatements, allowedContentTypes: ImportFileReader.contentTypes,
                           allowsMultipleSelection: true) { result in
-                if case .success(let urls) = result, let date = checkIn.draft?.date {
-                    session.importStatements(urls, on: date)
+                switch result {
+                case .success(let urls):
+                    Task { await session.addStatements(from: urls, checkIn: checkIn) }
+                case .failure(let error):
+                    session.statementsError = error.localizedDescription
                 }
             }
-            .sheet(item: $session.statementImport) { item in
-                NavigationStack {
-                    ImportScreen(files: item.files, checkIn: item.date) { session.statementImport = nil }
+            .sheet(isPresented: $session.showsStatements, onDismiss: { checkIn.refresh() }) {
+                if let held = checkIn.statements {
+                    NavigationStack {
+                        ImportScreen(statements: held) { session.showsStatements = false }
+                    }
+                    #if os(macOS)
+                    .frame(minWidth: 900, minHeight: 640)
+                    #endif
                 }
-                #if os(macOS)
-                .frame(minWidth: 900, minHeight: 640)
-                #endif
+            }
+            .alert("Note", isPresented: showsNoteEditor) {
+                TextField("Note", text: $session.noteText)
+                Button("Save") { session.saveNote(checkIn: checkIn) }
+                Button("Cancel", role: .cancel) { session.noteRequest = nil }
+            } message: {
+                Text("Saved with the account's value on this date.")
             }
             #if os(iOS)
             .navigationDestination(item: $session.page) { page in
@@ -129,23 +156,39 @@ struct CheckInScreen: View {
         ToolbarItem(placement: .confirmationAction) {
             Button("Review") { session.page = .review }
                 .fontWeight(.semibold)
-                .disabled(checkIn.draft == nil || session.isSaving || session.saved != nil)
+                .disabled(checkIn.draft == nil || session.isSaving || session.saved != nil || asksForStatements)
         }
         #else
-        // On the Mac, primary actions sit after the title: the date and the
-        // prices, as in the mockup; Cancel goes to the trailing end.
-        ToolbarItemGroup(placement: .primaryAction) {
+        // On the Mac, the prices sit in the middle; the date is the subtitle,
+        // and the title menu changes it or cancels the check-in. The page is
+        // left through the sidebar.
+        ToolbarItem(placement: .principal) {
             if let draft = checkIn.draft, session.saved == nil, !session.isSaving {
-                dateButton(draft)
                 pricesButton(draft)
             }
-        }
-        ToolbarItem(placement: .automatic) {
-            cancelButton
         }
         #endif
     }
 
+    #if os(iOS)
+    /// Whether the card that asks for the statements shows: Review waits
+    /// until they're added or the card is put away.
+    private var asksForStatements: Bool {
+        guard let draft = checkIn.draft, library.canEdit else { return false }
+        return checkIn.heldStatements(for: draft).showsStart(dismissed: session.typesEveryValue)
+    }
+    #endif
+
+    /// Shows the alert that writes a row's note.
+    private var showsNoteEditor: Binding<Bool> {
+        Binding {
+            session.noteRequest != nil
+        } set: { shows in
+            if !shows { session.noteRequest = nil }
+        }
+    }
+
+    #if os(iOS)
     private var cancelButton: some View {
         Button {
             cancel()
@@ -154,22 +197,16 @@ struct CheckInScreen: View {
         }
         .disabled(session.isSaving)
     }
+    #endif
 
     #if os(macOS)
-    /// "📅 30 September 2026", opening the date panel.
-    private func dateButton(_ draft: CheckInDraft) -> some View {
-        Button {
-            session.showsDatePicker = true
-        } label: {
-            Label(AmountFormat.longDate(draft.date, locale: locale), systemImage: "calendar")
-        }
-        .labelStyle(.titleAndIcon)
-        .personalControl()
-        .help("Change the check-in's date")
-        .popover(isPresented: $session.showsDatePicker) {
-            CheckInDatePanel(date: draft.date, suggested: checkIn.suggestedDate) { date in
-                checkIn.changeDate(to: date)
-            }
+    /// The title's menu: *Change Date…* and *Cancel Check-in…*.
+    @ViewBuilder
+    private var titleMenu: some View {
+        if checkIn.draft != nil, session.saved == nil, !session.isSaving {
+            Button("Change Date…") { session.showsDatePicker = true }
+            Divider()
+            Button("Cancel Check-in…") { cancel() }
         }
     }
 
@@ -191,10 +228,10 @@ struct CheckInScreen: View {
         .help(summary?.subtitle ?? "The prices and exchange rates this check-in uses")
     }
 
-    /// "Draft · kept on this Mac · 7 of 9 reviewed".
+    /// "30 September 2026", the check-in's date.
     private var subtitle: String {
         guard let draft = checkIn.draft, session.saved == nil else { return "" }
-        return "Draft · kept on this Mac · " + CheckInWording.reviewed(draft)
+        return AmountFormat.longDate(draft.date, locale: locale)
     }
     #endif
 
@@ -204,7 +241,7 @@ struct CheckInScreen: View {
     /// draft away), otherwise asks whether to keep the draft for later.
     private func cancel() {
         if session.saved == nil, let draft = checkIn.draft {
-            guard !CheckInEditing.hasEdits(draft) else {
+            guard !CheckInEditing.hasEdits(draft, holdsStatements: checkIn.statements != nil) else {
                 session.showsCancelDialog = true
                 return
             }
@@ -215,6 +252,27 @@ struct CheckInScreen: View {
 
     private func close() {
         navigation.finishCheckIn()
+    }
+}
+
+extension CheckInSession {
+    /// Reads the files chosen with *Add Statements…* or dropped on the
+    /// statements, and adds them to the check-in
+    /// (``addStatements(_:failures:checkIn:)``). A file that can't be read
+    /// is said so; the others are added.
+    func addStatements(from urls: [URL], checkIn: CheckInStore) async {
+        guard !urls.isEmpty else { return }
+        var files: [(name: String, data: Data)] = []
+        var failures: [String] = []
+        for url in urls {
+            do {
+                let data = try await ImportFileReader.read(url)
+                files.append((url.lastPathComponent, data))
+            } catch {
+                failures.append("\(url.lastPathComponent): \(error.localizedDescription)")
+            }
+        }
+        addStatements(files, failures: failures, checkIn: checkIn)
     }
 }
 
@@ -340,4 +398,11 @@ struct CheckInStartView: View {
         CheckInScreen()
     }
     .previewEnvironment(PreviewLibrary.empty)
+}
+
+#Preview("With statements") {
+    NavigationStack {
+        CheckInScreen()
+    }
+    .appEnvironment(CheckInPreviewData.modelWithStatements())
 }

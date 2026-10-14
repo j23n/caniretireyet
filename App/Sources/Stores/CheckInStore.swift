@@ -1,7 +1,9 @@
 import Foundation
+import Importer
 import Model
 import Observation
 import Prices
+import Storage
 import Tracker
 
 /// The check-in in progress (UI.md, "Check-in"): a `Tracker.CheckInDraft`,
@@ -20,6 +22,11 @@ import Tracker
 ///   files, deletes the draft only once they're written, and asks the plan
 ///   store for this month's answer, unless it's a past check-in (a later
 ///   one exists): answers and baselines are only recorded for the latest.
+/// - The bank statements of the check-in (UI.md, "Statements first") are
+///   held in memory with it (``statements``), never kept with the draft:
+///   an import that writes nothing on its own. The draft follows the
+///   library as it would be with them imported, and ``save()`` writes them
+///   with the check-in's values, as one change with an import's backup.
 @Observable @MainActor
 final class CheckInStore {
     /// The check-in in progress, if any.
@@ -30,6 +37,12 @@ final class CheckInStore {
     /// with its source and time, or why it failed.
     private(set) var priceList: CheckInPrices?
     private(set) var isFetchingPrices = false
+    /// The bank statements the check-in holds: an import of its own, which
+    /// writes nothing until the check-in is saved (its *Import* hands the
+    /// files back, ``ImportController/holdsImport``). `nil` until one is
+    /// added; in memory only, so a draft resumed after the app quit starts
+    /// without them.
+    private(set) var statements: ImportController?
 
     private let library: LibraryStore
     private let prices: PriceStore
@@ -42,6 +55,8 @@ final class CheckInStore {
     /// While a save waits for its write, the library changes under the
     /// draft because of the save itself: it isn't rebased then.
     @ObservationIgnored private var isWriting = false
+    /// The library revision the statements were last previewed against.
+    @ObservationIgnored private var statementsRevision: Int?
 
     init(library: LibraryStore, prices: PriceStore, plans: PlanStore, preferences: AppPreferences, draftURL: URL?) {
         self.library = library
@@ -128,13 +143,15 @@ final class CheckInStore {
         if preferences.fetchPricesOnCheckIn { fetchPrices() }
     }
 
-    /// Brings the draft up to date with the library (see
-    /// `CheckInDraft.rebase(onto:)`). Does nothing until the library is
-    /// loaded, so a draft restored at launch isn't rebased onto nothing.
+    /// Brings the draft up to date with the library, and the statements it
+    /// holds (see `CheckInDraft.rebase(onto:)`). Does nothing until the
+    /// library is loaded, so a draft restored at launch isn't rebased onto
+    /// nothing.
     func refresh() {
         guard var draft, library.phase == .ready else { return }
+        syncStatements()
         let before = Set(draft.instruments)
-        draft.rebase(onto: library.library)
+        rebaseOntoStatements(&draft)
         guard draft != self.draft else { return }
         self.draft = draft
         schedulePersist()
@@ -145,7 +162,12 @@ final class CheckInStore {
     /// are for the old date, so they're fetched again.
     func changeDate(to date: CalendarDate) {
         guard var draft, draft.date != date else { return }
-        draft.changeDate(to: date, library: library.library)
+        // The statements are read again for the new date, keeping their answers.
+        if let statements {
+            syncStatements()
+            statements.flow = statements.flow.movingCheckIn(to: date)
+        }
+        draft.changeDate(to: date, library: statementsLibrary)
         self.draft = draft
         indices = []
         priceList = nil
@@ -181,10 +203,18 @@ final class CheckInStore {
         update { $0.markRestUnchanged() }
     }
 
+    /// Takes a row back to what the library, with the statements held, has
+    /// on the date: a statement's value typed over (*Use the Statement's
+    /// Value*), or the previous value.
+    func refillRow(_ account: AccountID) {
+        let snapshot = statementsLibrary
+        update { $0.refill(account, from: snapshot) }
+    }
+
     /// Settles a conflict with a valuation saved on the draft's date since
     /// it started: keep the saved one, or use what was entered.
     func resolveConflict(of account: AccountID, keepingSaved: Bool) {
-        let snapshot = library.library
+        let snapshot = statementsLibrary
         update { $0.resolveConflict(of: account, keepingSaved: keepingSaved, in: snapshot) }
     }
 
@@ -203,6 +233,90 @@ final class CheckInStore {
         guard let date = draft?.date else { return }
         let base = library.baseCurrency
         update { $0.setFXRate(FXRecord(base: base, quote: currency, date: date, rate: rate, source: .manual)) }
+    }
+
+    // MARK: Statements
+
+    /// The library as it would be with the statements held imported, which
+    /// the draft follows; the library itself without them.
+    var statementsLibrary: Library {
+        statements?.flow.checkInLibrary ?? library.library
+    }
+
+    /// The statements held, as the check-in shows them.
+    func heldStatements(for draft: CheckInDraft) -> CheckInStatements {
+        CheckInStatements.make(draft: draft, library: library.library, flow: statements?.flow)
+    }
+
+    /// Adds bank statements to the check-in: read as a batch for its date
+    /// (each file's account found, transfers between them paired), or
+    /// added to the statements it holds. Nothing is written; the rows
+    /// they fill in follow.
+    func holdStatements(_ files: [(name: String, data: Data)]) {
+        guard let draft, !files.isEmpty else { return }
+        let held = statements ?? Self.statementImport(on: draft.date, library: library.library)
+        syncStatements(held)
+        if held.flow.isBatch {
+            held.flow.add(files: files)
+        } else {
+            held.flow.open(statements: files)
+        }
+        statements = held
+        refresh()
+    }
+
+    /// Takes a statement file out of the check-in; the last one drops them all.
+    func removeStatement(file id: Int) {
+        guard let statements else { return }
+        statements.flow.remove(file: id)
+        if !statements.flow.isBatch { self.statements = nil }
+        refresh()
+    }
+
+    /// Drops the statements the check-in holds (Cancel): their rows go back
+    /// to what the library has.
+    func dropStatements() {
+        guard statements != nil else { return }
+        statements = nil
+        statementsRevision = nil
+        refresh()
+    }
+
+    /// An import for a check-in on `date` that never writes: its *Import*
+    /// does nothing until whoever shows it says what it does.
+    private static func statementImport(on date: CalendarDate, library: Library) -> ImportController {
+        let held = ImportController(library: library, checkIn: date)
+        held.holdsImport = { _ in }
+        return held
+    }
+
+    /// Rebases `draft` onto ``statementsLibrary``. A row typed in before a
+    /// statement filled it takes the statement's value: the file was added
+    /// after, so it isn't a value saved elsewhere to ask about. Returns the
+    /// rows that came into conflict with a value saved on the date.
+    @discardableResult
+    private func rebaseOntoStatements(_ draft: inout CheckInDraft) -> [AccountID] {
+        let held = statementsLibrary
+        var conflicts = draft.rebase(onto: held)
+        guard statements != nil else { return conflicts }
+        let saved = library.library
+        for row in draft.rows {
+            guard let conflict = row.conflict,
+                  saved.valuations(for: row.account).last(where: { $0.date == draft.date }) != conflict
+            else { continue }
+            draft.refill(row.account, from: held)
+            conflicts.removeAll { $0 == row.account }
+        }
+        return conflicts
+    }
+
+    /// Keeps the statements' previews in step with the library.
+    private func syncStatements(_ held: ImportController? = nil) {
+        guard let held = held ?? statements, statementsRevision != library.revision || held !== statements else {
+            return
+        }
+        statementsRevision = library.revision
+        held.libraryChanged(library.library)
     }
 
     // MARK: Prices
@@ -289,6 +403,11 @@ final class CheckInStore {
     /// date back to it, and the automatic flows of the values after a past
     /// check-in follow it, in the same edit (`CheckInDraft.apply(to:)`).
     ///
+    /// The statements the check-in holds are written in that edit too,
+    /// before its values, as their import would write them, with an
+    /// import's backup first: one change, which one undo takes back
+    /// (`retire import --undo`, or restoring the backup).
+    ///
     /// The draft is rebased first. If that finds values saved on the date
     /// meanwhile that differ from what was entered, nothing is written and
     /// ``CheckInStoreError/changedElsewhere(_:)`` asks to look at them first.
@@ -298,8 +417,9 @@ final class CheckInStore {
     func save() async throws -> CheckInSaveResult {
         guard var draft else { throw CheckInStoreError.noDraft }
         guard library.phase == .ready else { throw LibraryStoreError.notLoaded }
-        let snapshot = library.library
-        let newConflicts = draft.rebase(onto: snapshot)
+        syncStatements()
+        let snapshot = statementsLibrary
+        let newConflicts = rebaseOntoStatements(&draft)
         if draft != self.draft {
             self.draft = draft
             schedulePersist()
@@ -310,12 +430,26 @@ final class CheckInStore {
         let review = draft.review(in: snapshot)
         let indices = self.indices
         let saving = draft
+        let previews = statements?.flow.checkInPreviews ?? []
+        // *Remember these banks and senders*, as an import saves them.
+        let remembered = statements?.remembers == true ? statements?.flow.batch : nil
         isWriting = true
         defer { isWriting = false }
         do {
-            try await library.commit { library in
+            let edit = { (library: inout Library) in
+                if !previews.isEmpty {
+                    library = StatementBatch.apply(previews, to: library) { $0.applyFollowingFlows(to: $1) }.library
+                    for kept in remembered?.rememberedProfiles(in: library) ?? [] {
+                        library.importProfiles[kept.profile.id] = kept.profile
+                    }
+                }
                 saving.apply(to: &library)
                 for value in indices { library.upsert(value) }
+            }
+            if previews.isEmpty {
+                try await library.commit(edit)
+            } else {
+                _ = try await library.commit(backingUpAs: Backup.importLabel, edit)
             }
         } catch {
             // What's on disk is reloaded: follow it, keeping what was entered.
@@ -351,6 +485,8 @@ final class CheckInStore {
         indices = []
         priceList = nil
         isFetchingPrices = false
+        statements = nil
+        statementsRevision = nil
         if let draftURL { try? FileManager.default.removeItem(at: draftURL) }
     }
 

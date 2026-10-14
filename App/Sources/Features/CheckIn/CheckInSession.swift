@@ -50,11 +50,19 @@ final class CheckInSession {
     var showsRestDialog = false
     /// Shows the file chooser of *Add Statements…*.
     var choosesStatements = false
-    /// The statements being imported in a sheet over the check-in.
-    var statementImport: CheckInStatementImport?
+    /// Shows the statements the check-in holds in a sheet over it: the
+    /// import's steps, on Income for a file with lines to answer, or on
+    /// Files for one whose account wasn't found.
+    var showsStatements = false
+    /// Files chosen or dropped that couldn't be opened, to say so.
+    var statementsError: String?
     /// Whether the card that asks for the statements first was put away
     /// (*Type Every Value Instead*).
     var typesEveryValue = false
+    /// The row whose note is being written (*Add Note…* in its menu), and
+    /// the note as typed.
+    var noteRequest: AccountID?
+    var noteText = ""
 
     private(set) var isSaving = false
     var saveError: String?
@@ -76,7 +84,7 @@ final class CheckInSession {
         hasAppeared = true
         guard library.canEdit, !library.hasNoAccounts else { return }
         if let draft = checkIn.draft {
-            if CheckInEditing.hasEdits(draft) { resumedDate = draft.date }
+            if CheckInEditing.hasEdits(draft, holdsStatements: checkIn.statements != nil) { resumedDate = draft.date }
             checkIn.begin()
         } else if checkIn.status.isDue {
             checkIn.begin()
@@ -105,11 +113,71 @@ final class CheckInSession {
 
     // MARK: Statements
 
-    /// Imports the statements chosen with *Add Statements…* in a sheet,
-    /// for the check-in on `date`.
-    func importStatements(_ files: [URL], on date: CalendarDate) {
+    /// Adds the statements chosen with *Add Statements…* or dropped on them
+    /// to the check-in, which holds them: the rows they fill in follow at
+    /// once. A file whose account isn't found opens the import on Files to
+    /// choose it. `failures` are the files that couldn't be opened.
+    func addStatements(_ files: [(name: String, data: Data)], failures: [String], checkIn: CheckInStore) {
+        statementsError = failures.isEmpty ? nil
+            : "Some files couldn't be opened. " + failures.joined(separator: " ")
         guard !files.isEmpty else { return }
-        statementImport = CheckInStatementImport(files: files, date: date)
+        typesEveryValue = false
+        checkIn.holdStatements(files)
+        guard let held = checkIn.statements else { return }
+        guard held.flow.isBatch else {
+            // Not one file could be read as a statement: say why, and hold nothing.
+            statementsError = held.flow.problem ?? "The files can't be read as bank statements."
+            checkIn.dropStatements()
+            return
+        }
+        guard let file = held.flow.batchFileWithoutAccount else { return }
+        held.flow.showBatchFile(file.id)
+        held.flow.show(.file)
+        showStatements(held)
+    }
+
+    /// Opens Income on the statement file `id`, to answer its lines (a
+    /// hint, not a gate: the check-in saves without).
+    func answer(file id: Int, checkIn: CheckInStore) {
+        guard let held = checkIn.statements else { return }
+        held.flow.showBatchFile(id)
+        held.flow.show(.classify)
+        showStatements(held)
+    }
+
+    /// Opens the statements the check-in holds on the step they're on, or
+    /// on Files for one whose account wasn't found.
+    func showStatementFiles(checkIn: CheckInStore) {
+        guard let held = checkIn.statements else { return }
+        if let file = held.flow.batchFileWithoutAccount {
+            held.flow.showBatchFile(file.id)
+            held.flow.show(.file)
+        }
+        showStatements(held)
+    }
+
+    /// Shows the held import in a sheet. Its *Import* writes nothing: it
+    /// closes the sheet, and the check-in writes the statements when it's
+    /// saved.
+    private func showStatements(_ held: ImportController) {
+        held.holdsImport = { [weak self] _ in self?.showsStatements = false }
+        showsStatements = true
+    }
+
+    // MARK: Notes
+
+    /// Starts writing a row's note (*Add Note…* or *Edit Note…* in its menu).
+    func editNote(of row: CheckInRow) {
+        noteText = row.note ?? ""
+        noteRequest = row.account
+    }
+
+    /// Saves the note being written, or removes it when it's empty.
+    func saveNote(checkIn: CheckInStore) {
+        guard let account = noteRequest else { return }
+        let note = noteText.trimmingCharacters(in: .whitespacesAndNewlines)
+        checkIn.updateRow(account) { $0.note = note.isEmpty ? nil : note }
+        noteRequest = nil
     }
 
     // MARK: Rows
@@ -189,10 +257,17 @@ final class CheckInSession {
 
     // MARK: Cancelling
 
-    /// Throws the draft away.
+    /// Throws the draft away, and the statements it holds.
     func discard(checkIn: CheckInStore) {
         checkIn.discard()
         resumedDate = nil
+    }
+
+    /// Keeps the draft for later on this device, without the statements:
+    /// they're held in memory only, and Cancel drops them.
+    func keepForLater(checkIn: CheckInStore) {
+        checkIn.dropStatements()
+        checkIn.persistNow()
     }
 
     // MARK: Saving

@@ -73,6 +73,31 @@ enum CheckInPreviewData {
         return model
     }
 
+    /// A preview model with the October check-in started and holding
+    /// Conto Fineco's October statement (UI.md, "Statements first"): its
+    /// row filled in from it, 500 € of it moved to the savings account,
+    /// and a large payment left to answer.
+    @MainActor
+    static func modelWithStatements() -> AppModel {
+        let model = AppModel.preview()
+        try? model.library.update { library in
+            for trade in octoberTrades { library.upsert(trade) }
+        }
+        model.checkIn.begin(on: date)
+        model.checkIn.holdStatements([(name: "fineco-ottobre.csv", data: Data(octoberStatement.utf8))])
+        return model
+    }
+
+    /// Conto Fineco's made-up October statement.
+    static let octoberStatement = """
+        Data;Importo;Descrizione
+        01/10/2026;-1.200,00;Affitto ottobre
+        10/10/2026;3.400,00;Stipendio ottobre
+        14/10/2026;-62,10;Spesa 1234 supermercato
+        25/10/2026;-500,00;Giroconto conto deposito
+        28/10/2026;-2.400,00;Bonifico a Autosalone Neri
+        """
+
     /// A check-in session with `accounts` expanded, e.g. to show a trades
     /// account's positions in the iPhone list.
     @MainActor
