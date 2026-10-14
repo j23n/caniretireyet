@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+import Tracker
 @testable import CanIRetireYet
 
 /// A chart's value axis while amounts are hidden (UI.md, "Privacy"):

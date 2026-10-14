@@ -23,7 +23,7 @@ struct OverviewScreen: View {
     @Environment(AppNavigation.self) private var navigation
 
     // `overview.scope` and `overview.stacked`, stored by earlier versions, are no longer read.
-    @AppStorage("overview.range") private var range: OverviewRange = .threeYears
+    @AppStorage("overview.range") private var range: HistoryRange = .threeYears
     @AppStorage("overview.allocation") private var allocation: BreakdownDimension = .assetClass
 
     init() {}
@@ -195,7 +195,7 @@ private struct OverviewEmptyState: View {
 /// explanation, and the notes on missing or old prices.
 ///
 /// The past is net worth, through today. With *Future* on it's plan assets,
-/// still by asset class (``OverviewHistory``), through the latest check-in,
+/// still by asset class (``HistoryChartData``), through the latest check-in,
 /// where the projection starts: the projection is of what the plan counts,
 /// so the past's total meets it there. The projection reaches as far as the
 /// chosen horizon (``FutureHorizon``, remembered on the device).
@@ -212,7 +212,7 @@ private struct OverviewHistorySection: View {
     let results: PlanResults?
     let planID: PlanID?
     let planName: String?
-    @Binding var range: OverviewRange
+    @Binding var range: HistoryRange
     @Binding var showsFuture: Bool
     @Environment(AppPreferences.self) private var preferences
     @Environment(PlanStore.self) private var plans
@@ -230,7 +230,7 @@ private struct OverviewHistorySection: View {
         let retirement = results?.retirementDate
         let planEnd = projection.last?.date ?? now
         let horizon = preferences.futureHorizon.effective(start: now, retirement: retirement)
-        let history = OverviewHistory(
+        let history = HistoryChartData(
             valuator: valuator, through: future ? planStart : today, range: range,
             projection: future ? projection : [], markers: future ? (results?.markers ?? []) : [],
             horizon: future ? horizon.end(start: now, retirement: retirement, planEnd: planEnd) : nil)

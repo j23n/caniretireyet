@@ -1,4 +1,5 @@
 import Model
+import Planner
 import SwiftUI
 
 /// What if… (UI.md, "What if"): try a change before making it in the

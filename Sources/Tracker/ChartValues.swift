@@ -107,3 +107,22 @@ public struct ChartMarker: Hashable, Sendable, Identifiable, Codable {
     /// Its icon: its own, or a small triangle.
     public var symbol: String { systemImage ?? "arrowtriangle.up.fill" }
 }
+
+extension Array where Element == FanPoint {
+    /// The fan on `date`, each percentile between the points either side
+    /// (the first's before them, the last's after); `nil` when empty.
+    public func point(on date: Date) -> FanPoint? {
+        guard let first, let last else { return nil }
+        func made(_ value: (KeyPath<FanPoint, Double>) -> Double) -> FanPoint {
+            FanPoint(date: date, p10: value(\.p10), p25: value(\.p25), p50: value(\.p50), p75: value(\.p75),
+                     p90: value(\.p90))
+        }
+        if date <= first.date { return made { first[keyPath: $0] } }
+        for (from, to) in zip(self, dropFirst()) where date <= to.date {
+            let span = to.date.timeIntervalSince(from.date)
+            let t = span > 0 ? date.timeIntervalSince(from.date) / span : 1
+            return made { from[keyPath: $0] + (to[keyPath: $0] - from[keyPath: $0]) * t }
+        }
+        return made { last[keyPath: $0] }
+    }
+}

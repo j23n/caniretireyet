@@ -188,7 +188,7 @@ struct PlanFanCard: View {
     @Environment(AppPreferences.self) private var preferences
     @Environment(\.baseCurrency) private var currency
     @Environment(\.locale) private var locale
-    @AppStorage("overview.range") private var range: OverviewRange = .threeYears
+    @AppStorage("overview.range") private var range: HistoryRange = .threeYears
 
     /// Your actual plan assets in the results' currency, at each check-in's rate.
     private var actual: PlanActualSeries {

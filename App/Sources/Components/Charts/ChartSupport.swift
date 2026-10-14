@@ -502,7 +502,7 @@ struct ChartCaption: View {
 /// retirement, or retirement + 5, 10, 20 or 30 years; once retirement is
 /// behind, 5, 10, 20 or 30 years from today).
 struct TimeSpanMenu: View {
-    @Binding var range: OverviewRange
+    @Binding var range: HistoryRange
     /// The horizon in use, `nil` while the future isn't shown (see
     /// ``AppPreferences/horizonBinding(start:retirement:)``).
     var horizon: Binding<FutureHorizon>?
@@ -516,7 +516,7 @@ struct TimeSpanMenu: View {
         Menu {
             Section("History") {
                 Picker("History", selection: $range) {
-                    ForEach(OverviewRange.allCases, id: \.self) { option in
+                    ForEach(HistoryRange.allCases, id: \.self) { option in
                         Text(option.menuTitle).tag(option)
                     }
                 }
@@ -567,7 +567,7 @@ extension AppPreferences {
     }
 }
 
-extension OverviewRange {
+extension HistoryRange {
     /// In the time span menu: "Last year", "Last 3 years", "All".
     var menuTitle: String {
         switch self {

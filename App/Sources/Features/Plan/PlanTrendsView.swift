@@ -24,7 +24,7 @@ struct PlanTrendsView: View {
 
     @Environment(LibraryStore.self) private var library
     @Environment(\.locale) private var locale
-    @AppStorage("overview.range") private var range: OverviewRange = .threeYears
+    @AppStorage("overview.range") private var range: HistoryRange = .threeYears
     @AppStorage(PlanTrends.grainKey) private var storedGrain: PeriodGrain?
 
     private var gutter: CGFloat { isWide ? Metrics.xl : Metrics.l }
@@ -252,7 +252,7 @@ struct PlanTrendsView: View {
 /// grain is remembered once chosen.
 struct PlanTrendsControls: View {
     @Environment(LibraryStore.self) private var library
-    @AppStorage("overview.range") private var range: OverviewRange = .threeYears
+    @AppStorage("overview.range") private var range: HistoryRange = .threeYears
     @AppStorage(PlanTrends.grainKey) private var storedGrain: PeriodGrain?
 
     var body: some View {
