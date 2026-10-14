@@ -346,7 +346,7 @@ extension ImportFlow {
     /// paired, each once (the line that left an account), by date.
     func pairedTransfers() -> [ImportPairedTransfer] {
         var transfers: [ImportPairedTransfer] = []
-        for (file, preview) in batchPreviews {
+        for (file, preview) in previews {
             let account = batch?.files.first { $0.id == file }?.account
             for line in preview.statementLines where line.amount < 0 {
                 guard case .paired(let other) = line.source else { continue }
@@ -393,7 +393,7 @@ extension ImportFlow {
                     shortText: "A gap between \(before) and \(after)"))
             }
         }
-        if gaps.isEmpty, batchPreviews.count > 1 {
+        if gaps.isEmpty, previews.count > 1 {
             notes.append(ImportBetweenNote(
                 kind: .noGaps,
                 text: "No gaps or overlaps: each file's closing balance is the next one's opening balance.",

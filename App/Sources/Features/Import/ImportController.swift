@@ -85,18 +85,17 @@ final class ImportController {
     /// there was nothing to import.
     ///
     /// Bank statements with ``remembers`` on also save each file's profile
-    /// with every file's rules and its lines' answers (`StatementBatch.rememberedProfiles(in:today:)`)
-    /// in the same change, so they're backed up and *Undo Import* takes them
-    /// back too.
+    /// with every file's rules and its lines' answers
+    /// (`StatementBatch.apply(_:to:remembering:today:)`) in the same change,
+    /// so they're backed up and *Undo Import* takes them back too.
     func runImport(in store: LibraryStore) async {
-        guard let preview = flow.preview, !isWorking else { return }
+        guard !flow.previews.isEmpty, !isWorking else { return }
         isWorking = true
         defer { isWorking = false }
         errorMessage = nil
-        // Several statements: each file's preview, applied in order.
-        let previews = flow.isBatch ? flow.batchPreviews.map(\.preview) : [preview]
-        let isStatement = flow.layout == .statement
-        let batch = remembers && isStatement ? flow.batch : nil
+        let previews = flow.previews.map(\.preview)
+        let batch = flow.batch
+        let remembers = self.remembers
         let reviewed = flow
         do {
             var result: ImportResult?
@@ -104,19 +103,19 @@ final class ImportController {
             var profiles: [StatementBatch.RememberedProfile] = []
             let backup = try await store.commit(backingUpAs: Backup.importLabel) { library in
                 before = library
-                let applied = previews.count == 1 ? preview.apply(to: library)
-                    : StatementBatch.apply(previews, to: library)
-                result = applied
-                library = applied.library
-                profiles = batch?.rememberedProfiles(in: library) ?? []
-                for remembered in profiles { library.importProfiles[remembered.profile.id] = remembered.profile }
+                var applied = (result: ImportPreview.apply(previews, to: library),
+                               remembered: [StatementBatch.RememberedProfile]())
+                if let batch { applied = batch.apply(previews, to: library, remembering: remembers) }
+                result = applied.result
+                profiles = applied.remembered
+                library = applied.result.library
             }
             guard let result else { return }
             var receipt = ImportReceipt(fileName: flow.displayName ?? "the file", result: result)
-            if isStatement {
+            if let batch {
                 receipt.summary = ImportFlow.importedTitle(result, into: before)
                 receipt.savings = flow.reviewDay.flatMap { ImportSavings(library: result.library, through: $0) }
-                let names = Dictionary((flow.batch?.files ?? []).map { ($0.id, $0.name) }) { first, _ in first }
+                let names = Dictionary(batch.files.map { ($0.id, $0.name) }) { first, _ in first }
                 receipt.remembered = ImportRemembered.list(profiles, fileNames: names, before: before,
                                                            after: result.library)
             }

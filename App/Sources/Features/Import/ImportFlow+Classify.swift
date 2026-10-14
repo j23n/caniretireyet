@@ -128,7 +128,7 @@ extension ImportFlow {
     func linesMatching(rule phrase: String) -> Int? {
         var count = 0
         let all = allStatementLines
-        for file in batch?.files.map({ Optional($0.id) }) ?? [nil] {
+        for file in batch?.files.map(\.id) ?? [] {
             guard let session = statementSession(ofFile: file) else { continue }
             let lines = all.filter { $0.file == file }.map(\.line)
             guard let rows = Self.rows(of: lines, matching: phrase, in: session) else { return nil }
@@ -184,13 +184,6 @@ extension ImportFlow {
 
     mutating func setStatementThrough(_ date: CalendarDate?) {
         editSession { $0.statementThrough = date }
-    }
-
-    /// The balance before the file's first line, when it's given.
-    var statementOpeningBalance: Decimal? { session?.statementOpeningBalance }
-
-    mutating func setStatementOpeningBalance(_ balance: Decimal?) {
-        editSession { $0.statementOpeningBalance = balance }
     }
 
     /// Whether the file's balances are unknown until the balance before its

@@ -254,3 +254,40 @@ extension ImportPreview {
         return result
     }
 }
+
+extension ImportPreview {
+    /// Applies `previews` to `library` one after another, as one result:
+    /// a batch's statements in the order they're imported
+    /// (``StatementBatch/previews(against:today:decide:)``), or one file's
+    /// preview.
+    public static func apply(_ previews: [ImportPreview], to library: Library) -> ImportResult {
+        var result = ImportResult(library: library)
+        for preview in previews {
+            result.merge(preview.apply(to: result.library))
+        }
+        return result
+    }
+}
+
+extension ImportResult {
+    /// Adds what `next`, applied after this result, changed: its library
+    /// becomes this one's.
+    public mutating func merge(_ next: ImportResult) {
+        library = next.library
+        changedMonths = Set(changedMonths + next.changedMonths).sorted()
+        changedAccounts = Set(changedAccounts + next.changedAccounts).sorted()
+        createdAccounts = Set(createdAccounts + next.createdAccounts).sorted()
+        closedAccounts = Set(closedAccounts + next.closedAccounts).sorted()
+        createdInstruments = Set(createdInstruments + next.createdInstruments).sorted()
+        tradesAccounts = Set(tradesAccounts + next.tradesAccounts).sorted()
+        added += next.added
+        tradesWritten += next.tradesWritten
+        updated += next.updated
+        overwritten += next.overwritten
+        kept += next.kept
+        undecided += next.undecided
+        removed += next.removed
+        identical += next.identical
+        skipped += next.skipped
+    }
+}

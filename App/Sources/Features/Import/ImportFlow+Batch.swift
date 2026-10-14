@@ -20,7 +20,7 @@ extension ImportFlow {
     /// date), then those without an account.
     var batchFiles: [StatementBatch.File] {
         guard let batch else { return [] }
-        let order = batchPreviews.map(\.file)
+        let order = previews.map(\.file)
         return batch.files.sorted { lhs, rhs in
             (order.firstIndex(of: lhs.id) ?? order.count, lhs.id) < (order.firstIndex(of: rhs.id) ?? order.count, rhs.id)
         }
@@ -28,7 +28,7 @@ extension ImportFlow {
 
     /// The file's preview in the batch; `nil` while it has no account.
     func batchPreview(of file: StatementBatch.File) -> ImportPreview? {
-        batchPreviews.first { $0.file == file.id }?.preview
+        previews.first { $0.file == file.id }?.preview
     }
 
     /// "fineco-2025.csv · Conto Fineco", for the file picker.
@@ -39,14 +39,14 @@ extension ImportFlow {
     /// How many lines of the files are transfers paired with a line of
     /// another file, counted once per pair.
     var batchPairedTransfers: Int {
-        let lines = batchPreviews.flatMap(\.preview.statementLines)
+        let lines = previews.flatMap(\.preview.statementLines)
         return lines.filter { if case .paired = $0.source { $0.amount < 0 } else { false } }.count
     }
 
     /// Days one account's files leave out or cover twice.
     var batchGaps: [StatementGap] {
         guard let batch else { return [] }
-        return StatementBatch.gaps(in: batchPreviews, batch: batch)
+        return StatementBatch.gaps(in: previews, batch: batch)
     }
 
     /// What stops importing the batch, beyond the file on screen: days two

@@ -126,7 +126,7 @@ struct StatementBatchTests {
 
         let previews = batch.previews(against: Self.library(), today: Self.today)
         #expect(previews.map(\.file) == [0, 1])
-        let result = StatementBatch.apply(previews.map(\.preview), to: Self.library())
+        let result = ImportPreview.apply(previews.map(\.preview), to: Self.library())
         let conto = try #require(result.library.valuations(for: "conto").last)
         #expect(conto.date == "2026-01-31")
         #expect(conto.moneyIn == 3000)
@@ -177,7 +177,7 @@ struct StatementBatchTests {
         let batch = Self.batch([("fineco-febbraio.csv", february), ("fineco-gennaio.csv", Self.current)])
         let previews = batch.previews(against: Self.library(), today: Self.today)
         #expect(previews.map(\.file) == [1, 0])
-        let result = StatementBatch.apply(previews.map(\.preview), to: Self.library())
+        let result = ImportPreview.apply(previews.map(\.preview), to: Self.library())
         let values = result.library.valuations(for: "conto")
         #expect(values.map(\.date) == ["2025-12-31", "2026-01-31", "2026-02-28"])
         #expect(values.last?.moneyOut == 900)
@@ -281,7 +281,7 @@ struct StatementBatchTests {
                                                               statementRow: saleLine.row)])
         #expect(!previews.contains { $0.preview.issues.contains { !$0.isNote } })
 
-        let imported = StatementBatch.apply(previews.map(\.preview), to: library).library
+        let imported = ImportPreview.apply(previews.map(\.preview), to: library).library
         #expect(imported.accounts["auto"]?.closed == saleLine.date.adding(days: 1))
         let again = batch.previews(against: imported, today: Self.today)
         #expect(again.allSatisfy { $0.preview.records.allSatisfy { $0.status == .identical } })
@@ -341,7 +341,7 @@ struct StatementBatchTests {
         #expect(!previews.contains { $0.preview.issues.contains {
             if case .statementAssetLeftOut = $0.kind { true } else { false }
         } })
-        let imported = StatementBatch.apply(previews.map(\.preview), to: library).library
+        let imported = ImportPreview.apply(previews.map(\.preview), to: library).library
         #expect(imported.valuations(for: "auto").map { "\($0.date) \($0.balance ?? -1)" }
             == ["2024-12-19 0", "2024-12-20 4000", "2025-09-10 0"])
         #expect(imported.accounts["auto"]?.closed == "2025-09-11")

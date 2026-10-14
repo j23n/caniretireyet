@@ -52,9 +52,11 @@ enum ImportSource: Hashable, Sendable {
 /// and what the user decided along the way. The Import screen shows it and
 /// edits it through its methods; ``ImportController`` does the writing.
 ///
-/// Every change to the mapping makes the preview again, and the user's
-/// decisions (``ImportDecisions``: proposed accounts edited, closings
-/// rejected, conflicts decided) are applied to each new preview.
+/// Every bank statement is read as part of a batch (``batch``), one file
+/// or many; any other file is one ``session``. Either way the previews
+/// are one list (``previews``), and every change to the mapping or to the
+/// user's decisions (``ImportDecisions``: proposed accounts edited,
+/// closings rejected, conflicts decided) makes them again.
 struct ImportFlow: Sendable {
     /// The file's name, e.g. `net-worth.csv`.
     private(set) var fileName: String?
@@ -66,11 +68,13 @@ struct ImportFlow: Sendable {
     private(set) var source: ImportSource = .proposed
     /// The library the preview compares with (see ``setLibrary(_:)``).
     private(set) var library: Library
-    /// What the import would do, with ``decisions`` applied.
-    private(set) var preview: ImportPreview?
-    /// The preview as the importer made it, before ``decisions``.
-    private var basePreview: ImportPreview?
-    /// What importing would do now: the preview applied to ``library``.
+    /// What the import would do, file by file, with ``decisions`` applied,
+    /// in the order the files are imported: each of the batch's files that
+    /// has an account, by ``StatementBatch/File/id``, against the library
+    /// with the files before it imported; or another kind of file's one
+    /// preview.
+    private(set) var previews: [(file: Int, preview: ImportPreview)] = []
+    /// What importing would do now: the previews applied to ``library``.
     private(set) var planned: ImportResult?
     /// A bank statement's charts of ``planned`` (``makeStatementCharts()``),
     /// kept so Preview doesn't work them out again on every redraw.
@@ -93,10 +97,6 @@ struct ImportFlow: Sendable {
     private(set) var givenFiles: [(name: String, data: Data)] = []
     /// The batch's file on screen, by ``StatementBatch/File/id``.
     private(set) var batchFile: Int?
-    /// The previews of the batch's files that have an account, with
-    /// ``decisions`` applied, in the order they're imported, each against
-    /// the library with the files before it imported.
-    private(set) var batchPreviews: [(file: Int, preview: ImportPreview)] = []
 
     /// The date of the check-in the import is for, when it's opened from
     /// one: a bank statement then covers through that date
@@ -106,6 +106,13 @@ struct ImportFlow: Sendable {
     init(library: Library = Library(), checkIn: CalendarDate? = nil) {
         self.library = library
         self.checkIn = checkIn
+    }
+
+    /// The preview of the file on screen; `nil` while there's none, or the
+    /// batch's file on screen has no account.
+    var preview: ImportPreview? {
+        guard batch != nil else { return previews.first?.preview }
+        return previews.first { $0.file == batchFile }?.preview
     }
 
     // MARK: - The file
@@ -168,6 +175,7 @@ struct ImportFlow: Sendable {
         }
         self.batch = batch
         showBatchFile(first)
+        refreshPreview()
     }
 
     /// Adds files to the bank statements open: the files already open keep
@@ -213,12 +221,6 @@ struct ImportFlow: Sendable {
         fileName = file.name
         session = file.session
         source = library.importProfiles[file.session.profile.id] == nil ? .proposed : .profile(file.session.profile.id)
-        if batchPreviews.isEmpty {
-            refreshPreview()
-        } else {
-            preview = batchPreviews.first { $0.file == id }?.preview
-            statementCharts = makeStatementCharts()
-        }
     }
 
     /// Makes `account` the account of the batch's file `id`, or takes it
@@ -239,9 +241,15 @@ struct ImportFlow: Sendable {
     }
 
     /// Reads the file again with a saved profile, or with a mapping the
-    /// importer proposes (`nil`). Decisions start over.
+    /// importer proposes (`nil`). Decisions start over. A bank statement's
+    /// profile makes the file a batch of one, as every statement is.
     mutating func useProfile(_ id: ImportProfileID?) {
         load(profile: id.flatMap { library.importProfiles[$0] })
+        guard layout == .statement, let session, let fileName else { return }
+        let batch = StatementBatch(sessions: [(fileName, session)], library: library)
+        self.batch = batch
+        if let first = batch.files.first?.id { showBatchFile(first) }
+        refreshPreview()
     }
 
     /// Forgets the file: back to the first step.
@@ -260,6 +268,8 @@ struct ImportFlow: Sendable {
     private mutating func load(profile: ImportProfile?) {
         guard let data else { return }
         decisions = ImportDecisions()
+        batch = nil
+        batchFile = nil
         do {
             if let profile {
                 session = try ImportSession(data: data, profile: profile)
@@ -304,8 +314,7 @@ struct ImportFlow: Sendable {
         if session?.profile.layout == .trades { return [.file, .format, .columns, .types, .accounts, .preview, .done] }
         if session?.profile.layout == .statement {
             // Accounts only for a proposed opening or closing; Income answers a sale's.
-            let previews: [ImportPreview?] = batch == nil ? [preview] : batchPreviews.map { $0.preview }
-            let proposed = previews.contains(where: Self.proposesAccountChange)
+            let proposed = previews.contains { Self.proposesAccountChange($0.preview) }
             let accounts: [ImportStep] = proposed ? [.accounts] : []
             return [.file, .classify] + accounts + [.preview, .done]
         }
@@ -324,14 +333,11 @@ struct ImportFlow: Sendable {
         }
     }
 
-    /// Whether the file is a bank statement without an account it can be
-    /// of: none chosen yet, or one a saved profile or another layout left
-    /// that isn't a choice (``statementAccountChoices``). No step after
-    /// File can be shown until it is.
-    var needsStatementAccount: Bool {
-        if batch != nil { return batchFileWithoutAccount != nil }
-        return hasFile && layout == .statement && !statementAccountChoices.contains { $0.id == constants.account }
-    }
+    /// Whether a bank statement is without an account it can be of: none
+    /// chosen yet, or one a saved profile left that isn't a choice
+    /// (``statementAccountChoices``). No step after File can be shown
+    /// until each has one.
+    var needsStatementAccount: Bool { batchFileWithoutAccount != nil }
 
     /// The first of the batch's files without an account it can be of.
     var batchFileWithoutAccount: StatementBatch.File? {
@@ -376,7 +382,7 @@ struct ImportFlow: Sendable {
     private mutating func enter(_ step: ImportStep) {
         self.step = step
         guard step == .accounts, batch != nil, !Self.proposesAccountChange(preview),
-              let first = batchPreviews.first(where: { Self.proposesAccountChange($0.preview) }) else { return }
+              let first = previews.first(where: { Self.proposesAccountChange($0.preview) }) else { return }
         showBatchFile(first.file)
     }
 
@@ -419,15 +425,19 @@ struct ImportFlow: Sendable {
         refreshPreview()
     }
 
+    /// Changes the session of the batch's file `id`, then makes the
+    /// previews again.
+    mutating func editSession(ofFile id: Int, _ edit: (inout ImportSession) -> Void) {
+        editBatchSessions { file, session in
+            if file == id { edit(&session) }
+        }
+    }
+
     /// Changes the sessions of every file of the batch at once, each given
     /// with its ID (a rule for every statement, a sender's lines in several
-    /// files), then makes the previews again once. Without a batch, changes
-    /// the one file's, with the ID `nil`.
-    mutating func editBatchSessions(_ edit: (Int?, inout ImportSession) -> Void) {
-        guard var batch else {
-            editSession { edit(nil, &$0) }
-            return
-        }
+    /// files), then makes the previews again once.
+    mutating func editBatchSessions(_ edit: (Int, inout ImportSession) -> Void) {
+        guard var batch else { return }
         batch.editSessions(library: library) { edit($0, &$1) }
         self.batch = batch
         if let file = batch.files.first(where: { $0.id == batchFile }) { session = file.session }
@@ -435,45 +445,28 @@ struct ImportFlow: Sendable {
         refreshPreview()
     }
 
-    /// Changes the decisions and applies them to the preview (which isn't
-    /// made again: decisions don't change what the file says).
+    /// Changes the decisions, and makes the previews again with them.
     mutating func editDecisions(_ edit: (inout ImportDecisions) -> Void) {
         edit(&decisions)
-        if batch != nil {
-            refreshBatch()
-        } else {
-            setPreview(basePreview)
-        }
+        refreshPreview()
     }
 
-    /// Makes the preview again from the mapping and the library.
+    /// Makes the previews again from the mapping and the library: the
+    /// batch's in the order its files are imported, or the one file's; then
+    /// what importing them all would do.
     mutating func refreshPreview() {
-        if batch != nil {
-            refreshBatch()
+        let chosen = decisions
+        if let batch {
+            previews = batch.previews(against: library) { _, preview in
+                preview = chosen.applied(to: preview)
+            }
+        } else if let session, session.profile.layout != .statement {
+            // A statement is previewed only in a batch, which knows its account.
+            previews = [(0, chosen.applied(to: session.preview(against: library)))]
         } else {
-            setPreview(session?.preview(against: library))
+            previews = []
         }
-    }
-
-    /// Makes every file's preview of the batch again, and what importing
-    /// them all would do.
-    private mutating func refreshBatch() {
-        guard let batch else { return }
-        let chosen = self.decisions
-        batchPreviews = batch.previews(against: library) { _, preview in
-            preview = chosen.applied(to: preview)
-        }
-        basePreview = nil
-        preview = batchPreviews.first { $0.file == batchFile }?.preview
-        planned = StatementBatch.apply(batchPreviews.map(\.preview), to: library)
-        statementCharts = makeStatementCharts()
-        showNearestStep()
-    }
-
-    private mutating func setPreview(_ base: ImportPreview?) {
-        basePreview = base
-        preview = base.map { decisions.applied(to: $0) }
-        planned = preview?.apply(to: library)
+        planned = previews.isEmpty ? nil : ImportPreview.apply(previews.map(\.preview), to: library)
         statementCharts = makeStatementCharts()
         showNearestStep()
     }
@@ -490,101 +483,5 @@ struct ImportFlow: Sendable {
     static func describe(_ error: any Error) -> String {
         if let error = error as? ImportError { return error.description }
         return error.localizedDescription
-    }
-}
-
-// MARK: - Decisions
-
-/// What the user decided in the Accounts and Preview steps. Kept apart from
-/// the preview, so it survives the preview being made again after the
-/// mapping changes.
-struct ImportDecisions: Hashable, Sendable {
-    /// Changes to proposed accounts, by ID.
-    var accounts: [AccountID: ProposalEdit<AccountKind>] = [:]
-    /// Changes to proposed instruments, by ID.
-    var instruments: [InstrumentID: ProposalEdit<InstrumentKind>] = [:]
-    /// Proposed account changes accepted (`true`) or rejected (`false`).
-    var accountChanges: [AccountChangeKey: Bool] = [:]
-    /// The policy for every conflict; `nil` keeps the profile's.
-    var conflictPolicy: ConflictPolicy?
-    /// Conflicts decided one by one, used while the policy is `ask`.
-    var resolutions: [ImportRecordKey: ConflictPolicy] = [:]
-
-    /// `preview` with these decisions applied.
-    func applied(to preview: ImportPreview) -> ImportPreview {
-        var preview = preview
-        for index in preview.newAccounts.indices {
-            guard let edit = accounts[preview.newAccounts[index].account.id] else { continue }
-            var account = preview.newAccounts[index].account
-            if let name = edit.name { account.name = name }
-            if let kind = edit.kind { account.kind = kind }
-            if let currency = edit.currency { account.currency = currency }
-            preview.newAccounts[index].account = account
-            if let accepted = edit.isAccepted { preview.newAccounts[index].isAccepted = accepted }
-        }
-        for index in preview.newInstruments.indices {
-            guard let edit = instruments[preview.newInstruments[index].instrument.id] else { continue }
-            var instrument = preview.newInstruments[index].instrument
-            if let name = edit.name { instrument.name = name }
-            if let kind = edit.kind, kind != instrument.kind { instrument = instrument.changingKind(to: kind) }
-            if let currency = edit.currency { instrument.currency = currency }
-            preview.newInstruments[index].instrument = instrument
-            if let accepted = edit.isAccepted { preview.newInstruments[index].isAccepted = accepted }
-        }
-        for index in preview.accountChanges.indices {
-            if let accepted = accountChanges[AccountChangeKey(preview.accountChanges[index])] {
-                preview.accountChanges[index].isAccepted = accepted
-            }
-        }
-        let policy = conflictPolicy ?? preview.conflictPolicy
-        for index in preview.records.indices where preview.records[index].status == .conflict {
-            preview.records[index].resolution = policy == .ask
-                ? resolutions[preview.records[index].id] ?? .ask
-                : policy
-        }
-        return preview
-    }
-}
-
-/// Changes to a proposed account or instrument. Fields left `nil` keep the
-/// proposal's.
-struct ProposalEdit<Kind: Hashable & Sendable>: Hashable, Sendable {
-    var name: String?
-    var kind: Kind?
-    var currency: CurrencyCode?
-    var isAccepted: Bool?
-}
-
-/// A proposed account change by account and kind of change (its date can
-/// move when the mapping changes).
-struct AccountChangeKey: Hashable, Sendable {
-    enum Kind: Hashable, Sendable {
-        case close, openEarlier, recordTrades
-    }
-
-    var account: AccountID
-    var kind: Kind
-
-    init(_ proposal: AccountChangeProposal) {
-        account = proposal.account
-        kind = switch proposal.change {
-        case .close: .close
-        case .openEarlier: .openEarlier
-        case .recordTrades: .recordTrades
-        }
-    }
-}
-
-private extension Instrument {
-    /// The instrument with another kind, and the asset class and unit that
-    /// usually go with it (``InstrumentKind/usualAssetClass(name:)``: a metal
-    /// is gold, weighed in grams, unless its name says another metal). A
-    /// crypto instrument keeps its unit.
-    func changingKind(to kind: InstrumentKind) -> Instrument {
-        var instrument = self
-        instrument.kind = kind
-        instrument.assetClasses = .single(kind.usualAssetClass(name: name))
-        if let unit = kind.usualUnit { instrument.unit = unit }
-        return instrument
     }
 }

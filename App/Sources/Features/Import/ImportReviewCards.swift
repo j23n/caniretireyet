@@ -50,7 +50,7 @@ struct ImportStatementReview: View {
                 }
                 ImportReviewConflicts(model: model)
                 ImportReviewAccounts(flow: flow)
-                ImportCellErrorsCard(errors: flow.reviewPreviews.flatMap(\.preview.cellErrors), isStatement: true)
+                ImportCellErrorsCard(errors: flow.previews.flatMap(\.preview.cellErrors), isStatement: true)
             }
             .padding(.horizontal, isCompact ? Metrics.l : Metrics.xl)
             .padding(.vertical, Metrics.l)

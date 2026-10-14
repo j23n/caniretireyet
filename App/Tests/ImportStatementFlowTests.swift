@@ -161,7 +161,7 @@ struct ImportStatementFlowTests {
         flow.setConstants { $0.account = "conto-fineco" }
         #expect(flow.needsOpeningBalance)
         #expect(flow.blockers.contains("Give the balance before the file's first line."))
-        flow.setStatementOpeningBalance(Decimal(string: "4515.2"))
+        flow.setStatementOpeningBalance(Decimal(string: "4515.2"), forFile: 0)
         #expect(!flow.needsOpeningBalance)
     }
 
@@ -386,7 +386,7 @@ struct ImportStatementFlowTests {
         flow.open(Data((Self.csv + "\n18/09/2026;-18.000,00;Bonifico a Autosalone Neri").utf8),
                   fileName: "settembre.csv")
         flow.setConstants { $0.account = "nuovo" }
-        flow.setStatementOpeningBalance(25000)
+        flow.setStatementOpeningBalance(25000, forFile: 0)
         let question = try #require(flow.statementQuestions.first)
         flow.setStatementAsset(.moved("tasse"), for: question)
         let answered = try #require(flow.statementQuestions.first)
@@ -554,7 +554,7 @@ struct ImportStatementFlowTests {
         #expect(!flow.needsStatementAccount)
         #expect(flow.steps == [.file, .classify, .preview, .done])
         #expect(flow.batchPairedTransfers == 1)
-        #expect(flow.batchPreviews.count == 2)
+        #expect(flow.previews.count == 2)
 
         flow.showBatchFile(0)
         #expect(flow.fileName == "fineco-settembre.csv")
