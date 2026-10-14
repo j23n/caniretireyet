@@ -48,6 +48,11 @@ struct ImportStatementsTests {
                                     today: Self.today)
         #expect(answered.status == 0, "\(answered.all)")
         #expect(answered.output.contains("  2026-10-28     -80.00  transfer  purchase: bici"))
+        #expect(answered.output.contains("  New accounts (created with --apply)"))
+        let both = await retire(arguments + ["--purchase", "fineco-ottobre.csv:5=belongings:Bici",
+                                             "--sale", "Spesa supermercato=casa"], today: Self.today)
+        #expect(both.errors.contains("“fineco-ottobre.csv:5” and “Spesa supermercato” both answer "
+            + "fineco-ottobre.csv:5: give it one answer."))
         let twice = await retire(arguments + ["--sale", "Bonifico=casa"], today: Self.today)
         #expect(twice.errors.contains("--sale: “Bonifico” is in 2 lines (fineco-ottobre.csv:3, export.csv:2)"))
 
@@ -94,5 +99,23 @@ struct ImportStatementsTests {
 
         let unknown = await retire(arguments + ["--account", "other.csv=conto-fineco"], today: Self.today)
         #expect(unknown.errors.contains("--account: no file is “other.csv”."))
+    }
+
+    /// An account added after the files' first day opens on its first value,
+    /// as a single statement's import does.
+    @Test func anAccountOpensEarlierForItsStatements() async throws {
+        let library = try TemporaryFolder.exampleLibrary()
+        try library.write("accounts/conto-nuovo.json", """
+            {"currency": "EUR", "id": "conto-nuovo", "kind": "cash", "name": "Conto nuovo", "opened": "2026-11-01"}
+            """)
+        let folder = try TemporaryFolder()
+        try folder.write("export.csv", Self.deposito)
+        let applied = await retire(["import", "statements", folder.url("export.csv").path, "--library", library.path,
+                                    "--date-format", "dd/MM/yyyy", "--account", "export.csv=conto-nuovo", "--apply"],
+                                   today: Self.today)
+        #expect(applied.status == 0, "\(applied.all)")
+        let written = try library.load()
+        #expect(written.accounts["conto-nuovo"]?.opened == "2026-10-31")
+        #expect(written.valuations(for: "conto-nuovo").last?.balance == d("17877.95"))
     }
 }
