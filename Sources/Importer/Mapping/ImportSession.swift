@@ -381,7 +381,7 @@ extension ImportProfile {
 
 extension ImportTarget {
     /// Whether values of this target belong to an account.
-    public var needsAccount: Bool { [.balance, .cash, .quantity, .costBasis].contains(self) }
+    public var needsAccount: Bool { [.balance, .cash, .saved, .quantity, .costBasis].contains(self) }
     /// Whether values of this target belong to an instrument.
     public var needsInstrument: Bool { [.quantity, .costBasis, .price].contains(self) }
 }

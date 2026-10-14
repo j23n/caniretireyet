@@ -60,6 +60,7 @@ Each value in a file can become one of these:
 | Quantity held | account, instrument, date, quantity | In an account that records trades, an opening, a buy or a sale ([Quantities in a trades account](#quantities-in-a-trades-account)); otherwise a position in a valuation |
 | Purchase cost | account, instrument, date, amount | In an account that records trades, an opening's cost or a buy's amount; otherwise the position's `costBasis` |
 | Cash in an investment account | account, date, amount | A valuation's `cash` |
+| Saved | account, date, amount | What was saved into the account since its value before: the valuation's `flow` ([Saved](#saved)) |
 | Price | instrument, date, price, currency | A price record |
 | FX rate | currency pair, date, rate | An FX record |
 | Ignore | — | — |
@@ -70,9 +71,23 @@ Each field a target needs can come from one of three places:
 - **a constant**, e.g. "every row of this file is account Directa";
 - **the column header**, in the wide layout: the column "Directa" means account `directa`. The header gives what the column and the constants leave out: the account of a balance or cash column, the instrument of a price column, and for a quantity or purchase cost, the instrument once the account is set. Headers are matched without their decorations, so "BTC (qtà)" means `btc`. A header the importer can't use this way is flagged rather than guessed.
 
-When there's no profile yet, the importer proposes a mapping from the headers and the values: a column of dates holds the dates; number columns become balances, or quantities, prices, cash, purchase costs or FX rates when the header says so (`BTC (qtà)`, `Prezzo VWCE`, `EUR/USD`); text, percentage and total columns are ignored. The layout is long when a text column's header names accounts or instruments, and trades when the file looks like a broker's transactions ([Detecting a transactions file](#detecting-a-transactions-file)).
+When there's no profile yet, the importer proposes a mapping from the headers and the values: a column of dates holds the dates; number columns become balances, or quantities, prices, cash, what was saved, purchase costs or FX rates when the header says so (`BTC (qtà)`, `Prezzo VWCE`, `EUR/USD`, `Fondo pensione (versato)`); text, percentage and total columns are ignored. The layout is long when a text column's header names accounts or instruments, and trades when the file looks like a broker's transactions ([Detecting a transactions file](#detecting-a-transactions-file)).
 
 Buys, sells and the rest of a broker's transactions aren't a target: they're read in the trades layout, as the trades of an account that records them ([Broker transactions](#broker-transactions)).
+
+### Saved
+
+A pension fund, TFR, property or other account asks what was saved into it ([PROGRESS.md](PROGRESS.md#data-this-needs-from-day-one)): its balance alone can't tell what was paid in from what it earned. A saved column says it, next to the account's balance column:
+
+```
+Data;Fondo pensione;Fondo pensione (versato)
+31/03/2026;17.480,90;1.325,00
+```
+
+- Each amount is what was saved into the account since its value before, in the account's currency, and is stored as that valuation's `flow`. Money taken out is negative.
+- It's kept only on an account that asks for one. Every other account's saved amount is worked out from its values and trades, so the column is left out for it.
+- It needs a value of the account on its date, from the file or the library; one without is a cell error. It fills in a value's missing amount, and replaces one only together with an overwritten conflict.
+- Without a saved column, an asking account's change in value counts as other, not as money saved ([PROGRESS.md](PROGRESS.md)).
 
 ### Quantities in a trades account
 

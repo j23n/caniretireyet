@@ -30,6 +30,8 @@ public enum ImportProblem: Error, Hashable, Sendable, CustomStringConvertible {
     case duplicate(row: Int)
     /// A purchase cost for a position the account doesn't hold.
     case costWithoutQuantity
+    /// What was saved into an account on a date it has no value.
+    case savedWithoutValue
     /// The time zone named by the date format doesn't exist.
     case unknownTimeZone(String)
     /// Trades layout: the row's type isn't mapped to a trade type.
@@ -60,6 +62,7 @@ public enum ImportProblem: Error, Hashable, Sendable, CustomStringConvertible {
         case .conflictingMarkers: "more than one sign or currency"
         case .duplicate(let row): "row \(row) gives a different value for the same record"
         case .costWithoutQuantity: "a purchase cost without a quantity"
+        case .savedWithoutValue: "what was saved, without a value of the account on the date"
         case .unknownTimeZone(let name): "unknown time zone “\(name)”"
         case .unmappedTradeType(let text): "“\(text)” isn't mapped to a trade type"
         case .noTradeDirection: "no type, and neither the quantity nor the amount says whether it's a buy or a sell"
