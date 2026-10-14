@@ -93,8 +93,7 @@ final class ImportController {
             guard let result else { return }
             var receipt = ImportReceipt(fileName: flow.displayName ?? "the file", result: result)
             if flow.isBatch {
-                let accounts = Set(flow.batchFiles.compactMap(\.account)).count
-                receipt.batchSummary = ImportFlow.batchSummary(result, accounts: accounts)
+                receipt.batchSummary = ImportFlow.batchSummary(result, of: flow.batchFiles.compactMap(\.account))
             }
             receipt.backup = backup
             self.receipt = receipt

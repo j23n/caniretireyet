@@ -122,8 +122,11 @@ extension ImportFlow {
         return reasons
     }
 
-    /// "Imported 13 months for 2 accounts", for Done.
-    static func batchSummary(_ result: ImportResult, accounts: Int) -> String {
-        "Imported \(Wording.count(result.changedMonths.count, "month")) for \(Wording.count(accounts, "account"))"
+    /// "Imported 13 months for 2 accounts", for Done: the files' accounts
+    /// the import changed, not one whose file the library already had.
+    static func batchSummary(_ result: ImportResult, of fileAccounts: [AccountID]) -> String {
+        let accounts = Set(fileAccounts).intersection(result.changedAccounts).count
+        let months = Wording.count(result.changedMonths.count, "month")
+        return "Imported \(months) for \(Wording.count(accounts, "account"))"
     }
 }

@@ -307,13 +307,8 @@ struct ImportStatementFlowTests {
     /// one file shown at a time, and the import waiting for a file's
     /// account until it's chosen.
     @Test func severalStatementsAreImportedTogether() throws {
-        let deposito = """
-            Data;Importo;Descrizione;Saldo
-            26/09/2026;500,00;Bonifico in entrata;17.330,50
-            """
         var flow = ImportFlow(library: PreviewLibrary.library)
-        flow.open(files: [(name: "fineco-settembre.csv", data: Data(Self.csv.utf8)),
-                          (name: "esempio-settembre.csv", data: Data(deposito.utf8))])
+        flow.open(files: Self.twoStatements)
         #expect(flow.isBatch)
         #expect(flow.displayName == "2 statements")
         #expect(flow.batchFiles.map(\.account) == ["conto-deposito", "conto-fineco"])
@@ -342,6 +337,76 @@ struct ImportStatementFlowTests {
         unknown.setBatchAccount("conto-deposito", forFile: 1)
         #expect(!unknown.needsStatementAccount)
         #expect(unknown.batchFiles.first { $0.id == 1 }?.accountSource == .chosen)
+    }
+
+    /// The savings account's September, whose balance follows on from its
+    /// August value, with the current account's transfer coming in.
+    private static let deposito = """
+        Data;Importo;Descrizione;Saldo
+        26/09/2026;500,00;Bonifico in entrata;17.330,50
+        """
+
+    /// The current account's September and the savings account's.
+    private static let twoStatements = [(name: "fineco-settembre.csv", data: Data(csv.utf8)),
+                                        (name: "esempio-settembre.csv", data: Data(deposito.utf8))]
+
+    /// Accounts answers one statement's opening or closing at a time, so it
+    /// opens on the first file that proposes one.
+    @Test func accountsOpenOnTheStatementThatProposesAChange() {
+        var library = PreviewLibrary.library
+        library.accounts["conto-fineco"]?.opened = "2026-10-01"
+        var flow = ImportFlow(library: library)
+        flow.open(files: Self.twoStatements)
+        #expect(flow.batchFile == 1)
+        #expect(flow.steps == [.file, .classify, .accounts, .preview, .done])
+        flow.show(.accounts)
+        #expect(flow.step == .accounts)
+        #expect(flow.batchFile == 0)
+        #expect(flow.preview?.accountChanges.contains { $0.account == "conto-fineco" } == true)
+    }
+
+    /// An account chosen in How It's Read… is chosen, as on the File step.
+    @Test func anAccountChangedInHowItsReadIsChosen() {
+        var flow = ImportFlow(library: PreviewLibrary.library)
+        flow.open(files: Self.twoStatements)
+        flow.showBatchFile(0)
+        flow.setConstants { $0.account = "conto-deposito" }
+        #expect(flow.batchFiles.first { $0.id == 0 }?.accountSource == .chosen)
+    }
+
+    /// Two statements of one account's same days wait to be told which
+    /// to leave out.
+    @Test func twoStatementsOfTheSameDaysWait() {
+        var flow = ImportFlow(library: PreviewLibrary.library)
+        flow.open(files: [(name: "settembre.csv", data: Data(Self.csv.utf8)),
+                          (name: "settembre-copia.csv", data: Data(Self.csv.utf8))])
+        flow.setBatchAccount("conto-fineco", forFile: 0)
+        flow.setBatchAccount("conto-fineco", forFile: 1)
+        #expect(flow.batchGaps.map(\.isOverlap) == [true])
+        #expect(flow.blockers.contains("Two files cover the same days of an account: leave one out."))
+        #expect(flow.batchNotes.contains { note in
+            note.isProblem && note.text.hasPrefix("settembre.csv and settembre-copia.csv both cover")
+        })
+    }
+
+    /// Done counts the months and the files' accounts the import changed.
+    @Test func doneCountsTheAccountsTheImportChanged() throws {
+        var result = try #require(flow().planned)
+        result.changedMonths = ["2026-08", "2026-09"]
+        result.changedAccounts = ["conto-fineco", "casa"]
+        #expect(ImportFlow.batchSummary(result, of: ["conto-deposito", "conto-fineco"])
+            == "Imported 2 months for 1 account")
+    }
+
+    /// Several statements take every step, and one file opens as "Import
+    /// with profile…" again after them.
+    @Test func severalStatementsTakeEveryStepOnIPhone() {
+        var flow = ImportFlow(library: PreviewLibrary.library, guided: true)
+        flow.open(files: Self.twoStatements)
+        #expect(!flow.isGuided)
+        #expect(flow.steps == [.file, .classify, .preview, .done])
+        flow.reset()
+        #expect(flow.isGuided)
     }
 
     @Test func previewChartsTheFilesBalanceAgainstTheAccountsValues() throws {

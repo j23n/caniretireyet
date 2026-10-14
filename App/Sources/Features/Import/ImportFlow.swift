@@ -84,8 +84,11 @@ struct ImportFlow: Sendable {
     /// The step on screen.
     private(set) var step: ImportStep = .file
     /// iPhone's "Import with profile…": the file and a saved profile, then
-    /// the preview. Otherwise every step (the Mac-first flow).
-    private(set) var isGuided: Bool
+    /// the preview. Otherwise every step (the Mac-first flow), as always
+    /// for several files, which need File's accounts and Income.
+    var isGuided: Bool { prefersGuided && batch == nil }
+    /// Whether one file opens as "Import with profile…".
+    private(set) var prefersGuided: Bool
     /// Several bank statements opened at once (IMPORT.md, "Several
     /// statements at once"); `nil` for one file. ``session`` is then the
     /// file on screen (``batchFile``), kept in step with the batch.
@@ -99,7 +102,7 @@ struct ImportFlow: Sendable {
 
     init(library: Library = Library(), guided: Bool = false) {
         self.library = library
-        isGuided = guided
+        prefersGuided = guided
     }
 
     // MARK: - The file
@@ -107,7 +110,7 @@ struct ImportFlow: Sendable {
     /// Reads a file. A saved profile that fits it exactly is used right away;
     /// otherwise the importer proposes a mapping.
     mutating func open(_ data: Data, fileName: String) {
-        self = ImportFlow(library: library, guided: isGuided)
+        self = ImportFlow(library: library, guided: prefersGuided)
         self.data = data
         self.fileName = fileName
         profileFits = ProfileFit.rank(data, profiles: Array(library.importProfiles.values))
@@ -126,7 +129,7 @@ struct ImportFlow: Sendable {
             if let file = files.first { open(file.data, fileName: file.name) }
             return
         }
-        self = ImportFlow(library: library)
+        self = ImportFlow(library: library, guided: prefersGuided)
         let batch = StatementBatch(files: files, library: library)
         guard let first = batch.order(against: library).first ?? batch.files.first?.id else {
             fileName = Wording.count(files.count, "file")
@@ -166,7 +169,7 @@ struct ImportFlow: Sendable {
 
     /// Records that a file couldn't be opened at all (e.g. no permission).
     mutating func failToOpen(fileName: String, message: String) {
-        self = ImportFlow(library: library, guided: isGuided)
+        self = ImportFlow(library: library, guided: prefersGuided)
         self.fileName = fileName
         problem = message
     }
@@ -179,7 +182,7 @@ struct ImportFlow: Sendable {
 
     /// Forgets the file: back to the first step.
     mutating func reset() {
-        self = ImportFlow(library: library, guided: isGuided)
+        self = ImportFlow(library: library, guided: prefersGuided)
     }
 
     /// Whether a file has been read.
@@ -232,8 +235,8 @@ struct ImportFlow: Sendable {
         if session?.profile.layout == .trades { return [.file, .format, .columns, .types, .accounts, .preview, .done] }
         if session?.profile.layout == .statement {
             // Accounts only for a proposed opening or closing; Income answers a sale's.
-            let previews = batch == nil ? [preview].compactMap { $0 } : batchPreviews.map(\.preview)
-            let proposed = previews.contains { $0.accountChanges.contains { $0.statementRow == nil } }
+            let previews: [ImportPreview?] = batch == nil ? [preview] : batchPreviews.map { $0.preview }
+            let proposed = previews.contains(where: Self.proposesAccountChange)
             let accounts: [ImportStep] = proposed ? [.accounts] : []
             return [.file, .classify] + accounts + [.preview, .done]
         }
@@ -277,7 +280,7 @@ struct ImportFlow: Sendable {
 
     /// Shows a step, if it can be shown.
     mutating func show(_ step: ImportStep) {
-        if canShow(step) { self.step = step }
+        if canShow(step) { enter(step) }
     }
 
     /// The step after this one; `nil` from Preview (next is importing) and Done.
@@ -294,16 +297,32 @@ struct ImportFlow: Sendable {
     }
 
     mutating func goForward() {
-        if let nextStep { step = nextStep }
+        if let nextStep { enter(nextStep) }
     }
 
     mutating func goBack() {
-        if let previousStep { step = previousStep }
+        if let previousStep { enter(previousStep) }
+    }
+
+    /// Shows `step`. With several files, Accounts lists one file's opening
+    /// or closing, so it opens on the first file that proposes one when the
+    /// file on screen doesn't.
+    private mutating func enter(_ step: ImportStep) {
+        self.step = step
+        guard step == .accounts, batch != nil, !Self.proposesAccountChange(preview),
+              let first = batchPreviews.first(where: { Self.proposesAccountChange($0.preview) }) else { return }
+        showBatchFile(first.file)
+    }
+
+    /// Whether `preview` proposes opening an account earlier or closing one,
+    /// which Accounts answers; Income answers a sale's.
+    static func proposesAccountChange(_ preview: ImportPreview?) -> Bool {
+        preview?.accountChanges.contains { $0.statementRow == nil } ?? false
     }
 
     /// Switches between "Import with profile…" (iPhone) and every step.
     mutating func setGuided(_ guided: Bool) {
-        isGuided = guided
+        prefersGuided = guided
         if !steps.contains(step) { step = .file }
     }
 
@@ -325,6 +344,11 @@ struct ImportFlow: Sendable {
             problem = nil
             // The batch pairs its files' transfers again with this file's change.
             if let id = batchFile, var batch {
+                let account = edited.profile.constants.account
+                if account != batch.files.first(where: { $0.id == id })?.account {
+                    // Chosen in How It's Read…, as on the File step.
+                    batch.setAccount(account, forFile: id, library: library)
+                }
                 batch.editSession(ofFile: id, library: library) { $0 = edited }
                 session = batch.files.first { $0.id == id }?.session ?? edited
                 self.batch = batch

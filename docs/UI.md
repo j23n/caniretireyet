@@ -1056,9 +1056,10 @@ Several bank statements chosen or dropped at once, of one account or many, impor
 
 - **File** lists them under *Bank statements*: each file's name, its lines, the days it covers and whether it has a balance column, its *Account* and how it was found ("Named in the file", "Its balance follows on from the value of 31 Aug 2026", "Remembered from its saved profile", "Chosen"), and *How It's Read…* for that file. A file nothing recognized waits for its account, and Continue says which. Files that can't be read are listed with why. Under them: how many transfers between the accounts were found in both files and paired, and the days an account's files leave out or cover twice, in the warning color.
 - **Income** and **Preview** show one statement at a time, chosen at the top, in the order they're imported: by account, then by date, each against the library with the ones before it imported. Preview's summary says what importing them all does, and Import waits while two files cover the same days or another file needs a format confirmed or its balance before the first line.
+- **Accounts**, when a file proposes opening an account earlier or closing one, shows one statement at a time too, opening on the first that proposes one.
 - **Done** says "Imported 13 months for 2 accounts", with *Undo Import* for them all. There's no profile to save: each file was read with its own.
 
-On iPhone, a CSV opened from Files goes straight to "Import with profile…": choose the profile, preview, import.
+On iPhone, a CSV opened from Files goes straight to "Import with profile…": choose the profile, preview, import. Several statements take every step, and the next file opens as "Import with profile…" again.
 
 ## Settings
 
