@@ -239,10 +239,10 @@ extension ImportFlow {
 
     /// The days the statements cover, from the first file's first day
     /// through the last file's last.
-    var statementsPeriod: (from: CalendarDate, through: CalendarDate)? {
+    var statementsPeriod: StatementPeriod? {
         let periods = previews.compactMap(\.preview.statementPeriod)
         guard let from = periods.map(\.from).min(), let through = periods.map(\.through).max() else { return nil }
-        return (from, through)
+        return StatementPeriod(from: from, through: through)
     }
 
     /// What came in, tax, spent and saved over the days the statements

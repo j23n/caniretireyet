@@ -274,13 +274,9 @@ extension ImportFlow {
         -> (lines: Int, from: CalendarDate, through: CalendarDate, hasBalance: Bool, breaks: Int)? {
         if let preview = batchPreview(of: file), let first = preview.statementLines.first {
             let period = preview.statementPeriod
-                ?? (from: first.date.startOfMonth, through: preview.statementLines.last?.date ?? first.date)
-            var breaks = 0
-            for issue in preview.issues {
-                if case .runningBalanceBreaks(let count) = issue.kind { breaks = count }
-            }
+                ?? StatementPeriod(from: first.date.startOfMonth, through: preview.statementLines.last?.date ?? first.date)
             return (preview.statementLines.count, period.from, period.through,
-                    preview.statementLines.contains { $0.balance != nil }, breaks)
+                    preview.statementLines.contains { $0.balance != nil }, preview.runningBalanceBreaks)
         }
         guard let summary = file.session.statementSummary(today: today) else { return nil }
         return (summary.lines, summary.from, summary.through, summary.hasBalance, summary.balanceBreaks)
@@ -447,9 +443,7 @@ extension ImportFlow {
             lines = preview.statementLines.count
             unreadable = Set(preview.cellErrors.map(\.row)).count
             hasBalance = preview.statementLines.contains { $0.balance != nil }
-            for issue in preview.issues {
-                if case .runningBalanceBreaks(let count) = issue.kind { breaks = count }
-            }
+            breaks = preview.runningBalanceBreaks
         } else if let summary = session.statementSummary(today: today) {
             lines = summary.lines
             hasBalance = summary.hasBalance
@@ -484,9 +478,9 @@ extension ImportFlow {
 
     /// The days the file on screen is read as covering: its preview's, or
     /// before it has an account, as a statement's would be.
-    func shownFilePeriod(today: CalendarDate = .today()) -> (from: CalendarDate, through: CalendarDate)? {
+    func shownFilePeriod(today: CalendarDate = .today()) -> StatementPeriod? {
         if let period = statementPeriod { return period }
-        return session?.statementSummary(today: today).map { ($0.from, $0.through) }
+        return session?.statementSummary(today: today).map { StatementPeriod(from: $0.from, through: $0.through) }
     }
 
     /// The day of the file's last line, or the last day it covers, not after

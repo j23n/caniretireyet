@@ -109,14 +109,6 @@ extension ImportFlow {
         batch?.files.first { $0.id == file }?.account
     }
 
-    /// The days the statements are read as covering: the first day of the
-    /// earliest and the last day of the latest.
-    var reviewPeriod: (from: CalendarDate, through: CalendarDate)? {
-        let periods = previews.compactMap(\.preview.statementPeriod)
-        guard let from = periods.map(\.from).min(), let through = periods.map(\.through).max() else { return nil }
-        return (from, through)
-    }
-
     /// Bank statements' charts, once their accounts and the days they
     /// cover are known; `nil` for any other file. Money in and out starts
     /// on the first day of the year of the import's last day, and ends
@@ -125,7 +117,7 @@ extension ImportFlow {
     /// month's last day when that check-in is in a later month, otherwise
     /// at it, when that's after the import's last day.
     func makeStatementCharts() -> ImportStatementCharts? {
-        guard layout == .statement, let period = reviewPeriod, let after = planned?.library else { return nil }
+        guard layout == .statement, let period = statementsPeriod, let after = planned?.library else { return nil }
         let year = period.through.year
         let start = CalendarDate.firstDay(ofYear: year)
         let balances = reviewBalances(from: start)
@@ -158,7 +150,7 @@ extension ImportFlow {
             let periods = previews.compactMap(\.statementPeriod)
             let lines = previews.flatMap { preview in
                 preview.statementLines.filter { line in
-                    preview.statementPeriod.map { line.date >= $0.from && line.date <= $0.through } ?? false
+                    preview.statementPeriod?.contains(line.date) ?? false
                 }
             }.map { (date: $0.date, amount: $0.amount) }
             let file = ImportStatementCharts.dayEnds(lines: lines, values: values)

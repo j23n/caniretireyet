@@ -401,14 +401,3 @@ public struct StatementGap: Hashable, Sendable {
     /// Whether both files cover the days, so their lines would count twice.
     public var isOverlap: Bool
 }
-
-extension ImportPreview {
-    /// The days a statement is read as covering, from its note
-    /// (``ImportIssue/Kind/statementPeriod(from:through:)``).
-    public var statementPeriod: (from: CalendarDate, through: CalendarDate)? {
-        for issue in issues {
-            if case .statementPeriod(let from, let through) = issue.kind { return (from, through) }
-        }
-        return nil
-    }
-}

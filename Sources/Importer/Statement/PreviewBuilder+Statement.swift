@@ -655,6 +655,7 @@ extension PreviewBuilder {
             issues.append(ImportIssue(kind: .linesOutsidePeriod(count: outside, from: start, through: end)))
             return [:]
         }
+        statementPeriod = StatementPeriod(from: start, through: end)
         issues.append(ImportIssue(kind: .statementPeriod(from: start, through: end)))
         let valuations = library.valuations(for: account.id)
         let anchor = valuations.last { $0.date < start }
@@ -667,6 +668,7 @@ extension PreviewBuilder {
         // A file said to end on a day has a value on that day, which the next file follows on from.
         if through != nil { cuts.insert(end) }
         let balances = RunningBalances(lines)
+        runningBalanceBreaks = balances.breaks
         if balances.breaks > 0 { issues.append(ImportIssue(kind: .runningBalanceBreaks(count: balances.breaks))) }
         let fromFile = balances.opening
         let adjacent = anchor.map { $0.date >= start.adding(days: -1) } ?? false

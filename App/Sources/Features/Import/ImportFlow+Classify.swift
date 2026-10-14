@@ -164,13 +164,8 @@ extension ImportFlow {
 
     // MARK: The days the file covers
 
-    /// The days the file is read as covering, from the preview's note.
-    var statementPeriod: (from: CalendarDate, through: CalendarDate)? {
-        for issue in preview?.issues ?? [] {
-            if case .statementPeriod(let from, let through) = issue.kind { return (from, through) }
-        }
-        return nil
-    }
+    /// The days the file is read as covering.
+    var statementPeriod: StatementPeriod? { preview?.statementPeriod }
 
     /// The first day the file covers, when it isn't its first month's first day.
     var statementFrom: CalendarDate? { session?.statementFrom }

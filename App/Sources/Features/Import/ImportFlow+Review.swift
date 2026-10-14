@@ -143,7 +143,7 @@ extension ImportFlow {
         let what = counts.months == 0 ? "Nothing changes yet"
             : "\(Wording.count(counts.months, "month")) for \(Wording.count(counts.accounts, "account"))"
         var range = ""
-        if !compact, let period = reviewPeriod {
+        if !compact, let period = statementsPeriod {
             let from = GlanceText.shortMonthAndYear(period.from, locale: locale)
             let through = GlanceText.shortMonthAndYear(period.through, locale: locale)
             range = from == through ? ", \(from)" : ", \(from) to \(through)"
@@ -234,7 +234,7 @@ extension ImportFlow {
     // MARK: Accounts
 
     /// The last day the statements cover: the day Accounts' balances are on.
-    var reviewDay: CalendarDate? { reviewPeriod?.through }
+    var reviewDay: CalendarDate? { statementsPeriod?.through }
 
     /// "Balance, 30 Sep", with the year when it isn't this one.
     func reviewBalanceHeader(today: CalendarDate = .today(), locale: Locale = .current) -> String {

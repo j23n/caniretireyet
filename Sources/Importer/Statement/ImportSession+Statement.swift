@@ -128,11 +128,8 @@ extension ImportSession {
         let preview = trial.preview(against: library, today: today)
         let lines = preview.statementLines
         guard let first = lines.map(\.date).min(), let last = lines.map(\.date).max() else { return nil }
-        let period = preview.statementPeriod ?? (first.startOfMonth, last)
-        var breaks = 0
-        for issue in preview.issues {
-            if case .runningBalanceBreaks(let count) = issue.kind { breaks = count }
-        }
+        let period = preview.statementPeriod ?? StatementPeriod(from: first.startOfMonth, through: last)
+        let breaks = preview.runningBalanceBreaks
         let balances = lines.compactMap(\.balance)
         return StatementSummary(lines: lines.count, first: first, last: last, from: period.from,
                                 through: period.through, hasBalance: !balances.isEmpty, balanceBreaks: breaks,
