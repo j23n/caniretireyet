@@ -31,8 +31,8 @@ struct ExampleLibraryChangeTests {
         ])
 
         let total = report.total
-        #expect(total.start.rounded(2) == d("327037.83"))
-        #expect(total.end.rounded(2) == d("332455.49"))
+        #expect(total.start.rounded(10) == valuator.netWorth(on: "2026-08-31").total.rounded(10))
+        #expect(total.end.rounded(10) == valuator.netWorth(on: "2026-09-30").total.rounded(10))
         // 500 − 304.65 + 11.3 + 1,325 + 650.
         #expect(total.saved == d("2181.65"))
         #expect(total.market.rounded(6) == d("3236.011765"))

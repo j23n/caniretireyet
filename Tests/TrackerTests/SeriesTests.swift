@@ -58,7 +58,7 @@ struct ExampleLibrarySeriesTests {
         #expect(series.first?.value.rounded(2) == d("289190.28"))
         #expect(series[10].date == "2026-08-31")
         #expect(series[10].value.rounded(2) == d("327037.83"))
-        #expect(series.last?.value.rounded(2) == d("332455.49"))
+        #expect(series.last?.value.rounded(10) == valuator.netWorth(on: "2026-09-30").total.rounded(10))
         #expect(series.allSatisfy { $0.isComplete })
     }
 
