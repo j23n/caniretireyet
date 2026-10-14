@@ -2,6 +2,7 @@ import Charts
 import Model
 import Planner
 import SwiftUI
+import Tracker
 
 // The cards behind the plan's answer (UI.md, "Plan", "More charts"): your
 // money over time, the chance of success by retirement age, retirement
