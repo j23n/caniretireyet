@@ -30,7 +30,7 @@
       "properties": {
         "provider": { "$comment": "Open enum.", "enum": ["yahoo", "coingecko", "gold-api", "eodhd", "twelvedata"] },
         "symbol": {
-          "description": "The provider's identifier: a Yahoo ticker (VWCE.DE), a metal code for gold-api (XAU), or for coingecko the coin's CoinGecko ID (ethereum) or its ticker (ETH), in any case. A ticker is resolved through a built-in table of well-known coins, then CoinGecko's search; the file keeps it as typed. The app's price list shows what a ticker resolved to, e.g. \"ETH → ethereum\".",
+          "description": "The provider's identifier: a Yahoo ticker (VWCE.DE), a Yahoo crypto pair (BTC-EUR), or a metal code for gold-api (XAU). A source whose provider the app doesn't fetch from (coingecko, which earlier versions fetched crypto from, eodhd, twelvedata) is kept, and the instrument's prices are typed in.",
           "type": "string"
         }
       }
