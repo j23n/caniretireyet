@@ -66,7 +66,8 @@ struct TradeStorageTests {
         let loaded = try folder.library.load()
         #expect(loaded.library.trades(for: "broker") == [deposit, buy])
         #expect(loaded.report.issues(for: october).isEmpty)
-        #expect(CanonicalJSON.isCanonical(try folder.data(october)))
+        let written = try folder.data(october)
+        #expect(CanonicalJSON.data(for: try CanonicalJSON.parse(written)) == written)
 
         // Saving again with nothing changed writes nothing.
         #expect(try folder.library.save(loaded.library, previous: loaded.library).written.isEmpty)
