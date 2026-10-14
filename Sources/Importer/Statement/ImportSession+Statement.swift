@@ -17,11 +17,27 @@ extension ImportSession {
     /// The profile's rule for a line's text: the longest phrase the text has
     /// as whole words, ignoring case, accents and punctuation.
     public func statementRule(for text: String) -> StatementRule? {
-        let words = TextTools.words(text)
-        return profile.rules
-            .map { (rule: $0, phrase: TextTools.words($0.match)) }
-            .filter { !$0.phrase.isEmpty && TextTools.contains(words, anyOf: [$0.phrase.joined(separator: " ")]) }
-            .max { $0.phrase.count < $1.phrase.count }?.rule
+        Self.statementRule(for: TextTools.words(text), in: statementRules)
+    }
+
+    /// The profile's rule for each of `texts`, as ``statementRule(for:)``
+    /// gives it, with the rules' phrases folded once.
+    public func statementRules(for texts: [String]) -> [StatementRule?] {
+        let rules = statementRules
+        return texts.map { Self.statementRule(for: TextTools.words($0), in: rules) }
+    }
+
+    /// The profile's rules with their phrases' words, for
+    /// ``statementRule(for:in:)``: folded once, not once a line.
+    var statementRules: [(rule: StatementRule, phrase: [String])] {
+        profile.rules.map { (rule: $0, phrase: TextTools.words($0.match)) }.filter { !$0.phrase.isEmpty }
+    }
+
+    /// The rule of `rules` for a text's `words`: the longest phrase they
+    /// have as whole words.
+    static func statementRule(for words: [String], in rules: [(rule: StatementRule, phrase: [String])])
+        -> StatementRule? {
+        rules.filter { TextTools.contains(words, phrase: $0.phrase) }.max { $0.phrase.count < $1.phrase.count }?.rule
     }
 
     /// The profile's rule for `phrase` itself, the one
@@ -70,7 +86,12 @@ extension ImportSession {
     /// case, accents and punctuation.
     public func statementAnswer(date: CalendarDate, amount: Decimal, text: String) -> StatementAnswer? {
         guard !profile.answers.isEmpty else { return nil }
-        let words = TextTools.words(text)
+        return statementAnswer(date: date, amount: amount, words: TextTools.words(text))
+    }
+
+    /// The remembered answer for a line whose text has `words`.
+    func statementAnswer(date: CalendarDate, amount: Decimal, words: [String]) -> StatementAnswer? {
+        guard !profile.answers.isEmpty else { return nil }
         return profile.answers.last { answer in
             answer.date == date && answer.amount == amount && TextTools.words(answer.match) == words
         }

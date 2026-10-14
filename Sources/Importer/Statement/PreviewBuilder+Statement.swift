@@ -18,6 +18,11 @@ extension PreviewBuilder {
         var sender: String
         var balance: Decimal?
         var cells: [ImportCellRef]
+        /// The text's words, folded once (``TextTools/words(_:)``).
+        var words: [String]
+        var senderWords: [String]
+        /// The profile's rule for the text (``ImportSession/statementRule(for:)``).
+        var rule: StatementRule?
     }
 
     /// Reads the lines, classifies them (``statementLines``) and works out
@@ -76,6 +81,7 @@ extension PreviewBuilder {
             (field, NumberParser(format: session.effectiveFormat(forColumn: column).number ?? ImportNumberFormat()))
         })
 
+        let rules = session.statementRules
         var lines: [ReadLine] = []
         rows: for row in table.rows {
             guard amountColumns.contains(where: { !row[$0].isEmpty }) else { continue }
@@ -104,9 +110,11 @@ extension PreviewBuilder {
             }
             let text = texts.map { row[$0] }.filter { !$0.isEmpty }.joined(separator: " · ")
             let counterparty = StatementWords.sender(of: counterparties.map { row[$0] }.joined(separator: " "))
-            lines.append(ReadLine(row: row.number, date: date, amount: amount, text: text,
-                                  sender: counterparty.isEmpty ? StatementWords.sender(of: text) : counterparty,
-                                  balance: balance, cells: cells))
+            let sender = counterparty.isEmpty ? StatementWords.sender(of: text) : counterparty
+            let words = TextTools.words(text)
+            lines.append(ReadLine(row: row.number, date: date, amount: amount, text: text, sender: sender,
+                                  balance: balance, cells: cells, words: words, senderWords: TextTools.words(sender),
+                                  rule: ImportSession.statementRule(for: words, in: rules)))
         }
         if let first = lines.first, let last = lines.last, first.date > last.date { lines.reverse() }
         // A stable sort: lines on one day keep their order.
@@ -127,13 +135,13 @@ extension PreviewBuilder {
         let answered = answeredAssets(read, account: account)
         let open = read.indices.filter { index in
             session.statementLineClasses[read[index].row] == nil && remembered(read[index]) == nil
-                && session.statementRule(for: read[index].text) == nil
+                && read[index].rule == nil
                 && answered[read[index].row] == nil && session.statementPairs[read[index].row] == nil
         }
         let trades = matchTrades(read, lines: open, excluding: account.id)
         var lines = read.indices.map { index in
             let line = read[index]
-            let rule = session.statementRule(for: line.text)
+            let rule = line.rule
             let chosen: (StatementClass, StatementLine.Source)
             if answered[line.row] != nil {
                 // Money moved to or from an account, a purchase or a sale moves money between your accounts.
@@ -152,10 +160,10 @@ extension PreviewBuilder {
                 chosen = (.transfer, .trade(trade))
             } else if let other = session.statementPairs[line.row] {
                 chosen = (.transfer, .paired(other))
-            } else if let named = Self.namedAccount(in: line.text, names: names) {
+            } else if let named = Self.namedAccount(in: line.words, names: names) {
                 // Paying a debt is spending; a loan paid out into the account is moved between accounts.
                 chosen = (named.isLiability && line.amount < 0 ? .spending : .transfer, .account(named.id))
-            } else if let suggested = StatementWords.suggestion(for: line.text, amount: line.amount) {
+            } else if let suggested = StatementWords.suggestion(for: line.words, amount: line.amount) {
                 chosen = (suggested, .words)
             } else if line.amount > 0, Self.paidBefore(line, in: read) {
                 chosen = (.spending, .paidBefore)
@@ -179,7 +187,7 @@ extension PreviewBuilder {
     /// The profile's remembered answer for `line`, chosen for it in an
     /// earlier file (``ImportProfile/answers``).
     private func remembered(_ line: ReadLine) -> StatementAnswer? {
-        session.statementAnswer(date: line.date, amount: line.amount, text: line.text)
+        session.statementAnswer(date: line.date, amount: line.amount, words: line.words)
     }
 
     /// Marks the lines that need an answer, or would without the class or
@@ -206,7 +214,7 @@ extension PreviewBuilder {
         let since = line.date.adding(days: -paidBackDays)
         return read.contains { out in
             out.amount <= -line.amount && out.date >= since && out.date <= line.date
-                && TextTools.words(out.sender) == TextTools.words(line.sender)
+                && out.senderWords == line.senderWords
         }
     }
 
@@ -286,10 +294,11 @@ extension PreviewBuilder {
     /// pairs nearest in date are taken first, each line once.
     private static func markPassThroughs(_ lines: inout [StatementLine]) {
         let open = lines.indices.filter { lines[$0].source == .sign && lines[$0].amount != 0 }
+        let outs = Dictionary(grouping: open.filter { lines[$0].amount < 0 }) { -lines[$0].amount }
         var pairs: [(in: Int, out: Int, days: Int)] = []
         for incoming in open where lines[incoming].amount > 0 {
-            for out in open where lines[out].amount == -lines[incoming].amount
-                && (lines[incoming].needsAnswer || lines[out].needsAnswer) {
+            for out in outs[lines[incoming].amount] ?? []
+            where lines[incoming].needsAnswer || lines[out].needsAnswer {
                 let days = abs(lines[incoming].date.days(to: lines[out].date))
                 if days <= transferDays { pairs.append((incoming, out, days)) }
             }
@@ -324,9 +333,11 @@ extension PreviewBuilder {
     /// one line, the nearest pairs first.
     private func matchTrades(_ read: [ReadLine], lines: [Int], excluding account: AccountID) -> [Int: TradeKey] {
         let trades = transferTrades(excluding: account)
+        let byAmount = Dictionary(grouping: trades.indices) { trades[$0].amount }
         var pairs: [(line: Int, trade: Int, days: Int)] = []
         for line in lines {
-            for (index, trade) in trades.enumerated() where trade.amount == read[line].amount {
+            for index in byAmount[read[line].amount] ?? [] {
+                let trade = trades[index]
                 let days = abs(trade.trade.date.days(to: read[line].date))
                 if days <= Self.transferDays { pairs.append((line, index, days)) }
             }
@@ -362,11 +373,10 @@ extension PreviewBuilder {
         return names
     }
 
-    /// The account whose name is the longest one the text has.
-    private static func namedAccount(in text: String, names: [(phrase: String, id: AccountID, isLiability: Bool)])
+    /// The account whose name is the longest one the text's words have.
+    private static func namedAccount(in words: [String], names: [(phrase: String, id: AccountID, isLiability: Bool)])
         -> (id: AccountID, isLiability: Bool)? {
-        let words = TextTools.words(text)
-        return names.filter { TextTools.contains(words, anyOf: [$0.phrase]) }
+        names.filter { TextTools.contains(words, anyOf: [$0.phrase]) }
             .max { $0.phrase.count < $1.phrase.count }.map { ($0.id, $0.isLiability) }
     }
 
@@ -419,7 +429,7 @@ extension PreviewBuilder {
     /// comes first: money moved to or from the rule's account.
     private func ruleMove(for line: ReadLine) -> StatementAsset? {
         guard session.statementLineClasses[line.row] == nil, session.statementAssets[line.row] == nil,
-              remembered(line) == nil, let rule = session.statementRule(for: line.text), rule.statementClass == .transfer
+              remembered(line) == nil, let rule = line.rule, rule.statementClass == .transfer
         else { return nil }
         return rule.account.map(StatementAsset.moved)
     }

@@ -45,6 +45,9 @@ public struct StatementBatch: Sendable {
     public private(set) var unreadable: [UnreadableFile] = []
     /// How many files were given, read or not: the next file's ID.
     private var given = 0
+    /// Each file's first day, from the previews ``pairTransfers(in:today:)``
+    /// makes after every change to the files, for ``order(against:today:)``.
+    private var firstDates: [Int: CalendarDate?] = [:]
 
     /// Reads each file as a statement: with the first saved statement
     /// profile (by name) that reads every column, else with a proposed
@@ -234,18 +237,25 @@ public struct StatementBatch: Sendable {
             files[index].session.statementBatchAccounts = accounts.subtracting(files[index].account.map { [$0] } ?? [])
         }
         var open: [(file: Int, account: AccountID, line: StatementLine)] = []
+        firstDates = [:]
         for index in files.indices {
             guard let account = files[index].account else { continue }
-            for line in files[index].session.preview(against: library, today: today).statementLines
-            where line.amount != 0 && Self.canPair(line.source) {
+            let preview = files[index].session.preview(against: library, today: today)
+            firstDates[files[index].id] = .some(preview.firstDate)
+            for line in preview.statementLines where line.amount != 0 && Self.canPair(line.source) {
                 open.append((index, account, line))
             }
         }
+        let incomingByAmount = Dictionary(grouping: open.indices.filter { open[$0].line.amount > 0 }) {
+            open[$0].line.amount
+        }
         var pairs: [(out: Int, in: Int, days: Int)] = []
         for (outIndex, out) in open.enumerated() where out.line.amount < 0 {
-            for (inIndex, incoming) in open.enumerated()
-            where incoming.account != out.account && incoming.line.amount == -out.line.amount
-                && library.accounts[incoming.account]?.currency == library.accounts[out.account]?.currency {
+            for inIndex in incomingByAmount[-out.line.amount] ?? [] {
+                let incoming = open[inIndex]
+                guard incoming.account != out.account,
+                      library.accounts[incoming.account]?.currency == library.accounts[out.account]?.currency
+                else { continue }
                 let days = abs(out.line.date.days(to: incoming.line.date))
                 if days <= PreviewBuilder.transferDays { pairs.append((outIndex, inIndex, days)) }
             }
@@ -275,7 +285,9 @@ public struct StatementBatch: Sendable {
     /// applied: by account, then by their first line's day.
     public func order(against library: Library, today: CalendarDate = .today()) -> [Int] {
         files.filter { $0.account != nil }
-            .map { file in (file: file, first: file.session.preview(against: library, today: today).firstDate) }
+            .map { file in
+                (file: file, first: firstDates[file.id] ?? file.session.preview(against: library, today: today).firstDate)
+            }
             .sorted { lhs, rhs in
                 let left = (lhs.file.account?.rawValue ?? "", lhs.first ?? PreviewBuilder.earliestDate, lhs.file.id)
                 let right = (rhs.file.account?.rawValue ?? "", rhs.first ?? PreviewBuilder.earliestDate, rhs.file.id)
