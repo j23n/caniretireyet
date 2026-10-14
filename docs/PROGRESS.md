@@ -86,7 +86,7 @@ A **baseline** is a projection saved at a point in time (see below). Choosing on
 
   | Part | Meaning |
   | --- | --- |
-  | Savings | The new money you added, minus what the plan expected you to save (the baseline's `savings` for each year, spread evenly over it) |
+  | Savings | What you saved, minus what the plan expected you to save (the baseline's `savings` for each year, spread evenly over it) |
   | Markets | What markets did to your money, minus what the baseline expected them to do (its expected change, less its planned saving) |
   | Inflation | What rising prices took from your money's worth in the baseline's money: its change in money of the start date, less its change as it happened. Without an inflation index, part of Other |
   | Other | Everything else: what an account held when its records start, a balance's change when a missing price or rate keeps what it saved from being worked out, and exchange rates |
@@ -174,7 +174,7 @@ Two kinds of data are needed for the comparisons above.
   | Savings accounts | The change minus the interest recorded with the value, so the interest counts as market, as a fund's return does. Worked out. |
   | Brokerage, crypto, metals | They record trades: see the last row. |
   | Pension fund, TFR, property, other balance accounts | Recorded from the file: a spreadsheet's saved column ([IMPORT.md](IMPORT.md#saved)), e.g. contributions from the pension fund's statement, or a bank statement's purchase or sale. Without it, the flow is unknown, and the change since the value before counts as "other", apart from FX movement: the plan's contributions are never history. An account's first value without a flow, what it held when its records start, counts as "other" too. |
-  | Any account that records trades ([TRADES.md](TRADES.md)) | Worked out, whatever its kind: the deposits and withdrawals recorded since the previous check-in, securities moved in or out at their market value, buys and sales paid from or into another account ([TRADES.md](TRADES.md#paid-from-outside-the-account)), and the **residual**, a statement's cash minus the cash the trades give, as money nobody recorded. Buys, sells, dividends, interest and fees paid from the account's cash aren't new money. |
+  | Any account that records trades ([TRADES.md](TRADES.md)) | Worked out, whatever its kind: the deposits and withdrawals recorded since the previous check-in, securities moved in or out at their market value, buys and sales paid from or into another account ([TRADES.md](TRADES.md#paid-from-outside-the-account)), and the **residual**, a statement's cash minus the cash the trades give, as money nobody recorded. Buys, sells, dividends, interest and fees paid from the account's cash aren't saved. |
 
 - Only the kinds that record it store a flow (`Account.asksForFlow`); for the others it's worked out whenever it's needed (`Valuator.flow(of:previous:)`): the whole change since the value before (less the interest, for savings), or the trades. A value of a kind that records it without one counts what the main plan pays in, as above. An account's first value has no flow: what it held when its records start counts as "other", whatever its kind.
 - Moving money between two tracked accounts cancels out at the portfolio level (−1,000 from the current account, +1,000 into the broker). So the sum of all flows is your actual savings for the period, which is what the plan's savings are compared against.

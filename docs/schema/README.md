@@ -75,9 +75,9 @@ An account that records trades (`"valuation": "trades"`) holds what its trades l
 - **A valuation's flow** is stored only where the account asks for it (a pension fund, TFR, property or other account recorded as a balance). For every other balance it's worked out from the balances: the whole change since the value before, less a savings value's `interest`. An account's first value has none: what it held when its records start.
 - **The flow is known** (every valuation in the period has one, or there was no new valuation): saved is the flows, and market is the rest, the FX movement for a balance.
 - **Balance, flow unknown:** when only the account's first value has none, the other values' flows are saved, the first value is other ([PROGRESS.md](../PROGRESS.md#data-this-needs-from-day-one)), and market is the rest. When another value has none (an account that asks for it, left without) or a price or an exchange rate is missing, only the FX movement of the old balance counts as market, and the rest is other.
-- **Trades:** new money is the account's deposits, withdrawals, transfers at market value, buys and sales paid from outside the account at their amount, and residuals (a statement's cash that the trades don't explain), each at its date; market is the rest, including dividends, interest and fees ([TRADES.md](../TRADES.md#flows)).
+- **Trades:** saved is the account's deposits, withdrawals, transfers at market value, buys and sales paid from outside the account at their amount, and residuals (a statement's cash that the trades don't explain), each at its date; market is the rest, including dividends, interest and fees ([TRADES.md](../TRADES.md#flows)).
 
-An account that closes during the period ends at zero: its value on the closing day leaves as new money.
+An account that closes during the period ends at zero: its value on the closing day leaves as saved.
 
 **Staleness.** An account whose latest valuation is older than a threshold (45 days by default, a setting of the app, not of the library) is flagged, unless it holds nothing.
 
