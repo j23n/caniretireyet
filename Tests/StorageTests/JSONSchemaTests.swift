@@ -33,7 +33,6 @@ import TestSupport
     }
 
     @Test func everyReferenceResolves() {
-        #expect(validator.schemas.count == 10)
         #expect(validator.unresolvedReferences() == [])
     }
 

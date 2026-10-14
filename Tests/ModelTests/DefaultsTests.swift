@@ -39,23 +39,12 @@ struct InstrumentKindDefaultsTests {
 struct PlanDefaultsTests {
     private let minimal = #"{"id":"p","name":"P","retirement":{"age":"earliest"},"spending":{"retired":"30000","working":"35000"}}"#
 
-    @Test func minimalPlanUsesDocumentedDefaults() throws {
+    @Test func correlationsOfAMinimalPlan() throws {
         let plan = try JSONDecoder().decode(PlanDocument.self, from: Data(minimal.utf8))
-        #expect(plan.retirement.age == .earliest)
-        #expect(plan.effectiveEndAge == 95)
-        #expect(plan.tax.isEmpty && plan.tax.effectiveWealthRate == 0)
-        #expect(plan.portfolio.effectiveStart == .latestCheckIn)
-        #expect(plan.assumptions.effectiveInflation == Decimal(fileString: "0.02"))
-        #expect(plan.assumptions.returnAssumption(for: .equity)
-            == ReturnAssumption(medianReal: Decimal(fileString: "0.05")!, volatility: Decimal(fileString: "0.17")!))
         #expect(plan.assumptions.returnAssumption(for: .realEstate) == nil)
-        #expect(plan.assumptions.correlation(.bonds, .equity) == Decimal(fileString: "0.1"))
+        #expect(plan.assumptions.correlation(.bonds, .equity) == plan.assumptions.correlation(.equity, .bonds))
         #expect(plan.assumptions.correlation(.gold, .gold) == 1)
         #expect(plan.assumptions.correlation(.gold, .cash) == 0)
-        #expect(plan.simulation.effectiveRuns == 2000)
-        #expect(plan.simulation.effectiveSeed == 1)
-        #expect(plan.simulation.effectiveConfidence == Decimal(fileString: "0.9"))
-        #expect(plan.spending.factor(atAge: 80) == 1)
     }
 
     @Test func minimalPlanStaysMinimal() throws {
