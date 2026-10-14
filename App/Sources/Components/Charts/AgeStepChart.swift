@@ -114,7 +114,7 @@ struct ShareBar: View {
                     Text(title)
                 }
                 Spacer(minLength: Metrics.s)
-                Text(verbatim: "\(Int((share * 100 + 1e-9).rounded(.down)))%")
+                Text(verbatim: "\(Int((Readiness.shown(share) * 100).rounded()))%")
                     .fontWeight(.semibold)
                     .monospacedDigit()
                     .privacySensitiveInFeedback()

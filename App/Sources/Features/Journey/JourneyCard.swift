@@ -165,8 +165,8 @@ struct SinceYouStarted: Hashable {
             : "You could retire at \(now), not \(then)"
         var parts: [String] = []
         if let from = first.readiness, let to = answer.readiness.map(Readiness.shown) {
-            let fromPercent = Int((from.doubleValue * 100 + 1e-9).rounded(.down))
-            let toPercent = Int((to * 100 + 1e-9).rounded(.down))
+            let fromPercent = Int((Readiness.shown(from.doubleValue) * 100).rounded())
+            let toPercent = Int((to * 100).rounded())
             parts.append("from \(fromPercent)% to \(toPercent)% ready")
         }
         if reached > 0 {
