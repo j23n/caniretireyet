@@ -41,7 +41,7 @@ final class AppPreferences {
     }
 
     /// Whether the Overview has offered the yearly notes once
-    /// (UI.md, "Notifications", "The offer").
+    /// (UI.md, "Overview", "Keep your goal in view").
     var notesOffered: Bool {
         didSet { defaults.set(notesOffered, forKey: Keys.notesOffered) }
     }
