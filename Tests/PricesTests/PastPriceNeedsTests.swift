@@ -131,7 +131,7 @@ struct PastPriceNeedsTests {
         Library(
             accounts: [
                 Account(id: "broker", name: "Broker", kind: .brokerage, currency: .eur, opened: "2020-01-01",
-                        valuation: .holdings),
+                        valuation: .balance),
                 Account(id: "usd-cash", name: "Dollars", kind: .cash, currency: .usd, opened: "2020-01-01"),
             ],
             instruments: [

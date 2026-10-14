@@ -468,7 +468,7 @@ struct AccountDetailScreen: View {
             "This removes the account and all its values\(account.recordsTrades ? " and trades" : ""), as if it "
                 + "never existed. It's for mistakes: to stop tracking an account, close it instead."
         case .valuation(let key):
-            AccountValueNotes.deleteMessage(library.library.previewRemovingValue(key), locale: locale)
+            AccountValueNotes.deleteMessage(removing: key, in: library.library, locale: locale)
         case .trade(let key):
             TradeEditNotes.removal(of: key, in: library.library, locale: locale)
         }
@@ -843,7 +843,7 @@ private struct AccountValuationListRow: View {
 
     @ViewBuilder
     private var flow: some View {
-        if let flow = row.valuation.flow {
+        if let flow = row.flow {
             if flow != 0 {
                 HStack(spacing: 4) {
                     Text("new money")
@@ -1119,7 +1119,7 @@ private struct AccountValuationFlowCell: View {
 
     var body: some View {
         Group {
-            if let flow = row.valuation.flow {
+            if let flow = row.flow {
                 DeltaText(flow, currency: currency, precision: .automatic, showsArrow: false)
             } else {
                 Text("Unknown")
@@ -1276,8 +1276,6 @@ private struct AccountInfoRows: View {
         switch account.valuationMode {
         case .trades: "Trade history"
         case .balance: "A balance"
-        // Written before format version 4; the load check points it out.
-        case .holdings: "Snapshots of positions (not used)"
         default: account.valuationMode.rawValue
         }
     }

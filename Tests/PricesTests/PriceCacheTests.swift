@@ -63,6 +63,6 @@ struct PriceCacheTests {
         let second = await service.fetch(for: library, on: PriceServiceTests.checkIn)
         #expect(second.isComplete)
         #expect(await client.requests(matching: "chart/RETRY").count == 2)
-        #expect(await client.requests(matching: "simple/price").count == 1)
+        #expect(await client.requests(matching: "chart/BTC-USD").count == 1)
     }
 }

@@ -24,7 +24,7 @@ struct PricesCommandTests {
             #expect(vwce.contains(part), "\(vwce)")
         }
         let btc = try #require(line("btc", in: output))
-        for part in ["111,400", "USD/BTC", "coingecko", "bitcoin"] { #expect(btc.contains(part), "\(btc)") }
+        for part in ["111,400", "USD/BTC", "yahoo", "BTC-USD"] { #expect(btc.contains(part), "\(btc)") }
         let gold = try #require(line("gold", in: output))
         for part in ["98.4", "EUR/g", "gold-api", "XAU", "converted from 3,488.45 USD/ozt"] {
             #expect(gold.contains(part), "\(gold)")
@@ -58,7 +58,7 @@ struct PricesCommandTests {
         #expect(run.output.contains("Backed up the files it changed to backups/"))
         let october = try #require(try library.load().months["2026-10"])
         #expect(october.prices == [
-            PriceRecord(instrument: "btc", date: "2026-10-02", price: 111_400, currency: .usd, source: .coingecko),
+            PriceRecord(instrument: "btc", date: "2026-10-02", price: 111_400, currency: .usd, source: .yahoo),
             PriceRecord(instrument: "gold", date: "2026-10-02", price: d("98.4"), currency: .eur, source: .goldAPI),
             PriceRecord(instrument: "vwce", date: "2026-10-02", price: d("139.06"), currency: .eur, source: .yahoo),
         ])

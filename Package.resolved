@@ -1,6 +1,14 @@
 {
-  "originHash" : "72890d1b52bf4b1d3e6151c059f2238a1a227b13d7b5555eaa907ef5c1c1ce89",
+  "originHash" : "c3232150a7a8ffbcca5f932e1b31ca8df4cc96c53a73484199c7e9cf68462a1a",
   "pins" : [
+    {
+      "identity" : "feedbackkit",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/j23n/feedbackkit",
+      "state" : {
+        "revision" : "47902b322188462f383aafab00494d66de59e48c"
+      }
+    },
     {
       "identity" : "swift-argument-parser",
       "kind" : "remoteSourceControl",

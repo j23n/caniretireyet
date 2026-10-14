@@ -7,7 +7,7 @@
   "required": ["schemaVersion", "baseCurrency"],
   "properties": {
     "schemaVersion": {
-      "description": "The format version, 4 at present. Adding optional fields keeps it; anything else is a new version, with a migration in the app. An app older than the library opens it read-only.",
+      "description": "The format version, 5 at present. Adding optional fields keeps it; anything else is a new version, with a migration in the app. An app older than the library opens it read-only.",
       "type": "integer",
       "minimum": 1
     },
@@ -42,7 +42,7 @@
       "baseCurrency": "EUR",
       "mainPlan": "base",
       "person": { "birthDate": "1988-04-12", "name": "Me" },
-      "schemaVersion": 4,
+      "schemaVersion": 5,
       "taxResidence": "IT"
     }
   ]

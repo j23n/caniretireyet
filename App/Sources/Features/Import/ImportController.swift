@@ -82,9 +82,7 @@ final class ImportController {
     /// into `backups/<timestamp>-import/` first, in the same queued
     /// operation, and the files as written recorded in the backup after, so
     /// undoing leaves later edits alone. Then shows Done, which says when
-    /// there was nothing to import. The later values whose new money follows
-    /// an inserted one are part of the same change and backup
-    /// (``ImportPreview/applyFollowingFlows(to:)``).
+    /// there was nothing to import.
     ///
     /// Bank statements with ``remembers`` on also save each file's profile
     /// with every file's rules and its lines' answers (`StatementBatch.rememberedProfiles(in:today:)`)
@@ -106,8 +104,8 @@ final class ImportController {
             var profiles: [StatementBatch.RememberedProfile] = []
             let backup = try await store.commit(backingUpAs: Backup.importLabel) { library in
                 before = library
-                let applied = previews.count == 1 ? preview.applyFollowingFlows(to: library)
-                    : StatementBatch.apply(previews, to: library) { $0.applyFollowingFlows(to: $1) }
+                let applied = previews.count == 1 ? preview.apply(to: library)
+                    : StatementBatch.apply(previews, to: library)
                 result = applied
                 library = applied.library
                 profiles = batch?.rememberedProfiles(in: library) ?? []
@@ -191,20 +189,5 @@ final class ImportController {
             errorMessage = "The profile couldn't be saved. \(LibraryStore.describe(error))"
             return false
         }
-    }
-}
-
-extension ImportPreview {
-    /// Applies the preview to `library`, then works out again the automatic
-    /// new money (flows) of the library's values that now follow an inserted
-    /// or changed one, as editing history does (UI.md, "New money after an
-    /// inserted value"). Typed flows stay. The values touched are in the
-    /// result, so they're backed up, written and undone with the import.
-    /// `retire import` does the same.
-    func applyFollowingFlows(to library: Library) -> ImportResult {
-        var result = apply(to: library)
-        let flows = result.library.followFlows(from: library)
-        result.followedFlows(flows.recomputed)
-        return result
     }
 }

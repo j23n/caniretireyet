@@ -70,8 +70,7 @@ struct ImportFlow: Sendable {
     private(set) var preview: ImportPreview?
     /// The preview as the importer made it, before ``decisions``.
     private var basePreview: ImportPreview?
-    /// What importing would do now: the preview applied to ``library``,
-    /// with the later values' new money in step (``ImportPreview/applyFollowingFlows(to:)``).
+    /// What importing would do now: the preview applied to ``library``.
     private(set) var planned: ImportResult?
     /// A bank statement's charts of ``planned`` (``makeStatementCharts()``),
     /// kept so Preview doesn't work them out again on every redraw.
@@ -478,12 +477,12 @@ struct ImportFlow: Sendable {
     private mutating func refreshBatch() {
         guard let batch else { return }
         let chosen = self.decisions
-        batchPreviews = batch.previews(against: library, decide: { _, preview in
+        batchPreviews = batch.previews(against: library) { _, preview in
             preview = chosen.applied(to: preview)
-        }, apply: { $0.applyFollowingFlows(to: $1) })
+        }
         basePreview = nil
         preview = batchPreviews.first { $0.file == batchFile }?.preview
-        planned = StatementBatch.apply(batchPreviews.map(\.preview), to: library) { $0.applyFollowingFlows(to: $1) }
+        planned = StatementBatch.apply(batchPreviews.map(\.preview), to: library)
         statementCharts = makeStatementCharts()
         showNearestStep()
     }
@@ -491,7 +490,7 @@ struct ImportFlow: Sendable {
     private mutating func setPreview(_ base: ImportPreview?) {
         basePreview = base
         preview = base.map { decisions.applied(to: $0) }
-        planned = preview?.applyFollowingFlows(to: library)
+        planned = preview?.apply(to: library)
         statementCharts = makeStatementCharts()
         showNearestStep()
     }

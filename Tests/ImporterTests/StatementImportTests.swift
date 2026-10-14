@@ -3,6 +3,7 @@ import Foundation
 import Model
 import Testing
 import TestSupport
+import Tracker
 
 /// The statement layout: a bank statement of one cash or savings account,
 /// its lines classified into money in and out (IMPORT.md, "Bank
@@ -206,7 +207,8 @@ struct StatementImportTests {
         #expect(february.imported.balance == d("6044.45"))
         #expect(february.imported.moneyIn == 2800)
         #expect(february.imported.moneyOut == d("1266.40"))
-        #expect(february.imported.flow == d("833.60"))
+        // The flow isn't stored: it's worked out from the balances.
+        #expect(february.imported.flow == nil)
         #expect(february.imported.interest == nil)
         let march = try #require(preview.record(.valuation("conto", "2026-03-31")))
         // A current account's interest is money in; the refund lowers money out.
@@ -222,9 +224,12 @@ struct StatementImportTests {
 
         let result = preview.apply(to: Self.library(deposit: true))
         let written = try #require(result.library.valuations(for: "conto").first { $0.date == "2026-02-28" })
-        #expect(written == Valuation(account: "conto", date: "2026-02-28", balance: d("6044.45"), flow: d("833.60"),
-                                     moneyIn: 2800, moneyOut: d("1266.40"), source: .import))
-        #expect(written.moved == -700)
+        #expect(written == Valuation(account: "conto", date: "2026-02-28", balance: d("6044.45"), moneyIn: 2800,
+                                     moneyOut: d("1266.40"), source: .import))
+        let valuator = Valuator(library: result.library)
+        let previous = valuator.previousValuation(for: "conto", before: written.date)
+        #expect(valuator.flow(of: written, previous: previous) == d("833.60"))
+        #expect(valuator.moved(written, previous: previous) == -700)
         // Importing the same file again changes nothing.
         let again = try Self.session("italian-bank.csv", account: "conto")
             .preview(against: result.library, today: Self.today)
@@ -252,7 +257,7 @@ struct StatementImportTests {
             moneyOut: d("1266.40"), source: .import)))
         let march = try #require(preview.record(.valuation("conto", "2026-03-31")))
         #expect(march.imported.moneyOut == 25)
-        #expect(march.imported.flow == d("2576.20"))
+        #expect(march.imported.flow == nil)
         let written = preview.apply(to: library).library.valuations(for: "conto").first { $0.date == "2026-02-20" }
         #expect(written?.moneyOut == d("1266.40"))
     }
@@ -299,11 +304,13 @@ struct StatementImportTests {
         let again = session.preview(against: first, today: Self.today)
         let february = try #require(again.record(.valuation("deposito", "2026-02-28")))
         #expect(february.status == .updated)
-        let written = try #require(again.apply(to: first).library.valuations(for: "deposito")
-            .first { $0.date == "2026-02-28" })
+        let applied = again.apply(to: first).library
+        let written = try #require(applied.valuations(for: "deposito").first { $0.date == "2026-02-28" })
         #expect(written.interest == nil)
         #expect(written.moneyIn == 0)
-        #expect(written.flow == d("10524.30") - d("11012.50"))
+        let valuator = Valuator(library: applied)
+        #expect(valuator.flow(of: written, previous: valuator.previousValuation(for: "deposito", before: written.date))
+            == d("10524.30") - d("11012.50"))
     }
 
     @Test func aSavingsAccountsInterestIsItsOwn() throws {
@@ -321,7 +328,7 @@ struct StatementImportTests {
         #expect(february.imported.moneyIn == 0)
         #expect(february.imported.moneyOut == 0)
         #expect(february.imported.interest == d("11.80"))
-        #expect(february.imported.flow == -500)
+        #expect(february.imported.flow == nil)
     }
 
     @Test func aGapBeforeTheFileLeavesItsFirstMonthWithoutMoneyInAndOut() throws {
@@ -353,7 +360,7 @@ struct StatementImportTests {
         let january = try #require(preview.record(.valuation("deposito", "2026-01-31")))
         #expect(january.imported.moneyIn == 0)
         #expect(january.imported.interest == d("12.50"))
-        #expect(january.imported.flow == 1000)
+        #expect(january.imported.flow == nil)
     }
 
     // MARK: - The days a file covers

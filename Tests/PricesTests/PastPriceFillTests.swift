@@ -86,7 +86,7 @@ struct PastPriceFillTests {
         ])
         var library = Library(
             accounts: [Account(id: "safe", name: "Safe", kind: .metals, currency: .eur, opened: "2020-01-01",
-                               valuation: .holdings)],
+                               valuation: .balance)],
             instruments: [Self.instrument("gold", .goldAPI, "XAU", unit: .gram, kind: .metal)])
         library.upsert(Valuation(account: "safe", date: "2026-05-31", positions: [Position(instrument: "gold", quantity: 50)]))
 

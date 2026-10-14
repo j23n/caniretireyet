@@ -138,15 +138,18 @@ extension Valuator {
     }
 }
 
-extension Valuation {
+extension Valuator {
     /// What a cash or savings account's value says moved between your own
-    /// accounts since the value before it (docs/ACCOUNTS.md, "Moved between
-    /// your accounts"): its flow minus money in and the one-off (when it
-    /// isn't negative, as summaries count it), plus money out, in the
-    /// account's currency. The flow is the change (less the interest, for
-    /// savings), so it's what's left once money in and out are taken out. `nil` unless the flow and both amounts are recorded.
-    public var moved: Decimal? {
-        guard let flow, let moneyIn, let moneyOut else { return nil }
-        return flow - moneyIn - max(oneOff ?? 0, 0) + moneyOut
+    /// accounts since `previous`, the account's value before it
+    /// (PROGRESS.md, "Money in and out"): its flow (``flow(of:previous:)``)
+    /// minus money in and the one-off (when it isn't negative, as summaries
+    /// count it), plus money out, in the account's currency. The flow is the
+    /// change (less the interest, for savings), so it's what's left once
+    /// money in and out are taken out. `nil` without both amounts or a flow.
+    public func moved(_ valuation: Valuation, previous: Valuation?) -> Decimal? {
+        guard let moneyIn = valuation.moneyIn, let moneyOut = valuation.moneyOut,
+              let flow = self.flow(of: valuation, previous: previous)
+        else { return nil }
+        return flow - moneyIn - max(valuation.oneOff ?? 0, 0) + moneyOut
     }
 }

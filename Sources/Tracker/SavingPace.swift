@@ -208,15 +208,7 @@ extension Valuator {
         // after money moved between plan assets cancels out.
         var paid: [(account: AccountID, from: CalendarDate, to: CalendarDate, amount: Decimal, isMissing: Bool)] = []
         for report in reports {
-            // What holdings held when their records start, without a
-            // flow, isn't money saved (a balance's counts as other).
-            let included = report.accounts.filter { change in
-                guard !change.isFlowFromPlan else { return false }
-                guard change.flow == nil, change.change.start == 0, accounts[change.account]?.recordsTrades != true,
-                      let first = firstRecordDate(of: change.account)
-                else { return true }
-                return !(first > report.from && first <= report.to)
-            }
+            let included = report.accounts.filter { !$0.isFlowFromPlan }
             if report.to > ends[window], included.contains(where: { !$0.problems.allSatisfy(\.isNotTrackedYet) }) {
                 isComplete = false
             }

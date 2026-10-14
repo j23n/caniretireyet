@@ -102,6 +102,12 @@ extension PriceResponses {
     136.8800048828125,137.63999938964844,null,138.4199981689453,139.05999755859375]}]}}],"error":null}}
     """
 
+    /// Yahoo Finance, `chart/BTC-USD`: bitcoin in dollars, a bar a day at
+    /// 00:00 UTC from 20 September to 1 October 2026, at 111,400 throughout.
+    public static let yahooBitcoinSeptember = yahooChart(
+        symbol: "BTC-USD", currency: "USD", exchangeName: "CCC", instrumentType: "CRYPTOCURRENCY", timeZone: "UTC",
+        bars: (0...11).map { (CalendarDate("2026-09-20").adding(days: $0), Decimal(111_400)) })
+
     /// Frankfurter, `GET /v1/2026-09-16..2026-09-30?base=EUR&symbols=USD`:
     /// working days only.
     public static let frankfurterUSDSeptember = """

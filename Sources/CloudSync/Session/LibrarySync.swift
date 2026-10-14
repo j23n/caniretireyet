@@ -43,28 +43,23 @@ public actor LibrarySync {
     public nonisolated let location: LibraryLocation
     public nonisolated let folder: LibraryFolder
     private let versions: any FileVersionProviding
-    /// The steps that upgrade a library in an older format.
-    public nonisolated let migrations: [Migration]
     /// The last upgrade ``load()`` ran, until it's taken
     /// (``takeMigration()``), so the app can show it once.
     private var migration: MigrationReport?
 
     /// A library folder at `location`, read and written with
-    /// `CoordinatedFileAccess`, with the given version store, upgraded with
-    /// `migrations` when it's in an older format.
-    public init(location: LibraryLocation, versions: any FileVersionProviding,
-                migrations: [Migration] = Migration.all) {
+    /// `CoordinatedFileAccess`, with the given version store.
+    public init(location: LibraryLocation, versions: any FileVersionProviding) {
         self.location = location
         self.folder = LibraryFolder(root: location.url, files: CoordinatedFileAccess())
         self.versions = versions
-        self.migrations = migrations
     }
 
     /// A library folder at `location`, read and written with
     /// `CoordinatedFileAccess`, with iCloud's version store when it's in
-    /// iCloud Drive, upgraded with `migrations` when it's in an older format.
-    public init(location: LibraryLocation, migrations: [Migration] = Migration.all) {
-        self.init(location: location, versions: location.makeFileVersions(), migrations: migrations)
+    /// iCloud Drive.
+    public init(location: LibraryLocation) {
+        self.init(location: location, versions: location.makeFileVersions())
     }
 
     // MARK: Library
@@ -78,7 +73,7 @@ public actor LibrarySync {
     /// first (after a backup), and the migration is kept for
     /// ``takeMigration()``; one with a newer schema loads read-only.
     public func load() throws -> LoadResult {
-        let (result, migration) = try folder.loadMigrating(steps: migrations)
+        let (result, migration) = try folder.loadMigrating()
         if let migration { self.migration = migration }
         return result
     }

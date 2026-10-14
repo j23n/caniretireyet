@@ -70,8 +70,8 @@ struct EurostatIndexProviderTests {
         #expect(try provider(for: "hicp-gr", client: client).geo == "EL")
         #expect(EurostatIndexProvider(index: "hicp-us", client: client) == nil)
         #expect(EurostatIndexProvider(index: "cpi-us", client: client) == nil)
-        for country in IndexID.hicpCountries {
-            #expect(EurostatIndexProvider(index: IndexID.hicp(country)!, client: client) != nil, "\(country)")
+        for index in IndexID.consumerPriceCountries.compactMap(IndexID.consumerPrices) where index.hicpArea != nil {
+            #expect(EurostatIndexProvider(index: index, client: client) != nil, "\(index)")
         }
 
         let values = try await provider(for: "hicp-de", client: client).values(from: "2026-07", through: "2026-09")

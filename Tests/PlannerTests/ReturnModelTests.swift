@@ -137,18 +137,6 @@ struct ReturnModelTests {
             + "into it shrinks the portfolio. Check the assumption."])
     }
 
-    @Test func aFileWithBothTheMeanAndTheMedianUsesTheMean() throws {
-        let both = try JSONDecoder().decode(
-            ReturnAssumption.self, from: Data(#"{ "real": "0.05", "medianReal": "0", "volatility": "0.7" }"#.utf8))
-        var issues: [PlanIssue] = []
-        let model = ReturnModel(assumptions: PlanAssumptions(returns: [.crypto: both]), heldClasses: [.crypto],
-                                issues: &issues)
-        #expect(model.expected == [0.05])
-        #expect(issues.map(\.code) == ["planner.meanAndMedian", "planner.lowMedianReturn"])
-        #expect(issues.first?.message == "Crypto's return assumption sets both real (the mean, 5%) and medianReal; the "
-            + "plan uses real and ignores medianReal.")
-    }
-
     @Test func classesWithoutAnAssumptionEarnNothing() {
         var issues: [PlanIssue] = []
         let model = ReturnModel(assumptions: PlanAssumptions(), heldClasses: [.equity, .realEstate], issues: &issues)

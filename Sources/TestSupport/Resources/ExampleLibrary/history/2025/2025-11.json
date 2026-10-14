@@ -7,7 +7,7 @@
   ],
   "month": "2025-11",
   "prices": [
-    { "currency": "USD", "date": "2025-11-30", "instrument": "btc", "price": "91200", "source": "coingecko" },
+    { "currency": "USD", "date": "2025-11-30", "instrument": "btc", "price": "91200", "source": "yahoo" },
     { "currency": "EUR", "date": "2025-11-30", "instrument": "gold", "price": "93.4", "source": "gold-api" },
     { "currency": "EUR", "date": "2025-11-30", "instrument": "vwce", "price": "129.4", "source": "yahoo" }
   ],
@@ -25,15 +25,9 @@
     }
   ],
   "valuations": [
-    { "account": "conto-deposito", "balance": "15031.25", "date": "2025-11-30", "flow": "0" },
-    {
-      "account": "conto-fineco",
-      "balance": "6105.75",
-      "date": "2025-11-30",
-      "flow": "1285.45",
-      "note": "includes 850 moved from Old bank"
-    },
-    { "account": "directa", "cash": "188.9", "date": "2025-11-30", "flow": "1267.5" },
-    { "account": "mutuo-casa", "balance": "-147550", "date": "2025-11-30", "flow": "650" }
+    { "account": "conto-deposito", "balance": "15031.25", "date": "2025-11-30", "interest": "31.25" },
+    { "account": "conto-fineco", "balance": "6105.75", "date": "2025-11-30", "note": "includes 850 moved from Old bank" },
+    { "account": "directa", "cash": "188.9", "date": "2025-11-30" },
+    { "account": "mutuo-casa", "balance": "-147550", "date": "2025-11-30" }
   ]
 }

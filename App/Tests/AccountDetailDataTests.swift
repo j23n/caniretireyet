@@ -105,7 +105,7 @@ struct AccountDetailDataTests {
         #expect(first.moved == nil)
         // Recorded before money in and out were: new money alone.
         let november = try #require(data.valuations.first { $0.id.date == "2025-11-30" })
-        #expect(november.valuation.flow == d("1285.45"))
+        #expect(november.flow == d("1285.45"))
         #expect(november.moved == nil)
     }
 
@@ -116,7 +116,7 @@ struct AccountDetailDataTests {
         let september = try #require(data.valuations.first)
         #expect(september.valuation.interest == d("35.05"))
         // The change less the interest is new money, 500, with nothing in or out: all of it moved.
-        #expect(september.valuation.flow == 500)
+        #expect(september.flow == 500)
         #expect(september.moved == 500)
         #expect(data.movedNote?.contains("money in and out and interest don't explain") == true)
     }

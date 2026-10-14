@@ -280,7 +280,7 @@ final class LibraryStore {
         stopWatching()
         await ioTail?.value
         guard attempt == openingAttempt else { return }
-        let sync = LibrarySync(location: location, migrations: Self.migrations)
+        let sync = LibrarySync(location: location)
         self.sync = sync
         self.location = location
         pendingSaves = [:]
@@ -336,7 +336,7 @@ final class LibraryStore {
     /// device), that one is opened instead.
     func createLibrary(in kind: LibraryLocationKind, settings: LibrarySettings) async throws {
         guard let location = try await locator.location(kind) else { throw LibraryStoreError.iCloudUnavailable }
-        let sync = LibrarySync(location: location, migrations: Self.migrations)
+        let sync = LibrarySync(location: location)
         if await !location.containsLibrary(waitingUpTo: .seconds(3)) {
             try await sync.createLibrary(settings: settings)
         }
@@ -919,16 +919,4 @@ enum LibraryStoreError: Error, Equatable, Sendable, LocalizedError {
     }
 
     var errorDescription: String? { message }
-}
-
-extension LibraryStore {
-    /// The steps that upgrade a library in an older format: Storage's, and
-    /// after the step to version 4 the conversion of the accounts recorded
-    /// as snapshots to trades, which needs Tracker (docs/ACCOUNTS.md,
-    /// "Migration").
-    nonisolated static let migrations = Migration.all + [
-        Migration.library(from: 3, summary: Library.snapshotConversionSummary) { library in
-            library.convertSnapshotAccountsToTrades()
-        },
-    ]
 }

@@ -21,22 +21,20 @@ struct AccountFormTests {
     func aNewAccountOfAKindThatHoldsPositionsRecordsTrades(_ kind: AccountKind) {
         let form = newAccount(kind)
         #expect(form.valuationMode == .trades)
-        #expect(form.recordsTrades && form.holdsPositions)
+        #expect(form.recordsTrades)
         let account = form.account(id: "new-account", locale: locale)
         #expect(account.recordsTrades)
         // The kind's default: nothing to write.
         #expect(account.valuation == nil)
     }
 
-    /// An edited account keeps its own mode, also one written before
-    /// format version 4.
+    /// An edited account keeps its own mode when its kind changes.
     @Test func anEditedAccountKeepsItsMode() {
-        var account = Account(id: "old", name: "Old", kind: .brokerage, currency: .eur, opened: "2020-01-01")
-        account.valuation = .holdings
+        let account = Account(id: "old", name: "Old", kind: .brokerage, currency: .eur, opened: "2020-01-01")
         var form = AccountForm(editing: account)
-        #expect(form.valuationMode == .holdings)
+        #expect(form.valuationMode == .trades)
         form.setKind(.cash)
-        #expect(form.valuationMode == .holdings)
+        #expect(form.valuationMode == .trades)
     }
 
     /// Belongings ask for their loss of value a year, in per cent.
