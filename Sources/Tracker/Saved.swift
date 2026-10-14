@@ -10,11 +10,14 @@ import Model
 /// (``Valuator/change(from:to:in:)``). One whose records start in the
 /// stretch held its first amount already: its first value without a flow
 /// (`other`) and its new money. That amount counts as saved only as far as
-/// money moved from the accounts tracked before it pays for it: above zero
-/// (an asset) as far as their money taken out, below zero (a debt, such as
-/// a loan paid out into the current account) as far as their money put in,
-/// shared over the stretch's first amounts on that side in proportion to
-/// them. The rest is what it ``startedWith``.
+/// money moved from the accounts tracked before it pays for it, shared over
+/// the stretch's first amounts on that side in proportion to them: above
+/// zero (an asset) as far as their money taken out; below zero (a debt,
+/// such as a loan paid out into the current account) as far as money moved
+/// into their cash and savings accounts, added up, so a transfer between
+/// two of them cancels out, and a broker's deposit or a mortgage's
+/// principal, paid from the current account, doesn't offset it. The rest
+/// is what it ``startedWith``.
 public struct SavedStretch: Hashable, Sendable {
     /// How each account changed over the stretch, after `report.from` through `report.to`.
     public let report: ChangeReport
@@ -66,25 +69,47 @@ extension Valuator {
         let report = change(from: from, to: through, in: scope)
         var saved: [AccountID: Decimal] = [:]
         var firsts: [(account: AccountID, amount: Decimal)] = []
+        var takenOut: Decimal = 0
+        var movedIn: Decimal = 0
         for account in report.accounts {
             if let record = firstRecordDate(of: account.account), record > from, record <= through {
                 firsts.append((account.account, account.change.other + account.change.newMoney))
             } else {
                 saved[account.account] = account.change.newMoney
+                takenOut += max(-account.change.newMoney, 0)
+                movedIn += moved(into: account, after: from, through: through) ?? 0
             }
         }
-        // What the accounts tracked before put in and took out: the other side of a first amount moved from them.
-        let putIn = saved.values.reduce(Decimal(0)) { $0 + max($1, 0) }
-        let takenOut = saved.values.reduce(Decimal(0)) { $0 - min($1, 0) }
+        let paidIn = max(movedIn, 0)
         let assets = firsts.reduce(Decimal(0)) { $0 + max($1.amount, 0) }
         let debts = firsts.reduce(Decimal(0)) { $0 - min($1.amount, 0) }
         var startedWith: [AccountID: Decimal] = [:]
         for first in firsts {
-            let (offset, side) = first.amount > 0 ? (takenOut, assets) : (putIn, debts)
+            let (offset, side) = first.amount > 0 ? (takenOut, assets) : (paidIn, debts)
             let share: Decimal = side == 0 ? 0 : min(offset / side, 1)
             saved[first.account] = first.amount * share
             startedWith[first.account] = first.amount - first.amount * share
         }
         return SavedStretch(report: report, saved: saved, startedWith: startedWith)
+    }
+
+    /// What moved into a cash or savings account from your other accounts
+    /// after `from` through `through` (negative: out of it), in the base
+    /// currency: the sum of its valuations' ``moved(_:previous:)``. Where
+    /// one of them doesn't record money in and out, its new money over
+    /// those days, as nothing tells a transfer apart. `nil` for other kinds.
+    private func moved(into change: AccountChange, after from: CalendarDate, through: CalendarDate) -> Decimal? {
+        guard let account = accounts[change.account], account.kind.recordsMoneyInOut else { return nil }
+        var total: Decimal = 0
+        var previous: Valuation?
+        for valuation in valuations(for: account.id) {
+            defer { previous = valuation }
+            guard valuation.date > from, valuation.date <= through else { continue }
+            guard let moved = self.moved(valuation, previous: previous),
+                  let inBase = fx.convert(moved, from: account.currency, to: baseCurrency, on: valuation.date)
+            else { return change.change.newMoney }
+            total += inBase
+        }
+        return total
     }
 }

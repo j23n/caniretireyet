@@ -90,13 +90,6 @@ struct MoneySourcesTests {
         #expect(added.markets.rounded(10) == 0)
     }
 
-    @Test func aFirstValueWithoutAFlowTakesNothingOffPutIn() throws {
-        let added = try added(withNewAccount(flow: nil, moved: -5000))
-        #expect(added.startedWith == 5000)
-        #expect(added.putIn == -5000)
-        #expect(added.markets.rounded(10) == 0)
-    }
-
     @Test func anAccountFundedFromATrackedOneMovesNothing() throws {
         let added = try added(withNewAccount(flow: 5000, moved: -5000))
         #expect(added.startedWith == 0)

@@ -29,11 +29,10 @@ public struct MoneySourcesPoint: Hashable, Sendable {
     public let date: CalendarDate
     /// Plan assets on the day, in the base currency.
     public let total: Decimal
-    /// What each account held when its records start: its first value,
-    /// less what offsetting flows kept as new money.
+    /// What each account held when its records start, as far as nothing
+    /// tracked before paid for it (``SavedStretch/startedWith``).
     public let startedWith: Decimal
-    /// Every check-in's flows up to the day, less the part of each first
-    /// value's flow that counts as started with.
+    /// What was saved up to the day (``SavedStretch``).
     public let putIn: Decimal
     /// The rest: price and FX movement, interest, reinvested income, and
     /// what nothing explains.
