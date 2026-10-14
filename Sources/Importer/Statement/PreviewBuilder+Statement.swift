@@ -379,11 +379,17 @@ extension PreviewBuilder {
     /// can move to (``Library/canMoveFromStatement(_:of:on:)``); a purchase
     /// of money out, of a kind it can start; a sale of money in, of an
     /// account that can be sold from `account`'s statement
-    /// (``Library/canSellFromStatement(_:of:on:)``), the first sale of it
-    /// in the file.
+    /// (``Library/canSellFromStatement(_:of:on:)``), or one a purchase on or
+    /// before its day in the file starts (checked once the purchase has
+    /// its ID, ``statementAssetRecords(_:read:account:)``), the first sale
+    /// of it in the file.
     private func answeredAssets(_ read: [ReadLine], account: Account) -> [Int: StatementAsset] {
         var answered: [Int: StatementAsset] = [:]
         var sold = Set<AccountID>()
+        let purchases = read.filter { line in
+            guard case .purchase? = session.statementAssets[line.row] else { return false }
+            return line.amount < 0
+        }
         for line in read {
             guard let asset = session.statementAssets[line.row] ?? ruleMove(for: line), asset.fits(line.amount)
             else { continue }
@@ -394,9 +400,12 @@ extension PreviewBuilder {
             case .purchase(_, let kind):
                 guard StatementAsset.purchaseKinds.contains(kind) else { continue }
             case .sale(let id):
-                guard let other = library.accounts[id], !sold.contains(id),
-                      library.canSellFromStatement(other, of: account, on: line.date)
-                else { continue }
+                guard !sold.contains(id) else { continue }
+                if let other = library.accounts[id] {
+                    guard library.canSellFromStatement(other, of: account, on: line.date) else { continue }
+                } else {
+                    guard purchases.contains(where: { $0.date <= line.date }) else { continue }
+                }
                 sold.insert(id)
             }
             answered[line.row] = asset
@@ -424,7 +433,10 @@ extension PreviewBuilder {
     /// flow: its first value is 0, so the amount is new money moved from
     /// the account, not what it already held. A sale values the account
     /// sold at 0, with the amount as its flow out, and closes it the day
-    /// after (proposed, accepted, unless this sale closed it already).
+    /// after (proposed, accepted, unless this sale closed it already); the
+    /// account sold can be one a purchase on or before the sale's day in
+    /// the file starts, and bought and sold within one value, it's worth 0
+    /// at the value with what the two moved as its flow.
     /// Answers it can't take are issues: one that doesn't fit leaves the
     /// line classified as if it had none (a rule's move, a transfer, as the
     /// rule says), and a line that counts in no value has no money in and
@@ -437,7 +449,16 @@ extension PreviewBuilder {
         var taken = Set(library.accounts.keys.map(\.rawValue) + accountProposals.map(\.account.id.rawValue))
         var found = Set<AccountID>()
         var moves: [AccountID: [StatementMove]] = [:]
-        for row in Set(session.statementAssets.keys).union(answered.keys).sorted() {
+        // The accounts this file's purchases start, by the purchase's day.
+        var started: [AccountID: CalendarDate] = [:]
+        // A sale of an account a purchase starts comes after the purchase has its ID.
+        let rows = Set(session.statementAssets.keys).union(answered.keys).sorted()
+        let known = Set(library.accounts.keys)
+        let sellsStarted = { (row: Int) -> Bool in
+            guard case .sale(let id)? = answered[row] else { return false }
+            return !known.contains(id)
+        }
+        for row in rows.filter({ !sellsStarted($0) }) + rows.filter(sellsStarted) {
             guard let index = lines.firstIndex(where: { $0.row == row }) else { continue }
             let line = lines[index]
             let cells = read.first { $0.row == row }?.cells ?? []
@@ -462,13 +483,19 @@ extension PreviewBuilder {
                 guard case .sale(let sold) = asset, let closed = library.accounts[sold]?.closed else { return false }
                 return closed != line.period?.adding(days: 1)
             } ?? false
-            guard let asset = answered[row], let cut = line.period, !soldElsewhere else {
+            // A sale of an account no purchase in the file started, or one started after the sale.
+            let notStarted = sellsStarted(row) && answered[row].map { asset in
+                guard case .sale(let sold) = asset, let bought = started[sold] else { return true }
+                return bought > line.date
+            } ?? false
+            guard let asset = answered[row], let cut = line.period, !soldElsewhere, !notStarted else {
                 if case .moved(let other)? = session.statementAssets[row] {
                     issues.append(ImportIssue(kind: .statementMoveLeftOut(row: row, account: other)))
                     continue
                 }
                 var account: AccountID?
-                if case .sale(let id)? = session.statementAssets[row], answered[row] == nil || soldElsewhere,
+                if case .sale(let id)? = session.statementAssets[row],
+                   answered[row] == nil || soldElsewhere || notStarted,
                    session.statementAssets[row]?.fits(line.amount) == true { account = id }
                 issues.append(ImportIssue(kind: .statementAssetLeftOut(row: row, account: account)))
                 continue
@@ -479,17 +506,18 @@ extension PreviewBuilder {
             case .moved: continue
             case .purchase(let name, let kind):
                 let opened = min(line.date, cut.adding(days: -1))
-                let started = library.accounts.values.sorted { $0.id < $1.id }.first { existing in
+                let existing = library.accounts.values.sorted { $0.id < $1.id }.first { existing in
                     existing.name == name && existing.kind == kind && existing.opened == opened
                         && existing.currency == account.currency && !found.contains(existing.id)
                 }
-                if let started {
+                if let existing {
                     // Importing the file again with the same answer finds the account it started.
-                    id = started.id
+                    id = existing.id
                     found.insert(id)
                 } else {
                     id = AccountID(Slug.unique(Slug.make(from: name), among: taken))
                     taken.insert(id.rawValue)
+                    started[id] = line.date
                     let new = Account(id: id, name: name, kind: kind, currency: account.currency, opened: opened)
                     accountProposals.append(AccountProposal(account: new, names: [name], statementRow: row))
                 }
@@ -507,7 +535,13 @@ extension PreviewBuilder {
             var record = ImportedRecord(key: .valuation(ValuationKey(account: id, date: cut)))
             record.balance = line.amount < 0 ? amount : 0
             record.flow = amount
-            records[record.key] = Accumulator(record: record, cells: cells)
+            var accumulator = Accumulator(record: record, cells: cells)
+            if let bought = records[record.key] {
+                // Bought and sold within one value.
+                accumulator.record.flow = (bought.record.flow ?? 0) + amount
+                accumulator.cells = bought.cells + cells
+            }
+            records[record.key] = accumulator
             lines[index].asset = asset
             lines[index].assetAccount = id
         }

@@ -169,6 +169,69 @@ struct StatementPurchaseTests {
         #expect(moved.issues.contains { $0.kind == .statementAssetLeftOut(row: row, account: "moto") })
     }
 
+    /// A line in can sell what a purchase earlier in the same file starts.
+    @Test func aSaleCanSellWhatThePurchaseStarts() throws {
+        var session = try Self.session()
+        let first = session.preview(against: Self.library(), today: Self.today)
+        let car = try Self.line(first, "Bonifico a Autosalone Neri").row
+        let sale = try Self.line(first, "Bonifico da Mario Verdi").row
+        session.setStatementAsset(.purchase(name: "Auto", kind: .belongings), forRow: car)
+        session.setStatementAsset(.sale("auto"), forRow: sale)
+        let preview = session.preview(against: Self.library(), today: Self.today)
+        #expect(try Self.line(preview, "Bonifico da Mario Verdi").assetAccount == "auto")
+        #expect(preview.newAccounts.map(\.account.id) == ["auto"])
+        #expect(try Self.value(preview, "auto", "2026-02-28").balance == 15000)
+        let sold = try Self.value(preview, "auto", "2026-03-31")
+        #expect(sold.balance == 0)
+        #expect(sold.flow == -12000)
+        #expect(preview.accountChanges == [AccountChangeProposal(account: "auto", change: .close(on: "2026-04-01"),
+                                                                 statementRow: sale)])
+        #expect(!preview.issues.contains { !$0.isNote })
+
+        let library = preview.apply(to: Self.library()).library
+        #expect(library.accounts["auto"]?.closed == "2026-04-01")
+        // Importing the file again with the same answers finds the account and its sale.
+        let again = session.preview(against: library, today: Self.today)
+        #expect(again.newAccounts.isEmpty)
+        #expect(again.accountChanges.isEmpty)
+        #expect(again.records.allSatisfy { $0.status == .identical })
+        #expect(!again.issues.contains { !$0.isNote })
+    }
+
+    /// Bought and sold within one value, the account is worth 0 at it, with
+    /// what the two lines moved as its flow.
+    @Test func aPurchaseSoldWithinOneValue() throws {
+        var session = try Self.session()
+        let first = session.preview(against: Self.library(), today: Self.today)
+        let car = try Self.line(first, "Bonifico a Autosalone Neri").row
+        let pay = try #require(first.statementLines.first { $0.text.hasPrefix("Stipendio") && $0.date == "2026-02-27" })
+        session.setStatementAsset(.purchase(name: "Auto", kind: .belongings), forRow: car)
+        session.setStatementAsset(.sale("auto"), forRow: pay.row)
+        let preview = session.preview(against: Self.library(), today: Self.today)
+        let value = try Self.value(preview, "auto", "2026-02-28")
+        #expect(value.balance == 0)
+        #expect(value.flow == 12000)
+        #expect(preview.accountChanges.map(\.change) == [.close(on: "2026-03-01")])
+    }
+
+    /// A sale before the purchase, or of an account no purchase starts, is
+    /// left out and names the account.
+    @Test func aSaleBeforeThePurchaseIsLeftOut() throws {
+        var session = try Self.session()
+        let first = session.preview(against: Self.library(), today: Self.today)
+        let car = try Self.line(first, "Bonifico a Autosalone Neri").row
+        let pay = try #require(first.statementLines.first { $0.text.hasPrefix("Stipendio") && $0.date == "2026-01-27" })
+        let sale = try Self.line(first, "Bonifico da Mario Verdi").row
+        session.setStatementAsset(.purchase(name: "Auto", kind: .belongings), forRow: car)
+        session.setStatementAsset(.sale("auto"), forRow: pay.row)
+        session.setStatementAsset(.sale("barca"), forRow: sale)
+        let preview = session.preview(against: Self.library(), today: Self.today)
+        #expect(preview.issues.contains { $0.kind == .statementAssetLeftOut(row: pay.row, account: "auto") })
+        #expect(preview.issues.contains { $0.kind == .statementAssetLeftOut(row: sale, account: "barca") })
+        #expect(preview.accountChanges.isEmpty)
+        #expect(try Self.value(preview, "auto", "2026-02-28").balance == 15000)
+    }
+
     /// An older account with the purchase's name, such as the car before,
     /// isn't the one it starts.
     @Test func aPurchaseDoesntTakeAnOlderAccountsName() throws {
