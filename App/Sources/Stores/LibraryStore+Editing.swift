@@ -91,22 +91,6 @@ extension LibraryStore {
 
     // MARK: Trades
 
-    /// Adds a trade to an account that records trades, in one edit, and
-    /// waits for the write: a date before the account opened moves its
-    /// opening date back, and the automatic new money of its later values
-    /// is worked out again (a typed one is kept). A trade whose key is taken
-    /// gets a new ID. Tracker's `Library.addTrade(_:)`.
-    func addTrade(_ trade: Trade) async throws {
-        try await commit { $0.addTrade(trade) }
-    }
-
-    /// Replaces the trade at `old` (its key before the edit, when its date
-    /// changed) with `trade`, with the same follow-on effects as
-    /// ``addTrade(_:)``, and waits for the write (`Library.updateTrade(_:replacing:)`).
-    func updateTrade(_ trade: Trade, replacing old: TradeKey? = nil) async throws {
-        try await commit { $0.updateTrade(trade, replacing: old) }
-    }
-
     /// Removes a trade and keeps the automatic new money of the account's
     /// later values in step, and waits for the write (`Library.removeTrade(_:)`).
     func removeTrade(_ key: TradeKey) async throws {

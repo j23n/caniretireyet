@@ -30,7 +30,6 @@ struct AccountsScreen: View {
     @Environment(\.locale) private var locale
     @State private var query = ""
     @State private var action: AccountAction?
-    @State private var tradeTarget: TradeEditorTarget?
     @State private var errorMessage = ""
     @State private var showsError = false
 
@@ -82,7 +81,6 @@ struct AccountsScreen: View {
         .sheet(item: $action) { action in
             AccountActionSheet(action: action)
         }
-        .tradeEditorSheet($tradeTarget)
         .alert("Couldn't change the account", isPresented: $showsError) {
             Button("OK", role: .cancel) {}
         } message: {
@@ -110,14 +108,6 @@ struct AccountsScreen: View {
             AccountListRow(item: item, widestValue: widestValue)
         }
         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-            if item.account.recordsTrades {
-                Button {
-                    tradeTarget = TradeEditorTarget(account: id)
-                } label: {
-                    Label("Add trade", systemImage: "plus.circle")
-                }
-                .tint(Palette.accent)
-            }
             Button {
                 action = AccountAction(.close, id)
             } label: {
@@ -126,13 +116,6 @@ struct AccountsScreen: View {
             .tint(Palette.mutedInk)
         }
         .contextMenu {
-            if item.account.recordsTrades {
-                Button {
-                    tradeTarget = TradeEditorTarget(account: id)
-                } label: {
-                    Label("Add Trade…", systemImage: "plus.circle")
-                }
-            }
             Button {
                 action = AccountAction(.edit, id)
             } label: {

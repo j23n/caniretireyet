@@ -9,20 +9,19 @@ enum AccountValueNotes {
     /// What an edit does to the new money of the account's other values:
     /// "Deleting it also works out again the new money of the value on 30
     /// Sep 2026." for automatic amounts, "The new money of the value on 30
-    /// Sep 2026 was typed in, so it stays as it is." for typed ones. `action`
-    /// is what does it. `nil` when no other value is concerned.
-    static func flowFollowUp(_ flows: FlowFollowUp, by action: String = "Deleting it",
-                             locale: Locale = .current) -> String? {
+    /// Sep 2026 is recorded, so it stays as it is." for recorded ones. `nil`
+    /// when no other value is concerned.
+    static func flowFollowUp(_ flows: FlowFollowUp, locale: Locale = .current) -> String? {
         var sentences: [String] = []
         let recomputed = flows.recomputed
         if !recomputed.isEmpty {
-            sentences.append("\(action) also works out again the new money of the \(values(recomputed)) on "
+            sentences.append("Deleting it also works out again the new money of the \(values(recomputed)) on "
                 + "\(dates(recomputed, locale: locale)).")
         }
         let kept = flows.kept
         if !kept.isEmpty {
-            sentences.append("The new money of the \(values(kept)) on \(dates(kept, locale: locale)) was typed "
-                + "in, so it stays as it is.")
+            sentences.append("The new money of the \(values(kept)) on \(dates(kept, locale: locale)) is "
+                + "recorded, so it stays as it is.")
         }
         if let moneyInOut = moneyInOutCheck(flows, locale: locale) {
             sentences.append(moneyInOut)

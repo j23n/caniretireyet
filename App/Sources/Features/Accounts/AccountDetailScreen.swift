@@ -9,7 +9,7 @@ import Tracker
 ///
 /// An account that records trades shows, instead of its values, its
 /// holdings with average cost and share, its trades by month (a table on
-/// the Mac) with *Add Trade…*, its income and gains by year, what's wrong
+/// the Mac), its income and gains by year, what's wrong
 /// with its trades, and the values that record a statement (docs/TRADES.md).
 ///
 /// Pushing an `AccountID` onto any navigation stack shows it.
@@ -28,7 +28,6 @@ struct AccountDetailScreen: View {
     @State private var errorMessage = ""
     @State private var showsError = false
     @State private var fillsPastPrices = false
-    @State private var tradeTarget: TradeEditorTarget?
     @State private var tradeFilter = TradeListFilter()
     @State private var deletingTrade: TradeKey?
     @State private var confirmsTradeDelete = false
@@ -43,7 +42,7 @@ struct AccountDetailScreen: View {
     private static let noValues = "No values yet. Import a file for this account: a bank statement, a "
         + "broker's export, or a spreadsheet you keep for it."
     private static let noTrades =
-        "No trades yet. Add the account's buys, sells and dividends, or its opening positions."
+        "No trades yet. Import the broker's transactions for this account."
     private static let statementsNote = "Values that record a broker statement, as a check on the trades. A cash "
         + "that differs from the trades counts as money added or taken out, and positions that differ are pointed "
         + "out above."
@@ -58,11 +57,10 @@ struct AccountDetailScreen: View {
                 : nil
             layout(data, trades: trades)
                 .personalNavigationTitle(account.name, hidden: "Account")
-                .toolbar { toolbarContent(data) }
+                .toolbar { toolbarContent }
                 .sheet(item: $action) { action in
                     AccountActionSheet(action: action)
                 }
-                .tradeEditorSheet($tradeTarget)
                 .confirmationDialog("Delete this trade?", isPresented: $confirmsTradeDelete,
                                     titleVisibility: .visible, presenting: deletingTrade) { key in
                     Button("Delete Trade", role: .destructive) { removeTrade(key) }
@@ -334,7 +332,7 @@ struct AccountDetailScreen: View {
         .background(Palette.page)
     }
 
-    /// The trades as a table, with the filter and *Add Trade…*.
+    /// The trades as a table, with the filter.
     private func macTradesCard(_ trades: TradeList, currency: CurrencyCode) -> some View {
         Card {
             if trades.isEmpty {
@@ -344,10 +342,7 @@ struct AccountDetailScreen: View {
                 Text("No trades match the filter.")
                     .foregroundStyle(Palette.secondaryInk)
             } else {
-                TradesTable(
-                    items: trades.items, currency: currency,
-                    edit: { key in tradeTarget = .editing(key) },
-                    delete: { key in confirmDeleting(key) })
+                TradesTable(items: trades.items, currency: currency, delete: { key in confirmDeleting(key) })
             }
         } header: {
             SectionHeader("Trades") {
@@ -360,9 +355,6 @@ struct AccountDetailScreen: View {
                             .controlSize(.small)
                             .fixedSize()
                     }
-                    Button("Add Trade…") { tradeTarget = TradeEditorTarget(account: accountID) }
-                        .controlSize(.small)
-                        .disabled(!library.canEdit)
                 }
             }
         }
@@ -371,17 +363,11 @@ struct AccountDetailScreen: View {
 
     // MARK: Trades
 
-    /// *Add Trade…* and the filter, then a section per month, newest first.
-    /// Tap a trade to edit it; swipe or long-press to delete it.
+    /// The count and the filter, then a section per month, newest first.
+    /// Swipe or long-press a trade to delete it.
     @ViewBuilder
     private func tradeSections(_ trades: TradeList, currency: CurrencyCode) -> some View {
         Section {
-            Button {
-                tradeTarget = TradeEditorTarget(account: accountID)
-            } label: {
-                Label("Add Trade…", systemImage: "plus.circle")
-            }
-            .disabled(!library.canEdit)
             if !trades.isEmpty {
                 HStack {
                     Text(tradeCountText(trades))
@@ -402,32 +388,22 @@ struct AccountDetailScreen: View {
         ForEach(trades.sections) { month in
             Section {
                 ForEach(month.items) { item in
-                    Button {
-                        tradeTarget = .editing(item.id)
-                    } label: {
-                        TradeListRowView(item: item, currency: currency)
-                    }
-                    .buttonStyle(.plain)
-                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                        Button {
-                            confirmDeleting(item.id)
-                        } label: {
-                            Label("Delete", systemImage: "trash")
+                    TradeListRowView(item: item, currency: currency)
+                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                            Button {
+                                confirmDeleting(item.id)
+                            } label: {
+                                Label("Delete", systemImage: "trash")
+                            }
+                            .tint(Palette.critical)
                         }
-                        .tint(Palette.critical)
-                    }
-                    .contextMenu {
-                        Button {
-                            tradeTarget = .editing(item.id)
-                        } label: {
-                            Label("Edit Trade…", systemImage: "pencil")
+                        .contextMenu {
+                            Button(role: .destructive) {
+                                confirmDeleting(item.id)
+                            } label: {
+                                Label("Delete Trade…", systemImage: "trash")
+                            }
                         }
-                        Button(role: .destructive) {
-                            confirmDeleting(item.id)
-                        } label: {
-                            Label("Delete Trade…", systemImage: "trash")
-                        }
-                    }
                 }
             } header: {
                 Text(verbatim: month.title(locale: locale))
@@ -468,16 +444,8 @@ struct AccountDetailScreen: View {
     }
 
     @ToolbarContentBuilder
-    private func toolbarContent(_ data: AccountDetailData) -> some ToolbarContent {
+    private var toolbarContent: some ToolbarContent {
         ToolbarItemGroup(placement: .primaryAction) {
-            if data.recordsTrades {
-                Button {
-                    tradeTarget = TradeEditorTarget(account: accountID)
-                } label: {
-                    Label("Add Trade", systemImage: "plus")
-                }
-                .disabled(!library.canEdit)
-            }
             Button {
                 action = AccountAction(.edit, accountID)
             } label: {
@@ -519,8 +487,6 @@ struct AccountDetailScreen: View {
     /// Does what a trade issue's banner offers.
     private func perform(_ action: TradeIssueAction) {
         switch action {
-        case .editTrade(let key): tradeTarget = .editing(key)
-        case .addTrade(let target): tradeTarget = target
         case .editAccount: self.action = AccountAction(.edit, accountID)
         }
     }
