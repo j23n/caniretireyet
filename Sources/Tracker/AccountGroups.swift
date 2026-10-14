@@ -20,7 +20,7 @@ public enum NetWorthScope: String, Hashable, Sendable, CaseIterable {
 /// How the app groups accounts in lists, the check-in and the account-group
 /// breakdown (UI.md, "Accounts"), in display order.
 public enum AccountGroup: String, Hashable, Sendable, CaseIterable, Comparable, CustomStringConvertible {
-    /// Current and savings accounts.
+    /// Current and savings accounts, and tax pots.
     case cash
     /// Brokerage accounts.
     case investments
@@ -38,7 +38,7 @@ public enum AccountGroup: String, Hashable, Sendable, CaseIterable, Comparable, 
     /// The group for an account kind.
     public init(kind: AccountKind) {
         switch kind {
-        case .cash, .savings: self = .cash
+        case .cash, .savings, .taxPot: self = .cash
         case .brokerage: self = .investments
         case .crypto, .metals: self = .cryptoAndGold
         case .pensionFund, .tfr: self = .pension

@@ -328,4 +328,58 @@ struct SavingsRateTests {
         #expect(nothingIn.spent == 800)
         #expect(nothingIn.rate == nil)
     }
+
+    /// Pay of 4,000 a month before tax into the current account, 1,000 of
+    /// it moved to a tax pot and 2,000 spent, from January to May; in June
+    /// the pot pays the 5,000 bill, and no more is set aside.
+    let taxPot: Library = {
+        var library = Library(settings: LibrarySettings(baseCurrency: .eur))
+        library.accounts["bank"] = Account(id: "bank", name: "Bank", kind: .cash, currency: .eur, opened: "2025-12-01")
+        library.accounts["pot"] = Account(id: "pot", name: "Taxes", kind: .taxPot, currency: .eur, opened: "2025-12-01")
+        library.upsert(Valuation(account: "bank", date: "2025-12-31", balance: 10000, flow: 10000))
+        library.upsert(Valuation(account: "pot", date: "2025-12-31", balance: 0, flow: 0))
+        let ends: [CalendarDate] = ["2026-01-31", "2026-02-28", "2026-03-31", "2026-04-30", "2026-05-31"]
+        for (index, end) in ends.enumerated() {
+            let kept = Decimal(index + 1) * 1000
+            library.upsert(Valuation(account: "bank", date: end, balance: 10000 + kept, flow: 1000, moneyIn: 4000,
+                                     moneyOut: 3000))
+            library.upsert(Valuation(account: "pot", date: end, balance: kept, flow: 1000))
+        }
+        library.upsert(Valuation(account: "bank", date: "2026-06-30", balance: 17000, flow: 2000, moneyIn: 4000,
+                                 moneyOut: 2000))
+        library.upsert(Valuation(account: "pot", date: "2026-06-30", balance: 0, flow: -5000))
+        return library
+    }()
+
+    /// What's put into a tax pot is tax: came in is after it, and it isn't spent.
+    @Test func aTaxPotsSetAsidesAreTaxNotSpending() throws {
+        let valuator = Valuator(library: taxPot)
+        let months = try #require(valuator.savingsRate(from: "2026-01-01", through: "2026-05-31"))
+        #expect(months.moneyInOut.moneyIn == 20000)
+        #expect(months.taxSetAside == 5000)
+        #expect(months.income == 15000)
+        // The pot is outside net worth: only the current account's 1,000 a month is saved.
+        #expect(months.savedByAccount["pot"] == nil)
+        #expect(months.saved == 5000)
+        #expect(months.spent == 10000)
+        #expect(months.rate?.rounded(scale: 4) == d("0.3333"))
+        // The bill paid from the pot isn't negative tax.
+        let june = try #require(valuator.savingsRate(from: "2026-06-01", through: "2026-06-30"))
+        #expect(june.taxSetAside == 0)
+        #expect(june.income == 4000)
+        #expect(june.spent == 2000)
+        // Net worth never holds the pot.
+        #expect(valuator.netWorth(on: "2026-05-31").total == 15000)
+    }
+
+    /// A tax pot counted in net worth is savings: what's put in is saved.
+    @Test func aTaxPotInNetWorthIsSaved() throws {
+        var library = taxPot
+        library.accounts["pot"]?.includeIn = IncludeIn(netWorth: true)
+        let savings = try #require(Valuator(library: library).savingsRate(from: "2026-01-01", through: "2026-05-31"))
+        #expect(savings.taxSetAside == 0)
+        #expect(savings.income == 20000)
+        #expect(savings.saved == 10000)
+        #expect(savings.spent == 10000)
+    }
 }

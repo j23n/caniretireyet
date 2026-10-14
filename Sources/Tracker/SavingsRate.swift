@@ -8,8 +8,9 @@ import Model
 /// refund lowers what was spent and a loan's principal repaid is saved. What
 /// came in is the money in that cash and savings accounts record, plus what
 /// was paid into pension funds and TFR, pay that never reaches a cash
-/// account. What was spent is the rest. Only accounts in net worth count,
-/// on both sides. In the base currency.
+/// account, less what was put into tax pots, so it's after tax. What was
+/// spent is the rest. Only accounts in net worth count, on both sides. In
+/// the base currency.
 public struct SavingsRate: Hashable, Sendable {
     /// The money in it's worked out from.
     public var moneyInOut: MoneyInOutSummary
@@ -21,6 +22,10 @@ public struct SavingsRate: Hashable, Sendable {
     /// New money into pension funds and TFR over those days, each account's
     /// at least zero: money taken out of them isn't income.
     public var pensionContributions: Decimal
+    /// What was put into tax pots outside net worth over those days
+    /// (``Valuator/taxSetAside(after:through:)``): tax, so neither came in
+    /// nor spent.
+    public var taxSetAside: Decimal
     /// Pension accounts whose new money is what the main plan pays in,
     /// because a check-in left their flow empty. Sorted.
     public var plannedContributionAccounts: [AccountID]
@@ -32,12 +37,14 @@ public struct SavingsRate: Hashable, Sendable {
     public var isPriced: Bool
 
     public init(moneyInOut: MoneyInOutSummary, from: CalendarDate, through: CalendarDate,
-                pensionContributions: Decimal = 0, plannedContributionAccounts: [AccountID] = [],
-                savedByAccount: [AccountID: Decimal] = [:], isPriced: Bool = true) {
+                pensionContributions: Decimal = 0, taxSetAside: Decimal = 0,
+                plannedContributionAccounts: [AccountID] = [], savedByAccount: [AccountID: Decimal] = [:],
+                isPriced: Bool = true) {
         self.moneyInOut = moneyInOut
         self.from = from
         self.through = through
         self.pensionContributions = pensionContributions
+        self.taxSetAside = taxSetAside
         self.plannedContributionAccounts = plannedContributionAccounts
         self.savedByAccount = savedByAccount
         self.isPriced = isPriced
@@ -46,8 +53,9 @@ public struct SavingsRate: Hashable, Sendable {
     /// The account kinds whose new money counts as pay that was saved.
     public static let pensionKinds: Set<AccountKind> = [.pensionFund, .tfr]
 
-    /// What came in: money in, plus the pension contributions.
-    public var income: Decimal { moneyInOut.moneyIn + pensionContributions }
+    /// What came in, after tax: money in, plus the pension contributions,
+    /// less the tax set aside.
+    public var income: Decimal { moneyInOut.moneyIn + pensionContributions - taxSetAside }
 
     /// What was saved: every account's new money over the days, added up,
     /// less the one-offs (``MoneyInOutSummary/oneOffs``), which are neither
@@ -107,9 +115,40 @@ extension Valuator {
             if paid.isFlowFromPlan { planned.append(account.id) }
         }
         let saved = saved(after: start, through: through)
+        let tax = taxSetAside(after: start, through: through)
         return SavingsRate(moneyInOut: money, from: start, through: through, pensionContributions: contributions,
-                           plannedContributionAccounts: planned, savedByAccount: saved.byAccount,
-                           isPriced: saved.isPriced)
+                           taxSetAside: tax.amount, plannedContributionAccounts: planned,
+                           savedByAccount: saved.byAccount, isPriced: saved.isPriced && tax.isPriced)
+    }
+
+    /// What was put into tax pots outside net worth (``Model/AccountKind/taxPot``)
+    /// by their values dated after `from` through `through`, in the base
+    /// currency at each value's date: each value's flow, or the change a
+    /// check-in would fill in, when it's above zero. A bill paid from a pot
+    /// isn't negative tax, and a pot's first value is what it held when its
+    /// records start, not money put in. A tax pot in net worth counts as
+    /// savings instead: what's put in is saved.
+    public func taxSetAside(after from: CalendarDate, through: CalendarDate) -> (amount: Decimal, isPriced: Bool) {
+        var total: Decimal = 0
+        var isPriced = true
+        var problems: [ValuationProblem] = []
+        for account in accounts.values.sorted(by: { $0.id < $1.id })
+        where account.kind == .taxPot && !account.includedInNetWorth {
+            var previous: Valuation?
+            for valuation in valuations(for: account.id) {
+                defer { previous = valuation }
+                guard let previous, valuation.date > from, valuation.date <= through else { continue }
+                guard let flow = valuation.flow ?? defaultFlow(for: valuation, previous: previous),
+                      let amount = converted(flow, from: account.currency, to: baseCurrency, on: valuation.date,
+                                             for: account.id, problems: &problems)
+                else {
+                    isPriced = false
+                    continue
+                }
+                total += max(amount, 0)
+            }
+        }
+        return (total, isPriced)
     }
 
     /// The accounts whose money in counts as came in: the cash and savings

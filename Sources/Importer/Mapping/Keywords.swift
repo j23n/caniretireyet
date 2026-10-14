@@ -105,6 +105,7 @@ enum Keywords {
         (.crypto, ["crypto", "cripto", "bitcoin", "btc", "eth", "ethereum", "wallet", "ledger", "coinbase",
                    "binance", "kraken"]),
         (.metals, ["oro", "gold", "argento", "silver", "metal", "metalli", "metals"]),
+        (.taxPot, ["tax pot", "tax reserve", "taxes", "tasse", "imposte", "steuer", "steuern", "steuerrucklage"]),
         (.savings, ["deposito", "risparmio", "savings", "libretto", "vincolato", "time deposit"]),
         (.brokerage, ["broker", "brokerage", "directa", "degiro", "ibkr", "interactive brokers", "etf", "azioni",
                       "stocks", "dossier", "trading", "invest", "investment", "investments", "titoli", "sim"]),
