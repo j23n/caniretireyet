@@ -380,19 +380,6 @@ struct LibraryLoader {
         }
         checkTrades(in: library)
         checkMoneyInOut(in: library)
-        checkSnapshotAccounts(in: library)
-    }
-
-    /// Warns about an account recorded as snapshots (`"valuation": "holdings"`)
-    /// in a library of format version 4 or later, whose upgrade converts
-    /// such accounts to trades (docs/ACCOUNTS.md). Its values still count.
-    mutating func checkSnapshotAccounts(in library: Library) {
-        guard library.settings.schemaVersion >= 4 else { return }
-        for account in library.accounts.values.sorted(by: { $0.id < $1.id }) where account.valuationMode == .holdings {
-            warn(LibraryFile.account(account.id).path, "\(account.id) is recorded as snapshots (\"valuation\": "
-                + "\"holdings\"), which nothing records any more: its values still count. Record trades "
-                + "(\"valuation\": \"trades\") or a balance instead.")
-        }
     }
 
     /// Warns about money in and out (`moneyIn`, `moneyOut`) that summaries

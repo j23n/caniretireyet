@@ -7,7 +7,7 @@
   ],
   "month": "2026-06",
   "prices": [
-    { "currency": "USD", "date": "2026-06-30", "instrument": "btc", "price": "104200", "source": "coingecko" },
+    { "currency": "USD", "date": "2026-06-30", "instrument": "btc", "price": "104200", "source": "yahoo" },
     { "currency": "EUR", "date": "2026-06-30", "instrument": "gold", "price": "99.1", "source": "gold-api" },
     { "currency": "EUR", "date": "2026-06-30", "instrument": "vwce", "price": "134.15", "source": "yahoo" }
   ],
@@ -26,11 +26,11 @@
   ],
   "valuations": [
     { "account": "casa", "balance": "312000", "date": "2026-06-30", "note": "estimate from listings nearby" },
-    { "account": "conto-deposito", "balance": "16760.65", "date": "2026-06-30", "flow": "500" },
-    { "account": "conto-fineco", "balance": "6240.95", "date": "2026-06-30", "flow": "350.65" },
-    { "account": "directa", "cash": "290.35", "date": "2026-06-30", "flow": "1228.95" },
+    { "account": "conto-deposito", "balance": "16760.65", "date": "2026-06-30", "interest": "33.8" },
+    { "account": "conto-fineco", "balance": "6240.95", "date": "2026-06-30" },
+    { "account": "directa", "cash": "290.35", "date": "2026-06-30" },
     { "account": "fondo-pensione", "balance": "17990.35", "date": "2026-06-30", "flow": "1325" },
-    { "account": "mutuo-casa", "balance": "-143000", "date": "2026-06-30", "flow": "650" },
+    { "account": "mutuo-casa", "balance": "-143000", "date": "2026-06-30" },
     { "account": "tfr", "balance": "10760.2", "date": "2026-06-30", "flow": "2242.5" }
   ]
 }

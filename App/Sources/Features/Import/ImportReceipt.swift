@@ -20,8 +20,6 @@ struct ImportReceipt: Hashable, Sendable {
     var removed: Int
     var identical: Int
     var skipped: Int
-    /// Later values whose automatic new money was worked out again.
-    var recomputedFlows: Int
     /// Names of the accounts created and closed, and the instruments created.
     var createdAccounts: [String]
     var closedAccounts: [String]
@@ -65,7 +63,6 @@ struct ImportReceipt: Hashable, Sendable {
         removed = result.removed
         identical = result.identical
         skipped = result.skipped
-        recomputedFlows = result.recomputedFlows.count
         let accounts = result.library.accounts
         createdAccounts = result.createdAccounts.map { accounts[$0]?.name ?? $0.rawValue }
         closedAccounts = result.closedAccounts.map { accounts[$0]?.name ?? $0.rawValue }

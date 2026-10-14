@@ -106,7 +106,7 @@ struct AssetMixBreakdownTests {
         var library = Library(
             accounts: [
                 Account(id: "broker", name: "Broker", kind: .brokerage, currency: .eur, opened: "2026-01-01",
-                        valuation: .holdings),
+                        valuation: .balance),
                 Account(id: "fund", name: "Fund", kind: .pensionFund, currency: .eur, opened: "2026-01-01"),
                 Account(id: "card", name: "Card", kind: .creditCard, currency: .eur, opened: "2026-01-01"),
                 Account(id: "mixed", name: "Mixed", kind: .savings, currency: .eur, opened: "2026-01-01",

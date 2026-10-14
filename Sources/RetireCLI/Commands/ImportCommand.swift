@@ -425,7 +425,7 @@ struct ImportCommand: RetireSubcommand {
         let blocked = apply && !preview.ambiguities.isEmpty && !acceptGuesses
 
         if apply, !blocked {
-            report.outcome = try write(preview.applyFollowingFlows(to: loaded.library), session: session,
+            report.outcome = try write(preview.apply(to: loaded.library), session: session,
                                        loaded: loaded, context: context)
         } else if saveProfile != nil {
             try loaded.checkWritable()

@@ -496,7 +496,6 @@ struct ImportReport: CommandReport {
                 + (result.removed > 0 ? ", \(result.removed) removed" : "")
                 + ", \(result.identical) identical, \(result.skipped) left out.")
         }
-        lines += Self.recomputedFlowLines(result)
         if !result.createdAccounts.isEmpty {
             lines.append("Created accounts: \(result.createdAccounts.map(\.rawValue).joined(separator: ", ")).")
         }
@@ -519,15 +518,6 @@ struct ImportReport: CommandReport {
             lines.append("Backed up the files it changed to \(backup); undo with `retire import --undo`.")
         }
         return lines
-    }
-
-    /// The later values whose automatic flows followed an inserted or
-    /// changed one, e.g. "Recomputed the automatic flows of later values:
-    /// conto-fineco on 2026-09-30."
-    static func recomputedFlowLines(_ result: ImportResult) -> [String] {
-        guard !result.recomputedFlows.isEmpty else { return [] }
-        return ["Recomputed the automatic flows of later values: "
-            + result.recomputedFlows.map { ImportRecordKey.valuation($0).description }.joined(separator: ", ") + "."]
     }
 
     // MARK: - Records as text
@@ -874,8 +864,6 @@ struct ImportReport: CommandReport {
             var closedAccounts: [String]
             var createdInstruments: [String]
             var tradesAccounts: [String]
-            /// Later values whose automatic flows were worked out again, e.g. "conto-fineco on 2026-09-30".
-            var recomputedFlows: [String]
             var written: [String]
             var deleted: [String]
             var backup: String?
@@ -894,7 +882,6 @@ struct ImportReport: CommandReport {
                 closedAccounts = result.closedAccounts.map(\.rawValue)
                 createdInstruments = result.createdInstruments.map(\.rawValue)
                 tradesAccounts = result.tradesAccounts.map(\.rawValue)
-                recomputedFlows = result.recomputedFlows.map { ImportRecordKey.valuation($0).description }
                 written = outcome.written
                 deleted = outcome.deleted
                 backup = outcome.backup

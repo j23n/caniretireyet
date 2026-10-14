@@ -30,28 +30,12 @@ public struct PlanAssumptions: Hashable, Sendable, KnownKeysProviding {
     /// looking estimates from large asset managers are often lower (3–5%
     /// for equities), and history needn't repeat: these are placeholders
     /// to review, not forecasts.
-    ///
-    /// Until this version the defaults were means: equity 4.5% at 17% (a
-    /// median of 3.1%), bonds 1%, cash 0%, gold 1% (``previousDefaultReturns``).
     public static let defaultReturns: [AssetClass: ReturnAssumption] = [
         .equity: ReturnAssumption(medianReal: .exactly("0.05"), volatility: .exactly("0.17")),
         .bonds: ReturnAssumption(medianReal: .exactly("0.015"), volatility: .exactly("0.06")),
         .cash: ReturnAssumption(medianReal: .exactly("0.005"), volatility: .exactly("0.01")),
         .gold: ReturnAssumption(medianReal: .exactly("0.01"), volatility: .exactly("0.15")),
         .crypto: ReturnAssumption(medianReal: 0, volatility: .exactly("0.70")),
-    ]
-
-    /// The defaults of earlier versions: equity a mean of 4.5% at 17%, bonds
-    /// 1% at 6%, cash 0% at 1%, gold 1% at 15%, crypto a mean of 0% at 70%.
-    /// Earlier versions of the app and the CLI wrote a class's default into
-    /// the plan when one of its numbers was edited, so a plan that repeats
-    /// one exactly most likely never chose it (``previousDefaultReturn(for:)``).
-    public static let previousDefaultReturns: [AssetClass: ReturnAssumption] = [
-        .equity: ReturnAssumption(real: .exactly("0.045"), volatility: .exactly("0.17")),
-        .bonds: ReturnAssumption(real: .exactly("0.01"), volatility: .exactly("0.06")),
-        .cash: ReturnAssumption(real: 0, volatility: .exactly("0.01")),
-        .gold: ReturnAssumption(real: .exactly("0.01"), volatility: .exactly("0.15")),
-        .crypto: ReturnAssumption(real: 0, volatility: .exactly("0.70")),
     ]
 
     /// Equity–bonds 0.1 and equity–crypto 0.4; other pairs 0.
@@ -123,30 +107,6 @@ extension PlanAssumptions {
             returns[assetClass] = nil
         }
     }
-
-    /// The earlier default (``previousDefaultReturns``) that the plan's own
-    /// assumption for `assetClass` repeats exactly, return and volatility
-    /// as written (its income yield is the plan's own); `nil` when the plan
-    /// sets nothing for the class or sets anything else. Such a plan most
-    /// likely didn't choose it: an earlier version wrote it.
-    public func previousDefaultReturn(for assetClass: AssetClass) -> ReturnAssumption? {
-        guard var own = returns[assetClass], let previous = Self.previousDefaultReturns[assetClass] else { return nil }
-        own.incomeYield = nil
-        return own == previous ? previous : nil
-    }
-
-    /// Goes back to the default return and volatility for `assetClass`,
-    /// keeping the plan's income yield: the plan's entry goes, unless it
-    /// has an income yield, which is then kept with the default's return.
-    /// A class without a default loses its entry.
-    public mutating func useDefaultReturn(for assetClass: AssetClass) {
-        guard var assumption = Self.defaultReturns[assetClass] else {
-            returns[assetClass] = nil
-            return
-        }
-        assumption.incomeYield = returns[assetClass]?.incomeYield
-        setReturnAssumption(assumption, for: assetClass)
-    }
 }
 
 /// The expected real return (net of fund costs) and volatility of an asset
@@ -161,17 +121,11 @@ extension PlanAssumptions {
 /// at 70% volatility is a mean of about 16.6%, and a mean of 0% at 70% is
 /// a median of about −18% a year.
 ///
-/// A return given by its median is written with both keys: `medianReal`,
-/// and `real` as the mean it implies (to 6 decimals), because older
-/// versions read only `real` and can't open a plan without it. Reading,
-/// when the two agree the median counts; when they don't (an older version
-/// changed the mean or the volatility, keeping `medianReal` as an unknown
-/// key), `real` wins, which is what that version computed with, and the
-/// planner warns (`planner.meanAndMedian`).
+/// A return is written with the key it was given by, never both.
 public struct ReturnAssumption: Hashable, Sendable, KnownKeysProviding {
-    /// `real` as written; `nil` when the plan gives only `medianReal`.
+    /// `real` as written; `nil` when the plan gives `medianReal`.
     private var writtenReal: Decimal?
-    /// `medianReal` as written.
+    /// `medianReal` as written; `nil` when the plan gives `real`.
     private var writtenMedian: Decimal?
     public var volatility: Decimal
     /// The yearly income (dividends, interest) funds of this class earn, as
@@ -211,8 +165,7 @@ public struct ReturnAssumption: Hashable, Sendable, KnownKeysProviding {
     }
 
     /// The median yearly real return as written (`medianReal`); `nil` when
-    /// the plan gives the mean. When `real` is written too, `real` wins
-    /// (``setsMeanAndMedian``). Setting a value writes `medianReal` and
+    /// the plan gives the mean. Setting a value writes `medianReal` and
     /// removes `real`, so the mean follows the median and the volatility;
     /// setting `nil` removes it and writes the mean it implied as `real`.
     public var medianReal: Decimal? {
@@ -229,18 +182,11 @@ public struct ReturnAssumption: Hashable, Sendable, KnownKeysProviding {
         }
     }
 
-    /// `real` as written: `nil` when the plan gives only the median.
+    /// `real` as written: `nil` when the plan gives the median.
     public var realAsWritten: Decimal? { writtenReal }
 
-    /// Whether the return is given by its median: `medianReal` is written
-    /// and `real` isn't.
-    public var isGivenByMedian: Bool { writtenReal == nil && writtenMedian != nil }
-
-    /// Whether the file's `real` and `medianReal` disagree (an older version
-    /// or a hand edit changed one of them): `real` wins, and `medianReal` is
-    /// ignored. A `real` that is just the mean the median implies, as this
-    /// version writes it, doesn't count.
-    public var setsMeanAndMedian: Bool { writtenReal != nil && writtenMedian != nil }
+    /// Whether the return is given by its median (`medianReal`).
+    public var isGivenByMedian: Bool { writtenMedian != nil }
 
     /// The expected (arithmetic mean) yearly real return as a `Double`,
     /// from what's written, without rounding through ``real``: what the
@@ -296,7 +242,7 @@ extension ReturnAssumption: Codable {
 
     public static var knownKeys: Set<String> { Set(CodingKeys.allCases.map(\.stringValue)) }
 
-    /// Reads `volatility` and `real` or `medianReal`, at least one of the two.
+    /// Reads `volatility` and `real` or `medianReal`, exactly one of the two.
     public init(from decoder: any Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         writtenReal = try c.decodeDecimalIfPresent(forKey: .real)
@@ -307,37 +253,20 @@ extension ReturnAssumption: Codable {
             throw DecodingError.keyNotFound(CodingKeys.real, DecodingError.Context(
                 codingPath: c.codingPath, debugDescription: "A return needs real (its mean) or medianReal."))
         }
-        // `real` written next to `medianReal` for older versions: the median counts.
-        if let real = writtenReal, let median = writtenMedian,
-           abs(real - Self.compatibleMean(median: median, volatility: volatility)) <= Self.compatibilityTolerance {
-            writtenReal = nil
+        if writtenReal != nil, writtenMedian != nil {
+            throw DecodingError.dataCorruptedError(forKey: .medianReal, in: c,
+                                                   debugDescription: "A return gives real or medianReal, not both.")
         }
     }
 
-    /// Writes `volatility` and `real` or `medianReal`; a return given by its
-    /// median also gets `real`, the mean it implies, for older versions.
+    /// Writes `volatility` and `real` or `medianReal`, as given.
     public func encode(to encoder: any Encoder) throws {
         var c = encoder.container(keyedBy: CodingKeys.self)
-        if let writtenReal {
-            try c.encodeDecimal(writtenReal, forKey: .real)
-        } else if let writtenMedian {
-            try c.encodeDecimal(Self.compatibleMean(median: writtenMedian, volatility: volatility), forKey: .real)
-        }
+        try c.encodeDecimalIfPresent(writtenReal, forKey: .real)
         try c.encodeDecimalIfPresent(writtenMedian, forKey: .medianReal)
         try c.encodeDecimal(volatility, forKey: .volatility)
         try c.encodeDecimalIfPresent(incomeYield, forKey: .incomeYield)
     }
-
-    /// The mean a median implies, to 6 decimals: the `real` written next to
-    /// `medianReal` for older versions.
-    static func compatibleMean(median: Decimal, volatility: Decimal) -> Decimal {
-        let mean = arithmeticMean(median: median.doubleValue, volatility: volatility.doubleValue)
-        return Decimal(mean).rounded(scale: 6)
-    }
-
-    /// How far `real` may be from ``compatibleMean(median:volatility:)`` and
-    /// still be the copy written for older versions: half the last digit.
-    static let compatibilityTolerance = Decimal(string: "0.0000005")!
 }
 
 /// Correlations between asset classes, written as nested objects:

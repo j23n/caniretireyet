@@ -230,26 +230,4 @@ struct TradeValuationTests {
         #expect(summary.withdrawals == 500)
         #expect(summary.unconverted.isEmpty)
     }
-
-    @Test func editingTradesKeepsAutomaticFlowsInStep() throws {
-        var library = TradeLibrary.typedCash()
-        let before = library
-        // Units moved in on 10 February: February's flow becomes their market value.
-        library.upsert(TradeLibrary.trade(.transferIn, "2024-02-10", id: "tin0", instrument: "vwce", quantity: "5",
-                                          cost: "450"))
-        let followUp = library.followFlows(from: before)
-        #expect(followUp.recomputed.map(\.date) == ["2024-02-29"])
-        #expect(followUp.recomputed.first?.flow == 510)
-        #expect(followUp.kept.isEmpty)
-
-        // A flow typed by hand is kept.
-        var typed = TradeLibrary.typedCash()
-        typed.upsert(Valuation(account: "broker", date: "2024-02-29", cash: 5020, flow: 7))
-        let typedBefore = typed
-        typed.upsert(TradeLibrary.trade(.transferIn, "2024-02-10", id: "tin0", instrument: "vwce", quantity: "5",
-                                        cost: "450"))
-        let kept = typed.followFlows(from: typedBefore)
-        #expect(kept.recomputed.isEmpty)
-        #expect(kept.kept.map(\.date) == ["2024-02-29"])
-    }
 }

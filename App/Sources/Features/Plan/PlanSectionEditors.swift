@@ -120,7 +120,6 @@ struct PlanBirthDateEditor: View {
 struct PlanAssumptionsEditor: View {
     @Binding var plan: PlanDocument
     @Environment(LibraryStore.self) private var library
-    @Environment(\.locale) private var locale
 
     /// The classes with a return to set, in the assumptions' order.
     private static let classes: [AssetClass] = [.equity, .bonds, .cash, .gold, .crypto]
@@ -161,19 +160,6 @@ struct PlanAssumptionsEditor: View {
                         .frame(maxWidth: 52)
                     Text("%")
                         .foregroundStyle(Palette.secondaryInk)
-                }
-                if let note = PlanEditing.previousDefaultNote(for: assetClass, in: plan.assumptions, locale: locale) {
-                    HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
-                        Text(note)
-                            .foregroundStyle(Palette.secondaryInk)
-                            .fixedSize(horizontal: false, vertical: true)
-                        Spacer(minLength: Metrics.xs)
-                        Button("Use Default") { plan.assumptions.useDefaultReturn(for: assetClass) }
-                            .buttonStyle(.borderless)
-                            .disabled(!library.canEdit)
-                            .accessibilityLabel("Use the default return for \(name)")
-                    }
-                    .font(.caption)
                 }
             }
             Text(PlanEditing.returnsExplanation)

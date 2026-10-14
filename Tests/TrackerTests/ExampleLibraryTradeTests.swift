@@ -4,18 +4,6 @@ import Testing
 import TestSupport
 import Tracker
 
-/// The example library with Directa, the gold coins and the Ledger wallet
-/// recorded as positions at each check-in, made from their trades
-/// (``Model/Library/recordAsSnapshots(_:)``): for tests of accounts that
-/// hold positions.
-func exampleLibraryWithHoldings() throws -> Library {
-    var library = try Fixtures.exampleLibrary()
-    for account: AccountID in ["directa", "gold-coins", "ledger-wallet"] {
-        library.recordAsSnapshots(account)
-    }
-    return library
-}
-
 /// Directa in the example library records trades: an opening, monthly
 /// deposits and buys of VWCE, and a sale in July. Its values and flows at
 /// each check-in are the ones it had as positions.
@@ -54,7 +42,6 @@ struct ExampleLibraryTradeTests {
             #expect(snapshot.cash == d(cash), "\(date)")
             #expect(snapshot.positions.map(\.quantity) == [d(quantity)], "\(date)")
             let valuation = try #require(library.valuations(for: "directa").first { $0.date == date })
-            #expect(valuation.flow == flow.map(d), "\(date)")
             if let flow {
                 #expect(valuator.defaultFlow(for: valuation, previous: previous) == d(flow), "\(date)")
             }
@@ -83,28 +70,5 @@ struct ExampleLibraryTradeTests {
         #expect(year.deposits == d("7069.5"))
         #expect(year.dividends == 0)
         #expect(valuator.tradeSummary(for: 2025).deposits == d("2791.25"))
-    }
-
-    @Test func convertingBackToPositionsKeepsEveryValue() throws {
-        let holdings = try exampleLibraryWithHoldings()
-        #expect(holdings.accounts["directa"]?.valuation == .holdings)
-        #expect(holdings.trades(for: "directa").isEmpty)
-        let other = Valuator(library: holdings)
-        for (date, _, _, _) in monthEnds {
-            #expect(other.netWorth(on: date).total == valuator.netWorth(on: date).total, "\(date)")
-        }
-        let september = try #require(holdings.valuations(for: "directa").last)
-        #expect(september == Valuation(account: "directa", date: "2026-09-30", cash: d("312.1"), positions: [
-            Position(instrument: "vwce", quantity: d("412.5"), costBasis: 48200),
-        ], flow: d("11.3")))
-        // And to trades again: the same values.
-        var again = holdings
-        let converted = again.convertToTrades("directa")
-        let conversion = try #require(converted)
-        #expect(conversion.notes.map(\.kind).allSatisfy { $0 == .priceFromValuation })
-        let third = Valuator(library: again)
-        for (date, _, _, _) in monthEnds {
-            #expect(third.netWorth(on: date).total == valuator.netWorth(on: date).total, "\(date)")
-        }
     }
 }

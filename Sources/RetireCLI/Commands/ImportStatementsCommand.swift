@@ -153,15 +153,15 @@ struct ImportStatementsCommand: RetireSubcommand {
         }
         try answerAssets(&batch, library: library, today: context.today)
 
-        let previews = batch.previews(against: library, today: context.today, decide: { _, preview in
+        let previews = batch.previews(against: library, today: context.today) { _, preview in
             decide(&preview)
-        }, apply: { $0.applyFollowingFlows(to: $1) })
+        }
         var report = ImportStatementsReport(batch: batch, previews: previews,
                                             gaps: StatementBatch.gaps(in: previews, batch: batch),
                                             library: library, apply: apply, rows: rows)
         let blocked = report.blockers(acceptGuesses: acceptGuesses)
         if apply, blocked.isEmpty {
-            let result = StatementBatch.apply(previews.map(\.preview), to: library) { $0.applyFollowingFlows(to: $1) }
+            let result = StatementBatch.apply(previews.map(\.preview), to: library)
             var outcome = ImportReport.Outcome(result: result)
             if result.hasChanges {
                 try loaded.checkWritable()

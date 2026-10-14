@@ -3,6 +3,7 @@ import Foundation
 import Model
 import Testing
 import TestSupport
+import Tracker
 
 /// A bank statement's money in (IMPORT.md, "Classes"): income marked once
 /// per sender, a sender who pays every month, money paid back, a large
@@ -172,7 +173,8 @@ struct StatementIncomeTests {
         let library = preview.apply(to: Self.library()).library
         let written = try #require(library.valuations(for: "conto").first { $0.date == "2026-03-31" })
         #expect(written.oneOff == 18000)
-        #expect(written.moved == 0)
+        let valuator = Valuator(library: library)
+        #expect(valuator.moved(written, previous: valuator.previousValuation(for: "conto", before: written.date)) == 0)
         // Paid back after all: the one-off the library has goes.
         session.setStatementClass(.spending, forRow: row)
         let again = session.preview(against: library, today: Self.today).apply(to: library).library

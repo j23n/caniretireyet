@@ -35,7 +35,7 @@ struct ValidateCommand: RetireSubcommand {
         let loaded: LoadResult
         var migration: MigrationReport?
         do {
-            (loaded, migration) = try folder.loadMigrating(steps: LibraryOptions.migrations)
+            (loaded, migration) = try folder.loadMigrating()
         } catch StorageError.missingMigration {
             // A test version's library: reported as older below.
             loaded = try folder.load()

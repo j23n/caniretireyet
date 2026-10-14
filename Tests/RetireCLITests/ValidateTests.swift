@@ -3,35 +3,6 @@ import Testing
 import TestSupport
 
 struct ValidateTests {
-    /// A library in format version 3 is upgraded first, and the upgrade's
-    /// steps and what the conversion estimated are printed.
-    @Test func aVersion3LibraryIsUpgradedFirst() async throws {
-        let library = try TemporaryFolder.version3Library()
-        let run = await retire(["validate", "--library", library.path])
-        #expect(run.status == 0, "\(run.all)")
-        #expect(run.output.contains("  Format version  4 (current)\n"))
-        #expect(run.output.contains("Upgraded the library from format version 3 to 4; the files as they were are in "
-            + "backups/"))
-        #expect(run.output.contains("  - Each kind of account records its money one way"))
-        #expect(run.output.contains("  - Accounts recorded as snapshots of positions now record trades"))
-        #expect(run.output.contains("Estimated while upgrading:\n  - Broker: 2026-01-31: The opening of 10 vwce"))
-        #expect(run.output.contains("No problems found."))
-
-        let json = try parseJSON(await retire(["validate", "--library", library.path, "--json"]).output)
-        #expect(json["migration"] == nil)
-    }
-
-    @Test func aVersion3LibrarysUpgradeAsJSON() async throws {
-        let library = try TemporaryFolder.version3Library()
-        let run = await retire(["validate", "--library", library.path, "--json"])
-        let json = try parseJSON(run.output)
-        let migration = try #require(json["migration"] as? [String: Any])
-        #expect(migration["fromVersion"] as? Int == 3)
-        #expect(migration["toVersion"] as? Int == 4)
-        #expect((migration["steps"] as? [String])?.count == 2)
-        #expect((migration["notes"] as? [String])?.first?.hasPrefix("Broker: 2026-01-31: ") == true)
-    }
-
     /// A library with a broken file, and references between files that don't hold.
     private func brokenLibrary() throws -> TemporaryFolder {
         let library = try TemporaryFolder.exampleLibrary()
@@ -120,7 +91,7 @@ struct ValidateTests {
         let run = await retire(["validate", "--library", library.path, "--json"])
         #expect(run.status == 1)
         let json = try parseJSON(run.output)
-        #expect(json["schemaVersion"] as? Int == 4)
+        #expect(json["schemaVersion"] as? Int == 5)
         #expect(json["readOnly"] as? Bool == false)
         #expect(json["errors"] as? Int == 1)
         #expect(json["warnings"] as? Int == 5)
@@ -155,8 +126,8 @@ struct ValidateTests {
         // A statement listing one VWCE too few, and a sale of more than Directa holds.
         var september = try library.text("history/2026/2026-09.json")
         september = september.replacingOccurrences(
-            of: #"{ "account": "directa", "cash": "312.1", "date": "2026-09-30", "flow": "11.3" }"#,
-            with: #"{ "account": "directa", "cash": "312.1", "date": "2026-09-30", "flow": "11.3", "#
+            of: #"{ "account": "directa", "cash": "312.1", "date": "2026-09-30" }"#,
+            with: #"{ "account": "directa", "cash": "312.1", "date": "2026-09-30", "#
                 + #""positions": [{ "instrument": "vwce", "quantity": "411.5" }] }"#)
         september = september.replacingOccurrences(of: "  \"valuations\": [\n", with: """
               "trades": [

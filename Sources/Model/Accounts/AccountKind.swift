@@ -2,8 +2,7 @@
 /// mix and flows.
 public struct AccountKind: OpenEnum {
     public let rawValue: String
-    /// `vehicle`, the name `belongings` had before, reads as `belongings`.
-    public init(rawValue: String) { self.rawValue = rawValue == "vehicle" ? "belongings" : rawValue }
+    public init(rawValue: String) { self.rawValue = rawValue }
 
     /// A current account.
     public static let cash: AccountKind = "cash"
@@ -15,7 +14,7 @@ public struct AccountKind: OpenEnum {
     public static let tfr: AccountKind = "tfr"
     public static let property: AccountKind = "property"
     /// Things you own that lose value and might sell: a car, a bike, a
-    /// boat, electronics. Written as `vehicle` before.
+    /// boat, electronics.
     public static let belongings: AccountKind = "belongings"
     public static let loan: AccountKind = "loan"
     public static let mortgage: AccountKind = "mortgage"
@@ -114,11 +113,6 @@ public struct ValuationMode: OpenEnum {
 
     /// One amount in the account's currency.
     public static let balance: ValuationMode = "balance"
-    /// Positions (quantity × price) plus optional cash, at each valuation.
-    /// Written before format version 4, whose upgrade converts such accounts
-    /// to trades, so it isn't in ``knownValues``; it still decodes, and its
-    /// values still count.
-    public static let holdings: ValuationMode = "holdings"
     /// Holdings worked out from the account's trades (buys, sells, …),
     /// valued at quantity × price, plus cash. Its valuations record only
     /// cash; positions listed in one are a reconciliation check

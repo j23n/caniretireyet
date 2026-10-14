@@ -247,12 +247,6 @@ struct AccountForm: Hashable, Sendable {
         original?.valuationMode ?? kind.defaultValuationMode
     }
 
-    /// Whether the account is recorded as positions, from snapshots or from
-    /// its trades (or else as a balance).
-    var holdsPositions: Bool {
-        valuationMode == .holdings || valuationMode == .trades
-    }
-
     /// Whether the account records its trades.
     var recordsTrades: Bool {
         valuationMode == .trades
@@ -262,7 +256,7 @@ struct AccountForm: Hashable, Sendable {
     /// a single balance, by default or in some of their values (a
     /// brokerage's imported history, say). Positions follow their instruments.
     var takesAssetMix: Bool {
-        !kind.isLiability && (!holdsPositions || balanceValueCount > 0)
+        !kind.isLiability && (!recordsTrades || balanceValueCount > 0)
     }
 
     /// Whether it asks for an estimated loss of value a year: belongings.

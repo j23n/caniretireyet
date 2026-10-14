@@ -81,6 +81,15 @@ extension Account {
         valuationMode == .trades
     }
 
+    /// Whether a valuation's `flow` is information the account's records
+    /// can't give: a balance whose kind asks for it (``FlowDefault/ask``:
+    /// pension funds, TFR, property, other). Only then is a flow stored.
+    /// Every other account's flow is worked out from its records (its
+    /// balances, interest or trades), so a missing one means "computed".
+    public var asksForFlow: Bool {
+        !recordsTrades && kind.defaultFlow == .ask
+    }
+
     /// The asset mix for a balance account: `assetClasses` if set, otherwise
     /// the default for the kind (cash → cash, property → real estate), or
     /// `nil` when there is none (holdings take their mix from instruments).

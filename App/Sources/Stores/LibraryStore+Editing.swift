@@ -83,18 +83,16 @@ extension LibraryStore {
 
     // MARK: History
 
-    /// Removes one value; the automatic new money of the value after it is
-    /// worked out again (`Library.removeValue(_:)`).
+    /// Removes one value (`Library.removeValuation(_:)`).
     func removeValue(_ key: ValuationKey) throws {
-        try update { $0.removeValue(key) }
+        try update { $0.removeValuation(key) }
     }
 
     // MARK: Trades
 
-    /// Removes a trade and keeps the automatic new money of the account's
-    /// later values in step, and waits for the write (`Library.removeTrade(_:)`).
+    /// Removes a trade, and waits for the write (`Library.removeTradeRecord(_:)`).
     func removeTrade(_ key: TradeKey) async throws {
-        try await commit { $0.removeTrade(key) }
+        try await commit { $0.removeTradeRecord(key) }
     }
 
     /// Adds prices, FX rates and index values, replacing those with the same keys.

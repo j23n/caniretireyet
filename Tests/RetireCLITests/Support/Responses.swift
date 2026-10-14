@@ -9,7 +9,7 @@ enum Responses {
         MockHTTPClient([
             "chart/VWCE.DE": PriceResponses.yahooVWCESeptember,
             "symbols=USD": PriceResponses.frankfurterUSDSeptember,
-            "simple/price": PriceResponses.coinGeckoBitcoinUSD,
+            "chart/BTC-USD": PriceResponses.yahooBitcoinSeptember,
             "price/XAU": PriceResponses.goldAPIGold,
             "prc_hicp_minr": PriceResponses.eurostatHICPItaly,
         ])

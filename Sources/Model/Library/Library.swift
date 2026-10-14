@@ -180,8 +180,7 @@ extension Library {
     }
 
     /// Removes the trade record with this key, returning it if there was
-    /// one. An emptied month file stays in `months`. (Tracker's
-    /// `removeTrade(_:)` also keeps the flows of later valuations in step.)
+    /// one. An emptied month file stays in `months`.
     @discardableResult
     public mutating func removeTradeRecord(_ key: TradeKey) -> Trade? {
         remove(key, on: key.date, from: \.trades)

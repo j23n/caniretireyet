@@ -145,7 +145,9 @@ struct SavingsRateTests {
         #expect(savings.spent == 2850)
         #expect(savings.rate?.rounded(scale: 4) == d("0.3372"))
         // What moved between the accounts leaves the one-off out too.
-        #expect(library.months["2026-01"]?.valuations.first { $0.account == "bank" }?.moved == 0)
+        let bank = library.valuations(for: "bank")
+        let january = try #require(bank.firstIndex { $0.date == "2026-01-31" })
+        #expect(Valuator(library: library).moved(bank[january], previous: january > 0 ? bank[january - 1] : nil) == 0)
         // So does the Overview's Saved bar: the one-off is under Other.
         let valuator = Valuator(library: library)
         let report = valuator.change(from: "2025-12-31", to: "2026-01-31")

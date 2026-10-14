@@ -40,7 +40,7 @@ struct LibraryOptions: ParsableArguments {
             throw CLIError("\(folder.root.path) isn't a library: it has no library.json. Create one with `retire init`.")
         }
         // An older library is upgraded, after a backup, before anything is written.
-        let (result, migration) = try folder.loadMigrating(steps: Self.migrations)
+        let (result, migration) = try folder.loadMigrating()
         if let migration {
             for line in migration.lines { context.console.error(line) }
         }
@@ -107,26 +107,15 @@ func parseDate(_ text: String?, option: String) throws -> CalendarDate? {
     return date
 }
 
-extension LibraryOptions {
-    /// The upgrade steps: Storage's, and after the step to version 4 the
-    /// conversion of the accounts recorded as snapshots to trades, which
-    /// needs Tracker (docs/ACCOUNTS.md, "Migration").
-    static let migrations = Migration.all + [
-        Migration.library(from: 3, summary: Library.snapshotConversionSummary) { library in
-            library.convertSnapshotAccountsToTrades()
-        },
-    ]
-}
-
 extension MigrationReport {
     /// What the upgrade did, for the terminal: where the backup is, each
-    /// step, and what the steps had to estimate.
+    /// step, and what the steps pointed out.
     var lines: [String] {
         var lines = ["Upgraded the library from format version \(fromVersion) to \(toVersion); the files as they "
             + "were are in \(backup.path)/."]
         lines += steps.map { "  - \($0)" }
         if !notes.isEmpty {
-            lines.append("Estimated while upgrading:")
+            lines.append("To check after upgrading:")
             lines += notes.map { "  - \($0)" }
         }
         return lines

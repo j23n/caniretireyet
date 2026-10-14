@@ -68,9 +68,13 @@ struct AccountValuationRow: Hashable, Sendable, Identifiable {
     var amount: Decimal?
     /// The value on its own date, in the base currency (what could be valued).
     var value: Decimal
+    /// The new money since the value before, in the account's currency
+    /// (Tracker's `Valuator.flow(of:previous:)`): recorded, or worked out
+    /// from the balances; `nil` when it's unknown, as for the first value.
+    var flow: Decimal? = nil
     /// For a cash or savings account's value that records money in and
     /// out: the money moved between your own accounts, in the account's
-    /// currency (Tracker's `Valuation.moved`); `nil` otherwise.
+    /// currency (Tracker's `Valuator.moved(_:previous:)`); `nil` otherwise.
     var moved: Decimal? = nil
 
     var id: ValuationKey { valuation.key }
@@ -249,8 +253,10 @@ struct AccountDetailData: Hashable, Sendable {
             flows = byDate.filter { $0.value != 0 }.sorted { $0.key < $1.key }
                 .map { AccountFlowTick(date: $0.key, amount: $0.value) }
         } else {
-            flows = all.compactMap { valuation in
-                guard let flow = valuation.flow, flow != 0 else { return nil }
+            flows = all.indices.compactMap { index in
+                let valuation = all[index]
+                guard let flow = valuator.flow(of: valuation, previous: index > 0 ? all[index - 1] : nil), flow != 0
+                else { return nil }
                 return AccountFlowTick(date: valuation.date, amount: flow)
             }
         }
@@ -268,12 +274,15 @@ struct AccountDetailData: Hashable, Sendable {
             statements = Self.statements(of: account.id, valuations: all, valuator: valuator)
         } else {
             let recordsMoneyInOut = account.kind.recordsMoneyInOut
-            valuations = all.reversed().map { valuation in
-                AccountValuationRow(
+            valuations = all.indices.reversed().map { index in
+                let valuation = all[index]
+                let previous = index > 0 ? all[index - 1] : nil
+                return AccountValuationRow(
                     valuation: valuation,
                     amount: valuator.amountInAccountCurrency(of: valuation, on: valuation.date),
                     value: valuator.value(of: valuation, on: valuation.date)?.knownValue ?? 0,
-                    moved: recordsMoneyInOut ? valuation.moved : nil)
+                    flow: valuator.flow(of: valuation, previous: previous),
+                    moved: recordsMoneyInOut ? valuator.moved(valuation, previous: previous) : nil)
             }
         }
         tradeIssues = TradeIssueNote.notes(for: account.id, library: library, valuator: valuator)
