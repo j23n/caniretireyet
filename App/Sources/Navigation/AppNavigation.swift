@@ -24,6 +24,11 @@ enum SidebarItem: Hashable, Sendable {
     case importData
     case instruments
     case sync
+
+    /// The plan of a ``plan(_:)`` row.
+    var plan: PlanID? {
+        if case .plan(let id) = self { id } else { nil }
+    }
 }
 
 /// A sheet presented over the whole app.
@@ -43,6 +48,16 @@ enum AppSheet: Hashable, Sendable, Identifiable {
         case .importFile(let url): "import \(url?.absoluteString ?? "")"
         }
     }
+}
+
+/// Where in a plan to open (``AppNavigation/planRoute``): a part, and
+/// What if or the Target mix sheet over it.
+struct PlanRoute: Hashable, Sendable {
+    /// The plan that takes it; `nil` is the main plan.
+    var plan: PlanID?
+    var part: PlanPart = .plan
+    var opensWhatIf = false
+    var opensTargetMix = false
 }
 
 /// Which navigation the root view shows.
@@ -78,18 +93,10 @@ final class AppNavigation {
     /// The Overview's *Future* switch (⌘⇧F): continue the history chart into
     /// the main plan's projection.
     var showsFuture = false
-    /// A part of the plan the Plan screen shows when it appears
-    /// (``ScreenLaunch`` opens Progress with it). It stays set: on the Mac a
-    /// screen that had taken it still opened on the plan.
-    var requestedPlanPart: PlanPart?
-    /// A part of the plan to switch to once (``showPlanProgress()``): the
-    /// Plan screen takes it when it appears, or at once when it's already
-    /// open, and clears it.
-    var pendingPlanPart: PlanPart?
-    /// Whether the Plan screen opens What if when it appears (``ScreenLaunch``).
-    var requestsWhatIf = false
-    /// Whether the plan opens its Target mix sheet when it appears (``ScreenLaunch``).
-    var requestsTargetMix = false
+    /// A place in a plan to open once (``showPlan(_:at:)``): the plan's
+    /// screen takes it when it appears, or at once when it's already open,
+    /// and clears it.
+    var planRoute: PlanRoute?
     /// Whether first launch goes on once its library is open, with the
     /// accounts step and the disclaimer: *Create library* sets it, and the
     /// root view shows `OnboardingScreen` until its *Start* clears it.
@@ -163,17 +170,17 @@ final class AppNavigation {
         }
     }
 
-    /// Shows a plan (`nil`: the main plan).
-    func showPlan(_ id: PlanID? = nil) {
+    /// Shows a plan (`nil`: the main plan), opened at `route`'s part, What
+    /// if or Target mix when one is given.
+    func showPlan(_ id: PlanID? = nil, at route: PlanRoute? = nil) {
         selectedPlan = id
+        planRoute = route.map { route in
+            var route = route
+            route.plan = id
+            return route
+        }
         tab = .plan
         sidebarSelection = id.map(SidebarItem.plan) ?? .plans
-    }
-
-    /// Shows the main plan's Progress (the Overview's *On track?*).
-    func showPlanProgress() {
-        pendingPlanPart = .progress
-        showPlan()
     }
 
     func showSettings() {

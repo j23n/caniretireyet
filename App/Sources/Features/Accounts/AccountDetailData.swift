@@ -209,6 +209,22 @@ struct AccountDetailData: Hashable, Sendable {
             + "accounts."
     }
 
+    /// The page's sections between the chart and the details, in order:
+    /// the same on iPhone and the Mac.
+    var sections: [AccountDetailSection] {
+        var sections: [AccountDetailSection] = []
+        if !tradeIssues.isEmpty { sections.append(.tradeIssues) }
+        if tradeHoldings != nil { sections.append(.holdings) }
+        if recordsTrades {
+            sections.append(.trades)
+            if !incomeYears.isEmpty { sections.append(.income) }
+            if !statements.isEmpty { sections.append(.statements) }
+        } else {
+            sections.append(.values)
+        }
+        return sections
+    }
+
     init(account: Account, library: Library, valuator: Valuator, today: CalendarDate, stalenessThreshold: Int) {
         self.account = account
         baseCurrency = valuator.baseCurrency
@@ -312,6 +328,22 @@ extension AccountDetailData {
                                        mismatchCount: valuator.reconcile(valuation).count)
         }
     }
+}
+
+/// A section of an account's page (``AccountDetailData/sections``).
+enum AccountDetailSection: Hashable {
+    /// What's wrong with its trades.
+    case tradeIssues
+    /// A trades account's holdings (``AccountDetailData/tradeHoldings``).
+    case holdings
+    /// A trades account's trades, by month.
+    case trades
+    /// A trades account's income and gains by year.
+    case income
+    /// A trades account's values that record a statement.
+    case statements
+    /// Another account's values.
+    case values
 }
 
 /// The accounts money could have gone to when `account` closes on `date`:

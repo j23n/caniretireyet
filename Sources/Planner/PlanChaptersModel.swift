@@ -67,13 +67,11 @@ public struct PlanChaptersModel: Sendable {
     /// The chapters of `plan` as shown; `nil` without a birth date.
     ///
     /// - Parameters:
-    ///   - valuator: The library's, for the outcomes of results calculated
-    ///     before the base currency changed (``outcomes(of:results:valuator:)``).
     ///   - results: The results shown, for the outcomes.
     ///   - chosenAge: An age chosen for the charts (the plan screen's focus age).
     ///   - whatIfAge: The what-if's retirement age, while one is in use.
     ///   - recordedAge: The earliest age recorded at the last check-in.
-    public init?(plan: PlanDocument, library: Library, valuator: Valuator, results: PlanResults?,
+    public init?(plan: PlanDocument, library: Library, results: PlanResults?,
                  chosenAge: Int? = nil, whatIfAge: Int? = nil, recordedAge: Int? = nil,
                  today: CalendarDate = .today()) {
         guard let birthDate = library.settings.person?.birthDate else { return nil }
@@ -89,7 +87,7 @@ public struct PlanChaptersModel: Sendable {
         self.chapters = chapters
         ageSource = source
         self.start = start
-        outcomes = results.map { Self.outcomes(of: chapters, results: $0, valuator: valuator) } ?? [:]
+        outcomes = results.map { Self.outcomes(of: chapters, results: $0) } ?? [:]
         accountNames = library.accounts.mapValues(\.name)
     }
 
@@ -105,13 +103,10 @@ public struct PlanChaptersModel: Sendable {
     }
 
     /// Where the money stands at each chapter's end: the fan at the end of
-    /// its last year, in the base currency as the strip and the words show it
-    /// (``PlanResults/portfolio(in:valuator:)``: none without the rate for
-    /// results calculated before it changed), and the futures failing at its ages.
-    public static func outcomes(of chapters: PlanChapters, results: PlanResults,
-                                valuator: Valuator) -> [Int: Outcome] {
+    /// its last year, and the futures failing at its ages.
+    public static func outcomes(of chapters: PlanChapters, results: PlanResults) -> [Int: Outcome] {
         var yearEnds: [Int: FanPoint] = [:]
-        for point in results.portfolio(in: valuator.baseCurrency, valuator: valuator) {
+        for point in results.portfolio {
             let date = CalendarDate(point.date, in: .current)
             if date.month == 12, date.day == 31 { yearEnds[date.year] = point }
         }

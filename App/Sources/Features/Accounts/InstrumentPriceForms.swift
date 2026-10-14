@@ -26,9 +26,10 @@ enum InstrumentText {
         sourceText(of: instrument) ?? "Typed in by hand"
     }
 
-    /// "Yahoo Finance (unofficial) · VWCE.DE"; `nil` without a price source.
+    /// "Yahoo Finance (unofficial) · VWCE.DE"; `nil` without a price source
+    /// the app fetches from (`PriceNeeds.isFetched(_:)`).
     static func sourceText(of instrument: Instrument) -> String? {
-        guard let source = instrument.priceSource else { return nil }
+        guard let source = instrument.priceSource, PriceNeeds.isFetched(source) else { return nil }
         return "\(InstrumentForm.name(of: source.provider)) · \(source.symbol)"
     }
 
@@ -56,7 +57,8 @@ struct InstrumentLatestPrice: Hashable, Sendable {
         guard let record = prices.latest(for: instrument.id, onOrBefore: today) else { return nil }
         self.record = record
         isStale = record.date.days(to: today) > stalenessThreshold
-        isNotFetched = instrument.priceSource != nil && (record.source == .manual || record.source == .import)
+        isNotFetched = PriceNeeds.isFetched(instrument.priceSource)
+            && (record.source == .manual || record.source == .import)
     }
 
     /// "138,42 € on 30 Sep".
@@ -143,18 +145,18 @@ struct InstrumentPriceForm: Hashable, Sendable {
 /// source). Saving follows *Update Prices*' rule: a price or rate typed in
 /// by hand for the same date is kept unless you choose to replace it.
 struct InstrumentTestQuote: Hashable, Sendable {
-    var fetched: CheckInPrices
-    var entry: PriceListEntry
+    var fetched: FetchedPrices
+    var result: PriceResult
     var currency: CurrencyCode
     var unit: InstrumentUnit
     var priceSource: PriceSource?
     /// Whether it has been saved.
     var isSaved = false
 
-    init(_ fetched: CheckInPrices, for instrument: Instrument) {
+    init(_ fetched: FetchedPrices, for instrument: Instrument) {
         self.fetched = fetched
-        entry = fetched.entry(for: .instrument(instrument.id))
-            ?? PriceListEntry(item: .instrument(instrument.id), outcome: .manual)
+        result = fetched.result(for: .instrument(instrument.id))
+            ?? PriceResult(item: .instrument(instrument.id), needed: [fetched.date], isManual: true)
         currency = instrument.currency
         unit = instrument.unit
         priceSource = instrument.priceSource
@@ -162,7 +164,7 @@ struct InstrumentTestQuote: Hashable, Sendable {
 
     /// The fetched price; `nil` if the fetch failed.
     var price: PriceRecord? {
-        guard entry.details != nil, case .instrument(let id) = entry.item else { return nil }
+        guard case .instrument(let id) = result.item else { return nil }
         return fetched.prices.first { $0.instrument == id }
     }
 
@@ -182,29 +184,25 @@ struct InstrumentTestQuote: Hashable, Sendable {
         return saved
     }
 
-    /// What saving it for the instrument `id` writes: the price (unless one
-    /// typed in by hand for the date is kept) and the rates (except those
-    /// typed in by hand for the date).
+    /// What saving it for the instrument `id` writes, by the rule every save
+    /// of fetched records follows (`Library.mergeOutcome(of:policy:)`): the
+    /// price, unless one typed in by hand for the date is kept, and the
+    /// rates, except those typed in by hand for the date.
     func records(for id: InstrumentID, in library: Library,
                  replacingTyped: Bool = false) -> InstrumentPriceUpdate.Records {
         var records = InstrumentPriceUpdate.Records()
-        if var price, replacingTyped || typedPrice(for: id, in: library) == nil {
+        if var price {
             price.instrument = id
-            records.prices = [price]
+            if library.mergeOutcome(of: price, policy: replacingTyped ? .replaceAll : .replaceFetched).writes {
+                records.prices = [price]
+            }
         }
-        records.fxRates = fetched.fx.filter {
-            library.fxRate($0.key)?.source != .manual
-        }
+        records.fxRates = fetched.fx.filter { library.mergeOutcome(of: $0, policy: .replaceFetched).writes }
         return records
     }
 
-    /// The result as a sentence, with "ETH → ethereum · " in front when the
-    /// provider knows the symbol by another ID.
+    /// The result as a sentence.
     func describe(canFetch: Bool, locale: Locale = .current) -> String {
-        let text = InstrumentForm.describe(entry, canFetch: canFetch, locale: locale)
-        guard let symbol = entry.symbol, let resolved = entry.resolvedSymbol, entry.details != nil else {
-            return text
-        }
-        return "\(symbol) → \(resolved) · " + text
+        InstrumentForm.describe(result, canFetch: canFetch, locale: locale)
     }
 }

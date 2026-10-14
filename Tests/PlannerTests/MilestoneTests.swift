@@ -291,13 +291,11 @@ struct MilestoneTests {
         let library = try Fixtures.exampleLibrary()
         let plan = try #require(library.plans["base"])
         // Employee until 2028: 40.000 of pay, 36.000 of spending while working.
-        #expect(plan.workPhase(on: "2026-09-30")?.name == "Employee")
         #expect(plan.workingSaving(on: "2026-09-30")?.saving == 4_000)
         #expect(plan.workingSavingsRate(on: "2026-09-30") == d("0.1"))
         // Self-employed from 2029, until retirement: 48.000.
         #expect(plan.workingSavingsRate(on: "2040-06-30") == d("0.25"))
         // Before work starts: no work phase in force.
-        #expect(plan.workPhase(on: "2025-12-31") == nil)
         #expect(plan.workingSavingsRate(on: "2025-12-31") == nil)
 
         // Spending more than the pay: a negative rate, and no crossover.

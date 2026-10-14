@@ -34,7 +34,10 @@ struct FillHistoryTests {
     }()
 
     static func client() -> MockHTTPClient {
-        MockHTTPClient(["chart/GC=F": goldChart, "prc_hicp_minr": PriceResponses.eurostatHICPItaly])
+        MockHTTPClient([
+            "chart/GC=F": goldChart, "price/XAU": PriceResponses.goldAPIGold,
+            "prc_hicp_minr": PriceResponses.eurostatHICPItaly,
+        ])
     }
 
     /// The table line of `item`.
@@ -51,9 +54,11 @@ struct FillHistoryTests {
         let output = run.output
         #expect(output.hasPrefix("Up to 2026-09-30, the library is missing 12 prices (gold) and hicp-it for 2026-09.\n"))
         let gold = try #require(line("gold", in: output))
-        for part in ["12", "Yahoo Finance · GC=F (history)", "2025-10-31 to 2026-09-30", "filled"] {
+        for part in ["12", "Yahoo Finance · GC=F (history)", "2025-10-31 to 2026-08-31", "filled"] {
             #expect(gold.contains(part), "\(gold)")
         }
+        // Today's price, and the last three days', is gold-api.com's.
+        #expect(output.contains("gold-api.com · XAU"))
         #expect(output.contains("Not filled (type these in, or give the instrument a price source)\n"
             + "  hicp-it (2026-09-30): Eurostat has no value for 1 month (the latest months may not be published yet).\n"))
         #expect(output.hasSuffix("Dry run: nothing was written. It would add 12 records to history/2025/2025-10.json, "
@@ -61,8 +66,8 @@ struct FillHistoryTests {
             + "To write them, run again without --dry-run.\n"))
         #expect(try library.snapshot() == before)
         #expect(!library.exists("backups"))
-        // One request for the whole year of gold, one for inflation.
-        #expect(await client.requests.count == 2)
+        // One request for today's gold, one for the year before, one for inflation.
+        #expect(await client.requests.count == 3)
     }
 
     @Test func fillingWritesTheMissingPricesAfterABackup() async throws {
@@ -77,9 +82,9 @@ struct FillHistoryTests {
 
         let gold = try library.load().prices(for: "gold")
         #expect(gold.count == 12)
-        #expect(gold.allSatisfy { $0.source == .yahoo && $0.currency == .eur })
+        #expect(gold.dropLast().allSatisfy { $0.source == .yahoo && $0.currency == .eur })
         #expect(gold.last == PriceRecord(instrument: "gold", date: "2026-09-30", price: d("98.4"), currency: .eur,
-                                         source: .yahoo))
+                                         source: .goldAPI))
         #expect(gold.first?.price == d("92.1001"))
 
         // Nothing is left to fill but inflation that isn't out yet.
@@ -95,10 +100,11 @@ struct FillHistoryTests {
         await client.on("chart/GC=F", HTTPResponse(statusCode: 500, text: "Internal error"))
         let run = await retire(["prices", "--library", library.path, "--fill-history"], client: client)
         #expect(run.status == 1)
-        #expect(try #require(line("gold", in: run.output)).hasSuffix("not filled"))
-        #expect(run.output.contains("  gold (12 dates, 2025-10-31 to 2026-09-30): "
-            + "Yahoo Finance answered with HTTP 500: Internal error.\n"))
-        #expect(run.output.hasSuffix("Nothing was fetched, so nothing was written.\n"))
+        #expect(try #require(line("gold", in: run.output)).hasSuffix("partly filled"))
+        #expect(run.output.contains("  gold (11 dates, 2025-10-31 to 2026-08-31): "
+            + "gold-api.com only has today's price. Yahoo Finance answered with HTTP 500: Internal error.\n"))
+        // Today's price is still written.
+        #expect(run.output.contains("Added 1 record to history/2026/2026-09.json.\n"))
     }
 
     @Test func aLibraryWithEverythingSaysSo() async throws {

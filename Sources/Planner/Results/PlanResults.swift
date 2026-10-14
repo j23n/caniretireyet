@@ -50,7 +50,9 @@ public struct PlanResults: Hashable, Sendable, Codable {
     /// the run's warnings.
     public var details: PlanResultDetails
     /// The currency of every amount: the library's base currency when they
-    /// were calculated (`PlanResult.currency`).
+    /// were calculated (`PlanResult.currency`). The app shows only results
+    /// in the base currency as it is now: a change of base currency means
+    /// calculating again.
     public var currency: CurrencyCode
 
     public init(plan: PlanID, computedAt: Date, mode: PlanRunMode, runs: Int, engine: String,
@@ -249,43 +251,5 @@ extension PlanResults {
         merged.details.focus.success = successByAge.first { $0.age == focus.age }?.success ?? focus.success
         merged.details.issues = details.issues + focused.details.issues.filter { !details.issues.contains($0) }
         return merged
-    }
-
-    /// What one unit of the results' money is in `currency`: 1 when they're
-    /// in it, else (results calculated before the base currency changed) the
-    /// exchange rate on the plan's start date, as the planner valued the
-    /// starting portfolio (both are today's money); `nil` without a rate.
-    public func exchangeRate(into currency: CurrencyCode, valuator: Valuator) -> Double? {
-        guard self.currency != currency else { return 1 }
-        return valuator.fx.quote(from: self.currency, to: currency, on: start.date)?.convert(1).doubleValue
-    }
-
-    /// The fan in `currency` (``exchangeRate(into:valuator:)``): what the
-    /// Overview's projection, the plan's chapters and the milestones ahead
-    /// read, in the base currency (*More charts* shows the results in their
-    /// own). Empty without a rate.
-    public func portfolio(in currency: CurrencyCode, valuator: Valuator) -> [FanPoint] {
-        guard self.currency != currency else { return portfolio }
-        guard let rate = exchangeRate(into: currency, valuator: valuator) else { return [] }
-        return portfolio.map {
-            FanPoint(date: $0.date, p10: $0.p10 * rate, p25: $0.p25 * rate, p50: $0.p50 * rate, p75: $0.p75 * rate,
-                     p90: $0.p90 * rate)
-        }
-    }
-
-    /// The answer with the sustainable spending in `currency`, as the
-    /// Overview and the widgets show it: converted at
-    /// ``exchangeRate(into:valuator:)`` for results calculated before the
-    /// base currency changed, and left out without that rate, as the
-    /// milestones and the chapters leave their money out.
-    public func answer(in currency: CurrencyCode, valuator: Valuator) -> RetirementAnswer {
-        var answer = headline
-        let rate = exchangeRate(into: currency, valuator: valuator)
-        answer.sustainableSpending = rate.flatMap { rate in
-            headline.sustainableSpending.map {
-                rate == 1 ? $0 : Decimal(wholeNumber: $0.doubleValue * rate, rounding: .down)
-            }
-        }
-        return answer
     }
 }

@@ -12,7 +12,7 @@ struct PricesCommandTests {
     }
 
     @Test func fetchesWhatACheckInNeeds() async throws {
-        let library = try TemporaryFolder.exampleLibrary()
+        let library = try TemporaryFolder.exampleLibraryOnYahoo()
         let client = Responses.client()
         let run = await retire(["prices", "--library", library.path, "--date", "2026-09-30"], client: client)
         #expect(run.status == 0, "\(run.all)")
@@ -40,7 +40,7 @@ struct PricesCommandTests {
     }
 
     @Test func applyingWhatTheLibraryHasWritesNothing() async throws {
-        let library = try TemporaryFolder.exampleLibrary()
+        let library = try TemporaryFolder.exampleLibraryOnYahoo()
         let before = try library.snapshot()
         let run = await retire(["prices", "--library", library.path, "--apply"], client: Responses.client())
         #expect(run.status == 0, "\(run.all)")
@@ -50,7 +50,7 @@ struct PricesCommandTests {
     }
 
     @Test func applyWritesTheRecordsOfANewCheckIn() async throws {
-        let library = try TemporaryFolder.exampleLibrary()
+        let library = try TemporaryFolder.exampleLibraryOnYahoo()
         let run = await retire(["prices", "--library", library.path, "--apply"], today: "2026-10-02",
                                client: Responses.client())
         #expect(run.status == 0, "\(run.all)")
@@ -70,7 +70,7 @@ struct PricesCommandTests {
     }
 
     @Test func differentRecordsAreReplacedOnlyWithOverwrite() async throws {
-        let library = try TemporaryFolder.exampleLibrary()
+        let library = try TemporaryFolder.exampleLibraryOnYahoo()
         let september = try library.text("history/2026/2026-09.json")
             .replacingOccurrences(of: #""price": "138.42""#, with: #""price": "130""#)
         try library.write("history/2026/2026-09.json", september)
@@ -88,7 +88,7 @@ struct PricesCommandTests {
     }
 
     @Test func failuresAreListedAndExitNonZero() async throws {
-        let library = try TemporaryFolder.exampleLibrary()
+        let library = try TemporaryFolder.exampleLibraryOnYahoo()
         let client = Responses.client()
         await client.on("chart/VWCE.DE", HTTPResponse(statusCode: 500, text: "Internal error"))
         let run = await retire(["prices", "--library", library.path, "--apply"], today: "2026-10-02", client: client)
@@ -105,7 +105,7 @@ struct PricesCommandTests {
     }
 
     @Test func json() async throws {
-        let library = try TemporaryFolder.exampleLibrary()
+        let library = try TemporaryFolder.exampleLibraryOnYahoo()
         let run = await retire(["prices", "--library", library.path, "--json"], client: Responses.client())
         let json = try parseJSON(run.output)
         #expect(json["date"] as? String == "2026-09-30")
@@ -120,7 +120,7 @@ struct PricesCommandTests {
     }
 
     @Test func dateIsChecked() async throws {
-        let library = try TemporaryFolder.exampleLibrary()
+        let library = try TemporaryFolder.exampleLibraryOnYahoo()
         let run = await retire(["prices", "--library", library.path, "--date", "30/09/2026"])
         #expect(run.status == 64)
         let overwrite = await retire(["prices", "--library", library.path, "--overwrite"])
@@ -131,7 +131,7 @@ struct PricesCommandTests {
     /// The index follows the library: the tax residence's HICP, asked of
     /// Eurostat by country.
     @Test func fetchesTheIndexTheLibraryUses() async throws {
-        let library = try TemporaryFolder.exampleLibrary()
+        let library = try TemporaryFolder.exampleLibraryOnYahoo()
         try library.write("library.json", try library.text("library.json")
             .replacingOccurrences(of: #""taxResidence": "IT""#, with: #""taxResidence": "DE""#))
         let client = Responses.client()

@@ -10,9 +10,16 @@ struct FrankfurterProviderTests {
         return (FrankfurterProvider(client: client), client)
     }
 
+    /// The rate a check-in on `date` gets: the latest of the two weeks before it.
+    private func rate(_ provider: FrankfurterProvider, _ quote: CurrencyCode = .usd,
+                      onOrBefore date: CalendarDate) async throws -> FXObservation? {
+        try await provider.rates(base: .eur, quote: quote, from: date.adding(days: -14), through: date)
+            .rate(onOrBefore: date)
+    }
+
     @Test func asksForTheDaysBeforeTheDate() async throws {
         let (provider, client) = provider(["frankfurter": PriceResponses.frankfurterUSDSeptember])
-        let rate = try await provider.rate(base: .eur, quote: .usd, onOrBefore: "2026-09-30")
+        let rate = try await rate(provider, onOrBefore: "2026-09-30")
         #expect(rate == FXObservation(rate: d("1.1398"), observedOn: "2026-09-30"))
 
         let request = try #require(await client.requests.first)
@@ -23,31 +30,28 @@ struct FrankfurterProviderTests {
 
     @Test func aWeekendGetsFridaysRate() async throws {
         let (provider, _) = provider(["frankfurter": PriceResponses.frankfurterUSDSeptember])
-        let sunday = try await provider.rate(base: .eur, quote: .usd, onOrBefore: "2026-09-27")
+        let sunday = try await rate(provider, onOrBefore: "2026-09-27")
         #expect(sunday == FXObservation(rate: d("1.1371"), observedOn: "2026-09-25"))
-        let saturday = try await provider.rate(base: .eur, quote: .usd, onOrBefore: "2026-09-26")
-        #expect(saturday.observedOn == "2026-09-25")
+        let saturday = try await rate(provider, onOrBefore: "2026-09-26")
+        #expect(saturday?.observedOn == "2026-09-25")
     }
 
     @Test func easterMondayGetsThursdaysRate() async throws {
         let (provider, _) = provider(["frankfurter": FrankfurterResponses.easter2026])
-        let rate = try await provider.rate(base: .eur, quote: .usd, onOrBefore: "2026-04-06")
+        let rate = try await rate(provider, onOrBefore: "2026-04-06")
         #expect(rate == FXObservation(rate: d("1.1087"), observedOn: "2026-04-02"))
     }
 
     @Test func theSameCurrencyNeedsNoRequest() async throws {
         let (provider, client) = provider([:])
-        let rate = try await provider.rate(base: .eur, quote: .eur, onOrBefore: "2026-09-30")
-        #expect(rate.rate == 1)
+        let rate = try await rate(provider, .eur, onOrBefore: "2026-09-30")
+        #expect(rate?.rate == 1)
         #expect(await client.requestCount == 0)
     }
 
-    @Test func noRatesInTheRangeIsNoData() async throws {
+    @Test func noRatesInTheRangeIsNoRate() async throws {
         let (provider, _) = provider(["frankfurter": FrankfurterResponses.empty])
-        await #expect(throws: PriceFetchError.noData(service: "Frankfurter (ECB)",
-                                                     detail: "no EUR/USD rate on or before 2026-09-30")) {
-            _ = try await provider.rate(base: .eur, quote: .usd, onOrBefore: "2026-09-30")
-        }
+        #expect(try await rate(provider, onOrBefore: "2026-09-30") == nil)
     }
 
     @Test func anUnknownCurrencyIsReported() async throws {
@@ -55,7 +59,7 @@ struct FrankfurterProviderTests {
         await client.on("frankfurter", HTTPResponse(statusCode: 404, text: FrankfurterResponses.notFound))
         let provider = FrankfurterProvider(client: client)
         do {
-            _ = try await provider.rate(base: .eur, quote: "XYZ", onOrBefore: "2026-09-30")
+            _ = try await rate(provider, "XYZ", onOrBefore: "2026-09-30")
             Issue.record("Expected an error")
         } catch let error as PriceFetchError {
             #expect(error == .unknownSymbol(service: "Frankfurter (ECB)", symbol: "EUR/XYZ", message: "not found"))
@@ -69,7 +73,7 @@ struct FrankfurterProviderTests {
         let (provider, _) = provider(["frankfurter": usdBase])
         await #expect(throws: PriceFetchError.malformedResponse(service: "Frankfurter (ECB)",
                                                                 detail: "rates are for USD, not EUR")) {
-            _ = try await provider.rate(base: .eur, quote: .usd, onOrBefore: "2026-09-30")
+            _ = try await rate(provider, onOrBefore: "2026-09-30")
         }
     }
 }

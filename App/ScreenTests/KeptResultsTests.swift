@@ -22,7 +22,7 @@ struct KeptResultsTests {
         for _ in 0..<40 {
             let model = openLibrary(keepingResultsIn: folder)
             await model.plans.restoreKeptResults()
-            if model.plans.results[main] != nil {
+            if model.plans.results(of: main) != nil {
                 reopened = model
                 break
             }

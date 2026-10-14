@@ -23,7 +23,7 @@ struct CheckInPriceLine: Identifiable, Hashable, Sendable {
         case notFetched
     }
 
-    var item: PriceListEntry.Item
+    var item: PriceItem
     /// "VWCE", "USD", "Inflation (Germany)".
     var title: String
     /// The instrument's full name, or "1 EUR in US dollars".
@@ -44,7 +44,7 @@ struct CheckInPriceLine: Identifiable, Hashable, Sendable {
     /// Why fetching failed.
     var failure: String?
 
-    var id: PriceListEntry.Item { item }
+    var id: PriceItem { item }
 
     /// Whether the line wants the user: it failed, or it has no price source
     /// and no price for the date.
@@ -68,73 +68,71 @@ struct CheckInPriceList: Hashable, Sendable {
     /// The list for a check-in on `date`, with what the latest fetch
     /// (`fetched`) said about each item. Items are what the library's open
     /// accounts hold on the date and the currencies they need
-    /// (`CheckInPriceNeeds`), plus anything the fetch listed.
-    static func make(date: CalendarDate, fetched: CheckInPrices?, library: Library,
+    /// (`PriceNeeds`), plus anything the fetch listed.
+    static func make(date: CalendarDate, fetched: FetchedPrices?, library: Library,
                      locale: Locale = .current) -> CheckInPriceList {
         let fetched = fetched?.date == date ? fetched : nil
-        let needs = CheckInPriceNeeds(library: library, date: date, indices: [])
+        let needs = PriceNeeds(library: library, checkInOn: date, indices: [])
         let base = needs.baseCurrency
         let priceTable = PriceTable(library: library)
         let fxTable = FXTable(library: library)
 
-        var instrumentIDs = Set(needs.instruments.map(\.id) + needs.manualInstruments)
-        var quotes = Set(needs.currencies)
-        for entry in fetched?.entries ?? [] {
-            switch entry.item {
-            case .instrument(let id): instrumentIDs.insert(id)
-            case .fx(let entryBase, let quote) where entryBase == base: quotes.insert(quote)
-            default: break
-            }
+        var instrumentIDs = Set((needs.instruments + needs.manualInstruments).map(\.instrument))
+        for result in fetched?.results ?? [] {
+            if case .instrument(let id) = result.item { instrumentIDs.insert(id) }
         }
+        // The rates the check-in needs; a rate that only converted a price
+        // isn't listed.
+        let quotes = needs.rates.map(\.quote)
         let instruments = instrumentIDs.map { id in
             instrumentLine(id, date: date, fetched: fetched, library: library, prices: priceTable, locale: locale)
         }.sorted { ($0.title.lowercased(), $0.item) < ($1.title.lowercased(), $1.item) }
-        let rates = quotes.sorted().map { quote in
+        let rates = quotes.map { quote in
             rateLine(quote, base: base, date: date, fetched: fetched, fx: fxTable, locale: locale)
         }
         // Inflation indices, only when the fetch listed them (months missing).
-        let indices = (fetched?.entries ?? []).compactMap { entry -> CheckInPriceLine? in
-            guard case .index(let index) = entry.item else { return nil }
-            return indexLine(index, entry: entry, locale: locale)
+        let indices = (fetched?.results ?? []).compactMap { result -> CheckInPriceLine? in
+            guard case .index(let index) = result.item else { return nil }
+            return indexLine(index, result: result, locale: locale)
         }
-        let fetchedAt = (fetched?.entries ?? []).compactMap(\.details?.fetchedAt).max()
+        let fetchedAt = (fetched?.results ?? []).compactMap(\.fetchedAt).max()
         return CheckInPriceList(date: date, instruments: instruments, rates: rates, indices: indices,
                                 fetchedAt: fetchedAt)
     }
 
     // MARK: Lines
 
-    private static func instrumentLine(_ id: InstrumentID, date: CalendarDate, fetched: CheckInPrices?,
+    private static func instrumentLine(_ id: InstrumentID, date: CalendarDate, fetched: FetchedPrices?,
                                        library: Library, prices: PriceTable, locale: Locale) -> CheckInPriceLine {
         let instrument = library.instruments[id]
-        let entry = fetched?.entry(for: .instrument(id))
+        let result = fetched?.result(for: .instrument(id))
+        let origin = result?.shownOrigin
         let own = fetched?.prices.first { $0.instrument == id }
         let known = own ?? prices.latest(for: id, onOrBefore: date)
-        let status = lineStatus(hasOwn: own != nil, entry: entry,
-                                otherwise: instrument?.priceSource == nil ? .manual : .notFetched)
+        let status = lineStatus(hasOwn: own != nil, result: result,
+                                otherwise: PriceNeeds.isFetched(instrument?.priceSource) ? .notFetched : .manual)
         let unit = CheckInWording.unit(of: instrument)
         let label = CheckInWording.instrumentLabel(id, instrument: instrument)
-        var symbol = entry?.symbol ?? instrument?.priceSource?.symbol
-        if let typed = symbol, let resolved = entry?.resolvedSymbol { symbol = "\(typed) → \(resolved)" }
+        var symbol = origin?.symbol ?? instrument?.priceSource?.symbol
         // A stand-in for a date the source has no price for: "Yahoo Finance · GC=F (history)".
-        if let shown = symbol, let note = entry?.note { symbol = "\(shown) (\(note))" }
+        if let shown = symbol, let note = origin?.note { symbol = "\(shown) (\(note))" }
         return CheckInPriceLine(
             item: .instrument(id), title: label,
             subtitle: instrument.map(\.name).flatMap { $0 == label ? nil : $0 },
             value: known?.price, currency: known?.currency ?? instrument?.currency,
             per: unit.isEmpty ? nil : "per " + (unit == "sh" ? "share" : unit),
             staleDate: known.flatMap { $0.date < date ? $0.date : nil },
-            status: status, source: sourceText(entry?.source ?? known?.source, symbol: symbol),
-            observed: status == .fetched ? observedText(entry?.details, locale: locale) : nil,
-            failure: entry?.failure?.description)
+            status: status, source: sourceText(origin?.source ?? known?.source, symbol: symbol),
+            observed: status == .fetched ? observedText(result, on: date, locale: locale) : nil,
+            failure: result?.failureReason)
     }
 
     private static func rateLine(_ quote: CurrencyCode, base: CurrencyCode, date: CalendarDate,
-                                 fetched: CheckInPrices?, fx: FXTable, locale: Locale) -> CheckInPriceLine {
-        let entry = fetched?.entry(for: .fx(base: base, quote: quote))
+                                 fetched: FetchedPrices?, fx: FXTable, locale: Locale) -> CheckInPriceLine {
+        let result = fetched?.result(for: .fx(base: base, quote: quote))
         let own = fetched?.fx.first { $0.base == base && $0.quote == quote }
         let known = fx.quote(from: base, to: quote, on: date)
-        let status = lineStatus(hasOwn: own != nil, entry: entry, otherwise: .notFetched)
+        let status = lineStatus(hasOwn: own != nil, result: result, otherwise: .notFetched)
         let name = locale.localizedString(forCurrencyCode: quote.rawValue)
         let knownDate = own?.date ?? known?.date
         return CheckInPriceLine(
@@ -142,32 +140,33 @@ struct CheckInPriceList: Hashable, Sendable {
             subtitle: name.map { "1 \(base.rawValue) in \($0)" },
             value: own?.rate ?? known?.rate, currency: nil, per: "\(quote.rawValue) per \(base.rawValue)",
             staleDate: knownDate.flatMap { $0 < date ? $0 : nil },
-            status: status, source: sourceText(entry?.source ?? own?.source, symbol: entry?.symbol),
-            observed: status == .fetched ? observedText(entry?.details, locale: locale) : nil,
-            failure: entry?.failure?.description)
+            status: status, source: sourceText(result?.shownOrigin?.source ?? own?.source,
+                                               symbol: result?.shownOrigin?.symbol),
+            observed: status == .fetched ? observedText(result, on: date, locale: locale) : nil,
+            failure: result?.failureReason)
     }
 
-    private static func indexLine(_ index: IndexID, entry: PriceListEntry, locale: Locale) -> CheckInPriceLine {
+    private static func indexLine(_ index: IndexID, result: PriceResult, locale: Locale) -> CheckInPriceLine {
         // The values fetched are the check-in's own: they're saved with it.
-        let status = lineStatus(hasOwn: true, entry: entry, otherwise: .notFetched)
+        let status = lineStatus(hasOwn: true, result: result, otherwise: .notFetched)
         return CheckInPriceLine(
             item: .index(index), title: InflationIndexText.title(of: index, locale: locale),
             subtitle: "Consumer prices, for plans in today's money", value: nil, currency: nil, per: nil,
-            staleDate: nil, status: status, source: sourceText(entry.source, symbol: nil),
-            observed: observedText(entry.details, locale: locale), failure: entry.failureReason)
+            staleDate: nil, status: status, source: sourceText(result.shownOrigin?.source, symbol: nil),
+            observed: observedText(observedOn: result.asOf, fetchedAt: result.fetchedAt, locale: locale),
+            failure: result.failureReason)
     }
 
     /// Where a line stands: as the fetch left it, fetched only once the
-    /// check-in has the value (`hasOwn`); without an entry, fetched when it
-    /// has one, else `otherwise`.
-    private static func lineStatus(hasOwn: Bool, entry: PriceListEntry?,
+    /// check-in has the value (`hasOwn`); without a result, fetched when it
+    /// has one, else `otherwise`. An index month not published yet isn't a
+    /// failure.
+    private static func lineStatus(hasOwn: Bool, result: PriceResult?,
                                    otherwise: CheckInPriceLine.Status) -> CheckInPriceLine.Status {
-        guard let entry else { return hasOwn ? .fetched : otherwise }
-        switch entry.outcome {
-        case .fetched: return hasOwn ? .fetched : .notFetched
-        case .manual: return .manual
-        case .failed: return .failed
-        }
+        guard let result else { return hasOwn ? .fetched : otherwise }
+        if result.status == .manual { return .manual }
+        if result.isFailure { return .failed }
+        return hasOwn ? .fetched : .notFetched
     }
 
     // MARK: Words
@@ -177,7 +176,6 @@ struct CheckInPriceList: Hashable, Sendable {
         switch source {
         case .manual: "Typed in"
         case .yahoo: "Yahoo Finance"
-        case .coingecko: "CoinGecko"
         case .goldAPI: "gold-api.com"
         case .ecb: "ECB"
         case .eurostat: "Eurostat"
@@ -194,14 +192,21 @@ struct CheckInPriceList: Hashable, Sendable {
         return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 
-    /// "As of 26 Sep · fetched 09:41".
-    static func observedText(_ details: FetchDetails?, locale: Locale = .current) -> String? {
-        guard let details else { return nil }
+    /// "As of 26 Sep · fetched 09:41": the day the value fetched for `date`
+    /// is from, and when it was fetched.
+    static func observedText(_ result: PriceResult?, on date: CalendarDate, locale: Locale = .current) -> String? {
+        guard let result else { return nil }
+        return observedText(observedOn: result.observedOn[date], fetchedAt: result.fetchedAt, locale: locale)
+    }
+
+    /// "As of 26 Sep · fetched 09:41"; `nil` when nothing was fetched.
+    static func observedText(observedOn: CalendarDate?, fetchedAt: Date?, locale: Locale = .current) -> String? {
+        guard let fetchedAt else { return nil }
         var parts: [String] = []
-        if let observed = details.observedOn {
-            parts.append("As of " + AmountFormat.shortDate(observed, locale: locale))
+        if let observedOn {
+            parts.append("As of " + AmountFormat.shortDate(observedOn, locale: locale))
         }
-        parts.append((parts.isEmpty ? "Fetched " : "fetched ") + time(details.fetchedAt, locale: locale))
+        parts.append((parts.isEmpty ? "Fetched " : "fetched ") + time(fetchedAt, locale: locale))
         return parts.joined(separator: " · ")
     }
 

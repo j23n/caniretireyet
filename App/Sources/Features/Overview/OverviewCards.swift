@@ -283,14 +283,14 @@ struct OverviewAttentionCard: View {
             items.append(OverviewAttentionItem(
                 id: "checkin.prices", systemImage: "tag.slash",
                 title: failures.count == 1 ? "A price couldn't be fetched" : "\(failures.count) prices couldn't be fetched",
-                detail: "Type them in under Instruments.", target: .checkIn))
+                detail: "Type them in under Instruments.", target: .instruments))
         }
         if let main = library.settings.mainPlan, let error = plans.errors[main] {
             items.append(OverviewAttentionItem(
                 id: "plan.error", systemImage: "exclamationmark.triangle",
                 title: "\(library.mainPlan?.name ?? "Your plan") couldn't run", detail: error, target: .plan))
         }
-        if let main = library.settings.mainPlan, let bridge = plans.results[main]?.details.focus.bridges.first,
+        if let main = library.settings.mainPlan, let bridge = plans.results(of: main)?.details.focus.bridges.first,
            bridge.share >= 0.05 {
             let futures = Int(wholeNumber: bridge.share * 100)
             let age = bridge.accessibleFromAge.map { " at \($0)" } ?? ""
@@ -319,9 +319,9 @@ struct OverviewAttentionCard: View {
                 OverviewAttentionRow(item: item)
             }
             .buttonStyle(.plain)
-        case .checkIn:
-            Button {
-                navigation.startCheckIn()
+        case .instruments:
+            NavigationLink {
+                InstrumentsScreen()
             } label: {
                 OverviewAttentionRow(item: item)
             }

@@ -118,7 +118,7 @@ public final class CapturedOutput: @unchecked Sendable {
 /// ``live()`` is the real process; tests pass their own.
 public struct CLIContext: Sendable {
     public var console: Console
-    /// Environment variables, e.g. `RETIRE_LIBRARY` and `COINGECKO_API_KEY`.
+    /// Environment variables, e.g. `RETIRE_LIBRARY`.
     public var environment: [String: String]
     /// Relative paths are resolved against this folder.
     public var currentDirectory: URL
@@ -151,14 +151,6 @@ public struct CLIContext: Sendable {
 
     /// The environment variable naming the default library folder.
     public static let libraryVariable = "RETIRE_LIBRARY"
-    /// The environment variable holding an optional CoinGecko demo API key.
-    public static let coinGeckoKeyVariable = "COINGECKO_API_KEY"
-
-    /// API keys for the price providers, read from environment variables.
-    var credentials: StaticCredentials {
-        StaticCredentials([.coingecko: environment[Self.coinGeckoKeyVariable] ?? ""])
-    }
-
     /// `path` as a file URL, relative to the current directory unless absolute.
     func url(forPath path: String) -> URL {
         let expanded = (path as NSString).expandingTildeInPath

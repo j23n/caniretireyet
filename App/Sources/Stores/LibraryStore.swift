@@ -146,8 +146,8 @@ final class LibraryStore {
     /// The files' modification dates when they were last compared, for
     /// ``refreshFromDisk()``.
     @ObservationIgnored private var diskSnapshot: FolderSnapshot?
-    @ObservationIgnored private var valuatorCache: (revision: Int, valuator: Valuator)?
-    @ObservationIgnored private var firstMoneyInOutCache: (revision: Int, date: CalendarDate?)?
+    @ObservationIgnored private let valuators = Memo<Int, Valuator>()
+    @ObservationIgnored private let firstMoneyInOuts = Memo<Int, CalendarDate?>()
     /// Counts the attempts at opening a library. An attempt that a newer one
     /// overtook (Try Again, another `open`) drops its results.
     @ObservationIgnored private var openingAttempt = 0
@@ -200,21 +200,13 @@ final class LibraryStore {
 
     /// A valuator over the current library, rebuilt only when it changes.
     var valuator: Valuator {
-        let revision = self.revision
-        if let cache = valuatorCache, cache.revision == revision { return cache.valuator }
-        let valuator = Valuator(library: library)
-        valuatorCache = (revision, valuator)
-        return valuator
+        valuators.value(for: revision) { Valuator(library: library) }
     }
 
     /// The date of the first value with money in and out, `nil` without
     /// one; looked up only when the library changes.
     var firstMoneyInOut: CalendarDate? {
-        let revision = self.revision
-        if let cache = firstMoneyInOutCache, cache.revision == revision { return cache.date }
-        let date = library.allValuations.lazy.filter(\.hasMoneyInOut).map(\.date).min()
-        firstMoneyInOutCache = (revision, date)
-        return date
+        firstMoneyInOuts.value(for: revision) { library.allValuations.lazy.filter(\.hasMoneyInOut).map(\.date).min() }
     }
 
     /// Whether edits are possible: loaded, not read-only, and not being

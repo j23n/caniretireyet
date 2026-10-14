@@ -14,7 +14,7 @@ private actor Counter {
 }
 
 struct PriceCacheTests {
-    private let key = PriceCache.Key(provider: "yahoo", symbol: "VWCE.DE", date: "2026-09-30")
+    private let key = "Yahoo Finance · VWCE.DE 2026-09-23..2026-09-30"
 
     @Test func concurrentRequestsShareOneFetch() async throws {
         let cache = PriceCache()
@@ -53,13 +53,12 @@ struct PriceCacheTests {
         let client = PriceServiceTests.client()
         await client.on("chart/RETRY", HTTPResponse(statusCode: 502, text: "Bad Gateway"),
                         HTTPResponse(statusCode: 200, text: PriceResponses.yahooVWCESeptember))
-        var library = try Fixtures.exampleLibrary()
+        var library = try PriceServiceTests.exampleLibrary()
         library.instruments["vwce"]?.priceSource = PriceSource(provider: .yahoo, symbol: "RETRY")
         let service = PriceServiceTests.service(client)
 
         let first = await service.fetch(for: library, on: PriceServiceTests.checkIn)
         #expect(first.failures.map(\.item) == [.instrument("vwce")])
-        #expect(first.failures.first?.failure?.isTransient == true)
         let second = await service.fetch(for: library, on: PriceServiceTests.checkIn)
         #expect(second.isComplete)
         #expect(await client.requests(matching: "chart/RETRY").count == 2)

@@ -15,8 +15,8 @@ struct PlanLastTwelveMonthsCard: View {
     /// The plan's spending while working, a year; `nil` when it's past
     /// working.
     var plannedSpending: Decimal?
-    var isWide = false
 
+    @Environment(\.pageLayout) private var layout
     @Environment(\.locale) private var locale
 
     var body: some View {
@@ -43,7 +43,7 @@ struct PlanLastTwelveMonthsCard: View {
 
     @ViewBuilder
     private func tiles(_ tiles: [PlanLastTwelveMonths.Tile], currency: CurrencyCode) -> some View {
-        if isWide {
+        if layout.isWide {
             EqualColumns(spacing: Metrics.m, equalHeights: true) {
                 ForEach(tiles) { tile in
                     PlanMoneyTile(tile: tile, currency: currency)
@@ -90,7 +90,7 @@ struct PlanMoneyTile: View {
     @Environment(\.locale) private var locale
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
+        FigureTile {
             Text(tile.title)
                 .font(.subheadline)
                 .foregroundStyle(Palette.secondaryInk)
@@ -108,10 +108,6 @@ struct PlanMoneyTile: View {
                     .privacySensitiveInFeedback()
             }
         }
-        .padding(.horizontal, Metrics.m)
-        .padding(.vertical, 10)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(Palette.page, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         .accessibilityElement(children: .combine)
     }
 
@@ -177,8 +173,11 @@ struct PlanMoneyInOutEmptyCard: View {
     ScrollView {
         VStack(spacing: Metrics.l) {
             PlanLastTwelveMonthsCard(year: year, plannedSpending: 36_000)
-            PlanLastTwelveMonthsCard(year: year, plannedSpending: 36_000, isWide: true)
+                .environment(\.pageLayout, PageLayout())
             PlanLastTwelveMonthsCard(year: year, plannedSpending: 36_000)
+                .environment(\.pageLayout, PageLayout(isWide: true))
+            PlanLastTwelveMonthsCard(year: year, plannedSpending: 36_000)
+                .environment(\.pageLayout, PageLayout())
                 .redacted(reason: .privacy)
             PlanMoneyInOutEmptyCard()
         }

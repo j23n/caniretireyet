@@ -15,7 +15,7 @@ extension Planner {
 extension PlanResult {
     /// The answer as a headline's summary: success rates to 3 decimals,
     /// readiness rounded down to a whole percent (`Readiness.rounded`).
-    public var headlineSummary: HeadlineSummary {
+    var headlineSummary: HeadlineSummary {
         HeadlineSummary(
             confidence: .rounded(answer.confidence, scale: 3), earliestAge: answer.earliestAge,
             successAtTarget: answer.successAtTarget.map { .rounded($0, scale: 3) },

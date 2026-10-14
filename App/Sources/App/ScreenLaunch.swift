@@ -136,8 +136,6 @@ struct ScreenLaunch {
         let model = AppModel.preview(library, planEngine: PlannerPlanEngine(), defaults: suite)
         model.preferences.hidesAmounts = hidesAmounts
         let navigation = model.navigation
-        // The main plan by its ID: the sidebar turns "the main plan" into its
-        // row, a new Plan screen, after the first one took the requests.
         let main = library.settings.mainPlan
         switch screen {
         case .overview:
@@ -145,18 +143,15 @@ struct ScreenLaunch {
         case .plan:
             navigation.showPlan(main)
         case .progress:
-            navigation.showPlan(main)
-            navigation.requestedPlanPart = .progress
+            navigation.showPlan(main, at: PlanRoute(part: .progress))
         case .trends:
-            navigation.showPlan(main)
-            navigation.requestedPlanPart = .trends
+            navigation.showPlan(main, at: PlanRoute(part: .trends))
         case .whatIf:
-            navigation.showPlan(main)
-            navigation.requestsWhatIf = true
+            navigation.showPlan(main, at: PlanRoute(opensWhatIf: true))
         case .targetMix:
             let plans = library.plans.values.sorted { $0.id.rawValue < $1.id.rawValue }
-            navigation.showPlan(plans.first { !$0.portfolio.targetMixByAge.isEmpty }?.id ?? main)
-            navigation.requestsTargetMix = true
+            navigation.showPlan(plans.first { !$0.portfolio.targetMixByAge.isEmpty }?.id ?? main,
+                                at: PlanRoute(opensTargetMix: true))
         case .tradesAccount, .cashAccount:
             // Both layouts', since the root view sets the layout once it appears.
             if let account = screen.account {

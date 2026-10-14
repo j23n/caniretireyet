@@ -118,47 +118,16 @@ struct RetireInWidget: Widget {
     static let kind = "RetireIn"
 
     var body: some WidgetConfiguration {
-        StaticConfiguration(kind: Self.kind, provider: GlanceProvider()) { entry in
-            RetireInView(entry: entry)
+        glance(kind: Self.kind, name: "Time to retire",
+               description: "The countdown to the earliest age your main plan works out.",
+               families: [.small, .medium, .inline, .rectangular], link: .plan) { entry, family in
+            switch family {
+            case .inline: RetireInInline(entry: entry)
+            case .rectangular: RetireInRectangular(entry: entry)
+            case .medium: RetireInMedium(entry: entry)
+            default: RetireInSmall(entry: entry)
+            }
         }
-        .configurationDisplayName("Time to retire")
-        .description("The countdown to the earliest age your main plan works out.")
-        .supportedFamilies(Self.families)
-    }
-
-    static var families: [WidgetFamily] {
-        #if os(iOS)
-        return [.systemSmall, .systemMedium, .accessoryInline, .accessoryRectangular]
-        #else
-        return [.systemSmall, .systemMedium]
-        #endif
-    }
-}
-
-struct RetireInView: View {
-    var entry: GlanceEntry
-    @Environment(\.widgetFamily) private var family
-
-    var body: some View {
-        content
-            .widgetURL(GlanceLink.plan.url)
-    }
-
-    @ViewBuilder
-    private var content: some View {
-        #if os(iOS)
-        switch family {
-        case .accessoryInline: RetireInInline(entry: entry)
-        case .accessoryRectangular: RetireInRectangular(entry: entry)
-        case .systemMedium: RetireInMedium(entry: entry)
-        default: RetireInSmall(entry: entry)
-        }
-        #else
-        switch family {
-        case .systemMedium: RetireInMedium(entry: entry)
-        default: RetireInSmall(entry: entry)
-        }
-        #endif
     }
 }
 
@@ -289,7 +258,6 @@ struct RetireInMedium: View {
     }
 }
 
-#if os(iOS)
 /// One line above the clock: "Retire in 15y 6m".
 struct RetireInInline: View {
     var entry: GlanceEntry
@@ -346,7 +314,6 @@ struct RetireInRectangular: View {
         .clearBackground()
     }
 }
-#endif
 
 // MARK: - Earliest age
 
@@ -355,43 +322,15 @@ struct EarliestAgeWidget: Widget {
     static let kind = "EarliestAge"
 
     var body: some WidgetConfiguration {
-        StaticConfiguration(kind: Self.kind, provider: GlanceProvider()) { entry in
-            EarliestAgeView(entry: entry)
+        glance(kind: Self.kind, name: "Earliest retirement age",
+               description: "The earliest age your main plan works out, and how it moved.",
+               families: [.small, .circular], link: .plan) { entry, family in
+            if family == .circular {
+                EarliestAgeCircular(entry: entry)
+            } else {
+                EarliestAgeSmall(entry: entry)
+            }
         }
-        .configurationDisplayName("Earliest retirement age")
-        .description("The earliest age your main plan works out, and how it moved.")
-        .supportedFamilies(Self.families)
-    }
-
-    static var families: [WidgetFamily] {
-        #if os(iOS)
-        return [.systemSmall, .accessoryCircular]
-        #else
-        return [.systemSmall]
-        #endif
-    }
-}
-
-struct EarliestAgeView: View {
-    var entry: GlanceEntry
-    @Environment(\.widgetFamily) private var family
-
-    var body: some View {
-        content
-            .widgetURL(GlanceLink.plan.url)
-    }
-
-    @ViewBuilder
-    private var content: some View {
-        #if os(iOS)
-        if family == .accessoryCircular {
-            EarliestAgeCircular(entry: entry)
-        } else {
-            EarliestAgeSmall(entry: entry)
-        }
-        #else
-        EarliestAgeSmall(entry: entry)
-        #endif
     }
 }
 
@@ -453,7 +392,6 @@ struct EarliestAgeSmall: View {
     }
 }
 
-#if os(iOS)
 /// "Retire · 54 · 2042" in a circle on the lock screen.
 struct EarliestAgeCircular: View {
     var entry: GlanceEntry
@@ -494,7 +432,6 @@ struct EarliestAgeCircular: View {
         return answer.earliestDate?.year
     }
 }
-#endif
 
 // MARK: - Can I retire yet?
 
@@ -504,20 +441,15 @@ struct ReadinessWidget: Widget {
     static let kind = "Readiness"
 
     var body: some WidgetConfiguration {
-        StaticConfiguration(kind: Self.kind, provider: GlanceProvider()) { entry in
-            ReadinessView(entry: entry)
+        glance(kind: Self.kind, name: "Can I retire yet?",
+               description: "How close you are to what retiring today would need.",
+               families: [.small, .circular], link: .plan) { entry, family in
+            if family == .circular {
+                ReadinessCircular(entry: entry)
+            } else {
+                ReadinessSmall(entry: entry)
+            }
         }
-        .configurationDisplayName("Can I retire yet?")
-        .description("How close you are to what retiring today would need.")
-        .supportedFamilies(Self.families)
-    }
-
-    static var families: [WidgetFamily] {
-        #if os(iOS)
-        return [.systemSmall, .accessoryCircular]
-        #else
-        return [.systemSmall]
-        #endif
     }
 }
 
@@ -543,29 +475,6 @@ struct ReadinessWords {
         if answer.needsMoreThanSearched { return "of what retiring today would need" }
         guard answer.readiness != nil else { return "Calculate the plan to see how close you are." }
         return answer.canRetireNow ? "of what retiring today needs: you could" : "of what retiring today would need"
-    }
-}
-
-struct ReadinessView: View {
-    var entry: GlanceEntry
-    @Environment(\.widgetFamily) private var family
-
-    var body: some View {
-        content
-            .widgetURL(GlanceLink.plan.url)
-    }
-
-    @ViewBuilder
-    private var content: some View {
-        #if os(iOS)
-        if family == .accessoryCircular {
-            ReadinessCircular(entry: entry)
-        } else {
-            ReadinessSmall(entry: entry)
-        }
-        #else
-        ReadinessSmall(entry: entry)
-        #endif
     }
 }
 
@@ -613,7 +522,6 @@ struct ReadinessSmall: View {
     }
 }
 
-#if os(iOS)
 /// The readiness as a gauge on the lock screen.
 struct ReadinessCircular: View {
     var entry: GlanceEntry
@@ -641,7 +549,6 @@ struct ReadinessCircular: View {
         .clearBackground()
     }
 }
-#endif
 
 // MARK: - What you could spend
 
@@ -651,13 +558,11 @@ struct SpendingWidget: Widget {
     static let kind = "Spending"
 
     var body: some WidgetConfiguration {
-        StaticConfiguration(kind: Self.kind, provider: GlanceProvider()) { entry in
+        glance(kind: Self.kind, name: "What you could spend",
+               description: "The most you could spend a year, retiring at your plan's age.",
+               families: [.small], link: .plan) { entry, _ in
             SpendingView(entry: entry)
-                .widgetURL(GlanceLink.plan.url)
         }
-        .configurationDisplayName("What you could spend")
-        .description("The most you could spend a year, retiring at your plan's age.")
-        .supportedFamilies([.systemSmall])
     }
 }
 

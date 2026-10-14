@@ -1,11 +1,9 @@
 import Foundation
 import Model
 
-/// Where a price came from when it isn't the instrument's own provider
-/// answering for its own symbol: a metal's past price from Yahoo Finance's
-/// gold futures (`GC=F`), or a coin's prices from before CoinGecko's free
-/// year from Yahoo Finance's `ETH-EUR` pair. Also names the source of each
-/// stretch of a filled history ("CoinGecko · ethereum").
+/// Where a price, rate or index value came from: the service and the
+/// symbol asked for, e.g. "Yahoo Finance · VWCE.DE", or a metal's past price
+/// from Yahoo Finance's gold futures, "Yahoo Finance · GC=F (history)".
 public struct QuoteOrigin: Hashable, Sendable, CustomStringConvertible {
     /// The source written on the price record, e.g. `yahoo`.
     public var source: DataSource
@@ -29,9 +27,6 @@ public struct QuoteOrigin: Hashable, Sendable, CustomStringConvertible {
     public var description: String {
         "\(service) · \(symbol)" + (note.map { " (\($0))" } ?? "")
     }
-
-    /// The note a stand-in source carries in the price list.
-    public static let historyNote = "history"
 }
 
 /// Past prices of one symbol over a range of dates, as one request returned
@@ -44,6 +39,9 @@ public struct PriceHistory: Hashable, Sendable {
         case daily
         /// A value per month: the month's last close, observed on its last day.
         case monthly
+        /// One current value (a spot price), which counts for every date its
+        /// route covers.
+        case spot
     }
 
     /// One quote per day (or month), sorted by ``Quote/observedOn``.
@@ -68,11 +66,11 @@ public struct PriceHistory: Hashable, Sendable {
     }
 
     /// This history standing in for another source's: its origin noted as
-    /// ``QuoteOrigin/historyNote``, and each quote per `unit` when given
-    /// (troy ounces for metal futures).
+    /// `history`, and each quote per `unit` when given (troy ounces for
+    /// metal futures).
     public func standingIn(unit: InstrumentUnit? = nil) -> PriceHistory {
         var copy = self
-        copy.origin?.note = QuoteOrigin.historyNote
+        copy.origin?.note = "history"
         if let unit {
             copy.quotes = quotes.map { quote in
                 var quote = quote
@@ -85,14 +83,17 @@ public struct PriceHistory: Hashable, Sendable {
 
     /// The latest quote on or before `date` that counts for it: at most
     /// ``dailyTolerance`` days older in a daily series (Friday's close for a
-    /// Sunday), or the one of the same month in a monthly series. `nil` if
-    /// there's none, e.g. before the symbol was listed or in a gap in the data.
+    /// Sunday), the one of the same month in a monthly series, or the spot
+    /// price. `nil` if there's none, e.g. before the symbol was listed or in a
+    /// gap in the data.
     public func quote(onOrBefore date: CalendarDate) -> Quote? {
+        if spacing == .spot { return quotes.last }
         guard let index = quotes.lastIndex(onOrBefore: date, date: \.observedOn) else { return nil }
         let quote = quotes[index]
         switch spacing {
         case .daily: return quote.observedOn.days(to: date) <= Self.dailyTolerance ? quote : nil
         case .monthly: return quote.observedOn.yearMonth == date.yearMonth ? quote : nil
+        case .spot: return quote
         }
     }
 }
@@ -150,15 +151,15 @@ public struct HistoryRange: Hashable, Sendable {
     }
 }
 
-/// One way to find an instrument's past prices: a symbol at a service that
+/// One way to find an instrument's prices: a symbol at a service that
 /// answers a range of dates in one request. An instrument's provider lists
-/// its routes best first (``InstrumentPriceProvider/historyRoutes(symbol:currency:today:)``),
+/// its routes best first (``InstrumentPriceProvider/routes(symbol:today:)``),
 /// and each is tried for the dates the ones before it didn't fill.
 public struct HistoryRoute: Sendable {
-    /// What it is, for messages: "Yahoo Finance · GC=F", "CoinGecko · ethereum".
+    /// What it is, for messages: "Yahoo Finance · GC=F".
     public var name: String
-    /// The earliest date it has values for, when it's limited: CoinGecko's
-    /// free API only has the last 365 days. `nil` when there's no known limit.
+    /// The earliest date it has values for, when it's limited: gold-api.com
+    /// only has today's price. `nil` when there's no known limit.
     public var earliest: CalendarDate?
     /// Why dates before ``earliest`` aren't covered, as a sentence.
     public var limitReason: String?
