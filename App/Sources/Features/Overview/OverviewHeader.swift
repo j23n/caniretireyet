@@ -26,8 +26,8 @@ import SwiftUI
 ///   line. Side by side and as tall as each other; stacked at the largest
 ///   text sizes.
 struct OverviewHeader: View {
-    /// The main plan's answer (``PlanStore/mainHeadline``).
-    let headline: PlanHeadline
+    /// The main plan's latest answer (``PlanStore/mainAnswer``).
+    let headline: RetirementAnswer
     let plan: PlanDocument
     let netWorth: NetWorthGlance
     /// The day the Overview reports on.
@@ -50,7 +50,8 @@ struct OverviewHeader: View {
     private static let ringLineWidth: CGFloat = 12
 
     var body: some View {
-        let words = OverviewAnswerText(headline: headline, earliestDate: earliestDate, today: today, locale: locale)
+        let words = OverviewAnswerText(headline: headline, earliestDate: headline.earliestDate, today: today,
+                                       locale: locale)
         let dims = dimsAnswer
         VStack(alignment: .leading, spacing: tileSpacing) {
             answerTile(words, dims: dims)
@@ -411,17 +412,6 @@ struct OverviewHeader: View {
         headline.recordedOn == nil
             && (isStale || plans.isRunning(plan.id, .base) || plans.isRunning(plan.id, .checkIn))
     }
-
-    /// When the earliest age is reached; for an answer recorded at a
-    /// check-in, as the widgets have it (Glance's
-    /// `RetirementAnswer.earliestDate`); `nil` without a birth date.
-    private var earliestDate: CalendarDate? {
-        if let date = headline.earliestDate { return date }
-        guard let recorded = headline.recordedOn, let age = headline.earliestAge,
-              let birthDate = library.settings.person?.birthDate
-        else { return nil }
-        return RetirementAnswer.earliestDate(age: age, recordedOn: recorded, birthDate: birthDate)
-    }
 }
 
 /// One of the header's tiles: a card with 12 points of padding, filling
@@ -448,7 +438,7 @@ private struct OverviewTile<Content: View>: View {
 /// The header with a made-up answer for the example library's main plan,
 /// on the day of its latest check-in.
 private struct OverviewHeaderPreview: View {
-    var headline: PlanHeadline
+    var headline: RetirementAnswer
     @Environment(LibraryStore.self) private var library
 
     var body: some View {
@@ -465,37 +455,37 @@ private struct OverviewHeaderPreview: View {
 }
 
 #Preview("Not yet") {
-    OverviewHeaderPreview(headline: PlanHeadline(confidence: 0.9, earliestAge: 54, earliestDate: "2042-03-12",
+    OverviewHeaderPreview(headline: RetirementAnswer(confidence: 0.9, earliestAge: 54, earliestDate: "2042-03-12",
                                                  readiness: 0.5849))
         .previewEnvironment()
 }
 
 #Preview("Yes, lapping") {
-    OverviewHeaderPreview(headline: PlanHeadline(confidence: 0.9, earliestAge: 38, earliestDate: "2026-09-30",
-                                                 successToday: 0.93, readiness: 1.3))
+    OverviewHeaderPreview(headline: RetirementAnswer(confidence: 0.9, earliestAge: 38, earliestDate: "2026-09-30",
+                                                 successToday: 0.93, readiness: 1.3, canRetireNow: true))
         .previewEnvironment()
 }
 
 #Preview("Within two years") {
-    OverviewHeaderPreview(headline: PlanHeadline(confidence: 0.9, earliestAge: 40, earliestDate: "2028-03-31",
+    OverviewHeaderPreview(headline: RetirementAnswer(confidence: 0.9, earliestAge: 40, earliestDate: "2028-03-31",
                                                  readiness: 0.88))
         .previewEnvironment()
 }
 
 #Preview("No age, more than searched") {
-    OverviewHeaderPreview(headline: PlanHeadline(confidence: 0.9, needsMoreThanSearched: true))
+    OverviewHeaderPreview(headline: RetirementAnswer(confidence: 0.9, needsMoreThanSearched: true))
         .previewEnvironment()
 }
 
 #Preview("Hidden amounts") {
-    OverviewHeaderPreview(headline: PlanHeadline(confidence: 0.9, earliestAge: 54, earliestDate: "2042-03-12",
+    OverviewHeaderPreview(headline: RetirementAnswer(confidence: 0.9, earliestAge: 54, earliestDate: "2042-03-12",
                                                  readiness: 0.58, readinessIsLowerBound: true))
         .redacted(reason: .privacy)
         .previewEnvironment()
 }
 
 #Preview("Large text") {
-    OverviewHeaderPreview(headline: PlanHeadline(confidence: 0.9, earliestAge: 54, earliestDate: "2042-03-12",
+    OverviewHeaderPreview(headline: RetirementAnswer(confidence: 0.9, earliestAge: 54, earliestDate: "2042-03-12",
                                                  readiness: 0.5849))
         .dynamicTypeSize(.accessibility2)
         .previewEnvironment()

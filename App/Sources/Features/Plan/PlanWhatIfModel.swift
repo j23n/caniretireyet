@@ -1,5 +1,6 @@
 import Foundation
 import Model
+import Planner
 
 /// The What-if sliders (UI.md, "What if"): retirement age, spending, saving
 /// per month and equity's typical year (its median real return, as the

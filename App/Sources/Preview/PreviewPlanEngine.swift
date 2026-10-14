@@ -150,7 +150,7 @@ struct PreviewPlanEngine: PlanEngine {
         let headline = PlanHeadline(
             confidence: confidence, earliestAge: earliest, earliestDate: earliestDate, targetAge: target,
             successAtTarget: atTarget, successToday: successNow, sustainableSpending: Self.rounded(spending * 1.07 - 900),
-            readiness: readiness)
+            readiness: readiness, canRetireNow: successNow >= confidence)
         let accounts = library.accounts.values.filter { $0.includedInPlan && $0.isOpen(on: today) }.map(\.id).sorted()
 
         // What the Planner adds, for the age the charts are for (the fan

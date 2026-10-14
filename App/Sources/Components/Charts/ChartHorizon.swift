@@ -1,5 +1,6 @@
 import Foundation
 import Model
+import Tracker
 
 // The time span of a chart that continues history into a projection: how
 // far back (``OverviewRange``) and how far ahead (``FutureHorizon``), chosen

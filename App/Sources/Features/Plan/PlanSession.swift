@@ -198,7 +198,8 @@ final class PlanSession {
             reasons = shown.reasons
         } else if let recorded = plans.recordedHeadlines(for: planID).last {
             let changed = plan.map { recorded.planHash != Planner.planHash($0) } ?? false
-            content = .recorded(PlanHeadline(recorded: recorded), planChanged: changed)
+            content = .recorded(RetirementAnswer(recorded: recorded, birthDate: library.settings.person?.birthDate),
+                                planChanged: changed)
         } else {
             content = .nothing
         }

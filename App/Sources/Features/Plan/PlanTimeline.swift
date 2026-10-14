@@ -261,7 +261,7 @@ struct PlanWords: Hashable, Sendable {
 /// The plan's answer and the strip's words (UI.md, "Plan").
 enum PlanTimelineText {
     /// "Not yet. Stop at 54, in March 2042.", "Yes. You could stop working today."
-    static func headline(_ headline: PlanHeadline, locale: Locale = .current) -> String {
+    static func headline(_ headline: RetirementAnswer, locale: Locale = .current) -> String {
         if headline.canRetireNow { return "Yes. You could stop working today." }
         guard let age = headline.earliestAge else { return "Not yet. No age reaches your bar yet." }
         guard let date = headline.earliestDate else { return "Not yet. Stop at \(age)." }

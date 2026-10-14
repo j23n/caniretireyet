@@ -1,6 +1,7 @@
 import Model
 import Planner
 import SwiftUI
+import Tracker
 
 /// "Your life in 6 chapters" (UI.md, "Plan"): the chapters side by side on a
 /// strip that scrolls sideways, each card as wide as its years (never too

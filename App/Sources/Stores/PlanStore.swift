@@ -335,24 +335,28 @@ final class PlanStore {
 
     // MARK: Headlines
 
-    /// The answer for the Overview's "Can I retire yet?" card (and the
-    /// widgets): the main plan's latest results (``latestResults(of:)``), or
-    /// else its last recorded headline. Never starts a run.
-    var mainHeadline: PlanHeadline? {
+    /// The main plan's latest answer, for the Overview's "Can I retire
+    /// yet?" card, Progress and the widgets: the Planner's `LatestAnswer`
+    /// of its latest results and its recorded headlines. Never starts a run.
+    var mainAnswer: LatestAnswer? {
         guard let main = library.settings.mainPlan else { return nil }
-        if let results = latestResults(of: main) { return results.headline }
-        return library.library.headlines(for: main).last.map { PlanHeadline(recorded: $0) }
+        return latestAnswer(of: main)
+    }
+
+    /// The main plan's latest answer itself (``mainAnswer``).
+    var mainHeadline: RetirementAnswer? { mainAnswer?.answer }
+
+    /// `plan`'s latest answer: its results, unless a check-in recorded a
+    /// newer answer since they start, else its last recorded headline
+    /// (`LatestAnswer`).
+    func latestAnswer(of plan: PlanID) -> LatestAnswer? {
+        LatestAnswer(plan: plan, library: library.library, valuator: library.valuator, results: results[plan])
     }
 
     /// The plan's latest results, unless a check-in recorded a newer answer
-    /// since the date they start from (on the other device, say, while
-    /// these were kept on this one): then that answer is the latest.
+    /// since the date they start from (`LatestAnswer.latestResults`).
     func latestResults(of plan: PlanID) -> PlanResults? {
-        guard let results = results[plan] else { return nil }
-        if let recorded = library.library.headlines(for: plan).last, recorded.date > results.start.date {
-            return nil
-        }
-        return results
+        LatestAnswer.latestResults(results[plan], recorded: library.library.headlines(for: plan))
     }
 
     /// The headlines recorded at check-ins for `plan`, oldest first.
@@ -415,7 +419,7 @@ final class PlanStore {
     /// writes, and returns the answer. `nil` without a main plan. The Plan
     /// screens can't cancel this run. A headline or baseline that can't be
     /// saved shows in the library's error (`LibraryStore.lastError`).
-    func checkInSaved(on date: CalendarDate) async -> PlanHeadline? {
+    func checkInSaved(on date: CalendarDate) async -> RetirementAnswer? {
         guard let main = library.settings.mainPlan,
               let results = await run(main, mode: .full, whatIf: nil, focusAge: nil, checkIn: true)
         else { return nil }
@@ -565,7 +569,7 @@ struct CheckInAnswerRun: Hashable, Sendable {
     var plan: PlanID
     var isRunning = true
     /// The answer, once it's there.
-    var headline: PlanHeadline?
+    var headline: RetirementAnswer?
     /// Why the plan couldn't run.
     var error: String?
 }

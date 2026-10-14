@@ -2,43 +2,10 @@ import Foundation
 import Model
 import Tracker
 
-// Plain value inputs for the chart components. Charts never read stores:
-// screens turn Tracker and Planner results into these (the adapters at the
-// bottom cover Tracker's), so a chart can be previewed with made-up numbers.
-
-/// A colour role from the design system, resolved to a `Color` by
-/// `Palette.color(for:)` for washes and fills, and `Palette.stroke(for:)`
-/// for lines and small marks. Kept free of SwiftUI so chart data can be
-/// built anywhere.
-enum ChartColor: Hashable, Sendable, Codable {
-    /// An asset class's fixed colour (UI.md, "Colour in charts").
-    case assetClass(AssetClass)
-    /// Debts, in the asset-class breakdown.
-    case debt
-    /// A categorical slot, 0-based, in the palette's fixed order. Use for
-    /// series that aren't asset classes (income sources, the two taxes).
-    case series(Int)
-    /// The one hue (blue) for single-series charts: fan charts, success
-    /// curves, account groups.
-    case accent
-    /// Actual history, drawn in ink so it never looks projected.
-    case ink
-    /// Something neutral, e.g. the "Other" bar of a breakdown.
-    case neutral
-    /// Taxes paid, on top of retirement income: a neutral that isn't a
-    /// source, and stays apart from every series hue in light and dark.
-    case taxes
-}
-
-/// One point of a value over time.
-struct ChartPoint: Hashable, Sendable, Identifiable {
-    var date: Date
-    var value: Double
-    /// Whether the value is fully known (no missing price or rate).
-    var isComplete: Bool = true
-
-    var id: Date { date }
-}
+// What the chart components draw beyond the package's plain values
+// (Tracker's `ChartPoint`, `FanPoint`, `ChartMarker` and `ChartColor`, the
+// Planner's `SuccessPoint`, `IncomeSegment` and `YearValue`): the line's
+// stretches, the value axis, named series and breakdown rows.
 
 /// A stretch of a line drawn one way: complete values solid, incomplete
 /// ones (a price or exchange rate missing) dashed, or left out as a gap.
@@ -203,72 +170,6 @@ extension Array where Element == ChartSeries {
     }
 }
 
-/// A band around a median at one date: the future part of the net-worth
-/// chart, and each point of a fan chart.
-struct FanPoint: Hashable, Sendable, Identifiable, Codable {
-    var date: Date
-    var p10: Double
-    var p25: Double
-    var p50: Double
-    var p75: Double
-    var p90: Double
-
-    var id: Date { date }
-}
-
-/// Something that happens at a date, marked on a time axis: retirement, a
-/// pension start, a windfall, a new-money tick.
-struct ChartMarker: Hashable, Sendable, Identifiable, Codable {
-    /// What a marker stands for, when the chart needs to know (the time
-    /// span counts from retirement).
-    enum Kind: Hashable, Sendable, Codable {
-        case retirement
-        case pension
-        case accessible
-        case windfall
-        case expense
-    }
-
-    var date: Date
-    var label: String
-    var systemImage: String?
-    var kind: Kind? = nil
-
-    var id: String { "\(date.timeIntervalSinceReferenceDate) \(label)" }
-    /// Its icon: its own, or a small triangle.
-    var symbol: String { systemImage ?? "arrowtriangle.up.fill" }
-}
-
-/// The chance of success when retiring at one age.
-struct SuccessPoint: Hashable, Sendable, Identifiable, Codable {
-    var age: Int
-    /// 0...1.
-    var success: Double
-
-    var id: Int { age }
-}
-
-/// One source's amount in one year of a stacked income (or tax) chart.
-struct IncomeSegment: Hashable, Sendable, Identifiable, Codable {
-    var year: Int
-    var source: String
-    var amount: Double
-    var color: ChartColor
-    /// A one-off amount (a windfall, severance pay): when it would dwarf the
-    /// rest, it runs off the top of the chart instead of setting its scale.
-    var isOneOff = false
-
-    var id: String { "\(year) \(source)" }
-}
-
-/// A value in one year, e.g. the spending target over an income chart.
-struct YearValue: Hashable, Sendable, Identifiable, Codable {
-    var year: Int
-    var value: Double
-
-    var id: Int { year }
-}
-
 /// One row of a horizontal breakdown: a label, its value and its share.
 struct BreakdownRow: Hashable, Sendable, Identifiable {
     var id: String
@@ -281,17 +182,6 @@ struct BreakdownRow: Hashable, Sendable, Identifiable {
 }
 
 // MARK: - From Tracker
-
-extension ChartPoint {
-    init(_ point: SeriesPoint) {
-        self.init(date: point.date.dateValue, value: point.value.doubleValue, isComplete: point.isComplete)
-    }
-}
-
-extension Array where Element == SeriesPoint {
-    /// The points as chart points.
-    var chartPoints: [ChartPoint] { map(ChartPoint.init) }
-}
 
 extension BreakdownKey {
     /// The colour of a breakdown group: asset classes and debts have fixed

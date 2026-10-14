@@ -1,5 +1,6 @@
 import Glance
 import Model
+import Planner
 import SwiftUI
 import Tracker
 
@@ -48,11 +49,14 @@ struct OverviewScreen: View {
         let today = CalendarDate.today()
         let planStart = library.asOfDate
         let mainPlan = library.mainPlan
-        let results = mainPlan.flatMap { plans.results[$0.id] }
+        // The main plan's latest answer, and the results it comes from, which
+        // the projection draws (`LatestAnswer`).
+        let answer = mainPlan == nil ? nil : plans.mainAnswer
+        let results = answer?.results
         // With an answer, it leads, with net worth in a tile beside where you
         // stand; without one, net worth leads and the answer's card below says
         // what to do.
-        let headline = mainPlan == nil ? nil : plans.mainHeadline
+        let headline = answer?.answer
         let netWorth = NetWorthGlance(valuator: valuator, asOf: today)
         return ScrollView {
             VStack(alignment: .leading, spacing: Metrics.xl) {
@@ -275,7 +279,7 @@ private struct OverviewHistorySection: View {
     /// it waits for *Try Again*, so a plan that can't run isn't retried on
     /// every visit.
     private func calculateForFuture() async {
-        guard showsFuture, let planID, plans.results[planID] == nil, !isCalculating(planID),
+        guard showsFuture, let planID, results == nil, !isCalculating(planID),
               plans.errors[planID] == nil else { return }
         await plans.run(planID)
     }

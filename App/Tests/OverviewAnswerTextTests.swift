@@ -9,13 +9,13 @@ struct OverviewAnswerTextTests {
     private let locale = Locale(identifier: "en_US")
     private let today: CalendarDate = "2026-09-30"
 
-    private func words(_ headline: PlanHeadline, earliestDate: CalendarDate? = nil) -> OverviewAnswerText {
+    private func words(_ headline: RetirementAnswer, earliestDate: CalendarDate? = nil) -> OverviewAnswerText {
         OverviewAnswerText(headline: headline, earliestDate: earliestDate ?? headline.earliestDate, today: today,
                            locale: locale)
     }
 
     @Test func notYetSaysTheAgeAndMonth() {
-        let text = words(PlanHeadline(confidence: 0.9, earliestAge: 54, earliestDate: "2042-03-12"))
+        let text = words(RetirementAnswer(confidence: 0.9, earliestAge: 54, earliestDate: "2042-03-12"))
         #expect(text.title == "In 15 years")
         #expect(text.whenLine == "At 54 · March 2042")
         #expect(text.futuresLine == "in 9 of 10 futures")
@@ -23,15 +23,15 @@ struct OverviewAnswerTextTests {
 
     @Test func leavesOutTheAgeWhenTheHeadlineSaysIt() {
         // Without a date there's no time to go, so the headline is "At 54".
-        let text = words(PlanHeadline(confidence: 0.9, earliestAge: 54))
+        let text = words(RetirementAnswer(confidence: 0.9, earliestAge: 54))
         #expect(text.title == "At 54")
         #expect(text.whenLine == nil)
         #expect(text.futuresLine == "in 9 of 10 futures")
     }
 
     @Test func yesSaysToday() {
-        let text = words(PlanHeadline(confidence: 0.9, earliestAge: 38, earliestDate: "2026-09-30",
-                                      successToday: 0.93, readiness: 1.3))
+        let text = words(RetirementAnswer(confidence: 0.9, earliestAge: 38, earliestDate: "2026-09-30",
+                                      successToday: 0.93, readiness: 1.3, canRetireNow: true))
         #expect(text.title == "Yes")
         #expect(text.whenLine == "Today")
         #expect(text.futuresLine == "in at least 9 of 10 futures")

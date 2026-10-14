@@ -175,7 +175,7 @@ enum OverviewYearText {
 /// The main plan's answer in the Overview's header (UI.md, "Can I retire
 /// yet?"): the headline, what its ⓘ says, and what VoiceOver reads.
 struct OverviewAnswerText {
-    var headline: PlanHeadline
+    var headline: RetirementAnswer
     /// When the earliest age is reached: the headline's date, or for an
     /// answer recorded at a check-in the birthday of that age; `nil`
     /// without a birth date.
@@ -271,14 +271,6 @@ struct OverviewAnswerText {
         }
         paragraphs.append(AboutText.disclaimer)
         return paragraphs
-    }
-}
-
-extension PlanHeadline {
-    /// The readiness as the ring shows it, by the *Readiness* widget's rules.
-    var readinessFigure: ReadinessFigure {
-        ReadinessFigure(readiness: readiness, isLowerBound: readinessIsLowerBound,
-                        needsMoreThanSearched: needsMoreThanSearched)
     }
 }
 

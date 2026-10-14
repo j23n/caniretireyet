@@ -33,12 +33,12 @@ enum PlanResultsText {
     // MARK: Headline
 
     /// "Yes." or "Not yet.".
-    static func answer(_ headline: PlanHeadline) -> String {
+    static func answer(_ headline: RetirementAnswer) -> String {
         headline.canRetireNow ? "Yes." : "Not yet."
     }
 
     /// "Earliest at 54 · March 2042", or why there's no age.
-    static func earliest(_ headline: PlanHeadline, locale: Locale = .current) -> String {
+    static func earliest(_ headline: RetirementAnswer, locale: Locale = .current) -> String {
         guard let age = headline.earliestAge else { return "No retirement age reaches it yet" }
         if headline.canRetireNow { return "You could stop working today" }
         guard let date = headline.earliestDate else { return "Earliest at \(age)" }
@@ -63,7 +63,7 @@ enum PlanResultsText {
     /// readiness, as in answers recorded before it existed: their old
     /// "of the way to financial independence" disagreed with the chance of
     /// retiring today, so it isn't shown.
-    static func readiness(_ headline: PlanHeadline, locale: Locale = .current) -> String? {
+    static func readiness(_ headline: RetirementAnswer, locale: Locale = .current) -> String? {
         if headline.needsMoreThanSearched {
             return "Retiring today would need more than \(searchedScale) times your plan assets"
         }

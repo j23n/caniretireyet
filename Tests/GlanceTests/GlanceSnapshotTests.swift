@@ -11,12 +11,17 @@ private let checkIn = CheckInGlance(last: "2026-09-30", next: "2026-10-31")
 struct ExampleLibraryGlanceTests {
     let library: Library
     let valuator: Valuator
+    /// The main plan's last recorded answer, which the app passes without results.
+    let recorded: RetirementAnswer
     let snapshot: GlanceSnapshot
 
     init() throws {
         library = try Fixtures.exampleLibrary()
         valuator = Valuator(library: library)
-        snapshot = GlanceSnapshot(library: library, valuator: valuator, asOf: "2026-09-30", answer: nil,
+        let main = try #require(library.settings.mainPlan)
+        let last = try #require(library.headlines(for: main).last)
+        recorded = RetirementAnswer(recorded: last, birthDate: library.settings.person?.birthDate)
+        snapshot = GlanceSnapshot(library: library, valuator: valuator, asOf: "2026-09-30", answer: recorded,
                                   checkIn: checkIn)
     }
 
@@ -29,7 +34,7 @@ struct ExampleLibraryGlanceTests {
     }
 
     @Test func netWorthIsTodaysAfterTheLatestCheckIn() throws {
-        let later = GlanceSnapshot(library: library, valuator: valuator, asOf: "2026-10-08", answer: nil,
+        let later = GlanceSnapshot(library: library, valuator: valuator, asOf: "2026-10-08", answer: recorded,
                                    checkIn: checkIn)
         let netWorth = try #require(later.netWorth)
         #expect(netWorth.date == "2026-10-08")
@@ -43,7 +48,7 @@ struct ExampleLibraryGlanceTests {
 
     /// The Overview's hero: the snapshot's net worth, without its line.
     @Test func theOverviewsHeroIsTheSnapshotsNetWorth() throws {
-        let later = GlanceSnapshot(library: library, valuator: valuator, asOf: "2026-10-08", answer: nil,
+        let later = GlanceSnapshot(library: library, valuator: valuator, asOf: "2026-10-08", answer: recorded,
                                    checkIn: checkIn)
         var expected = try #require(later.netWorth)
         #expect(!expected.history.isEmpty)
@@ -88,15 +93,12 @@ struct ExampleLibraryGlanceTests {
         #expect(abs(owned - 1) < 1e-9)
     }
 
-    @Test func withoutResultsTheAnswerIsTheLastOneRecorded() throws {
-        let answer = try #require(snapshot.retirement).answer
-        #expect(answer.earliestAge == 54)
-        // Born 12 April 1988.
-        #expect(answer.earliestDate == "2042-04-12")
-        #expect(answer.confidence == 0.9)
-        #expect(answer.readiness == 0.25)
-        #expect(!answer.canRetireNow)
-        #expect(answer.sustainableSpending == nil)
+    @Test func theAnswerIsTheOneGiven() throws {
+        #expect(snapshot.retirement?.answer == recorded)
+        let none = GlanceSnapshot(library: library, valuator: valuator, asOf: "2026-09-30", answer: nil,
+                                  checkIn: checkIn)
+        #expect(none.retirement == nil)
+        #expect(none.netWorth != nil)
     }
 
     @Test func theHistoryHasTheYearsAnswers() throws {
@@ -131,7 +133,7 @@ struct ExampleLibraryGlanceTests {
     }
 
     @Test func anEarlierAsOfLeavesOutLaterAnswers() throws {
-        let snapshot = GlanceSnapshot(library: library, valuator: valuator, asOf: "2026-05-31", answer: nil,
+        let snapshot = GlanceSnapshot(library: library, valuator: valuator, asOf: "2026-05-31", answer: recorded,
                                       checkIn: checkIn)
         #expect(snapshot.retirement?.history.last?.date == "2026-05-31")
         #expect(snapshot.retirement?.lastMove == nil)

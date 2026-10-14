@@ -2,6 +2,7 @@ import Accessibility
 import Charts
 import Model
 import SwiftUI
+import Tracker
 
 /// A VoiceOver summary of a chart (UI.md: every chart has one, through
 /// `accessibilityChartDescriptor`). Built from plain numbers, so every chart
