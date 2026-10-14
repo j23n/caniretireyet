@@ -24,7 +24,7 @@ final class CheckInStore {
     private(set) var date: CalendarDate?
     /// The latest fetch for ``date``: prices, FX rates and index values,
     /// with each one's source and time, or why it failed.
-    private(set) var priceList: CheckInPrices?
+    private(set) var priceList: FetchedPrices?
     private(set) var isFetchingPrices = false
 
     private let library: LibraryStore
@@ -115,7 +115,7 @@ final class CheckInStore {
 
     /// Takes a fetch's result for the open check-in's date (the previews
     /// hand it one).
-    func adopt(_ fetched: CheckInPrices) {
+    func adopt(_ fetched: FetchedPrices) {
         guard fetched.date == date else { return }
         priceList = fetched
     }
@@ -123,8 +123,9 @@ final class CheckInStore {
     // MARK: Saving
 
     /// Writes the check-in's fetched prices, FX rates and index values into
-    /// the library and waits until the files are written. A price or rate
-    /// set by hand for the date (on the Instruments screen) stays. Then
+    /// the library and waits until the files are written. A value typed in
+    /// by hand for the date (on the Instruments screen) stays
+    /// (`MergePolicy.replaceFetched`). Then
     /// closes the check-in, starts the main plan's run that records this
     /// month's answer (`PlanStore.recordCheckInAnswer(on:)`, without waiting
     /// for it: the confirmation shows its progress, then the answer) and
@@ -141,13 +142,7 @@ final class CheckInStore {
         let fetched = priceList?.date == date ? priceList : nil
         if let fetched {
             try await library.commit { library in
-                for price in fetched.prices where library.price(price.key)?.source != .manual {
-                    library.upsert(price)
-                }
-                for rate in fetched.fx where library.fxRate(rate.key)?.source != .manual {
-                    library.upsert(rate)
-                }
-                for value in fetched.indices { library.upsert(value) }
+                fetched.merge(into: &library, policy: .replaceFetched)
             }
         }
         cancel()

@@ -3,11 +3,10 @@ import Foundation
 /// A request to a price API: a GET, or a POST when it has a body.
 ///
 /// Requests carry only what identifies a quote: a symbol, currencies and
-/// dates, plus an API key header where a provider takes one. Amounts and
-/// quantities never leave the device.
+/// dates. Amounts and quantities never leave the device.
 public struct HTTPRequest: Hashable, Sendable {
     public var url: URL
-    /// Header fields, e.g. an API key or a user agent.
+    /// Header fields, e.g. a user agent.
     public var headers: [String: String]
     /// The body of a POST; `nil` for a GET.
     public var body: Data?

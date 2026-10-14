@@ -219,7 +219,7 @@ private struct InstrumentPriceUpdateRow: View {
                 Text(verbatim: line.title)
                     .fontWeight(.medium)
                     .privacySensitiveInFeedback(line.isInstrument)
-                if let source = line.sourceLine {
+                if let source = line.source {
                     Text(verbatim: source)
                         .font(.footnote)
                         .foregroundStyle(Palette.secondaryInk)
