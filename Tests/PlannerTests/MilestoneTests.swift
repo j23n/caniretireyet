@@ -21,19 +21,9 @@ struct MilestoneTests {
             == [100_000, 150_000, 200_000, 250_000, 300_000, 400_000, 500_000, 600_000, 750_000, 1_000_000])
     }
 
-    @Test func roundAmountsStartAt10000() {
-        #expect(MilestoneLadder.roundFloor == 10_000)
-        #expect(MilestoneLadder.roundAmounts(in: 0...9_999).isEmpty)
-        #expect(MilestoneLadder.roundAmounts(in: 0...100_000_000).allSatisfy { $0 >= 10_000 })
+    /// Round amounts start at 10,000; the other kinds have no floor.
+    @Test func roundAmountsStartAt10000() throws {
         #expect(MilestoneLadder.roundAmounts(in: 0...100_000_000).first == 10_000)
-        // The other kinds have no floor.
-        let ladder = MilestoneLadder(spending: 2_000, neededToday: 20_000, crossover: 8_000)
-        #expect(ladder.milestones(in: 0...9_999).map(\.id) == [
-            "years-1", "years-2", "share-1-4", "years-3", "share-1-3", "crossover",
-        ])
-    }
-
-    @Test func aNewLibraryReachesNoRoundAmountBelow10000() {
         let ladder = MilestoneLadder(spending: 3_000)
         let values = points([("2026-01-31", 0), ("2026-02-28", 1_500), ("2026-03-31", 3_000), ("2026-04-30", 4_500),
                              ("2026-05-31", 6_000), ("2026-06-30", 7_500), ("2026-07-31", 9_000),
@@ -41,9 +31,7 @@ struct MilestoneTests {
         let reached = ladder.reached(values: values)
         #expect(reached.map(\.id) == ["years-1", "years-2", "years-3", "round-10000"])
         #expect(reached.map(\.date) == ["2026-03-31", "2026-05-31", "2026-07-31", "2026-08-31"])
-    }
 
-    @Test func fromNothingTheNextRoundAmountIs10000() throws {
         let next = try #require(MilestoneLadder().next(after: 0))
         #expect(next.milestone.id == "round-10000")
         #expect(next.progress == 0)

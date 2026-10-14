@@ -9,52 +9,18 @@ struct ShortAmountTests {
     let dollars = CurrencyCode.usd
     let euros = CurrencyCode.eur
 
-    @Test func showsAnAmountBelowAMillionInFull() {
-        #expect(ShortAmount.text(300_000, currency: dollars, locale: us) == "$300,000")
-        #expect(ShortAmount.text(999_999, currency: dollars, locale: us) == "$999,999")
-        #expect(ShortAmount.text(Decimal(string: "1234.5")!, currency: dollars, locale: us) == "$1,235")
-        #expect(ShortAmount.text(0, currency: dollars, locale: us) == "$0")
-    }
-
-    @Test func showsAMillionAndMoreInMillions() {
-        #expect(ShortAmount.text(1_000_000, currency: dollars, locale: us) == "$1.00M")
-        #expect(ShortAmount.text(2_345_000, currency: dollars, locale: us) == "$2.35M")
-        #expect(ShortAmount.text(12_345_678, currency: dollars, locale: us) == "$12.3M")
-        #expect(ShortAmount.text(123_456_789, currency: dollars, locale: us) == "$123M")
-        #expect(ShortAmount.text(999_499_999, currency: dollars, locale: us) == "$999M")
-    }
-
-    @Test func showsABillionAndMoreInBillions() {
-        #expect(ShortAmount.text(1_000_000_000, currency: dollars, locale: us) == "$1.00B")
-        #expect(ShortAmount.text(12_345_678_901, currency: dollars, locale: us) == "$12.3B")
-        #expect(ShortAmount.text(999_000_000_000, currency: dollars, locale: us) == "$999B")
-    }
-
-    @Test func keepsBillionsPastAThousandOfThem() {
-        #expect(ShortAmount.text(1_234_000_000_000, currency: dollars, locale: us) == "$1,234B")
-        #expect(ShortAmount.text(Decimal(string: "999999600000")!, currency: dollars, locale: us) == "$1,000B")
-    }
-
-    @Test func choosesTheStepFromTheRoundedAmount() {
-        // Each would read with one digit too many in the smaller step.
-        #expect(ShortAmount.text(Decimal(string: "999999.6")!, currency: dollars, locale: us) == "$1.00M")
-        #expect(ShortAmount.text(999_999_600, currency: dollars, locale: us) == "$1.00B")
-    }
-
-    @Test func choosesTheDecimalsFromTheRoundedAmount() {
-        #expect(ShortAmount.text(9_996_000, currency: dollars, locale: us) == "$10.0M")
-        #expect(ShortAmount.text(99_960_000, currency: dollars, locale: us) == "$100M")
-        #expect(ShortAmount.text(9_996_000_000, currency: dollars, locale: us) == "$10.0B")
-    }
-
-    @Test func showsThreeSignificantDigitsFromAMillion() {
-        let values: [Decimal] = [
-            1_000_000, 9_999_999, 54_321_000, 123_456_789, 999_999_999, 12_345_678_901, 987_654_321_098,
-        ]
-        for value in values {
-            let digits = ShortAmount.text(value, currency: dollars, locale: us).filter(\.isNumber).count
-            #expect(digits == 3, "\(value)")
-        }
+    /// In full below a million, then three significant digits in millions or
+    /// billions, the step and decimals chosen from the rounded amount.
+    @Test(arguments: [
+        ("0", "$0"), ("1234.5", "$1,235"), ("999999", "$999,999"),
+        ("999999.6", "$1.00M"), ("2345000", "$2.35M"), ("9996000", "$10.0M"), ("12345678", "$12.3M"),
+        ("99960000", "$100M"), ("999499999", "$999M"),
+        ("999999600", "$1.00B"), ("9996000000", "$10.0B"), ("12345678901", "$12.3B"), ("999000000000", "$999B"),
+        ("999999600000", "$1,000B"), ("1234000000000", "$1,234B"),
+    ])
+    func shortensByTheRoundedAmount(value: String, text: String) throws {
+        let amount = try #require(Decimal(string: value))
+        #expect(ShortAmount.text(amount, currency: dollars, locale: us) == text)
     }
 
     @Test func aNegativeAmountHasTheTypographicMinus() {

@@ -83,23 +83,12 @@ struct MoneySourcesTests {
         return (after.startedWith - before.startedWith, after.saved - before.saved, after.markets - before.markets)
     }
 
-    @Test func aFirstValueWithTheCheckInsFlowIsStartedWith() throws {
-        let added = try added(withNewAccount(flow: 5000))
-        #expect(added.startedWith == 5000)
-        #expect(added.saved == 0)
-        #expect(added.markets.rounded(10) == 0)
-    }
-
-    @Test func anAccountFundedFromATrackedOneMovesNothing() throws {
-        let added = try added(withNewAccount(flow: 5000, moved: -5000))
-        #expect(added.startedWith == 0)
-        #expect(added.saved == 0)
-        #expect(added.markets.rounded(10) == 0)
-    }
-
-    @Test func anOffsetSmallerThanTheFlowKeepsOnlyItsPart() throws {
-        let added = try added(withNewAccount(flow: 5000, moved: -2000))
-        #expect(added.startedWith == 3000)
+    /// A new account's first value of 5,000 with its flow is started with,
+    /// less what a tracked account sent it.
+    @Test(arguments: [(0, 5000), (-5000, 0), (-2000, 3000)] as [(Decimal, Decimal)])
+    func aFirstValueIsStartedWithLessWhatWasMoved(moved: Decimal, startedWith: Decimal) throws {
+        let added = try added(withNewAccount(flow: 5000, moved: moved))
+        #expect(added.startedWith == startedWith)
         #expect(added.saved == 0)
         #expect(added.markets.rounded(10) == 0)
     }
