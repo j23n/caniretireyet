@@ -38,8 +38,9 @@ jobs:
     with:
       name: Linux · swift build and test
 
-  # On a pull request the app's builds and tests (make ci-macos-app): Linux has tested the package on
-  # the same commit. On main, and by hand, CloudSync's Apple-only tests too (make ci-macos).
+  # On a pull request the app's Mac build and tests (make ci-macos-app): Linux has tested the package
+  # on the same commit. On main, and by hand, also the iOS Simulator's build, the icons and
+  # CloudSync's Apple-only tests (make ci-macos).
   macos:
     uses: j23n/apple-ci/.github/workflows/macos.yml@main
     with:
