@@ -35,6 +35,37 @@ extension Account {
     }
 }
 
+extension Library {
+    /// Whether a line in on `date` of `statement`'s statement can be the
+    /// sale of `account` (IMPORT.md, "Purchases and sales"): another
+    /// account, in the statement's currency, opened by `date`, that can be
+    /// sold this way and has no values after `date`; or one this sale
+    /// already closed, so importing the file again finds the same sale
+    /// (``soldFromStatement(_:on:)``). Selling it twice in one file is the
+    /// caller's to check.
+    public func canSellFromStatement(_ account: Account, of statement: Account, on date: CalendarDate) -> Bool {
+        guard account.id != statement.id, account.currency == statement.currency, account.opened <= date else {
+            return false
+        }
+        let unsold = account.canBeSoldFromStatement && !valuations(for: account.id).contains { $0.date > date }
+        return unsold || soldFromStatement(account, on: date)
+    }
+
+    /// Whether `account` is closed the day after a value of 0 on or after
+    /// `date`, its only value after `date`: sold on `date` by importing a
+    /// statement before. A value on `date` is from before the sale, unless
+    /// it is the zero itself (a line on its period's last day).
+    public func soldFromStatement(_ account: Account, on date: CalendarDate) -> Bool {
+        guard let closed = account.closed, closed > date else { return false }
+        let zeroDay = closed.adding(days: -1)
+        let after = valuations(for: account.id).filter { $0.date > date || $0.date == zeroDay }
+        guard after.count == 1, let zero = after.first, zero.date == zeroDay, (zero.balance ?? 0) == 0 else {
+            return false
+        }
+        return !account.recordsTrades && !account.kind.recordsMoneyInOut && !account.kind.isLiability
+    }
+}
+
 extension ImportSession {
     /// Answers one line, by its 1-based row, as a purchase or a sale, for
     /// this file only; `nil` removes the answer. An answer replaces a class

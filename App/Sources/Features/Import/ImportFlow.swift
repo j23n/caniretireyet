@@ -175,8 +175,9 @@ struct ImportFlow: Sendable {
         if isGuided { return [.file, .preview, .done] }
         if session?.profile.layout == .trades { return [.file, .format, .columns, .types, .accounts, .preview, .done] }
         if session?.profile.layout == .statement {
-            // Accounts only for a proposed opening or closing.
-            let accounts: [ImportStep] = preview?.accountChanges.isEmpty ?? true ? [] : [.accounts]
+            // Accounts only for a proposed opening or closing; Income answers a sale's.
+            let proposed = preview?.accountChanges.contains { $0.statementRow == nil } ?? false
+            let accounts: [ImportStep] = proposed ? [.accounts] : []
             return [.file, .classify] + accounts + [.preview, .done]
         }
         return [.file, .format, .columns, .accounts, .preview, .done]

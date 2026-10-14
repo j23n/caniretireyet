@@ -37,6 +37,10 @@ struct StatementSums: Hashable, Sendable {
     var leftOut: Decimal = 0
     /// Interest that came in; interest that went out is in `wentOut`.
     var interest: Decimal = 0
+    /// Money out for purchases you keep, a positive sum.
+    var bought: Decimal = 0
+    /// Money in from sales of your accounts.
+    var sold: Decimal = 0
 
     /// What was spent: went out less paid back, at least 0.
     var spent: Decimal { max(wentOut - paidBack, 0) }
@@ -50,10 +54,65 @@ extension ImportFlow {
         sender.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil)
     }
 
-    /// Money in that needs an answer: income, a one-off or paid back,
-    /// largest first.
+    /// The lines that need an answer, largest first: money in is income,
+    /// a one-off, paid back or a sale; money out spending or a purchase
+    /// you keep.
     var statementQuestions: [StatementLine] {
-        statementLines.filter { $0.amount > 0 && $0.needsAnswer }.sorted { $0.amount > $1.amount }
+        statementLines.filter { $0.needsAnswer && statementAnswer($0) == nil }
+            .sorted { abs($0.amount) > abs($1.amount) }
+    }
+
+    /// The lines answered as a purchase you keep or a sale, in date order,
+    /// recorded or not (``StatementLine/asset`` is `nil` for one the import
+    /// can't record).
+    var statementAssetLines: [StatementLine] {
+        statementLines.filter { statementAnswer($0) != nil }
+    }
+
+    /// The line's answer as a purchase you keep or a sale, for this file,
+    /// whether or not the import can record it.
+    func statementAnswer(_ line: StatementLine) -> StatementAsset? {
+        session?.statementAssets[line.row]
+    }
+
+    /// The accounts a line in can be the sale of, by name: those the
+    /// importer can record the sale of
+    /// (``Importer/Library/canSellFromStatement(_:of:on:)``), the one this
+    /// line sold before included, and not sold by another line of the file.
+    func saleChoices(for line: StatementLine) -> [Account] {
+        guard let statement = statementAccount else { return [] }
+        let sold = Set(statementLines.compactMap { other -> AccountID? in
+            guard other.row != line.row, case .sale(let id)? = statementAnswer(other) else { return nil }
+            return id
+        })
+        return library.accounts.values
+            .filter { !sold.contains($0.id) && library.canSellFromStatement($0, of: statement, on: line.date) }
+            .sorted { ($0.name, $0.id) < ($1.name, $1.id) }
+    }
+
+    /// Answers one line as a purchase you keep or a sale, for this file;
+    /// `nil` takes the answer back.
+    mutating func setStatementAsset(_ asset: StatementAsset?, forRow row: Int) {
+        editSession { $0.setStatementAsset(asset, forRow: row) }
+    }
+
+    /// What a line answered as a purchase or a sale is, e.g. "A purchase
+    /// you keep: Car", "The sale of Home", or why the import can't record
+    /// it; `nil` for another line.
+    func statementAssetText(_ line: StatementLine) -> String? {
+        guard let answer = statementAnswer(line) else { return nil }
+        guard line.asset != nil else { return "Not recorded: " + statementAssetLeftOutReason(line) }
+        return switch answer {
+        case .purchase(let name, _): "A purchase you keep: \(name)"
+        case .sale(let id): "The sale of \(accountName(id))"
+        }
+    }
+
+    /// Why an answered line isn't recorded: it counts in no value whose
+    /// money in and out the file covers, or the answer doesn't fit it.
+    func statementAssetLeftOutReason(_ line: StatementLine) -> String {
+        line.period == nil ? "the file doesn't cover the value it counts in"
+            : "the answer doesn't fit this line"
     }
 
     /// The money in of `statementClass` that doesn't need an answer, by
@@ -94,6 +153,15 @@ extension ImportFlow {
         var sums = StatementSums()
         for line in statementLines {
             let amount = line.amount
+            switch line.asset {
+            case .purchase?:
+                sums.bought -= amount
+                continue
+            case .sale?:
+                sums.sold += amount
+                continue
+            case nil: break
+            }
             switch line.statementClass {
             case .transfer: sums.moved += amount
             case .ignore: sums.leftOut += amount

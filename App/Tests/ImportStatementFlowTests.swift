@@ -222,6 +222,86 @@ struct ImportStatementFlowTests {
         #expect(flow.statementSums.paidBack == 5000)
     }
 
+    @Test func aLargeLineOutIsAnsweredAsAPurchaseYouKeep() throws {
+        var flow = flow(adding: "\n18/09/2026;-18.000,00;Bonifico a Autosalone Neri")
+        let question = try #require(flow.statementQuestions.first)
+        #expect(flow.statementQuestions.count == 1)
+        #expect(question.amount == -18000)
+        flow.setStatementAsset(.purchase(name: "Car", kind: .belongings), forRow: question.row)
+        #expect(flow.statementQuestions.isEmpty)
+        let bought = try #require(flow.statementAssetLines.first)
+        #expect(flow.statementAssetText(bought) == "A purchase you keep: Car")
+        #expect(flow.statementSums.bought == 18000)
+        #expect(flow.statementSums.spent == Decimal(string: "1310.4"))
+        #expect(flow.statementSums.moved == -500)
+        #expect(flow.preview?.newAccounts.map(\.account.name) == ["Car"])
+        #expect(flow.steps == [.file, .classify, .preview, .done])
+        // Undone, it's asked again.
+        flow.setStatementAsset(nil, forRow: question.row)
+        #expect(flow.statementAssetLines.isEmpty)
+        #expect(flow.statementQuestions.count == 1)
+        #expect(flow.preview?.newAccounts.isEmpty == true)
+    }
+
+    @Test func aLargeLineInIsAnsweredAsTheSaleOfAnAccount() throws {
+        var flow = flow(adding: "\n22/09/2026;250.000,00;Rogito notaio vendita")
+        let question = try #require(flow.statementQuestions.first)
+        #expect(flow.saleChoices(for: question).map(\.id) == ["casa", "tfr"])
+        flow.setStatementAsset(.sale("casa"), forRow: question.row)
+        let sold = try #require(flow.statementAssetLines.first)
+        #expect(flow.statementAssetText(sold) == "The sale of Home")
+        #expect(flow.statementSums.sold == 250_000)
+        #expect(flow.statementSums.paidBack == 0)
+        #expect(flow.preview?.accountChanges.map(\.account) == ["casa"])
+        // The Income step answered it: no Accounts step.
+        #expect(flow.steps == [.file, .classify, .preview, .done])
+    }
+
+    /// Importing the file again with the same answer finds the same sale:
+    /// the account it closed is still offered.
+    @Test func aSaleImportedBeforeIsOfferedAgain() throws {
+        var flow = flow(adding: "\n22/09/2026;250.000,00;Rogito notaio vendita")
+        let question = try #require(flow.statementQuestions.first)
+        flow.setStatementAsset(.sale("casa"), forRow: question.row)
+        let library = try #require(flow.preview).apply(to: PreviewLibrary.library).library
+        #expect(library.accounts["casa"]?.isClosed == true)
+
+        var again = ImportFlow(library: library)
+        again.open(Data((Self.csv + "\n22/09/2026;250.000,00;Rogito notaio vendita").utf8), fileName: "settembre.csv")
+        again.setConstants { $0.account = "conto-fineco" }
+        let asked = try #require(again.statementQuestions.first)
+        #expect(again.saleChoices(for: asked).map(\.id) == ["casa", "tfr"])
+        again.setStatementAsset(.sale("casa"), forRow: asked.row)
+        // The sale's value is found again. The current account's September
+        // differs from the example library's own value either way.
+        let sale = again.preview?.records.first { $0.imported.key.account == "casa" }
+        #expect(sale?.status == .identical)
+        #expect(again.preview?.accountChanges.isEmpty == true)
+    }
+
+    /// An answer the import can't record, here on the first statement of an
+    /// account without values, stays listed with why, and Undo takes it back.
+    @Test func anAnswerThatIsntRecordedCanBeUndone() throws {
+        var library = PreviewLibrary.library
+        library.accounts["nuovo"] = Account(id: "nuovo", name: "Conto nuovo", kind: .cash, currency: .eur,
+                                            opened: "2026-01-01")
+        var flow = ImportFlow(library: library)
+        flow.open(Data((Self.csv + "\n18/09/2026;-18.000,00;Bonifico a Autosalone Neri").utf8),
+                  fileName: "settembre.csv")
+        flow.setConstants { $0.account = "nuovo" }
+        flow.setStatementOpeningBalance(25000)
+        let question = try #require(flow.statementQuestions.first)
+        flow.setStatementAsset(.purchase(name: "Car", kind: .belongings), forRow: question.row)
+        let answered = try #require(flow.statementAssetLines.first)
+        #expect(answered.asset == nil)
+        #expect(flow.statementAssetText(answered) == "Not recorded: the file doesn't cover the value it counts in")
+        #expect(!flow.statementQuestions.contains { $0.row == question.row })
+        #expect(flow.preview?.newAccounts.isEmpty == true)
+        flow.setStatementAsset(nil, forRow: question.row)
+        #expect(flow.statementAssetLines.isEmpty)
+        #expect(flow.statementAnswer(answered) == nil)
+    }
+
     @Test func previewChartsTheFilesBalanceAgainstTheAccountsValues() throws {
         let charts = try #require(flow().statementCharts)
         #expect(!charts.money.counted.isEmpty)
