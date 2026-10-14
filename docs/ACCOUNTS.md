@@ -1,12 +1,12 @@
 # Accounts: what each kind records
 
-An account's kind alone says what its values record and how its new money is worked out. Values come only from imported files: the app types no balance, money in and out, new money or trade, and the check-in is read-only ([UI.md](UI.md#check-in)).
+An account's kind alone says what its values record and how what it saved is worked out. Values come only from imported files: the app types no balance, money in and out, what was saved or trade, and the check-in is read-only ([UI.md](UI.md#check-in)).
 
 The rules are in `Sources/Model/Accounts/`: `AccountKind.defaultValuationMode`, `AccountKind.defaultFlow` (`FlowDefault`), `AccountKind.recordsMoneyInOut`, `Account.valuationMode` and `Account.asksForFlow`.
 
 ## Every kind
 
-| Kind | Records | New money (`flow`) |
+| Kind | Records | Saved (`flow`) |
 | --- | --- | --- |
 | `cash` | Balance, money in, money out | The whole change |
 | `savings` | Balance, interest (optional), money in, money out | The change minus the interest |
@@ -16,7 +16,7 @@ The rules are in `Sources/Model/Accounts/`: `AccountKind.defaultValuationMode`, 
 | `brokerage` | Trades (`"valuation": "trades"`); a broker statement's cash and positions are a check. Set in its file, a balance instead (`"valuation": "balance"`) | Worked out from the trades; for a balance, the whole change |
 | `crypto` | As brokerage | Worked out from the trades |
 | `metals` | As brokerage | Worked out from the trades |
-| `pensionFund` | Balance, and the new money from its file ("Paid in since …") | Recorded, from a spreadsheet's saved column ([IMPORT.md](IMPORT.md#saved)); left out, unknown, and the change counts as other |
+| `pensionFund` | Balance, and what was saved, from its file ("Paid in since …") | Recorded, from a spreadsheet's saved column ([IMPORT.md](IMPORT.md#saved)); left out, unknown, and the change counts as other |
 | `tfr` | As a pension fund | As a pension fund |
 | `property` | As a pension fund (usually nothing paid in) | As a pension fund |
 | `belongings` | Things you own that lose value and might sell (a car, a bike, a boat, electronics): balance, and optionally an estimated loss of value a year (`depreciation`) | The whole change, so its loss of value is spent; between values, the estimated loss |
@@ -35,12 +35,12 @@ Each kind's values record the fields in the table above, from its files. An acco
 - **Credit cards, loans and mortgages don't record them.** They're debts: paying one off is money out of the cash or savings account the payment leaves.
 - **No budgeting.** Nothing is categorized: the app records only how much comes in and how much goes out ([PLAN.md](PLAN.md#non-goals)).
 
-### New money
+### Saved
 
-- **Stored only where it's information.** A pension fund's, a TFR's, a property's or an `other` account's new money can't be told from its balance, so its values record it in `flow` (`Account.asksForFlow`). Every other account's is worked out from what's recorded whenever it's needed (Tracker's `Valuator.flow(of:previous:)`), and its values store none: a stored copy could only fall out of step.
+- **Stored only where it's information.** What a pension fund, a TFR, a property or an `other` account saved can't be told from its balance, so its values record it in `flow` (`Account.asksForFlow`). Every other account's is worked out from what's recorded whenever it's needed (Tracker's `Valuator.flow(of:previous:)`), and its values store none: a stored copy could only fall out of step.
 - **Cash:** the whole change. **Savings:** the change minus the interest. **Debts and belongings:** the whole change. **Trades accounts:** from the trades ([TRADES.md](TRADES.md#flows)).
 - So a savings account's interest counts as market, as a fund's return does.
-- New money splits the change into market, new money and other ([schema/README.md](schema/README.md#how-values-are-computed)).
+- What was saved splits the change into market, saved and other ([schema/README.md](schema/README.md#how-values-are-computed)).
 
 ### Moved between your accounts
 
@@ -56,12 +56,12 @@ The flow is the change (cash) or the change minus the interest (savings), so thi
 ### Loans and mortgages
 
 - **Payments are money out** of the account they leave, like rent, so money out a year matches a plan whose spending includes them ([PROGRESS.md](PROGRESS.md#money-in-and-out)).
-- **The principal repaid** is saved in the savings rate: the savings rate works out what was saved from every account's new money ([PROGRESS.md](PROGRESS.md#money-in-and-out), *Savings rate*), and a loan's or mortgage's new money is the drop in what's owed. Its interest is spent.
-- **Credit card payments** are money out too. A card's purchases are spent when they're made: its new money is the change in what's owed.
+- **The principal repaid** is saved in the savings rate: the savings rate adds up what every account saved ([PROGRESS.md](PROGRESS.md#money-in-and-out), *Savings rate*), and what a loan or mortgage saved is the drop in what's owed. Its interest is spent.
+- **Credit card payments** are money out too. A card's purchases are spent when they're made: what it saved is the change in what's owed.
 
 ### Investment accounts record trades
 
 - Brokerage, crypto and metals accounts record trades (`"valuation": "trades"`).
-- **Trades come from the broker's exports.** Holdings, cash and new money follow from them ([TRADES.md](TRADES.md#check-ins)).
+- **Trades come from the broker's exports.** Holdings, cash and what was saved follow from them ([TRADES.md](TRADES.md#check-ins)).
 - **A broker statement's cash and positions**, imported, stay as a check ([TRADES.md](TRADES.md#reconciliation)).
 - **The account details** list the trades in place of the account's values.

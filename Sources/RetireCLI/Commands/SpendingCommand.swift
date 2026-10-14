@@ -18,7 +18,7 @@ struct SpendingCommand: RetireSubcommand {
             currency. Money out is roughly what you spent: money moved between your own accounts isn't \
             in either, but credit card, loan and mortgage payments are money out. Values without both \
             amounts, and an account's first value, aren't counted. Without --account, also the savings \
-            rate: what you saved of what came in. Saved is the new money of every account, worked out \
+            rate: what you saved of what came in. Saved is what every account saved, worked out \
             from balances and trades, so money moved between your accounts cancels out and a loan's \
             principal repaid is saved. Came in is money in plus what was paid into pension funds and \
             TFR. Spent is what came in less what was saved.
@@ -151,7 +151,7 @@ struct SpendingCommand: RetireSubcommand {
             /// Tax over those days: tax money out recorded, less refunds,
             /// plus what moved into tax pots. Not in came in.
             var tax: String?
-            /// Every account's new money over those days.
+            /// What every account saved over those days.
             var saved: String?
             /// What came in less what was saved.
             var spent: String?

@@ -10,8 +10,8 @@ struct PlanPaceCommand: RetireSubcommand {
         commandName: "pace",
         abstract: "Show how much you've been saving into plan assets over the last 12 months.",
         discussion: """
-            Prints the new money into plan assets in each of the last 12 months through the latest \
-            check-in on or before --date: each account's new money spread evenly over the days since \
+            Prints what was saved into plan assets in each of the last 12 months through the latest \
+            check-in on or before --date: what each account saved spread evenly over the days since \
             its record before (or since it was last paid, when it's paid regularly), and an \
             account not valued since goes on at that rate, in today's money with the library's \
             inflation index. Money moved between plan assets cancels out. When the usual month (the \
@@ -56,12 +56,12 @@ struct PlanPaceCommand: RetireSubcommand {
             let money = pace.isInTodaysMoney ? "in money of \(pace.asOf)"
                 : "in money of each check-in (the inflation index doesn't cover these months)"
             var lines = ["Saving pace through \(pace.asOf), \(money), \(pace.currency)"
-                + (pace.isComplete ? "" : " (incomplete: a value or its new money is missing)")]
+                + (pace.isComplete ? "" : " (incomplete: a value or what was saved is missing)")]
 
             lines.append("")
-            var table = TextTable([.left("Month to"), .right("New money"), .left("")])
+            var table = TextTable([.left("Month to"), .right("Saved"), .left("")])
             for month in pace.months {
-                table.add([month.end.description, Format.amount(month.newMoney),
+                table.add([month.end.description, Format.amount(month.saved),
                            month.isUnusual ? "unusual: counts as \(Format.amount(pace.usualMonth))" : ""])
             }
             lines += table.lines()
@@ -78,7 +78,7 @@ struct PlanPaceCommand: RetireSubcommand {
             if !pace.byAccount.isEmpty {
                 lines.append("")
                 lines.append("By account, a year (unusual months included)")
-                var accounts = TextTable([.left("Account"), .right("New money")])
+                var accounts = TextTable([.left("Account"), .right("Saved")])
                 let sorted = pace.byAccount.sorted { (name($0.key), $0.key) < (name($1.key), $1.key) }
                 for (account, amount) in sorted {
                     accounts.add([name(account), Format.amount(amount)])
@@ -99,7 +99,7 @@ struct PlanPaceCommand: RetireSubcommand {
                     asOf: pace.asOf.description, currency: pace.currency.rawValue,
                     inTodaysMoney: pace.isInTodaysMoney, complete: pace.isComplete,
                     months: pace.months.map {
-                        JSON.Month(end: $0.end.description, newMoney: Format.json($0.newMoney), unusual: $0.isUnusual)
+                        JSON.Month(end: $0.end.description, saved: Format.json($0.saved), unusual: $0.isUnusual)
                     },
                     usualMonth: Format.json(pace.usualMonth), perYear: Format.json(pace.perYear),
                     range: pace.range.map { [Format.json($0.lowerBound), Format.json($0.upperBound)] },
@@ -113,7 +113,7 @@ struct PlanPaceCommand: RetireSubcommand {
         struct JSON: Encodable {
             struct Month: Encodable {
                 var end: String
-                var newMoney: String
+                var saved: String
                 var unusual: Bool
             }
 

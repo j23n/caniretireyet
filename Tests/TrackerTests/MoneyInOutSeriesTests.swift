@@ -38,7 +38,7 @@ struct MoneyInOutSeriesTests {
         #expect(series.periods.allSatisfy { $0.lastTwelveMonths == nil })
     }
 
-    @Test func aPeriodCountsPensionsAndSavesEveryAccountsNewMoney() throws {
+    @Test func aPeriodCountsPensionsAndWhatEveryAccountSaved() throws {
         let valuator = Valuator(library: library)
         let series = valuator.moneyInOutSeries(.months, through: "2026-09-30")
         let august = try #require(series.periods.first { $0.from == "2026-08-01" })

@@ -46,7 +46,7 @@ struct SavingPaceTests {
         #expect(pace.months.count == 12)
         #expect(pace.months.first?.end == "2025-10-31")
         #expect(pace.months.last?.end == "2026-09-30")
-        #expect(pace.months.map(\.newMoney) == Array(flows.reversed()))
+        #expect(pace.months.map(\.saved) == Array(flows.reversed()))
         #expect(pace.unusualMonths.map(\.end) == ["2026-03-31"])
         #expect(pace.usualMonth == 1_000)
         #expect(pace.perYear == 12_000)
@@ -87,7 +87,7 @@ struct SavingPaceTests {
         #expect(Valuator(library: library(flows: [1_000, 1_000])).savingPace(asOf: "2026-09-30") == nil)
     }
 
-    /// A quarterly check-in's new money is spread over its days: 3,000
+    /// What a quarterly check-in saved is spread over its days: 3,000
     /// from 30 Jun to 30 Sep is 31, 31 and 30 of 92 days.
     @Test func anIntervalIsSpreadOverItsDays() throws {
         var library = Library(accounts: [
@@ -98,9 +98,9 @@ struct SavingPaceTests {
         library.upsert(Valuation(account: "current", date: "2026-06-30", balance: 10_000, flow: 0))
         library.upsert(Valuation(account: "current", date: "2026-09-30", balance: 13_000, flow: 3_000))
         let pace = try #require(Valuator(library: library).savingPace(asOf: "2026-09-30"))
-        let months = pace.months.suffix(3).map { $0.newMoney.rounded(scale: 2) }
+        let months = pace.months.suffix(3).map { $0.saved.rounded(scale: 2) }
         #expect(months == [d("1010.87"), d("1010.87"), d("978.26")])
-        #expect(pace.months.prefix(9).allSatisfy { $0.newMoney == 0 })
+        #expect(pace.months.prefix(9).allSatisfy { $0.saved == 0 })
         // The usual month is 0: saving once a quarter is how you save.
         #expect(pace.usualMonth == 0)
         #expect(pace.unusualMonths.isEmpty)
@@ -115,7 +115,7 @@ struct SavingPaceTests {
         let flows = (0..<12).map { $0.isMultiple(of: 3) ? Decimal(3_000) : 0 }
         let pace = try #require(Valuator(library: library(flows: flows)).savingPace(asOf: "2026-09-30"))
         // From 30 Jun to 30 Sep: 31, 31 and 30 of 92 days.
-        let months = pace.months.suffix(3).map { $0.newMoney.rounded(scale: 2) }
+        let months = pace.months.suffix(3).map { $0.saved.rounded(scale: 2) }
         #expect(months == [d("1010.87"), d("1010.87"), d("978.26")])
         #expect(pace.usualMonth.rounded(scale: 2) == d("1005.43"))
         #expect(pace.unusualMonths.isEmpty)
@@ -162,7 +162,7 @@ struct SavingPaceTests {
                                          balance: balance, flow: flow))
             }
             let pace = try #require(Valuator(library: library).savingPace(asOf: "2026-09-30"))
-            #expect(pace.months.last?.newMoney == 1_000 + oneOff)
+            #expect(pace.months.last?.saved == 1_000 + oneOff)
             #expect(pace.unusualMonths.map(\.end) == ["2026-09-30"])
         }
     }
@@ -272,7 +272,7 @@ struct SavingPaceTests {
         #expect(pace.byAccount["pension"]?.rounded(scale: 2) == 6_000)
         #expect(pace.byAccount["current"] == 12_000)
         // April to September: 6,000 × 30/365 in April.
-        #expect(pace.months[6].newMoney.rounded(scale: 2) == d("1493.15"))
+        #expect(pace.months[6].saved.rounded(scale: 2) == d("1493.15"))
         #expect(pace.perYear.rounded(scale: 2) == 18_000)
     }
 
@@ -301,7 +301,7 @@ struct SavingPaceTests {
         library.upsert(Valuation(account: "savings", date: "2026-09-30", balance: 5_000, flow: 5_000))
         library.upsert(Valuation(account: "current", date: "2026-09-30", balance: 17_000, flow: -4_000))
         let pace = try #require(Valuator(library: library).savingPace(asOf: "2026-09-30"))
-        #expect(pace.months.last?.newMoney == 1_000)
+        #expect(pace.months.last?.saved == 1_000)
         // September's 4,000 moved comes off both: the current account's
         // −4,000 entirely, and 4,000 of the savings account's 5,000.
         #expect(pace.byAccount == ["current": 11_000, "savings": 1_000])
@@ -320,7 +320,7 @@ struct SavingPaceTests {
         library.upsert(Valuation(account: "savings", date: "2026-09-30", balance: 4_000, flow: 4_000))
         let pace = try #require(Valuator(library: library).savingPace(asOf: "2026-09-30"))
         // The 1,000 left of the savings account's 4,000, by days of the year.
-        #expect(pace.months.last?.newMoney.rounded(scale: 2) == d("82.19"))
+        #expect(pace.months.last?.saved.rounded(scale: 2) == d("82.19"))
         #expect(pace.unusualMonths.isEmpty)
         #expect(pace.perYear.rounded(scale: 2) == 12_000)
         #expect(pace.byAccount.mapValues { $0.rounded(scale: 2) } == ["current": 11_000, "savings": 1_000])
@@ -342,7 +342,7 @@ struct SavingPaceTests {
         // Each quarter's 3,000 by its months' days: 31, 30 and 31 of 92 from October.
         let pension = ["1010.87", "978.26", "1010.87", "1033.33", "933.33", "1033.33",
                        "989.01", "1021.98", "989.01", "1010.87", "1010.87", "978.26"].map { 1_000 + d($0) }
-        #expect(pace.months.map { $0.newMoney.rounded(scale: 2) } == pension)
+        #expect(pace.months.map { $0.saved.rounded(scale: 2) } == pension)
         #expect(pace.unusualMonths.isEmpty)
         #expect(pace.byAccount["pension"]?.rounded(scale: 2) == 12_000)
     }
@@ -358,9 +358,9 @@ struct SavingPaceTests {
         library.upsert(Trade(account: "broker", date: "2025-10-15", id: "second", type: .deposit, amount: 100))
         library.upsert(Trade(account: "broker", date: "2026-09-15", id: "third", type: .deposit, amount: 12_000))
         let pace = try #require(Valuator(library: library).savingPace(asOf: "2026-09-30"))
-        #expect(pace.months.first?.newMoney == 1_100)
-        #expect(pace.months.last?.newMoney == 13_000)
-        #expect(pace.months.dropFirst().dropLast().allSatisfy { $0.newMoney == 1_000 })
+        #expect(pace.months.first?.saved == 1_100)
+        #expect(pace.months.last?.saved == 13_000)
+        #expect(pace.months.dropFirst().dropLast().allSatisfy { $0.saved == 1_000 })
         #expect(pace.unusualMonths.map(\.end) == ["2026-09-30"])
         #expect(pace.byAccount["broker"] == 12_100)
         #expect(pace.carriedForward.isEmpty)
@@ -374,8 +374,8 @@ struct SavingPaceTests {
         let pace = try #require(Valuator(library: library(flows: [Decimal](repeating: 1_000, count: 12)))
             .savingPace(asOf: "2026-09-30", inflation: index))
         #expect(pace.isInTodaysMoney)
-        #expect(pace.months.first?.newMoney == 1_100)
-        #expect(pace.months.last?.newMoney == 1_000)
+        #expect(pace.months.first?.saved == 1_100)
+        #expect(pace.months.last?.saved == 1_000)
         #expect(pace.perYear == 13_100)
     }
 
@@ -388,7 +388,7 @@ struct SavingPaceTests {
         let pace = try #require(Valuator(library: library(flows: [Decimal](repeating: 1_000, count: 12)))
             .savingPace(asOf: "2026-09-30", inflation: index))
         #expect(!pace.isInTodaysMoney)
-        #expect(pace.months.allSatisfy { $0.newMoney == 1_000 })
+        #expect(pace.months.allSatisfy { $0.saved == 1_000 })
         #expect(pace.perYear == 12_000)
     }
 
@@ -407,7 +407,7 @@ struct SavingPaceTests {
     }
 
     /// A pension fund opened inside the months, with something in it at
-    /// its first record: what it held then isn't new money, and the months
+    /// its first record: what it held then isn't saved, and the months
     /// before it aren't missing anything. Opened
     /// before its first record, with no check-in between, it isn't missing
     /// any month either.
@@ -419,7 +419,7 @@ struct SavingPaceTests {
         library.upsert(Valuation(account: "pension", date: "2026-03-31", balance: 10_000))
         let pace = try #require(Valuator(library: library).savingPace(asOf: "2026-09-30"))
         #expect(pace.months.count == 12)
-        #expect(pace.months.allSatisfy { $0.newMoney == 1_000 })
+        #expect(pace.months.allSatisfy { $0.saved == 1_000 })
         #expect(pace.perYear == 12_000)
         #expect(pace.byAccount == ["current": 12_000])
         #expect(pace.isComplete)
@@ -561,7 +561,7 @@ struct SavingPaceTests {
         let pace = try #require(Valuator(library: library).savingPace(asOf: "2026-09-30"))
         #expect(pace.carriedForward == ["pension"])
         #expect(pace.byAccount["pension"]?.rounded(scale: 2) == 3_000)
-        #expect(pace.months.suffix(5).allSatisfy { $0.newMoney == 1_000 })
+        #expect(pace.months.suffix(5).allSatisfy { $0.saved == 1_000 })
     }
 
     /// 500 into a savings account in each of October, November and December,
@@ -581,8 +581,8 @@ struct SavingPaceTests {
         }
         let pace = try #require(Valuator(library: library).savingPace(asOf: "2026-09-30"))
         // 500 over the 46 days from 15 Aug: 16 in August, 30 in September.
-        #expect(pace.months.suffix(2).map { $0.newMoney.rounded(scale: 2) } == [d("1173.91"), d("1326.09")])
-        #expect(pace.months.dropFirst(3).dropLast(2).allSatisfy { $0.newMoney == 1_000 })
+        #expect(pace.months.suffix(2).map { $0.saved.rounded(scale: 2) } == [d("1173.91"), d("1326.09")])
+        #expect(pace.months.dropFirst(3).dropLast(2).allSatisfy { $0.saved == 1_000 })
     }
 
     /// A pension fund valued on 20 Oct makes that the latest check-in: the
@@ -598,7 +598,7 @@ struct SavingPaceTests {
         #expect(pace.carriedForward == ["current"])
         // 10 days of September's 1,000, 20 carried forward, and 30 of the
         // pension's 365.
-        #expect(pace.months.last?.newMoney.rounded(scale: 2) == d("1493.15"))
+        #expect(pace.months.last?.saved.rounded(scale: 2) == d("1493.15"))
     }
 
     /// A savings account emptied on 31 Mar and not valued since: taking

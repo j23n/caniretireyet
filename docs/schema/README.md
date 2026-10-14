@@ -70,11 +70,11 @@ An account that records trades (`"valuation": "trades"`) holds what its trades l
 
 **Net worth** on D is the sum over the accounts included in net worth (`includeIn.netWorth`, default true, false for a `taxPot`); **plan assets** over those included in plans (`includeIn.plan`, with the same defaults).
 
-**Change since the last check-in.** Each account's change is split into **market**, **new money** and **other**:
+**Change since the last check-in.** Each account's change is split into **market**, **saved** and **other**:
 
 - **A valuation's flow** is stored only where the account asks for it (a pension fund, TFR, property or other account recorded as a balance). For every other balance it's worked out from the balances: the whole change since the value before, less a savings value's `interest`. An account's first value has none: what it held when its records start.
-- **The flow is known** (every valuation in the period has one, or there was no new valuation): new money is the flows, and market is the rest, the FX movement for a balance.
-- **Balance, flow unknown:** when only the account's first value has none, the other values' flows are new money, the first value is other ([PROGRESS.md](../PROGRESS.md#data-this-needs-from-day-one)), and market is the rest. When another value has none (an account that asks for it, left without) or a price or an exchange rate is missing, only the FX movement of the old balance counts as market, and the rest is other.
+- **The flow is known** (every valuation in the period has one, or there was no new valuation): saved is the flows, and market is the rest, the FX movement for a balance.
+- **Balance, flow unknown:** when only the account's first value has none, the other values' flows are saved, the first value is other ([PROGRESS.md](../PROGRESS.md#data-this-needs-from-day-one)), and market is the rest. When another value has none (an account that asks for it, left without) or a price or an exchange rate is missing, only the FX movement of the old balance counts as market, and the rest is other.
 - **Trades:** new money is the account's deposits, withdrawals, transfers at market value, buys and sales paid from outside the account at their amount, and residuals (a statement's cash that the trades don't explain), each at its date; market is the rest, including dividends, interest and fees ([TRADES.md](../TRADES.md#flows)).
 
 An account that closes during the period ends at zero: its value on the closing day leaves as new money.
@@ -98,7 +98,7 @@ The app writes every file the same way, so the same data always gives the same b
 - Version 4 is the oldest this app upgrades. The upgrade to version 5:
   1. renames account kind `vehicle` to `belongings`, and the statement class `paidBack` to `spending` in import profiles' `rules` and `answers`;
   2. writes a return given by both `real` and `medianReal` with `medianReal` alone, in plans and in the plans that baselines keep: the two keys are exclusive now;
-  3. drops a valuation's `flow` on every account that doesn't ask for one (anything but a pension fund, TFR, property or other account recorded as a balance), since that flow is worked out from the account's records. A savings value without `interest` whose flow wasn't its change in balance, as one typed before values recorded interest, gets the difference as its `interest`, so its new money stays the same. An account whose dropped flows weren't its change in balance is named in the upgrade's report;
+  3. drops a valuation's `flow` on every account that doesn't ask for one (anything but a pension fund, TFR, property or other account recorded as a balance), since that flow is worked out from the account's records. A savings value without `interest` whose flow wasn't its change in balance, as one typed before values recorded interest, gets the difference as its `interest`, so what it saved stays the same. An account whose dropped flows weren't its change in balance is named in the upgrade's report;
   4. prices instruments priced from CoinGecko from Yahoo Finance, as the coin's pair in the instrument's currency (`BTC-EUR`), the coin's ticker taken from the instrument's `unit`, its `ticker`, or a CoinGecko symbol written as a ticker (`ETH`). Otherwise the instrument loses its `priceSource`, and the upgrade's report names it.
 - Before migrating, the app copies the library into `backups/<yyyy-MM-dd>-v<old>/`. A migration works on the raw JSON of every file, and nothing is written unless every step succeeds.
 - An app older than the library opens it read-only: it loads, and every save is refused. A library older than the app is migrated before the app saves anything to it.

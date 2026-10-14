@@ -68,7 +68,7 @@ struct AccountValuationRow: Hashable, Sendable, Identifiable {
     var amount: Decimal?
     /// The value on its own date, in the base currency (what could be valued).
     var value: Decimal
-    /// The new money since the value before, in the account's currency
+    /// What was saved since the value before, in the account's currency
     /// (Tracker's `Valuator.flow(of:previous:)`): recorded, or worked out
     /// from the balances; `nil` when it's unknown, as for the first value.
     var flow: Decimal? = nil
@@ -90,7 +90,7 @@ struct AccountStatementRow: Hashable, Sendable, Identifiable {
     var valuation: Valuation
     /// The statement's cash minus the cash the trades give on its date, in
     /// the account's currency: money added (+) or taken out (−) that no
-    /// trade records, which counts as new money. `nil` when the value
+    /// trade records, which counts as saved. `nil` when the value
     /// records no cash, or the same cash as the trades.
     var cashDifference: Decimal?
     /// How many instruments' quantities differ from what the trades give

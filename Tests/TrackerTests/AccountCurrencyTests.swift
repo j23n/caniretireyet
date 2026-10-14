@@ -140,7 +140,7 @@ struct AccountCurrencyTests {
 
     @Test func changeInTheAccountsCurrency() throws {
         let own = try #require(valuator.change(of: "brokerage", from: "2021-11-30", to: "2022-01-01", in: .account))
-        #expect(own.change == ValueChange(start: 123_959, market: 0, newMoney: -123_959, other: 0, end: 0))
+        #expect(own.change == ValueChange(start: 123_959, market: 0, saved: -123_959, other: 0, end: 0))
         #expect(own.flow == -123_959)
         #expect(own.problems.isEmpty)
 
@@ -153,10 +153,10 @@ struct AccountCurrencyTests {
     }
 
     @Test func tradesAccountChangeInItsCurrency() throws {
-        // Cash 1000 − 751, plus 5 × 155: the deposit is new money, the rest the market.
+        // Cash 1000 − 751, plus 5 × 155: the deposit is saved, the rest the market.
         let change = try #require(valuator.change(of: "usd-trades", from: "2024-01-01", to: "2024-01-31",
                                                   in: .account))
-        #expect(change.change == ValueChange(start: 0, market: 24, newMoney: 1000, other: 0, end: 1024))
+        #expect(change.change == ValueChange(start: 0, market: 24, saved: 1000, other: 0, end: 1024))
         #expect(change.problems.isEmpty)
         let base = try #require(valuator.change(of: "usd-trades", from: "2024-01-01", to: "2024-01-31"))
         #expect(!base.problems.isEmpty)

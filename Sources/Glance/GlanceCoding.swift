@@ -59,7 +59,7 @@ extension NetWorthGlance: Codable {
 
 extension NetWorthChange: Codable {
     enum CodingKeys: String, CodingKey {
-        case from, to, start, markets, newMoney, other, end
+        case from, to, start, markets, saved, other, end
     }
 
     public init(from decoder: any Decoder) throws {
@@ -68,7 +68,7 @@ extension NetWorthChange: Codable {
         to = try c.decode(CalendarDate.self, forKey: .to)
         start = try c.decodeDecimal(forKey: .start)
         markets = try c.decodeDecimal(forKey: .markets)
-        newMoney = try c.decodeDecimal(forKey: .newMoney)
+        saved = try c.decodeDecimal(forKey: .saved)
         other = try c.decodeDecimal(forKey: .other)
         end = try c.decodeDecimal(forKey: .end)
     }
@@ -79,7 +79,7 @@ extension NetWorthChange: Codable {
         try c.encode(to, forKey: .to)
         try c.encodeDecimal(start, forKey: .start)
         try c.encodeDecimal(markets, forKey: .markets)
-        try c.encodeDecimal(newMoney, forKey: .newMoney)
+        try c.encodeDecimal(saved, forKey: .saved)
         try c.encodeDecimal(other, forKey: .other)
         try c.encodeDecimal(end, forKey: .end)
     }

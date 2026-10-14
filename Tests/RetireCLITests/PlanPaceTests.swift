@@ -41,7 +41,7 @@ struct PlanPaceTests {
             if month["unusual"] as? Bool == true {
                 total += usual
             } else {
-                total += try amount(month["newMoney"])
+                total += try amount(month["saved"])
             }
         }
         let perYear = try amount(pace["perYear"])

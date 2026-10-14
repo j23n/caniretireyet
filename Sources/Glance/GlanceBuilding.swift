@@ -76,7 +76,7 @@ extension NetWorthChange {
     /// The change between two check-ins, from Tracker's report.
     public init(_ report: ChangeReport) {
         self.init(from: report.from, to: report.to, start: report.total.start, markets: report.total.market,
-                  newMoney: report.total.newMoney, other: report.total.other, end: report.total.end)
+                  saved: report.total.saved, other: report.total.other, end: report.total.end)
     }
 }
 

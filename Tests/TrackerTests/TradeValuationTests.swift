@@ -151,12 +151,12 @@ struct TradeValuationTests {
         #expect(typed.defaultFlow(for: more, previous: valuations[1]) == d("562.5"))
     }
 
-    @Test func theChangeSplitsMarketFromNewMoney() throws {
+    @Test func theChangeSplitsMarketFromSaved() throws {
         let valuator = Valuator(library: TradeLibrary.recordedDeposits())
         let change = try #require(valuator.change(of: "broker", from: "2024-01-31", to: "2024-03-31"))
         #expect(change.flow == 550)
         #expect(change.change.start == 10095)
-        #expect(change.change.newMoney == 550)
+        #expect(change.change.saved == 550)
         // The dividend, the gain on the sale and the price moves are market.
         #expect(change.change.market.rounded(20) == (4400 + TradeLibrary.apple + d("5295.36") - 10095 - 550).rounded(20))
         #expect(change.change.other == 0)

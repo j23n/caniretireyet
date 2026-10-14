@@ -5,9 +5,9 @@ import Tracker
 
 /// Trends' *Where your money came from* (UI.md, "Trends"): plan assets at
 /// each month end or year end, stacked into what you started with, what you
-/// put in and what markets added, with plan assets as an ink line on top.
+/// saved and what markets added, with plan assets as an ink line on top.
 /// When markets have taken away more than they added, the line runs below
-/// the top of what you put in, and the gap is shaded orange. The current
+/// the top of what you saved, and the gap is shaded orange. The current
 /// month or year, not over yet, is drawn lighter ("so far"); a single point
 /// is drawn as dots. While amounts are hidden the value axis reads in
 /// multiples of today's plan assets. Drag across it to read a month or year.
@@ -20,10 +20,10 @@ struct PlanMoneySourcesChart: View {
 
     static let height: CGFloat = 200
 
-    /// Started with: grey; put in: the accent; markets added: aqua; what
+    /// Started with: grey; saved: the accent; markets added: aqua; what
     /// markets took: orange.
     static let startedColor = ChartColor.neutral
-    static let putInColor = ChartColor.accent
+    static let savedColor = ChartColor.accent
     static let marketsColor = ChartColor.series(2)
     static let lossColor = ChartColor.series(1)
 
@@ -35,8 +35,8 @@ struct PlanMoneySourcesChart: View {
         var date: Date
         /// Started with.
         var started: Double
-        /// Started with and put in.
-        var putIn: Double
+        /// Started with and saved.
+        var saved: Double
         /// Plan assets.
         var total: Double
 
@@ -47,13 +47,13 @@ struct PlanMoneySourcesChart: View {
         sources.points.map { point in
             let started = point.startedWith.doubleValue
             return Band(point: point, date: point.date.dateValue, started: started,
-                        putIn: started + point.putIn.doubleValue, total: point.total.doubleValue)
+                        saved: started + point.saved.doubleValue, total: point.total.doubleValue)
         }
     }
 
     var body: some View {
         let bands = self.bands
-        let scale = AmountScale(values: bands.flatMap { [$0.started, $0.putIn, $0.total] })
+        let scale = AmountScale(values: bands.flatMap { [$0.started, $0.saved, $0.total] })
         let domain = Self.domain(of: bands.map(\.date))
         chart(bands, scale: scale, domain: domain)
             .frame(height: Self.height)
@@ -129,29 +129,29 @@ struct PlanMoneySourcesChart: View {
                     .opacity(StackedAreaData.fillOpacity * opacity))
                 .spokenValueHidden(hidesAmounts)
             AreaMark(x: .value("Date", band.date), yStart: .value("From", band.started),
-                     yEnd: .value("Put in", band.putIn), series: .value("Part", "Put in" + stretch))
-                .foregroundStyle(Palette.color(for: Self.putInColor).opacity(StackedAreaData.fillOpacity * opacity))
+                     yEnd: .value("Saved", band.saved), series: .value("Part", "Saved" + stretch))
+                .foregroundStyle(Palette.color(for: Self.savedColor).opacity(StackedAreaData.fillOpacity * opacity))
                 .spokenValueHidden(hidesAmounts)
-            AreaMark(x: .value("Date", band.date), yStart: .value("From", band.putIn),
-                     yEnd: .value("Markets added", max(band.total, band.putIn)),
+            AreaMark(x: .value("Date", band.date), yStart: .value("From", band.saved),
+                     yEnd: .value("Markets added", max(band.total, band.saved)),
                      series: .value("Part", "Markets added" + stretch))
                 .foregroundStyle(Palette.color(for: Self.marketsColor)
                     .opacity(StackedAreaData.fillOpacity * opacity))
                 .spokenValueHidden(hidesAmounts)
-            AreaMark(x: .value("Date", band.date), yStart: .value("From", min(band.total, band.putIn)),
-                     yEnd: .value("Markets took", band.putIn), series: .value("Part", "Markets took" + stretch))
+            AreaMark(x: .value("Date", band.date), yStart: .value("From", min(band.total, band.saved)),
+                     yEnd: .value("Markets took", band.saved), series: .value("Part", "Markets took" + stretch))
                 .foregroundStyle(Palette.color(for: Self.lossColor).opacity(0.45 * opacity))
                 .spokenValueHidden(hidesAmounts)
         }
     }
 
-    /// The line along the top of what you put in, and plan assets in ink.
+    /// The line along the top of what you saved, and plan assets in ink.
     @ChartContentBuilder
     private func lines(_ bands: [Band], stretch: String, opacity: Double) -> some ChartContent {
         ForEach(bands) { band in
-            LineMark(x: .value("Date", band.date), y: .value("Put in", band.putIn),
-                     series: .value("Line", "Put in" + stretch))
-                .foregroundStyle(Palette.stroke(for: Self.putInColor).opacity(opacity))
+            LineMark(x: .value("Date", band.date), y: .value("Saved", band.saved),
+                     series: .value("Line", "Saved" + stretch))
+                .foregroundStyle(Palette.stroke(for: Self.savedColor).opacity(opacity))
                 .lineStyle(StrokeStyle(lineWidth: 1, lineJoin: .round))
                 .spokenValueHidden(hidesAmounts)
             LineMark(x: .value("Date", band.date), y: .value("Plan assets", band.total),
@@ -163,15 +163,15 @@ struct PlanMoneySourcesChart: View {
     }
 
     /// A single point's parts: the top of what you started with and of what
-    /// you put in, and plan assets in ink.
+    /// you saved, and plan assets in ink.
     @ChartContentBuilder
     private func dots(_ band: Band, opacity: Double) -> some ChartContent {
         PointMark(x: .value("Date", band.date), y: .value("Started with", band.started))
             .foregroundStyle(Palette.stroke(for: Self.startedColor).opacity(opacity))
             .symbolSize(30)
             .spokenValueHidden(hidesAmounts)
-        PointMark(x: .value("Date", band.date), y: .value("Put in", band.putIn))
-            .foregroundStyle(Palette.stroke(for: Self.putInColor).opacity(opacity))
+        PointMark(x: .value("Date", band.date), y: .value("Saved", band.saved))
+            .foregroundStyle(Palette.stroke(for: Self.savedColor).opacity(opacity))
             .symbolSize(30)
             .spokenValueHidden(hidesAmounts)
         PointMark(x: .value("Date", band.date), y: .value("Plan assets", band.total))
@@ -197,8 +197,8 @@ struct PlanMoneySourcesChart: View {
             }
             ChartCalloutRow("You started with", swatch: Palette.stroke(for: Self.startedColor),
                             amount: band.point.startedWith.doubleValue)
-            ChartCalloutRow("You put in", swatch: Palette.stroke(for: Self.putInColor),
-                            amount: band.point.putIn.doubleValue)
+            ChartCalloutRow("You saved", swatch: Palette.stroke(for: Self.savedColor),
+                            amount: band.point.saved.doubleValue)
             ChartCalloutRow(band.point.markets >= 0 ? "Markets added" : "Markets took",
                             swatch: Palette.stroke(for: band.point.markets >= 0 ? Self.marketsColor : Self.lossColor),
                             amount: abs(band.point.markets.doubleValue))
@@ -212,12 +212,12 @@ struct PlanMoneySourcesChart: View {
         return ChartSummary(
             title: "Where your money came from",
             summary: "Plan assets at each \(sources.grain == .months ? "month" : "year") end, split into what you "
-                + "started with, what you put in and what markets added.",
+                + "started with, what you saved and what markets added.",
             xTitle: "Date", yTitle: "Plan assets",
             series: [
                 ChartSummary.Series(name: "Plan assets", points: spoken(\.total)),
                 ChartSummary.Series(name: "You started with", points: spoken(\.startedWith)),
-                ChartSummary.Series(name: "You put in", points: spoken(\.putIn)),
+                ChartSummary.Series(name: "You saved", points: spoken(\.saved)),
                 ChartSummary.Series(name: "Markets added", points: spoken(\.markets)),
             ],
             describeValue: ChartStyle.spokenAmount(currency: sources.currency, hidden: hidesAmounts))
@@ -232,7 +232,7 @@ struct PlanMoneySourcesLegend: View {
     var body: some View {
         var items = [
             ChartLegendItem(name: "You started with", swatch: .wash(PlanMoneySourcesChart.startedColor)),
-            ChartLegendItem(name: "You put in", swatch: .wash(PlanMoneySourcesChart.putInColor)),
+            ChartLegendItem(name: "You saved", swatch: .wash(PlanMoneySourcesChart.savedColor)),
             ChartLegendItem(name: "Markets added", swatch: .wash(PlanMoneySourcesChart.marketsColor)),
         ]
         if showsLoss {

@@ -69,7 +69,7 @@ struct PlanYearGradesTable: View {
             .foregroundStyle(Palette.ink)
             .privacySensitiveInFeedback()
             if grade.baseline != nil {
-                cell(grade.saved?.words, amounts: savedAmounts(grade))
+                cell(grade.savedGrade?.words, amounts: savedAmounts(grade))
                 cell(grade.spent?.words, amounts: spentAmounts(grade))
             } else {
                 Text(PlanProgressYear.noPlan)
@@ -106,9 +106,9 @@ struct PlanYearGradesTable: View {
 
     /// "20.486 € · planned 13.463 €", "… by now" for the year still going.
     private func savedAmounts(_ grade: PlanProgressYear) -> AmountSentence {
-        guard let planned = grade.plannedSaving else { return amount(grade.putIn) }
+        guard let planned = grade.plannedSaving else { return amount(grade.saved) }
         let byNow = grade.isSoFar ? " by now" : ""
-        return "\(amount(grade.putIn)) · planned \(amount(planned))\(byNow)"
+        return "\(amount(grade.saved)) · planned \(amount(planned))\(byNow)"
     }
 
     /// "31.600 € a year · planned 36.000 €"; `nil` without money in and out recorded.

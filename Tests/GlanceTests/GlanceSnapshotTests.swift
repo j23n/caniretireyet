@@ -154,7 +154,7 @@ struct ExampleLibraryGlanceTests {
         #expect(GlanceFile.snapshot(from: data) == snapshot)
         // Amounts are exact strings, as in the library's files.
         let text = try #require(String(data: data, encoding: .utf8))
-        #expect(text.contains("\"newMoney\":\"2181.65\""))
+        #expect(text.contains("\"saved\":\"2181.65\""))
         #expect(try GlanceFile.data(for: snapshot) == data)
     }
 
@@ -192,7 +192,7 @@ struct GlanceSnapshotTests {
         let previous = """
             {"allocation":[],"checkIn":{"dueWindow":3,"next":"2026-10-31"},"currency":"EUR",\
             "netWorth":{"date":"2026-10-08","history":[{"date":"2026-09-30","isComplete":true,"value":"100"}],\
-            "isComplete":true,"sinceLastCheckIn":{"end":"103","from":"2026-08-31","markets":"1","newMoney":"2",\
+            "isComplete":true,"sinceLastCheckIn":{"end":"103","from":"2026-08-31","markets":"1","saved":"2",\
             "other":"0","start":"100","to":"2026-09-30"},"total":"103"},\
             "retirement":{"answer":{"canRetireNow":false,"confidence":0.9,"needsMoreThanSearched":false,\
             "readinessIsLowerBound":false,"recordedOn":"2026-09-30"},"history":[],"plan":"base",\

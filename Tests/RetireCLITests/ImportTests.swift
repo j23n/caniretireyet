@@ -237,7 +237,7 @@ struct ImportTests {
     }
 
     /// A month inserted between two check-ins writes only its own month:
-    /// the later month's new money is worked out from it, not stored.
+    /// what the later month saved is worked out from it, not stored.
     @Test func insertingAMonthWritesOnlyItsOwnMonth() async throws {
         let library = try TemporaryFolder.exampleLibrary()
         // February is missing for the current account and the savings account.
@@ -261,7 +261,7 @@ struct ImportTests {
             guard let index = values.firstIndex(where: { $0.date == "2026-03-31" }) else { return nil }
             return valuator.flow(of: values[index], previous: values[index - 1])
         }
-        // March's new money is the change since February: 5530.10 − 4780.20.
+        // What March saved is the change since February: 5530.10 − 4780.20.
         #expect(flow("conto-fineco") == d("749.9"))
         // The savings account's is the change less March's interest: 16,159.50 − 15,626.95 − 32.55.
         #expect(flow("conto-deposito") == 500)
@@ -394,7 +394,7 @@ struct ImportTests {
         let written = try #require(values.last)
         #expect(written == Valuation(account: "conto-fineco", date: "2026-10-31", balance: d("5480.15"),
                                      moneyIn: 3400, moneyOut: d("1380.4"), source: .import))
-        // Its new money is worked out from the value before.
+        // What it saved is worked out from the value before.
         #expect(Valuator(library: loaded).flow(of: written, previous: values.dropLast().last) == d("1269.6"))
         let again = await runCLI(arguments + ["--apply"])
         #expect(again.output.contains("Nothing to import: the library already has everything in the file.\n"))

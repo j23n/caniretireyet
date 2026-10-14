@@ -6,10 +6,10 @@ import Model
 /// saved that the savings rate, Trends' *Where your money came from*, the
 /// saving pace and the Overview's bars add up or spread.
 ///
-/// An account with a record before the stretch saved its new money over it
-/// (``Valuator/change(from:to:in:)``). One whose records start in the
+/// An account with a record before the stretch saved what its change over
+/// it counts as saved (``Valuator/change(from:to:in:)``). One whose records start in the
 /// stretch held its first amount already: its first value without a flow
-/// (`other`) and its new money. That amount counts as saved only as far as
+/// (`other`) and what it saved after it. That amount counts as saved only as far as
 /// money moved from the accounts tracked before it pays for it, shared over
 /// the stretch's first amounts on that side in proportion to them: above
 /// zero (an asset) as far as their money taken out; below zero (a debt,
@@ -73,10 +73,10 @@ extension Valuator {
         var movedIn: Decimal = 0
         for account in report.accounts {
             if let record = firstRecordDate(of: account.account), record > from, record <= through {
-                firsts.append((account.account, account.change.other + account.change.newMoney))
+                firsts.append((account.account, account.change.other + account.change.saved))
             } else {
-                saved[account.account] = account.change.newMoney
-                takenOut += max(-account.change.newMoney, 0)
+                saved[account.account] = account.change.saved
+                takenOut += max(-account.change.saved, 0)
                 movedIn += moved(into: account, after: from, through: through) ?? 0
             }
         }
@@ -96,7 +96,7 @@ extension Valuator {
     /// What moved into a cash or savings account from your other accounts
     /// after `from` through `through` (negative: out of it), in the base
     /// currency: the sum of its valuations' ``moved(_:previous:)``. Where
-    /// one of them doesn't record money in and out, its new money over
+    /// one of them doesn't record money in and out, what it saved over
     /// those days, as nothing tells a transfer apart. `nil` for other kinds.
     private func moved(into change: AccountChange, after from: CalendarDate, through: CalendarDate) -> Decimal? {
         guard let account = accounts[change.account], account.kind.recordsMoneyInOut else { return nil }
@@ -107,7 +107,7 @@ extension Valuator {
             guard valuation.date > from, valuation.date <= through else { continue }
             guard let moved = self.moved(valuation, previous: previous),
                   let inBase = fx.convert(moved, from: account.currency, to: baseCurrency, on: valuation.date)
-            else { return change.change.newMoney }
+            else { return change.change.saved }
             total += inBase
         }
         return total

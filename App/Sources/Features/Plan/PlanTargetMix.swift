@@ -12,7 +12,7 @@ extension PlanTargetMixModel.Row {
 
 extension PlanTargetMixModel {
     /// The line at the top of the card.
-    static let explanation = "Each year the plan rebalances the money you can draw back to this mix: new money "
+    static let explanation = "Each year the plan rebalances the money you can draw back to this mix: what you save "
         + "goes in at it, withdrawals sell every class alike, and rebalancing isn't taxed."
 
     /// Under "Today's mix".

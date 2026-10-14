@@ -175,7 +175,7 @@ struct AgesWithoutTests {
         let library = Sample.library(birth: "1986-11-15", on: "2025-12-31",
                                      [SampleAccount(id: "broker", balance: 150_000)])
         let months = (0..<12).reversed().map { back in
-            SavingPace.Month(end: SavingPace.monthEnd(back, before: "2025-12-31"), newMoney: 1_000, isUnusual: false)
+            SavingPace.Month(end: SavingPace.monthEnd(back, before: "2025-12-31"), saved: 1_000, isUnusual: false)
         }
         let pace = SavingPace(
             asOf: "2025-12-31", currency: .eur, months: months, usualMonth: 1_000, perYear: 12_000, range: nil,

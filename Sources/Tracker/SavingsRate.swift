@@ -3,7 +3,7 @@ import Model
 
 /// How much of the money that came in was saved over a period (PROGRESS.md,
 /// "Savings rate"). What was saved is worked out from balances and trades:
-/// the new money of every account in net worth, as the Overview's *This
+/// what every account in net worth saved, as the Overview's *This
 /// year* splits it, so money moved between your accounts cancels out, a
 /// refund lowers what was spent and a loan's principal repaid is saved. What
 /// came in is the money in that cash and savings accounts record, plus what
@@ -19,7 +19,7 @@ public struct SavingsRate: Hashable, Sendable {
     /// measured from (exclusive) through ``through``.
     public var from: CalendarDate
     public var through: CalendarDate
-    /// New money into pension funds and TFR over those days, each account's
+    /// What was saved into pension funds and TFR over those days, each account's
     /// at least zero: money taken out of them isn't income.
     public var pensionContributions: Decimal
     /// What moved into tax pots outside net worth over those days
@@ -27,10 +27,10 @@ public struct SavingsRate: Hashable, Sendable {
     /// nor spent.
     public var taxSetAside: Decimal
     /// What each account in net worth saved over those days
-    /// (``Valuator/saved(after:through:)``): its new money, less what a new
+    /// (``Valuator/saved(after:through:)``): what it saved, less what a new
     /// account's first value already held.
     public var savedByAccount: [AccountID: Decimal]
-    /// Whether every price and exchange rate the new money needs was known.
+    /// Whether every price and exchange rate needed for what was saved was known.
     public var isPriced: Bool
 
     public init(moneyInOut: MoneyInOutSummary, from: CalendarDate, through: CalendarDate,
@@ -46,7 +46,7 @@ public struct SavingsRate: Hashable, Sendable {
         self.isPriced = isPriced
     }
 
-    /// The account kinds whose new money counts as pay that was saved.
+    /// The account kinds whose saved amount counts as pay that was saved.
     public static let pensionKinds: Set<AccountKind> = [.pensionFund, .tfr]
 
     /// Tax: the tax money out of the values counted recorded
@@ -58,7 +58,7 @@ public struct SavingsRate: Hashable, Sendable {
     /// less the tax.
     public var income: Decimal { moneyInOut.moneyIn + pensionContributions - tax }
 
-    /// What was saved: every account's new money over the days, added up,
+    /// What was saved: what every account saved over the days, added up,
     /// less the one-offs (``MoneyInOutSummary/oneOffs``), which are neither
     /// came in nor spent.
     public var saved: Decimal {
@@ -90,7 +90,7 @@ extension Valuator {
     /// The savings rate over the money in recorded by valuations dated from
     /// `from` through `through` (``moneyInOut(from:through:accounts:)``) of
     /// the accounts in net worth,
-    /// with what was saved (``saved(after:through:)``) and the new money
+    /// with what was saved (``saved(after:through:)``) and what was saved
     /// into pension funds and TFR (``SavingsRate/pensionKinds``) over the
     /// days the pay covers: those of the account the most came into, so an
     /// account checked rarely, or recording money in for longer, doesn't
@@ -157,7 +157,7 @@ extension Valuator {
         Set(accounts.values.filter { $0.kind.recordsMoneyInOut && $0.includedInNetWorth }.map(\.id))
     }
 
-    /// `report`'s split of net worth's change with its new money as the
+    /// `report`'s split of net worth's change with what it saved as the
     /// savings rate counts what was saved (``saved(after:through:)``) over
     /// its days: the part of new accounts' first values counted as what
     /// they already held, and the one-offs (``MoneyInOutSummary/oneOffs``),
@@ -167,8 +167,8 @@ extension Valuator {
         let oneOffs = moneyInOut(from: report.from.adding(days: 1), through: report.to,
                                  accounts: cameInAccounts).oneOffs
         let saved = saved(after: report.from, through: report.to).byAccount.values.reduce(Decimal(0), +) - oneOffs
-        change.other += change.newMoney - saved
-        change.newMoney = saved
+        change.other += change.saved - saved
+        change.saved = saved
         return change
     }
 

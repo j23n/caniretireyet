@@ -9,7 +9,7 @@ import Tracker
 /// history uses. *Your last 12 months*, *Savings rate* and *Money in and
 /// out* are built on money in and out, with the plan as reference lines,
 /// and fold into one card while none is recorded; *Where your money came
-/// from* splits plan assets into what you started with, what you put in
+/// from* splits plan assets into what you started with, what you saved
 /// and what markets added; *Time to retirement* is the plan's answer at
 /// each check-in; *Year by year* grades each calendar year in words. On
 /// iPhone the grain and the span are at the top of the page; on the Mac and

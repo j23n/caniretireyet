@@ -554,7 +554,7 @@ private enum AccountDeletion: Hashable {
 // MARK: - Header
 
 /// The kind, institution, value and its change since the previous value,
-/// split into markets, new money and other.
+/// split into markets, saved and other.
 private struct AccountDetailHeader: View {
     let data: AccountDetailData
     @Environment(\.locale) private var locale
@@ -604,7 +604,7 @@ private struct AccountDetailHeader: View {
                 }
                 .font(.subheadline)
                 let parts = self.parts(of: change)
-                // One part alone repeats the change, unless it says it was new money (or other).
+                // One part alone repeats the change, unless it says it was saved (or other).
                 if parts.count > 1 || parts.first.map({ $0.name != "Markets" }) == true {
                     ViewThatFits(in: .horizontal) {
                         HStack(spacing: Metrics.m) { partViews(parts) }
@@ -641,7 +641,7 @@ private struct AccountDetailHeader: View {
 
     /// The parts that don't show as zero.
     private func parts(of change: ValueChange) -> [Part] {
-        [Part(name: "Markets", amount: change.market), Part(name: "New money", amount: change.newMoney),
+        [Part(name: "Markets", amount: change.market), Part(name: "Saved", amount: change.saved),
          Part(name: "Other", amount: change.other)]
             .filter { DeltaFormat.direction(of: $0.amount, precision: .whole) != 0 }
     }
@@ -775,7 +775,7 @@ private struct AccountValuationValue: View {
     }
 }
 
-/// One valuation in the iPhone list: date and note, value, and new money,
+/// One valuation in the iPhone list: date and note, value, and what was saved,
 /// or for a cash or savings value that records them, money in and out,
 /// interest and what moved between your own accounts.
 private struct AccountValuationListRow: View {
@@ -846,14 +846,14 @@ private struct AccountValuationListRow: View {
         if let flow = row.flow {
             if flow != 0 {
                 HStack(spacing: 4) {
-                    Text("new money")
+                    Text("saved")
                         .foregroundStyle(Palette.secondaryInk)
                     DeltaText(flow, currency: currency, precision: .automatic, showsArrow: false)
                 }
                 .font(.caption)
             }
         } else {
-            Text("new money unknown")
+            Text("saved unknown")
                 .font(.caption)
                 .foregroundStyle(Palette.mutedInk)
         }
@@ -985,7 +985,7 @@ private struct AccountStatementsTable: View {
 #endif
 
 #if os(macOS)
-/// The valuations as a table on the Mac: date, value, new money and note,
+/// The valuations as a table on the Mac: date, value, saved and note,
 /// and for a cash or savings account (`showsMoneyInOut`) money in, money
 /// out, the interest (a savings account's, `showsInterest`) and what moved
 /// between your own accounts. As tall as its lines, so the page scrolls
@@ -1009,7 +1009,7 @@ private struct AccountValuationsTable: View {
         PageTable(rows, open: { _ in }) {
             Text("Date").pageTableColumn(Columns.date)
             Text("Value").pageTableColumn(Columns.value)
-            Text("New money").pageTableColumn(Columns.flow)
+            Text("Saved").pageTableColumn(Columns.flow)
             if showsMoneyInOut {
                 Text("In").pageTableColumn(Columns.amount)
                 Text("Out").pageTableColumn(Columns.amount)

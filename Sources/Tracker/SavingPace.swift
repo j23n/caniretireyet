@@ -1,29 +1,29 @@
 import Foundation
 import Model
 
-/// How much you've been saving: the new money into plan assets over the
+/// How much you've been saving: what was saved into plan assets over the
 /// last 12 months, in today's money, with unusual months counted as a usual
 /// one (PLANNER.md, "Continue as you have").
 ///
-/// Each account's new money at a check-in (``Valuator/change(from:to:in:)``)
+/// What each account saved at a check-in (``Valuator/change(from:to:in:)``)
 /// is spread evenly over the days since its own record before, or since it
 /// was last paid when it's paid regularly, and the days are
 /// grouped into months that end on the same day of the month as the
 /// latest check-in (on the last day of each month when it's a month end).
 /// Money moved between two plan assets cancels out.
 public struct SavingPace: Hashable, Sendable {
-    /// The new money of one month.
+    /// What was saved in one month.
     public struct Month: Hashable, Sendable {
         /// The month's last day.
         public let end: CalendarDate
-        /// The new money in it.
-        public let newMoney: Decimal
+        /// What was saved in it.
+        public let saved: Decimal
         /// Whether it's unusual, and counted as the usual month instead.
         public let isUnusual: Bool
 
-        public init(end: CalendarDate, newMoney: Decimal, isUnusual: Bool) {
+        public init(end: CalendarDate, saved: Decimal, isUnusual: Bool) {
             self.end = end
-            self.newMoney = newMoney
+            self.saved = saved
             self.isUnusual = isUnusual
         }
     }
@@ -38,7 +38,7 @@ public struct SavingPace: Hashable, Sendable {
     public let months: [Month]
     /// The usual month: the median of `months`.
     public let usualMonth: Decimal
-    /// The pace: the months' new money, an unusual month counted as the
+    /// The pace: what the months saved, an unusual month counted as the
     /// usual one, scaled to a year when there are fewer than 12.
     public let perYear: Decimal
     /// The lowest and highest pace of the 12 months ending at each of the
@@ -47,12 +47,12 @@ public struct SavingPace: Hashable, Sendable {
     /// them all. The months before `months` aren't checked for missing
     /// values (`isComplete`).
     public let range: ClosedRange<Decimal>?
-    /// Each account's new money in `months` from outside plan assets,
+    /// What each account saved in `months` from outside plan assets,
     /// scaled to a year, unusual months included; an account with none is
     /// left out. Money moved between plan assets at a check-in comes off
     /// each side pro rata.
     public let byAccount: [AccountID: Decimal]
-    /// Each account's share of `perYear`: its new money in `months`, scaled
+    /// Each account's share of `perYear`: what it saved in `months`, scaled
     /// to a year, with an unusual month counted as the usual one. One that
     /// saved more is split between accounts as that month was; one that took
     /// money out is split as the usual months were (as it was, when they
@@ -69,7 +69,7 @@ public struct SavingPace: Hashable, Sendable {
     /// index with values from the start of the first month, they're all in
     /// money of each check-in.
     public let isInTodaysMoney: Bool
-    /// Whether every value and new money in `months` was known.
+    /// Whether every value, and what was saved, in `months` was known.
     public let isComplete: Bool
 
     /// The number of months a pace covers.
@@ -99,7 +99,7 @@ public struct SavingPace: Hashable, Sendable {
     /// Whether it covers fewer than 12 months and was scaled to a year.
     public var isScaled: Bool { months.count < Self.window }
 
-    /// The pace of `amounts`, the new money of consecutive months: their
+    /// The pace of `amounts`, what consecutive months saved: their
     /// total, each unusual month counted as the usual one (their median),
     /// scaled to a year.
     ///
@@ -212,7 +212,7 @@ extension Valuator {
                 // Spread from the account's own record before, not the
                 // check-in before: an account valued quarterly saved over
                 // the quarter, not in its last month. A trades account's
-                // new money is its deposits and withdrawals since the
+                // what it saved is its deposits and withdrawals since the
                 // check-in before, so it's spread from there, and so is an
                 // account closed since, whose closing date is known.
                 let closed = accounts[account.account]?.closed.map { $0 >= report.from && $0 < report.to } ?? false
@@ -343,7 +343,7 @@ extension Valuator {
         return SavingPace(
             asOf: asOf, currency: baseCurrency,
             months: latest.indices.map { index in
-                SavingPace.Month(end: ends[window - 1 - index], newMoney: latest[index],
+                SavingPace.Month(end: ends[window - 1 - index], saved: latest[index],
                                  isUnusual: pace.unusual[index])
             },
             usualMonth: pace.usual, perYear: pace.perYear, range: range,

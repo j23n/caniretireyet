@@ -68,7 +68,7 @@ extension Valuator {
     /// - A brokerage, crypto or metals account that doesn't record trades
     ///   (its file says `"valuation": "balance"`): the whole change.
     ///
-    /// Without a previous valuation, the whole amount is new money. `nil`
+    /// Without a previous valuation, the whole amount is saved. `nil`
     /// also when the account is unknown or a needed price or rate is missing.
     public func defaultFlow(for valuation: Valuation, previous: Valuation?) -> Decimal? {
         guard let account = accounts[valuation.account] else { return nil }

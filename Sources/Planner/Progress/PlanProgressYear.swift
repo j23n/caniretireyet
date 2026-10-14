@@ -11,7 +11,7 @@ import Tracker
 /// - how the answer moved;
 /// - the baseline the year is measured against, where its end stands
 ///   against it and why;
-/// - what you put in and spent against what that baseline planned
+/// - what you saved and spent against what that baseline planned
 ///   (Trends' *Year by year*), and what markets did as context.
 public struct PlanProgressYear: Hashable, Sendable, Identifiable {
     public var year: Int
@@ -27,7 +27,7 @@ public struct PlanProgressYear: Hashable, Sendable, Identifiable {
     /// Whether it's the year of the latest check-in, still going.
     public var isLatest: Bool
     /// Plan assets from `from` to `to`, in the base currency: the start,
-    /// what you saved (new money), what markets did, the rest, the end.
+    /// what you saved, what markets did, the rest, the end.
     public var change: ValueChange
     /// Whether every price and rate was known (an account without a value
     /// yet isn't missing one: ``NetWorth/isPriced``).
@@ -46,10 +46,10 @@ public struct PlanProgressYear: Hashable, Sendable, Identifiable {
     /// plan, markets against what was expected, inflation and the rest,
     /// from the baseline's start, or the year's when it started before.
     public var explanation: GapExplanation?
-    /// What you put in during the year, as *Where your money came from*
+    /// What you saved during the year, as *Where your money came from*
     /// counts it; from the baseline's start when it starts later in the
     /// year, the days its planned saving covers.
-    public var putIn: Decimal
+    public var saved: Decimal
     /// What the baseline planned you'd save in the year, by now for the
     /// year still going, in money of the year's end where the inflation
     /// index allows (else as recorded); `nil` without a baseline or its year.
@@ -83,10 +83,10 @@ public struct PlanProgressYear: Hashable, Sendable, Identifiable {
         from == to ? nil : MarketYear(markets: change.market, start: change.start)
     }
 
-    /// You saved: put in against the baseline's planned saving; `nil`
+    /// You saved, graded against the baseline's planned saving; `nil`
     /// without a baseline, or when it planned no saving.
-    public var saved: PlanComparison? {
-        plannedSaving.flatMap { PlanComparison(putIn, planned: $0) }
+    public var savedGrade: PlanComparison? {
+        plannedSaving.flatMap { PlanComparison(saved, planned: $0) }
     }
 
     /// You spent: what was spent a year against the baseline plan's
@@ -111,7 +111,7 @@ public struct PlanProgressYear: Hashable, Sendable, Identifiable {
         let start = min(valuator.firstValuationDate(in: .planAssets) ?? latest, latest)
         let baselines = PlanBaselineComparison.baselines(for: plan, in: library)
         let byYear = Dictionary(grouping: dates, by: \.year)
-        // What each year put in, as *Where your money came from* counts it.
+        // What each year saved, as *Where your money came from* counts it.
         let sources = valuator.moneySources(.years, through: latest)
         let sourceYears = Dictionary(sources.years.map { ($0.year, $0) }, uniquingKeysWith: { _, last in last })
         let birthDate = library.settings.person?.birthDate
@@ -135,13 +135,13 @@ public struct PlanProgressYear: Hashable, Sendable, Identifiable {
                     Self.explanation(of: entry.baseline, comparison: $0, from: from, to: last, valuator: valuator)
                 }
             }
-            // Put in over the days the baseline planned saving for: from its
+            // Saved over the days the baseline planned saving for: from its
             // start when it starts later in the year.
             let baseline = entry?.baseline
             let saving = min(max(from, baseline?.start.date ?? from), last)
-            let putIn = saving == from
-                ? sourceYears[year]?.putIn ?? 0
-                : Self.putIn(after: saving, through: last, valuator: valuator)
+            let saved = saving == from
+                ? sourceYears[year]?.saved ?? 0
+                : Self.saved(after: saving, through: last, valuator: valuator)
             /// An amount of the baseline's money of its start in money of the year's end.
             func atYearEnd(_ amount: Decimal, of baseline: Baseline) -> Decimal {
                 index?.convert(amount, from: baseline.start.date, to: last) ?? amount
@@ -152,7 +152,7 @@ public struct PlanProgressYear: Hashable, Sendable, Identifiable {
                 change: report.total, isComplete: report.isPriced,
                 answerFrom: before ?? inYear.first, answerTo: inYear.last,
                 baseline: entry, position: comparison?.position, explanation: explanation,
-                putIn: putIn,
+                saved: saved,
                 plannedSaving: baseline.flatMap { baseline in
                     Self.plannedSaving(in: baseline, from: saving, to: last).map { atYearEnd($0, of: baseline) }
                 },
@@ -212,8 +212,8 @@ extension PlanProgressYear {
             actual: (start: Decimal(wholeNumber: first.value), end: position.actual),
             expected: (start: expectedFirst, end: position.median),
             plannedSaving: planned,
-            change: ValueChange(start: startAsItWas, market: change.market, newMoney: change.newMoney,
-                                other: endAsItWas - startAsItWas - change.newMoney - change.market,
+            change: ValueChange(start: startAsItWas, market: change.market, saved: change.saved,
+                                other: endAsItWas - startAsItWas - change.saved - change.market,
                                 end: endAsItWas),
             asItWas: comparison.isInflationAdjusted ? (start: startAsItWas, end: endAsItWas) : nil)
     }
@@ -275,11 +275,11 @@ extension PlanProgressYear {
                                       asOf: latest.checkIn, from: latest.checkIn).position
     }
 
-    /// What you put in after `start` through `end`, as *Where your money
+    /// What you saved after `start` through `end`, as *Where your money
     /// came from* counts it.
-    public static func putIn(after start: CalendarDate, through end: CalendarDate, valuator: Valuator) -> Decimal {
+    public static func saved(after start: CalendarDate, through end: CalendarDate, valuator: Valuator) -> Decimal {
         func total(through day: CalendarDate) -> Decimal {
-            valuator.moneySources(.years, through: day).points.last?.putIn ?? 0
+            valuator.moneySources(.years, through: day).points.last?.saved ?? 0
         }
         return total(through: end) - total(through: start)
     }

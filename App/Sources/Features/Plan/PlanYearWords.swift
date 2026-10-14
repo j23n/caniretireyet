@@ -177,7 +177,7 @@ struct PlanYearCardFooter: View {
         let hides = redactionReasons.hidesAmounts
         let year = card.year
         let saved = AmountSentence.amount(
-            AmountFormat.amount(year.change.newMoney, currency: card.currency, locale: locale))
+            AmountFormat.amount(year.change.saved, currency: card.currency, locale: locale))
         let markets = AmountSentence.amount(
             AmountFormat.signedAmount(year.change.market, currency: card.currency, locale: locale))
         let age = AmountSentence(year.answerTo?.earliestAge.map { "\($0)" } ?? "–")
@@ -221,7 +221,7 @@ struct PlanYearFigures: View {
     var body: some View {
         let explanation = year.explanation?.inWholeUnits
         let byNow = year.isLatest ? " by now" : ""
-        let saved = year.change.newMoney
+        let saved = year.change.saved
         let market = year.change.market
         let shape = RoundedRectangle(cornerRadius: 10, style: .continuous)
         VStack(alignment: .leading, spacing: Metrics.m) {
@@ -323,7 +323,7 @@ struct PlanYearSavingBar: View {
     }
 
     var body: some View {
-        let saved = max(0, year.change.newMoney.doubleValue)
+        let saved = max(0, year.change.saved.doubleValue)
         let markets = max(0, year.change.market.doubleValue)
         let planned = plannedSaving?.doubleValue
         let full = max(saved + markets, planned ?? 0, 1)
@@ -366,7 +366,7 @@ struct PlanYearSavingBar: View {
 /// UI.md, "Progress"), in the same four rows every year, so stepping
 /// through the years moves nothing under it: the gap going into the year,
 /// saving against the plan, markets against what was expected, and the
-/// rest (inflation, values without new money, exchange rates). Each with a
+/// rest (inflation, values without what was saved, exchange rates). Each with a
 /// bar and its amount, in whole units, adding up to the total; then what
 /// the baseline expected.
 struct PlanYearWhy: View {
