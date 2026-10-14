@@ -199,7 +199,8 @@ struct LoaderTests {
             """#)
         let result = try load(folder)
         #expect(result.library.months["2026-10"]?.valuations.map(\.balance) == [d("2")])
-        #expect(result.report.issues(for: "history/2026/2026-10.json").first?.message.contains("two valuations") == true)
+        #expect(result.report.issues(for: "history/2026/2026-10.json").first?.message
+            == #"There are two records in "valuations" for 2026-10-31 tfr; the later one is used."#)
     }
 
     @Test func recordsAreSortedWhenLoaded() throws {

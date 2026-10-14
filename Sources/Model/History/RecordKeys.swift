@@ -8,7 +8,7 @@ public protocol KeyedRecord: Sendable {
 }
 
 /// A valuation's key: account + date.
-public struct ValuationKey: Hashable, Comparable, Sendable {
+public struct ValuationKey: Hashable, Comparable, Sendable, CustomStringConvertible {
     public var date: CalendarDate
     public var account: AccountID
 
@@ -20,10 +20,13 @@ public struct ValuationKey: Hashable, Comparable, Sendable {
     public static func < (lhs: Self, rhs: Self) -> Bool {
         (lhs.date, lhs.account) < (rhs.date, rhs.account)
     }
+
+    /// `2026-09-30 conto-fineco`
+    public var description: String { "\(date) \(account)" }
 }
 
 /// A price's key: instrument + date.
-public struct PriceKey: Hashable, Comparable, Sendable {
+public struct PriceKey: Hashable, Comparable, Sendable, CustomStringConvertible {
     public var date: CalendarDate
     public var instrument: InstrumentID
 
@@ -35,10 +38,13 @@ public struct PriceKey: Hashable, Comparable, Sendable {
     public static func < (lhs: Self, rhs: Self) -> Bool {
         (lhs.date, lhs.instrument) < (rhs.date, rhs.instrument)
     }
+
+    /// `2026-09-30 vwce`
+    public var description: String { "\(date) \(instrument)" }
 }
 
 /// An FX rate's key: base + quote + date.
-public struct FXKey: Hashable, Comparable, Sendable {
+public struct FXKey: Hashable, Comparable, Sendable, CustomStringConvertible {
     public var date: CalendarDate
     public var base: CurrencyCode
     public var quote: CurrencyCode
@@ -52,10 +58,13 @@ public struct FXKey: Hashable, Comparable, Sendable {
     public static func < (lhs: Self, rhs: Self) -> Bool {
         (lhs.date, lhs.base, lhs.quote) < (rhs.date, rhs.base, rhs.quote)
     }
+
+    /// `2026-09-30 EUR USD`
+    public var description: String { "\(date) \(base) \(quote)" }
 }
 
 /// An index value's key: index + date.
-public struct IndexKey: Hashable, Comparable, Sendable {
+public struct IndexKey: Hashable, Comparable, Sendable, CustomStringConvertible {
     public var date: CalendarDate
     public var index: IndexID
 
@@ -67,6 +76,9 @@ public struct IndexKey: Hashable, Comparable, Sendable {
     public static func < (lhs: Self, rhs: Self) -> Bool {
         (lhs.date, lhs.index) < (rhs.date, rhs.index)
     }
+
+    /// `2026-09-30 hicp-it`
+    public var description: String { "\(date) \(index)" }
 }
 
 /// A trade's key: account + date + trade ID.

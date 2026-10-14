@@ -1,4 +1,5 @@
 import Foundation
+import Model
 import Storage
 
 /// What iCloud Drive says about one file of the library (an

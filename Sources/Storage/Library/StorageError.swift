@@ -1,3 +1,5 @@
+import Model
+
 /// Why Storage refused or failed to do something with the library folder.
 /// Problems in individual files found while loading are ``LoadIssue``s instead.
 public enum StorageError: Error, Hashable, Sendable, CustomStringConvertible {

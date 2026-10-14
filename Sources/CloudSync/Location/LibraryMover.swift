@@ -1,4 +1,5 @@
 import Foundation
+import Model
 import Storage
 
 /// Why a library couldn't be moved.

@@ -84,7 +84,7 @@ public struct LibraryFolder: Sendable {
         let settings = url(for: LibraryFile.settings)
         guard files.fileExists(at: settings) else { return }
         guard let data = try? files.readData(at: settings),
-              !LibraryLoader.decode(.settings, from: data, in: self).hasErrors
+              !LibraryLoader.decode(.settings, from: data).hasErrors
         else {
             throw StorageError.unreadableSettings
         }

@@ -227,9 +227,15 @@ extension KeyPreservation {
         self.init(knownKeys: T.knownKeys, records: records)
     }
 
-    static let month = KeyPreservation(MonthFile.self, records: RecordList.monthLists)
+    /// The rule for a history or headline file: its record lists
+    /// (``RecordFile/recordLists``), keyed as the model keys them.
+    init<File: RecordFile>(recordsOf type: File.Type) {
+        self.init(type, records: Dictionary(uniqueKeysWithValues: File.recordLists.map { ($0.name, $0.preservation) }))
+    }
 
-    static let headlines = KeyPreservation(HeadlineFile.self, records: RecordList.headlineLists)
+    static let month = KeyPreservation(recordsOf: MonthFile.self)
+
+    static let headlines = KeyPreservation(recordsOf: HeadlineFile.self)
 
     /// The rule for a history or headline file.
     static func rule(for file: LibraryFile) -> KeyPreservation {
@@ -237,28 +243,15 @@ extension KeyPreservation {
     }
 }
 
-extension KeyPreservation.RecordList {
-    /// The record lists of a month file, keyed as the model keys them.
-    static let monthLists: [String: Self] = [
-        "valuations": Self(
-            keyFields: ["date", "account"],
-            rule: KeyPreservation(Valuation.self, records: [
-                "positions": Self(keyFields: ["instrument"], rule: .init(Position.self), isReadable: nil),
-            ]),
-            isReadable: { LenientDecoding.decodes(Valuation.self, from: $0) }),
-        "prices": Self(keyFields: ["date", "instrument"], rule: .init(PriceRecord.self),
-                       isReadable: { LenientDecoding.decodes(PriceRecord.self, from: $0) }),
-        "fx": Self(keyFields: ["date", "base", "quote"], rule: .init(FXRecord.self),
-                   isReadable: { LenientDecoding.decodes(FXRecord.self, from: $0) }),
-        "indices": Self(keyFields: ["date", "index"], rule: .init(IndexRecord.self),
-                        isReadable: { LenientDecoding.decodes(IndexRecord.self, from: $0) }),
-        "trades": Self(keyFields: ["date", "account", "id"], rule: .init(Trade.self),
-                       isReadable: { LenientDecoding.decodes(Trade.self, from: $0) }),
-    ]
-
-    /// The record list of a headline file: one headline per check-in date.
-    static let headlineLists: [String: Self] = [
-        "headlines": Self(keyFields: ["date"], rule: .init(Headline.self),
-                          isReadable: { LenientDecoding.decodes(Headline.self, from: $0) }),
-    ]
+extension RecordListing {
+    /// How a rewrite keeps what the model doesn't know in the list's
+    /// records, and the old records it can't read. A valuation's positions
+    /// are matched by instrument.
+    var preservation: KeyPreservation.RecordList {
+        let positions = KeyPreservation.RecordList(keyFields: ["instrument"], rule: .init(Position.self), isReadable: nil)
+        return KeyPreservation.RecordList(
+            keyFields: keyFields,
+            rule: KeyPreservation(Record.self, records: Record.self == Valuation.self ? ["positions": positions] : [:]),
+            isReadable: { LenientDecoding.decodes(Record.self, from: $0) })
+    }
 }

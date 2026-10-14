@@ -17,14 +17,14 @@ extension LibraryFolder {
     /// the file. Throws only if the folder doesn't exist or can't be listed.
     public func load() throws -> LoadResult {
         guard files.fileExists(at: root) else { throw StorageError.folderNotFound(path: root.path) }
-        var loader = LibraryLoader(folder: self)
+        var loader = LibraryLoader()
         var library = Library()
-        loader.load(.settings, into: &library)
+        loader.load(.settings, from: self, into: &library)
         for folder in LibraryFile.dataFolders {
             for relativePath in try files.listFiles(in: url(for: folder)) {
                 let path = "\(folder)/\(relativePath)"
                 if let file = LibraryFile(path: path) {
-                    loader.load(file, into: &library)
+                    loader.load(file, from: self, into: &library)
                 } else if path.hasSuffix(".json") {
                     loader.warn(path, LibraryLoader.ignoredMessage(for: folder))
                 }
@@ -48,8 +48,8 @@ extension LibraryFolder {
     /// `library.json` that broke, or was fixed, makes the library read-only
     /// or writable again as loading it would (``LoadReport/readOnlyReason``).
     public func reload(_ file: LibraryFile, into library: inout Library) -> LoadReport {
-        var loader = LibraryLoader(folder: self)
-        loader.load(file, into: &library)
+        var loader = LibraryLoader()
+        loader.load(file, from: self, into: &library)
         return LoadReport(issues: loader.issues, schemaVersion: loader.schemaVersion, filesRead: loader.filesRead,
                           settingsUnreadable: loader.settingsUnreadable)
     }
@@ -57,7 +57,6 @@ extension LibraryFolder {
 
 /// Reads library files into a `Library`, collecting issues.
 struct LibraryLoader {
-    let folder: LibraryFolder
     /// Today's date, for records dated implausibly far ahead.
     let today = CalendarDate.today()
     var issues: [LoadIssue] = []
@@ -71,8 +70,9 @@ struct LibraryLoader {
 
     // MARK: Files
 
-    /// Loads one file into `library`, replacing (or removing) what it held.
-    mutating func load(_ file: LibraryFile, into library: inout Library) {
+    /// Loads one file of `folder` into `library`, replacing (or removing)
+    /// what it held.
+    mutating func load(_ file: LibraryFile, from folder: LibraryFolder, into library: inout Library) {
         let path = file.path
         guard folder.files.fileExists(at: folder.url(for: path)) else {
             library.replaceEntities(of: [file], from: Library())
@@ -108,9 +108,8 @@ struct LibraryLoader {
     /// What the loader makes of `data` as the contents of `file`: a library
     /// holding only that file's entity (none if it can't be read), and
     /// whether any of it couldn't be read (an error issue).
-    static func decode(_ file: LibraryFile, from data: Data, in folder: LibraryFolder)
-        -> (library: Library, hasErrors: Bool) {
-        var loader = LibraryLoader(folder: folder)
+    static func decode(_ file: LibraryFile, from data: Data) -> (library: Library, hasErrors: Bool) {
+        var loader = LibraryLoader()
         var library = Library()
         loader.load(file, data: data, into: &library)
         return (library, loader.issues.contains { $0.severity == .error })
@@ -121,39 +120,23 @@ struct LibraryLoader {
         switch file {
         case .settings:
             loadSettings(json, data: data, into: &library)
-        case .account(let id):
-            let json = withFileNameID(json, id.rawValue, path: path)
-            if var account = decode(Account.self, json, path: path) {
-                account.id = id
-                library.accounts[id] = account
-            }
-        case .instrument(let id):
-            let json = withFileNameID(json, id.rawValue, path: path)
-            if var instrument = decode(Instrument.self, json, path: path) {
-                instrument.id = id
-                library.instruments[id] = instrument
-            }
         case .month(let month):
             library.months[month] = loadMonth(month, json, data: data, path: path)
-        case .plan(let id):
-            let json = withFileNameID(json, id.rawValue, path: path)
-            if var plan = decode(PlanDocument.self, json, path: path) {
-                plan.id = id
-                library.plans[id] = plan
-            }
-        case .importProfile(let id):
-            let json = withFileNameID(json, id.rawValue, path: path)
-            if var profile = decode(ImportProfile.self, json, path: path) {
-                profile.id = id
-                library.importProfiles[id] = profile
-            }
-        case .baseline(let plan, let id):
-            if let baseline = decode(Baseline.self, json, data: data, path: path) {
-                library.projections[plan, default: PlanProjections()].baselines[id] = baseline
-            }
         case .headlines(let plan, let year):
             library.projections[plan, default: PlanProjections()].headlines[year] =
                 loadHeadlines(year: year, json, data: data, path: path)
+        default:
+            let json = file.nameID.map { withFileNameID(json, $0, path: path) } ?? json
+            // The file name's ID is in the JSON now, so it's what decodes.
+            decodeEntity(json, data: file.nameID == nil ? data : nil, path: path, with: file.access, into: &library)
+        }
+    }
+
+    /// Decodes what `access` reads and replaces, and sets it in `library`.
+    private mutating func decodeEntity<Access: LibraryFileAccess>(_ json: JSONValue, data: Data?, path: String,
+                                                                  with access: Access, into library: inout Library) {
+        if let value = decode(Access.Value.self, json, data: data, path: path) {
+            access.setValue(value, in: &library)
         }
     }
 
@@ -202,23 +185,7 @@ struct LibraryLoader {
             json = json.withMember("month", to: .string(month.description))
             data = nil
         }
-        var file: MonthFile
-        if let decoded = try? LenientDecoding.decode(MonthFile.self, from: json, data: data) {
-            file = decoded
-        } else {
-            file = MonthFile(month: month)
-            file.valuations = decodeRecords(Valuation.self, list: "valuations", in: json, path: path)
-            file.prices = decodeRecords(PriceRecord.self, list: "prices", in: json, path: path)
-            file.fx = decodeRecords(FXRecord.self, list: "fx", in: json, path: path)
-            file.indices = decodeRecords(IndexRecord.self, list: "indices", in: json, path: path)
-            file.trades = decodeRecords(Trade.self, list: "trades", in: json, path: path)
-        }
-        file.valuations = unique(file.valuations, path: path) { "valuations for \($0.account) on \($0.date)" }
-        file.prices = unique(file.prices, path: path) { "prices for \($0.instrument) on \($0.date)" }
-        file.fx = unique(file.fx, path: path) { "\($0.base)/\($0.quote) rates on \($0.date)" }
-        file.indices = unique(file.indices, path: path) { "\($0.index) values on \($0.date)" }
-        file.trades = unique(file.trades, path: path) { "trades \($0.id) of \($0.account) on \($0.date)" }
-        file.sortRecords()
+        let file = loadRecords(MonthFile(month: month), json, data: data, path: path)
         let misplaced = Set(file.misplacedDates).sorted()
         if !misplaced.isEmpty {
             let dates = misplaced.map(\.description).joined(separator: ", ")
@@ -234,8 +201,7 @@ struct LibraryLoader {
     /// which would stretch every chart to that year. They're kept.
     private mutating func checkDates(of file: MonthFile, path: String) {
         let latest = today.adding(years: 1)
-        let dates = Set(file.valuations.map(\.date) + file.trades.map(\.date) + file.prices.map(\.date)
-            + file.fx.map(\.date) + file.indices.map(\.date))
+        let dates = Set(file.recordDates)
         let early = dates.filter { $0 < Self.earliestPlausibleDate }.sorted().map(\.description)
         let late = dates.filter { $0 > latest }.sorted().map(\.description)
         if !early.isEmpty {
@@ -251,14 +217,8 @@ struct LibraryLoader {
 
     /// A headline file, record by record if the file as a whole doesn't decode.
     private mutating func loadHeadlines(year: Int, _ json: JSONValue, data: Data, path: String) -> HeadlineFile {
-        var file: HeadlineFile
-        if let decoded = try? LenientDecoding.decode(HeadlineFile.self, from: json, data: data) {
-            file = decoded
-        } else {
-            file = HeadlineFile(headlines: decodeRecords(Headline.self, list: "headlines", in: json, path: path))
-        }
-        file.headlines = unique(file.headlines, path: path) { "headlines on \($0.date)" }.sortedByKey()
-        let outside = file.headlines.map(\.date).filter { $0.year != year }
+        let file = loadRecords(HeadlineFile(), json, data: data, path: path)
+        let outside = file.recordDates.filter { $0.year != year }
         if !outside.isEmpty {
             warn(path, "Headlines dated \(outside.map(\.description).joined(separator: ", ")) belong in another "
                 + "year's file. They're kept here.")
@@ -266,9 +226,24 @@ struct LibraryLoader {
         return file
     }
 
+    /// A history or headline file: decoded as a whole, or else list by list
+    /// and record by record (``RecordFile/recordLists``), reporting each
+    /// record that can't be read; then with duplicates removed, and sorted.
+    private mutating func loadRecords<File: RecordFile>(_ empty: File, _ json: JSONValue, data: Data?,
+                                                        path: String) -> File {
+        let whole = try? LenientDecoding.decode(File.self, from: json, data: data)
+        var file = whole ?? empty
+        for list in File.recordLists {
+            if whole == nil { list.decodeEach(in: json, into: &file, path: path, loader: &self) }
+            list.removeDuplicates(in: &file, path: path, loader: &self)
+        }
+        file.sortRecords()
+        return file
+    }
+
     /// The records of one list that decode; the others are reported.
-    private mutating func decodeRecords<R: Decodable>(_ type: R.Type, list: String, in json: JSONValue,
-                                                      path: String) -> [R] {
+    fileprivate mutating func decodeRecords<R: Decodable>(_ type: R.Type, list: String, in json: JSONValue,
+                                                          path: String) -> [R] {
         guard let value = json[list], !value.isNull else { return [] }
         guard case .array(let elements) = value else {
             error(path, "\(list): expected a list, found \(value.objectValue != nil ? "an object" : "a single value").")
@@ -286,21 +261,21 @@ struct LibraryLoader {
     }
 
     /// The records with duplicates removed: the last one with a key wins.
-    private mutating func unique<R: KeyedRecord>(_ records: [R], path: String, describe: (R) -> String) -> [R] {
+    fileprivate mutating func unique<R: FileRecord>(_ records: [R], list: String, path: String) -> [R] {
         var seen: [R.Key: Int] = [:]
         var result: [R] = []
-        var duplicates: [String] = []
+        var duplicates: Set<R.Key> = []
         for record in records {
             if let index = seen[record.key] {
                 result[index] = record
-                duplicates.append(describe(record))
+                duplicates.insert(record.key)
             } else {
                 seen[record.key] = result.count
                 result.append(record)
             }
         }
-        for duplicate in Set(duplicates).sorted() {
-            warn(path, "There are two \(duplicate); the later one is used.")
+        for key in duplicates.sorted() {
+            warn(path, "There are two records in \"\(list)\" for \(key); the later one is used.")
         }
         return result
     }
@@ -508,6 +483,21 @@ struct LibraryLoader {
         default:
             "Ignored: file names must be an ID made of lowercase letters, digits and hyphens, e.g. conto-fineco.json."
         }
+    }
+}
+
+extension RecordListing {
+    /// Decodes the list's records in `json` one by one into `file`; `loader`
+    /// reports those that can't be read.
+    fileprivate func decodeEach(in json: JSONValue, into file: inout File, path: String,
+                                loader: inout LibraryLoader) {
+        file[keyPath: records] = loader.decodeRecords(Record.self, list: name, in: json, path: path)
+    }
+
+    /// Removes records with the same key from the list in `file`: the last
+    /// one wins, and `loader` reports the others.
+    fileprivate func removeDuplicates(in file: inout File, path: String, loader: inout LibraryLoader) {
+        file[keyPath: records] = loader.unique(file[keyPath: records], list: name, path: path)
     }
 }
 

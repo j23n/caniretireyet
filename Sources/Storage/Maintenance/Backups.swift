@@ -368,7 +368,7 @@ extension LibraryFolder {
         -> (output: FilePlan.Output, conflicts: [String])? {
         func load(_ data: Data?) -> Library? {
             guard let data else { return Library() }
-            let (library, hasErrors) = LibraryLoader.decode(file, from: data, in: self)
+            let (library, hasErrors) = LibraryLoader.decode(file, from: data)
             return hasErrors && (try? CanonicalJSON.parse(data))?.objectValue == nil ? nil : library
         }
         guard let current, let raw = try? CanonicalJSON.parse(current), raw.objectValue != nil,
