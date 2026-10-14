@@ -138,6 +138,18 @@ struct NotePlannerMonthlyTests {
         #expect(settings.date(in: "2027-02") == "2027-02-28")
     }
 
+    @Test func daysThatWouldSkipAMonthMoveTo25() {
+        #expect(!NoteSettings.days.contains(22) && !NoteSettings.days.contains(24))
+        var settings = NoteSettings.standard
+        settings.day = 24
+        #expect(settings.effectiveDay == 25)
+        #expect(settings.date(in: "2026-10") == "2026-10-25")
+        // On 25 October a check-in is October's, as on 25 November it's November's.
+        #expect(NotePlanner.checkInMonth(on: "2026-10-25") == "2026-10")
+        #expect(NotePlanner.checkInMonth(on: "2026-11-25") == "2026-11")
+        #expect(NotePlanner.checkInMonth(on: "2026-10-21") == "2026-09")
+    }
+
     @Test func offMeansNone() {
         #expect(NotePlanner.notes(for: snapshot(checkIns: year, answer: answer(age: 54, readiness: 0.58)),
                                   settings: .off, now: now).isEmpty)

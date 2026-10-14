@@ -63,7 +63,7 @@ public enum NotePlanner {
     /// it (`CheckInDates`, ``CheckInGlance``): its own in the month's last
     /// days, else the month before. A note on the 5th asks for the month
     /// that just ended.
-    static func checkInMonth(on date: CalendarDate) -> YearMonth {
+    public static func checkInMonth(on date: CalendarDate) -> YearMonth {
         date.days(to: date.endOfMonth) < CheckInGlance.earlyCheckInDays ? date.yearMonth : date.yearMonth.previous
     }
 

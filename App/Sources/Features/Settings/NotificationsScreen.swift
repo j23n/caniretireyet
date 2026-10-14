@@ -17,9 +17,9 @@ struct NotificationsScreen: View {
             Section {
                 Toggle("Monthly note", isOn: binding(\.monthly))
                 if preferences.notes.monthly {
-                    Picker("Day", selection: binding(\.day)) {
+                    Picker("Day", selection: binding(\.effectiveDay)) {
                         Text("Last day of the month").tag(NoteSettings.lastDay)
-                        ForEach(1...28, id: \.self) { day in
+                        ForEach(NoteSettings.days, id: \.self) { day in
                             Text("Day \(day)").tag(day)
                         }
                     }
