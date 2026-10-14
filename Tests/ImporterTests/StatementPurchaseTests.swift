@@ -279,6 +279,46 @@ struct StatementPurchaseTests {
         #expect(preview.issues.contains { $0.kind == .statementAssetLeftOut(row: row, account: nil) })
     }
 
+    /// A sale on a line whose money in and out the file doesn't cover is
+    /// still recorded, at the value the line is in: the account sold is
+    /// worth 0 there, with the amount as its flow out.
+    @Test func aSaleInAValueTheFileDoesntCoverIsRecorded() throws {
+        var library = Self.library()
+        library.months = [:]
+        library.upsert(Valuation(account: "moto", date: "2025-12-31", balance: 13000))
+        var session = try Self.session()
+        session.statementOpeningBalance = 20000
+        let row = try #require(session.preview(against: library, today: Self.today).statementLines.first {
+            $0.text.hasPrefix("Stipendio") && $0.date == "2026-01-27"
+        }).row
+        session.setStatementAsset(.sale("moto"), forRow: row)
+        let preview = session.preview(against: library, today: Self.today)
+        let line = try #require(preview.statementLines.first { $0.row == row })
+        #expect(line.period == nil)
+        #expect(line.valueDate == "2026-01-31")
+        #expect(line.asset == .sale("moto"))
+        #expect(line.statementClass == .transfer)
+        let value = try Self.value(preview, "moto", "2026-01-31")
+        #expect(value.balance == 0)
+        #expect(value.flow == -3000)
+        #expect(preview.accountChanges == [AccountChangeProposal(account: "moto", change: .close(on: "2026-02-01"),
+                                                                 statementRow: row)])
+        #expect(!preview.issues.contains { if case .statementAssetLeftOut = $0.kind { true } else { false } })
+    }
+
+    /// A sale after the file's last value is in no value: it's left out.
+    @Test func aSaleAfterTheLastValueIsLeftOut() throws {
+        var session = try ImportSession(data: Data((Self.csv + "\n03/04/2026;12.000,00;Bonifico da Anna Bianchi").utf8))
+        session.proposeMapping(layout: .statement)
+        session.profile.constants.account = "conto"
+        let row = try Self.line(session.preview(against: Self.library(), today: Self.today), "Bonifico da Anna").row
+        session.setStatementAsset(.sale("moto"), forRow: row)
+        let preview = session.preview(against: Self.library(), today: Self.today)
+        #expect(try Self.line(preview, "Bonifico da Anna").valueDate == nil)
+        #expect(preview.issues.contains { $0.kind == .statementAssetLeftOut(row: row, account: nil) })
+        #expect(preview.accountChanges.isEmpty)
+    }
+
     @Test func anAnswerThatDoesntFitIsLeftOut() throws {
         var session = try Self.session()
         let first = session.preview(against: Self.library(), today: Self.today)

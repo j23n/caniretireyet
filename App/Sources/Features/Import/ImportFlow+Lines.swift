@@ -219,14 +219,15 @@ extension ImportFlow {
     }
 
     /// Why an answered line isn't recorded: the account can't take the
-    /// move, it counts in no value whose money in and out the file covers,
-    /// or the answer doesn't fit it.
+    /// move, it counts in no value whose money in and out the file covers
+    /// (a sale: it's in no value of the file), or the answer doesn't fit it.
     func statementAssetLeftOutReason(_ line: BatchStatementLine) -> String {
-        if case .moved(let id)? = statementAnswer(line), line.line.period != nil {
+        let answer = statementAnswer(line)
+        if case .moved(let id)? = answer, line.line.period != nil {
             return "\(accountName(id)) can't take money moved from this statement"
         }
-        return line.line.period == nil ? "the file doesn't cover the value it counts in"
-            : "the answer doesn't fit this line"
+        let value = if case .sale? = answer { line.line.valueDate } else { line.line.period }
+        return value == nil ? "the file doesn't cover the value it counts in" : "the answer doesn't fit this line"
     }
 
     // MARK: Moved to or from

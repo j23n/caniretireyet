@@ -57,6 +57,10 @@ public struct StatementLine: Hashable, Sendable, Identifiable {
     /// `nil` when it counts in none: a period the file doesn't cover from
     /// the account's previous value, or after the file's last value.
     public var period: CalendarDate?
+    /// The date of the file's value whose balance the line is in, whether
+    /// or not the file covers that value's money in and out (``period``);
+    /// `nil` after the file's last value.
+    public var valueDate: CalendarDate?
     /// Whether the line is too large to count by its sign without asking,
     /// and nothing classified it. Money in: more than a typical month's
     /// spending in the file, or more than a sender who pays every month

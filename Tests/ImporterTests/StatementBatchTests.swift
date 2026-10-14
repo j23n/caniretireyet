@@ -323,4 +323,44 @@ struct StatementBatchTests {
         #expect(bought.accountChanges.map(\.change) == [.close(on: "2026-03-01")])
         #expect(!previews.contains { $0.preview.issues.contains { !$0.isNote } })
     }
+
+    /// A sale in another file's value whose money in and out that file
+    /// doesn't cover, here a savings statement that doesn't follow on from
+    /// the account's value, is still recorded at that value.
+    @Test func aSaleInAValueAnotherFileDoesntCover() throws {
+        let current = """
+            Data;Importo;Descrizione
+            05/01/2026;-900,00;Affitto gennaio
+            20/01/2026;-4.000,00;Bonifico a Autosalone Neri
+            27/01/2026;3.000,00;Stipendio ACME
+            """
+        let savings = """
+            Data;Importo;Descrizione;Saldo
+            10/02/2026;3.000,00;Bonifico da Mario Verdi;14.000,00
+            28/02/2026;2,50;Interessi;14.002,50
+            """
+        var batch = Self.batch([("fineco-gennaio.csv", current), ("export.csv", savings)])
+        let library = Self.library()
+        batch.setAccount("risparmio", forFile: batch.files[1].id, library: library, today: Self.today)
+        let purchaseRow = try #require(Self.lines(batch, 0).first { $0.text.hasPrefix("Bonifico a Auto") }).row
+        let saleLine = try #require(Self.lines(batch, 1).first { $0.text.hasPrefix("Bonifico da Mario V") })
+        #expect(saleLine.period == nil)
+        batch.editSession(ofFile: 0, library: library, today: Self.today) {
+            $0.setStatementAsset(.purchase(name: "Auto", kind: .belongings), forRow: purchaseRow)
+        }
+        batch.editSession(ofFile: 1, library: library, today: Self.today) {
+            $0.setStatementAsset(.sale("auto"), forRow: saleLine.row)
+        }
+        let previews = batch.previews(against: library, today: Self.today)
+        let bought = try #require(previews.first { $0.file == 0 }?.preview)
+        let sold = try #require(previews.first { $0.file == 1 }?.preview)
+        #expect(sold.statementLines.first { $0.row == saleLine.row }?.asset == .sale("auto"))
+        let value = bought.records.first { $0.id == .valuation(ValuationKey(account: "auto", date: "2026-02-28")) }
+        #expect(value?.imported.balance == 0)
+        #expect(value?.imported.flow == -3000)
+        #expect(bought.accountChanges.map(\.change) == [.close(on: "2026-03-01")])
+        #expect(!previews.contains { $0.preview.issues.contains {
+            if case .statementAssetLeftOut = $0.kind { true } else { false }
+        } })
+    }
 }

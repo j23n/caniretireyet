@@ -8,7 +8,7 @@ import Model
 struct StatementSaleElsewhere: Hashable, Sendable {
     /// The sale's day.
     var date: CalendarDate
-    /// The value of the sale's own file the line counts in.
+    /// The value of the sale's own file the line is in.
     var cut: CalendarDate
     /// What it sold for: the line's amount, money in.
     var amount: Decimal
@@ -30,7 +30,7 @@ extension StatementBatch {
     /// The sales across files, by file, from previews made without them:
     /// a line in answered as the sale of the account a purchase in another
     /// file starts or finds, on or after the purchase's day, in the same
-    /// currency, that counts in a value of its file; the first such sale of
+    /// currency, that is in a value of its file; the first such sale of
     /// each account, and none of an account its own file sells.
     func salesAcrossFiles(_ previews: [(file: Int, preview: ImportPreview)],
                           library: Library) -> [Int: StatementBatchSales] {
@@ -55,7 +55,7 @@ extension StatementBatch {
             for line in preview.statementLines {
                 guard case .sale(let id)? = session.statementAssets[line.row], let purchase = purchases[id],
                       purchase.file != file, soldInFile[id]?.contains(purchase.file) != true, line.amount > 0,
-                      line.period != nil,
+                      line.valueDate != nil,
                       line.date >= purchase.date, currency(ofFile: file) == currency(ofFile: purchase.file)
                 else { continue }
                 sales.append((id, file, line))
@@ -64,7 +64,7 @@ extension StatementBatch {
         var byFile: [Int: StatementBatchSales] = [:]
         var sold = Set<AccountID>()
         for sale in sales.sorted(by: { ($0.line.date, $0.file, $0.line.row) < ($1.line.date, $1.file, $1.line.row) }) {
-            guard let purchase = purchases[sale.account], let cut = sale.line.period,
+            guard let purchase = purchases[sale.account], let cut = sale.line.valueDate,
                   sold.insert(sale.account).inserted else { continue }
             byFile[sale.file, default: StatementBatchSales()].recordedElsewhere.insert(sale.line.row)
             byFile[purchase.file, default: StatementBatchSales()].ofPurchases[purchase.row] =
