@@ -96,11 +96,11 @@ struct ImportScreen: View {
                 }
             }
             .fileImporter(isPresented: $isChoosingFile, allowedContentTypes: ImportFileReader.contentTypes,
-                          allowsMultipleSelection: false) { result in
+                          allowsMultipleSelection: true) { result in
                 switch result {
                 case .success(let urls):
-                    guard let url = urls.first else { return }
-                    Task { await open(url) }
+                    guard !urls.isEmpty else { return }
+                    Task { await open(urls) }
                 case .failure(let error):
                     model.errorMessage = error.localizedDescription
                 }
@@ -120,8 +120,8 @@ struct ImportScreen: View {
     }
 
     private var stepContent: some View {
-        ImportStepContent(model: model, isCompact: isCompact, chooseFile: { isChoosingFile = true }, openFile: { url in
-            Task { await open(url) }
+        ImportStepContent(model: model, isCompact: isCompact, chooseFile: { isChoosingFile = true }, openFiles: { urls in
+            Task { await open(urls) }
         })
     }
 
@@ -145,17 +145,37 @@ struct ImportScreen: View {
         guard file != takenFile else { return }
         takenFile = file
         guard let file else { return }
-        await open(file)
+        await open([file])
         navigation.clearPendingImport(file)
     }
 
-    private func open(_ url: URL) async {
+    /// Reads one file, or several bank statements to import together. A
+    /// file of several that can't be read is said so; the others open.
+    private func open(_ urls: [URL]) async {
         let model = self.model
-        do {
-            let data = try await ImportFileReader.read(url)
-            model.open(data, fileName: url.lastPathComponent)
-        } catch {
-            model.openFailed(fileName: url.lastPathComponent, message: error.localizedDescription)
+        guard urls.count > 1 else {
+            guard let url = urls.first else { return }
+            do {
+                let data = try await ImportFileReader.read(url)
+                model.open(data, fileName: url.lastPathComponent)
+            } catch {
+                model.openFailed(fileName: url.lastPathComponent, message: error.localizedDescription)
+            }
+            return
+        }
+        var files: [(name: String, data: Data)] = []
+        var failures: [String] = []
+        for url in urls {
+            do {
+                let data = try await ImportFileReader.read(url)
+                files.append((url.lastPathComponent, data))
+            } catch {
+                failures.append("\(url.lastPathComponent): \(error.localizedDescription)")
+            }
+        }
+        model.open(files: files)
+        if !failures.isEmpty {
+            model.errorMessage = "Some files couldn't be opened. " + failures.joined(separator: " ")
         }
     }
 }
@@ -166,13 +186,13 @@ struct ImportStepContent: View {
     let isCompact: Bool
     /// Shows the file importer.
     let chooseFile: () -> Void
-    /// Reads a file dropped on the File step.
-    let openFile: (URL) -> Void
+    /// Reads the files dropped on the File step.
+    let openFiles: ([URL]) -> Void
 
     var body: some View {
         switch model.flow.step {
         case .file:
-            ImportFileStep(model: model, isCompact: isCompact, chooseFile: chooseFile, openFile: openFile)
+            ImportFileStep(model: model, isCompact: isCompact, chooseFile: chooseFile, openFiles: openFiles)
         case .format:
             ImportFormatStep(model: model)
         case .columns:
@@ -306,7 +326,7 @@ struct ImportBottomBar: View {
                 .buttonStyle(.borderedProminent)
                 .disabled(!flow.blockers.isEmpty || model.isWorking || !library.canEdit)
             case .done:
-                Button("Import Another File") {
+                Button(flow.isBatch ? "Import Other Files" : "Import Another File") {
                     model.startOver()
                 }
                 .disabled(model.isWorking)

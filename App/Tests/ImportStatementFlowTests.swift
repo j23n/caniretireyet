@@ -299,6 +299,48 @@ struct ImportStatementFlowTests {
         #expect(flow.statementAnswer(answered) == nil)
     }
 
+    /// Several statements at once (IMPORT.md, "Several statements at
+    /// once"): each file's account found, the transfer between them paired,
+    /// one file shown at a time, and the import waiting for a file's
+    /// account until it's chosen.
+    @Test func severalStatementsAreImportedTogether() throws {
+        let deposito = """
+            Data;Importo;Descrizione;Saldo
+            26/09/2026;500,00;Bonifico in entrata;17.330,50
+            """
+        var flow = ImportFlow(library: PreviewLibrary.library)
+        flow.open(files: [(name: "fineco-settembre.csv", data: Data(Self.csv.utf8)),
+                          (name: "esempio-settembre.csv", data: Data(deposito.utf8))])
+        #expect(flow.isBatch)
+        #expect(flow.displayName == "2 statements")
+        #expect(flow.batchFiles.map(\.account) == ["conto-deposito", "conto-fineco"])
+        #expect(!flow.needsStatementAccount)
+        #expect(flow.steps == [.file, .classify, .preview, .done])
+        #expect(flow.batchPairedTransfers == 1)
+        #expect(flow.batchPreviews.count == 2)
+
+        flow.showBatchFile(0)
+        #expect(flow.fileName == "fineco-settembre.csv")
+        let giroconto = try line(flow, "Giroconto")
+        #expect(giroconto.source == .paired("conto-deposito"))
+        #expect(flow.statementSourceText(giroconto.source) == "Matches a line of Conto deposito's statement")
+        // A change to one file's lines keeps the pair.
+        flow.setStatementClass(.spending, forRow: try line(flow, "Affitto").row)
+        #expect(try line(flow, "Giroconto").source == .paired("conto-deposito"))
+        #expect(flow.planned?.hasChanges == true)
+
+        // A file nothing recognizes waits for its account.
+        var unknown = ImportFlow(library: PreviewLibrary.library)
+        unknown.open(files: [(name: "fineco-settembre.csv", data: Data(Self.csv.utf8)),
+                             (name: "export.csv", data: Data(Self.csv.utf8))])
+        #expect(unknown.needsStatementAccount)
+        #expect(unknown.continueHint == "Choose the account of export.csv to continue.")
+        #expect(!unknown.canShow(.classify))
+        unknown.setBatchAccount("conto-deposito", forFile: 1)
+        #expect(!unknown.needsStatementAccount)
+        #expect(unknown.batchFiles.first { $0.id == 1 }?.accountSource == .chosen)
+    }
+
     @Test func previewChartsTheFilesBalanceAgainstTheAccountsValues() throws {
         let charts = try #require(flow().statementCharts)
         #expect(!charts.money.counted.isEmpty)

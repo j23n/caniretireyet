@@ -6,7 +6,7 @@ It also imports a broker's transactions as trades (see [Broker transactions](#br
 
 ## Steps
 
-1. **Open.** Pick a CSV or TSV file.
+1. **Open.** Pick a CSV or TSV file, or several bank statements at once ([Several statements at once](#several-statements-at-once)).
 2. **Detect.** The importer guesses the encoding, the delimiter, the header row, and the number and date formats. Every guess can be overridden.
 3. **Map.** Say what each column is (see [Layouts](#layouts) and [Targets](#targets)). For a broker's transactions, also say what the file's words for its transactions are ([Types](#types)).
 4. **Match.** Link names in the file to existing accounts and instruments, or create new ones.

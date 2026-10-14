@@ -40,6 +40,13 @@ final class ImportController {
         flow.open(data, fileName: fileName)
     }
 
+    /// Starts over with several files: bank statements imported together.
+    func open(files: [(name: String, data: Data)]) {
+        receipt = nil
+        errorMessage = nil
+        flow.open(files: files)
+    }
+
     /// Records that a file couldn't be opened.
     func openFailed(fileName: String, message: String) {
         receipt = nil
@@ -73,15 +80,22 @@ final class ImportController {
         isWorking = true
         defer { isWorking = false }
         errorMessage = nil
+        // Several statements: each file's preview, applied in order.
+        let previews = flow.isBatch ? flow.batchPreviews.map(\.preview) : [preview]
         do {
             var result: ImportResult?
             let backup = try await store.commit(backingUpAs: Backup.importLabel) { library in
-                let applied = preview.applyFollowingFlows(to: library)
+                let applied = previews.count == 1 ? preview.applyFollowingFlows(to: library)
+                    : StatementBatch.apply(previews, to: library) { $0.applyFollowingFlows(to: $1) }
                 result = applied
                 library = applied.library
             }
             guard let result else { return }
-            var receipt = ImportReceipt(fileName: flow.fileName ?? "the file", result: result)
+            var receipt = ImportReceipt(fileName: flow.displayName ?? "the file", result: result)
+            if flow.isBatch {
+                let accounts = Set(flow.batchFiles.compactMap(\.account)).count
+                receipt.batchSummary = ImportFlow.batchSummary(result, accounts: accounts)
+            }
             receipt.backup = backup
             self.receipt = receipt
             flow.finish()
@@ -184,6 +198,8 @@ struct ImportReceipt: Hashable, Sendable {
     var undoReport: UndoReport?
     /// The profile saved from this import.
     var savedProfile: ImportProfileID?
+    /// Several statements: "Imported 13 months for 2 accounts".
+    var batchSummary: String?
 
     /// What `result` did. The accounts and instruments it names are in its
     /// library: it created them or found them there.

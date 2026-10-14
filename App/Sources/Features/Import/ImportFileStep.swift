@@ -6,13 +6,15 @@ import SwiftUI
 /// Step 1, File: a drop zone and a file importer, what was read, and the
 /// mapping to read it with: a saved profile or a proposed one. A bank
 /// statement's account is asked here, before any other step, with its
-/// format and columns in a sheet. On iPhone this is "Import with
+/// format and columns in a sheet. Several statements dropped at once are
+/// listed each with its account, the transfers paired between them, and
+/// the gaps between an account's files. On iPhone this is "Import with
 /// profile…", with a way into every step.
 struct ImportFileStep: View {
     let model: ImportController
     let isCompact: Bool
     let chooseFile: () -> Void
-    let openFile: (URL) -> Void
+    let openFiles: ([URL]) -> Void
 
     @Environment(LibraryStore.self) private var library
     @State private var isTargeted = false
@@ -22,10 +24,10 @@ struct ImportFileStep: View {
         let flow = model.flow
         Form {
             Section {
-                ImportDropZone(fileName: flow.fileName, isTargeted: isTargeted, chooseFile: chooseFile)
+                ImportDropZone(fileName: flow.displayName, isTargeted: isTargeted, chooseFile: chooseFile)
             } footer: {
                 Text("A CSV or TSV file, as Excel, Numbers or a bank exports it, in any delimiter, encoding, "
-                    + "date and number format.")
+                    + "date and number format. Several bank statements, of one account or many, import together.")
             }
 
             if let problem = flow.problem, !flow.hasFile {
@@ -34,7 +36,9 @@ struct ImportFileStep: View {
                 }
             }
 
-            if flow.hasFile {
+            if flow.isBatch {
+                batchSections(flow)
+            } else if flow.hasFile {
                 Section("File") {
                     LabeledContent("Name", value: flow.fileName ?? "")
                         .privacySensitiveInFeedback()
@@ -72,8 +76,8 @@ struct ImportFileStep: View {
         }
         .formStyle(.grouped)
         .dropDestination(for: URL.self) { urls, _ in
-            guard let url = urls.first else { return false }
-            openFile(url)
+            guard !urls.isEmpty else { return false }
+            openFiles(urls)
             return true
         } isTargeted: { targeted in
             isTargeted = targeted
@@ -101,6 +105,54 @@ struct ImportFileStep: View {
                 Text("Its format and columns come from the chosen profile. How It's Read… shows them, to correct.")
             } else {
                 Text("Its format and columns were read from the file. How It's Read… shows them, to correct.")
+            }
+        }
+    }
+
+    /// Several statements: each file with what's in it, its account and
+    /// how it was found, and how it's read; the files that can't be read;
+    /// then the transfers paired and the gaps between an account's files.
+    @ViewBuilder
+    private func batchSections(_ flow: ImportFlow) -> some View {
+        Section {
+            ForEach(flow.batchFiles) { file in
+                ImportBatchFileRow(model: model, file: file) {
+                    model.flow.showBatchFile(file.id)
+                    isShowingReading = true
+                }
+            }
+        } header: {
+            Text("Bank statements")
+        } footer: {
+            if let file = flow.batchFileWithoutAccount {
+                Text("Which account is \(file.name) a statement of? A cash or savings account that doesn't record "
+                    + "trades.")
+                    .foregroundStyle(Palette.warning)
+            } else {
+                Text("Each file's account was recognized or chosen. They're imported one after another, so each "
+                    + "month follows on from the one before.")
+            }
+        }
+        if let unreadable = flow.batch?.unreadable, !unreadable.isEmpty {
+            Section("Can't be read") {
+                ForEach(unreadable, id: \.name) { file in
+                    StatusBanner(.warning, file.name, message: ImportFlow.describe(file.error), personal: .title)
+                }
+            }
+        }
+        let notes = flow.batchNotes
+        if !notes.isEmpty {
+            Section {
+                ForEach(notes, id: \.self) { note in
+                    Label {
+                        Text(note.text)
+                            .foregroundStyle(note.isProblem ? Palette.warning : Palette.ink)
+                    } icon: {
+                        Image(systemName: note.isProblem ? "exclamationmark.triangle" : "checkmark.circle")
+                            .foregroundStyle(note.isProblem ? Palette.warning : Palette.positive)
+                    }
+                    .privacySensitiveInFeedback()
+                }
             }
         }
     }
@@ -251,4 +303,70 @@ private struct ImportDropZone: View {
         ImportPreviewHost(step: .file, guided: true)
     }
     .previewEnvironment()
+}
+
+/// One of several statements: its name, what's in it, its account (to
+/// choose when nothing recognized it) and how it was found, and How It's
+/// Read….
+private struct ImportBatchFileRow: View {
+    let model: ImportController
+    let file: StatementBatch.File
+    let showReading: () -> Void
+
+    var body: some View {
+        let flow = model.flow
+        VStack(alignment: .leading, spacing: Metrics.xs) {
+            HStack(alignment: .firstTextBaseline) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(verbatim: file.name)
+                        .lineLimit(1)
+                        .privacySensitiveInFeedback()
+                    Text(flow.batchFileDetail(file))
+                        .font(.caption)
+                        .foregroundStyle(Palette.secondaryInk)
+                        .privacySensitiveInFeedback()
+                }
+                Spacer(minLength: Metrics.s)
+                Button("How It's Read…", action: showReading)
+                    .buttonStyle(.borderless)
+                    .font(.caption)
+            }
+            Picker("Account", selection: Binding(get: { file.account }, set: { account in
+                model.flow.setBatchAccount(account, forFile: file.id)
+            })) {
+                Text("Choose…").tag(AccountID?.none)
+                ForEach(flow.statementAccountChoices) { account in
+                    Text(account.name).tag(AccountID?.some(account.id))
+                }
+            }
+            .pickerStyle(.menu)
+            .personalControl()
+            if let found = flow.batchAccountSourceText(file) {
+                Text(found)
+                    .font(.caption)
+                    .foregroundStyle(Palette.secondaryInk)
+                    .privacySensitiveInFeedback()
+            }
+        }
+        .padding(.vertical, 2)
+    }
+}
+
+/// Several statements: the file Income and Preview show, by name and
+/// account, in the order they're imported.
+struct ImportBatchFilePicker: View {
+    let model: ImportController
+
+    var body: some View {
+        let flow = model.flow
+        Picker("Statement", selection: Binding(get: { flow.batchFile ?? -1 }, set: { id in
+            model.flow.showBatchFile(id)
+        })) {
+            ForEach(flow.batchFiles.filter { $0.account != nil }) { file in
+                Text(verbatim: flow.batchFileTitle(file)).tag(file.id)
+            }
+        }
+        .pickerStyle(.menu)
+        .personalControl()
+    }
 }

@@ -18,6 +18,14 @@ struct ImportPreviewStep: View {
         ScrollView {
             VStack(alignment: .leading, spacing: Metrics.l) {
                 LibraryStatusBanners()
+                if flow.isBatch {
+                    Card("Statement", systemImage: "doc.on.doc") {
+                        ImportBatchFilePicker(model: model)
+                        Text("One statement at a time, as it adds to the ones before it. Import imports them all.")
+                            .font(.footnote)
+                            .foregroundStyle(Palette.secondaryInk)
+                    }
+                }
                 ForEach(flow.blockers, id: \.self) { blocker in
                     StatusBanner(.info, blocker)
                 }

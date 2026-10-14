@@ -16,7 +16,7 @@ struct ImportPreviewHost: View {
     var body: some View {
         Group {
             if let model {
-                ImportStepContent(model: model, isCompact: guided, chooseFile: {}, openFile: { _ in })
+                ImportStepContent(model: model, isCompact: guided, chooseFile: {}, openFiles: { _ in })
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(Palette.page)
                     .safeAreaInset(edge: .top, spacing: 0) {

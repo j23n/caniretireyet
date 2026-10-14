@@ -28,6 +28,13 @@ struct ImportClassifyStep: View {
         let flow = model.flow
         let currency = flow.statementAccount?.currency
         Form {
+            if flow.isBatch {
+                Section {
+                    ImportBatchFilePicker(model: model)
+                } footer: {
+                    Text("Each statement's lines are answered on their own. Transfers between them are paired.")
+                }
+            }
             ImportStatementDays(model: model)
 
             if flow.statementLines.isEmpty {
