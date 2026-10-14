@@ -12,31 +12,14 @@ struct InflationIndicesTests {
         return library
     }
 
-    @Test func anIndexKnowsItsAreaAndCurrency() {
-        #expect(IndexID.hicpIT.hicpArea == "IT" && IndexID.hicpIT.hicpCurrency == .eur)
-        #expect(IndexID.hicpEA.hicpArea == "EA" && IndexID.hicpEA.hicpCurrency == .eur)
-        #expect(IndexID("hicp-ch").hicpCurrency == .chf)
-        #expect(IndexID("hicp-se").hicpCurrency == "SEK")
-        #expect(IndexID("hicp-bg").hicpCurrency == .eur)
-        #expect(IndexID("hicp-us").hicpArea == nil)
-        #expect(IndexID("cpi-us").hicpCurrency == nil)
-    }
-
-    @Test func theUSAndTheUKHaveANationalCPI() {
-        #expect(IndexID.cpi(.us) == .cpiUS && IndexID.cpi("gb") == .cpiGB)
-        #expect(IndexID.cpi(.de) == nil)
-        #expect(IndexID.cpiCountries == [.gb, .us])
-        #expect(IndexID.cpiUS.rawValue == "cpi-us" && IndexID.cpiGB.rawValue == "cpi-gb")
-        #expect(IndexID.cpiUS.cpiArea == "US" && IndexID.cpiGB.cpiArea == "GB")
-        #expect(IndexID.cpiUS.hicpArea == nil && IndexID.hicpIT.cpiArea == nil)
-    }
-
     @Test func everyIndexKnowsItsAreaAndCurrency() {
         #expect(IndexID.cpiUS.priceArea == "US" && IndexID.cpiUS.priceCurrency == .usd)
         #expect(IndexID.cpiGB.priceArea == "GB" && IndexID.cpiGB.priceCurrency == .gbp)
         #expect(IndexID.hicpIT.priceArea == "IT" && IndexID.hicpIT.priceCurrency == .eur)
         #expect(IndexID.hicpEA.priceArea == "EA" && IndexID("hicp-ch").priceCurrency == .chf)
+        #expect(IndexID("hicp-se").priceCurrency == "SEK" && IndexID("hicp-bg").priceCurrency == .eur)
         #expect(IndexID("cpi-jp").priceArea == nil && IndexID("cpi-jp").priceCurrency == nil)
+        #expect(IndexID("hicp-us").hicpArea == nil && IndexID.cpiUS.hicpArea == nil)
     }
 
     @Test func aLibraryInDollarsCountsOnlyIndicesInDollars() {
