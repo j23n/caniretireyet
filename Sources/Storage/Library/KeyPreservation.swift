@@ -46,7 +46,8 @@ struct KeyPreservation: Sendable {
 
 extension KeyPreservation.RecordList {
     /// `new` with unknown keys copied from the old record with the same key,
-    /// followed by any old records the model can't read.
+    /// followed by any old records the model can't read that `new` doesn't
+    /// have.
     func preserving(_ old: [JSONValue], in new: [JSONValue]) -> [JSONValue] {
         var oldByKey: [RecordKey: JSONValue] = [:]
         for record in old {
@@ -57,7 +58,7 @@ extension KeyPreservation.RecordList {
             key(of: record).flatMap { oldByKey[$0] }.map { rule.preserving($0, in: record) } ?? record
         }
         guard let isReadable else { return result }
-        for record in old where !isReadable(record) {
+        for record in old where !isReadable(record) && !result.contains(record) {
             if let key = key(of: record), newKeys.contains(key) { continue }
             result.append(record)
         }
@@ -208,16 +209,10 @@ extension JSONValue {
     }
 }
 
-/// A record's key as the strings of its key fields, compared field by field
-/// (date first, then IDs), which is the order records are written in.
-struct RecordKey: Hashable, Comparable, Sendable, CustomStringConvertible {
+/// A record's key as the strings of its key fields, for matching records
+/// of an old and a new version of a list.
+struct RecordKey: Hashable, Sendable {
     var parts: [String]
-
-    static func < (lhs: RecordKey, rhs: RecordKey) -> Bool {
-        lhs.parts.lexicographicallyPrecedes(rhs.parts)
-    }
-
-    var description: String { parts.joined(separator: " ") }
 }
 
 // MARK: - Rules for history and headline files

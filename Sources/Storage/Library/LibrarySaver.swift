@@ -230,7 +230,7 @@ extension LibraryFolder {
         if file.mergesRecords {
             // Records that can't be read are kept in the file; only a list
             // that isn't a list would be lost.
-            let lists = Self.recordLists(of: file).keys
+            let lists = Self.recordListNames(of: file)
             let broken = lists.contains { raw[$0].map { !$0.isNull && $0.arrayValue == nil } ?? false }
             return DiskFile(exists: true, raw: raw, loaded: loaded, isUnreadable: broken)
         }
@@ -336,9 +336,9 @@ extension LibraryFolder {
         return kept == empty ? .delete : .write(CanonicalJSON.data(for: kept))
     }
 
-    /// The record lists of a history or headline file.
-    static func recordLists(of file: LibraryFile) -> [String: KeyPreservation.RecordList] {
-        KeyPreservation.rule(for: file).records
+    /// The names of the record lists of a history or headline file.
+    static func recordListNames(of file: LibraryFile) -> [String] {
+        if case .month = file { MonthFile.recordLists.map { $0.name } } else { HeadlineFile.recordLists.map { $0.name } }
     }
 
     // MARK: JSON of entities
