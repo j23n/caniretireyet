@@ -105,9 +105,9 @@ final class CheckInStore {
     }
 
     /// The date a new check-in starts on: today, or the end of last month
-    /// in a month's first days (`CheckInDraft.suggestedDate`).
+    /// in a month's first days (`CheckInDates.suggested`).
     var suggestedDate: CalendarDate {
-        CheckInDraft.suggestedDate(today: .today(), lastCheckIn: library.latestCheckIn)
+        CheckInDates.suggested(today: .today(), lastCheckIn: library.latestCheckIn)
     }
 
     // MARK: Starting

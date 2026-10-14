@@ -589,15 +589,6 @@ public struct CheckInDraft: Hashable, Sendable, Codable {
             .sorted { ($0.group, $0.name.lowercased(), $0.id) < ($1.group, $1.name.lowercased(), $1.id) }
     }
 
-    /// The date to suggest for a new check-in on `today`: the end of the
-    /// previous month during the first 7 days of a month, unless that month
-    /// end already has a check-in; otherwise today.
-    public static func suggestedDate(today: CalendarDate, lastCheckIn: CalendarDate? = nil) -> CalendarDate {
-        let monthEnd = today.startOfMonth.adding(days: -1)
-        guard today.day <= 7, lastCheckIn.map({ $0 < monthEnd }) ?? true else { return today }
-        return monthEnd
-    }
-
     /// The row for `account`. Setting it replaces the row with the same
     /// account; rows can't be added or removed this way.
     public subscript(account: AccountID) -> CheckInRow? {

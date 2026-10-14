@@ -323,14 +323,6 @@ struct CheckInDraftTests {
         #expect(draft["tfr"]?.state == .unchanged)
     }
 
-    @Test func suggestedDate() {
-        #expect(CheckInDraft.suggestedDate(today: "2026-10-03") == "2026-09-30")
-        #expect(CheckInDraft.suggestedDate(today: "2026-10-03", lastCheckIn: "2026-08-31") == "2026-09-30")
-        #expect(CheckInDraft.suggestedDate(today: "2026-10-03", lastCheckIn: "2026-09-30") == "2026-10-03")
-        #expect(CheckInDraft.suggestedDate(today: "2026-10-15") == "2026-10-15")
-        #expect(CheckInDraft.suggestedDate(today: "2026-01-02") == "2025-12-31")
-    }
-
     @Test func roundTripsThroughJSONWithDecimalsAsStrings() throws {
         var draft = filledIn()
         draft["conto-deposito"]?.setBalance(d("17400.5"))
