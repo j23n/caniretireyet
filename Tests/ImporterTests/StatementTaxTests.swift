@@ -161,6 +161,41 @@ struct StatementTaxTests {
         #expect(preview.issues.contains { $0.kind == .statementMoveLeftOut(row: row, account: "conto") })
     }
 
+    @Test func aRulesMoveItCantTakeIsLeftOutAndStaysATransfer() throws {
+        var library = Self.library()
+        library.accounts["tax-pot"]?.closed = "2026-01-31"
+        for (pot, lines) in [("tasse", 3), ("tax-pot", 2)] as [(AccountID, Int)] {
+            var session = try Self.session()
+            session.setStatementRule(movingTo: pot, for: "Accantonamento tasse")
+            let preview = session.preview(against: library, today: Self.today)
+            let moves = preview.statementLines.filter { $0.text.hasPrefix("Accantonamento") }
+            // A pot closed at the end of January still takes January's.
+            #expect(moves.allSatisfy { $0.statementClass == .transfer })
+            #expect(moves.count { $0.asset == nil } == lines)
+            let leftOut = preview.issues.filter { issue in
+                if case .statementMoveLeftOut(_, let account) = issue.kind { account == pot } else { false }
+            }
+            #expect(leftOut.count == lines, "\(pot)")
+        }
+    }
+
+    @Test func aTaxPotsOwnStatementRecordsNoTax() throws {
+        var library = Self.library()
+        library.upsert(Valuation(account: "tax-pot", date: "2026-01-31", balance: 4000))
+        var session = try ImportSession(data: Data("""
+            Data;Importo;Descrizione
+            16/02/2026;-3.200,00;Pagamento F24 Agenzia delle Entrate
+            """.utf8))
+        session.proposeMapping(layout: .statement)
+        session.profile.constants.account = "tax-pot"
+        let preview = session.preview(against: library, today: Self.today)
+        #expect(try Self.line(preview, "Pagamento F24").statementClass == .tax)
+        let february = try #require(preview.record(.valuation("tax-pot", "2026-02-28"))?.imported)
+        #expect(february.balance == 800)
+        #expect(february.moneyOut == 3200)
+        #expect(february.tax == nil)
+    }
+
     @Test func paidBackReadsAsSpending() throws {
         #expect(StatementClass("paidBack") == .spending)
         let json = Data(#"{"match":"Rimborso","class":"paidBack"}"#.utf8)

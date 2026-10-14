@@ -362,11 +362,8 @@ extension PreviewBuilder {
         var answered: [Int: StatementAsset] = [:]
         var sold = Set<AccountID>()
         for line in read {
-            let byRule = session.statementLineClasses[line.row] == nil
-                ? session.statementRule(for: line.text).flatMap { rule in
-                    rule.statementClass == .transfer ? rule.account.map(StatementAsset.moved) : nil
-                } : nil
-            guard let asset = session.statementAssets[line.row] ?? byRule, asset.fits(line.amount) else { continue }
+            guard let asset = session.statementAssets[line.row] ?? ruleMove(for: line), asset.fits(line.amount)
+            else { continue }
             switch asset {
             case .moved(let id):
                 guard let other = library.accounts[id], library.canMoveFromStatement(other, of: account, on: line.date)
@@ -384,6 +381,15 @@ extension PreviewBuilder {
         return answered
     }
 
+    /// The move a rule makes of `line`, when nothing chosen for the line
+    /// comes first: money moved to or from the rule's account.
+    private func ruleMove(for line: ReadLine) -> StatementAsset? {
+        guard session.statementLineClasses[line.row] == nil, session.statementAssets[line.row] == nil,
+              let rule = session.statementRule(for: line.text), rule.statementClass == .transfer
+        else { return nil }
+        return rule.account.map(StatementAsset.moved)
+    }
+
     /// The other side of the answers that move money, at the file's value
     /// the line counts in (``StatementLine/period``). Money moved to or
     /// from an account is a transfer, and a tax pot's values follow from it
@@ -396,8 +402,9 @@ extension PreviewBuilder {
     /// sold at 0, with the amount as its flow out, and closes it the day
     /// after (proposed, accepted, unless this sale closed it already).
     /// Answers it can't take are issues: one that doesn't fit leaves the
-    /// line classified as if it had none, and a line that counts in no
-    /// value has no money in and out to move.
+    /// line classified as if it had none (a rule's move, a transfer, as the
+    /// rule says), and a line that counts in no value has no money in and
+    /// out to move.
     private mutating func statementAssetRecords(_ lines: inout [StatementLine], read: [ReadLine],
                                                 account: Account)
         -> [ImportRecordKey: Accumulator] {
@@ -477,6 +484,12 @@ extension PreviewBuilder {
             records[record.key] = Accumulator(record: record, cells: cells)
             lines[index].asset = asset
             lines[index].assetAccount = id
+        }
+        // A rule's move it can't take leaves the line a transfer, as the rule says.
+        for line in read where answered[line.row] == nil {
+            if case .moved(let other)? = ruleMove(for: line) {
+                issues.append(ImportIssue(kind: .statementMoveLeftOut(row: line.row, account: other)))
+            }
         }
         for (pot, potMoves) in moves {
             records.merge(potRecords(pot, moves: potMoves)) { $1 }
@@ -617,7 +630,8 @@ extension PreviewBuilder {
                 // More paid back than spent in a period leaves money out at 0, and the rest counts as moved.
                 record.moneyOut = max(total.moneyOut, 0)
                 if total.oneOff != 0 { record.oneOff = total.oneOff }
-                if total.tax != 0 { record.tax = total.tax }
+                // A tax pot's tax is what moved into it: a bill paid from it is only its money out.
+                if total.tax != 0, account.kind != .taxPot { record.tax = total.tax }
                 record.countsMoneyInOutFromLines = true
                 if interest != 0 { record.interest = interest }
                 if let previousBalance = previous?.balance {
