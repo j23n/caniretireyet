@@ -36,7 +36,7 @@ extension Valuator {
             let end = min(month.lastDay, asOf)
             if end > start {
                 let split = savedSplit(of: change(from: start, to: end, in: .netWorth))
-                changes.append(MonthlyChange(month: month, saved: split.newMoney, markets: split.market))
+                changes.append(MonthlyChange(month: month, saved: split.saved, markets: split.market))
             }
             month = month.next
         }

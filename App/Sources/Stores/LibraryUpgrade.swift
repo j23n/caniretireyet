@@ -3,7 +3,7 @@ import Model
 import Storage
 
 /// What upgrading the library's format did as the app opened it
-/// (docs/ACCOUNTS.md, "Settled questions"; Storage's `MigrationReport`).
+/// (docs/schema/README.md, "Versioning"; Storage's `MigrationReport`).
 /// ``LibraryStore/upgrade`` keeps it until it's dismissed: a banner on the
 /// screens that show the library's state (`LibraryStatusBanners`) says so,
 /// and its details (`LibraryUpgradeSheet`) list the steps and the notes.
@@ -19,7 +19,7 @@ struct LibraryUpgrade: Hashable, Sendable, Identifiable {
     /// name the person's accounts.
     var notes: [String]
     /// The copy of the library taken before, relative to the library
-    /// folder: `backups/2026-10-11-v3`.
+    /// folder: `backups/2026-10-11-v4`.
     var backupPath: String
 
     /// One upgrade per backup.
@@ -53,23 +53,22 @@ struct LibraryUpgrade: Hashable, Sendable, Identifiable {
     }
 
     /// The details' footer under the backup: "A copy of the library from
-    /// before is in backups/2026-10-11-v3, in the library's folder."
+    /// before is in backups/2026-10-11-v4, in the library's folder."
     var backupNote: String {
         "A copy of the library from before is in \(backupPath), in the library's folder."
     }
 }
 
 extension LibraryUpgrade {
-    /// A made-up upgrade from format version 3, for previews (and so
+    /// A made-up upgrade from format version 4, for previews (and so
     /// compiled in every configuration, as previews are).
     static let example = LibraryUpgrade(
-        fromVersion: 3, toVersion: 4,
+        fromVersion: 4, toVersion: 5,
         steps: [
-            "Each kind of account records its money one way: money in and out on every cash and savings account, "
-                + "and trades for brokerage, crypto and metals accounts.",
-            "Accounts recorded as snapshots of positions now record trades: an opening, then a buy or a sale per "
-                + "change. Their values and new money stay the same.",
+            "What you saved is stored only on accounts that ask for it: other values work it out from what's recorded. "
+                + "Crypto is priced from Yahoo Finance, not CoinGecko.",
         ],
-        notes: ["Gold coins: the purchase cost of the opening is unknown."],
-        backupPath: "backups/2026-10-11-v3")
+        notes: ["Old bank: what 2 values saved wasn't the change in balance; it's now worked out from the "
+            + "balances."],
+        backupPath: "backups/2026-10-11-v4")
 }

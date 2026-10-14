@@ -6,7 +6,7 @@ import Tracker
 /// "Notifications") and the screens that show it: the answers recorded at
 /// check-ins, the milestones reached, when the records and the plan
 /// started, and what the last two calendar years added.
-public struct JourneyGlance: Hashable, Sendable {
+public struct JourneyGlance: Hashable, Sendable, Codable {
     /// Your birthday (Settings), for the birthday note; `nil` without one.
     public var birthDate: CalendarDate?
     /// The first record of net worth; `nil` before the first check-in.
@@ -94,7 +94,7 @@ public struct JourneyPoint: Hashable, Sendable, Codable {
 
 /// What one calendar year added to net worth, from 31 December before it
 /// (or the first record) to its last check-in.
-public struct JourneyYear: Hashable, Sendable {
+public struct JourneyYear: Hashable, Sendable, Codable {
     public var year: Int
     public var from: CalendarDate
     /// The year's last check-in.
@@ -162,6 +162,6 @@ extension JourneyYear {
               end > start
         else { return nil }
         let split = valuator.savedSplit(of: valuator.change(from: start, to: end, in: .netWorth))
-        self.init(year: year, from: start, to: end, saved: split.newMoney, markets: split.market)
+        self.init(year: year, from: start, to: end, saved: split.saved, markets: split.market)
     }
 }

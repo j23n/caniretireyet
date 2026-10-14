@@ -12,12 +12,11 @@ extension PricesCommand {
     func runFillHistory(in context: CLIContext) async throws {
         let loaded = try options.load(in: context)
         let today = context.today
-        let service = PriceService.standard(client: context.httpClient, credentials: context.credentials,
-                                            today: { today })
+        let service = PriceService.standard(client: context.httpClient, today: { today })
         let needs = service.pastPriceNeeds(for: loaded.library)
         var report = FillReport(needs: needs, dryRun: dryRun)
         if !needs.isEmpty {
-            let fill = await service.fillPastPrices(needs, in: loaded.library)
+            let fill = await service.fetch(needs, in: loaded.library)
             report.fill = fill
             report.written = try writeFill(fill, loaded: loaded, context: context)
         }
@@ -29,10 +28,10 @@ extension PricesCommand {
     /// something arrived meanwhile), after backing up the month files they
     /// change, and records the result in the backup. With `--dry-run`, only
     /// says which files would change.
-    private func writeFill(_ fill: PastPriceFill, loaded: LoadedLibrary,
+    private func writeFill(_ fill: FetchedPrices, loaded: LoadedLibrary,
                            context: CLIContext) throws -> FillReport.Written {
         var library = loaded.library
-        let inserted = fill.insertMissing(into: &library)
+        let inserted = fill.merge(into: &library, policy: .keepExisting)
         let saved = try loaded.save(library, backupLabel: Backup.fillHistoryLabel, dryRun: dryRun, in: context)
         let isWritten = saved.backup != nil
         return FillReport.Written(inserted: inserted, files: isWritten ? saved.written : saved.changed,
@@ -43,16 +42,16 @@ extension PricesCommand {
     struct FillReport: CommandReport {
         /// What was written, or with `--dry-run`, what would be.
         struct Written {
-            var inserted: PastPriceInsertion
+            var inserted: PriceMerge
             /// The files changed, relative to the library folder.
             var files: [String]
             var backup: String?
             var isWritten = false
         }
 
-        let needs: PastPriceNeeds
+        let needs: PriceNeeds
         let dryRun: Bool
-        var fill: PastPriceFill?
+        var fill: FetchedPrices?
         var written: Written?
 
         var base: CurrencyCode { needs.baseCurrency }
@@ -121,11 +120,11 @@ extension PricesCommand {
             }
             let manual = needs.manualInstruments + needs.unknownInstruments
             guard !parts.isEmpty || !manual.isEmpty else {
-                return ["Up to \(needs.today), the library has every past price, FX rate and index value it needs."]
+                return ["Up to \(needs.date), the library has every past price, FX rate and index value it needs."]
             }
             var lines: [String] = []
             if !parts.isEmpty {
-                lines.append("Up to \(needs.today), the library is missing " + Wording.list(parts) + ".")
+                lines.append("Up to \(needs.date), the library is missing " + Wording.list(parts) + ".")
             }
             if !manual.isEmpty {
                 lines.append("Without a price source: " + Wording.count(needs.manualPriceCount, "price") + " ("
@@ -135,7 +134,7 @@ extension PricesCommand {
         }
 
         private func writtenLines(_ written: Written) -> [String] {
-            let count = written.inserted.added
+            let count = written.inserted.written
             guard count > 0 else {
                 return [fill?.recordCount == 0 ? "Nothing was fetched, so nothing was written."
                     : "The library has these records by now; nothing was written."]
@@ -149,8 +148,9 @@ extension PricesCommand {
                 lines.append("Dry run: nothing was written. It would add \(records) to \(files). "
                     + "To write them, run again without --dry-run.")
             }
-            if written.inserted.kept > 0 {
-                lines.append("Kept \(Wording.count(written.inserted.kept, "record")) the library had by then.")
+            let kept = written.inserted.kept + written.inserted.identical
+            if kept > 0 {
+                lines.append("Kept \(Wording.count(kept, "record")) the library had by then.")
             }
             if let backup = written.backup { lines.append("Backed up the files it changed to \(backup).") }
             return lines
@@ -162,7 +162,7 @@ extension PricesCommand {
             return files.prefix(3).joined(separator: ", ") + " and \(files.count - 3) more files"
         }
 
-        static func status(_ result: PastPriceResult) -> String {
+        static func status(_ result: PriceResult) -> String {
             switch result.status {
             case .filled: "filled"
             case .partlyFilled: "partly filled"
@@ -176,7 +176,7 @@ extension PricesCommand {
 
         var json: JSON {
             JSON(
-                today: needs.today.description, baseCurrency: base.rawValue, dryRun: dryRun,
+                today: needs.date.description, baseCurrency: base.rawValue, dryRun: dryRun,
                 needs: JSON.Needs(prices: needs.priceCount, manualPrices: needs.manualPriceCount, rates: needs.rateCount,
                                   indexMonths: needs.indexMonthCount),
                 results: (fill?.results ?? []).map { result in
@@ -195,8 +195,8 @@ extension PricesCommand {
                 },
                 prices: fill?.prices ?? [], fx: fill?.fx ?? [], indices: fill?.indices ?? [],
                 written: written.map {
-                    JSON.Written(added: $0.inserted.added, kept: $0.inserted.kept, files: $0.files, backup: $0.backup,
-                                 isWritten: $0.isWritten)
+                    JSON.Written(added: $0.inserted.written, kept: $0.inserted.kept + $0.inserted.identical,
+                                 files: $0.files, backup: $0.backup, isWritten: $0.isWritten)
                 })
         }
 

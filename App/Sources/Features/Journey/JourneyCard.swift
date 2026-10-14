@@ -22,12 +22,10 @@ struct JourneyCard: View {
     @Environment(\.baseCurrency) private var currency
     @Environment(\.locale) private var locale
     /// The milestones reached, worked out once for each state of the library.
-    @State private var cache = PlanProgressCache()
+    @State private var progressMemo = PlanProgressMemo()
 
     var body: some View {
-        let key = PlanProgressCache.Key(revision: library.revision, plan: plan.id, document: plan,
-                                        asOf: library.asOfDate)
-        let progress = cache.progress(for: key, library: library.library, valuator: library.valuator)
+        let progress = progressMemo.progress(of: plan.id, plan: plan, library: library)
         let milestones = PlanMilestones(plan: plan, library: library.library, valuator: library.valuator,
                                         asOf: library.asOfDate, results: results, reached: progress.reached)
         let text = PlanMilestoneText(currency: currency, locale: locale)
@@ -57,7 +55,7 @@ struct JourneyCard: View {
                         sinceYouStarted(since)
                     }
                     HStack(spacing: Metrics.l) {
-                        Button("All Milestones") { navigation.showPlanProgress() }
+                        Button("All Milestones") { navigation.showPlan(at: PlanRoute(part: .progress)) }
                         Button("Your Year") { navigation.showYourYear() }
                     }
                     .buttonStyle(.borderless)
@@ -166,7 +164,7 @@ struct SinceYouStarted: Hashable {
         self.answer = then == now ? "You could retire at \(now), as when you started"
             : "You could retire at \(now), not \(then)"
         var parts: [String] = []
-        if let from = first.readiness, let to = answer.shownReadiness {
+        if let from = first.readiness, let to = answer.readiness.map(Readiness.shown) {
             let fromPercent = Int((from.doubleValue * 100 + 1e-9).rounded(.down))
             let toPercent = Int((to * 100 + 1e-9).rounded(.down))
             parts.append("from \(fromPercent)% to \(toPercent)% ready")

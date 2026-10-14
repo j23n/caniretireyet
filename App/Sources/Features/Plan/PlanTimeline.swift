@@ -91,16 +91,11 @@ struct PlanTimeline {
 
     let cards: [Card]
 
-    /// - Parameters:
-    ///   - valuator: converts results calculated before the base currency
-    ///     changed into `currency` (``PlanResults/portfolio(in:valuator:)``).
-    ///   - milestones: the milestones ahead, each marked on the card it falls in.
-    init(model: PlanChaptersModel, results: PlanResults?, valuator: Valuator, birthDate: CalendarDate,
-         currency: CurrencyCode, milestones: [ProjectedMilestone] = [], locale: Locale = .current) {
+    /// - Parameter milestones: the milestones ahead, each marked on the card it falls in.
+    init(model: PlanChaptersModel, results: PlanResults?, birthDate: CalendarDate, currency: CurrencyCode,
+         milestones: [ProjectedMilestone] = [], locale: Locale = .current) {
         let words = PlanWords(currency: currency, locale: locale)
-        // In the currency the strip is labelled in, as the milestones on it are;
-        // without the rate the cards have no money, as before the first results.
-        let points = results?.portfolio(in: currency, valuator: valuator) ?? []
+        let points = results?.portfolio ?? []
         let all = model.chapters.chapters
         cards = all.indices.map { index in
             let chapter = all[index]
@@ -126,7 +121,7 @@ struct PlanTimeline {
     /// The money scale fitted to the money between the screen's edges
     /// (UI.md, "Plan"): the median and the middle half of futures, so the
     /// outer band may run off the top or the bottom. `nil` before the plan
-    /// has results, or without the rate to show them in.
+    /// has results.
     func scale(fitting window: PlanStripWindow) -> PlanStripScale? {
         PlanStripScale(values: window.values(of: cards) { card, plot in
             let bands = [\FanPoint.p25, \.p50, \.p75]
@@ -182,6 +177,20 @@ struct PlanWords: Hashable, Sendable {
     /// "3.000 €".
     func amount(_ value: Decimal) -> AmountSentence {
         .amount(AmountFormat.amount(value, currency: currency, locale: locale))
+    }
+
+    /// Without its sign, for words that say which way it went: "3.000 €".
+    func unsigned(_ value: Decimal) -> AmountSentence {
+        amount(abs(value))
+    }
+
+    /// "you saved 13.200 € and markets added 22.200 €.", "you took out 900 €
+    /// and markets took 4.000 €.": what came from you and from markets.
+    func savedAndMarkets(saved: Decimal, markets: Decimal) -> AmountSentence {
+        let you: AmountSentence = saved >= 0 ? "you saved \(unsigned(saved))" : "you took out \(unsigned(saved))"
+        let them: AmountSentence = markets >= 0 ? "markets added \(unsigned(markets))"
+            : "markets took \(unsigned(markets))"
+        return "\(you) and \(them)."
     }
 
     /// With its sign: "+150.000 €" for a windfall, "−25.000 €" for an expense.

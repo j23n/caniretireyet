@@ -114,7 +114,10 @@ struct ConflictResolverTests {
         #expect(String(decoding: result.value, as: UTF8.self) == """
             {
               "fromPhone": true,
+              "fx": [],
+              "indices": [],
               "month": "2026-10",
+              "prices": [],
               "valuations": [
                 { "account": "casa", "appraisal": "agency", "balance": "320000", "date": "2026-10-31" },
                 { "account": "tfr", "balance": "9500", "date": "2026-10-31" }

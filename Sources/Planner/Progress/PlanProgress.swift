@@ -6,7 +6,7 @@ import Tracker
 /// (UI.md, "Progress" and "Trends"; PROGRESS.md): the answers recorded, one
 /// ``PlanProgressYear`` per calendar year, the milestones reached and each
 /// year's lines on Progress's strip. Both pages read this one value, which
-/// ``PlanProgressCache`` keeps for each state of the library and the plan.
+/// the app works out once for each state of the library and the plan.
 public struct PlanProgress: Sendable {
     /// The answers recorded at check-ins.
     public let history: PlanAnswerHistory
@@ -263,9 +263,9 @@ public struct PlanYearChart: Identifiable, Sendable {
         var events: [PlanYearEvent] = []
         for (index, step) in changes.enumerated() where step.to.year == year.year && step.to <= year.to {
             let change = step.change
-            let usual = median(changes[max(0, index - 12)..<index].map(\.change.newMoney))
-            if let usual, usual > 0, change.newMoney >= 2 * usual, change.newMoney >= change.start / 100 {
-                events.append(PlanYearEvent(date: step.to, kind: .savedMore(change.newMoney)))
+            let usual = median(changes[max(0, index - 12)..<index].map(\.change.saved))
+            if let usual, usual > 0, change.saved >= 2 * usual, change.saved >= change.start / 100 {
+                events.append(PlanYearEvent(date: step.to, kind: .savedMore(change.saved)))
             }
             if change.start > 0, abs(change.market) >= change.start / 20 {
                 events.append(PlanYearEvent(date: step.to,
@@ -340,66 +340,5 @@ public struct PlanTrends: Sendable {
                                    checkIns: valuator.checkInDates(in: .planAssets, through: end).count)
         history = progress.history.since(start)
         years = progress.years.filter { year in start.map { year.year >= $0.year } ?? true }.reversed()
-    }
-}
-
-/// The last ``PlanProgress`` of a plan and what it was worked out from,
-/// and the ``PlanTrends`` worked out from it. Progress and Trends share
-/// one, so the years are worked out once for each state of the library and
-/// the plan, not each time a page draws. A page fills it while it draws:
-/// nothing observes it, so filling it doesn't draw again.
-@MainActor
-public final class PlanProgressCache {
-    /// What the progress is worked out from.
-    public struct Key: Hashable, Sendable {
-        /// A number that changes with every change to the library.
-        public var revision: Int
-        public var plan: PlanID
-        /// The plan as shown, which may hold an edit not saved yet.
-        public var document: PlanDocument?
-        public var asOf: CalendarDate
-
-        public init(revision: Int, plan: PlanID, document: PlanDocument?, asOf: CalendarDate) {
-            self.revision = revision
-            self.plan = plan
-            self.document = document
-            self.asOf = asOf
-        }
-    }
-
-    private struct TrendsKey: Hashable {
-        var grain: PeriodGrain
-        var lastYears: Int?
-    }
-
-    private var key: Key?
-    private var progress: PlanProgress?
-    private var trends: [TrendsKey: PlanTrends] = [:]
-
-    nonisolated public init() {}
-
-    /// The progress for `key`, of `library` as of that revision: the last
-    /// one when it's for the same, else worked out.
-    public func progress(for key: Key, library: Library, valuator: Valuator) -> PlanProgress {
-        if let progress, self.key == key { return progress }
-        let made = PlanProgress(plan: key.plan, document: key.document, library: library, valuator: valuator,
-                                asOf: key.asOf)
-        self.key = key
-        progress = made
-        trends = [:]
-        return made
-    }
-
-    /// Trends for `key`'s progress, by `grain` over the last `lastYears`
-    /// (all of them when `nil`).
-    public func trends(for key: Key, grain: PeriodGrain, lastYears: Int?, library: Library,
-                       valuator: Valuator) -> PlanTrends {
-        let progress = progress(for: key, library: library, valuator: valuator)
-        let trendsKey = TrendsKey(grain: grain, lastYears: lastYears)
-        if let cached = trends[trendsKey] { return cached }
-        let made = PlanTrends(progress: progress, valuator: valuator, grain: grain, lastYears: lastYears,
-                              asOf: key.asOf)
-        trends[trendsKey] = made
-        return made
     }
 }

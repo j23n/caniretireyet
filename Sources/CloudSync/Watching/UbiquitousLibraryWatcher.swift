@@ -2,8 +2,8 @@
 import Foundation
 import Storage
 
-/// Watches a library in iCloud Drive with an `NSMetadataQuery` on the
-/// ubiquitous documents scope.
+/// Watches a library in iCloud Drive with the iCloud Drive query
+/// (`UbiquitousItemQuery`).
 ///
 /// - Reports files that were added, changed or removed, once they're
 ///   downloaded, debounced into one ``LibraryChange`` per burst.
@@ -13,8 +13,6 @@ import Storage
 ///   look, and there, given a baseline, every file changed since the
 ///   library was loaded (dates within a second of the baseline's count as
 ///   unchanged: the query's dates and the file system's can differ that much).
-///
-/// The query runs on the main thread, where its notifications arrive.
 @MainActor
 public final class UbiquitousLibraryWatcher: LibraryWatching {
     public let root: URL
@@ -22,8 +20,7 @@ public final class UbiquitousLibraryWatcher: LibraryWatching {
     static let debounce: Duration = .milliseconds(500)
 
     private let folder: LibraryFolder
-    private var query: NSMetadataQuery?
-    private var observers: [any NSObjectProtocol] = []
+    private let query = UbiquitousItemQuery()
     private var snapshot: FolderSnapshot?
     /// The folder when the library was loaded, until the first look.
     private var baseline: FolderSnapshot?
@@ -47,33 +44,12 @@ public final class UbiquitousLibraryWatcher: LibraryWatching {
         self.continuation = continuation
         self.baseline = baseline
 
-        let query = NSMetadataQuery()
-        query.searchScopes = [NSMetadataQueryUbiquitousDocumentsScope]
-        query.predicate = NSPredicate(format: "%K LIKE '*'", NSMetadataItemFSNameKey)
-        query.notificationBatchingInterval = 0.25
-        let center = NotificationCenter.default
-        let names: [Notification.Name] = [.NSMetadataQueryDidFinishGathering, .NSMetadataQueryDidUpdate]
-        for name in names {
-            let observer = center.addObserver(forName: name, object: query, queue: .main) { [weak self] notification in
-                let items = Self.items(of: notification)
-                MainActor.assumeIsolated {
-                    self?.receive(items)
-                }
-            }
-            observers.append(observer)
-        }
-        self.query = query
-        _ = query.start()
+        _ = query.start { [weak self] items in self?.receive(items) }
         return stream
     }
 
     public func stop() {
-        query?.stop()
-        query = nil
-        for observer in observers {
-            NotificationCenter.default.removeObserver(observer)
-        }
-        observers = []
+        query.stop()
         flushTask?.cancel()
         flushTask = nil
         snapshot = nil
@@ -86,45 +62,13 @@ public final class UbiquitousLibraryWatcher: LibraryWatching {
 
     // MARK: - Query results
 
-    /// What the query says about one item.
-    struct Item: Sendable {
-        var url: URL
-        var modified: Date?
-        var isDownloaded: Bool
-        var isDownloading: Bool
-        var hasConflicts: Bool
-    }
-
-    /// Every item of the query that posted `notification`. Called on the
-    /// main queue, where the query delivers its notifications.
-    nonisolated static func items(of notification: Notification) -> [Item] {
-        guard let query = notification.object as? NSMetadataQuery else { return [] }
-        query.disableUpdates()
-        defer { query.enableUpdates() }
-        var items: [Item] = []
-        for result in query.results {
-            guard let item = result as? NSMetadataItem,
-                  let url = item.value(forAttribute: NSMetadataItemURLKey) as? URL
-            else { continue }
-            let status = item.value(forAttribute: NSMetadataUbiquitousItemDownloadingStatusKey) as? String
-            items.append(Item(
-                url: url,
-                modified: item.value(forAttribute: NSMetadataItemFSContentChangeDateKey) as? Date,
-                isDownloaded: status == nil || status == NSMetadataUbiquitousItemDownloadingStatusCurrent,
-                isDownloading: item.value(forAttribute: NSMetadataUbiquitousItemIsDownloadingKey) as? Bool ?? false,
-                hasConflicts: item.value(forAttribute: NSMetadataUbiquitousItemHasUnresolvedConflictsKey) as? Bool
-                    ?? false))
-        }
-        return items
-    }
-
-    private func receive(_ items: [Item]) {
+    private func receive(_ items: [UbiquitousItemQuery.Item]) {
         var files: [String: WatchedFileState] = [:]
         for item in items {
             guard let path = folder.relativePath(of: item.url), LibraryChange.isWatched(path) else { continue }
             files[path] = WatchedFileState(
-                modified: item.modified, isDownloaded: item.isDownloaded, hasConflicts: item.hasConflicts)
-            if item.isDownloaded {
+                modified: item.modified, isDownloaded: item.isCurrent, hasConflicts: item.hasConflicts)
+            if item.isCurrent {
                 requestedDownloads.remove(path)
             } else if !item.isDownloading, !requestedDownloads.contains(path) {
                 requestedDownloads.insert(path)

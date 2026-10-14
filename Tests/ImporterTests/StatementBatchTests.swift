@@ -42,7 +42,7 @@ struct StatementBatchTests {
     }
 
     static func lines(_ batch: StatementBatch, _ file: Int) -> [StatementLine] {
-        batch.files[file].session.preview(against: library(), today: today).statementLines
+        batch.preview(of: batch.files[file], against: library(), today: today).statementLines
     }
 
     @Test func eachFilesAccountIsFound() {
@@ -59,7 +59,7 @@ struct StatementBatchTests {
         let batch = StatementBatch(files: [(name: "fineco-gennaio.csv", data: Data(Self.current.utf8))],
                                    library: Self.library(), checkIn: "2026-01-29", today: Self.today)
         #expect(batch.files.first?.session.statementCheckIn == "2026-01-29")
-        let preview = batch.files[0].session.preview(against: Self.library(), today: Self.today)
+        let preview = batch.preview(of: batch.files[0], against: Self.library(), today: Self.today)
         #expect(preview.issues.contains { $0.kind == .statementPeriod(from: "2026-01-01", through: "2026-01-29") })
     }
 
@@ -109,7 +109,7 @@ struct StatementBatchTests {
         library.accounts["risparmio"]?.currency = .usd
         let batch = Self.batch([("fineco-gennaio.csv", Self.current), ("export.csv", Self.savings)],
                                library: library)
-        let lines = batch.files[0].session.preview(against: library, today: Self.today).statementLines
+        let lines = batch.preview(of: batch.files[0], against: library, today: Self.today).statementLines
         #expect(lines.first { $0.amount == -1000 }?.source == .sign)
     }
 
@@ -126,7 +126,7 @@ struct StatementBatchTests {
 
         let previews = batch.previews(against: Self.library(), today: Self.today)
         #expect(previews.map(\.file) == [0, 1])
-        let result = StatementBatch.apply(previews.map(\.preview), to: Self.library())
+        let result = ImportPreview.apply(previews.map(\.preview), to: Self.library())
         let conto = try #require(result.library.valuations(for: "conto").last)
         #expect(conto.date == "2026-01-31")
         #expect(conto.moneyIn == 3000)
@@ -177,7 +177,7 @@ struct StatementBatchTests {
         let batch = Self.batch([("fineco-febbraio.csv", february), ("fineco-gennaio.csv", Self.current)])
         let previews = batch.previews(against: Self.library(), today: Self.today)
         #expect(previews.map(\.file) == [1, 0])
-        let result = StatementBatch.apply(previews.map(\.preview), to: Self.library())
+        let result = ImportPreview.apply(previews.map(\.preview), to: Self.library())
         let values = result.library.valuations(for: "conto")
         #expect(values.map(\.date) == ["2025-12-31", "2026-01-31", "2026-02-28"])
         #expect(values.last?.moneyOut == 900)
@@ -275,13 +275,13 @@ struct StatementBatchTests {
             $0.id == .valuation(ValuationKey(account: "auto", date: saleLine.date))
         }).imported
         #expect(value.balance == 0)
-        #expect(value.flow == -3000)
+        #expect(value.flow == nil)
         #expect(sold.accountChanges == [AccountChangeProposal(account: "auto",
                                                               change: .close(on: saleLine.date.adding(days: 1)),
                                                               statementRow: saleLine.row)])
         #expect(!previews.contains { $0.preview.issues.contains { !$0.isNote } })
 
-        let imported = StatementBatch.apply(previews.map(\.preview), to: library).library
+        let imported = ImportPreview.apply(previews.map(\.preview), to: library).library
         #expect(imported.accounts["auto"]?.closed == saleLine.date.adding(days: 1))
         let again = batch.previews(against: imported, today: Self.today)
         #expect(again.allSatisfy { $0.preview.records.allSatisfy { $0.status == .identical } })
@@ -323,7 +323,7 @@ struct StatementBatchTests {
         let purchaseFile = boughtFromSavings ? 1 : 0
         let saleFile = 1 - purchaseFile
         func lines(_ file: Int) -> [StatementLine] {
-            batch.files[file].session.preview(against: library, today: Self.today).statementLines
+            batch.preview(of: batch.files[file], against: library, today: Self.today).statementLines
         }
         let purchaseRow = try #require(lines(purchaseFile).first { $0.text.hasPrefix("Bonifico a Auto") }).row
         let saleRow = try #require(lines(saleFile).first { $0.text.hasPrefix("Bonifico da Mario V") }).row
@@ -341,10 +341,10 @@ struct StatementBatchTests {
         #expect(!previews.contains { $0.preview.issues.contains {
             if case .statementAssetLeftOut = $0.kind { true } else { false }
         } })
-        let imported = StatementBatch.apply(previews.map(\.preview), to: library).library
+        let imported = ImportPreview.apply(previews.map(\.preview), to: library).library
         #expect(imported.valuations(for: "auto").map { "\($0.date) \($0.balance ?? -1)" }
             == ["2024-12-19 0", "2024-12-20 4000", "2025-09-10 0"])
         #expect(imported.accounts["auto"]?.closed == "2025-09-11")
-        #expect(batch.files.allSatisfy { $0.session.statementPairs.isEmpty })
+        #expect(batch.files.allSatisfy { $0.pairs.isEmpty })
     }
 }

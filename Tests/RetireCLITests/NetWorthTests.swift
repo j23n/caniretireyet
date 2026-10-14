@@ -25,11 +25,11 @@ struct NetWorthTests {
         // The waterfall since the previous check-in.
         #expect(output.contains("""
             Since the last check-in (2026-08-31 to 2026-09-30)
-              Start      327,037.83
-              Market      +3,236.01
-              New money   +2,181.65
-              Other            0.00
-              End        332,455.49
+              Start   327,037.83
+              Market   +3,236.01
+              Saved    +2,181.65
+              Other         0.00
+              End     332,455.49
               Change +5,417.66 (+1.7%)
             """))
         #expect(output.contains("  Fondo pensione    17,990.35    -865.23  +1,325.00   0.00    18,450.12\n"))
@@ -109,7 +109,7 @@ struct NetWorthTests {
         let change = try #require(json["change"] as? [String: Any])
         let total = try #require(change["total"] as? [String: Any])
         #expect(total["start"] as? String == "327037.83")
-        #expect(total["newMoney"] as? String == "2181.65")
+        #expect(total["saved"] as? String == "2181.65")
         let breakdown = try #require(json["breakdown"] as? [String: Any])
         #expect(breakdown["by"] as? String == "asset-class")
         let stale = try #require(json["stale"] as? [[String: Any]])

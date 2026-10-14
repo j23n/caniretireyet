@@ -95,11 +95,11 @@ struct StatementPurchaseTests {
         #expect(try Self.value(preview, "auto", "2026-02-19").balance == 0)
         let value = try Self.value(preview, "auto", "2026-02-20")
         #expect(value.balance == 15000)
-        #expect(value.flow == 15000)
+        // What belongings saved is worked out from the balances, not stored.
+        #expect(value.flow == nil)
         // Moved, not spent.
         let february = try Self.value(preview, "conto", "2026-02-28")
         #expect(february.moneyOut == 1300)
-        #expect(february.flow == -13300)
 
         let library = preview.apply(to: Self.library()).library
         #expect(library.accounts["auto"]?.opened == "2026-02-19")
@@ -114,6 +114,18 @@ struct StatementPurchaseTests {
         #expect(again.records.allSatisfy { $0.status == .identical })
     }
 
+    /// A property asks for what it saved, so its purchase stores it.
+    @Test func aPropertysPurchaseStoresWhatWasSaved() throws {
+        var session = try Self.session()
+        let row = try Self.line(session.preview(against: Self.library(), today: Self.today), "Bonifico a Autosalone")
+            .row
+        session.setStatementAsset(.purchase(name: "Box", kind: .property), forRow: row)
+        let preview = session.preview(against: Self.library(), today: Self.today)
+        #expect(try Self.value(preview, "box", "2026-02-20").flow == 15000)
+        let library = preview.apply(to: Self.library()).library
+        #expect(library.valuations(for: "box").map(\.flow) == [nil, 15000])
+    }
+
     @Test func aSaleValuesTheAccountAtNothingAndClosesIt() throws {
         var session = try Self.session()
         let row = try Self.line(session.preview(against: Self.library(), today: Self.today), "Bonifico da Mario")
@@ -125,7 +137,7 @@ struct StatementPurchaseTests {
         #expect(sale.assetAccount == "moto")
         let value = try Self.value(preview, "moto", "2026-03-18")
         #expect(value.balance == 0)
-        #expect(value.flow == -12000)
+        #expect(value.flow == nil)
         #expect(preview.accountChanges == [AccountChangeProposal(account: "moto", change: .close(on: "2026-03-19"),
                                                                  statementRow: row)])
         #expect(preview.summary.closedAccounts == 1)
@@ -176,7 +188,7 @@ struct StatementPurchaseTests {
         #expect(try Self.value(preview, "auto", "2026-02-20").balance == 15000)
         let sold = try Self.value(preview, "auto", "2026-03-18")
         #expect(sold.balance == 0)
-        #expect(sold.flow == -12000)
+        #expect(sold.flow == nil)
         #expect(preview.accountChanges == [AccountChangeProposal(account: "auto", change: .close(on: "2026-03-19"),
                                                                  statementRow: sale)])
         #expect(!preview.issues.contains { !$0.isNote })
@@ -204,7 +216,7 @@ struct StatementPurchaseTests {
         #expect(try Self.value(preview, "auto", "2026-02-20").balance == 15000)
         let value = try Self.value(preview, "auto", "2026-02-27")
         #expect(value.balance == 0)
-        #expect(value.flow == -3000)
+        #expect(value.flow == nil)
         #expect(preview.accountChanges.map(\.change) == [.close(on: "2026-02-28")])
 
         // Newest first, as many banks export, importing again finds the same values.
@@ -294,6 +306,7 @@ struct StatementPurchaseTests {
         #expect(try Self.line(preview, "Bonifico da Mario Verdi").statementClass == .spending)
         #expect(try Self.line(preview, "Bonifico a Autosalone Neri").statementClass == .spending)
         #expect(try Self.line(preview, "Affitto marzo").asset == nil)
+        #expect(try Self.line(preview, "Affitto marzo").assetLeftOut == .doesntFit)
         // A sale of money out is left out for its sign, not for the account.
         #expect(preview.issues.contains { $0.kind == .statementAssetLeftOut(row: rent, account: nil) })
         #expect(preview.newAccounts.isEmpty)

@@ -15,11 +15,10 @@ public enum PriceFetchError: Error, Hashable, Sendable, CustomStringConvertible 
     /// The service asked to slow down; `retryAfter` is how long it asked to
     /// wait, when it said.
     case rateLimited(service: String, retryAfter: Duration?)
-    /// The service refused the request, e.g. an invalid API key or a date
-    /// outside what its free tier allows.
+    /// The service refused the request (HTTP 401 or 403).
     case unauthorized(service: String, message: String?)
     /// The service doesn't know the symbol or currency. `message` is the
-    /// service's reason ("coin not found"), or advice written as sentences
+    /// service's reason ("not found"), or advice written as sentences
     /// (capitalised, ending in a period), which then follows as its own.
     case unknownSymbol(service: String, symbol: String, message: String?)
     /// Any other unsuccessful HTTP status.
@@ -28,9 +27,6 @@ public enum PriceFetchError: Error, Hashable, Sendable, CustomStringConvertible 
     case malformedResponse(service: String, detail: String)
     /// The service answered, but has no value for the date.
     case noData(service: String, detail: String)
-    /// The service can't provide a value for that date, e.g. it only has
-    /// today's spot price.
-    case unsupportedDate(service: String, detail: String)
     /// A quote per `from` can't be converted into a price per `to`.
     case unsupportedUnit(from: InstrumentUnit, to: InstrumentUnit)
     /// No FX rate to convert a quote into the instrument's currency.
@@ -55,7 +51,7 @@ public enum PriceFetchError: Error, Hashable, Sendable, CustomStringConvertible 
                 "\(service) is limiting requests. Try again in a minute."
             }
         case .unauthorized(let service, let message):
-            "\(service) refused the request\(Self.suffix(message)). Check the API key in Settings."
+            "\(service) refused the request\(Self.suffix(message))."
         case .unknownSymbol(let service, let symbol, let message):
             if let message, Self.isSentence(message) {
                 "\(service) doesn't know \"\(symbol)\". \(message)"
@@ -68,8 +64,6 @@ public enum PriceFetchError: Error, Hashable, Sendable, CustomStringConvertible 
             "\(service)'s response couldn't be read (\(detail)). The service may have changed."
         case .noData(let service, let detail):
             "\(service) has no data: \(detail)."
-        case .unsupportedDate(let service, let detail):
-            "\(service) \(detail)."
         case .unsupportedUnit(let from, let to):
             "Can't convert a price per \(from) into a price per \(to). Metals can use g, kg or ozt."
         case .missingFX(let from, let to, let reason):
@@ -78,15 +72,6 @@ public enum PriceFetchError: Error, Hashable, Sendable, CustomStringConvertible 
             "The instrument \"\(instrument)\" isn't in the library."
         case .cancelled:
             "The fetch was cancelled."
-        }
-    }
-
-    /// Whether trying again later might succeed.
-    public var isTransient: Bool {
-        switch self {
-        case .network, .timedOut, .rateLimited, .cancelled: true
-        case .httpStatus(_, let code, _): code >= 500
-        default: false
         }
     }
 

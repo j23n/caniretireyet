@@ -13,7 +13,7 @@ import WidgetKit
 /// it draws the snapshot this store writes into the App Group's container
 /// (``AppGroup``), and redraws when asked to.
 ///
-/// The root view calls ``refresh()`` whenever ``inputs`` change: the library
+/// `AppModel` calls ``refresh()`` a second after ``inputs`` change: the library
 /// loads or changes (here or on the other device), or the main plan gets new
 /// results. An unchanged snapshot isn't written again.
 @Observable @MainActor
@@ -27,7 +27,7 @@ final class WidgetStore {
     @ObservationIgnored private var written: GlanceSnapshot?
     /// The main plan's progress, worked out once for each state of the
     /// library, for the milestones the journey reached.
-    @ObservationIgnored private let progressCache = PlanProgressCache()
+    @ObservationIgnored private let progressMemo = PlanProgressMemo()
 
     init(library: LibraryStore, plans: PlanStore, snapshotURL: URL?) {
         self.library = library
@@ -67,10 +67,7 @@ final class WidgetStore {
         var reached: [CalendarDate] = []
         var spending: Decimal?
         if let main = library.settings.mainPlan, let plan = library.library.plans[main] {
-            let key = PlanProgressCache.Key(revision: library.revision, plan: main, document: plan,
-                                            asOf: library.asOfDate)
-            reached = progressCache.progress(for: key, library: library.library, valuator: library.valuator)
-                .reached.map(\.date)
+            reached = progressMemo.progress(of: main, plan: plan, library: library).reached.map(\.date)
             spending = MilestoneLadder(plan: plan, library: library.library, on: library.asOfDate).spending
         }
         return JourneyGlance(library: library.library, valuator: library.valuator, asOf: today, reached: reached,

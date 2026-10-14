@@ -15,7 +15,7 @@ enum ColumnUse: Hashable, Sendable {
     case field(ImportField)
 
     /// The targets a value column can have, in menu order.
-    static let targets: [ImportTarget] = [.balance, .quantity, .costBasis, .cash, .price, .fx]
+    static let targets: [ImportTarget] = [.balance, .quantity, .costBasis, .cash, .saved, .price, .fx]
 
     /// Whether a column with this use holds amounts, prices or quantities:
     /// a value target, or a field that holds numbers (a trade's quantity,
@@ -55,6 +55,7 @@ enum ColumnUse: Hashable, Sendable {
             case .quantity: "Quantity"
             case .costBasis: "Cost"
             case .cash: "Cash"
+            case .saved: "Saved"
             case .price: "Price"
             case .fx: "FX rate"
             default: target.rawValue
@@ -318,7 +319,7 @@ extension ImportFlow {
     /// An account's name: the library's, a proposed one's (of any file
     /// open), or its ID.
     func accountName(_ id: AccountID) -> String {
-        let proposals = (preview?.newAccounts ?? []) + batchPreviews.flatMap(\.preview.newAccounts)
+        let proposals = previews.flatMap(\.preview.newAccounts)
         return library.accounts[id]?.name ?? proposals.first { $0.account.id == id }?.account.name ?? id.rawValue
     }
 

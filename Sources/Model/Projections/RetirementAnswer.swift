@@ -76,11 +76,6 @@ public struct RetirementAnswer: Hashable, Sendable {
     public static func earliestDate(age: Int, recordedOn date: CalendarDate, birthDate: CalendarDate) -> CalendarDate {
         max(date, birthDate.adding(years: age))
     }
-
-    /// ``readiness`` as every screen shows it (``Readiness/shown(_:)``).
-    public var shownReadiness: Double? {
-        readiness.map(Readiness.shown)
-    }
 }
 
 extension RetirementAnswer: Codable {

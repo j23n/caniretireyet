@@ -4,7 +4,7 @@ import Tracker
 
 /// The change between two totals as a headline and bars (UI.md, "Since
 /// last check-in"): "+5.730 € since 31 May", the totals before and after,
-/// and one bar per part of the change (markets, new money, other) from a
+/// and one bar per part of the change (markets, saved, other) from a
 /// shared zero line, all to the same scale. Gains go right, losses left.
 ///
 /// Positions are fractions of the bars' track, so the bars stay
@@ -52,12 +52,12 @@ struct ChangeBars: Hashable, Sendable {
         }
     }
 
-    /// Markets, new money and other, from Tracker's split of a change. Net
-    /// worth's new money is what was saved: money moved between your
+    /// Markets, saved and other, from Tracker's split of a change. Net
+    /// worth's saved is as the savings rate counts it: money moved between your
     /// accounts cancels out, so its bar is *Saved*.
     init(_ change: ValueChange) {
         self.init(start: change.start.doubleValue, end: change.end.doubleValue,
-                  parts: [("Markets", change.market.doubleValue), ("Saved", change.newMoney.doubleValue),
+                  parts: [("Markets", change.market.doubleValue), ("Saved", change.saved.doubleValue),
                           ("Other", change.other.doubleValue)])
     }
 }

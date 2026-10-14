@@ -61,31 +61,3 @@ extension FrankfurterResponses {
     "2025-08-18":{"USD":1.1672},"2025-08-25":{"USD":1.1638},"2025-09-01":{"USD":1.1697}}}
     """
 }
-
-extension CoinGeckoResponses {
-    /// `GET coins/ethereum/market_chart/range?vs_currency=eur&from=1779580800&to=1790816400`
-    /// (abridged): daily values at 00:00 UTC, then the live price.
-    static let ethereumMarketChart = """
-    {"prices":[[1780272000000,3301.5],[1780358400000,3322.254117],[1790726400000,3809.9],\
-    [1790758800000,3812.0625]],\
-    "market_caps":[[1780272000000,398212345678.1],[1780358400000,400712345678.9],[1790726400000,459612345678.2],\
-    [1790758800000,459912345678.5]],\
-    "total_volumes":[[1780272000000,21234567890.1],[1780358400000,19876543210.2],[1790726400000,23456789012.3],\
-    [1790758800000,8765432109.4]]}
-    """
-
-    /// 404 on `market_chart/range` for an ID CoinGecko doesn't know.
-    static let marketChartNotFound = #"{"error":"coin not found"}"#
-
-    /// `GET search?query=moonstone`: the coin with that ID, and its ticker.
-    static let searchMoonstone = """
-    {"coins":[\
-    {"id":"moonstone","name":"Moonstone","api_symbol":"moonstone","symbol":"MOON","market_cap_rank":287,\
-    "thumb":"https://coin-images.coingecko.com/coins/images/90004/thumb/moonstone.png",\
-    "large":"https://coin-images.coingecko.com/coins/images/90004/large/moonstone.png"},\
-    {"id":"moonstone-dao","name":"Moonstone DAO","api_symbol":"moonstone-dao","symbol":"MSTD","market_cap_rank":null,\
-    "thumb":"https://coin-images.coingecko.com/coins/images/90007/thumb/moonstone-dao.png",\
-    "large":"https://coin-images.coingecko.com/coins/images/90007/large/moonstone-dao.png"}],\
-    "exchanges":[],"icos":[],"categories":[],"nfts":[]}
-    """
-}

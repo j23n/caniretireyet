@@ -41,7 +41,7 @@ struct CheckInJourneyCards: View {
         if let split = monthSplit {
             Card {
                 VStack(alignment: .leading, spacing: Metrics.m) {
-                    SavingAsTimeText(saved: split.newMoney, markets: split.market, yearlySpending: spending)
+                    SavingAsTimeText(saved: split.saved, markets: split.market, yearlySpending: spending)
                     if split.start > 0,
                        let perspective = MarketPerspective.sentence(
                            marketsShare: (split.market / split.start).doubleValue,

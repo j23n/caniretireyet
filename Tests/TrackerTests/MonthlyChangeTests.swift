@@ -18,7 +18,7 @@ struct MonthlyChangeTests {
         #expect(months.count <= 12)
         let september = try #require(months.last)
         let split = valuator.savedSplit(of: valuator.change(from: "2026-08-31", to: "2026-09-30"))
-        #expect(september.saved == split.newMoney)
+        #expect(september.saved == split.saved)
         #expect(september.markets == split.market)
     }
 

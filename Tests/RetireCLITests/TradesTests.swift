@@ -112,9 +112,6 @@ struct TradesImportCommandTests {
     @Test func aDealersInvoicesArePaidFromOutsideTheAccount() async throws {
         let library = try TemporaryFolder.exampleLibrary()
         let clock = TestClock()
-        var converted = try library.load()
-        _ = converted.convertToTrades("gold-coins")
-        try library.library.save(converted, previous: try library.load())
         let files = try TemporaryFolder()
         try files.write("dealer.csv", """
             Tipo;Data;Titolo;Quantità;Prezzo;Importo

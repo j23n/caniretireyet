@@ -43,17 +43,6 @@ struct ReturnModel: Sendable {
         classes = heldClasses
         drawIndex = heldClasses.map { held in drawClasses.firstIndex(of: held)! }
 
-        // A file that writes both the mean and the median gets the mean.
-        for (assetClass, assumption) in assumptions.returns.sorted(by: { $0.key < $1.key })
-            where assumption.setsMeanAndMedian {
-            issues.append(.warning(
-                "planner.meanAndMedian",
-                "\(Self.name(assetClass))'s return assumption sets both real (the mean, "
-                    + "\(Self.percent(assumption.realAsWritten?.doubleValue ?? 0))) and medianReal; the plan uses real "
-                    + "and ignores medianReal.",
-                section: .assumptions, option: assetClass.rawValue))
-        }
-
         var expected: [Double] = []
         var volatility: [Double] = []
         for assetClass in heldClasses {

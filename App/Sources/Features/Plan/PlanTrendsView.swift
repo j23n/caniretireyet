@@ -9,7 +9,7 @@ import Tracker
 /// history uses. *Your last 12 months*, *Savings rate* and *Money in and
 /// out* are built on money in and out, with the plan as reference lines,
 /// and fold into one card while none is recorded; *Where your money came
-/// from* splits plan assets into what you started with, what you put in
+/// from* splits plan assets into what you started with, what you saved
 /// and what markets added; *Time to retirement* is the plan's answer at
 /// each check-in; *Year by year* grades each calendar year in words. On
 /// iPhone the grain and the span are at the top of the page; on the Mac and
@@ -18,16 +18,18 @@ import Tracker
 /// page.
 struct PlanTrendsView: View {
     let session: PlanSession
-    var isWide = false
     /// Opens a year on Progress.
     var onShowYear: (Int) -> Void = { _ in }
 
     @Environment(LibraryStore.self) private var library
+    @Environment(\.pageLayout) private var layout
     @Environment(\.locale) private var locale
     @AppStorage("overview.range") private var range: HistoryRange = .threeYears
     @AppStorage(PlanTrends.grainKey) private var storedGrain: PeriodGrain?
 
-    private var gutter: CGFloat { isWide ? Metrics.xl : Metrics.l }
+    private var isWide: Bool { layout.isWide }
+
+    private var gutter: CGFloat { layout.gutter }
 
     private var grain: PeriodGrain {
         storedGrain ?? .trendsStandard(firstMoneyInOut: library.firstMoneyInOut, asOf: library.asOfDate)
@@ -49,7 +51,7 @@ struct PlanTrendsView: View {
                         }
                     } else {
                         PlanLastTwelveMonthsCard(year: model.lastTwelveMonths,
-                                                 plannedSpending: reference.spendingWhileWorking, isWide: true)
+                                                 plannedSpending: reference.spendingWhileWorking)
                         EqualColumns(spacing: Metrics.l) {
                             VStack(alignment: .leading, spacing: Metrics.l) {
                                 savingsRateCard(model.money, planRate: reference.savingsRate)
@@ -91,11 +93,10 @@ struct PlanTrendsView: View {
     }
 
     /// Worked out once for each state of the library, the grain and the
-    /// span, from the progress Progress shows too (the session's
-    /// `PlanProgressCache`), not each time the page draws.
+    /// span, from the progress Progress shows too (``PlanSession/trends(grain:lastYears:)``),
+    /// not each time the page draws.
     private var trendsModel: PlanTrends {
-        session.progressCache.trends(for: session.progressKey, grain: grain, lastYears: range.years,
-                                     library: library.library, valuator: library.valuator)
+        session.trends(grain: grain, lastYears: range.years)
     }
 
     // MARK: Savings rate, Money in and out
@@ -222,7 +223,7 @@ struct PlanTrendsView: View {
             if years.isEmpty {
                 notYet("Year by year shows from your first check-in.")
             } else {
-                PlanYearGradesTable(years: years, isWide: isWide, onShowYear: onShowYear)
+                PlanYearGradesTable(years: years, onShowYear: onShowYear)
             }
         } header: {
             SectionHeader("Year by year")
@@ -280,12 +281,14 @@ struct PlanTrendsControls: View {
 #Preview("Trends") {
     PlanPreviewHost(model: AppModel.preview()) { session in
         PlanTrendsView(session: session)
+            .environment(\.pageLayout, PageLayout())
     }
 }
 
 #Preview("Trends · Mac") {
     PlanPreviewHost(model: AppModel.preview()) { session in
-        PlanTrendsView(session: session, isWide: true)
+        PlanTrendsView(session: session)
             .frame(width: 1_100, height: 800)
+            .environment(\.pageLayout, PageLayout(isWide: true))
     }
 }

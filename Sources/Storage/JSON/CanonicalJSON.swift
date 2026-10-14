@@ -52,12 +52,6 @@ public enum CanonicalJSON {
         try JSONParser.parse(data)
     }
 
-    /// `true` when `data` is already in canonical form.
-    public static func isCanonical(_ data: Data) -> Bool {
-        guard let value = try? parse(data) else { return false }
-        return self.data(for: value) == data
-    }
-
     /// Whether two versions of a file hold the same: the same bytes, or the
     /// same JSON. `nil` is no file.
     public static func sameContents(_ a: Data?, _ b: Data?) -> Bool {

@@ -102,7 +102,9 @@ public struct TradeLedger: Sendable {
         currency = account.currency
         var entries: [TradeEntry] = []
         var issues: [TradeIssue] = []
-        var positions: [InstrumentID: PositionState] = [:]
+        var held = HeldQuantities()
+        /// The purchase cost of each instrument's position; `nil` when unknown.
+        var costs: [InstrumentID: Decimal?] = [:]
         var days: [(date: CalendarDate, positions: [InstrumentID: PositionState])] = []
         var cashTotals: [Decimal] = [0]
         var unknownCounts: [Int] = [0]
@@ -138,61 +140,56 @@ public struct TradeLedger: Sendable {
             let amount = trade.amount ?? Self.computedCashEffect(of: trade, gross: gross)
             let cashEffect: Decimal? = trade.isSettledExternally ? 0 : amount
 
-            // Holdings and cost.
+            // Holdings, by Model's quantity rules (HeldQuantities), and cost.
             var cost: Decimal?
             var gain: Decimal?
             var quantityAfter: Decimal?
             var costAfter: Decimal?
             if trade.type.changesHoldings, let instrument = trade.instrument {
-                var state = positions[instrument] ?? PositionState()
-                let before = state.quantity
-                switch trade.type {
-                case .split:
-                    if let ratio = trade.ratio, ratio > 0 {
-                        if before == 0 {
-                            issue(.splitNotHeld, .warning, "The account doesn't hold \(instrument), so the split "
-                                + "changes nothing.")
+                let before = held[instrument]
+                let shortfall = held.apply(trade)
+                var positionCost: Decimal? = costs[instrument] ?? 0
+                if trade.type == .split {
+                    if before == 0, let ratio = trade.ratio, ratio > 0 {
+                        issue(.splitNotHeld, .warning, "The account doesn't hold \(instrument), so the split "
+                            + "changes nothing.")
+                    }
+                } else if let quantity = trade.quantity, quantity > 0 {
+                    if trade.type.addsUnits {
+                        if trade.type == .buy {
+                            cost = amount.map { -$0 }
+                        } else {
+                            cost = trade.cost
+                            if cost == nil {
+                                issue(.unknownCost, .warning, "It has no cost, so the purchase cost of \(instrument) "
+                                    + "is unknown until the position is closed. Add its cost (valore di carico).")
+                            }
                         }
-                        state.quantity = before * ratio
-                    }
-                case .buy, .opening, .transferIn:
-                    guard let quantity = trade.quantity, quantity > 0 else { break }
-                    if trade.type == .buy {
-                        cost = amount.map { -$0 }
+                        let previousCost: Decimal? = before > 0 ? positionCost : 0
+                        positionCost = previousCost.flatMap { previous in cost.map { previous + $0 } }
                     } else {
-                        cost = trade.cost
-                        if cost == nil {
-                            issue(.unknownCost, .warning, "It has no cost, so the purchase cost of \(instrument) is "
-                                + "unknown until the position is closed. Add its cost (valore di carico).")
+                        let heldBefore = max(before, 0)
+                        if let shortfall {
+                            issue(.oversold, .error, "It takes away \(shortfall.fileString) more than the account "
+                                + "held then (\(heldBefore.fileString)). Is a buy or an opening missing, or the date "
+                                + "wrong?")
                         }
-                    }
-                    let previousCost: Decimal? = before > 0 ? state.cost : 0
-                    state.quantity = before + quantity
-                    state.cost = previousCost.flatMap { previous in cost.map { previous + $0 } }
-                default:  // sell, transferOut
-                    guard let quantity = trade.quantity, quantity > 0 else { break }
-                    let held = max(before, 0)
-                    if quantity > held {
-                        issue(.oversold, .error, "It takes away \((quantity - held).fileString) more than the "
-                            + "account held then (\(held.fileString)). Is a buy or an opening missing, or the date "
-                            + "wrong?")
-                    }
-                    let taken = min(quantity, held)
-                    if taken == held {
-                        cost = held > 0 ? state.cost : 0
-                    } else {
-                        cost = state.cost.map { ($0 * taken / held).rounded(scale: 2) }
-                    }
-                    state.cost = state.cost.flatMap { total in cost.map { total - $0 } }
-                    if before - quantity <= 0 { state.cost = 0 }
-                    state.quantity = before - quantity
-                    if trade.type == .sell, quantity <= held, let amount, let cost {
-                        gain = amount + (trade.tax ?? 0) - cost
+                        let taken = min(quantity, heldBefore)
+                        if taken == heldBefore {
+                            cost = heldBefore > 0 ? positionCost : 0
+                        } else {
+                            cost = positionCost.map { ($0 * taken / heldBefore).rounded(scale: 2) }
+                        }
+                        positionCost = positionCost.flatMap { total in cost.map { total - $0 } }
+                        if held[instrument] <= 0 { positionCost = 0 }
+                        if trade.type == .sell, shortfall == nil, let amount, let cost {
+                            gain = amount + (trade.tax ?? 0) - cost
+                        }
                     }
                 }
-                positions[instrument] = state
-                quantityAfter = state.quantity
-                costAfter = state.cost
+                costs[instrument] = positionCost
+                quantityAfter = held[instrument]
+                costAfter = positionCost
             }
 
             if amount == nil, trade.type.isKnown, !missingRate,
@@ -206,6 +203,10 @@ public struct TradeLedger: Sendable {
             unknownCounts.append(runningUnknown)
             entries.append(TradeEntry(trade: trade, amount: amount, cashEffect: cashEffect, cost: cost,
                                       realizedGain: gain, quantityAfter: quantityAfter, costAfter: costAfter))
+            var positions: [InstrumentID: PositionState] = [:]
+            for (instrument, quantity) in held.quantities {
+                positions[instrument] = PositionState(quantity: quantity, cost: costs[instrument] ?? 0)
+            }
             if days.last?.date == trade.date {
                 days[days.count - 1].positions = positions
             } else {

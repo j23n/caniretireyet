@@ -21,6 +21,8 @@ extension View {
     /// Injects every store of `model` into the environment. Each scene (the
     /// main window, the Mac's Settings window, extra windows) applies it.
     ///
+    /// It sets the pages' layout from the navigation's (``PageLayout``).
+    ///
     /// It also hides amounts (UI.md, "Privacy"): while the eye is on, the
     /// scene is redacted for `.privacy`, so every view marked
     /// `.privacySensitive()` draws as a placeholder, and views read
@@ -48,6 +50,7 @@ private struct AppEnvironmentModifier: ViewModifier {
             .environment(model.widgets)
             .environment(model.notes)
             .environment(\.baseCurrency, model.library.shownCurrency)
+            .environment(\.pageLayout, PageLayout(isWide: model.navigation.layout == .sidebar))
             .redacted(reason: model.preferences.hidesAmounts ? .privacy : [])
             #if FEEDBACK
             // While a feedback screenshot is taken, FeedbackKit's `.privacySensitiveViews` redacts

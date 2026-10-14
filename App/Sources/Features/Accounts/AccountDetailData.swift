@@ -68,9 +68,13 @@ struct AccountValuationRow: Hashable, Sendable, Identifiable {
     var amount: Decimal?
     /// The value on its own date, in the base currency (what could be valued).
     var value: Decimal
+    /// What was saved since the value before, in the account's currency
+    /// (Tracker's `Valuator.flow(of:previous:)`): recorded, or worked out
+    /// from the balances; `nil` when it's unknown, as for the first value.
+    var flow: Decimal? = nil
     /// For a cash or savings account's value that records money in and
     /// out: the money moved between your own accounts, in the account's
-    /// currency (Tracker's `Valuation.moved`); `nil` otherwise.
+    /// currency (Tracker's `Valuator.moved(_:previous:)`); `nil` otherwise.
     var moved: Decimal? = nil
 
     var id: ValuationKey { valuation.key }
@@ -86,7 +90,7 @@ struct AccountStatementRow: Hashable, Sendable, Identifiable {
     var valuation: Valuation
     /// The statement's cash minus the cash the trades give on its date, in
     /// the account's currency: money added (+) or taken out (−) that no
-    /// trade records, which counts as new money. `nil` when the value
+    /// trade records, which counts as saved. `nil` when the value
     /// records no cash, or the same cash as the trades.
     var cashDifference: Decimal?
     /// How many instruments' quantities differ from what the trades give
@@ -205,6 +209,22 @@ struct AccountDetailData: Hashable, Sendable {
             + "accounts."
     }
 
+    /// The page's sections between the chart and the details, in order:
+    /// the same on iPhone and the Mac.
+    var sections: [AccountDetailSection] {
+        var sections: [AccountDetailSection] = []
+        if !tradeIssues.isEmpty { sections.append(.tradeIssues) }
+        if tradeHoldings != nil { sections.append(.holdings) }
+        if recordsTrades {
+            sections.append(.trades)
+            if !incomeYears.isEmpty { sections.append(.income) }
+            if !statements.isEmpty { sections.append(.statements) }
+        } else {
+            sections.append(.values)
+        }
+        return sections
+    }
+
     init(account: Account, library: Library, valuator: Valuator, today: CalendarDate, stalenessThreshold: Int) {
         self.account = account
         baseCurrency = valuator.baseCurrency
@@ -240,19 +260,8 @@ struct AccountDetailData: Hashable, Sendable {
                 }
             }
         }
-        if account.recordsTrades {
-            // Deposits, withdrawals, transfers and residuals, on their own dates.
-            var byDate: [CalendarDate: Decimal] = [:]
-            for flow in valuator.tradeFlows(of: account.id, after: nil, through: date) {
-                if let amount = flow.amount { byDate[flow.date, default: 0] += amount }
-            }
-            flows = byDate.filter { $0.value != 0 }.sorted { $0.key < $1.key }
-                .map { AccountFlowTick(date: $0.key, amount: $0.value) }
-        } else {
-            flows = all.compactMap { valuation in
-                guard let flow = valuation.flow, flow != 0 else { return nil }
-                return AccountFlowTick(date: valuation.date, amount: flow)
-            }
+        flows = valuator.flowsByDate(of: account.id, through: date).map {
+            AccountFlowTick(date: $0.date, amount: $0.amount)
         }
         if account.recordsTrades {
             let rows = valuator.holdings(of: account.id, on: date).map { holding in
@@ -268,12 +277,15 @@ struct AccountDetailData: Hashable, Sendable {
             statements = Self.statements(of: account.id, valuations: all, valuator: valuator)
         } else {
             let recordsMoneyInOut = account.kind.recordsMoneyInOut
-            valuations = all.reversed().map { valuation in
-                AccountValuationRow(
+            valuations = all.indices.reversed().map { index in
+                let valuation = all[index]
+                let previous = index > 0 ? all[index - 1] : nil
+                return AccountValuationRow(
                     valuation: valuation,
                     amount: valuator.amountInAccountCurrency(of: valuation, on: valuation.date),
                     value: valuator.value(of: valuation, on: valuation.date)?.knownValue ?? 0,
-                    moved: recordsMoneyInOut ? valuation.moved : nil)
+                    flow: valuator.flow(of: valuation, previous: previous),
+                    moved: recordsMoneyInOut ? valuator.moved(valuation, previous: previous) : nil)
             }
         }
         tradeIssues = TradeIssueNote.notes(for: account.id, library: library, valuator: valuator)
@@ -303,6 +315,22 @@ extension AccountDetailData {
                                        mismatchCount: valuator.reconcile(valuation).count)
         }
     }
+}
+
+/// A section of an account's page (``AccountDetailData/sections``).
+enum AccountDetailSection: Hashable {
+    /// What's wrong with its trades.
+    case tradeIssues
+    /// A trades account's holdings (``AccountDetailData/tradeHoldings``).
+    case holdings
+    /// A trades account's trades, by month.
+    case trades
+    /// A trades account's income and gains by year.
+    case income
+    /// A trades account's values that record a statement.
+    case statements
+    /// Another account's values.
+    case values
 }
 
 /// The accounts money could have gone to when `account` closes on `date`:

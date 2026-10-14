@@ -10,20 +10,15 @@ struct MilestoneWidget: Widget {
     static let kind = "NextMilestone"
 
     var body: some WidgetConfiguration {
-        StaticConfiguration(kind: Self.kind, provider: GlanceProvider()) { entry in
-            MilestoneView(entry: entry)
+        glance(kind: Self.kind, name: "Next milestone",
+               description: "The next point on the way to retiring, and how far there you are.",
+               families: [.small, .rectangular], link: .plan) { entry, family in
+            if family == .rectangular {
+                MilestoneRectangular(entry: entry)
+            } else {
+                MilestoneSmall(entry: entry)
+            }
         }
-        .configurationDisplayName("Next milestone")
-        .description("The next point on the way to retiring, and how far there you are.")
-        .supportedFamilies(Self.families)
-    }
-
-    static var families: [WidgetFamily] {
-        #if os(iOS)
-        return [.systemSmall, .accessoryRectangular]
-        #else
-        return [.systemSmall]
-        #endif
     }
 }
 
@@ -53,29 +48,6 @@ struct MilestoneWords {
     var there: String { money.percent(progress) + " there" }
 
     var typically: String? { milestone.typically.map(GlanceText.typically) }
-}
-
-struct MilestoneView: View {
-    var entry: GlanceEntry
-    @Environment(\.widgetFamily) private var family
-
-    var body: some View {
-        content
-            .widgetURL(GlanceLink.plan.url)
-    }
-
-    @ViewBuilder
-    private var content: some View {
-        #if os(iOS)
-        if family == .accessoryRectangular {
-            MilestoneRectangular(entry: entry)
-        } else {
-            MilestoneSmall(entry: entry)
-        }
-        #else
-        MilestoneSmall(entry: entry)
-        #endif
-    }
 }
 
 struct MilestoneSmall: View {
@@ -123,7 +95,6 @@ struct MilestoneSmall: View {
     }
 }
 
-#if os(iOS)
 /// The next milestone on the lock screen: its name and how far there. Lock
 /// screen widgets never show amounts, so a round amount reads "A round amount".
 struct MilestoneRectangular: View {
@@ -156,4 +127,3 @@ struct MilestoneRectangular: View {
         .clearBackground()
     }
 }
-#endif

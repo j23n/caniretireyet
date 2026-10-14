@@ -225,12 +225,12 @@ extension LibraryFolder {
     private func read(_ disk: Data?, as file: LibraryFile) -> DiskFile {
         guard let disk else { return DiskFile(exists: false, isUnreadable: false) }
         let raw = (try? CanonicalJSON.parse(disk)).flatMap { $0.objectValue != nil ? $0 : nil }
-        let (loaded, hasErrors) = LibraryLoader.decode(file, from: disk, in: self)
+        let (loaded, hasErrors) = LibraryLoader.decode(file, from: disk)
         guard let raw else { return DiskFile(exists: true, loaded: loaded, isUnreadable: true) }
         if file.mergesRecords {
             // Records that can't be read are kept in the file; only a list
             // that isn't a list would be lost.
-            let lists = Self.recordLists(of: file).keys
+            let lists = Self.recordListNames(of: file)
             let broken = lists.contains { raw[$0].map { !$0.isNull && $0.arrayValue == nil } ?? false }
             return DiskFile(exists: true, raw: raw, loaded: loaded, isUnreadable: broken)
         }
@@ -304,15 +304,16 @@ extension LibraryFolder {
         switch file {
         case .month(let month):
             let merge = RecordMerger.merge(base: base.months[month], ours: ours.months[month],
-                                           theirs: theirs.months[month], month: month, rule: rule)
-            merged = try Self.json(forMonth: merge.value)
+                                           theirs: theirs.months[month], empty: MonthFile(month: month), rule: rule)
+            merged = try Self.json(of: merge.value)
             conflicts = merge.conflicts
         case .headlines(let plan, let year):
             let mine = ours.projections[plan]?.headlines[year]
             let merge = RecordMerger.merge(base: base.projections[plan]?.headlines[year], ours: mine,
-                                           theirs: theirs.projections[plan]?.headlines[year], rule: rule)
-            let removed = merge.value.headlines.isEmpty && !(keepsOurEmptyHeadlines && mine != nil)
-            merged = removed ? Optional.none : try Self.json(for: merge.value)
+                                           theirs: theirs.projections[plan]?.headlines[year], empty: HeadlineFile(),
+                                           rule: rule)
+            let removed = merge.value.isEmpty && !(keepsOurEmptyHeadlines && mine != nil)
+            merged = removed ? Optional.none : try Self.json(of: merge.value)
             conflicts = merge.conflicts
         default:
             preconditionFailure("\(file) isn't merged record by record")
@@ -328,68 +329,36 @@ extension LibraryFolder {
     func removal(of file: LibraryFile, raw: JSONValue?) throws -> FilePlan.Output {
         guard let raw, file.mergesRecords else { return .delete }
         let empty: JSONValue = switch file {
-        case .month(let month): try Self.json(for: MonthFile(month: month))
-        default: try Self.json(for: HeadlineFile())
+        case .month(let month): try CanonicalJSON.json(encoding: MonthFile(month: month))
+        default: try CanonicalJSON.json(encoding: HeadlineFile())
         }
         let kept = KeyPreservation.rule(for: file).preserving(raw, in: empty)
         return kept == empty ? .delete : .write(CanonicalJSON.data(for: kept))
     }
 
-    /// The record lists of a history or headline file.
-    static func recordLists(of file: LibraryFile) -> [String: KeyPreservation.RecordList] {
-        if case .month = file { KeyPreservation.RecordList.monthLists } else { KeyPreservation.RecordList.headlineLists }
+    /// The names of the record lists of a history or headline file.
+    static func recordListNames(of file: LibraryFile) -> [String] {
+        if case .month = file { MonthFile.recordLists.map { $0.name } } else { HeadlineFile.recordLists.map { $0.name } }
     }
 
     // MARK: JSON of entities
 
-    /// The JSON of the entity a file holds, or `nil` if the library doesn't
-    /// have it (or it's an empty month).
+    /// The JSON of what a file holds, as it's written
+    /// (``LibraryFileContents/written``), or `nil` if the library doesn't
+    /// have it (or it's a month without records).
     static func json(for file: LibraryFile, in library: Library) throws -> JSONValue? {
-        switch file {
-        case .settings: try CanonicalJSON.json(encoding: library.settings)
-        case .account(let id): try library.accounts[id].map { try CanonicalJSON.json(encoding: $0) }
-        case .instrument(let id): try library.instruments[id].map { try CanonicalJSON.json(encoding: $0) }
-        case .month(let month): try json(forMonth: library.months[month])
-        case .plan(let id): try library.plans[id].map { try CanonicalJSON.json(encoding: $0) }
-        case .importProfile(let id): try library.importProfiles[id].map { try CanonicalJSON.json(encoding: $0) }
-        case .baseline(let plan, let id):
-            try library.projections[plan]?.baselines[id].map { try CanonicalJSON.json(encoding: $0) }
-        case .headlines(let plan, let year):
-            try library.projections[plan]?.headlines[year].map { try json(for: $0) }
-        }
+        try json(of: file.access, in: library)
     }
 
-    /// A month file's JSON, or `nil` for no month or an empty one.
-    static func json(forMonth month: MonthFile?) throws -> JSONValue? {
-        guard let month, !month.isEmpty else { return nil }
-        return try json(for: month)
+    private static func json<Access: LibraryFileAccess>(of access: Access, in library: Library) throws -> JSONValue? {
+        try access.value(in: library).flatMap { try json(of: $0) }
     }
 
-    /// A month file's JSON, with its records sorted by date, then ID.
-    static func json(for month: MonthFile) throws -> JSONValue {
-        var sorted = month
-        sorted.sortRecords()
-        return try CanonicalJSON.json(encoding: sorted)
-    }
-
-    /// A headline file's JSON, with its headlines sorted by date.
-    static func json(for headlines: HeadlineFile) throws -> JSONValue {
-        try CanonicalJSON.json(encoding: HeadlineFile(headlines: headlines.headlines.sortedByKey()))
-    }
-
-    /// A quick check that skips encoding when the model values are equal
-    /// (equal values have equal canonical bytes).
-    static func entitiesEqual(_ file: LibraryFile, _ a: Library, _ b: Library) -> Bool {
-        switch file {
-        case .settings: a.settings == b.settings
-        case .account(let id): a.accounts[id] == b.accounts[id]
-        case .instrument(let id): a.instruments[id] == b.instruments[id]
-        case .month(let month): a.months[month] == b.months[month]
-        case .plan(let id): a.plans[id] == b.plans[id]
-        case .importProfile(let id): a.importProfiles[id] == b.importProfiles[id]
-        case .baseline(let plan, let id): a.projections[plan]?.baselines[id] == b.projections[plan]?.baselines[id]
-        case .headlines(let plan, let year): a.projections[plan]?.headlines[year] == b.projections[plan]?.headlines[year]
-        }
+    /// The JSON of a file's contents as they're written
+    /// (``LibraryFileContents/written``): records sorted by key, and `nil`
+    /// for a month without records.
+    static func json(of contents: some LibraryFileContents) throws -> JSONValue? {
+        try contents.written.map { try CanonicalJSON.json(encoding: $0) }
     }
 }
 
@@ -401,7 +370,7 @@ extension Library {
     /// doesn't count.
     public func files(changedFrom previous: Library) -> Set<LibraryFile> {
         libraryFiles.union(previous.libraryFiles).filter { file in
-            guard !LibraryFolder.entitiesEqual(file, previous, self) else { return false }
+            guard !file.access.holdsTheSame(in: previous, and: self) else { return false }
             do {
                 return try LibraryFolder.json(for: file, in: previous) != LibraryFolder.json(for: file, in: self)
             } catch {

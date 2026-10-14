@@ -111,7 +111,7 @@ extension ImportSession {
         let target = valueTarget(analysis)
         // A header that is only a value word ("Cash", "Saldo") names an account's balance.
         // A header that is only a value word ("Cash") names an account, not a part of one.
-        if [.cash, .quantity, .price, .costBasis].contains(target), let header,
+        if [.cash, .saved, .quantity, .price, .costBasis].contains(target), let header,
            Keywords.name(fromHeader: header) == TextTools.trim(header) {
             return .balance
         }
@@ -128,6 +128,7 @@ extension ImportSession {
         if Keywords.header(header, has: Keywords.fx) { return .fx }
         if Keywords.header(header, has: Keywords.price) { return .price }
         if Keywords.header(header, has: Keywords.cash) { return .cash }
+        if Keywords.header(header, has: Keywords.saved) { return .saved }
         return .balance
     }
 

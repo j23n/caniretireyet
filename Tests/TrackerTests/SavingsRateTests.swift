@@ -11,7 +11,7 @@ struct SavingsRateTests {
     /// from July to September 2026, whose pension fund is paid 1,325 a
     /// quarter and whose mortgage repays 650 a month from the current
     /// account, worked out by hand.
-    @Test func savesEveryAccountsNewMoney() throws {
+    @Test func savesWhatEveryAccountSaved() throws {
         let valuator = Valuator(library: try Fixtures.exampleLibrary())
         let savings = try #require(valuator.savingsRate(overYearEndingOn: "2026-09-30"))
         // The current account's values cover 2026-06-30 to 2026-09-30.
@@ -20,10 +20,9 @@ struct SavingsRateTests {
         #expect(savings.moneyInOut.moneyIn == d("10200"))
         // The pension fund's 1,325 on 2026-09-30; the TFR has no value in those days.
         #expect(savings.pensionContributions == d("1325"))
-        #expect(savings.plannedContributionAccounts.isEmpty)
         #expect(savings.income == d("11525"))
         // The current account's −2,030.4 is the 500 to the savings account, the 200.6 to the broker and the
-        // mortgage's 1,950, which come back as their new money, less what was spent.
+        // mortgage's 1,950, which come back as what they saved, less what was spent.
         #expect(savings.savedByAccount["conto-fineco"] == d("-2030.4"))
         #expect(savings.savedByAccount["conto-deposito"] == 500)
         #expect(savings.savedByAccount["directa"] == d("211.45"))
@@ -68,14 +67,15 @@ struct SavingsRateTests {
         #expect(savings.pensionContributions == d("1325"))
     }
 
-    @Test func takesThePlansContributionsWhenACheckInLeftThemEmpty() throws {
+    /// A pension fund's value without what was saved into it: its change
+    /// is other, never what the plan pays in.
+    @Test func aPensionWithoutWhatWasSavedPaysNothingIn() throws {
         var library = try Fixtures.exampleLibrary()
         let pension = try #require(library.months["2026-09"]?.valuations.firstIndex { $0.account == "fondo-pensione" })
         library.months["2026-09"]?.valuations[pension].flow = nil
         let savings = try #require(Valuator(library: library).savingsRate(overYearEndingOn: "2026-09-30"))
-        // The base plan's 5,000 a year for 92 of 2026's 365 days.
-        #expect(savings.pensionContributions.rounded(scale: 2) == d("1260.27"))
-        #expect(savings.plannedContributionAccounts == ["fondo-pensione"])
+        #expect(savings.pensionContributions == 0)
+        #expect(savings.saved == d("631.05"))
     }
 
     @Test func moneyTakenOutOfAPensionIsNotIncome() throws {
@@ -145,14 +145,16 @@ struct SavingsRateTests {
         #expect(savings.spent == 2850)
         #expect(savings.rate?.rounded(scale: 4) == d("0.3372"))
         // What moved between the accounts leaves the one-off out too.
-        #expect(library.months["2026-01"]?.valuations.first { $0.account == "bank" }?.moved == 0)
+        let bank = library.valuations(for: "bank")
+        let january = try #require(bank.firstIndex { $0.date == "2026-01-31" })
+        #expect(Valuator(library: library).moved(bank[january], previous: january > 0 ? bank[january - 1] : nil) == 0)
         // So does the Overview's Saved bar: the one-off is under Other.
         let valuator = Valuator(library: library)
         let report = valuator.change(from: "2025-12-31", to: "2026-01-31")
         let split = valuator.savedSplit(of: report)
-        #expect(split.newMoney == savings.saved)
+        #expect(split.saved == savings.saved)
         #expect(split.other == report.total.other + 20000)
-        #expect(split.start + split.market + split.newMoney + split.other == split.end)
+        #expect(split.start + split.market + split.saved + split.other == split.end)
     }
 
     /// A car bought from the current account is saved, not spent; its loss
@@ -219,16 +221,16 @@ struct SavingsRateTests {
                                                   currency: .eur, opened: "2026-01-15")
         library.upsert(Valuation(account: "old-savings", date: "2026-01-31", balance: 20000, flow: 20000))
         let savings = try #require(Valuator(library: library).savingsRate(from: "2026-01-01", through: "2026-01-31"))
-        // The bank's 550 drop is the only negative new money at that check-in.
+        // The bank's 550 drop is the only negative saved amount at that check-in.
         #expect(savings.savedByAccount["old-savings"] == 550)
         #expect(savings.saved == 2000)
-        // The Overview's bars move what it already held from new money to other.
+        // The Overview's bars move what it already held from saved to other.
         let valuator = Valuator(library: library)
         let report = valuator.change(from: "2025-12-31", to: "2026-01-31")
         let split = valuator.savedSplit(of: report)
-        #expect(split.newMoney == 2000)
+        #expect(split.saved == 2000)
         #expect(split.other == report.total.other + 19450)
-        #expect(split.start + split.market + split.newMoney + split.other == split.end)
+        #expect(split.start + split.market + split.saved + split.other == split.end)
     }
 
     /// A loan you start tracking at a check-in of its own owed what it owes

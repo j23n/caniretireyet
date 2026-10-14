@@ -25,12 +25,10 @@ let testResources: [String: [Resource]] = [
 /// Test targets that need more than their module and `TestSupport`. The
 /// importer's tests check the holdings, average cost and cash of imported
 /// trades with Tracker's `TradeLedger`; `Importer` itself doesn't use it.
-/// Storage's tests run the upgrade to format version 4 with the step the app
-/// and the command line add, which converts accounts with Tracker, and check
-/// the values with it.
 let testDependencies: [String: [Target.Dependency]] = [
     "ImporterTests": ["Tracker"],
-    "StorageTests": ["Tracker"],
+    // Checks that a reload keeps the problems (`Library.problems()`) of the files it didn't read.
+    "CloudSyncTests": ["Tracker"],
 ]
 
 let package = Package(

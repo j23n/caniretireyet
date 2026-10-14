@@ -38,6 +38,20 @@ public struct StatementLine: Hashable, Sendable, Identifiable {
         case sign
     }
 
+    /// Why the import leaves out the line's answer as money moved, a
+    /// purchase or a sale (``ImportIssue/Kind/statementMoveLeftOut(row:account:)``,
+    /// ``ImportIssue/Kind/statementAssetLeftOut(row:account:)``).
+    public enum AssetLeftOut: Hashable, Sendable {
+        /// The account can't take money moved from this statement
+        /// (``Library/canMoveFromStatement(_:of:on:)``).
+        case accountCantTakeMoves
+        /// The move is to a tax pot, and the line counts in no value whose
+        /// money in and out the file covers.
+        case notCovered
+        /// The purchase or the sale doesn't fit the line.
+        case doesntFit
+    }
+
     /// The 1-based row in the file.
     public var row: Int
     public var date: CalendarDate
@@ -78,6 +92,9 @@ public struct StatementLine: Hashable, Sendable, Identifiable {
     /// purchase's new account (``ImportPreview/newAccounts``), or the
     /// account sold.
     public var assetAccount: AccountID?
+    /// Why the line's answer is left out; `nil` when it's taken or there
+    /// is none.
+    public var assetLeftOut: AssetLeftOut?
 
     public var id: Int { row }
 
@@ -189,6 +206,13 @@ public enum StatementWords {
     /// Card and payment processors that write the merchant after a `*`, as
     /// in `PayPal Europe *Kleinanzeigen Fahrrad`.
     static let processors: Set<String> = ["paypal", "sumup", "zettle", "izettle", "klarna", "stripe", "sq"]
+
+    /// A sender's or a search's words as the importer matches them
+    /// (lowercase, no accents, no punctuation), joined by spaces: lines
+    /// whose senders have the same key are one sender's.
+    public static func key(_ text: String) -> String {
+        TextTools.words(text).joined(separator: " ")
+    }
 
     /// Who paid or was paid, from a counterparty or a description: its
     /// first run of up to 4 words that aren't ``noise`` or numbers, as the

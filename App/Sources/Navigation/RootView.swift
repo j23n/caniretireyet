@@ -8,9 +8,7 @@ import SwiftUI
 struct RootView: View {
     @Environment(LibraryStore.self) private var library
     @Environment(AppNavigation.self) private var navigation
-    @Environment(PlanStore.self) private var plans
     @Environment(AppPreferences.self) private var preferences
-    @Environment(WidgetStore.self) private var widgets
     @Environment(NoteStore.self) private var notes
     @Environment(\.scenePhase) private var scenePhase
     #if os(iOS)
@@ -27,26 +25,8 @@ struct RootView: View {
             .onChange(of: scenePhase) { _, phase in
                 if phase == .active { Task { await library.refreshFromDisk() } }
             }
-            .onChange(of: library.phase) { _, phase in
-                guard phase == .ready else { return }
-                Task {
-                    // The plans' results from the last launch, so they show
-                    // without calculating again. First: recording a missing
-                    // answer then finds results of exactly this library.
-                    await plans.restoreKeptResults()
-                    // A check-in's answer that the app was closed before recording.
-                    plans.recordMissingCheckInAnswer()
-                }
-            }
-            .task(id: widgets.inputs) {
-                // A burst of changes (a check-in's files, a sync) writes the widgets' snapshot once.
-                try? await Task.sleep(for: .seconds(1))
-                guard !Task.isCancelled else { return }
-                await widgets.refresh()
-                // The notes read the same snapshot (UI.md, "Notifications").
-                await notes.reschedule()
-            }
             .onChange(of: notes.pendingLink, initial: true) { _, link in
+                // A tapped note (UI.md, "Notifications").
                 guard let link else { return }
                 notes.pendingLink = nil
                 open(link)

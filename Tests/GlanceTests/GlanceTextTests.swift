@@ -24,16 +24,7 @@ struct RetirementCountdownTests {
         #expect(RetirementCountdown(from: "2042-04-01", to: "2042-04-12") == RetirementCountdown(years: 0, months: 0))
     }
 
-    @Test func readsAsTimeToGo() {
-        #expect(RetirementCountdown(years: 15, months: 5).toGoText == "about 15 years to go")
-        #expect(RetirementCountdown(years: 15, months: 6).toGoText == "about 16 years to go")
-        #expect(RetirementCountdown(years: 2, months: 0).toGoText == "about 2 years to go")
-        #expect(RetirementCountdown(years: 1, months: 11).toGoText == "23 months to go")
-        #expect(RetirementCountdown(years: 0, months: 1).toGoText == "1 month to go")
-        #expect(RetirementCountdown(years: 0, months: 0).toGoText == "under a month to go")
-    }
-
-    /// The Overview's headline: rounded as the time to go is, without "about".
+    /// The Overview's headline: rounded to the nearest year from two years on.
     @Test func readsAsAHeadline() {
         #expect(RetirementCountdown(years: 15, months: 5).headlineText == "In 15 years")
         #expect(RetirementCountdown(years: 15, months: 6).headlineText == "In 16 years")

@@ -19,18 +19,20 @@ struct PlanYearDetails: View {
     let card: PlanProgressTimeline.Card
     let index: Int
     let count: Int
-    /// The Mac and iPad: columns, and no arrows of its own.
-    var isWide = false
     var onSelect: (Int) -> Void = { _ in }
     /// *Add What You Planned in 2021…*, for a year without a baseline: opens
     /// *Add Past Baseline…* at its start.
     var onAddPastBaseline: ((Int) -> Void)?
 
+    @Environment(\.pageLayout) private var layout
     @Environment(\.locale) private var locale
     @State private var width: CGFloat = 0
     @State private var fillsPastPrices = false
 
     private var year: PlanProgressYear { card.year }
+
+    /// The Mac and iPad: columns, and no arrows of its own.
+    private var isWide: Bool { layout.isWide }
 
     /// Below this width the parts are one after the other, as on iPhone.
     private static let twoColumnWidth: CGFloat = 640
@@ -175,7 +177,7 @@ struct PlanYearCardFooter: View {
         let hides = redactionReasons.hidesAmounts
         let year = card.year
         let saved = AmountSentence.amount(
-            AmountFormat.amount(year.change.newMoney, currency: card.currency, locale: locale))
+            AmountFormat.amount(year.change.saved, currency: card.currency, locale: locale))
         let markets = AmountSentence.amount(
             AmountFormat.signedAmount(year.change.market, currency: card.currency, locale: locale))
         let age = AmountSentence(year.answerTo?.earliestAge.map { "\($0)" } ?? "–")
@@ -219,7 +221,7 @@ struct PlanYearFigures: View {
     var body: some View {
         let explanation = year.explanation?.inWholeUnits
         let byNow = year.isLatest ? " by now" : ""
-        let saved = year.change.newMoney
+        let saved = year.change.saved
         let market = year.change.market
         let shape = RoundedRectangle(cornerRadius: 10, style: .continuous)
         VStack(alignment: .leading, spacing: Metrics.m) {
@@ -267,11 +269,7 @@ struct PlanYearFigures: View {
 
     /// How many of the baseline's 100 futures are below your money: "92 in 100".
     private var futures: String {
-        guard let position = year.position else { return "–" }
-        if let percentile = position.percentile { return "\(Int(wholeNumber: percentile)) in 100" }
-        if position.isAboveNinetieth { return "Over 9 in 10" }
-        if position.isBelowTenth { return "Under 1 in 10" }
-        return "–"
+        year.position?.futuresBelow ?? "–"
     }
 
     /// A figure: its title, the figure (an amount hides with the eye), and a
@@ -325,7 +323,7 @@ struct PlanYearSavingBar: View {
     }
 
     var body: some View {
-        let saved = max(0, year.change.newMoney.doubleValue)
+        let saved = max(0, year.change.saved.doubleValue)
         let markets = max(0, year.change.market.doubleValue)
         let planned = plannedSaving?.doubleValue
         let full = max(saved + markets, planned ?? 0, 1)
@@ -368,7 +366,7 @@ struct PlanYearSavingBar: View {
 /// UI.md, "Progress"), in the same four rows every year, so stepping
 /// through the years moves nothing under it: the gap going into the year,
 /// saving against the plan, markets against what was expected, and the
-/// rest (inflation, values without new money, exchange rates). Each with a
+/// rest (inflation, values without what was saved, exchange rates). Each with a
 /// bar and its amount, in whole units, adding up to the total; then what
 /// the baseline expected.
 struct PlanYearWhy: View {

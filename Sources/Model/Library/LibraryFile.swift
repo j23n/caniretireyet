@@ -1,7 +1,6 @@
-import Model
-
 /// A data file in the library folder, identified by what it holds. Its
-/// ``path`` is relative to the library folder (docs/schema/README.md, "Layout").
+/// ``path`` is relative to the library folder (docs/schema/README.md, "Layout"),
+/// and ``access`` reads and replaces what it holds in a ``Library``.
 public enum LibraryFile: Hashable, Sendable, Comparable, CustomStringConvertible {
     /// `library.json`
     case settings
@@ -73,13 +72,52 @@ public enum LibraryFile: Hashable, Sendable, Comparable, CustomStringConvertible
         }
     }
 
-    /// Whether sync conflicts in this file are merged record by record
-    /// (history and headline files) rather than resolved by keeping the
-    /// newest version.
+    /// Whether the file is a list of keyed records (a history or headline
+    /// file, a ``RecordFile``), which saves and sync conflicts merge record
+    /// by record rather than as a whole.
     public var mergesRecords: Bool {
         switch self {
         case .month, .headlines: true
         default: false
+        }
+    }
+
+    /// The ID the file's name gives what it holds, which wins over an `id`
+    /// inside the file; `nil` for files whose contents have no `id`.
+    public var nameID: String? {
+        switch self {
+        case .account(let id): id.rawValue
+        case .instrument(let id): id.rawValue
+        case .plan(let id): id.rawValue
+        case .importProfile(let id): id.rawValue
+        default: nil
+        }
+    }
+
+    /// Reads and replaces what the file holds in a library: the one place
+    /// that maps each file to its part of ``Library``.
+    public var access: any LibraryFileAccess {
+        switch self {
+        case .settings:
+            return FileAccess<LibrarySettings>(read: { $0.settings }, write: { $0.settings = $1 ?? LibrarySettings() })
+        case .account(let id):
+            return FileAccess<Account>(read: { $0.accounts[id] }, write: { $0.accounts[id] = $1 })
+        case .instrument(let id):
+            return FileAccess<Instrument>(read: { $0.instruments[id] }, write: { $0.instruments[id] = $1 })
+        case .month(let month):
+            return FileAccess<MonthFile>(read: { $0.months[month] }, write: { $0.months[month] = $1 })
+        case .plan(let id):
+            return FileAccess<PlanDocument>(read: { $0.plans[id] }, write: { $0.plans[id] = $1 })
+        case .importProfile(let id):
+            return FileAccess<ImportProfile>(read: { $0.importProfiles[id] }, write: { $0.importProfiles[id] = $1 })
+        case .baseline(let plan, let id):
+            return FileAccess<Baseline>(read: { $0.projections[plan]?.baselines[id] }, write: { library, baseline in
+                library.updateProjections(of: plan) { $0.baselines[id] = baseline }
+            })
+        case .headlines(let plan, let year):
+            return FileAccess<HeadlineFile>(read: { $0.projections[plan]?.headlines[year] }, write: { library, file in
+                library.updateProjections(of: plan) { $0.headlines[year] = file }
+            })
         }
     }
 
@@ -95,8 +133,61 @@ public enum LibraryFile: Hashable, Sendable, Comparable, CustomStringConvertible
     }
 }
 
-extension Character {
-    var isASCIIDigit: Bool { ("0"..."9").contains(self) }
+/// What a library file holds, read from and written to a ``Library``
+/// (``LibraryFile/access``).
+public protocol LibraryFileAccess<Value> {
+    associatedtype Value: LibraryFileContents
+    /// What the file holds in `library`; `nil` when it holds nothing.
+    func value(in library: Library) -> Value?
+    /// Replaces what the file holds in `library`; `nil` removes it (the
+    /// settings go back to their defaults).
+    func setValue(_ value: Value?, in library: inout Library)
+}
+
+extension LibraryFileAccess {
+    /// Gives `library` what the file holds in `source`, removing it where
+    /// `source` has none.
+    public func copy(from source: Library, to library: inout Library) {
+        setValue(value(in: source), in: &library)
+    }
+
+    /// Whether the file holds the same in both libraries.
+    public func holdsTheSame(in first: Library, and second: Library) -> Bool {
+        value(in: first) == value(in: second)
+    }
+}
+
+/// What a library file holds: the settings, an account, a month's history, ….
+public protocol LibraryFileContents: Codable, Hashable, Sendable {
+    /// What the file is written from: the same, with records sorted by key,
+    /// or `nil` when there's nothing to write (a month without records).
+    var written: Self? { get }
+}
+
+extension LibraryFileContents {
+    public var written: Self? { self }
+}
+
+extension LibrarySettings: LibraryFileContents {}
+extension Account: LibraryFileContents {}
+extension Instrument: LibraryFileContents {}
+extension PlanDocument: LibraryFileContents {}
+extension ImportProfile: LibraryFileContents {}
+extension Baseline: LibraryFileContents {}
+
+/// A ``LibraryFileAccess`` from two closures.
+struct FileAccess<Value: LibraryFileContents>: LibraryFileAccess {
+    let read: (Library) -> Value?
+    let write: (inout Library, Value?) -> Void
+
+    init(read: @escaping (Library) -> Value?, write: @escaping (inout Library, Value?) -> Void) {
+        self.read = read
+        self.write = write
+    }
+
+    func value(in library: Library) -> Value? { read(library) }
+
+    func setValue(_ value: Value?, in library: inout Library) { write(&library, value) }
 }
 
 extension Library {
@@ -124,29 +215,15 @@ extension Library {
     /// other files survive.
     public mutating func replaceEntities(of files: some Sequence<LibraryFile>, from source: Library) {
         for file in files {
-            switch file {
-            case .settings:
-                settings = source.settings
-            case .account(let id):
-                accounts[id] = source.accounts[id]
-            case .instrument(let id):
-                instruments[id] = source.instruments[id]
-            case .month(let month):
-                months[month] = source.months[month]
-            case .plan(let id):
-                plans[id] = source.plans[id]
-            case .importProfile(let id):
-                importProfiles[id] = source.importProfiles[id]
-            case .baseline(let plan, let id):
-                var projections = self.projections[plan] ?? PlanProjections()
-                projections.baselines[id] = source.projections[plan]?.baselines[id]
-                self.projections[plan] = projections.isEmpty ? nil : projections
-            case .headlines(let plan, let year):
-                var projections = self.projections[plan] ?? PlanProjections()
-                projections.headlines[year] = source.projections[plan]?.headlines[year]
-                self.projections[plan] = projections.isEmpty ? nil : projections
-            }
+            file.access.copy(from: source, to: &self)
         }
+    }
+
+    /// Changes the projections of `plan`, dropping them when nothing is left.
+    mutating func updateProjections(of plan: PlanID, _ change: (inout PlanProjections) -> Void) {
+        var projections = self.projections[plan] ?? PlanProjections()
+        change(&projections)
+        self.projections[plan] = projections.isEmpty ? nil : projections
     }
 }
 

@@ -2,10 +2,8 @@ import Foundation
 import Model
 
 // Quantities imported into an account that records trades become trades
-// (IMPORT.md, "Quantities in a trades account"; docs/ACCOUNTS.md, "Settled
-// questions" 6). The rules are those of Tracker's
-// `Library.conversionToTrades(of:)`, which the importer can't reach (it
-// depends only on Model), worked out here with Model's `HeldQuantities`.
+// (IMPORT.md, "Quantities in a trades account"), worked out with Model's
+// `HeldQuantities`.
 
 extension PreviewBuilder {
     /// Turns the quantities and purchase costs of accounts that record
@@ -64,8 +62,7 @@ extension PreviewBuilder {
 }
 
 /// The trades that make an account that records trades hold the quantities
-/// a file gives on each date, as `Library.conversionToTrades(of:)` makes them
-/// for an account's snapshots (docs/TRADES.md, "Converting an account"):
+/// a file gives on each date:
 ///
 /// - The account's first row is an `opening` per position when nothing was
 ///   held before it: its cost is the file's purchase cost, else its market

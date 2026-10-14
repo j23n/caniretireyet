@@ -22,15 +22,12 @@ struct AccountDetailScreen: View {
     @Environment(\.locale) private var locale
 
     @State private var action: AccountAction?
-    @State private var confirmsDelete = false
-    @State private var deletingValuation: ValuationKey?
-    @State private var confirmsValuationDelete = false
-    @State private var errorMessage = ""
-    @State private var showsError = false
+    /// What waits for the user to confirm deleting it.
+    @State private var pendingDeletion: AccountDeletion?
+    /// Why the last change failed, shown in an alert.
+    @State private var error: String?
     @State private var fillsPastPrices = false
     @State private var tradeFilter = TradeListFilter()
-    @State private var deletingTrade: TradeKey?
-    @State private var confirmsTradeDelete = false
 
     init(accountID: AccountID) {
         self.accountID = accountID
@@ -61,30 +58,17 @@ struct AccountDetailScreen: View {
                 .sheet(item: $action) { action in
                     AccountActionSheet(action: action)
                 }
-                .confirmationDialog("Delete this trade?", isPresented: $confirmsTradeDelete,
-                                    titleVisibility: .visible, presenting: deletingTrade) { key in
-                    Button("Delete Trade", role: .destructive) { removeTrade(key) }
-                } message: { key in
-                    Text(verbatim: TradeEditNotes.removal(of: key, in: library.library, locale: locale))
-                }
                 .pastPricesSheet(isPresented: $fillsPastPrices)
-                .confirmationDialog("Delete \(account.name)?", isPresented: $confirmsDelete,
-                                    titleVisibility: .visible) {
-                    Button("Delete Account and Its History", role: .destructive) { delete(account) }
-                } message: {
-                    Text("This removes the account and all its values\(account.recordsTrades ? " and trades" : ""), "
-                        + "as if it never existed. It's for mistakes: to stop tracking an account, close it instead.")
+                .confirmationDialog(deletionTitle(of: account), isPresented: confirmsDeletion,
+                                    titleVisibility: .visible, presenting: pendingDeletion) { deletion in
+                    Button(deletion.buttonTitle, role: .destructive) { delete(deletion) }
+                } message: { deletion in
+                    Text(verbatim: deletionMessage(deletion, of: account))
                 }
-                .confirmationDialog("Delete this value?", isPresented: $confirmsValuationDelete,
-                                    titleVisibility: .visible, presenting: deletingValuation) { key in
-                    Button("Delete Value", role: .destructive) { removeValuation(key) }
-                } message: { key in
-                    Text(AccountValueNotes.deleteMessage(library.library.previewRemovingValue(key), locale: locale))
-                }
-                .alert("Couldn't change the account", isPresented: $showsError) {
+                .alert("Couldn't change the account", isPresented: showsError, presenting: error) { _ in
                     Button("OK", role: .cancel) {}
-                } message: {
-                    Text(errorMessage)
+                } message: { error in
+                    Text(error)
                 }
         } else {
             ContentUnavailableView("This account no longer exists", systemImage: "questionmark.folder")
@@ -103,11 +87,10 @@ struct AccountDetailScreen: View {
     // MARK: iPhone and iPad
 
     private func listLayout(_ data: AccountDetailData, trades: TradeList?) -> some View {
-        let currency = data.account.currency
-        return List {
+        List {
             Section {
                 AccountDetailHeader(data: data)
-                AccountHistoryChart(points: data.history, flows: data.flows, currency: currency)
+                AccountHistoryChart(points: data.history, flows: data.flows, currency: data.currency)
                     .padding(.vertical, Metrics.xs)
                 chartNotes(data)
             }
@@ -118,13 +101,40 @@ struct AccountDetailScreen: View {
                         .listRowBackground(Color.clear)
                 }
             }
-            if !data.tradeIssues.isEmpty {
-                Section {
-                    TradeIssueBanners(notes: data.tradeIssues) { perform($0) }
-                        .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
-                        .listRowBackground(Color.clear)
-                }
+            ForEach(data.sections, id: \.self) { section in
+                listSection(section, data, trades: trades)
             }
+            Section {
+                AccountInfoRows(account: data.account)
+            } header: {
+                Text("Details")
+            }
+            Section {
+                lifecycleButtons(data)
+            }
+            Section {
+                Button("Delete Account…", role: .destructive) {
+                    pendingDeletion = .account
+                }
+                .disabled(!library.canEdit)
+            } footer: {
+                Text("Deleting is for mistakes. To stop tracking an account, close it: it keeps its history.")
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func listSection(_ section: AccountDetailSection, _ data: AccountDetailData,
+                             trades: TradeList?) -> some View {
+        let currency = data.currency
+        switch section {
+        case .tradeIssues:
+            Section {
+                TradeIssueBanners(notes: data.tradeIssues) { perform($0) }
+                    .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
+                    .listRowBackground(Color.clear)
+            }
+        case .holdings:
             if let holdings = data.tradeHoldings {
                 Section {
                     TradeHoldingsRows(holdings: holdings, currency: currency)
@@ -140,86 +150,65 @@ struct AccountDetailScreen: View {
                         + "included; the gain is the value minus it.")
                 }
             }
+        case .trades:
             if let trades {
                 tradeSections(trades, currency: currency)
-                if !data.incomeYears.isEmpty {
-                    Section {
-                        ForEach(data.incomeYears) { year in
-                            TradeIncomeYearView(year: year, currency: currency)
-                                .padding(.vertical, 2)
-                        }
-                    } header: {
-                        Text("Income & gains")
-                    } footer: {
-                        Text(Self.incomeNote)
-                    }
-                }
             }
-            if data.recordsTrades {
-                if !data.statements.isEmpty {
-                    Section {
-                        ForEach(data.statements) { row in
-                            AccountStatementListRow(row: row, currency: currency)
-                                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                                    Button {
-                                        deletingValuation = row.id
-                                        confirmsValuationDelete = true
-                                    } label: {
-                                        Label("Delete", systemImage: "trash")
-                                    }
-                                    .tint(Palette.critical)
-                                }
-                        }
-                    } header: {
-                        Text("Statements")
-                    } footer: {
-                        Text(Self.statementsNote + " Swipe one to delete it.")
-                    }
-                }
-            } else {
-                Section {
-                    if data.valuations.isEmpty {
-                        Text(Self.noValues)
-                            .foregroundStyle(Palette.secondaryInk)
-                    }
-                    ForEach(data.valuations) { row in
-                        AccountValuationListRow(row: row, currency: currency)
-                            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                                Button {
-                                    deletingValuation = row.id
-                                    confirmsValuationDelete = true
-                                } label: {
-                                    Label("Delete", systemImage: "trash")
-                                }
-                                .tint(Palette.critical)
-                            }
-                    }
-                } header: {
-                    Text("Values")
-                } footer: {
-                    if !data.valuations.isEmpty {
-                        Text("Values come from your imports. Swipe a wrong one to delete it."
-                            + (data.movedNote.map { " " + $0 } ?? ""))
-                    }
-                }
-            }
+        case .income:
             Section {
-                AccountInfoRows(account: data.account)
+                ForEach(data.incomeYears) { year in
+                    TradeIncomeYearView(year: year, currency: currency)
+                        .padding(.vertical, 2)
+                }
             } header: {
-                Text("Details")
-            }
-            Section {
-                lifecycleButtons(data)
-            }
-            Section {
-                Button("Delete Account…", role: .destructive) {
-                    confirmsDelete = true
-                }
-                .disabled(!library.canEdit)
+                Text("Income & gains")
             } footer: {
-                Text("Deleting is for mistakes. To stop tracking an account, close it: it keeps its history.")
+                Text(Self.incomeNote)
+            }
+        case .statements:
+            Section {
+                ForEach(data.statements) { row in
+                    AccountStatementListRow(row: row, currency: currency)
+                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                            deleteButton(.valuation(row.id))
+                        }
+                }
+            } header: {
+                Text("Statements")
+            } footer: {
+                Text(Self.statementsNote + " Swipe one to delete it.")
+            }
+        case .values:
+            Section {
+                if data.valuations.isEmpty {
+                    Text(Self.noValues)
+                        .foregroundStyle(Palette.secondaryInk)
+                }
+                ForEach(data.valuations) { row in
+                    AccountValuationListRow(row: row, currency: currency)
+                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                            deleteButton(.valuation(row.id))
+                        }
+                }
+            } header: {
+                Text("Values")
+            } footer: {
+                if !data.valuations.isEmpty {
+                    Text("Values come from your imports. Swipe a wrong one to delete it."
+                        + (data.movedNote.map { " " + $0 } ?? ""))
+                }
             }
         }
+    }
+
+    /// A swipe action's *Delete*, which asks first.
+    private func deleteButton(_ deletion: AccountDeletion) -> some View {
+        Button {
+            pendingDeletion = deletion
+        } label: {
+            Label("Delete", systemImage: "trash")
+        }
+        .tint(Palette.critical)
     }
 
     // MARK: Mac
@@ -231,84 +220,18 @@ struct AccountDetailScreen: View {
     /// lazy grid, so the page's height is exact and it scrolls to its last
     /// button.
     private func macLayout(_ data: AccountDetailData, trades: TradeList?) -> some View {
-        let currency = data.account.currency
-        return ScrollView {
+        ScrollView {
             VStack(alignment: .leading, spacing: Metrics.l) {
                 AccountDetailHeader(data: data)
                 if let since = data.emptySince {
                     emptyAccountBanner(since)
                 }
                 Card {
-                    AccountHistoryChart(points: data.history, flows: data.flows, currency: currency, height: 240)
+                    AccountHistoryChart(points: data.history, flows: data.flows, currency: data.currency, height: 240)
                     chartNotes(data)
                 }
-                if !data.tradeIssues.isEmpty {
-                    TradeIssueBanners(notes: data.tradeIssues) { perform($0) }
-                }
-                if let holdings = data.tradeHoldings {
-                    Card("Holdings") {
-                        if holdings.rows.isEmpty && holdings.cash == nil {
-                            Text("No positions: the trades leave nothing held yet.")
-                                .foregroundStyle(Palette.secondaryInk)
-                        } else {
-                            TradeHoldingsGrid(holdings: holdings, currency: currency)
-                        }
-                    }
-                }
-                if let trades {
-                    macTradesCard(trades, currency: currency)
-                    if !data.incomeYears.isEmpty {
-                        Card("Income & gains") {
-                            TradeIncomeColumns(years: data.incomeYears, currency: currency)
-                            Text(Self.incomeNote)
-                                .font(.caption)
-                                .foregroundStyle(Palette.mutedInk)
-                        }
-                    }
-                }
-                if data.recordsTrades {
-                    if !data.statements.isEmpty {
-                        Card {
-                            AccountStatementsTable(
-                                rows: data.statements, currency: currency,
-                                delete: { key in
-                                    deletingValuation = key
-                                    confirmsValuationDelete = true
-                                })
-                            Text(Self.statementsNote)
-                                .font(.caption)
-                                .foregroundStyle(Palette.mutedInk)
-                        } header: {
-                            SectionHeader("Statements")
-                        }
-                    }
-                } else {
-                    Card {
-                        if data.valuations.isEmpty {
-                            Text(Self.noValues)
-                                .foregroundStyle(Palette.secondaryInk)
-                        } else {
-                            AccountValuationsTable(
-                                rows: data.valuations, currency: currency,
-                                showsMoneyInOut: data.valuationsShowMoneyInOut,
-                                showsInterest: data.valuationsShowInterest,
-                                delete: { key in
-                                    deletingValuation = key
-                                    confirmsValuationDelete = true
-                                })
-                        }
-                        if let note = data.movedNote {
-                            Text(note)
-                                .font(.caption)
-                                .foregroundStyle(Palette.mutedInk)
-                        }
-                    } header: {
-                        SectionHeader("Values") {
-                            Text("Values come from your imports")
-                                .font(.caption)
-                                .foregroundStyle(Palette.mutedInk)
-                        }
-                    }
+                ForEach(data.sections, id: \.self) { section in
+                    macSection(section, data, trades: trades)
                 }
                 Card("Details") {
                     VStack(alignment: .leading, spacing: Metrics.s) {
@@ -319,7 +242,7 @@ struct AccountDetailScreen: View {
                     lifecycleButtons(data)
                     Spacer()
                     Button("Delete Account…", role: .destructive) {
-                        confirmsDelete = true
+                        pendingDeletion = .account
                     }
                     .disabled(!library.canEdit)
                 }
@@ -332,6 +255,72 @@ struct AccountDetailScreen: View {
         .background(Palette.page)
     }
 
+    @ViewBuilder
+    private func macSection(_ section: AccountDetailSection, _ data: AccountDetailData,
+                            trades: TradeList?) -> some View {
+        let currency = data.currency
+        switch section {
+        case .tradeIssues:
+            TradeIssueBanners(notes: data.tradeIssues) { perform($0) }
+        case .holdings:
+            if let holdings = data.tradeHoldings {
+                Card("Holdings") {
+                    if holdings.rows.isEmpty && holdings.cash == nil {
+                        Text("No positions: the trades leave nothing held yet.")
+                            .foregroundStyle(Palette.secondaryInk)
+                    } else {
+                        TradeHoldingsGrid(holdings: holdings, currency: currency)
+                    }
+                }
+            }
+        case .trades:
+            if let trades {
+                macTradesCard(trades, currency: currency)
+            }
+        case .income:
+            Card("Income & gains") {
+                TradeIncomeColumns(years: data.incomeYears, currency: currency)
+                Text(Self.incomeNote)
+                    .font(.caption)
+                    .foregroundStyle(Palette.mutedInk)
+            }
+        case .statements:
+            Card {
+                AccountStatementsTable(rows: data.statements, currency: currency,
+                                       delete: { pendingDeletion = .valuation($0) })
+                Text(Self.statementsNote)
+                    .font(.caption)
+                    .foregroundStyle(Palette.mutedInk)
+            } header: {
+                SectionHeader("Statements")
+            }
+        case .values:
+            Card {
+                if data.valuations.isEmpty {
+                    Text(Self.noValues)
+                        .foregroundStyle(Palette.secondaryInk)
+                } else {
+                    AccountValuationsTable(
+                        rows: data.valuations, currency: currency,
+                        showsMoneyInOut: data.valuationsShowMoneyInOut,
+                        showsInterest: data.valuationsShowInterest,
+                        delete: { pendingDeletion = .valuation($0) })
+                }
+                if let note = data.movedNote {
+                    Text(note)
+                        .font(.caption)
+                        .foregroundStyle(Palette.mutedInk)
+                }
+            } header: {
+                SectionHeader("Values") {
+                    Text("Values come from your imports")
+                        .font(.caption)
+                        .foregroundStyle(Palette.mutedInk)
+                }
+            }
+        }
+    }
+
     /// The trades as a table, with the filter.
     private func macTradesCard(_ trades: TradeList, currency: CurrencyCode) -> some View {
         Card {
@@ -342,7 +331,7 @@ struct AccountDetailScreen: View {
                 Text("No trades match the filter.")
                     .foregroundStyle(Palette.secondaryInk)
             } else {
-                TradesTable(items: trades.items, currency: currency, delete: { key in confirmDeleting(key) })
+                TradesTable(items: trades.items, currency: currency, delete: { pendingDeletion = .trade($0) })
             }
         } header: {
             SectionHeader("Trades") {
@@ -390,16 +379,11 @@ struct AccountDetailScreen: View {
                 ForEach(month.items) { item in
                     TradeListRowView(item: item, currency: currency)
                         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                            Button {
-                                confirmDeleting(item.id)
-                            } label: {
-                                Label("Delete", systemImage: "trash")
-                            }
-                            .tint(Palette.critical)
+                            deleteButton(.trade(item.id))
                         }
                         .contextMenu {
                             Button(role: .destructive) {
-                                confirmDeleting(item.id)
+                                pendingDeletion = .trade(item.id)
                             } label: {
                                 Label("Delete Trade…", systemImage: "trash")
                             }
@@ -465,22 +449,46 @@ struct AccountDetailScreen: View {
         }
     }
 
-    private func delete(_ account: Account) {
-        Task {
-            do {
-                try await library.deleteAccount(account.id)
-                dismiss()
-            } catch {
-                show(error)
-            }
+    /// Whether a deletion waits to be confirmed; dismissing the dialog drops it.
+    private var confirmsDeletion: Binding<Bool> {
+        Binding(get: { pendingDeletion != nil }, set: { if !$0 { pendingDeletion = nil } })
+    }
+
+    private func deletionTitle(of account: Account) -> String {
+        switch pendingDeletion {
+        case .account, nil: "Delete \(account.name)?"
+        case .valuation: "Delete this value?"
+        case .trade: "Delete this trade?"
         }
     }
 
-    private func removeValuation(_ key: ValuationKey) {
-        do {
-            try library.removeValue(key)
-        } catch {
-            show(error)
+    private func deletionMessage(_ deletion: AccountDeletion, of account: Account) -> String {
+        switch deletion {
+        case .account:
+            "This removes the account and all its values\(account.recordsTrades ? " and trades" : ""), as if it "
+                + "never existed. It's for mistakes: to stop tracking an account, close it instead."
+        case .valuation(let key):
+            AccountValueNotes.deleteMessage(removing: key, in: library.library, locale: locale)
+        case .trade(let key):
+            TradeEditNotes.removal(of: key, in: library.library, locale: locale)
+        }
+    }
+
+    private func delete(_ deletion: AccountDeletion) {
+        Task {
+            do {
+                switch deletion {
+                case .account:
+                    try await library.deleteAccount(accountID)
+                    dismiss()
+                case .valuation(let key):
+                    try library.removeValue(key)
+                case .trade(let key):
+                    try await library.removeTrade(key)
+                }
+            } catch {
+                show(error)
+            }
         }
     }
 
@@ -488,21 +496,6 @@ struct AccountDetailScreen: View {
     private func perform(_ action: TradeIssueAction) {
         switch action {
         case .editAccount: self.action = AccountAction(.edit, accountID)
-        }
-    }
-
-    private func confirmDeleting(_ key: TradeKey) {
-        deletingTrade = key
-        confirmsTradeDelete = true
-    }
-
-    private func removeTrade(_ key: TradeKey) {
-        Task {
-            do {
-                try await library.removeTrade(key)
-            } catch {
-                show(error)
-            }
         }
     }
 
@@ -533,16 +526,35 @@ struct AccountDetailScreen: View {
         }
     }
 
+    /// Whether the alert shows ``error``; dismissing it clears it.
+    private var showsError: Binding<Bool> {
+        Binding(get: { error != nil }, set: { if !$0 { error = nil } })
+    }
+
     private func show(_ error: any Error) {
-        errorMessage = LibraryStore.describe(error)
-        showsError = true
+        self.error = LibraryStore.describe(error)
+    }
+}
+
+/// A deletion on an account's page, waiting for the user to confirm it.
+private enum AccountDeletion: Hashable {
+    case account
+    case valuation(ValuationKey)
+    case trade(TradeKey)
+
+    var buttonTitle: String {
+        switch self {
+        case .account: "Delete Account and Its History"
+        case .valuation: "Delete Value"
+        case .trade: "Delete Trade"
+        }
     }
 }
 
 // MARK: - Header
 
 /// The kind, institution, value and its change since the previous value,
-/// split into markets, new money and other.
+/// split into markets, saved and other.
 private struct AccountDetailHeader: View {
     let data: AccountDetailData
     @Environment(\.locale) private var locale
@@ -592,7 +604,7 @@ private struct AccountDetailHeader: View {
                 }
                 .font(.subheadline)
                 let parts = self.parts(of: change)
-                // One part alone repeats the change, unless it says it was new money (or other).
+                // One part alone repeats the change, unless it says it was saved (or other).
                 if parts.count > 1 || parts.first.map({ $0.name != "Markets" }) == true {
                     ViewThatFits(in: .horizontal) {
                         HStack(spacing: Metrics.m) { partViews(parts) }
@@ -629,7 +641,7 @@ private struct AccountDetailHeader: View {
 
     /// The parts that don't show as zero.
     private func parts(of change: ValueChange) -> [Part] {
-        [Part(name: "Markets", amount: change.market), Part(name: "New money", amount: change.newMoney),
+        [Part(name: "Markets", amount: change.market), Part(name: "Saved", amount: change.saved),
          Part(name: "Other", amount: change.other)]
             .filter { DeltaFormat.direction(of: $0.amount, precision: .whole) != 0 }
     }
@@ -763,7 +775,7 @@ private struct AccountValuationValue: View {
     }
 }
 
-/// One valuation in the iPhone list: date and note, value, and new money,
+/// One valuation in the iPhone list: date and note, value, and what was saved,
 /// or for a cash or savings value that records them, money in and out,
 /// interest and what moved between your own accounts.
 private struct AccountValuationListRow: View {
@@ -831,17 +843,17 @@ private struct AccountValuationListRow: View {
 
     @ViewBuilder
     private var flow: some View {
-        if let flow = row.valuation.flow {
+        if let flow = row.flow {
             if flow != 0 {
                 HStack(spacing: 4) {
-                    Text("new money")
+                    Text("saved")
                         .foregroundStyle(Palette.secondaryInk)
                     DeltaText(flow, currency: currency, precision: .automatic, showsArrow: false)
                 }
                 .font(.caption)
             }
         } else {
-            Text("new money unknown")
+            Text("saved unknown")
                 .font(.caption)
                 .foregroundStyle(Palette.mutedInk)
         }
@@ -973,7 +985,7 @@ private struct AccountStatementsTable: View {
 #endif
 
 #if os(macOS)
-/// The valuations as a table on the Mac: date, value, new money and note,
+/// The valuations as a table on the Mac: date, value, saved and note,
 /// and for a cash or savings account (`showsMoneyInOut`) money in, money
 /// out, the interest (a savings account's, `showsInterest`) and what moved
 /// between your own accounts. As tall as its lines, so the page scrolls
@@ -997,7 +1009,7 @@ private struct AccountValuationsTable: View {
         PageTable(rows, open: { _ in }) {
             Text("Date").pageTableColumn(Columns.date)
             Text("Value").pageTableColumn(Columns.value)
-            Text("New money").pageTableColumn(Columns.flow)
+            Text("Saved").pageTableColumn(Columns.flow)
             if showsMoneyInOut {
                 Text("In").pageTableColumn(Columns.amount)
                 Text("Out").pageTableColumn(Columns.amount)
@@ -1107,7 +1119,7 @@ private struct AccountValuationFlowCell: View {
 
     var body: some View {
         Group {
-            if let flow = row.valuation.flow {
+            if let flow = row.flow {
                 DeltaText(flow, currency: currency, precision: .automatic, showsArrow: false)
             } else {
                 Text("Unknown")
@@ -1264,8 +1276,6 @@ private struct AccountInfoRows: View {
         switch account.valuationMode {
         case .trades: "Trade history"
         case .balance: "A balance"
-        // Written before format version 4; the load check points it out.
-        case .holdings: "Snapshots of positions (not used)"
         default: account.valuationMode.rawValue
         }
     }

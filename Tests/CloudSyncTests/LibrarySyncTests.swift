@@ -4,6 +4,7 @@ import Model
 import Storage
 import Testing
 import TestSupport
+import Tracker
 
 /// The actor the app talks to: create, load, save, reload and resolve.
 struct LibrarySyncTests {
@@ -53,5 +54,31 @@ struct LibrarySyncTests {
         let fixed = await library.reload(paths: ["library.json"], in: inMemory)
         #expect(fixed.readOnlyReason == nil)
         #expect(fixed.issues.isEmpty)
+    }
+
+    @Test func reloadingOneFileKeepsTheProblemsOfTheOthers() async throws {
+        let folder = try TemporaryFolder()
+        let library = sync(folder.url)
+        try await library.createLibrary(settings: LibrarySettings())
+        try folder.write("accounts/bank.json", """
+            { "currency": "EUR", "id": "bank", "kind": "cash", "name": "Bank", "opened": "2026-01-01" }
+            """)
+        // Each month records only money in, which isn't counted.
+        for month in ["2026-08", "2026-09"] {
+            try folder.write("history/2026/\(month).json", """
+                { "month": "\(month)",
+                  "valuations": [{ "account": "bank", "balance": "100", "date": "\(month)-28", "moneyIn": "5" }] }
+                """)
+        }
+        var inMemory = try await library.load().library
+        #expect(inMemory.problems().map(\.path) == ["history/2026/2026-08.json", "history/2026/2026-09.json"])
+
+        try folder.write("history/2026/2026-09.json", """
+            { "month": "2026-09",
+              "valuations": [{ "account": "bank", "balance": "100", "date": "2026-09-28" }] }
+            """)
+        let result = await library.reload(paths: ["history/2026/2026-09.json"], in: inMemory)
+        inMemory.replaceEntities(of: result.files, from: result.library)
+        #expect(inMemory.problems().map(\.path) == ["history/2026/2026-08.json"])
     }
 }

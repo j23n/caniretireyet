@@ -5,21 +5,15 @@ import Model
 /// force less spending while working. The crossover milestone and Trends'
 /// reference savings rate count a year's saving this way.
 extension PlanDocument {
-    /// The work phase in force on `date`: the last one that started on or
-    /// before it and hasn't ended before it. A phase until retirement
-    /// hasn't ended. `nil` between phases or after work.
-    public func workPhase(on date: CalendarDate) -> WorkPhase? {
-        work.last { phase in
-            phase.from <= date && (phase.until.date.map { $0 >= date } ?? true)
-        }
-    }
-
     /// A year's saving while working: the take-home pay of the work phase
     /// in force on `date` less spending while working, with that pay.
     /// Negative when the plan spends more than the pay. `nil` without a
-    /// work phase in force on `date`, or its pay.
+    /// work phase in force on `date`, or its pay. The phase in force is the
+    /// last one that started on or before `date` and hasn't ended before it;
+    /// a phase until retirement hasn't ended.
     public func workingSaving(on date: CalendarDate) -> (pay: Decimal, saving: Decimal)? {
-        guard let pay = workPhase(on: date)?.netIncome else { return nil }
+        let phase = work.last { $0.from <= date && ($0.until.date.map { $0 >= date } ?? true) }
+        guard let pay = phase?.netIncome else { return nil }
         return (pay, pay - spending.working)
     }
 

@@ -111,10 +111,15 @@ struct Engine: Sendable {
         return (parts.flatMap(\.0), parts.flatMap(\.1), parts.flatMap(\.2))
     }
 
+    /// The schedule of retiring at `age`: the one prepared, else built now.
+    func schedule(_ age: Int) -> AgeSchedule {
+        schedules[age] ?? AgeSchedule(model: model, age: age)
+    }
+
     /// A simulator for one age's schedule, starting from `start` (by
     /// default the plan's own starting portfolio).
     func simulator(age: Int, start: Portfolio? = nil) -> PathSimulator {
-        PathSimulator(model: model, schedule: schedules[age]!, scenarios: scenarios, start: start ?? model.portfolio)
+        PathSimulator(model: model, schedule: schedule(age), scenarios: scenarios, start: start ?? model.portfolio)
     }
 
     // MARK: - Sustainable spending
@@ -275,7 +280,7 @@ struct Engine: Sendable {
     /// mix in force in the first year of retiring today, so a `retirement`
     /// step of the plan's target mix applies.
     func startPortfolio(extra: Double) -> Portfolio {
-        model.portfolio.withExtra(extra, mix: schedules[model.currentAge]!.accessibleMix[0])
+        model.portfolio.withExtra(extra, mix: schedule(model.currentAge).accessibleMix[0])
     }
 
     /// How many halvings of the log of `high / low` the search for the

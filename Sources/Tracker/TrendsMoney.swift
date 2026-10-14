@@ -227,11 +227,11 @@ public struct PlanMoneySources: Hashable, Sendable {
     public let grain: PeriodGrain
     /// The points in the span, oldest first.
     public let points: [MoneySourcesPoint]
-    /// Put in over the span: from the point before it, or from nothing.
-    public let putIn: Decimal
+    /// Saved over the span: from the point before it, or from nothing.
+    public let saved: Decimal
     /// What markets added over the span (negative when they took).
     public let markets: Decimal
-    /// The first year markets added more than you put in, when it's in the span.
+    /// The first year markets added more than you saved, when it's in the span.
     public let firstYearMarketsAddedMore: Int?
     /// Plan assets' check-ins through the end: the card needs two.
     public let checkIns: Int
@@ -243,7 +243,7 @@ public struct PlanMoneySources: Hashable, Sendable {
         let inSpan = sources.points.filter { point in start.map { point.date >= $0 } ?? true }
         let before = start.flatMap { start in sources.points.last { $0.date < start } }
         points = inSpan
-        putIn = (inSpan.last?.putIn ?? 0) - (before?.putIn ?? 0)
+        saved = (inSpan.last?.saved ?? 0) - (before?.saved ?? 0)
         markets = (inSpan.last?.markets ?? 0) - (before?.markets ?? 0)
         if let year = sources.firstYearMarketsAddedMore, let first = inSpan.first, year >= first.date.year {
             firstYearMarketsAddedMore = year

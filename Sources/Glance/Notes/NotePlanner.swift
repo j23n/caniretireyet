@@ -144,7 +144,7 @@ private struct Words {
             clauses.append("No retirement age works yet \(GlanceText.inFutures(answer.confidence))")
         }
         var sentence = clauses.joined(separator: ", ")
-        if let readiness = answer.shownReadiness {
+        if let readiness = answer.readiness.map(Readiness.shown) {
             sentence += ", and you're \(Int((readiness * 100).rounded()))% ready"
         }
         return sentence + "."

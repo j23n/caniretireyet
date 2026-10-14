@@ -18,7 +18,7 @@ struct YourYearScreen: View {
     @Environment(AppNavigation.self) private var navigation
     @Environment(\.baseCurrency) private var currency
     @Environment(\.locale) private var locale
-    @State private var cache = PlanProgressCache()
+    @State private var progressMemo = PlanProgressMemo()
 
     var body: some View {
         ScrollView {
@@ -41,9 +41,7 @@ struct YourYearScreen: View {
     }
 
     private func review(of plan: PlanDocument) -> YearReview? {
-        let key = PlanProgressCache.Key(revision: library.revision, plan: plan.id, document: plan,
-                                        asOf: library.asOfDate)
-        let progress = cache.progress(for: key, library: library.library, valuator: library.valuator)
+        let progress = progressMemo.progress(of: plan.id, plan: plan, library: library)
         guard let year = YearReview.year(on: .today(), progress: progress) else { return nil }
         return YearReview(progress: progress, year: year, valuator: library.valuator)
     }
@@ -89,7 +87,7 @@ struct YourYearScreen: View {
             yearAhead(plan: plan, text: text)
             Button("Open \(String(review.year.year)) on Progress") {
                 navigation.sheet = nil
-                navigation.showPlanProgress()
+                navigation.showPlan(at: PlanRoute(part: .progress))
             }
             .buttonStyle(.borderless)
         }

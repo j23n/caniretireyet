@@ -94,8 +94,7 @@ struct PastPricesSheet: View {
                     Text("To fetch")
                 } footer: {
                     Text("Past prices of gold, silver, platinum and palladium come from their futures on Yahoo "
-                        + "Finance (GC=F for gold), which trade within about 1% of the spot price. Crypto older "
-                        + "than CoinGecko's free year comes from Yahoo Finance's pairs, such as BTC-EUR.")
+                        + "Finance (GC=F for gold), which trade within about 1% of the spot price.")
                 }
             }
             let manual = plan.manualLines

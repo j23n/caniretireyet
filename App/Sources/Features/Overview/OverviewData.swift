@@ -51,7 +51,7 @@ extension BreakdownDimension {
 // The hero number and the *Net worth* tile, net worth today with the change
 // between the last two check-ins and since the end of last year, are
 // Glance's `NetWorthGlance`, as the widgets have it. *This year* splits that
-// change since the end of last year into markets, new money and other with
+// change since the end of last year into markets, saved and other with
 // Tracker's `Valuator.changeThisYear(asOf:)`, from the same 31 December
 // (tested in TrackerTests, and against the hero in GlanceTests). The answer's
 // headline counts the time to go with Glance's `RetirementCountdown`, and its
@@ -244,8 +244,9 @@ struct OverviewAttentionItem: Hashable, Sendable, Identifiable {
     enum Target: Hashable, Sendable {
         case account(AccountID)
         case instrument(InstrumentID)
-        case checkIn
         case plan
+        /// Instruments, where prices and exchange rates are typed in.
+        case instruments
         /// *Fill In Past Prices* (Instruments), for past prices and rates.
         case fillPastPrices
     }
@@ -298,8 +299,8 @@ enum OverviewAttention {
                 id: "price.\(instrument)", systemImage: "tag.slash",
                 title: "No price for \(instrumentName(instrument))",
                 detail: "\(Wording.names(gap.accounts.map(accountName))) "
-                    + "\(gap.accounts.count == 1 ? "leaves" : "leave") it out of your net worth. Type in a price at "
-                    + "your next check-in.",
+                    + "\(gap.accounts.count == 1 ? "leaves" : "leave") it out of your net worth. Fetch or type in a "
+                    + "price under Instruments.",
                 target: .instrument(instrument)))
         }
         for gap in gaps {
@@ -308,9 +309,9 @@ enum OverviewAttention {
                 id: "fx.\(from)-\(to)", systemImage: "arrow.left.arrow.right",
                 title: "No \(from) to \(to) exchange rate",
                 detail: "\(Wording.names(gap.accounts.map(accountName))) "
-                    + "\(gap.accounts.count == 1 ? "isn't" : "aren't") fully counted. Type in a rate at your next "
-                    + "check-in.",
-                target: .checkIn))
+                    + "\(gap.accounts.count == 1 ? "isn't" : "aren't") fully counted. Fetch or type in a rate under "
+                    + "Instruments.",
+                target: .instruments))
         }
 
         for (instrument, date) in valuator.outdatedPrices(in: library, asOf: today)
@@ -318,7 +319,7 @@ enum OverviewAttention {
             items.append(OverviewAttentionItem(
                 id: "outdated.\(instrument)", systemImage: "tag",
                 title: "\(instrumentName(instrument)): last price \(AmountFormat.shortDate(date, locale: locale))",
-                detail: "Older than the account's latest value. Fetch or type in a price at your next check-in.",
+                detail: "Older than the account's latest value. Fetch or type in a price under Instruments.",
                 target: .instrument(instrument)))
         }
         items += pastGaps(library: library, valuator: valuator, asOf: today, locale: locale)
@@ -356,7 +357,7 @@ enum OverviewAttention {
     /// leave accounts out of the net-worth history, with *Fill In Past
     /// Prices*: an item per currency, and per instrument for one or two
     /// (more are one item, so they don't crowd the card). The latest
-    /// check-in's own gaps are the items above, typed in at the next check-in.
+    /// check-in's own gaps are the items above, typed in under Instruments.
     static func pastGaps(library: Library, valuator: Valuator, asOf: CalendarDate,
                          locale: Locale = .current) -> [OverviewAttentionItem] {
         let dates = valuator.dates(.monthEnds, in: .netWorth, through: asOf).filter { $0 < asOf }

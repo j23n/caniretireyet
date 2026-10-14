@@ -6,7 +6,7 @@ import TestSupport
 import Tracker
 
 /// The one year-by-year backend Progress and Trends share (``PlanProgress``,
-/// ``PlanTrends``, ``PlanProgressCache``), on the example library:
+/// ``PlanTrends``), on the example library:
 /// check-ins from October 2025 to September 2026, and an answer recorded at
 /// each from January 2026.
 struct PlanProgressBackendTests {
@@ -119,25 +119,5 @@ struct PlanProgressBackendTests {
             PlanYearEvent(date: "2026-07-31", kind: .answerMoved(age: 56, years: 1, again: true, planChanged: false)),
             PlanYearEvent(date: "2026-08-31", kind: .noAge),
         ])
-    }
-
-    // MARK: One cache for both pages
-
-    @MainActor @Test func theCacheWorksProgressOutOncePerKey() {
-        let cache = PlanProgressCache()
-        let key = PlanProgressCache.Key(revision: 1, plan: "base", document: library.plans["base"], asOf: latest)
-        let progress = cache.progress(for: key, library: library, valuator: valuator)
-        #expect(progress.years == self.progress().years)
-        let trends = cache.trends(for: key, grain: .months, lastYears: nil, library: library, valuator: valuator)
-        #expect(trends.years == Array(progress.years.reversed()))
-        // Another state of the library: worked out again, from that library.
-        var changed = library
-        changed.projections["base"]?.baselines = [:]
-        let next = PlanProgressCache.Key(revision: 2, plan: "base", document: changed.plans["base"], asOf: latest)
-        let again = cache.progress(for: next, library: changed, valuator: Valuator(library: changed))
-        #expect(again.years.allSatisfy { $0.baseline == nil })
-        // The same key gives the progress kept, whatever library is passed.
-        let kept = cache.progress(for: next, library: library, valuator: valuator)
-        #expect(kept.years == again.years)
     }
 }

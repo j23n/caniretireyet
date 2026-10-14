@@ -83,10 +83,6 @@ struct KnownKeysTests {
         (plan.portfolio, PlanPortfolio.knownKeys),
         (plan.portfolio.targetMixByAge[0], TargetMixStep.knownKeys),
         (plan.assumptions, PlanAssumptions.knownKeys),
-        // Only a file edited by hand writes both the mean and the median.
-        (try! JSONDecoder().decode(ReturnAssumption.self, from: Data(
-            #"{ "real": "0", "medianReal": "0", "volatility": "0", "incomeYield": "0.02" }"#.utf8)),
-         ReturnAssumption.knownKeys),
         (plan.simulation, PlanSimulation.knownKeys),
         (ImportProfile(id: "p", name: "P", file: ImportFileSettings(encoding: .utf8, delimiter: ";", headerRow: 1, excludeRows: ["Totale"]),
                        defaults: format, layout: .long, dateColumn: "Data", target: .balance,
@@ -133,5 +129,12 @@ struct KnownKeysTests {
         let byYear = try JSONValue(encoding: PlanEvent(name: "a", timing: .year(2030), amount: 1))
         let keys = Set(byAge.objectValue!.keys).union(byYear.objectValue!.keys)
         #expect(keys == PlanEvent.knownKeys)
+    }
+
+    @Test func returnKeysCoverTheMeanAndTheMedian() throws {
+        let byMean = try JSONValue(encoding: ReturnAssumption(real: 0, volatility: 0, incomeYield: d("0.02")))
+        let byMedian = try JSONValue(encoding: ReturnAssumption(medianReal: 0, volatility: 0))
+        let keys = Set(byMean.objectValue!.keys).union(byMedian.objectValue!.keys)
+        #expect(keys == ReturnAssumption.knownKeys)
     }
 }

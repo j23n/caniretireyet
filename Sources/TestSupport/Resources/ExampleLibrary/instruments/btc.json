@@ -4,6 +4,6 @@
   "id": "btc",
   "kind": "crypto",
   "name": "Bitcoin",
-  "priceSource": { "provider": "coingecko", "symbol": "bitcoin" },
+  "priceSource": { "provider": "yahoo", "symbol": "BTC-USD" },
   "unit": "BTC"
 }

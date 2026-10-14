@@ -60,7 +60,7 @@ struct MarketPerspectiveTests {
 
     @Test func readsTheChangeAgainstWhereItStarted() {
         let change = NetWorthChange(from: "2026-08-31", to: "2026-09-30", start: 100_000, markets: -6000,
-                                    newMoney: 1500, other: 0, end: 95500)
+                                    saved: 1500, other: 0, end: 95500)
         #expect(MarketPerspective.sentence(for: change, confidence: 0.95)?.hasPrefix("Markets took 6%.") == true)
         #expect(MarketPerspective.sentence(for: change, confidence: 0.95)?.contains("19 in 20 futures") == true)
     }

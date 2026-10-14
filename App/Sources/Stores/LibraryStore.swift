@@ -83,8 +83,16 @@ final class LibraryStore {
     private(set) var lastSyncedAt: Date?
     /// The last thing that went wrong reading or writing the folder, for a banner.
     private(set) var lastError: String?
-    /// Problems in individual files, by path (docs/schema/README.md, "Reading hand-edited files").
-    private(set) var loadIssues: [LoadIssue] = []
+    /// Problems reading individual files, by path (docs/schema/README.md,
+    /// "Reading hand-edited files"). A reload replaces the issues of the
+    /// files it read.
+    private(set) var loadIssues: [LibraryIssue] = []
+    /// What's wrong with the library's files: ``loadIssues`` and the
+    /// checks across files (`Library.problems()`), worked out again for
+    /// each revision of ``library``, so they follow every edit and reload.
+    var issues: [LibraryIssue] {
+        (loadIssues + problems.value(for: revision) { library.problems() }).sortedByPath()
+    }
     /// Sync conflicts merged since launch, newest first.
     private(set) var mergedConflicts: [ConflictResolution] = []
     /// Sync conflicts that couldn't be merged.
@@ -116,8 +124,6 @@ final class LibraryStore {
 
     private let locator: LibraryLocator
     private let preferences: AppPreferences?
-    /// Makes what downloads a library in iCloud Drive before it's read.
-    private let makeDownloader: @MainActor (LibraryLocation) -> (any LibraryDownloading)?
     @ObservationIgnored private var sync: LibrarySync?
     @ObservationIgnored private var watcher: (any LibraryWatching)?
     @ObservationIgnored private var watchTask: Task<Void, Never>?
@@ -131,13 +137,14 @@ final class LibraryStore {
     /// The files' modification dates when they were last compared, for
     /// ``refreshFromDisk()``.
     @ObservationIgnored private var diskSnapshot: FolderSnapshot?
-    @ObservationIgnored private var valuatorCache: (revision: Int, valuator: Valuator)?
-    @ObservationIgnored private var firstMoneyInOutCache: (revision: Int, date: CalendarDate?)?
+    @ObservationIgnored private let valuators = Memo<Int, Valuator>()
+    @ObservationIgnored private let firstMoneyInOuts = Memo<Int, CalendarDate?>()
+    @ObservationIgnored private let problems = Memo<Int, [LibraryIssue]>()
     /// Counts the attempts at opening a library. An attempt that a newer one
     /// overtook (Try Again, another `open`) drops its results.
     @ObservationIgnored private var openingAttempt = 0
     /// The current attempt's download from iCloud Drive, while it runs.
-    @ObservationIgnored private var downloader: (any LibraryDownloading)?
+    @ObservationIgnored private var downloader: UbiquitousLibraryDownloader?
     @ObservationIgnored private var openingStall: StallDetector
     @ObservationIgnored private var stallCheck: Task<Void, Never>?
 
@@ -147,17 +154,11 @@ final class LibraryStore {
 
     /// A store that finds its library with `locator` and remembers the
     /// choice in `preferences`. Opening counts as stalled after
-    /// `openingStallTime` without progress. `makeDownloader` makes what
-    /// downloads a library in iCloud Drive before it's read (tests pass
-    /// their own).
+    /// `openingStallTime` without progress.
     init(locator: LibraryLocator = LibraryLocator(), preferences: AppPreferences? = nil,
-         openingStallTime: Duration = LibraryStore.openingStallTime,
-         makeDownloader: @escaping @MainActor (LibraryLocation) -> (any LibraryDownloading)? = {
-             $0.makeDownloader()
-         }) {
+         openingStallTime: Duration = LibraryStore.openingStallTime) {
         self.locator = locator
         self.preferences = preferences
-        self.makeDownloader = makeDownloader
         openingStall = StallDetector(threshold: openingStallTime)
     }
 
@@ -185,21 +186,13 @@ final class LibraryStore {
 
     /// A valuator over the current library, rebuilt only when it changes.
     var valuator: Valuator {
-        let revision = self.revision
-        if let cache = valuatorCache, cache.revision == revision { return cache.valuator }
-        let valuator = Valuator(library: library)
-        valuatorCache = (revision, valuator)
-        return valuator
+        valuators.value(for: revision) { Valuator(library: library) }
     }
 
     /// The date of the first value with money in and out, `nil` without
     /// one; looked up only when the library changes.
     var firstMoneyInOut: CalendarDate? {
-        let revision = self.revision
-        if let cache = firstMoneyInOutCache, cache.revision == revision { return cache.date }
-        let date = library.allValuations.lazy.filter(\.hasMoneyInOut).map(\.date).min()
-        firstMoneyInOutCache = (revision, date)
-        return date
+        firstMoneyInOuts.value(for: revision) { library.allValuations.lazy.filter(\.hasMoneyInOut).map(\.date).min() }
     }
 
     /// Whether edits are possible: loaded, not read-only, and not being
@@ -288,7 +281,7 @@ final class LibraryStore {
         stopWatching()
         await ioTail?.value
         guard attempt == openingAttempt else { return }
-        let sync = LibrarySync(location: location, migrations: Self.migrations)
+        let sync = LibrarySync(location: location)
         self.sync = sync
         self.location = location
         pendingSaves = [:]
@@ -344,7 +337,7 @@ final class LibraryStore {
     /// device), that one is opened instead.
     func createLibrary(in kind: LibraryLocationKind, settings: LibrarySettings) async throws {
         guard let location = try await locator.location(kind) else { throw LibraryStoreError.iCloudUnavailable }
-        let sync = LibrarySync(location: location, migrations: Self.migrations)
+        let sync = LibrarySync(location: location)
         if await !location.containsLibrary(waitingUpTo: .seconds(3)) {
             try await sync.createLibrary(settings: settings)
         }
@@ -649,7 +642,7 @@ final class LibraryStore {
     /// meanwhile. A download that can't be followed (its stream ends early)
     /// goes on to reading, which downloads what's missing itself.
     private func download(_ location: LibraryLocation, attempt: Int) async -> Bool {
-        guard let downloader = makeDownloader(location) else { return true }
+        guard let downloader = location.makeDownloader() else { return true }
         self.downloader = downloader
         var latest: LibraryDownloadProgress?
         for await progress in downloader.start() {
@@ -927,16 +920,4 @@ enum LibraryStoreError: Error, Equatable, Sendable, LocalizedError {
     }
 
     var errorDescription: String? { message }
-}
-
-extension LibraryStore {
-    /// The steps that upgrade a library in an older format: Storage's, and
-    /// after the step to version 4 the conversion of the accounts recorded
-    /// as snapshots to trades, which needs Tracker (docs/ACCOUNTS.md,
-    /// "Migration").
-    nonisolated static let migrations = Migration.all + [
-        Migration.library(from: 3, summary: Library.snapshotConversionSummary) { library in
-            library.convertSnapshotAccountsToTrades()
-        },
-    ]
 }

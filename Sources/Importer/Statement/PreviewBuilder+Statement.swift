@@ -136,7 +136,7 @@ extension PreviewBuilder {
         let open = read.indices.filter { index in
             session.statementLineClasses[read[index].row] == nil && remembered(read[index]) == nil
                 && read[index].rule == nil
-                && answered[read[index].row] == nil && session.statementPairs[read[index].row] == nil
+                && answered[read[index].row] == nil && batch.pairs[read[index].row] == nil
         }
         let trades = matchTrades(read, lines: open, excluding: account.id)
         var lines = read.indices.map { index in
@@ -158,7 +158,7 @@ extension PreviewBuilder {
                 chosen = (rule.statementClass, .rule(rule.match))
             } else if let trade = trades[index] {
                 chosen = (.transfer, .trade(trade))
-            } else if let other = session.statementPairs[line.row] {
+            } else if let other = batch.pairs[line.row] {
                 chosen = (.transfer, .paired(other))
             } else if let named = Self.namedAccount(in: line.words, names: names) {
                 // Paying a debt is spending; a loan paid out into the account is moved between accounts.
@@ -472,13 +472,14 @@ extension PreviewBuilder {
             let cells = read.first { $0.row == row }?.cells ?? []
             if case .moved(let other)? = answered[row] {
                 if let to = library.accounts[other], Self.followsMoves(to, of: account),
-                   !session.statementBatchAccounts.contains(other) {
+                   !batch.accounts.contains(other) {
                     if let cut = line.period {
                         moves[other, default: []].append(StatementMove(date: line.date, cut: cut,
                                                                        amount: -line.amount, cells: cells))
                     } else if to.kind == .taxPot {
                         // Still a transfer, as the answer says, but the pot's value can't follow from it.
                         issues.append(ImportIssue(kind: .statementMoveLeftOut(row: row, account: other)))
+                        lines[index].assetLeftOut = .notCovered
                         continue
                     }
                 }
@@ -497,16 +498,20 @@ extension PreviewBuilder {
             guard let asset = answered[row], !unrecorded else {
                 if case .moved(let other)? = session.statementAssets[row] {
                     issues.append(ImportIssue(kind: .statementMoveLeftOut(row: row, account: other)))
+                    lines[index].assetLeftOut = .accountCantTakeMoves
                     continue
                 }
                 var account: AccountID?
                 if case .sale(let id)? = session.statementAssets[row], answered[row] == nil || unrecorded,
                    session.statementAssets[row]?.fits(line.amount) == true { account = id }
                 issues.append(ImportIssue(kind: .statementAssetLeftOut(row: row, account: account)))
+                lines[index].assetLeftOut = .doesntFit
                 continue
             }
             let amount = -line.amount
             let id: AccountID
+            // The new money it brings, stored only where the account asks for it (Account.asksForFlow).
+            let asksForFlow: Bool
             switch asset {
             case .moved: continue
             case .purchase(let name, let kind):
@@ -519,18 +524,22 @@ extension PreviewBuilder {
                     // Importing the file again with the same answer finds the account it started.
                     id = existing.id
                     found.insert(id)
+                    asksForFlow = existing.asksForFlow
                 } else {
                     id = AccountID(Slug.unique(Slug.make(from: name), among: taken))
                     taken.insert(id.rawValue)
                     started[id] = line.date
                     let new = Account(id: id, name: name, kind: kind, currency: account.currency, opened: opened)
                     accountProposals.append(AccountProposal(account: new, names: [name], statementRow: row))
+                    asksForFlow = new.asksForFlow
                 }
                 var start = ImportedRecord(key: .valuation(ValuationKey(account: id, date: opened)))
                 start.balance = 0
                 records[start.key] = Accumulator(record: start, cells: cells)
             case .sale(let sold):
                 id = sold
+                let soldAccount = library.accounts[sold] ?? accountProposals.first { $0.account.id == sold }?.account
+                asksForFlow = soldAccount?.asksForFlow ?? false
                 if library.accounts[sold]?.closed != line.date.adding(days: 1) {
                     statementCloses.append(AccountChangeProposal(account: sold,
                                                                  change: .close(on: line.date.adding(days: 1)),
@@ -539,11 +548,11 @@ extension PreviewBuilder {
             }
             var record = ImportedRecord(key: .valuation(ValuationKey(account: id, date: line.date)))
             record.balance = line.amount < 0 ? amount : 0
-            record.flow = amount
+            if asksForFlow { record.flow = amount }
             var accumulator = Accumulator(record: record, cells: cells)
             if let bought = records[record.key] {
                 // Bought and sold on one day.
-                accumulator.record.flow = (bought.record.flow ?? 0) + amount
+                if asksForFlow { accumulator.record.flow = (bought.record.flow ?? 0) + amount }
                 accumulator.cells = bought.cells + cells
             }
             records[record.key] = accumulator
@@ -554,6 +563,9 @@ extension PreviewBuilder {
         for line in read where answered[line.row] == nil {
             if case .moved(let other)? = ruleMove(for: line) {
                 issues.append(ImportIssue(kind: .statementMoveLeftOut(row: line.row, account: other)))
+                if let index = lines.firstIndex(where: { $0.row == line.row }) {
+                    lines[index].assetLeftOut = .accountCantTakeMoves
+                }
             }
         }
         for (other, otherMoves) in moves {
@@ -580,11 +592,11 @@ extension PreviewBuilder {
 
     /// The values of an account the file moved money into and out of
     /// (docs/IMPORT.md, "Moved to or from an account"): one on each of the
-    /// statement's values the moves count in, with the money moved since
-    /// the account's value before it as its flow, and the balance that
-    /// value's plus the flow. A tax pot's have no money in or out (so it's
-    /// all moved, ``Model/Valuation/moved``); another account's are left
-    /// unknown, its interest too. A value the account has between moves
+    /// statement's values the moves count in, its balance that of the
+    /// account's value before it plus the money moved since. A tax pot's
+    /// have no money in or out (so it's all moved, Tracker's
+    /// `Valuator.moved(_:previous:)`); another account's are left unknown,
+    /// its interest too. A value the account has between moves
     /// takes the moves before it as counted already. A pot with no value
     /// before the first move starts worth 0 the day before it, a value that
     /// isn't counted; another account without one gets no values.
@@ -610,7 +622,6 @@ extension PreviewBuilder {
             let moved = counted.reduce(Decimal(0)) { $0 + $1.amount }
             var record = ImportedRecord(key: .valuation(ValuationKey(account: id, date: cut)))
             record.balance = before.balance + moved
-            record.flow = moved
             if isPot {
                 record.moneyIn = 0
                 record.moneyOut = 0
@@ -630,7 +641,7 @@ extension PreviewBuilder {
     /// month without one, and one on the last day the session gives (or
     /// the check-in's date, ``ImportSession/statementCheckIn``). Each has the balance, and
     /// when the file covers its whole period, from the value before it,
-    /// money in and out (and interest) and the flow. Sets each line's
+    /// money in and out (and interest). Sets each line's
     /// ``StatementLine/period``.
     private mutating func statementValues(_ lines: inout [StatementLine], read: [ReadLine],
                                           account: Account) -> [ImportRecordKey: Accumulator] {
@@ -650,6 +661,7 @@ extension PreviewBuilder {
             issues.append(ImportIssue(kind: .linesOutsidePeriod(count: outside, from: start, through: end)))
             return [:]
         }
+        statementPeriod = StatementPeriod(from: start, through: end)
         issues.append(ImportIssue(kind: .statementPeriod(from: start, through: end)))
         let valuations = library.valuations(for: account.id)
         let anchor = valuations.last { $0.date < start }
@@ -662,6 +674,7 @@ extension PreviewBuilder {
         // A file said to end on a day has a value on that day, which the next file follows on from.
         if through != nil { cuts.insert(end) }
         let balances = RunningBalances(lines)
+        runningBalanceBreaks = balances.breaks
         if balances.breaks > 0 { issues.append(ImportIssue(kind: .runningBalanceBreaks(count: balances.breaks))) }
         let fromFile = balances.opening
         let adjacent = anchor.map { $0.date >= start.adding(days: -1) } ?? false
@@ -712,9 +725,6 @@ extension PreviewBuilder {
                 if total.tax != 0, account.kind != .taxPot { record.tax = total.tax }
                 record.countsMoneyInOutFromLines = true
                 if interest != 0 { record.interest = interest }
-                if let previousBalance = previous?.balance {
-                    record.flow = balance - previousBalance - (account.kind.recordsInterest ? interest : 0)
-                }
             }
             cells.sort()
             records[record.key] = Accumulator(record: record, cells: cells)

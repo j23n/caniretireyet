@@ -48,7 +48,7 @@ public struct GlanceSnapshot: Hashable, Sendable, Codable {
 
 /// The main plan's next milestone (PROGRESS.md, "Milestones"): what it is,
 /// how far there, and when the plan's median future typically reaches it.
-public struct MilestoneGlance: Hashable, Sendable {
+public struct MilestoneGlance: Hashable, Sendable, Codable {
     /// What a milestone is, as written in the snapshot.
     public struct Kind: OpenEnum {
         public let rawValue: String
@@ -93,7 +93,7 @@ public struct MilestoneGlance: Hashable, Sendable {
 
 /// Net worth today, as the Overview has it, the change at the latest
 /// check-in, and a year of history.
-public struct NetWorthGlance: Hashable, Sendable {
+public struct NetWorthGlance: Hashable, Sendable, Codable {
     /// The date net worth is reported on: the day the app wrote the snapshot.
     public var date: CalendarDate
     /// The sum of what could be valued.
@@ -124,7 +124,7 @@ public struct NetWorthGlance: Hashable, Sendable {
 
 /// How net worth changed between two check-ins, split into markets, new
 /// money and the rest (UI.md, "Since last check-in").
-public struct NetWorthChange: Hashable, Sendable {
+public struct NetWorthChange: Hashable, Sendable, Codable {
     /// The check-in before the latest one.
     public var from: CalendarDate
     /// The latest check-in.
@@ -134,19 +134,19 @@ public struct NetWorthChange: Hashable, Sendable {
     /// Price and exchange-rate movements, interest, reinvested dividends.
     public var markets: Decimal
     /// Money added (+) or taken out (−).
-    public var newMoney: Decimal
+    public var saved: Decimal
     /// What can't be explained otherwise.
     public var other: Decimal
     /// Net worth on the latest check-in.
     public var end: Decimal
 
-    public init(from: CalendarDate, to: CalendarDate, start: Decimal, markets: Decimal, newMoney: Decimal,
+    public init(from: CalendarDate, to: CalendarDate, start: Decimal, markets: Decimal, saved: Decimal,
                 other: Decimal, end: Decimal) {
         self.from = from
         self.to = to
         self.start = start
         self.markets = markets
-        self.newMoney = newMoney
+        self.saved = saved
         self.other = other
         self.end = end
     }
@@ -162,7 +162,7 @@ public struct NetWorthChange: Hashable, Sendable {
 }
 
 /// One point of a value series.
-public struct GlancePoint: Hashable, Sendable {
+public struct GlancePoint: Hashable, Sendable, Codable {
     public var date: CalendarDate
     /// The sum of what could be valued.
     public var value: Decimal
@@ -174,7 +174,7 @@ public struct GlancePoint: Hashable, Sendable {
 }
 
 /// One asset class's part of net worth.
-public struct AllocationSlice: Hashable, Sendable {
+public struct AllocationSlice: Hashable, Sendable, Codable {
     /// The key debts have: they aren't an asset class.
     public static let debts = "debts"
 

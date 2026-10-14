@@ -61,14 +61,15 @@ extension Valuator {
     /// then, or is unknown. An empty account has nothing to check in: the
     /// app suggests closing it rather than marking it stale.
     public func emptySince(of account: AccountID, on date: CalendarDate) -> CalendarDate? {
-        guard let found = accounts[account] else { return nil }
-        var days = Set(valuations(for: account).map(\.date).filter { $0 <= date })
-        if let ledger = ledgers[account] {
+        guard accounts[account] != nil else { return nil }
+        let history = self.history(of: account)
+        var days = Set(history.valuations.map(\.date).filter { $0 <= date })
+        if let ledger = history.ledger {
             days.formUnion(ledger.entries.map(\.date).filter { $0 <= date })
         }
         var since: CalendarDate?
         for day in days.sorted(by: >) {
-            guard let held = carried(found, on: day), held.holdsNothing else { break }
+            guard let held = snapshot(of: account, on: day), held.holdsNothing else { break }
             since = day
         }
         return since

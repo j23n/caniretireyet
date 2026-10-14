@@ -2,6 +2,7 @@ import ArgumentParser
 import Foundation
 import Model
 import Storage
+import Tracker
 
 /// `retire validate`: loads every file and reports what's wrong, per file.
 struct ValidateCommand: RetireSubcommand {
@@ -35,17 +36,16 @@ struct ValidateCommand: RetireSubcommand {
         let loaded: LoadResult
         var migration: MigrationReport?
         do {
-            (loaded, migration) = try folder.loadMigrating(steps: LibraryOptions.migrations)
+            (loaded, migration) = try folder.loadMigrating()
         } catch StorageError.missingMigration {
             // A test version's library: reported as older below.
             loaded = try folder.load()
         }
         var issues = loaded.report.issues
         if folder.containsLibrary {
-            issues += LibraryChecks(library: loaded.library).issues()
+            issues += loaded.library.problems()
         }
-        // By path, then errors before warnings, keeping the order found (the sort is stable).
-        issues.sort { ($0.path, $0.severity == .error ? 0 : 1) < ($1.path, $1.severity == .error ? 0 : 1) }
+        issues = issues.sortedByPath()
         let report = Report(folder: folder, library: loaded.library, load: loaded.report, migration: migration,
                             issues: issues)
 
@@ -60,7 +60,7 @@ struct ValidateCommand: RetireSubcommand {
         var load: LoadReport
         /// The upgrade from an older format, if one ran.
         var migration: MigrationReport?
-        var issues: [LoadIssue]
+        var issues: [LibraryIssue]
 
         var errors: Int { issues.filter { $0.severity == .error }.count }
         var warnings: Int { issues.filter { $0.severity == .warning }.count }
@@ -69,16 +69,18 @@ struct ValidateCommand: RetireSubcommand {
         var versionText: String {
             let current = LibrarySettings.currentSchemaVersion
             guard let version = load.schemaVersion else { return "unknown (library.json can't be read)" }
-            if load.isNewerSchema { return "\(version), newer than this version understands (\(current))" }
+            if load.readOnlyReason == .newerSchema { return "\(version), newer than this version understands (\(current))" }
             if load.needsMigration { return "\(version), older than this version's \(current): upgrade before saving" }
             return "\(version) (current)"
         }
 
         /// Whether the library is read-only, and what to do about it.
         var readOnlyText: String {
-            if load.isNewerSchema { return "yes: update the app to make changes" }
-            if load.settingsUnreadable { return "yes: library.json can't be read; fix it or restore it from backups/" }
-            return "no"
+            switch load.readOnlyReason {
+            case .newerSchema: "yes: update the app to make changes"
+            case .unreadableSettings: "yes: library.json can't be read; fix it or restore it from backups/"
+            case nil: "no"
+            }
         }
 
         var contentsText: String {
@@ -129,7 +131,7 @@ struct ValidateCommand: RetireSubcommand {
 
         var json: JSON {
             JSON(library: folder.root.path, schemaVersion: load.schemaVersion,
-                 currentSchemaVersion: LibrarySettings.currentSchemaVersion, readOnly: load.isReadOnly,
+                 currentSchemaVersion: LibrarySettings.currentSchemaVersion, readOnly: load.readOnlyReason != nil,
                  needsMigration: load.needsMigration,
                  migration: migration.map {
                      JSON.Migration(fromVersion: $0.fromVersion, toVersion: $0.toVersion, backup: $0.backup.path,

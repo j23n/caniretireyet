@@ -135,75 +135,29 @@ struct PriceHistoryTests {
         #expect(daily.rate(onOrBefore: "2026-09-27")?.rate == d("1.1371"))
     }
 
-    // MARK: CoinGecko
-
-    @Test func aCoinGeckoRangeIsOneMarketChartRequest() async throws {
-        let client = MockHTTPClient(["market_chart/range": CoinGeckoResponses.ethereumMarketChart])
-        let history = try await CoinGeckoProvider(client: client).history(
-            symbol: "ETH", currency: .eur, range: HistoryRange(from: "2026-05-24", through: "2026-09-30", today: today))
-        #expect(try #require(await client.requests.first).url.absoluteString
-            == "https://api.coingecko.com/api/v3/coins/ethereum/market_chart/range"
-            + "?vs_currency=eur&from=1779580800&to=1790816400")
-        #expect(history.origin == QuoteOrigin(source: .coingecko, service: "CoinGecko", symbol: "ethereum"))
-        // A value at 00:00 UTC is the end of the day before; the live price is today's.
-        #expect(history.quotes.map(\.observedOn) == ["2026-05-31", "2026-06-01", "2026-09-29", "2026-09-30"])
-        #expect(history.quotes.map(\.price) == [d("3301.5"), d("3322.2541"), d("3809.9"), d("3812.0625")])
-        #expect(history.quotes.allSatisfy { $0.currency == .eur })
-    }
-
-    @Test func coinGeckoIsntAskedForMoreThanItsFreeYear() async throws {
-        let client = MockHTTPClient(["market_chart/range": CoinGeckoResponses.ethereumMarketChart])
-        let provider = CoinGeckoProvider(client: client)
-        let old = try await provider.history(
-            symbol: "bitcoin", currency: .eur, range: HistoryRange(from: "2024-01-01", through: "2025-06-30", today: today))
-        #expect(old.quotes.isEmpty)
-        #expect(await client.requestCount == 0)
-
-        _ = try await provider.history(
-            symbol: "bitcoin", currency: .eur, range: HistoryRange(from: "2025-06-01", through: "2026-09-30", today: today))
-        // From 1 October 2025, the first day of the last 365.
-        #expect(try #require(await client.requests.first).url.absoluteString.contains("&from=1759276800&"))
-        #expect(CoinGeckoProvider.earliestHistoryDate(today: today) == "2025-10-01")
-    }
-
-    @Test func aCoinsRoutesAreCoinGeckoThenYahoosPairs() {
-        let provider = CoinGeckoProvider(client: MockHTTPClient())
-        let eur = provider.historyRoutes(symbol: "ethereum", currency: .eur, today: today)
-        #expect(eur.map(\.name) == ["CoinGecko · ethereum", "Yahoo Finance · ETH-EUR", "Yahoo Finance · ETH-USD"])
-        #expect(eur.map(\.earliest) == ["2025-10-01", nil, nil])
-        #expect(eur[0].limitReason == "CoinGecko's free API only has prices for the last 365 days.")
-        let usd = provider.historyRoutes(symbol: "BTC", currency: .usd, today: today)
-        #expect(usd.map(\.name) == ["CoinGecko · BTC", "Yahoo Finance · BTC-USD"])
-    }
-
-    @Test func aCoinsTickerComesFromTheTableOrTheSearch() async throws {
-        let client = MockHTTPClient(["search?query=moonstone": CoinGeckoResponses.searchMoonstone])
-        let provider = CoinGeckoProvider(client: client)
-        #expect(try await provider.ticker(for: "ethereum") == "ETH")
-        #expect(try await provider.ticker(for: "btc") == "BTC")
-        #expect(try await provider.ticker(for: "MOON") == "MOON")
-        #expect(await client.requestCount == 0)
-        // An ID only: CoinGecko's search gives its ticker, once.
-        #expect(try await provider.ticker(for: "moonstone") == "MOON")
-        #expect(try await provider.ticker(for: "moonstone") == "MOON")
-        #expect(await client.requestCount == 1)
-    }
-
     // MARK: gold-api.com
 
     @Test func aMetalsPastPricesComeFromItsFutures() async throws {
         let client = MockHTTPClient(["chart/GC=F": YahooResponses.goldFuturesMonthly])
         let provider = GoldAPIProvider(client: client)
-        let routes = provider.historyRoutes(symbol: "xau", currency: .eur, today: today)
-        #expect(routes.map(\.name) == ["Yahoo Finance · GC=F"])
-        let history = try await routes[0].fetch(HistoryRange(from: "2020-12-31", through: "2026-09-30",
+        let routes = provider.routes(symbol: "xau", today: today)
+        #expect(routes.map(\.name) == ["gold-api.com · xau", "Yahoo Finance · GC=F"])
+        let history = try await routes[1].fetch(HistoryRange(from: "2020-12-31", through: "2026-09-30",
                                                              monthEndsOnly: true, today: today))
         #expect(history.origin == QuoteOrigin(source: .yahoo, service: "Yahoo Finance", symbol: "GC=F", note: "history"))
         #expect(history.origin?.description == "Yahoo Finance · GC=F (history)")
         #expect(history.quotes.allSatisfy { $0.unit == .troyOunce && $0.currency == .usd })
-        #expect(provider.historyRoutes(symbol: "XAG", currency: .eur, today: today).map(\.name)
-            == ["Yahoo Finance · SI=F"])
-        // A symbol without futures has no history.
-        #expect(provider.historyRoutes(symbol: "XRH", currency: .eur, today: today).isEmpty)
+        #expect(provider.routes(symbol: "XAG", today: today).map(\.name)
+            == ["gold-api.com · XAG", "Yahoo Finance · SI=F"])
+        // A symbol without futures has only today's spot price.
+        #expect(provider.routes(symbol: "XRH", today: today).map(\.name) == ["gold-api.com · XRH"])
+    }
+
+    @Test func aSpotPriceCountsForEveryDateItsRouteCovers() {
+        let spot = Quote(price: d("3488.45"), currency: .usd, unit: .troyOunce, observedOn: today)
+        let history = PriceHistory(quotes: [spot], spacing: .spot)
+        #expect(history.quote(onOrBefore: "2026-09-27") == spot)
+        #expect(history.quote(onOrBefore: today) == spot)
+        #expect(PriceHistory(quotes: [], spacing: .spot).quote(onOrBefore: today) == nil)
     }
 }

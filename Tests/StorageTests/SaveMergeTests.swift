@@ -49,7 +49,7 @@ struct SaveMergeTests {
         var text = try folder.text(september)
         text = text.replacingOccurrences(of: "\"17365.55\"", with: "\"17999\"")
         text = text.replacingOccurrences(
-            of: ",\n    { \"account\": \"mutuo-casa\", \"balance\": \"-141050\", \"date\": \"2026-09-30\", \"flow\": \"650\" }",
+            of: ",\n    { \"account\": \"mutuo-casa\", \"balance\": \"-141050\", \"date\": \"2026-09-30\" }",
             with: "")
         try folder.write(september, text)
 
@@ -233,7 +233,7 @@ struct SaveMergeTests {
 
     @Test func aMonthThatIsNotJSONIsBackedUpBeforeACheckInReplacesIt() throws {
         let folder = try TemporaryFolder.exampleLibrary()
-        let broken = try folder.text(september).replacingOccurrences(of: "\"flow\": \"650\" }", with: "\"flow\": \"650\" },")
+        let broken = try folder.text(september).replacingOccurrences(of: "\"date\": \"2026-09-30\" }\n  ]", with: "\"date\": \"2026-09-30\" },\n  ]")
         try folder.write(september, broken)
         let loaded = try folder.library.load()
         #expect(loaded.library.months["2026-09"] == nil)

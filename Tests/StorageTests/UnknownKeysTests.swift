@@ -161,8 +161,7 @@ struct UnknownKeysTests {
         try folder.write("accounts/ibkr.json", broken)
         let loaded = try folder.library.load()
         var library = loaded.library
-        library.accounts["ibkr"] = Account(id: "ibkr", name: "IBKR", kind: .brokerage, currency: .eur, opened: "2026-01-01",
-                                           valuation: .holdings)
+        library.accounts["ibkr"] = Account(id: "ibkr", name: "IBKR", kind: .brokerage, currency: .eur, opened: "2026-01-01")
 
         let report = try folder.library.save(library, previous: loaded.library)
         #expect(try folder.json("accounts/ibkr.json")["myNote"] == nil)

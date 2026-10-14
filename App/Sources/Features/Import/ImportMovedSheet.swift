@@ -233,7 +233,7 @@ struct ImportMovedSheet: View {
         case .account(let id)?:
             if everyLine {
                 // The line's own answer or class would take the rule's place.
-                model.flow.editStatement(ofFile: line.file) { session in
+                model.flow.editSession(ofFile: line.file) { session in
                     session.setStatementAsset(nil, forRow: line.row)
                     session.setStatementClass(nil, forRow: line.row)
                 }

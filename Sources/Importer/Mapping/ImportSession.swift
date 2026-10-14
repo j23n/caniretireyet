@@ -26,14 +26,6 @@ public struct ImportSession: Sendable {
     /// Statement layout: lines answered as a purchase you keep or a sale,
     /// by 1-based row, for this file only (``setStatementAsset(_:forRow:)``).
     public var statementAssets: [Int: StatementAsset] = [:]
-    /// Statement layout: lines that a line of another account's statement
-    /// imported with this one moves to or from, by 1-based row, with that
-    /// account: transfers (``StatementBatch`` sets them).
-    public var statementPairs: [Int: AccountID] = [:]
-    /// Statement layout: the accounts of the other statements imported with
-    /// this one (``StatementBatch`` sets them). Money moved to one of them
-    /// is that statement's to record, not this one's.
-    public var statementBatchAccounts: Set<AccountID> = []
     /// Statement layout: the account's balance before the file's first line,
     /// for a file without a balance column that doesn't follow on from the
     /// library's values.
@@ -381,7 +373,7 @@ extension ImportProfile {
 
 extension ImportTarget {
     /// Whether values of this target belong to an account.
-    public var needsAccount: Bool { [.balance, .cash, .quantity, .costBasis].contains(self) }
+    public var needsAccount: Bool { [.balance, .cash, .saved, .quantity, .costBasis].contains(self) }
     /// Whether values of this target belong to an instrument.
     public var needsInstrument: Bool { [.quantity, .costBasis, .price].contains(self) }
 }

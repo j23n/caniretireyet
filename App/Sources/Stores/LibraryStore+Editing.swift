@@ -83,18 +83,16 @@ extension LibraryStore {
 
     // MARK: History
 
-    /// Removes one value; the automatic new money of the value after it is
-    /// worked out again (`Library.removeValue(_:)`).
+    /// Removes one value (`Library.removeValuation(_:)`).
     func removeValue(_ key: ValuationKey) throws {
-        try update { $0.removeValue(key) }
+        try update { $0.removeValuation(key) }
     }
 
     // MARK: Trades
 
-    /// Removes a trade and keeps the automatic new money of the account's
-    /// later values in step, and waits for the write (`Library.removeTrade(_:)`).
+    /// Removes a trade, and waits for the write (`Library.removeTradeRecord(_:)`).
     func removeTrade(_ key: TradeKey) async throws {
-        try await commit { $0.removeTrade(key) }
+        try await commit { $0.removeTradeRecord(key) }
     }
 
     /// Adds prices, FX rates and index values, replacing those with the same keys.
@@ -108,14 +106,14 @@ extension LibraryStore {
 
     /// Saves what *Fill In Past Prices* fetched, in one edit, into each
     /// record's month file, and waits for the write: only records the
-    /// library doesn't have by then (`PastPriceFill.insertMissing(into:)`),
-    /// so nothing typed in, imported or fetched before is replaced. The
-    /// files it changes are backed up first (`fill-history`).
+    /// library doesn't have by then (`MergePolicy.keepExisting`), so
+    /// nothing typed in, imported or fetched before is replaced. The files
+    /// it changes are backed up first (`fill-history`).
     @discardableResult
-    func insertMissing(_ fill: PastPriceFill) async throws -> PastPriceInsertion {
-        var inserted = PastPriceInsertion()
+    func insertMissing(_ fill: FetchedPrices) async throws -> PriceMerge {
+        var inserted = PriceMerge()
         _ = try await commit(backingUpAs: Backup.fillHistoryLabel) { library in
-            inserted = fill.insertMissing(into: &library)
+            inserted = fill.merge(into: &library, policy: .keepExisting)
         }
         return inserted
     }

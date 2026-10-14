@@ -9,18 +9,19 @@ import SwiftUI
 struct ImportStatementChartsCards: View {
     let charts: ImportStatementCharts
     /// The iPhone: no balance chart, shorter bars, month initials.
-    let isCompact: Bool
+    @Environment(\.pageLayout) private var layout
+    private var isCompact: Bool { !layout.isWide }
 
     var body: some View {
         if isCompact {
-            ImportMoneyCard(charts: charts, isCompact: true)
+            ImportMoneyCard(charts: charts)
         } else if charts.file.count > 1 {
             EqualColumns(spacing: Metrics.l) {
-                ImportMoneyCard(charts: charts, isCompact: false)
+                ImportMoneyCard(charts: charts)
                 ImportBalanceCard(charts: charts)
             }
         } else {
-            ImportMoneyCard(charts: charts, isCompact: false)
+            ImportMoneyCard(charts: charts)
         }
     }
 }
@@ -29,14 +30,15 @@ struct ImportStatementChartsCards: View {
 /// in the accent and what was spent in grey, with no amounts on an axis.
 private struct ImportMoneyCard: View {
     let charts: ImportStatementCharts
-    let isCompact: Bool
+    @Environment(\.pageLayout) private var layout
+    private var isCompact: Bool { !layout.isWide }
 
     var body: some View {
-        ImportChartCard(title: charts.moneyTitle, isCompact: isCompact) {
+        ImportChartCard(title: charts.moneyTitle) {
             ImportChartKey(swatch: .bar(Palette.color(for: .accent)), name: isCompact ? "In" : "Came in")
             ImportChartKey(swatch: .bar(ImportMoneyBars.spentColor), name: "Spent")
         } chart: {
-            ImportMoneyBars(months: charts.months, isCompact: isCompact)
+            ImportMoneyBars(months: charts.months)
         }
     }
 }
@@ -47,7 +49,7 @@ private struct ImportBalanceCard: View {
     let charts: ImportStatementCharts
 
     var body: some View {
-        ImportChartCard(title: charts.balanceTitle, isCompact: false) {
+        ImportChartCard(title: charts.balanceTitle) {
             ImportChartKey(swatch: .line, name: "From the file")
             if !charts.before.isEmpty {
                 ImportChartKey(swatch: .ring, name: "Your check-ins")
@@ -61,7 +63,8 @@ private struct ImportBalanceCard: View {
 /// A chart's card: its title with the key at the right, then the chart.
 private struct ImportChartCard<Key: View, Chart: View>: View {
     let title: String
-    let isCompact: Bool
+    @Environment(\.pageLayout) private var layout
+    private var isCompact: Bool { !layout.isWide }
     @ViewBuilder let key: () -> Key
     @ViewBuilder let chart: () -> Chart
 
@@ -132,7 +135,8 @@ private struct ImportChartKey: View {
 /// under them; the current month lighter, as it isn't over.
 private struct ImportMoneyBars: View {
     let months: [ImportStatementCharts.Month]
-    let isCompact: Bool
+    @Environment(\.pageLayout) private var layout
+    private var isCompact: Bool { !layout.isWide }
 
     @Environment(\.locale) private var locale
 
