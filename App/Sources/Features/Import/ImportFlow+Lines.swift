@@ -263,16 +263,10 @@ extension ImportFlow {
 
     /// The new accounts the purchases of the statements open start, that a
     /// line can sell: the accepted ones of a purchase on or before its day,
-    /// in its own file or one imported before it.
+    /// in any file (the purchase's file records a sale in another,
+    /// IMPORT.md, "Several statements at once").
     func startedAccounts(before line: BatchStatementLine) -> [Account] {
-        let previews: [ImportPreview]
-        if batch != nil {
-            let files = batchPreviews.map(\.file)
-            guard let file = line.file, let index = files.firstIndex(of: file) else { return [] }
-            previews = batchPreviews[...index].map(\.preview)
-        } else {
-            previews = preview.map { [$0] } ?? []
-        }
+        let previews = batch != nil ? batchPreviews.map(\.preview) : (preview.map { [$0] } ?? [])
         return previews.flatMap { preview in
             preview.newAccounts.filter { proposal in
                 guard proposal.isAccepted, let row = proposal.statementRow,
