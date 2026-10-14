@@ -3,6 +3,7 @@ import Model
 import Storage
 import Testing
 import TestSupport
+import Tracker
 
 /// `retire import` with `Samples/sheet.csv` against the example library. The
 /// sheet has August to October 2026 for Conto Fineco and Conto deposito (one
@@ -235,51 +236,35 @@ struct ImportTests {
         #expect(!overwritten.output.contains("left out until"), "\(overwritten.output)")
     }
 
-    /// A month inserted between two check-ins: the later month's flows of
-    /// the current and the savings account are worked out again from it,
-    /// and undoing puts both months back.
-    @Test func insertingAMonthRecomputesTheNextAutomaticFlow() async throws {
+    /// A month inserted between two check-ins writes only its own month:
+    /// the later month's new money is worked out from it, not stored.
+    @Test func insertingAMonthWritesOnlyItsOwnMonth() async throws {
         let library = try TemporaryFolder.exampleLibrary()
-        // February is missing for the current account and the savings
-        // account, so March's flows are measured from January: the current
-        // account's is the whole change, the savings account's was typed
-        // before format version 4 (500 paid in, without the interest).
+        // February is missing for the current account and the savings account.
         var gap = try library.load()
         let before = gap
         gap.removeValuation(ValuationKey(account: "conto-fineco", date: "2026-02-28"))
         gap.removeValuation(ValuationKey(account: "conto-deposito", date: "2026-02-28"))
-        var march = try #require(gap.valuations(for: "conto-fineco").first { $0.date == "2026-03-31" })
-        march.flow = d("319.25")
-        gap.upsert(march)
         try library.library.save(gap, previous: before)
-        let original = try library.snapshot()
 
         let files = try TemporaryFolder()
         try files.write("february.csv", "Data;Conto Fineco;Conto deposito\n28/02/2026;4.780,20;15.626,95\n")
         let run = await runCLI(["import", files.url("february.csv").path, "--library", library.path, "--apply"])
         #expect(run.status == 0, "\(run.all)")
         #expect(run.output.contains("Imported: 2 added, 0 updated, 0 overwritten, 0 kept, 0 identical, 0 left out.\n"))
-        #expect(run.output.contains("Recomputed the automatic flows of later values: conto-deposito on 2026-03-31, "
-            + "conto-fineco on 2026-03-31.\n"))
-        #expect(run.output.contains("Wrote 2 files:\n  history/2026/2026-02.json\n  history/2026/2026-03.json\n"))
+        #expect(run.output.contains("Wrote 1 file:\n  history/2026/2026-02.json\n"))
 
-        var loaded = try library.load()
-        let fineco = loaded.valuations(for: "conto-fineco").filter { $0.date.yearMonth.year == 2026 }.prefix(3)
-        #expect(fineco.map(\.balance) == [d("5210.85"), d("4780.2"), d("5530.1")])
-        // March's flow is now the change since February: 5530.10 − 4780.20.
-        #expect(fineco.map(\.flow) == [d("1260.45"), nil, d("749.9")])
-        // A savings account's flow is worked out too: the change since February, 16,159.50 − 15,626.95.
-        #expect(loaded.valuations(for: "conto-deposito").first { $0.date == "2026-03-31" }?.flow == d("532.55"))
-        let backup = try #require(try library.backups().last)
-        #expect(backup.files == ["history/2026/2026-02.json", "history/2026/2026-03.json"])
-
-        let undo = await runCLI(["import", "--undo", "--library", library.path])
-        #expect(undo.status == 0, "\(undo.all)")
-        #expect(undo.output.contains("  restored history/2026/2026-03.json\n"))
-        #expect(try library.snapshot() == original)
-        loaded = try library.load()
-        #expect(loaded.valuations(for: "conto-fineco").first { $0.date == "2026-03-31" }?.flow == d("319.25"))
-        #expect(loaded.valuations(for: "conto-deposito").first { $0.date == "2026-03-31" }?.flow == 500)
+        let loaded = try library.load()
+        let valuator = Valuator(library: loaded)
+        func flow(_ account: AccountID) -> Decimal? {
+            let values = loaded.valuations(for: account)
+            guard let index = values.firstIndex(where: { $0.date == "2026-03-31" }) else { return nil }
+            return valuator.flow(of: values[index], previous: values[index - 1])
+        }
+        // March's new money is the change since February: 5530.10 − 4780.20.
+        #expect(flow("conto-fineco") == d("749.9"))
+        // The savings account's is the change less March's interest: 16,159.50 − 15,626.95 − 32.55.
+        #expect(flow("conto-deposito") == 500)
     }
 
     @Test func applyingWithAProfileAndSavingItIsOneUndo() async throws {

@@ -144,11 +144,6 @@ extension ImportFlow {
             entities.append("closes \(Wording.count(planned.closedAccounts.count, "account"))")
         }
         if !entities.isEmpty { sentences.append("It \(Wording.list(entities)).") }
-        if !planned.recomputedFlows.isEmpty {
-            let count = planned.recomputedFlows.count
-            sentences.append(count == 1 ? "The new money of 1 later value is worked out again from the one before it."
-                : "The new money of \(count) later values is worked out again from the ones before them.")
-        }
         if planned.skipped > 0 {
             sentences.append(
                 "\(Wording.count(planned.skipped, "record")) left out.")

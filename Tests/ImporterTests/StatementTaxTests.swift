@@ -3,6 +3,7 @@ import Foundation
 import Model
 import Testing
 import TestSupport
+import Tracker
 
 /// A bank statement's tax (IMPORT.md, "Classes") and money moved to or from
 /// an account (IMPORT.md, "Moved to or from an account"): a tax bill and a
@@ -92,7 +93,7 @@ struct StatementTaxTests {
         for (date, balance) in values {
             let value = try #require(preview.record(.valuation("tax-pot", date))?.imported)
             #expect(value.balance == balance)
-            #expect(value.flow == 500)
+            #expect(value.flow == nil)
             #expect(value.moneyIn == 0)
             #expect(value.moneyOut == 0)
         }
@@ -100,7 +101,8 @@ struct StatementTaxTests {
         let library = preview.apply(to: Self.library()).library
         let pot = library.valuations(for: "tax-pot")
         #expect(pot.map(\.date) == ["2026-01-09", "2026-01-31", "2026-02-28", "2026-03-31"])
-        #expect(pot.dropFirst().allSatisfy { $0.moved == 500 })
+        let valuator = Valuator(library: library)
+        #expect(zip(pot, pot.dropFirst()).allSatisfy { valuator.moved($1, previous: $0) == 500 })
         // Importing the file again changes nothing.
         let again = try Self.session().preview(against: library, today: Self.today).apply(to: library).library
         #expect(again.valuations(for: "tax-pot") == pot)
@@ -115,7 +117,6 @@ struct StatementTaxTests {
         #expect(preview.record(.valuation("tax-pot", "2026-02-28")) == nil)
         let march = try #require(preview.record(.valuation("tax-pot", "2026-03-31"))?.imported)
         #expect(march.balance == 1500)
-        #expect(march.flow == 500)
     }
 
     @Test func moneyMovedToAnotherAccountIsATransfer() throws {
@@ -144,7 +145,6 @@ struct StatementTaxTests {
         let preview = session.preview(against: library, today: Self.today)
         let march = try #require(preview.record(.valuation("risparmio", "2026-03-31"))?.imported)
         #expect(march.balance == 2900)
-        #expect(march.flow == 900)
         #expect(march.moneyIn == nil)
         #expect(march.moneyOut == nil)
         // In another currency it doesn't.

@@ -99,15 +99,17 @@ public struct ImportedRecord: Hashable, Sendable {
     public var positions: [ImportedPosition]
     /// Valuations of a bank statement: money in and out, one-offs, tax
     /// paid, and a savings account's interest, since the account's previous
-    /// value, and the flow worked out from them (docs/IMPORT.md, "Bank
-    /// statements").
+    /// value (docs/IMPORT.md, "Bank statements").
     public var moneyIn: Decimal?
     public var moneyOut: Decimal?
     public var oneOff: Decimal?
     public var tax: Decimal?
     public var interest: Decimal?
-    /// Follows from the balance and the interest, so it's never a conflict
-    /// of its own: it changes with them, or fills in a missing one.
+    /// The new money of a statement's purchase or sale, for an account that
+    /// asks for one (``Model/Account/asksForFlow``). Applying drops it when
+    /// the account doesn't (a proposed account's kind edited since).
+    /// It's never a conflict of its own: it changes with the balance, or
+    /// fills in a missing one.
     public var flow: Decimal?
     /// Whether money in and out (and interest) were counted from a bank
     /// statement's classified lines: they replace the library's when the
@@ -395,8 +397,7 @@ enum RecordMerge {
                 valuation[keyPath: path] = value
             }
         }
-        // The flow follows the balances and the interest: it's filled in, and
-        // replaced only with the values it's worked out from.
+        // The flow goes with the balance: it's filled in, and replaced only with the values that changed.
         if let flow = imported.flow, valuation.flow == nil || recounted || (overwrite && conflict) {
             valuation.flow = flow
         }

@@ -126,8 +126,8 @@ struct ValidateTests {
         // A statement listing one VWCE too few, and a sale of more than Directa holds.
         var september = try library.text("history/2026/2026-09.json")
         september = september.replacingOccurrences(
-            of: #"{ "account": "directa", "cash": "312.1", "date": "2026-09-30", "flow": "11.3" }"#,
-            with: #"{ "account": "directa", "cash": "312.1", "date": "2026-09-30", "flow": "11.3", "#
+            of: #"{ "account": "directa", "cash": "312.1", "date": "2026-09-30" }"#,
+            with: #"{ "account": "directa", "cash": "312.1", "date": "2026-09-30", "#
                 + #""positions": [{ "instrument": "vwce", "quantity": "411.5" }] }"#)
         september = september.replacingOccurrences(of: "  \"valuations\": [\n", with: """
               "trades": [

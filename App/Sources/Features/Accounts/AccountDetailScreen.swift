@@ -79,7 +79,7 @@ struct AccountDetailScreen: View {
                                     titleVisibility: .visible, presenting: deletingValuation) { key in
                     Button("Delete Value", role: .destructive) { removeValuation(key) }
                 } message: { key in
-                    Text(AccountValueNotes.deleteMessage(library.library.previewRemovingValue(key), locale: locale))
+                    Text(AccountValueNotes.deleteMessage(removing: key, in: library.library, locale: locale))
                 }
                 .alert("Couldn't change the account", isPresented: $showsError) {
                     Button("OK", role: .cancel) {}
@@ -831,7 +831,7 @@ private struct AccountValuationListRow: View {
 
     @ViewBuilder
     private var flow: some View {
-        if let flow = row.valuation.flow {
+        if let flow = row.flow {
             if flow != 0 {
                 HStack(spacing: 4) {
                     Text("new money")
@@ -1107,7 +1107,7 @@ private struct AccountValuationFlowCell: View {
 
     var body: some View {
         Group {
-            if let flow = row.valuation.flow {
+            if let flow = row.flow {
                 DeltaText(flow, currency: currency, precision: .automatic, showsArrow: false)
             } else {
                 Text("Unknown")

@@ -230,15 +230,10 @@ struct NetWorthCommand: RetireSubcommand {
                 lines.append("  Money in or out not entered for \(Wording.list(planned.map(name))): what the main plan "
                     + "pays in counts as new money, the rest as market.")
             }
-            let automatic = change.automaticFlowAccounts
-            if !automatic.isEmpty {
-                lines.append("  Money in or out not recorded for \(Wording.list(automatic.map(name))): a balance's "
-                    + "whole change since the value before counts as new money, as a check-in fills it in.")
-            }
             let unknown = change.unknownFlowAccounts
             if !unknown.isEmpty {
-                lines.append("  Money in or out unknown for \(Wording.list(unknown.map(name))): a balance's change "
-                    + "without a flow counts as other.")
+                lines.append("  New money unknown for \(Wording.list(unknown.map(name))): a price or an exchange "
+                    + "rate is missing, so the change counts as other.")
             }
             return lines
         }
@@ -342,8 +337,7 @@ struct NetWorthCommand: RetireSubcommand {
                                 total: JSON.Parts(report.total, account: nil),
                                 accounts: report.accounts.map { JSON.Parts($0.change, account: $0) },
                                 unknownFlowAccounts: report.unknownFlowAccounts.map(\.rawValue),
-                                plannedFlowAccounts: report.plannedFlowAccounts.map(\.rawValue),
-                                automaticFlowAccounts: report.automaticFlowAccounts.map(\.rawValue))
+                                plannedFlowAccounts: report.plannedFlowAccounts.map(\.rawValue))
                 },
                 problems: total.problems.map(\.description))
         }
@@ -407,8 +401,6 @@ struct NetWorthCommand: RetireSubcommand {
                 var unknownFlowAccounts: [String]
                 /// Balances whose new money is what the main plan pays in.
                 var plannedFlowAccounts: [String]
-                /// Balances whose new money is what a check-in would fill in.
-                var automaticFlowAccounts: [String]
             }
 
             var date: String

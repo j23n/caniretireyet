@@ -6,31 +6,31 @@ import Tracker
 
 /// Default flows (PROGRESS.md, "Data this needs from day one").
 struct DefaultFlowTests {
-    @Test func theExampleLibrarysFlowsAreTheDefaults() throws {
+    /// The example library stores a flow only where the account asks for one.
+    @Test func theExampleLibraryStoresOnlyTheFlowsItsAccountsAskFor() throws {
         let library = try Fixtures.exampleLibrary()
-        let valuator = Valuator(library: library)
-        var checked = 0
-        for valuation in library.allValuations {
-            guard let flow = valuation.flow, let kind = library.accounts[valuation.account]?.kind,
-                  [.cash, .brokerage, .crypto, .metals, .mortgage].contains(kind)
-            else { continue }
-            let previous = valuator.previousValuation(for: valuation.account, before: valuation.date)
-            #expect(valuator.defaultFlow(for: valuation, previous: previous) == flow,
-                    "\(valuation.account) on \(valuation.date)")
-            checked += 1
-        }
-        #expect(checked == 35)
+        let stored = library.allValuations.filter { $0.flow != nil }
+        #expect(!stored.isEmpty)
+        #expect(stored.allSatisfy { library.accounts[$0.account]?.asksForFlow == true })
     }
 
-    @Test func savingsFlowsWithInterestAreTheDefaults() throws {
+    /// Every other value's flow is worked out: a savings value's is its
+    /// change less its interest, and an account's first value has none.
+    @Test func otherFlowsAreWorkedOut() throws {
         let library = try Fixtures.exampleLibrary()
         let valuator = Valuator(library: library)
-        let values = library.valuations(for: "conto-deposito").filter { $0.interest != nil }
-        for valuation in values {
-            let previous = valuator.previousValuation(for: valuation.account, before: valuation.date)
-            #expect(valuator.defaultFlow(for: valuation, previous: previous) == valuation.flow, "\(valuation.date)")
+        let values = library.valuations(for: "conto-deposito")
+        #expect(valuator.flow(of: values[0], previous: nil) == nil)
+        for (previous, valuation) in zip(values, values.dropFirst()) {
+            let change = (valuation.balance ?? 0) - (previous.balance ?? 0)
+            #expect(valuator.flow(of: valuation, previous: previous) == change - (valuation.interest ?? 0),
+                    "\(valuation.date)")
         }
-        #expect(values.count == 3)
+        var previous: Valuation?
+        for valuation in library.valuations(for: "fondo-pensione") {
+            #expect(valuator.flow(of: valuation, previous: previous) == valuation.flow, "\(valuation.date)")
+            previous = valuation
+        }
     }
 
     @Test func eachKindsRule() throws {

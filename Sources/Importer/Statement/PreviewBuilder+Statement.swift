@@ -507,6 +507,8 @@ extension PreviewBuilder {
             }
             let amount = -line.amount
             let id: AccountID
+            // The new money it brings, stored only where the account asks for it (Account.asksForFlow).
+            let asksForFlow: Bool
             switch asset {
             case .moved: continue
             case .purchase(let name, let kind):
@@ -519,18 +521,22 @@ extension PreviewBuilder {
                     // Importing the file again with the same answer finds the account it started.
                     id = existing.id
                     found.insert(id)
+                    asksForFlow = existing.asksForFlow
                 } else {
                     id = AccountID(Slug.unique(Slug.make(from: name), among: taken))
                     taken.insert(id.rawValue)
                     started[id] = line.date
                     let new = Account(id: id, name: name, kind: kind, currency: account.currency, opened: opened)
                     accountProposals.append(AccountProposal(account: new, names: [name], statementRow: row))
+                    asksForFlow = new.asksForFlow
                 }
                 var start = ImportedRecord(key: .valuation(ValuationKey(account: id, date: opened)))
                 start.balance = 0
                 records[start.key] = Accumulator(record: start, cells: cells)
             case .sale(let sold):
                 id = sold
+                let soldAccount = library.accounts[sold] ?? accountProposals.first { $0.account.id == sold }?.account
+                asksForFlow = soldAccount?.asksForFlow ?? false
                 if library.accounts[sold]?.closed != line.date.adding(days: 1) {
                     statementCloses.append(AccountChangeProposal(account: sold,
                                                                  change: .close(on: line.date.adding(days: 1)),
@@ -539,11 +545,11 @@ extension PreviewBuilder {
             }
             var record = ImportedRecord(key: .valuation(ValuationKey(account: id, date: line.date)))
             record.balance = line.amount < 0 ? amount : 0
-            record.flow = amount
+            if asksForFlow { record.flow = amount }
             var accumulator = Accumulator(record: record, cells: cells)
             if let bought = records[record.key] {
                 // Bought and sold on one day.
-                accumulator.record.flow = (bought.record.flow ?? 0) + amount
+                if asksForFlow { accumulator.record.flow = (bought.record.flow ?? 0) + amount }
                 accumulator.cells = bought.cells + cells
             }
             records[record.key] = accumulator
@@ -580,11 +586,11 @@ extension PreviewBuilder {
 
     /// The values of an account the file moved money into and out of
     /// (docs/IMPORT.md, "Moved to or from an account"): one on each of the
-    /// statement's values the moves count in, with the money moved since
-    /// the account's value before it as its flow, and the balance that
-    /// value's plus the flow. A tax pot's have no money in or out (so it's
-    /// all moved, ``Model/Valuation/moved``); another account's are left
-    /// unknown, its interest too. A value the account has between moves
+    /// statement's values the moves count in, its balance that of the
+    /// account's value before it plus the money moved since. A tax pot's
+    /// have no money in or out (so it's all moved, Tracker's
+    /// `Valuator.moved(_:previous:)`); another account's are left unknown,
+    /// its interest too. A value the account has between moves
     /// takes the moves before it as counted already. A pot with no value
     /// before the first move starts worth 0 the day before it, a value that
     /// isn't counted; another account without one gets no values.
@@ -610,7 +616,6 @@ extension PreviewBuilder {
             let moved = counted.reduce(Decimal(0)) { $0 + $1.amount }
             var record = ImportedRecord(key: .valuation(ValuationKey(account: id, date: cut)))
             record.balance = before.balance + moved
-            record.flow = moved
             if isPot {
                 record.moneyIn = 0
                 record.moneyOut = 0
@@ -630,7 +635,7 @@ extension PreviewBuilder {
     /// month without one, and one on the last day the session gives (or
     /// the check-in's date, ``ImportSession/statementCheckIn``). Each has the balance, and
     /// when the file covers its whole period, from the value before it,
-    /// money in and out (and interest) and the flow. Sets each line's
+    /// money in and out (and interest). Sets each line's
     /// ``StatementLine/period``.
     private mutating func statementValues(_ lines: inout [StatementLine], read: [ReadLine],
                                           account: Account) -> [ImportRecordKey: Accumulator] {
@@ -712,9 +717,6 @@ extension PreviewBuilder {
                 if total.tax != 0, account.kind != .taxPot { record.tax = total.tax }
                 record.countsMoneyInOutFromLines = true
                 if interest != 0 { record.interest = interest }
-                if let previousBalance = previous?.balance {
-                    record.flow = balance - previousBalance - (account.kind.recordsInterest ? interest : 0)
-                }
             }
             cells.sort()
             records[record.key] = Accumulator(record: record, cells: cells)

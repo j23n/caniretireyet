@@ -42,7 +42,6 @@ struct ExampleLibraryTradeTests {
             #expect(snapshot.cash == d(cash), "\(date)")
             #expect(snapshot.positions.map(\.quantity) == [d(quantity)], "\(date)")
             let valuation = try #require(library.valuations(for: "directa").first { $0.date == date })
-            #expect(valuation.flow == flow.map(d), "\(date)")
             if let flow {
                 #expect(valuator.defaultFlow(for: valuation, previous: previous) == d(flow), "\(date)")
             }

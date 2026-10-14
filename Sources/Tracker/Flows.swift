@@ -1,8 +1,9 @@
 import Foundation
 import Model
 
-// Default flows for new valuations (PROGRESS.md, "Data this needs from day
-// one").
+// A valuation's flow, the money added since the value before it (PROGRESS.md,
+// "Data this needs from day one"): recorded where the account asks for it,
+// worked out from the records everywhere else.
 
 extension Valuator {
     /// `quantity` units of `instrument` valued in `currency` on `date`: the
@@ -32,10 +33,27 @@ extension Valuator {
         return total
     }
 
-    /// The default `flow` for a new valuation, following its account kind's
+    /// The flow of `valuation`, the money added since `previous`, the
+    /// account's valuation before it, in the account's currency: the one
+    /// recorded with it; without one, for an account that doesn't ask for
+    /// it (``Model/Account/asksForFlow``), the one its records give
+    /// (``defaultFlow(for:previous:)``). Files store a flow only where the
+    /// account asks for it, so that's every other account's. `nil` when it's
+    /// unknown: an account that asks for it left empty, or a balance's first
+    /// value, as what it held when its records start isn't money added.
+    public func flow(of valuation: Valuation, previous: Valuation?) -> Decimal? {
+        if let flow = valuation.flow { return flow }
+        guard let account = accounts[valuation.account], !account.asksForFlow,
+              previous != nil || account.recordsTrades
+        else { return nil }
+        return defaultFlow(for: valuation, previous: previous)
+    }
+
+    /// The flow a valuation's records give, following its account kind's
     /// rule (``Model/AccountKind/defaultFlow``), in the account's currency
     /// and rounded to cents; `previous` is the account's latest valuation
-    /// before it.
+    /// before it: the flow of a value that has none
+    /// (``flow(of:previous:)``).
     ///
     /// - Whole change (current accounts, cards, loans, mortgages, belongings):
     ///   the new amount minus the previous one.

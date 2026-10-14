@@ -310,15 +310,13 @@ public struct StatementBatch: Sendable {
     }
 
     /// Previews each file with an account, in ``order(against:today:)``,
-    /// against `library` with the files before it applied (`apply`, the
-    /// caller's way of applying one file's preview, by default
-    /// ``ImportPreview/apply(to:)``), so a month's file follows on from the
+    /// against `library` with the files before it applied
+    /// (``ImportPreview/apply(to:)``), so a month's file follows on from the
     /// month before's, and a sale finds the account another file's purchase
     /// starts. `decide` edits each preview before it's applied: the
     /// decisions a caller takes on proposals and conflicts.
     public func previews(against library: Library, today: CalendarDate = .today(),
-                         decide: (Int, inout ImportPreview) -> Void = { _, _ in },
-                         apply: (ImportPreview, Library) -> ImportResult = { $0.apply(to: $1) })
+                         decide: (Int, inout ImportPreview) -> Void = { _, _ in })
         -> [(file: Int, preview: ImportPreview)] {
         var current = library
         var previews: [(file: Int, preview: ImportPreview)] = []
@@ -327,19 +325,17 @@ public struct StatementBatch: Sendable {
             var preview = file.session.preview(against: current, today: today)
             decide(id, &preview)
             previews.append((id, preview))
-            current = apply(preview, current).library
+            current = preview.apply(to: current).library
         }
         return previews
     }
 
-    /// Applies the previews of ``previews(against:today:decide:apply:)``
-    /// one after another to `library`, as one result.
-    public static func apply(_ previews: [ImportPreview], to library: Library,
-                             apply: (ImportPreview, Library) -> ImportResult = { $0.apply(to: $1) })
-        -> ImportResult {
+    /// Applies the previews of ``previews(against:today:decide:)`` one
+    /// after another to `library`, as one result.
+    public static func apply(_ previews: [ImportPreview], to library: Library) -> ImportResult {
         var result = ImportResult(library: library)
         for preview in previews {
-            result.merge(apply(preview, result.library))
+            result.merge(preview.apply(to: result.library))
         }
         return result
     }
@@ -414,6 +410,5 @@ extension ImportResult {
         removed += next.removed
         identical += next.identical
         skipped += next.skipped
-        recomputedFlows = Set(recomputedFlows + next.recomputedFlows).sorted()
     }
 }

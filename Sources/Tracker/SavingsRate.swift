@@ -129,13 +129,13 @@ extension Valuator {
     /// What moved into tax pots outside net worth (``Model/AccountKind/taxPot``)
     /// from your other accounts by their values dated after `from` through
     /// `through`, in the base currency at each value's date: each value's
-    /// ``Model/Valuation/moved``, put in less taken back, so the tax paid
+    /// ``moved(_:previous:)``, put in less taken back, so the tax paid
     /// from a pot (its money out) and refunds into it (its money in)
-    /// change nothing. A value without both amounts counts its flow, or the
-    /// change a check-in would fill in, when it's above zero: a drop is
-    /// taken as tax paid. A pot's first value is what it held when its
-    /// records start, not money put in. A tax pot in net worth counts as
-    /// savings instead: what's put in is saved.
+    /// change nothing. A value without both amounts counts its flow, the
+    /// whole change, when it's above zero: a drop is taken as tax paid. A
+    /// pot's first value is what it held when its records start, not money
+    /// put in. A tax pot in net worth counts as savings instead: what's put
+    /// in is saved.
     public func taxSetAside(after from: CalendarDate, through: CalendarDate) -> (amount: Decimal, isPriced: Bool) {
         var total: Decimal = 0
         var isPriced = true
@@ -146,8 +146,8 @@ extension Valuator {
             for valuation in valuations(for: account.id) {
                 defer { previous = valuation }
                 guard let previous, valuation.date > from, valuation.date <= through else { continue }
-                let moved = valuation.moved
-                    ?? (valuation.flow ?? defaultFlow(for: valuation, previous: previous)).map { max($0, 0) }
+                let moved = self.moved(valuation, previous: previous)
+                    ?? flow(of: valuation, previous: previous).map { max($0, 0) }
                 guard let moved,
                       let amount = converted(moved, from: account.currency, to: baseCurrency, on: valuation.date,
                                              for: account.id, problems: &problems)
@@ -248,15 +248,18 @@ extension Valuator {
 
     /// What moved into a cash or savings account from your other accounts
     /// after `from` through `through` (negative: out of it), in the base
-    /// currency: the sum of its valuations' ``Model/Valuation/moved``. Where
+    /// currency: the sum of its valuations' ``moved(_:previous:)``. Where
     /// one of them doesn't record money in and out, the new money of
     /// `change`, its change over those days, as nothing tells a transfer
     /// apart. `nil` for other kinds.
     func moved(into change: AccountChange, after from: CalendarDate, through: CalendarDate) -> Decimal? {
         guard let account = accounts[change.account], account.kind.recordsMoneyInOut else { return nil }
         var total: Decimal = 0
-        for valuation in valuations(for: account.id) where valuation.date > from && valuation.date <= through {
-            guard let moved = valuation.moved,
+        var previous: Valuation?
+        for valuation in valuations(for: account.id) {
+            defer { previous = valuation }
+            guard valuation.date > from, valuation.date <= through else { continue }
+            guard let moved = self.moved(valuation, previous: previous),
                   let inBase = fx.convert(moved, from: account.currency, to: baseCurrency, on: valuation.date)
             else { return change.change.newMoney }
             total += inBase

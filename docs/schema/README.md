@@ -72,10 +72,9 @@ An account that records trades (`"valuation": "trades"`) holds what its trades l
 
 **Change since the last check-in.** Each account's change is split into **market**, **new money** and **other**:
 
-- **The flow is known** (every valuation in the period has a `flow`, or there was no new valuation): new money is the flow, and market is the rest. A lower flow, e.g. for reinvested dividends, or a purchase below the check-in price counts as market.
-- **Positions, flow unknown** (only in values recorded before format version 4, if any remain): market is the old quantity × price change, including FX; new money is everything else, meaning changes in quantity and in cash.
-- **Balance whose flow the kind records, flow unknown** (pension fund, TFR, property, other): each value's flow where one was recorded, else what the main plan pays into the account since the value before (its `contributions`), is new money, and market is the rest. The account's first value without a flow is other: what it held when its records start ([PROGRESS.md](../PROGRESS.md#data-this-needs-from-day-one)).
-- **Other balances, flow unknown** (an imported history, typically): each value's flow where one was recorded, else its kind's default, the whole change since the value before, is new money, and market is the rest, the FX movement ([PROGRESS.md](../PROGRESS.md#data-this-needs-from-day-one)). The account's first value without a flow is other. When a price or an exchange rate that needs is missing, only the FX movement of the old balance counts as market, and the rest is other.
+- **A valuation's flow** is stored only where the account asks for it (a pension fund, TFR, property or other account recorded as a balance). For every other balance it's worked out from the balances: the whole change since the value before, less a savings value's `interest`. An account's first value has none: what it held when its records start.
+- **The flow is known** (every valuation in the period has one, or there was no new valuation): new money is the flows, and market is the rest, the FX movement for a balance.
+- **Balance, flow unknown:** each value's flow where it has one, else, for an account that asks for it, what the main plan pays into the account since the value before (its `contributions`), is new money, and market is the rest. The account's first value is other ([PROGRESS.md](../PROGRESS.md#data-this-needs-from-day-one)). When a price or an exchange rate that needs is missing, only the FX movement of the old balance counts as market, and the rest is other.
 - **Trades:** new money is the account's deposits, withdrawals, transfers at market value, buys and sales paid from outside the account at their amount, and residuals (a statement's cash that the trades don't explain), each at its date; market is the rest, including dividends, interest and fees ([TRADES.md](../TRADES.md#flows)).
 
 An account that closes during the period ends at zero: its value on the closing day leaves as new money.
@@ -126,7 +125,7 @@ To open the library in a spreadsheet or take it to another app, Settings › Lib
 | `account-values.csv` | account and month end, while it's open | `date`, `account`, `name`, `currency`, `value` (in the account's currency), `base_currency`, `value_in_base_currency`, `complete` |
 | `accounts.csv` | account | `id`, `name`, `kind`, `currency`, `institution`, `country`, `opened`, `closed`, `valuation`, `available_from_age`, `in_net_worth`, `in_plans`, `asset_classes`, `successor`, `tags`, `notes` |
 | `instruments.csv` | instrument | `id`, `name`, `kind`, `currency`, `unit`, `isin`, `ticker`, `asset_classes`, `price_provider`, `price_symbol` |
-| `valuations.csv` | valuation | `date`, `account`, `balance`, `cash`, `positions` (how many, in `positions.csv`), `flow`, `money_in`, `money_out`, `one_off`, `tax`, `interest`, `note`, `source` |
+| `valuations.csv` | valuation | `date`, `account`, `balance`, `cash`, `positions` (how many, in `positions.csv`), `flow` (as recorded), `money_in`, `money_out`, `one_off`, `tax`, `interest`, `note`, `source` |
 | `positions.csv` | position in a valuation | `date`, `account`, `instrument`, `quantity`, `cost_basis` |
 | `trades.csv` | trade | `date`, `account`, `id`, `type`, `instrument`, `quantity`, `price`, `currency`, `amount`, `fees`, `tax`, `cost`, `ratio`, `settlement`, `note`, `source` |
 | `prices.csv` | price | `date`, `instrument`, `price`, `currency`, `source` |
