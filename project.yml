@@ -32,6 +32,12 @@ options:
   deploymentTarget:
     iOS: "26.0"
     macOS: "26.0"
+  # A team picked in Xcode's Signing & Capabilities lives in the generated project, which the next
+  # generation replaces; only Signing.xcconfig keeps it. Say so when it's missing, except in CI and
+  # agents' sessions, which build unsigned.
+  postGenCommand: >-
+    [ -f Signing.xcconfig ] || [ -n "$CI" ] || [ -n "$CLAUDECODE" ] ||
+    echo "warning: no Signing.xcconfig, so the project has no team: make signing TEAM=<your team ID>"
 
 # DEVELOPMENT_TEAM and APP_BUNDLE_IDENTIFIER: App/Config/Project.xcconfig, which
 # reads yours from Signing.xcconfig at the root.
