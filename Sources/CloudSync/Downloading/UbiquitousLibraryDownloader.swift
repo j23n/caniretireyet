@@ -10,23 +10,27 @@ import Storage
 /// 1. The folder on disk is listed off the main thread: placeholders and
 ///    iCloud's resource values say which files aren't current. If every
 ///    file is, `library.json` included, it's complete at once.
-/// 2. Otherwise an `NSMetadataQuery` on the ubiquitous documents scope (the
-///    container's `Documents/`, which is the library folder) lists the
-///    files with their download status, size, progress and errors. It runs
-///    on the main thread, where its notifications arrive; paths are matched
-///    with `LibraryFolder.relativePath(of:)`, which copes with `/private`.
-///    It's stopped once every file is current, or on ``stop()``.
+/// 2. Otherwise the iCloud Drive query (`UbiquitousItemQuery`) lists the
+///    files with their download status, size, progress and errors; paths
+///    are matched with `LibraryFolder.relativePath(of:)`, which copes with
+///    `/private`. It's stopped once every file is current, or on ``stop()``.
+///
+/// Reading a file iCloud Drive hasn't downloaded yet (a coordinated read)
+/// waits until it's downloaded, so reading a library that's only partly on
+/// the device would download it one file at a time, with nothing to show
+/// and no end if iCloud can't download. This asks for every missing file at
+/// once, and the library is read once they're all here.
 ///
 /// ``LibraryDownloadTracker`` decides what to ask for and counts progress.
-/// Its owner holds it while downloading and stops it when done.
+/// It lives on the main actor; its owner holds it while downloading and
+/// stops it before dropping it.
 @MainActor
-public final class UbiquitousLibraryDownloader: LibraryDownloading {
+public final class UbiquitousLibraryDownloader {
     public let root: URL
 
     private let folder: LibraryFolder
     private var tracker = LibraryDownloadTracker()
-    private var query: NSMetadataQuery?
-    private var observers: [any NSObjectProtocol] = []
+    private let query = UbiquitousItemQuery()
     /// The URLs iCloud gave for the files, by path.
     private var itemURLs: [String: URL] = [:]
     private var continuation: AsyncStream<LibraryDownloadProgress>.Continuation?
@@ -39,6 +43,11 @@ public final class UbiquitousLibraryDownloader: LibraryDownloading {
         folder = LibraryFolder(root: root)
     }
 
+    /// Starts (stopping a previous run first). Progress arrives on the
+    /// stream, the latest first if it can't keep up. The stream finishes
+    /// after a progress that ``LibraryDownloadProgress/isComplete``, or on
+    /// ``stop()``. It can also finish without one if the download can't be
+    /// followed; reading the library then downloads what's missing itself.
     public func start() -> AsyncStream<LibraryDownloadProgress> {
         stop()
         let (stream, continuation) = AsyncStream<LibraryDownloadProgress>.makeStream(
@@ -59,6 +68,8 @@ public final class UbiquitousLibraryDownloader: LibraryDownloading {
         return stream
     }
 
+    /// Asks iCloud again for every file that hasn't arrived, forgetting
+    /// failures, e.g. when the user chooses to keep waiting.
     public func requestAgain() {
         let paths = tracker.requestAgain()
         LibraryLog.notice("Download: asking iCloud Drive again for \(paths.count) files")
@@ -66,15 +77,12 @@ public final class UbiquitousLibraryDownloader: LibraryDownloading {
         publish()
     }
 
+    /// Stops following the download and finishes the stream. Downloads
+    /// already asked for go on.
     public func stop() {
         scan?.cancel()
         scan = nil
-        query?.stop()
-        query = nil
-        for observer in observers {
-            NotificationCenter.default.removeObserver(observer)
-        }
-        observers = []
+        query.stop()
         continuation?.finish()
         continuation = nil
     }
@@ -97,23 +105,7 @@ public final class UbiquitousLibraryDownloader: LibraryDownloading {
     }
 
     private func startQuery() {
-        let query = NSMetadataQuery()
-        query.searchScopes = [NSMetadataQueryUbiquitousDocumentsScope]
-        query.predicate = NSPredicate(format: "%K LIKE '*'", NSMetadataItemFSNameKey)
-        query.notificationBatchingInterval = 0.25
-        let center = NotificationCenter.default
-        let names: [Notification.Name] = [.NSMetadataQueryDidFinishGathering, .NSMetadataQueryDidUpdate]
-        for name in names {
-            let observer = center.addObserver(forName: name, object: query, queue: .main) { [weak self] notification in
-                let items = Self.items(of: notification)
-                MainActor.assumeIsolated {
-                    self?.receive(items)
-                }
-            }
-            observers.append(observer)
-        }
-        self.query = query
-        if query.start() {
+        if query.start({ [weak self] items in self?.receive(items) }) {
             LibraryLog.notice("Download: asking iCloud Drive for the library's files")
         } else {
             // Without the list there's nothing to follow: reading the
@@ -121,41 +113,6 @@ public final class UbiquitousLibraryDownloader: LibraryDownloading {
             LibraryLog.error("Download: iCloud Drive's file list (NSMetadataQuery) didn't start")
             stop()
         }
-    }
-
-    /// What the query says about one item.
-    struct Item: Sendable {
-        var url: URL
-        var isCurrent: Bool
-        var isDownloading: Bool
-        var size: Int64?
-        var percentDownloaded: Double?
-        var error: String?
-    }
-
-    /// Every item of the query that posted `notification`. Called on the
-    /// main queue, where the query delivers its notifications.
-    nonisolated static func items(of notification: Notification) -> [Item] {
-        guard let query = notification.object as? NSMetadataQuery else { return [] }
-        query.disableUpdates()
-        defer { query.enableUpdates() }
-        var items: [Item] = []
-        for result in query.results {
-            guard let item = result as? NSMetadataItem,
-                  let url = item.value(forAttribute: NSMetadataItemURLKey) as? URL
-            else { continue }
-            let status = item.value(forAttribute: NSMetadataUbiquitousItemDownloadingStatusKey) as? String
-            let error = item.value(forAttribute: NSMetadataUbiquitousItemDownloadingErrorKey) as? NSError
-            items.append(Item(
-                url: url,
-                isCurrent: status == nil || status == NSMetadataUbiquitousItemDownloadingStatusCurrent,
-                isDownloading: item.value(forAttribute: NSMetadataUbiquitousItemIsDownloadingKey) as? Bool ?? false,
-                size: (item.value(forAttribute: NSMetadataItemFSSizeKey) as? NSNumber)?.int64Value,
-                percentDownloaded: (item.value(forAttribute: NSMetadataUbiquitousItemPercentDownloadedKey)
-                    as? NSNumber)?.doubleValue,
-                error: error?.localizedDescription))
-        }
-        return items
     }
 
     /// The library's files on disk and whether each is current, from
@@ -170,7 +127,7 @@ public final class UbiquitousLibraryDownloader: LibraryDownloading {
         }
     }
 
-    private func receive(_ items: [Item]) {
+    private func receive(_ items: [UbiquitousItemQuery.Item]) {
         guard continuation != nil else { return }
         var files: [UbiquitousFileStatus] = []
         for item in items {
@@ -222,6 +179,15 @@ public final class UbiquitousLibraryDownloader: LibraryDownloading {
         for failure in progress.failures where !reported.contains(failure) {
             LibraryLog.error("Download: \(failure.path) couldn't be downloaded: \(failure.message)")
         }
+    }
+}
+
+extension LibraryLocation {
+    /// A downloader for this location: for a library in iCloud Drive; `nil`
+    /// for one on this device, where there's nothing to download.
+    @MainActor
+    public func makeDownloader() -> UbiquitousLibraryDownloader? {
+        isUbiquitous ? UbiquitousLibraryDownloader(root: url) : nil
     }
 }
 #endif

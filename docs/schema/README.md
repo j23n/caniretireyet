@@ -114,6 +114,7 @@ The app writes every file the same way, so the same data always gives the same b
 - Records dated before 1900, or more than a year after today, are loaded and pointed out: usually a mistyped year, or a placeholder such as `9999-12-31`.
 - JSON files whose names aren't IDs (`My Account.json`) are pointed out, and so are records that refer to accounts, instruments or plans that don't exist.
 - A valuation's `moneyIn` or `moneyOut` is loaded and pointed out, and left out of the money in and out summaries, when its account's kind isn't cash or savings, when it has only one of the two, or when either is negative ([PROGRESS.md](../PROGRESS.md#money-in-and-out)). A valuation's `interest` is pointed out, and not used, when its account isn't a savings account.
+- Loading points out what each file shows on its own. The checks across files (Tracker's `Library.problems()`: the references and money in and out above, valuations outside an account's dates, debts with a positive balance, check-ins that can't be fully valued, trades that can't be applied as they are) run again after every change, so they follow edits and files synced from another device. The Sync screen and `retire validate` show both.
 
 ## CSV export
 

@@ -14,7 +14,7 @@ public struct LoadResult: Sendable {
 /// What loading a library folder found.
 public struct LoadReport: Hashable, Sendable {
     /// Problems in individual files, sorted by path.
-    public var issues: [LoadIssue]
+    public var issues: [LibraryIssue]
     /// The `schemaVersion` in `library.json`, if it could be read.
     public var schemaVersion: Int?
     /// The number of data files read.
@@ -26,7 +26,7 @@ public struct LoadReport: Hashable, Sendable {
     /// `false` when there's no `library.json` at all.
     public var settingsUnreadable: Bool
 
-    public init(issues: [LoadIssue] = [], schemaVersion: Int? = nil, filesRead: Int = 0,
+    public init(issues: [LibraryIssue] = [], schemaVersion: Int? = nil, filesRead: Int = 0,
                 settingsUnreadable: Bool = false) {
         self.issues = issues
         self.schemaVersion = schemaVersion
@@ -34,28 +34,33 @@ public struct LoadReport: Hashable, Sendable {
         self.settingsUnreadable = settingsUnreadable
     }
 
-    /// Whether the library was written by a newer app version. It is then
-    /// open read-only: every save throws ``StorageError/libraryIsNewer(version:supported:)``.
-    public var isNewerSchema: Bool {
-        schemaVersion.map { $0 > LibrarySettings.currentSchemaVersion } ?? false
-    }
-
-    /// Whether the library is open read-only: it was written by a newer app
-    /// version (``isNewerSchema``), or its `library.json` can't be used
-    /// (``settingsUnreadable``). Every save then throws.
-    public var isReadOnly: Bool {
-        isNewerSchema || settingsUnreadable
-    }
-
-    /// Why the library is open read-only, or `nil` when it isn't.
+    /// Why the library is open read-only, or `nil` when it isn't: it was
+    /// written by a newer app version, or its `library.json` can't be used
+    /// (``settingsUnreadable``). Every save then throws
+    /// (``checkWritable(schemaVersion:allowingUnreadableSettings:)``).
     public var readOnlyReason: ReadOnlyReason? {
-        if isNewerSchema { return .newerSchema }
+        if let schemaVersion, schemaVersion > LibrarySettings.currentSchemaVersion { return .newerSchema }
         return settingsUnreadable ? .unreadableSettings : nil
+    }
+
+    /// Throws unless this app version may write to the library this report
+    /// read: the schema version in memory (if given) and on disk must be
+    /// the current one, and a `library.json` on disk must be usable, unless
+    /// `allowingUnreadableSettings` (restoring a copy of it is how it's
+    /// fixed). A folder without `library.json` (a new library) can be
+    /// written.
+    func checkWritable(schemaVersion inMemory: Int?, allowingUnreadableSettings: Bool = false) throws {
+        let current = LibrarySettings.currentSchemaVersion
+        for version in [inMemory, schemaVersion].compactMap({ $0 }) {
+            if version > current { throw StorageError.libraryIsNewer(version: version, supported: current) }
+            if version < current { throw StorageError.libraryNeedsMigration(version: version, current: current) }
+        }
+        if settingsUnreadable, !allowingUnreadableSettings { throw StorageError.unreadableSettings }
     }
 
     /// Why a library is open read-only, for the words that tell you what to do.
     public enum ReadOnlyReason: Hashable, Sendable {
-        /// A newer app version wrote it (``LoadReport/isNewerSchema``): update the app.
+        /// A newer app version wrote it: update the app.
         case newerSchema
         /// Its `library.json` exists but can't be used
         /// (``LoadReport/settingsUnreadable``): fix the file or restore it
@@ -74,39 +79,13 @@ public struct LoadReport: Hashable, Sendable {
     }
 
     /// Issues where a file or record couldn't be loaded.
-    public var errors: [LoadIssue] { issues.filter { $0.severity == .error } }
+    public var errors: [LibraryIssue] { issues.filter { $0.severity == .error } }
 
     /// Issues where everything was loaded but something looks wrong.
-    public var warnings: [LoadIssue] { issues.filter { $0.severity == .warning } }
+    public var warnings: [LibraryIssue] { issues.filter { $0.severity == .warning } }
 
     /// The issues for one file.
-    public func issues(for path: String) -> [LoadIssue] {
+    public func issues(for path: String) -> [LibraryIssue] {
         issues.filter { $0.path == path }
     }
-}
-
-/// A problem in one file, found while loading.
-public struct LoadIssue: Hashable, Sendable, CustomStringConvertible {
-    /// How much of the file was affected.
-    public enum Severity: String, Hashable, Sendable {
-        /// The file, or some records in it, couldn't be loaded.
-        case error
-        /// Everything was loaded, but something should be fixed.
-        case warning
-    }
-
-    /// The file's path relative to the library folder.
-    public var path: String
-    /// What is wrong, and where in the file, in plain words.
-    public var message: String
-    public var severity: Severity
-
-    public init(path: String, message: String, severity: Severity) {
-        self.path = path
-        self.message = message
-        self.severity = severity
-    }
-
-    /// `path: message`
-    public var description: String { "\(path): \(message)" }
 }

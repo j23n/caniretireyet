@@ -12,14 +12,14 @@ public struct ReloadResult: Sendable {
     public var files: [LibraryFile]
     /// The issues found in the reloaded files, which replace any earlier
     /// issues for the same paths.
-    public var issues: [LoadIssue]
+    public var issues: [LibraryIssue]
     /// When ``files`` holds `library.json`: why the library is open
     /// read-only now, as loading it would say (`LoadReport.readOnlyReason`:
     /// a newer app version wrote it, or it can't be used), or `nil` when it
     /// can be edited. Always `nil` when `library.json` wasn't reloaded.
     public var readOnlyReason: LoadReport.ReadOnlyReason?
 
-    public init(library: Library, files: [LibraryFile], issues: [LoadIssue],
+    public init(library: Library, files: [LibraryFile], issues: [LibraryIssue],
                 readOnlyReason: LoadReport.ReadOnlyReason?) {
         self.library = library
         self.files = files
@@ -41,7 +41,7 @@ public struct ReloadResult: Sendable {
 /// versions to ``save(_:previous:)``.
 public actor LibrarySync {
     public nonisolated let location: LibraryLocation
-    public nonisolated let folder: LibraryFolder
+    private let folder: LibraryFolder
     private let versions: any FileVersionProviding
     /// The last upgrade ``load()`` ran, until it's taken
     /// (``takeMigration()``), so the app can show it once.
@@ -145,7 +145,7 @@ public actor LibrarySync {
     public func reload(paths: [String], in library: Library) -> ReloadResult {
         var copy = library
         var files: [LibraryFile] = []
-        var issues: [LoadIssue] = []
+        var issues: [LibraryIssue] = []
         var readOnlyReason: LoadReport.ReadOnlyReason?
         for path in Set(paths).sorted() {
             guard let file = LibraryFile(path: path) else { continue }

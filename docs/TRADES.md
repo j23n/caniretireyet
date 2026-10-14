@@ -172,15 +172,14 @@ The app doesn't type or edit trades: a wrong one is fixed in its file and import
 
 Invalid trades are never dropped: they're applied as far as they can be, and pointed out.
 
-When the library loads (Storage, in each trade's file):
+Tracker checks them (`Valuator.tradeIssues(for:)`, `TradeIssue`), and the library's checks across files (`Library.problems()`), which the Sync screen and `retire validate` show, point them out in each trade's file:
 
 - what a record is missing or gets wrong on its own (`Trade.problems`): a buy without price or amount, a negative quantity, a split without ratio, an amount whose sign contradicts the type, fields the type doesn't use (a `settlement` on anything but a buy, sell, fee or tax), a settlement this version doesn't know;
 - a sell or transfer out of more than the account holds then (the quantity goes negative, so the mistake shows);
 - trades of an account that doesn't record trades, or dated before it opened or after it closed;
 - a valuation of a trades account with a balance;
+- a missing FX rate for a trade's amount, an opening or transfer in without cost, a split of what isn't held, and reconciliation mismatches;
 - trades of unknown accounts or instruments.
-
-In Tracker (`Valuator.tradeIssues(for:)`, `TradeIssue`), and in `retire validate`: all of the above, plus a missing FX rate for a trade's amount, an opening or transfer in without cost, a split of what isn't held, and reconciliation mismatches.
 
 ## Schema
 

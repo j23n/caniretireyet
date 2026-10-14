@@ -1,5 +1,7 @@
+import Model
+
 /// Why Storage refused or failed to do something with the library folder.
-/// Problems in individual files found while loading are ``LoadIssue``s instead.
+/// Problems in individual files found while loading are ``LibraryIssue``s instead.
 public enum StorageError: Error, Hashable, Sendable, CustomStringConvertible {
     /// The library was written by a newer version of the app, so this one
     /// opens it read-only and won't write to it.
