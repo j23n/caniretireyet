@@ -53,7 +53,7 @@ extension Library {
 
     /// Whether `account` is closed the day after a value of 0 on or after
     /// `date`, its only value after `date`: sold on `date` by importing a
-    /// statement before. A value on `date` itself is from before the sale.
+    /// statement before. A value on `date` before the period's end is from before the sale.
     public func soldFromStatement(_ account: Account, on date: CalendarDate) -> Bool {
         guard let closed = account.closed, closed > date else { return false }
         let zeroDay = closed.adding(days: -1)
