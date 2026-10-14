@@ -33,14 +33,14 @@ struct PriceServiceTests {
     /// The example library with bitcoin priced from Yahoo Finance's
     /// `BTC-USD` pair, and its recorded prices from there too.
     static func exampleLibrary() throws -> Library {
-        var library = try Self.exampleLibrary()
+        var library = try Fixtures.exampleLibrary()
         library.instruments["btc"]?.priceSource = PriceSource(provider: .yahoo, symbol: "BTC-USD")
-        for month in library.months.keys {
-            library.months[month]?.prices = (library.months[month]?.prices ?? []).map { price in
-                var price = price
-                if price.instrument == "btc" { price.source = .yahoo }
-                return price
+        for (month, file) in library.months {
+            var file = file
+            for index in file.prices.indices where file.prices[index].instrument == "btc" {
+                file.prices[index].source = .yahoo
             }
+            library.months[month] = file
         }
         return library
     }
