@@ -111,9 +111,14 @@ public struct StatementBatch: Sendable {
         let candidates = Self.statementAccounts(in: library)
         for index in files.indices {
             let session = files[index].session
-            if let id = session.profile.constants.account, candidates.contains(where: { $0.id == id }) {
-                files[index].accountSource = .profile
-                continue
+            if let id = session.profile.constants.account {
+                if candidates.contains(where: { $0.id == id }) {
+                    files[index].accountSource = .profile
+                    continue
+                }
+                // A closed account, or one that records trades now: the
+                // file waits for another way, or for a choice.
+                files[index].session.profile.constants.account = nil
             }
             if let found = Self.followsOn(session, from: candidates, library: library, today: today) {
                 files[index].session.profile.constants.account = found.account
@@ -157,17 +162,18 @@ public struct StatementBatch: Sendable {
         return found.count == 1 ? found.first : nil
     }
 
-    /// The one account whose name or institution `text` has as whole
-    /// words, leaving out the words any account could have (`Conto`,
-    /// `Savings`). What's left of four letters or fewer says too little.
+    /// The one account whose name or institution `text` has, each word
+    /// anywhere in it, leaving out the words any account could have
+    /// (`Conto`, `Savings`). What's left of four letters or fewer says too
+    /// little.
     private static func named(in text: String, from candidates: [Account]) -> AccountID? {
-        let words = TextTools.words(text)
+        let words = Set(TextTools.words(text))
         let generic = Set(Keywords.genericAccountWords)
         let matches = candidates.filter { account in
             [account.name, account.institution].compactMap { $0 }.map(TextTools.words).contains { name in
-                // "Conto Fineco" is named by "fineco".
+                // "Conto Fineco Mario" is named by "fineco-conto-mario.csv".
                 let own = name.filter { !generic.contains($0) }
-                return own.joined().count > 4 && TextTools.contains(words, anyOf: [own.joined(separator: " ")])
+                return own.joined().count > 4 && own.allSatisfy(words.contains)
             }
         }
         return matches.count == 1 ? matches.first?.id : nil
@@ -176,7 +182,8 @@ public struct StatementBatch: Sendable {
     // MARK: - Transfers between the files
 
     /// Pairs a line out of one account's file with a line in of another's
-    /// that moves the same amount within ``PreviewBuilder/transferDays``,
+    /// in the same currency that moves the same amount within
+    /// ``PreviewBuilder/transferDays``,
     /// the nearest in date first, each line once: both are transfers
     /// (``ImportSession/statementPairs``). Only lines that nothing surer
     /// than the usual words classified are paired.
@@ -193,7 +200,8 @@ public struct StatementBatch: Sendable {
         var pairs: [(out: Int, in: Int, days: Int)] = []
         for (outIndex, out) in open.enumerated() where out.line.amount < 0 {
             for (inIndex, incoming) in open.enumerated()
-            where incoming.account != out.account && incoming.line.amount == -out.line.amount {
+            where incoming.account != out.account && incoming.line.amount == -out.line.amount
+                && library.accounts[incoming.account]?.currency == library.accounts[out.account]?.currency {
                 let days = abs(out.line.date.days(to: incoming.line.date))
                 if days <= PreviewBuilder.transferDays { pairs.append((outIndex, inIndex, days)) }
             }
