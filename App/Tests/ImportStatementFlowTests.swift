@@ -49,7 +49,8 @@ struct ImportStatementFlowTests {
         #expect(flow.nextStep == nil)
         #expect(!flow.canShow(.classify))
         #expect(!flow.canShow(.preview))
-        #expect(flow.continueHint == "Choose the account this statement is of.")
+        #expect(flow.isBatch)
+        #expect(flow.continueHint == "Choose the account of settembre.csv to continue.")
         flow.setConstants { $0.account = "conto-fineco" }
         #expect(!flow.needsStatementAccount)
         #expect(flow.nextStep == .classify)
@@ -382,6 +383,38 @@ struct ImportStatementFlowTests {
         unknown.setBatchAccount("conto-deposito", forFile: 1)
         #expect(!unknown.needsStatementAccount)
         #expect(unknown.batchFiles.first { $0.id == 1 }?.accountSource == .chosen)
+    }
+
+    /// Files added later join the statements open, which keep their
+    /// accounts; taking one out pairs the rest again, and the last starts over.
+    @Test func statementsAreAddedAndTakenOut() throws {
+        var flow = ImportFlow(library: PreviewLibrary.library)
+        flow.open(Data(Self.csv.utf8), fileName: "export.csv")
+        flow.setBatchAccount("conto-fineco", forFile: 0)
+        #expect(flow.barSteps == [.file, .classify, .preview])
+        #expect(ImportStep.file.title == "Files")
+        #expect(ImportStep.preview.title == "Review")
+        flow.add(files: [(name: "esempio-settembre.csv", data: Data(Self.deposito.utf8))])
+        #expect(flow.batchFiles.count == 2)
+        #expect(flow.batchFiles.first { $0.id == 0 }?.accountSource == .chosen)
+        #expect(flow.batchPairedTransfers == 1)
+        flow.remove(file: 1)
+        #expect(flow.batchFiles.map(\.id) == [0])
+        #expect(flow.batchPairedTransfers == 0)
+        flow.remove(file: 0)
+        #expect(!flow.hasFile)
+    }
+
+    /// A statement read as another layout is one file again, and back as
+    /// a statement it's every file given.
+    @Test func aStatementReadAsAnotherLayoutLeavesTheBatch() {
+        var flow = ImportFlow(library: PreviewLibrary.library)
+        flow.open(files: Self.twoStatements)
+        flow.setLayout(.trades)
+        #expect(!flow.isBatch)
+        #expect(flow.layout == .trades)
+        flow.setLayout(.statement)
+        #expect(flow.batchFiles.count == 2)
     }
 
     /// The savings account's September, whose balance follows on from its

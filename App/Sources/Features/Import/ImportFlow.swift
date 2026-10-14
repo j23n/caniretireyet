@@ -3,9 +3,10 @@ import Importer
 import Model
 
 /// A step of the import, shown along the top (UI.md, "Import"; IMPORT.md, "Steps").
-/// A broker's transactions (the trades layout) have Types after Columns. A
-/// bank statement (the statement layout) has File, Income and Preview, with
-/// Format and Columns in a sheet the File step opens.
+/// A broker's transactions (the trades layout) have Types after Columns. Bank
+/// statements (the statement layout) have Files, Income and Review, with
+/// Format and Columns in a sheet the Files step opens. Done follows the last
+/// step, and isn't one along the top (``ImportFlow/barSteps``).
 enum ImportStep: Int, Hashable, Sendable, Comparable {
     case file
     case format
@@ -18,13 +19,13 @@ enum ImportStep: Int, Hashable, Sendable, Comparable {
 
     var title: String {
         switch self {
-        case .file: "File"
+        case .file: "Files"
         case .format: "Format"
         case .columns: "Columns"
         case .types: "Types"
         case .classify: "Income"
         case .accounts: "Accounts"
-        case .preview: "Preview"
+        case .preview: "Review"
         case .done: "Done"
         }
     }
@@ -85,14 +86,18 @@ struct ImportFlow: Sendable {
     private(set) var step: ImportStep = .file
     /// iPhone's "Import with profile…": the file and a saved profile, then
     /// the preview. Otherwise every step (the Mac-first flow), as always
-    /// for several files, which need File's accounts and Income.
+    /// for bank statements, which need Files' accounts and Income.
     var isGuided: Bool { prefersGuided && batch == nil }
     /// Whether one file opens as "Import with profile…".
     private(set) var prefersGuided: Bool
-    /// Several bank statements opened at once (IMPORT.md, "Several
-    /// statements at once"); `nil` for one file. ``session`` is then the
-    /// file on screen (``batchFile``), kept in step with the batch.
+    /// The bank statements open (IMPORT.md, "Several statements at
+    /// once"), one or more; `nil` for another kind of file. ``session`` is
+    /// then the file on screen (``batchFile``), kept in step with the batch.
     private(set) var batch: StatementBatch?
+    /// Every file given, in order, those that couldn't be read included:
+    /// a batch's file `id` is at index `id`. Kept to read the files again
+    /// as another kind (``setLayout(_:)``).
+    private(set) var givenFiles: [(name: String, data: Data)] = []
     /// The batch's file on screen, by ``StatementBatch/File/id``.
     private(set) var batchFile: Int?
     /// The previews of the batch's files that have an account, with
@@ -114,11 +119,20 @@ struct ImportFlow: Sendable {
     // MARK: - The file
 
     /// Reads a file. A saved profile that fits it exactly is used right away;
-    /// otherwise the importer proposes a mapping.
+    /// otherwise the importer proposes a mapping. A bank statement opens as
+    /// a batch of one (``open(statements:)``), so more can be added.
     mutating func open(_ data: Data, fileName: String) {
+        openOne(data, fileName: fileName)
+        if layout == .statement { open(statements: [(fileName, data)]) }
+    }
+
+    /// Reads one file as ``open(_:fileName:)`` does, without making a bank
+    /// statement a batch.
+    private mutating func openOne(_ data: Data, fileName: String) {
         self = ImportFlow(library: library, guided: prefersGuided, checkIn: checkIn)
         self.data = data
         self.fileName = fileName
+        givenFiles = [(fileName, data)]
         profileFits = ProfileFit.rank(data, profiles: Array(library.importProfiles.values))
         if let best = profileFits.first, best.fits {
             load(profile: best.profile)
@@ -127,24 +141,76 @@ struct ImportFlow: Sendable {
         }
     }
 
-    /// Reads several bank statements at once: each file's account is found
-    /// and the transfers between them paired (``StatementBatch``), and the
-    /// first file is shown. One file opens as ``open(_:fileName:)`` does.
+    /// Reads `file` alone, as `layout`. The files given stay, to read
+    /// them as statements again.
+    mutating func reopen(_ file: (name: String, data: Data), as layout: ImportLayout) {
+        let given = givenFiles
+        openOne(file.data, fileName: file.name)
+        givenFiles = given
+        if self.layout != layout { editSession { $0.proposeMapping(layout: layout) } }
+    }
+
+    /// Reads several files at once as bank statements: each file's account
+    /// is found and the transfers between them paired (``StatementBatch``),
+    /// and the first file is shown. One file opens as ``open(_:fileName:)``
+    /// does: a statement, or another kind of file.
     mutating func open(files: [(name: String, data: Data)]) {
         guard files.count > 1 else {
             if let file = files.first { open(file.data, fileName: file.name) }
             return
         }
+        open(statements: files)
+    }
+
+    /// Reads `files` as bank statements, however many.
+    mutating func open(statements files: [(name: String, data: Data)]) {
         self = ImportFlow(library: library, guided: prefersGuided, checkIn: checkIn)
+        givenFiles = files
         let batch = StatementBatch(files: files, library: library, checkIn: checkIn)
         guard let first = batch.order(against: library).first ?? batch.files.first?.id else {
-            fileName = Wording.count(files.count, "file")
-            problem = "None of the files can be read as a bank statement. "
+            fileName = files.count == 1 ? files[0].name : Wording.count(files.count, "file")
+            problem = (files.count == 1 ? "The file can't be read as a bank statement. "
+                : "None of the files can be read as a bank statement. ")
                 + batch.unreadable.map { "\($0.name): \(Self.describe($0.error))" }.joined(separator: " ")
             return
         }
         self.batch = batch
         showBatchFile(first)
+    }
+
+    /// Adds files to the bank statements open: the files already open keep
+    /// their accounts and answers (``StatementBatch/add(files:library:checkIn:today:)``).
+    /// With no file open they're opened; with another kind of file open,
+    /// they take its place.
+    mutating func add(files: [(name: String, data: Data)]) {
+        guard !files.isEmpty else { return }
+        guard var batch, step != .done else {
+            open(files: files)
+            return
+        }
+        batch.add(files: files, library: library, checkIn: checkIn)
+        givenFiles += files
+        self.batch = batch
+        problem = nil
+        refreshPreview()
+        if batchFile == nil, let first = batch.files.first?.id { showBatchFile(first) }
+    }
+
+    /// Takes the batch's file `id` out of the import. Taking out the last
+    /// file starts over.
+    mutating func remove(file id: Int) {
+        guard var batch else { return }
+        batch.remove(file: id, library: library)
+        guard let next = batch.order(against: library).first ?? batch.files.first?.id else {
+            reset()
+            return
+        }
+        self.batch = batch
+        if batchFile == id {
+            batchFile = nil
+            showBatchFile(next)
+        }
+        refreshPreview()
     }
 
     /// Shows one of the batch's files on the steps that show one file:
@@ -236,7 +302,10 @@ struct ImportFlow: Sendable {
 
     // MARK: - Steps
 
-    /// The steps shown along the top.
+    /// The steps along the top: ``steps`` without Done.
+    var barSteps: [ImportStep] { steps.filter { $0 != .done } }
+
+    /// The steps, in order: those along the top, then Done.
     var steps: [ImportStep] {
         if isGuided { return [.file, .preview, .done] }
         if session?.profile.layout == .trades { return [.file, .format, .columns, .types, .accounts, .preview, .done] }
