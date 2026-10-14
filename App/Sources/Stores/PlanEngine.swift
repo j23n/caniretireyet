@@ -89,6 +89,6 @@ enum PlanEngineError: Error, Equatable, Sendable, LocalizedError {
 
 // MARK: - Results
 
-/// The answer to "can I retire yet?" for one plan: the package's
-/// `RetirementAnswer`, under the name the check-in uses.
+/// The Model's `RetirementAnswer` under the name the check-in's files
+/// still use; everything else names `RetirementAnswer`.
 typealias PlanHeadline = RetirementAnswer

@@ -147,7 +147,7 @@ struct PreviewPlanEngine: PlanEngine {
         // What retiring today needs: decades of spending before the pensions, after tax.
         let readiness = successNow >= confidence ? max(1, start.total.doubleValue / (spending * 30))
             : min(0.99, start.total.doubleValue / (spending * 34))
-        let headline = PlanHeadline(
+        let headline = RetirementAnswer(
             confidence: confidence, earliestAge: earliest, earliestDate: earliestDate, targetAge: target,
             successAtTarget: atTarget, successToday: successNow, sustainableSpending: Self.rounded(spending * 1.07 - 900),
             readiness: readiness, canRetireNow: successNow >= confidence)
