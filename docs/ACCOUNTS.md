@@ -1,8 +1,10 @@
 # Accounts: what each kind records
 
 > Status: approved by the owner, with the answers in [Settled questions](#settled-questions). The work is split into sub-issues of #50 ([Order of work](#order-of-work)).
+>
+> Values now come only from imported files: the app types no balance, money in and out, new money or trade, and the check-in is read-only ([UI.md](UI.md#check-in)). Where this document says a form or the check-in asks for a field, read it as what that kind's values record; the files its implications name for the check-in and the value forms no longer exist.
 
-An account's kind alone says what it records. Today three settings decide it: the valuation mode, the new money the check-in fills in, and the `moneyInOut` opt-in, and their combinations are easy to miss. From now on each kind has one rule, and the check-in, *Update Value* and *Edit Value* ask for the same fields.
+An account's kind alone says what it records. Today three settings decide it: the valuation mode, the new money the check-in fills in, and the `moneyInOut` opt-in, and their combinations are easy to miss. From now on each kind has one rule.
 
 This document records the decisions and what they change. The documents they change ([PLAN.md](PLAN.md), [PROGRESS.md](PROGRESS.md), [TRADES.md](TRADES.md), [UI.md](UI.md), [IMPORT.md](IMPORT.md), [schema/README.md](schema/README.md)) are updated with the code that makes them true, not with this document.
 
@@ -35,7 +37,7 @@ The owner has decided the following.
 
 ### What each kind asks for
 
-The check-in, *Update Value* and *Edit Value* ask for the same fields: those in the table above. An account's first value asks only for its balance (or, for a trades account, its opening positions and cash): there's no value before it to measure money in and out from.
+Each kind's values record the fields in the table above, from its files. An account's first value records only its balance (or, for a trades account, its opening positions and cash): there's no value before it to measure money in and out from.
 
 ### Money in and out
 
@@ -45,30 +47,24 @@ The check-in, *Update Value* and *Edit Value* ask for the same fields: those in 
 
 ### New money
 
-- **Never typed** for the kinds above. It's still stored in `flow`, and it still splits the change into market, new money and other ([schema/README.md](schema/README.md#how-values-are-computed)). The app works it out from what's typed.
+- **Never recorded on its own** for the kinds above. It's still stored in `flow`, and it still splits the change into market, new money and other ([schema/README.md](schema/README.md#how-values-are-computed)). The app works it out from what's recorded.
 - **Cash:** the whole change. **Savings:** the change minus the interest. **Debts:** the whole change. **Trades accounts:** from the trades ([TRADES.md](TRADES.md#flows)).
 - So a savings account's interest counts as market, as a fund's return does.
 
 ### Moved between your accounts
 
-What's left over. It's shown, and neither typed nor stored:
+What's left over. It's shown, and not stored:
 
 > moved = balance − previous balance − money in − one-off + money out (− interest, for savings)
 
 The flow is the change (cash) or the change minus the interest (savings), so this is **flow − money in − the one-off + money out** for both kinds, and it can always be worked out from what's stored.
 
-- **The check-in review** adds it up across cash, savings and investment accounts. A trades account's part is its flow, so a transfer from the bank to the broker cancels out against the broker's deposit trade, and a buy paid from outside the account against the bank's. A loan's or a mortgage's new money is in the sum when it's negative, so a loan or a mortgage paid out cancels out against the account it lands in; repayments are money out, so they aren't. Credit cards aren't in the sum, since a card's balance grows with purchases that go to shops, so a card's cash advance shows as not cancelling out. The review points out what doesn't cancel out.
-- **Interest on a current account** isn't asked for; it ends up in "moved".
+- **Shown with each value** of a cash or savings account on its page ([UI.md](UI.md#accounts)).
+- **Interest on a current account** isn't recorded; it ends up in "moved".
 
 ### Pre-filled values
 
-| | Money in | Money out | Interest | So "moved" starts at |
-| --- | --- | --- | --- | --- |
-| Cash | Typed | Money in minus the change, never below zero, until it's typed (as today) | — | 0, or the change minus money in when the balance grew by more than money in |
-| Savings | 0 | 0 | Empty | The whole change |
-| *Unchanged*, either kind | 0 | 0 | — | 0 |
-
-Most money in a savings account moves between your own accounts, so its money in and out start at 0. Today *Unchanged* records neither amount.
+None: a value records what its file says. A current account's money out that an earlier version's check-in suggested (money in minus the change, never below zero) still follows a corrected value before it ([UI.md](UI.md#adding-history)).
 
 ### Loans and mortgages
 
@@ -79,8 +75,8 @@ Most money in a savings account moves between your own accounts, so its money in
 ### Investment accounts record trades only
 
 - Brokerage, crypto and metals accounts record trades (`"valuation": "trades"`). Monthly snapshots (`holdings`) go.
-- **The check-in asks for the trades since the last one.** Holdings, cash and new money follow from them ([TRADES.md](TRADES.md#check-ins)).
-- ***Compare With a Statement*** and a statement's cash stay, as a check ([TRADES.md](TRADES.md#reconciliation)).
+- **Trades come from the broker's exports.** Holdings, cash and new money follow from them ([TRADES.md](TRADES.md#check-ins)).
+- **A broker statement's cash and positions**, imported, stay as a check ([TRADES.md](TRADES.md#reconciliation)).
 - **The account details** list the trades in place of the *Values at check-ins* list.
 
 ### Migration
@@ -180,7 +176,7 @@ The check-in's and the forms' logic is in files that import only Foundation and 
 - **Snapshot targets** ([IMPORT.md](IMPORT.md#targets): *Quantity held*, *Purchase cost*, *Cash in an investment account*; `ImportTarget` in `Sources/Model/Imports/ImportKinds.swift`) write positions into a snapshot account's values (`ImportedRecord`, `RecordMerge.merge` in `Sources/Importer/Preview/ImportRecord.swift`). A trades account's positions are only a check, so a spreadsheet of quantities is converted into trades: an opening, then a buy or a sale per change ([Settled questions](#settled-questions), 6).
 - **New accounts** (`Sources/Importer/Matching/NameMatcher.swift`, `suggestedKind`): an investment account is proposed recording trades, as one from a transactions file already is; a balance column for one is proposed as kind `other`. `suggestedKind` no longer asks `defaultValuationMode == .holdings`.
 - **Switching an account to trades** (`PreviewBuilder`'s `.recordTrades` proposal, `ImportResult.apply`): only an account that isn't brokerage, crypto or metals can still be asked ([Settled questions](#settled-questions), 3).
-- **Money in and out** aren't import targets: imported cash and savings balances have none, which counts as not recorded, until the value is saved in *Edit Value* ([UI.md](UI.md#what-each-kind-asks-for)). A bank statement, read in the statement layout, gives them ([IMPORT.md](IMPORT.md#bank-statements)).
+- **Money in and out** aren't import targets: imported cash and savings balances have none, which counts as not recorded. A bank statement, read in the statement layout, gives them ([IMPORT.md](IMPORT.md#bank-statements)).
 - **Tests:** `Tests/ImporterTests/PreviewApplyTests.swift`, `SampleFileTests.swift`, `TradesImportTests.swift`; `Tests/RetireCLITests/ImportTests.swift`.
 
 ### The example library

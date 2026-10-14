@@ -9,8 +9,8 @@ import Tracker
 /// - Rows: kind icon, name, institution, a 12-month sparkline, the value,
 ///   and a "Stale" badge when the latest value is too old (not for an
 ///   account that holds nothing: ``AccountStaleness``).
-/// - Swipe (or right-click): *Update value* (a one-account valuation) and
-///   *Close*. Closed accounts sit in a "Closed (n)" section at the bottom.
+/// - Swipe: *Close*; right-click also *Edit Account…*. Closed accounts sit
+///   in a "Closed (n)" section at the bottom.
 /// - Tapping a section's header collapses or expands it, chevron turning.
 ///   The groups start expanded and *Closed* collapsed; the device remembers
 ///   which are collapsed, shared with the sidebar's groups

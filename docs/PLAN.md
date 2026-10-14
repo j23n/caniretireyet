@@ -22,7 +22,7 @@ All data lives in a folder of plain JSON files in iCloud Drive. The apps on your
 
 - **Files are the source of truth.** The data outlives the app. You can read it, back it up, put it in git, or edit it by hand.
 - **Offline-first and private.** There is no server, no analytics and no third-party SDKs. Only instrument symbols ever leave the device, when prices are fetched, and an instrument's ISIN, ticker or name when you search for its symbol. (Debug builds can also send feedback you write, with a screenshot whose amounts, names, dates and notes are hidden, to the developer's private GitHub inbox; release builds can't: [App/README.md](../App/README.md#feedback).)
-- **The monthly check-in should take under five minutes.** Values are pre-filled, prices are fetched for you, and you only change what moved.
+- **The monthly check-in should take under five minutes.** You import the month's files, prices are fetched for you, and nothing is typed in.
 - **History is never lost.** Closing an account removes it from today's totals and from check-ins, but not from the charts.
 - **Plans start from real data.** The planner's starting portfolio is your latest check-in, not a number you type in.
 - **Honest numbers.** Results show ranges and a confidence level, and every assumption is visible and editable. They are estimates, not tax advice.
@@ -37,16 +37,16 @@ All data lives in a folder of plain JSON files in iCloud Drive. The apps on your
 - Holdings: ETFs and stocks, crypto, and precious metals are recorded as quantity × price. Cash, pension funds, TFR, property and debts are recorded as a balance.
 - Multiple currencies, with one base currency for the library (the euro in the example library), which plans run in. Every check-in stores the prices and FX rates it used.
 - Monthly check-in:
-  - pre-filled from the previous check-in;
+  - the month's files imported: bank statements, broker exports, spreadsheets;
   - prices and FX rates fetched automatically where possible;
-  - every value editable.
+  - a read-only look at what changed, then save.
 - Overview:
   - net worth over time;
   - breakdowns by category, asset class, currency and institution;
   - the change since the last check-in, split into market movement and new money;
   - accounts that haven't been updated recently.
 - Import from any spreadsheet or CSV export: you map the columns, the importer handles the file's date and number formats, and the mapping can be saved and reused ([IMPORT.md](IMPORT.md)).
-- Money in and out of each account (the *flow*), recorded at every check-in with sensible defaults. Savings and returns can then be measured later ([PROGRESS.md](PROGRESS.md)).
+- Money in and out of each account (the *flow*), recorded from the imported files with sensible defaults. Savings and returns can then be measured later ([PROGRESS.md](PROGRESS.md)).
 - Sync between iPhone and Mac through iCloud Drive.
 
 **Planner**
@@ -78,7 +78,7 @@ These are listed as M3 and M4 in §6: explaining the gap to a baseline, the RW/I
 
 ### Non-goals
 
-- Connecting to banks or brokers (PSD2 and similar). Manual monthly check-ins are a deliberate design choice, not a gap.
+- Connecting to banks or brokers (PSD2 and similar). Monthly check-ins from files you download are a deliberate design choice, not a gap.
 - Budgeting or categorising expenses.
 - Investment advice or tax filing.
 - Android, Windows or web versions.
@@ -90,7 +90,7 @@ These are listed as M3 and M4 in §6: explaining the gap to a baseline, the RW/I
 | Platform | One SwiftUI app target for iPhone, iPad and Mac. Minimum iOS 26 and macOS 26. | One codebase with a native feel on both platforms and first-class iCloud Drive APIs. A personal app doesn't need to support old OS versions. |
 | Source of truth | A folder of small JSON files, called "the library". | Human-readable, diffable and easy to back up. The data is tiny (thousands of records), so no database is needed. |
 | Sync | iCloud Drive, in the app's own iCloud container. It shows up as a "Can I Retire Yet" folder in Files and Finder. | No server, it works offline, and the files stay visible and editable. |
-| History model | Point-in-time valuations (balances and quantities) by default. An investment account can opt in to trades (`"valuation": "trades"`): its holdings, average cost, cash and realised gains are worked out from buys, sells, deposits and the like, and its check-ins record only cash ([TRADES.md](TRADES.md)). | Valuations match the monthly workflow, and closing an account never touches its history. Trades give an exact purchase cost (*costo medio ponderato*), realised gains, dividends and exact flows for a broker account, which the tax on sales needs. Both styles work for a trades account: record every deposit, or type the cash at each check-in. |
+| History model | Point-in-time valuations (balances and quantities) by default. An investment account can opt in to trades (`"valuation": "trades"`): its holdings, average cost, cash and realised gains are worked out from buys, sells, deposits and the like, and its imports record the trades and the cash a broker statement shows ([TRADES.md](TRADES.md)). | Valuations match the monthly workflow, and closing an account never touches its history. Trades give an exact purchase cost (*costo medio ponderato*), realised gains, dividends and exact flows for a broker account, which the tax on sales needs. Both styles work for a trades account: record every deposit, or import the cash from statements. |
 | Money | `Decimal` for every recorded amount, stored as strings in JSON. | No floating-point rounding errors in the tracker. |
 | Currencies | Each account has its own currency; the base currency is EUR. Each check-in stores the prices and FX rates it used. | Past net worth can always be recomputed, even if a price source goes away. |
 | Planner | Yearly steps in today's money, in the base currency, deterministic plus Monte Carlo, with a seeded random-number generator. | This approach is standard and easy to explain. It is also fast enough to recompute live while you drag a slider. |
@@ -182,10 +182,9 @@ The iPhone uses a tab bar and the Mac uses a sidebar. The iPad gets the sidebar 
 - **Accounts.** A grouped list, with closed accounts in a collapsed section. The account detail shows a value chart, the list of valuations, and actions to edit, close or reopen.
 - **Check-in.** The main action. The steps are:
   1. Choose the date (default: today).
-  2. Review prices and FX rates. They're fetched for you and can be edited.
-  3. Update the accounts, pre-filled with last time's values. "Unchanged" is one tap.
-  4. Review the new total and the changes.
-  5. Save.
+  2. Import the month's files. Each import is written with its own backup.
+  3. Look at the new total, the changes, and the accounts no file covered. Prices and FX rates are fetched for you; nothing is typed in.
+  4. Save.
 - **Plan.** Three parts:
   - *Plan*: the answer, then your life as a strip of chapters (working, retired before the pensions, with them), each with the money running through it and where it stands at its end, and the chosen chapter in words, with its settings, where the plan changes; the charts behind the answer fold away;
   - *Progress*: whether you're on track, then year by year your money against what January expected and how the answer moved, and your actual numbers against baselines.
@@ -194,7 +193,7 @@ The iPhone uses a tab bar and the Mac uses a sidebar. The iPad gets the sidebar 
   What-ifs are a sheet on iPhone and the inspector on the Mac. Plans can be duplicated as what-if scenarios. The screens are designed in [UI.md](UI.md).
 - **Settings.** Library location, price sources, a monthly reminder, app lock, and a description of the file format.
 
-On the Mac there are also tables for editing many valuations at once, keyboard navigation through the check-in, and "Show library in Finder".
+On the Mac there are also tables of values and trades, and "Show library in Finder".
 
 ### Prices and FX
 
@@ -275,9 +274,9 @@ The importer works with any spreadsheet or export instead of a fixed layout. Det
 ### M1: Tracker MVP
 
 - Accounts and instruments: create, edit, close and reopen.
-- The check-in flow, with pre-filled values, fetched prices and FX rates, and manual overrides.
+- The check-in flow: the month's files imported, prices and FX rates fetched.
 - The Overview: net-worth history, breakdowns, and the change since the last check-in split into market and new money. Plus the account detail screen.
-- Flows recorded at each check-in, with defaults per kind of account.
+- Flows recorded with each value, with defaults per kind of account.
 - Live sync: a check-in on the iPhone appears on the Mac, and edits made directly to files are picked up.
 - The importer: the engine, the mapping and preview flow in the app, saved profiles, and `retire import`.
 

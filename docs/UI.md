@@ -8,7 +8,7 @@ The app has one user, and three situations to design for:
 
 | Situation | Where | How often | What matters |
 | --- | --- | --- | --- |
-| **Monthly check-in** | Mostly iPhone | Monthly, about 5 minutes | Speed. Values are pre-filled, and only what changed needs a tap. It ends with this month's answer. |
+| **Monthly check-in** | Mostly iPhone | Monthly, about 5 minutes | Speed. Import the month's files, look, save. It ends with this month's answer. |
 | **Planning session** | Mostly Mac | A few times a year, 30–60 minutes | The plan as the chapters of a life, each with its money and its inputs in words, what-ifs a click away, comparing two plans. |
 | **Looking after the data** | Mac | Occasionally | Adding and closing accounts, importing, fixing a value, looking at the files. |
 
@@ -34,8 +34,8 @@ Plus the glance: "how am I doing?" in a widget or on the Overview.
 - **Overview:** net worth, history, how you're doing.
 - **Accounts:** the list, account details, adding and closing.
 - **Plan:** the plan, chapter by chapter, its progress, and the trends in your own records, for each plan.
-- **Settings** opens from a gear button in the Overview toolbar. It's rarely needed, so it doesn't take a tab. *Sync & backups* is in it, under Library: the library's banners (a sync conflict, a file that couldn't be read) open it there with *Review* or *Show details*, also from the check-in, which closes first and keeps its draft. In an import they open it over the import, which is as you left it when you go back.
-- The accessory shows the check-in's state, "October check-in · due in 3 days", "Continue check-in · 7 of 9 reviewed", and opens it. It shows only while a check-in is due (within a few days of the month's end, or past it) or a draft is waiting, so it doesn't sit over every screen the rest of the month; then *Check In* in the Overview's toolbar starts one early. (Before iOS 26.1, which can hide it, it always shows: "Last check-in 30 Sep · next 31 Oct".)
+- **Settings** opens from a gear button in the Overview toolbar. It's rarely needed, so it doesn't take a tab. *Sync & backups* is in it, under Library: the library's banners (a sync conflict, a file that couldn't be read) open it there with *Review* or *Show details*, also from the check-in, which closes first and stays open. In an import they open it over the import, which is as you left it when you go back.
+- The accessory shows the check-in's state, "October check-in · due in 3 days", "Continue check-in · 31 Oct", and opens it. It shows only while a check-in is due (within a few days of the month's end, or past it) or one is open, so it doesn't sit over every screen the rest of the month; then *Check In* in the Overview's toolbar starts one early. (Before iOS 26.1, which can hide it, it always shows: "Last check-in 30 Sep · next 31 Oct".)
 
 **Mac and iPad:** a sidebar with a content area, plus an inspector where it helps.
 
@@ -193,129 +193,46 @@ The screen leads with the app's question, *Can I retire yet?*, when the main pla
 
 ## Check-in
 
-The flow that has to be fast. It opens as a full-screen sheet on iPhone and as the Check-in page on Mac. Everything is on one scrolling page; there's no wizard.
+Once a month: import the month's files, look at what they did, save. Nothing is typed in. It opens as a full-screen sheet on iPhone and as the Check-in page on the Mac and iPad, one scrolling page.
 
 ```
 ┌──────────────────────────────────────────┐
-│ Cancel          Check-in          Review │
-│ 30 September 2026 ⌄                      │
+│ Cancel          Check-in            Save │
+│ 31 October 2026           Change Date    │
+│ Import this month's statements and       │
+│ exports. …                               │
+│ [        ⤓ Import Files…              ]  │
 │ ✓ Prices and FX updated (4)           ▸  │
-│                                          │
-│ CASH                                     │
-│ Conto Fineco        [   4.210,55 € ]  ●  │
-│   was 4.520,75 · new money −310,20       │
-│   In  [ 3.400,00 ]  Out [ 3.210,20 ]     │
-│   Moved −500,00 between your accounts    │
-│ Savings             [  12.535,05 € ]  ●  │
-│   In  [ 0 ]  Out [ 0 ]  Interest [35,05] │
-│   Moved +500,00 between your accounts    │
-│ INVESTMENTS                              │
-│ Directa                  57.410 €     ✓  │
-│   412,5 VWCE · from trades               │
-│ CRYPTO & GOLD                            │
-│ Ledger wallet   0,4215 BTC   40.093   ✓  │
-│ Gold coins      62,2 g        6.120   ○  │
-│   Add a trade, or say there were none    │
-│   [⊕ Add Trade…]  [No Trades]            │
-│ PENSION                                  │
-│ Fondo pensione      [  18.450,12 € ]  ○  │
-│   contributions since June [ 1.325,00 ]  │
-│ PROPERTY & DEBTS                         │
-│ Mutuo              −182.340,00 €      ○  │
-│                                          │
-│ ╭──────────────────────────────────────╮ │
-│ │ 7 of 9 done       Mark Rest Unchanged│ │
-│ ╰──────────────────────────────────────╯ │
+│ NET WORTH                                │
+│ 312.480 €                                │
+│ ▲ +4.210 € since 30 Sep                  │
+│ Markets ▬▬▬  Saved ▬▬  Other ▬           │
+│ UPDATED (3)                              │
+│ Conto Fineco                     6.012   │
+│ Conto deposito                  17.901   │
+│ Directa                         59.448   │
+│ NOT UPDATED (4)                          │
+│ Casa                           320.000   │
+│ …                                        │
+│ No file this month covered these         │
+│ accounts: they keep their last values.   │
 └──────────────────────────────────────────┘
-  ●  updated   ✓  unchanged, from trades or no trades   ○  not reviewed yet
 ```
 
-- **Date.** Defaults to today. In the first days of a month it suggests the end of the previous month. An earlier date fills in history: see [Adding history](#adding-history).
-- **Prices.** Fetched as soon as the sheet opens, while you work. The status row opens the price list, where you can see the source and time of each price and type in any that failed.
-- **Statements first.** With cash or savings accounts, the check-in starts with their bank statements, and you type only the rest.
-  - **The start card.** Under the prices, until a statement is added: "Start with September's statements", the accounts a statement can be of (open cash and savings accounts that don't record trades; not tax pots, whose values follow from other statements), each with "last: 31 Aug" when its last value came from an import or "typed by hand", then *Add Statements…* and *Type Every Value Instead*, which puts the card away. Under it the accounts are dimmed, a name and a value each, with nothing to type, and *Review* waits.
-  - *Add Statements…* chooses one or more CSV files (on the Mac, drop them on the statements too). They're read together for the check-in's date: each file's account is found, transfers between them are paired, and a statement covers through the check-in's date when its last line is in that month and not after it, so each account gets a value on the date, its tax pot too ([IMPORT.md](IMPORT.md#bank-statements)). The import's steps open over the check-in only for a file whose account isn't found (on Files).
-  - **The statements belong to the check-in.** It holds them, in memory, and writes nothing until it's saved: then their values and the check-in's are written as one change, with an import's backup, which one undo takes back (`retire import --undo`, or restoring the backup). Cancel drops them, *Keep for later* too: a draft kept on the device, or resumed after the app quit, starts again from the card. Moving the check-in to another date reads them again for it, keeping their answers.
-  - **A line per file**, under *Statements*: on iPhone "② Lines to answer · Conto Fineco · 1–30 Sep ›" while a file has lines that need an answer, else "✓ Girokonto · 1–30 Sep · 48 lines · all answered", then *Add Statements…*. A row opens that file's Income, on the statements the check-in holds; its *Back to Check-in* (where an import has *Import*) closes it. Lines to answer are a hint, not a gate: the check-in saves without them, as the import would. Its menu takes the file out.
-  - **Rows from a statement** are read-only text: the value with ●, and "From statement · in 3.400,00 · out 3.210,20" with what moved between your accounts; a tax pot filled in by money moved into it says "+500,00 from Girokonto · counts as tax". *Edit Value* in the row's menu types over it, and *Use the Statement's Value* takes it back. A row typed before its statement was added takes the statement's value.
-  - **Rows to type** say what the statements moved into them: "No statement · expects +500,00 from Conto Fineco", with the balance it can expect (the last value plus that) as the field's prompt; a debt the statements paid "Conto Fineco paid 725,00 to it". Their money in and out shows once the balance is typed. *Mark Rest Unchanged* keeps the last value.
-  - **Groups.** On iPhone *Cash*, then *To type* for pensions, property, debts and other; on the Mac the same groups in one band, "Pension · Property · Debts".
-  - The bar at the bottom says "4 of 8 done · 3 from statements" (the Mac adds "1 from trades · 2 lines to answer first").
-  - Values imported before the check-in (from the Import screen) fill rows in as any value saved on the date, "Imported"; they don't count as a check-in already saved on the date.
-- **Accounts, in groups.** Each row has one of three states:
-  - **updated:** you entered a new value;
-  - **unchanged:** you confirmed it's the same. This still writes a valuation, so the account isn't stale;
-  - **not reviewed.**
-
-  "Review" asks about any rows not reviewed: mark them unchanged, or skip them (then no record is written, and the account will show as stale). A new account with no earlier value can't be unchanged: it's entered or skipped. An account that records trades has nothing to type: with trades since its last value its row is done "from trades", and without, it waits for a trade or *No Trades* (below).
-- **What each kind asks for** ([ACCOUNTS.md](ACCOUNTS.md#what-each-kind-asks-for)). *Update Value* and *Edit Value* ask for the same fields. An account's first value asks only for its balance (or a trades account's opening positions and cash). *Edit Value* works new money out again only when the date, the value or the interest changes, so editing a note keeps it; and it reads empty money in and out as *Update Value* does (money in 0, money out suggested), so saving a value records both, an older one's too.
-  - **Cash and savings:** the balance, then *In* and *Out* under it from the second value on, and for a savings account *Interest*; on the Mac, lines under the account in the Now column. A current account's money in is 0 until typed, and its money out follows money in and the change until it's typed (the field's prompt shows it); a savings account's are 0 and 0. *Unchanged* records 0 and 0 ([PROGRESS.md](PROGRESS.md#money-in-and-out)). Their new money is worked out: the change, less the interest for savings.
-  - **Moved.** Under the fields, read-only: "Moved −500,00 between your accounts", the part of the change money in and out (and the interest) don't explain (new money − money in − the one-off + money out; [ACCOUNTS.md](ACCOUNTS.md#moved-between-your-accounts)). Interest on a current account ends up there.
-  - **Debts** (credit cards, loans, mortgages): what's owed. Paying one off is money out of the account the payment leaves; their new money is the whole change, never typed.
-  - **Tax pots** (money set aside for a tax bill): as a current account, the balance, then *In* and *Out*: out is the tax paid from the pot, filled in from a drop until typed, and in a refund of it. What moved between the pot and your other accounts is the tax set aside ([PROGRESS.md](PROGRESS.md#money-in-and-out)).
-  - **Belongings** (a car, a bike, a boat, electronics): the balance; their new money is the whole change, never typed, so their loss of value is spent. With a loss of value a year, the balance starts at the last value estimated on the check-in's date, and *Unchanged* records that estimate, so the month keeps its estimated loss.
-  - **Pension funds, TFR, property and other:** the balance and the new money ("contributions since …"), as below.
-  - **Brokerage, crypto and metals** record trades (below).
-  - The account's details show what came in and went out over the last 12 months, and the plan's *Spending while working* says what was spent a month on average over the last year, as the savings rate counts it (what came in less what was saved).
-- **Accounts that record trades** ([TRADES.md](TRADES.md#check-ins)). Nothing to type: the value is the trades at the check-in's prices. With trades since its last value, the row is **done** (✓, "From trades" to VoiceOver), and counts as reviewed. Without, it **waits**: "Add a trade, or say there were none", with *Add Trade…* and *No Trades* on the row (on the Mac, on the line under it), which records the value as the trades give it ("No trades", ✓). It leads with what matters, what the trades hold and their value, and *Add Trade…* for what was bought or sold since the last check-in:
-
-  ```
-  ┌────────────────────────────────────────────────────┐
-  │ ▸ Directa                           59.447,70 €  ✓ │
-  │   423 VWCE · from trades                           │
-  │   Bought or sold since 30 Sep?      [⊕ Add Trade…] │
-  │   Cash 312,30 · from trades   Enter From Statement │
-  │   New money +1.450,00 · deposits                   │
-  │ ▸ Gold coins                         9.255,36 €  ✓ │
-  │   93,3 g · from trades                             │
-  │   Bought or sold since 30 Sep?      [⊕ Add Trade…] │
-  └────────────────────────────────────────────────────┘
-  ```
-
-  - **As the trades say.** Saving writes the cash the trades give and the new money they record: the deposits, withdrawals and transfers recorded as trades since the previous value, and what was bought or sold paid from outside the account. It's shown read-only when it isn't zero ("New money +1.200,00 · paid from outside", or with several parts "New money +1.650,60 · deposits +450,60 · paid from outside +1.200,00"). *Mark Rest Unchanged* leaves the row alone.
-  - ***Add Trade…*** (a bordered button, not a footnote) opens the trade sheet dated on the check-in's date. Once it's saved the row follows: the positions, the cash and the new money are worked out again, and a cash from a statement stays.
-  - **Cash.** When the account holds cash by its trades (a trade settled in its cash, a deposit or withdrawal, or a value that recorded cash), it shows read-only, "Cash 312,30 · from trades", with *Enter From Statement* to type the cash from a broker statement to compare. Typed, it anchors the cash and the difference counts as money added or taken out that no trade records; the new money is then shown as for other accounts, editable, with its split:
-
-    ```
-    │   Cash  [    320,40 € ]                            │
-    │   From a statement · the trades give 312,30        │
-    │   Use Trades' Cash                                 │
-    │   was 57.410,35 · new money +1.458,10              │
-    │   deposits +1.450,00 · cash difference +8,10       │
-    ```
-
-    *Use Trades' Cash* (or *Use the Trades' Values* in the menu, the leading swipe *From Trades*) goes back to what the trades say. An account that never holds cash, e.g. coins or crypto whose every trade was paid from a bank account, shows no cash line at all.
-  - **Nothing to follow yet.** A trades account with nothing recorded before the date (a new one) says "No trades yet", has its cash field and *Add Trade…*, and is entered or skipped like any new account; one that opens after the date is optional, under *Opened later*.
-  - **Expanded** (tap the name), the positions the trades hold, read-only at the check-in's prices ("VWCE 423 sh × 139,80 € 59.135,40", "+10,5 since 30 Sep · from trades"), and *Compare With a Statement* (also in the menu: long-press, or right-click on the Mac), which fills in the trades' quantities to correct from a broker statement. They're saved with the value as a check, not as holdings; the review lists where they differ: "The statement on 31 Oct shows 425 VWCE; your trades give 423. Add the missing trade, e.g. a buy or a transfer in." with *Add Trade…*. *Stop Comparing* drops them.
-  - On the Mac, under the account's line (its value, and its new money read-only in the New money column, unless a statement's cash makes it editable): "Bought or sold since 30 Sep? [⊕ Add Trade…]" with the new money's parts, then the positions as read-only sub-rows (Last and Now are quantities), then the cash from the trades with *From Statement…* in the New money column (*Use Trades' Cash* once typed). Return moves down the Now column past a cash that isn't typed.
-- **New money (flow).** Shown under each account, filled in by the defaults in [PROGRESS.md](PROGRESS.md#data-this-needs-from-day-one). It's typed only where the kind asks for it: pension funds ("contributions since …"), TFR, property and other accounts, and a trades account's when a statement's cash is typed. Cash, savings, debts and belongings work it out, and show it read-only.
-- **Keyboard.** A decimal keypad in your locale's format, with ▲ ▼ buttons above it to move between fields. Amounts accept `1.234,56` and `1234.56`. For a debt, type what you owe (`1.200` is recorded as −1.200); if it's in credit, e.g. an overpaid card, type `+` first (`+20`), or use ± above the keypad. *Update value* and a new account's opening balance work the same way.
-- **Draft.** An unfinished check-in is saved as a draft on the device and never half-written to the library. Close the sheet, come back later, and continue.
-  - The draft follows the library: when you come back, when the other device changes something, and just before saving. Accounts you haven't reviewed take their latest values, new accounts appear and closed ones leave; what you entered stays.
-  - If the other device saved a different value on the same date for an account you entered, a banner says so and the review asks: *Keep saved* or *Use mine*. Until you choose, the saved value stays and yours isn't written.
-  - The draft is deleted only once the check-in is in the library's files. If saving fails, the error is shown and the draft stays.
-- **Review screen.**
-  - The new net worth and the change since the last check-in: a headline and a bar each for markets, new money and other; under it the rows by state, "5 updated · 1 unchanged · 2 from trades".
-  - Changed accounts (accounts that record trades among them when their value or new money changed, "New money +1.450 € · from trades"), and anything unusual, e.g. a quantity that went down (did you sell?) or a value that changed more than 30%.
-  - **Between your accounts:** what moved for each account, and their sum, as information, not a warning. "It cancels out: what left one of your accounts landed in another." Or: "It adds up to +1.325,00 €, which doesn't cancel out. That's usual for money paid into a pension fund, or for a payment left out of money out." A trades account's part is its new money; pension funds and credit cards aren't in the sum ([ACCOUNTS.md](ACCOUNTS.md#moved-between-your-accounts)).
-  - Then **Save**.
-- **After saving.** The confirmation shows as soon as the check-in is written. The main plan then runs to record this month's answer (only for the latest check-in: see [Adding history](#adding-history)), and the answer card shows its progress ([Calculating](#calculating)) in the meantime, the same as on the Plan screen, without a Cancel button. Then it ends with the answer:
+- **Date.** Defaults to today. In the first days of a month it suggests the end of the previous month (`CheckInDates.suggested(today:lastCheckIn:)`). *Change Date* picks another; an earlier date fills in history: see [Adding history](#adding-history).
+- ***Import Files…*** opens the import ([Import](#import-mac-first)) in a sheet for the check-in's date: bank statements are read through that date ([IMPORT.md](IMPORT.md#bank-statements)), and broker exports, pension spreadsheets and any other file import as they do anywhere. Each import is written when you tap *Import*, with its own backup, and undone from its Done step or with `retire import --undo`. Import as many files as the month has; the page follows each one.
+- **Prices.** Fetched for the date as soon as the check-in opens, and again after each import, for what the accounts hold then (Settings can turn this off). The status row opens the price list, read-only: each price, rate and inflation value with its source and time, or why it couldn't be fetched. A price that couldn't be fetched uses the latest one known. An instrument without a price source gets its price on the Instruments screen.
+- **Net worth** on the date, with the fetched prices, and the change since the previous check-in: a headline and a bar each for markets, new money and other.
+- **Updated:** the open accounts with a value, or for a trades account a trade, in the date's month on or before the date, with their value. **Not updated:** the other open accounts, which keep their last values; an account that holds nothing isn't listed. Nothing on the page is edited: a wrong value comes from a file, so fix the file and import it again, or delete the value on the account's page.
+- **Save** writes the fetched prices, FX rates and inflation values (a price you set by hand for the date stays) and records this month's answer. *Cancel* drops the fetched prices; what the imports wrote stays. Nothing is kept on the device: an open check-in is its date and its prices.
+- **After saving.** The confirmation shows as soon as the prices are written. The main plan then runs to record this month's answer (only for the latest check-in: see [Adding history](#adding-history)), and the answer card shows its progress ([Calculating](#calculating)) in the meantime, the same as on the Plan screen, without a Cancel button. Then it ends with the answer:
 
   > Saved · Net worth 312.480 € (▲ 4.210)
   > Can I retire yet? Not yet: earliest at **54**, unchanged since August.
   > 58% of what you'd need to retire today
 
   This is the monthly moment the app is built around, and the one time a plan runs without a button: recording the month's answer is what the check-in is for. *Done* can close the confirmation while it runs; the answer is still recorded.
-
-**On the Mac**, the check-in is a table, and the whole thing can be done without touching the mouse:
-
-- the title is "Check-in" and the date its subtitle; the title's menu has *Change Date…* and *Cancel Check-in…*. The prices' status is in the middle of the toolbar. The page is left through the sidebar;
-- above the table, "SEPTEMBER'S STATEMENTS · 2": a card with a line per file (its account and name, its days with "follows on from 31 Aug" or "3 transfers paired with Conto Fineco", "63 lines", and *② Answer…* or "✓ All answered") and a last line, "Drop more statements here, or Add Statements… · last time also: Conto deposito". The card takes dropped CSV files, ahead of the window's drop that starts an import;
-- columns: Account, Last, Now, Change, New money, From. From says where the value comes from or what to do for it: "Statement · 2 lines to answer" (which opens that file's Income), "Statement", "Girokonto's “Steuer-Rücklage” · tax", "Type it, or drop its statement · expects +500,00 from Conto Fineco", "Type it · no statement for this kind", "Trades · no trades since 31 Aug". Change shows "—" until a row is reviewed. A row's note is written in its menu (*Add Note…*);
-- under a cash or savings account, lines for *In*, *Out*, *Interest* (savings) and "moved" in the Now column; under a row from a statement one read-only line, "In 3.400,00 · Out 3.210,20 · Moved −500,00". New money is read-only but for the kinds that ask for it;
-- the footer: "4 of 8 done · 3 from statements, 1 from trades · 2 lines to answer first", *Mark Rest Unchanged* (⇧⌘U) and *Review*;
-- Tab and Return move between cells, past the rows from a statement;
-- ⌘↩ opens the review, where ⌘↩ saves.
+- ⌘S saves on the Mac and iPad.
 
 ## Accounts
 
@@ -338,7 +255,7 @@ The flow that has to be fast. It opens as a full-screen sheet on iPhone and as t
   - Each group's header shows its name and subtotal.
   - Each row shows a kind icon, the name, the institution, the value, a sparkline of the last 12 months (in the account's own currency, with gaps where a value can't be worked out), and a "stale" badge when needed.
   - **Stale** means the latest value is older than the threshold (45 days by default). An account that holds nothing (a zero balance, or no cash and no quantity) has nothing to check in, so it's never stale: not in the list, the sidebar, its detail or *Needs attention*.
-  - Swipe actions: *Update value* (a one-account valuation) and *Close*. It asks for what the check-in asks for by the account's kind: a cash or savings account's money in and out (and interest), with what moved, and new money only where the kind asks for it. Saved as it is, *Update value* records the account as unchanged; an account with no earlier value needs a value typed, and an emptied field isn't zero (type 0). Its date can be any day up to the closing date (or a year from today), also before the account opened: see [Adding history](#adding-history). An account that records trades offers *Add trade* instead; its *Update Cash…* (in the context menu) shows the holdings from the trades, read-only, and records the cash.
+  - Swipe actions: *Close*. The context menu adds *Edit Account…*. Values come from imported files only: nothing here types a value.
   - Closed accounts sit in a "Closed (3)" section at the bottom.
   - **Collapsing.** Tapping a group's header, or *Closed*'s, collapses the group to its header (name and subtotal) or expands it again, with an animation; the chevron at the right of the header points down while it's expanded. The groups start expanded and *Closed* collapsed. The device remembers which are collapsed, and the sidebar shares them: collapsing Cash on the Accounts tab collapses it in the sidebar too (on an iPad that switches layouts), and the other way round.
   - **Search** (by name, institution, kind, tags or notes) shows every group expanded while there's a query, so no result is hidden. Clearing it brings back the collapsed ones.
@@ -348,15 +265,14 @@ The flow that has to be fast. It opens as a full-screen sheet on iPhone and as t
   - A history chart. New-money events are small ticks in a lane along the bottom, pointing up for money added and down for money taken out, coloured by sign, so jumps you caused are distinguishable from market moves; they never stretch the value axis, and the callout gives their amount. The value axis always includes zero, with round ticks that read apart, even for an account that's been at zero. The callout stays inside the chart.
   - A value that can't be worked out (a price missing, or the rate for a position priced in another currency) is a gap in the line, never a zero. A note under the chart says what's missing and when, with *Fill In Past Prices…*: "Some values can't be shown: prices for Gold coins are missing for Mar 2023 – Sep 2025." For an account in another currency, it also says when net worth leaves it out: "Net worth leaves out this account's values for Jun 2018 – Dec 2021: exchange rates for US$ are missing." As on the Overview, a note points out values that use a price more than 31 days old.
   - **Empty accounts.** Once an open account has held nothing for longer than the staleness threshold, it isn't called stale; instead: "This account has been empty since 1 Jan 2022. Close it?" with *Close Account…*, which opens the Close sheet on that day.
-  - The list of valuations, each editable: date, value, what the kind asks for (as in the check-in), note. *Add Past Value…* adds one on an earlier date. An account that records trades lists its trades instead: see [Trade history](#trade-history).
+  - The list of valuations, read-only: date, value, what the kind records, note. Swipe or right-click one to delete it (the confirmation says what that does to the next value's new money); a wrong value is fixed in its file and imported again. Without values: "No values yet. Import a file for this account: a bank statement, a broker's export, or a spreadsheet you keep for it." An account that records trades lists its trades instead: see [Trade history](#trade-history).
   - A cash or savings account's values show what they record: money in, money out, a savings account's interest, and what moved between your own accounts, the part of the change those don't explain (new money − money in − the one-off + money out; [ACCOUNTS.md](ACCOUNTS.md#moved-between-your-accounts)). On iPhone they're lines under the value ("in 3.400,00 € out 2.554,65 €", "moved −1.150,00 €") in place of its new money; on the Mac, columns *In*, *Out*, *Interest* (savings) and *Moved* after *New money*. A value from before money in and out were recorded (an account's first, or an older one) shows its new money alone. A note under the list says what *moved* means.
   - An info section: kind, institution, country, currency, from what age plans can draw on it ("Plans can draw on it: From 67", or "At any age"), how it's recorded (a balance, or trade history), and whether it's included in net worth and plans. A cash or savings account adds what came in and went out over the last twelve months.
 - **Add account.** A sheet:
   1. Pick a kind from a grid of icons.
-  2. Enter the name, institution, currency, country and opening date. The opening date is today by default; the hint says "Set it to when you opened the account, to add its history." The opening balance is the one on that date.
-  3. Enter the positions (choose or create instruments) or the balance, which becomes the first valuation. A brokerage, crypto or metals account records trades: each position becomes an *opening* trade on the opening date, with what you paid as its purchase cost, and the cash becomes the first value.
-  4. **Plans:** whether it counts in net worth and in plans and, for an asset counted in plans, **Available only from an age** with a stepper ("Available from 65"): money plans can't draw on before then, such as a pension fund ([PLANNER.md](PLANNER.md#the-model-in-brief)). A pension fund starts at 65, every other kind at any age, until you change it; the footer says "Money available only from an age, such as a pension fund, can't pay for the years before it." A tax pot starts in neither net worth nor plans, and its footer says "Money you set aside for a tax bill is owed, so net worth and plans leave it out. What you put in counts as tax: what came in is after it, and it isn't spent." Changing the kind changes either default until you set it by hand. The account's editor has the same fields.
-  5. **Loss of value** (belongings): *Loses a year*, in per cent, empty or 0 for none (`depreciation`). Changing the account to another kind drops it. Between the values you type, its value is estimated from it, and its loss of value counts as spent; the next value you type corrects the estimate ([PROGRESS.md](PROGRESS.md#data-this-needs-from-day-one)). Editing the account shows the same field.
+  2. Enter the name, institution, currency, country and opening date. The opening date is today by default; the hint says "Set it to when you opened the account, to add its history."
+  3. **Plans:** whether it counts in net worth and in plans and, for an asset counted in plans, **Available only from an age** with a stepper ("Available from 65"): money plans can't draw on before then, such as a pension fund ([PLANNER.md](PLANNER.md#the-model-in-brief)). A pension fund starts at 65, every other kind at any age, until you change it; the footer says "Money available only from an age, such as a pension fund, can't pay for the years before it." A tax pot starts in neither net worth nor plans, and its footer says "Money you set aside for a tax bill is owed, so net worth and plans leave it out. What you put in counts as tax: what came in is after it, and it isn't spent." Changing the kind changes either default until you set it by hand. The account's editor has the same fields.
+  4. **Loss of value** (belongings): *Loses a year*, in per cent, empty or 0 for none (`depreciation`). Changing the account to another kind drops it. Between its values, its value is estimated from it, and its loss of value counts as spent; the next value imported corrects the estimate ([PROGRESS.md](PROGRESS.md#data-this-needs-from-day-one)). Editing the account shows the same field.
 - **Close account.** A sheet asks for:
   - the closing date;
   - "Where did the money go?", which sets the successor account;
@@ -376,37 +292,32 @@ The flow that has to be fast. It opens as a full-screen sheet on iPhone and as t
 
 ## Adding history
 
-Accounts added in the app open on the day they're added, unless you set an earlier opening date. Their past values can be added three ways, without an import file.
+Accounts added in the app open on the day they're added, unless you set an earlier opening date. Their past values come from files.
 
-- **A past check-in.** Pick an earlier date in the check-in's date panel.
-  - The accounts open on that date are listed as usual. Accounts that open after it are listed last, under **Opened later** (collapsed on iPhone). They're optional: never counted as missing, *Mark Rest Unchanged* leaves them alone, and left empty they change nothing.
-  - A value entered for one of them moves the account's opening date back to the check-in's date when it's saved. The row says so ("Saving moves its opening date to 31 Mar 2024."), and the review lists the accounts whose opening date will move.
-  - Prices and FX rates are fetched for that date: Yahoo Finance and Frankfurter (ECB) have history, CoinGecko about the last year on its free API, and Yahoo Finance's pairs (`BTC-EUR`) before that. gold-api.com only has today's price, so a metal's price comes from its futures on Yahoo Finance, and the price list says so: "Yahoo Finance · GC=F (history)". Only when no source has one does it say "No history for this date: type the price."
-  - Values saved after the date stay as they are, and a banner says it's a past check-in.
-- ***Update Value* with a past date**, or ***Add Past Value…*** on the account's list of values, which starts on the month end before the first value, so an account fills in a month at a time. Any date up to the closing date works. Before the opening date the sheet says "Saving moves the opening date from 30 Sep 2026 to 31 Mar 2024." and moves it in the same edit. Moving a value earlier in the valuation editor does the same.
 - **Import.** For existing accounts, the import's *Accounts* step links the names in the file to them, and the profile remembers the match. Values from before an account's opening date propose to open it on the first of them, applied unless you reject it ([IMPORT.md](IMPORT.md#matching-accounts-and-instruments)).
+- **A past check-in.** Pick an earlier date in the check-in's date panel: its import reads statements through that date, and its prices are fetched for it. Yahoo Finance and Frankfurter (ECB) have history, CoinGecko about the last year on its free API, and Yahoo Finance's pairs (`BTC-EUR`) before that. gold-api.com only has today's price, so a metal's price comes from its futures on Yahoo Finance, and the price list says so: "Yahoo Finance · GC=F (history)". Values saved after the date stay as they are, and a banner says it's a past check-in.
 
 **Past prices.** Whichever way history arrives, its positions only have the prices it brought: a spreadsheet's price columns, what a past check-in fetched. Gold bought years ago would otherwise stay at its purchase price in every month since. *Fill In Past Prices…* fetches the rest ([Instruments](#accounts)); the import's Done step offers it ("12 past values have no price for XAU"), and so does a note under a chart that uses old prices.
 
-**New money after an inserted value.** A value's new money (its flow) is measured from the value before it. When a value is added before another one of the same account, or one is corrected, moved or deleted, the next value's new money is worked out again if it was automatic (the default for the account's kind, as the check-in fills it in), and kept if it was typed in. *Update Value* and the valuation editor say which before saving, and the confirmation for deleting a value before deleting; a past check-in follows the same rule. Money in and out ([PROGRESS.md](PROGRESS.md#money-in-and-out)) stay as they are, except a money out that was the suggestion, which follows the new flow when the value before was corrected on its date; *Update Value*, the valuation editor and the confirmation for deleting a value ask to check them when the value before is now on another date (a past check-in and an import don't). A value added before an account's first one turns that first value's automatic new money (the whole amount) into the change since. An import follows the same rule for the library's values after the ones it adds or changes: its Preview says how many, and undoing the import puts them back ([IMPORT.md](IMPORT.md#preview-conflicts-and-undo)).
+**New money after an inserted value.** A value's new money (its flow) is measured from the value before it. When a value is added before another one of the same account, or one is corrected, moved or deleted, the next value's new money is worked out again if it was automatic (the default for the account's kind), and kept if it was recorded. The confirmation for deleting a value says which before deleting. Money in and out ([PROGRESS.md](PROGRESS.md#money-in-and-out)) stay as they are, except a money out that an earlier version's check-in suggested, which follows the new flow when the value before was corrected on its date; the confirmation for deleting a value asks to check them when the value before is now on another date. A value added before an account's first one turns that first value's automatic new money (the whole amount) into the change since. An import follows the same rule for the library's values after the ones it adds or changes: its Preview says how many, and undoing the import puts them back ([IMPORT.md](IMPORT.md#preview-conflicts-and-undo)).
 
 **Answers and baselines are only recorded for the latest check-in.** The plan runs on today's data, so re-running it for a past date would record made-up history in Trends' *Time to retirement* and a made-up "Start of <year>" baseline. A check-in dated before the library's latest one records neither, and its confirmation says: "Saved a past check-in (31 Mar 2024). The answer isn't recorded for past dates."
 
 ## Trade history
 
-A brokerage, crypto or metals account records its **trades** ([TRADES.md](TRADES.md)): its holdings, average cost, cash, realised gains and income follow from them, and its check-ins ask only for the trades since the last one (see [Check-in](#check-in)). New accounts of those kinds record trades (see *Add account*), and the upgrade to format version 4 converts existing ones ([TRADES.md](TRADES.md#converting-an-account)); nothing converts an account back.
+A brokerage, crypto or metals account records its **trades** ([TRADES.md](TRADES.md)): its holdings, average cost, cash, realised gains and income follow from them. Its trades come from the broker's exports ([IMPORT.md](IMPORT.md#broker-transactions)); the app doesn't type or edit one. New accounts of those kinds record trades, and the upgrade to format version 4 converts existing ones ([TRADES.md](TRADES.md#converting-an-account)); nothing converts an account back.
 
 **Account detail** of an account that records trades, top to bottom:
 
 ```
 ┌──────────────────────────────────────────┐
-│ Directa                            +  ✎  │
+│ Directa                               ✎  │
 │ 57.410,35 €   ▲ 1.318,92 since 31 Aug    │
 │ ┌ history chart, deposits as ticks ────┐ │
 │ ⚠︎ VWCE differs from the statement       │
 │   The statement on 30 Sep shows 424,5    │
-│   VWCE; your trades give 414,5. Add the  │
-│   missing trade, …        Add Trade…     │
+│   VWCE; your trades give 414,5. Import   │
+│   the missing trade, …                   │
 │ HOLDINGS                                 │
 │ Vanguard FTSE All-World      57.098,25 € │
 │   412,5 sh × 138,42 € 99% of the account │
@@ -414,7 +325,7 @@ A brokerage, crypto or metals account records its **trades** ([TRADES.md](TRADES
 │ Cash                           312,10 €  │
 │ Total                       57.410,35 €  │
 │ TRADES                                   │
-│ ⊕ Add Trade…          20 trades Filter ▾ │
+│                       20 trades Filter ▾ │
 │ AUGUST 2026                              │
 │ ⊕ Buy 10 VWCE                −1.352,50 € │
 │   at 134,75 € · 12 Aug 2026              │
@@ -436,24 +347,10 @@ A brokerage, crypto or metals account records its **trades** ([TRADES.md](TRADES
 ```
 
 - **Holdings**: per instrument, the quantity, average cost (*costo medio*: what was paid per unit, fees included), value, unrealised gain (amount and %) and its share of the account; then the cash and the total. Each position is three lines: the name and value; "0,10383916 BTC × 73.785,11 €" and "95 % of the account" (when they don't fit on one line, the quantity and the share share it and "at 73.785,11 €" goes on the next; at the largest text sizes each is a line of its own); "Average cost 101.437,74 €" and the gain ("▼ −2.871 € −27,3 %"), the gain under the cost when they don't fit. A label and its value are one piece of text, so they never wrap apart. On the Mac, a grid with those columns.
-- **Trades**: grouped by month, newest first; each row shows the type's icon, what it was ("Buy 0,10383916 BTC") over its price, date and note ("at 101.437,76 € · 1 Oct 2025", the price in its own currency), and on the other side the cash it moved, with a sale's realised gain. A trade paid from outside the account shows what was paid or received, marked "paid from outside" (a sale: "proceeds paid out"); on the Mac the mark leads its note. At the largest text sizes the amount goes under the description. *Filter* shows one instrument or one type. Tap a trade to edit it; swipe or long-press to delete it (the confirmation says what deleting brings in, e.g. a later sale now selling more than is held). On the Mac, a table (date, type, instrument, quantity, price, amount, note) as long as its trades, which scrolls with the page: double-click edits, right-click edits or deletes.
+- **Trades**: grouped by month, newest first; each row shows the type's icon, what it was ("Buy 0,10383916 BTC") over its price, date and note ("at 101.437,76 € · 1 Oct 2025", the price in its own currency), and on the other side the cash it moved, with a sale's realised gain. A trade paid from outside the account shows what was paid or received, marked "paid from outside" (a sale: "proceeds paid out"); on the Mac the mark leads its note. At the largest text sizes the amount goes under the description. *Filter* shows one instrument or one type. Swipe or long-press a trade to delete it (the confirmation says what deleting brings in, e.g. a later sale now selling more than is held). On the Mac, a table (date, type, instrument, quantity, price, amount, note) as long as its trades, which scrolls with the page: right-click deletes.
 - **Income & gains**, by year: realised gains, dividends, interest, fees and taxes, and the net; a sale whose cost is unknown is left out and said so. In the account's currency.
-- **What needs a look**, as banners with the fix: a trade missing a price or amount, a sale of more than was held, an opening without cost, a missing exchange rate, a trade outside the account's dates, a value with a balance (which isn't used), and a statement that differs from the trades ("The statement on 30 Jun shows 12 VWCE; your trades give 10. Add the missing trade."). Each banner's button opens the trade, a new trade on the statement's date, or the value. The Overview's *Needs attention* points to an account with any of these ("Directa: 2 problems with trades").
-- **Statements**, in place of the values at check-ins: the values that record a broker statement, newest first. The account's other values only follow the trades, so they aren't listed. A statement is a value whose cash differs from what the trades give on its day ("cash 312,10 €", and "not in the trades +11,30 €", which counts as money added or taken out), or one that lists positions ("1 position listed, 1 differs from the trades"; [Reconciliation](TRADES.md#reconciliation)). *Update Cash…* records one when its cash differs from the trades, and so does a check-in's cash from a statement or *Compare With a Statement*. Tap one to edit it, swipe to delete it; on the Mac, a table (date, cash, not in the trades, positions, note), where double-click edits and right-click edits or deletes. Without any, the section isn't shown. The history chart, the header's change and the new-money ticks come from the Valuator (deposits and transfers on their own dates).
-- The toolbar's **+** adds a trade; *Update Cash…* records the cash on a date.
-
-**Add Trade** (and *Edit Trade*) is a sheet:
-
-- **Type**: Buy, Sell or Dividend as segments, and *More ▸* for interest, fee, tax, deposit, withdrawal, transfer in and out, split and opening (a chosen one shows as a fourth segment). Each type shows only its fields; editing a trade keeps showing any field it has.
-- **Date**, and for most types the **instrument**: the library's instruments, or *New Instrument…* (the instrument form, in a sheet).
-- **Quantity, price and currency** (the instrument's by default). The library's price for the date is a hint with *Use* ("The library's price that day: 138,42 €", or the latest before it); *Fetch Price for This Date* asks the instrument's price source.
-- **Fees and tax** (a buy's transaction tax, or tax withheld), in the account's currency.
-- **Amount**: worked out live as −(quantity × price × FX) − fees − tax for a buy, quantity × price × FX − fees − tax for a sale, and shown as the field's placeholder with "Computed …" (with the rate used when the price is in another currency). Type the broker's amount when it differs (their rate, rounding): the typed amount wins, and the hint shows what was computed, with *Use Computed*. Amounts are typed as positive numbers; the type gives the direction (a buy's *Paid*, a sale's *Received*, a fee's *Charged*).
-- **Paid from outside this account** (a buy, a fee or a tax) or **Proceeds leave this account** (a sale), a switch at the top of the amount ([TRADES.md](TRADES.md#paid-from-outside-the-account)): gold bought from a dealer and paid from the bank, a sale paid into the bank. On, the account's cash doesn't change and the amount counts as new money (a line under the switch says so). It's on by default for a metals account and for a trades account that has never held cash (no value with cash, no deposit, no sale whose proceeds stayed), and off otherwise. When it's off and a buy, fee or tax would take the cash below zero on its day, a hint says so with a one-tap switch: "Cash would go to −1.200,00 €. Paid from outside this account?" *Paid from Outside*.
-- **Note**.
-- Numbers read as in the check-in (`1.234,56` or `1234.56`). Problems show under their field: a number that can't be read at once, what the type needs (a buy without a price or an amount) after *Save* is tried, and warnings (a sign that contradicts the type) as they come.
-- **After saving** shows what the edit will change: the cash it moves (for a trade paid from outside: "Cash: Unchanged" and its "New money +1.200,00") and the cash after that day, the quantity held after it, a sale's realised gain, the opening date moving back ("Saving moves the account's opening date from 1 Mar 2021 to 15 Jan 2021."), the new money of later values worked out again (or kept when typed), and problems it brings in (a later sale now selling more than is held).
-- *Save* waits for the write; *Delete Trade…* sits at the bottom when editing.
+- **What needs a look**, as banners with the fix: a trade missing a price or amount, a sale of more than was held, an opening without cost, a missing exchange rate, a trade outside the account's dates, a value with a balance (which isn't used), and a statement that differs from the trades ("The statement on 30 Jun shows 12 VWCE; your trades give 10. Import the missing trade."). The fix is in the file: correct it and import it again, or delete the trade. A trade outside the account's dates offers *Edit Account…*. The Overview's *Needs attention* points to an account with any of these ("Directa: 2 problems with trades").
+- **Statements**, in place of the values at check-ins: the values that record a broker statement, newest first. The account's other values only follow the trades, so they aren't listed. A statement is a value whose cash differs from what the trades give on its day ("cash 312,10 €", and "not in the trades +11,30 €", which counts as money added or taken out), or one that lists positions ("1 position listed, 1 differs from the trades"; [Reconciliation](TRADES.md#reconciliation)). An import of a broker statement records one. Swipe one to delete it; on the Mac, a table (date, cash, not in the trades, positions, note), where right-click deletes. Without any, the section isn't shown. The history chart, the header's change and the new-money ticks come from the Valuator (deposits and transfers on their own dates).
 
 ## Plan
 
@@ -1110,9 +1007,9 @@ On iPhone, a CSV opened from Files that isn't a bank statement goes straight to 
 
 **Numbers.**
 
-- The system font. Large standalone numbers use its default figures; columns that must line up (tables, check-in fields, axis labels) use tabular figures (`.monospacedDigit()`).
-- Formatted for your locale and base currency: in Italian, `312.480 €`, with decimals only where they matter (check-in fields, account detail).
-- **Quantities and unit prices** read the same everywhere (account holdings, the trades list, the check-in's positions, the instruments, the trade form, the review; `QuantityFormat`): a quantity has up to 8 decimals, trailing zeros trimmed (`0,10383916 BTC`, `412,5 sh`); a unit price (or an average cost per unit) is money in its own currency, with the currency's symbol, 2 decimals from 1 up (`73.785,11 €`, `165,00 $`) and 4 significant digits below (`0,004312 €`). The import's preview shows prices as read from the file.
+- The system font. Large standalone numbers use its default figures; columns that must line up (tables, axis labels) use tabular figures (`.monospacedDigit()`).
+- Formatted for your locale and base currency: in Italian, `312.480 €`, with decimals only where they matter (account detail).
+- **Quantities and unit prices** read the same everywhere (account holdings, the trades list, the instruments, the import's review; `QuantityFormat`): a quantity has up to 8 decimals, trailing zeros trimmed (`0,10383916 BTC`, `412,5 sh`); a unit price (or an average cost per unit) is money in its own currency, with the currency's symbol, 2 decimals from 1 up (`73.785,11 €`, `165,00 $`) and 4 significant digits below (`0,004312 €`). The import's preview shows prices as read from the file.
 - A label and its value are one piece of text ("Average cost 101.437,74 €"), so they wrap together; a line too narrow for both breaks between the label and the value.
 - Charts use compact numbers (`312k`).
 - Zero never has a sign: an amount that rounds to zero reads `0,00 €`, never `−0,00 €`, and an axis never reads `−0`.
@@ -1241,7 +1138,7 @@ The glance: how am I doing, without opening the app. On the home screen of the i
   | --- | --- |
   | `LibraryStore` | the in-memory library, edits, how far opening it has come, sync status, merged conflicts |
   | `PlanStore` | runs on request, their progress, results and what they were calculated from (out of date or not), headlines and baselines |
-  | `CheckInStore` | the check-in draft, kept on the device until it's saved |
+  | `CheckInStore` | the open check-in: its date and the prices fetched for it |
   | `PriceStore` | price fetching (wraps `PriceService`) |
   | `AppPreferences`, `AppNavigation` | this device's settings and hidden amounts, where you are in the app |
 

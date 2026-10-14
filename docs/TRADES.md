@@ -100,7 +100,7 @@ A broker account holds cash: you deposit money and buy with it. Precious metals 
 - `settlement` on another type is pointed out and ignored. Dividends and interest can't be paid outside the account: one paid into another account is a dividend and a withdrawal of the same amount.
 - It replaces the old workaround of a `deposit` of the same amount on the day of every buy, which went wrong when the buy was edited or deleted.
 
-The app's Add Trade sheet offers it as *Paid from outside this account* (a buy, fee or tax) and *Proceeds leave this account* (a sale), on by default for a metals account and for a trades account that has never held cash (`Library.hasHeldCash(_:)`: no valuation with cash other than zero, no deposit and no sale whose proceeds stayed in it; `Library.defaultSettlement(for:in:)`). `retire trades list` shows such trades with no cash and what was paid or received in an *Outside* column (`settlement` and `outside` in its JSON).
+An import sets it from the file: a file of quantities without a cash column records its buys and sales as paid from outside the account. `retire trades list` shows such trades with no cash and what was paid or received in an *Outside* column (`settlement` and `outside` in its JSON).
 
 ### Order within a day
 
@@ -129,8 +129,8 @@ The cash of a trades account at the end of date *d* is the `cash` of its latest 
 
 An account with no valuations starts from zero, and its cash is fully derived from its trades. So both styles work:
 
-- **Record every deposit.** Cash is always derived; check-ins are optional.
-- **Type the cash at each check-in**, and leave deposits out. Each check-in's cash anchors it again; the difference shows up as a [residual](#flows).
+- **Record every deposit.** Cash is always derived.
+- **Import the cash from each broker statement**, and leave deposits out. Each statement's cash anchors it again; the difference shows up as a [residual](#flows).
 
 A valuation without `cash` doesn't anchor it.
 
@@ -149,38 +149,29 @@ A trades account's flows (the money in and out, which [PROGRESS.md](PROGRESS.md)
 - recorded **deposits** − **withdrawals**;
 - \+ securities **transferred in** − **transferred out**, and **openings**, at their market value on the transfer date (not their cost);
 - \+ what buys, fees and taxes [paid from outside the account](#paid-from-outside-the-account) cost − the proceeds of sales paid out of it (`TradeEntry.externalFlow`, −amount), on their dates;
-- \+ the **residual** of each valuation with cash: its typed cash minus the cash the trades give on its date, treated as deposits or withdrawals nobody recorded.
+- \+ the **residual** of each valuation with cash: its recorded cash minus the cash the trades give on its date, treated as deposits or withdrawals nobody recorded.
 
 Dividends, interest, fees, taxes, buys and sells paid from or into the account's cash are not flows: they're the account's return, or move money within it.
 
-- The **check-in's default flow** for a trades account (`Valuator.defaultFlow(for:previous:)`) is this, since the previous valuation, or, for an account with none yet, since the library's previous check-in (so its first check-in doesn't count every purchase since its first trade as new money). It's written into the valuation's `flow`, for the record, and kept in step when trades change (`followFlows`).
+- The **default flow** of a trades account's valuation (`Valuator.defaultFlow(for:previous:)`) is this, since the previous valuation, or, for an account with none yet, since the library's previous check-in (so its first value doesn't count every purchase since its first trade as new money). It's written into the valuation's `flow`, for the record, and kept in step when trades change (`followFlows`).
 - The **change split** uses the flows themselves, not the stored `flow`: a deposit counts at its own date, and a trade after the latest check-in counts too.
 
 ## Reconciliation
 
-A valuation of a trades account that lists `positions` is a check: `Valuator.reconciliation(of:)` compares each quantity with what the trades give on the valuation's date and returns the mismatches (`PositionMismatch`); an instrument the trades hold but the valuation doesn't list counts as listed at zero, since a statement lists every position. `reconcile(_:)` checks a valuation before it's saved, and the check-in review lists them (`CheckInRowReview.mismatches`). Listed costs aren't compared.
+A valuation of a trades account that lists `positions` is a check: `Valuator.reconciliation(of:)` compares each quantity with what the trades give on the valuation's date and returns the mismatches (`PositionMismatch`); an instrument the trades hold but the valuation doesn't list counts as listed at zero, since a statement lists every position. `reconcile(_:)` checks one valuation, and the account's page lists the mismatches. Listed costs aren't compared.
 
 ## Check-ins
 
-A trades account needs no value typed at a check-in: its value is its trades at the check-in's prices. The check-in asks for the trades since the last one. Its row (`CheckInRow.isTrades`, mode `.trades`) starts from what its trades give on the date (`CheckInRow.derived`), and **isn't done until it has a trade or *No Trades*** ([ACCOUNTS.md](ACCOUNTS.md#settled-questions), 4):
+A trades account needs no value at a check-in: its value is its trades at the check-in's prices. Its trades come from the broker's export, imported during the check-in ([UI.md](UI.md#check-in)), and a broker statement's cash and positions, imported too, anchor its cash and check its quantities. The check-in lists it as updated when it has a trade or a value in the check-in's month.
 
-- **With trades since its previous value** (`CheckInRow.hasNewTrades`: trades dated after it, through the check-in's date), open on the date and with something recorded before it, the row starts *unchanged*, which for a trades account means as its trades say (`CheckInRow.followsTrades`): it writes the derived cash, and its flow is the recorded deposits and withdrawals, and the trades paid from outside the account, since the previous valuation (or the previous check-in, for its first). The check-in counts it as reviewed, "from trades". Nothing was decided, so it isn't input to keep (`hasUserInput` is false): Cancel doesn't ask about it, and a rebase fills it in again when trades change.
-- **Without trades since its previous value**, the row starts *not reviewed*. A trade added from the row (*Add Trade…*, dated on the check-in's date) makes it done, as its trades say, once the draft is rebased onto the library with it. *No Trades* (`markUnchanged()`, also what *Mark Rest Unchanged* does) says there were none: the row writes the cash the trades give, with no new money, and counts as decided.
-- **A cash from a statement** can be entered to compare (`setCash`; `CheckInRow.hasStatementCash` once it differs from the derived cash): it anchors the cash, and the difference is a residual in the flow, as typed cash always was. Going back (*Use the trades' values*, `markUnchanged()`) follows the trades again.
-- **No cash to show.** An account that never holds cash of its own (`Valuator.holdsCash(_:)` is false, `CheckInRow.holdsCash`: no valuation with cash other than zero and no trade that moved its cash, e.g. coins or crypto every trade of which was paid from a bank account) shows no cash at all (`CheckInRow.showsCash`); it still writes cash 0.
-- **Nothing to follow yet.** An account with nothing recorded before the date (a new one), or one that opens after it, starts *not reviewed*: its cash is typed or a trade added, or it's skipped, as for any account.
-- The review lists the positions the trades hold. Positions entered in the row (from a statement) are written as a reconciliation check. A trades account's flow is its part in what moved between your accounts (`CheckInRowReview.moved`): a transfer from the bank to the broker cancels out against the broker's deposit, and a buy paid from outside the account against the bank's part.
-- If trades change while the check-in is open (the other device), the row is refreshed, keeping what was typed. A draft kept before rows waited for a trade has its trades rows that started as their trades say not reviewed when it's read, until a rebase finds trades since their previous values.
+## Deleting a trade
 
-## Editing
+The app doesn't type or edit trades: a wrong one is fixed in its file and imported again, or deleted from the account's page. Tracker's `Library.removeTrade(_:)` removes one and returns a `TradeEdit`:
 
-Tracker's `Library.addTrade(_:)`, `updateTrade(_:replacing:)` and `removeTrade(_:)` write a trade like `saveValue` writes a value, and return a `TradeEdit`:
+- the flows of the account's later valuations worked out again when they were the automatic ones, or kept when recorded (`flows`);
+- the trade issues the removal brought in, e.g. a later sale now taking away more than is held (`newIssues`).
 
-- the flows of the account's later valuations worked out again when they were the automatic ones, or kept when typed by hand (`flows`);
-- the account's opening date moved back to an earlier trade (`movedOpeningFrom`);
-- the trade issues the edit brought in, e.g. a later sale now taking away more than is held (`newIssues`).
-
-To preview an edit, make it on a copy of the library. `addTrade` never replaces another trade: a key that's taken gets a new random ID. `Library.upsert(_:)` and `removeTradeRecord(_:)` (Model) write the record alone.
+To preview it, remove it from a copy of the library. `Library.upsert(_:)` and `removeTradeRecord(_:)` (Model) write the record alone.
 
 ## Converting an account
 
