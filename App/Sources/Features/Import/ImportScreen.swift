@@ -545,7 +545,7 @@ struct ImportBottomBar: View {
             .foregroundStyle(Palette.warning)
             .lineLimit(2)
         } else if flow.step == .classify, flow.layout == .statement {
-            Text("Until a line is answered, money in lowers what you spent, and money out counts as spent.")
+            Text(ImportFlow.incomeNote)
                 .foregroundStyle(Palette.secondaryInk)
                 .lineLimit(2)
         }
