@@ -77,7 +77,7 @@ extension ImportFlow {
 
     /// The accounts a line in can be the sale of, by name: those the
     /// importer can record the sale of
-    /// (``Model/Library/canSellFromStatement(_:of:on:)``), the one this
+    /// (``Importer/Library/canSellFromStatement(_:of:on:)``), the one this
     /// line sold before included, and not sold by another line of the file.
     func saleChoices(for line: StatementLine) -> [Account] {
         guard let statement = statementAccount else { return [] }
