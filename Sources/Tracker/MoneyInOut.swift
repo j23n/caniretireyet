@@ -21,6 +21,9 @@ public struct MoneyInOutSummary: Hashable, Sendable {
     /// One-offs (``Model/Valuation/oneOff``), summed over the valuations
     /// counted: money from outside that is neither income nor spending.
     public var oneOffs: Decimal
+    /// Tax (``Model/Valuation/tax``), summed over the valuations counted:
+    /// the part of money out that was tax, less refunds.
+    public var taxes: Decimal
     /// The months with at least one valuation counted, sorted.
     public var months: [YearMonth]
     /// The date of the earliest valuation a counted value is measured from
@@ -42,14 +45,16 @@ public struct MoneyInOutSummary: Hashable, Sendable {
     public var moneyOutPerYear: Decimal?
 
     public init(from: CalendarDate, through: CalendarDate, currency: CurrencyCode, moneyIn: Decimal = 0,
-                moneyOut: Decimal = 0, oneOffs: Decimal = 0, months: [YearMonth] = [], unconverted: [AccountID] = [],
-                moneyOutPerYear: Decimal? = nil, measuredFrom: CalendarDate? = nil, lastCounted: CalendarDate? = nil) {
+                moneyOut: Decimal = 0, oneOffs: Decimal = 0, taxes: Decimal = 0, months: [YearMonth] = [],
+                unconverted: [AccountID] = [], moneyOutPerYear: Decimal? = nil, measuredFrom: CalendarDate? = nil,
+                lastCounted: CalendarDate? = nil) {
         self.from = from
         self.through = through
         self.currency = currency
         self.moneyIn = moneyIn
         self.moneyOut = moneyOut
         self.oneOffs = oneOffs
+        self.taxes = taxes
         self.months = months
         self.unconverted = unconverted
         self.moneyOutPerYear = moneyOutPerYear
@@ -75,7 +80,8 @@ extension Valuator {
     /// A valuation counts when its account is known, its kind records money
     /// in and out (``Model/AccountKind/recordsMoneyInOut``), it has both
     /// amounts, neither negative, and the account has a valuation before it.
-    /// Its one-off counts with it, when it isn't negative.
+    /// Its one-off counts with it, when it isn't negative, and so does its
+    /// tax, except on a tax pot, whose tax is what moved into it.
     /// Each value covers the days since that valuation, which is what
     /// ``MoneyInOutSummary/moneyOutPerYear`` scales by; an account's first
     /// value covers no known period. `accounts` limits the sum to those
@@ -98,7 +104,9 @@ extension Valuator {
                 guard let inBase = fx.convert(moneyIn, from: account.currency, to: baseCurrency, on: valuation.date),
                       let outBase = fx.convert(moneyOut, from: account.currency, to: baseCurrency, on: valuation.date),
                       let oneOffBase = fx.convert(max(valuation.oneOff ?? 0, 0), from: account.currency,
-                                                  to: baseCurrency, on: valuation.date)
+                                                  to: baseCurrency, on: valuation.date),
+                      let taxBase = fx.convert(account.kind == .taxPot ? 0 : valuation.tax ?? 0,
+                                               from: account.currency, to: baseCurrency, on: valuation.date)
                 else {
                     unconverted.insert(account.id)
                     continue
@@ -106,6 +114,7 @@ extension Valuator {
                 summary.moneyIn += inBase
                 summary.moneyOut += outBase
                 summary.oneOffs += oneOffBase
+                summary.taxes += taxBase
                 accountOut += outBase
                 let previous = values[index - 1].date
                 days += max(1, previous.days(to: valuation.date))

@@ -322,9 +322,12 @@ extension CheckInDraft {
                 record.moneyIn = recordsBoth ? moneyIn : nil
                 record.moneyOut = recordsBoth ? moneyOut : nil
             }
-            // The check-in doesn't ask for a one-off: a value saved on the date keeps its own, unless
-            // marked unchanged, which moved nothing.
-            if !unchanged { record.oneOff = row.existing?.oneOff }
+            // The check-in doesn't ask for a one-off or tax: a value saved on the date keeps its own,
+            // unless marked unchanged, which moved nothing.
+            if !unchanged {
+                record.oneOff = row.existing?.oneOff
+                record.tax = row.existing?.tax
+            }
             written = record
         }
         return Proposal(valuation: valuation, written: written, defaultFlow: defaultFlow, positions: reviews)

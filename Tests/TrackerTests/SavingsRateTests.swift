@@ -357,6 +357,7 @@ struct SavingsRateTests {
         let months = try #require(valuator.savingsRate(from: "2026-01-01", through: "2026-05-31"))
         #expect(months.moneyInOut.moneyIn == 20000)
         #expect(months.taxSetAside == 5000)
+        #expect(months.tax == 5000)
         #expect(months.income == 15000)
         // The pot is outside net worth: only the current account's 1,000 a month is saved.
         #expect(months.savedByAccount["pot"] == nil)
@@ -381,5 +382,55 @@ struct SavingsRateTests {
         #expect(savings.income == 20000)
         #expect(savings.saved == 10000)
         #expect(savings.spent == 10000)
+    }
+
+    /// With money in and out recorded on the pot, a check-in that covers
+    /// both a set-aside and the bill counts the set-aside, and money taken
+    /// back lowers the tax.
+    @Test func aTaxPotsTaxIsWhatMovedIntoIt() throws {
+        var library = taxPot
+        // June: 1,000 more set aside, and the 6,000 bill paid from the pot.
+        library.upsert(Valuation(account: "bank", date: "2026-06-30", balance: 16000, flow: 1000, moneyIn: 4000,
+                                 moneyOut: 3000))
+        library.upsert(Valuation(account: "pot", date: "2026-06-30", balance: 0, flow: -5000, moneyIn: 0,
+                                 moneyOut: 6000))
+        let june = try #require(Valuator(library: library).savingsRate(from: "2026-06-01", through: "2026-06-30"))
+        #expect(june.tax == 1000)
+        #expect(june.income == 3000)
+        #expect(june.spent == 2000)
+        // July: 500 of a pot's leftover moved back to the current account.
+        library.upsert(Valuation(account: "pot", date: "2026-06-30", balance: 500, flow: -4500, moneyIn: 0,
+                                 moneyOut: 5500))
+        library.upsert(Valuation(account: "bank", date: "2026-07-31", balance: 18500, flow: 2500, moneyIn: 4000,
+                                 moneyOut: 2000))
+        library.upsert(Valuation(account: "pot", date: "2026-07-31", balance: 0, flow: -500, moneyIn: 0,
+                                 moneyOut: 0))
+        let july = try #require(Valuator(library: library).savingsRate(from: "2026-07-01", through: "2026-07-31"))
+        #expect(july.tax == -500)
+        #expect(july.income == 4500)
+        #expect(july.spent == 2000)
+    }
+
+    /// Tax paid straight from the current account, and a refund of it, are
+    /// tax, not spending.
+    @Test func taxPaidFromACurrentAccountIsNotSpent() throws {
+        var library = month
+        // January also paid 1,200 of tax from the current account, which is in its money out.
+        library.upsert(Valuation(account: "bank", date: "2026-01-31", balance: 8250, flow: -1750, moneyIn: 4000,
+                                 moneyOut: 5750, tax: 1200))
+        var savings = try #require(Valuator(library: library).savingsRate(from: "2026-01-01", through: "2026-01-31"))
+        #expect(savings.moneyInOut.taxes == 1200)
+        #expect(savings.tax == 1200)
+        #expect(savings.income == 3100)
+        #expect(savings.saved == 250)
+        // As in the month without the tax.
+        #expect(savings.spent == 2850)
+        // A refund of 300 instead lowers money out and the tax.
+        library.upsert(Valuation(account: "bank", date: "2026-01-31", balance: 9750, flow: -250, moneyIn: 4000,
+                                 moneyOut: 4250, tax: -300))
+        savings = try #require(Valuator(library: library).savingsRate(from: "2026-01-01", through: "2026-01-31"))
+        #expect(savings.tax == -300)
+        #expect(savings.income == 4600)
+        #expect(savings.spent == 2850)
     }
 }

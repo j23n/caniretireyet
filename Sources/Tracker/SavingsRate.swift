@@ -8,8 +8,8 @@ import Model
 /// refund lowers what was spent and a loan's principal repaid is saved. What
 /// came in is the money in that cash and savings accounts record, plus what
 /// was paid into pension funds and TFR, pay that never reaches a cash
-/// account, less what was put into tax pots, so it's after tax. What was
-/// spent is the rest. Only accounts in net worth count, on both sides. In
+/// account, less tax: the tax money out recorded and what moved into tax
+/// pots, so it's after tax. What was spent is the rest. Only accounts in net worth count, on both sides. In
 /// the base currency.
 public struct SavingsRate: Hashable, Sendable {
     /// The money in it's worked out from.
@@ -22,7 +22,7 @@ public struct SavingsRate: Hashable, Sendable {
     /// New money into pension funds and TFR over those days, each account's
     /// at least zero: money taken out of them isn't income.
     public var pensionContributions: Decimal
-    /// What was put into tax pots outside net worth over those days
+    /// What moved into tax pots outside net worth over those days
     /// (``Valuator/taxSetAside(after:through:)``): tax, so neither came in
     /// nor spent.
     public var taxSetAside: Decimal
@@ -53,9 +53,14 @@ public struct SavingsRate: Hashable, Sendable {
     /// The account kinds whose new money counts as pay that was saved.
     public static let pensionKinds: Set<AccountKind> = [.pensionFund, .tfr]
 
+    /// Tax: the tax money out of the values counted recorded
+    /// (``MoneyInOutSummary/taxes``, less refunds), plus what moved into tax
+    /// pots (``taxSetAside``). Neither came in nor spent.
+    public var tax: Decimal { moneyInOut.taxes + taxSetAside }
+
     /// What came in, after tax: money in, plus the pension contributions,
-    /// less the tax set aside.
-    public var income: Decimal { moneyInOut.moneyIn + pensionContributions - taxSetAside }
+    /// less the tax.
+    public var income: Decimal { moneyInOut.moneyIn + pensionContributions - tax }
 
     /// What was saved: every account's new money over the days, added up,
     /// less the one-offs (``MoneyInOutSummary/oneOffs``), which are neither
@@ -121,11 +126,14 @@ extension Valuator {
                            savedByAccount: saved.byAccount, isPriced: saved.isPriced && tax.isPriced)
     }
 
-    /// What was put into tax pots outside net worth (``Model/AccountKind/taxPot``)
-    /// by their values dated after `from` through `through`, in the base
-    /// currency at each value's date: each value's flow, or the change a
-    /// check-in would fill in, when it's above zero. A bill paid from a pot
-    /// isn't negative tax, and a pot's first value is what it held when its
+    /// What moved into tax pots outside net worth (``Model/AccountKind/taxPot``)
+    /// from your other accounts by their values dated after `from` through
+    /// `through`, in the base currency at each value's date: each value's
+    /// ``Model/Valuation/moved``, put in less taken back, so the tax paid
+    /// from a pot (its money out) and refunds into it (its money in)
+    /// change nothing. A value without both amounts counts its flow, or the
+    /// change a check-in would fill in, when it's above zero: a drop is
+    /// taken as tax paid. A pot's first value is what it held when its
     /// records start, not money put in. A tax pot in net worth counts as
     /// savings instead: what's put in is saved.
     public func taxSetAside(after from: CalendarDate, through: CalendarDate) -> (amount: Decimal, isPriced: Bool) {
@@ -138,14 +146,16 @@ extension Valuator {
             for valuation in valuations(for: account.id) {
                 defer { previous = valuation }
                 guard let previous, valuation.date > from, valuation.date <= through else { continue }
-                guard let flow = valuation.flow ?? defaultFlow(for: valuation, previous: previous),
-                      let amount = converted(flow, from: account.currency, to: baseCurrency, on: valuation.date,
+                let moved = valuation.moved
+                    ?? (valuation.flow ?? defaultFlow(for: valuation, previous: previous)).map { max($0, 0) }
+                guard let moved,
+                      let amount = converted(moved, from: account.currency, to: baseCurrency, on: valuation.date,
                                              for: account.id, problems: &problems)
                 else {
                     isPriced = false
                     continue
                 }
-                total += max(amount, 0)
+                total += amount
             }
         }
         return (total, isPriced)

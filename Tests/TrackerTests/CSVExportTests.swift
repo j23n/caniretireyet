@@ -120,6 +120,17 @@ import TestSupport
         #expect(deposit[oneOff].isEmpty)
     }
 
+    @Test func taxIsExportedAfterTheOneOff() throws {
+        var library = self.library
+        let index = try #require(library.months["2026-09"]?.valuations.firstIndex { $0.account == "conto-fineco" })
+        library.months["2026-09"]?.valuations[index].tax = 1200
+        let valuations = rows(CSVExport.valuations(Array(library.months.values)))
+        let tax = try #require(valuations[0].firstIndex(of: "tax"))
+        #expect(valuations[0][tax - 1] == "one_off")
+        let fineco = try #require(valuations.first { $0[0] == "2026-09-30" && $0[1] == "conto-fineco" })
+        #expect(fineco[tax] == "1200")
+    }
+
     @Test func fieldsAreQuotedWhenNeeded() {
         #expect(CSVExport.field("plain") == "plain")
         #expect(CSVExport.field("a, b") == "\"a, b\"")
