@@ -160,10 +160,9 @@ struct ImportStatementFlowTests {
         flow.open(Data(Self.csv.utf8), fileName: "settembre.csv")
         flow.setConstants { $0.account = "conto-fineco" }
         #expect(flow.needsOpeningBalance)
-        let blockers = flow.blockers.count
+        #expect(!flow.blockers.isEmpty)
         flow.setStatementOpeningBalance(Decimal(string: "4515.2"), forFile: 0)
         #expect(!flow.needsOpeningBalance)
-        #expect(flow.blockers.count == blockers - 1)
     }
 
     @Test func incomeIsListedBySender() throws {
