@@ -87,18 +87,11 @@ final class LibraryStore {
     /// "Reading hand-edited files"). A reload replaces the issues of the
     /// files it read.
     private(set) var loadIssues: [LibraryIssue] = []
-    /// The problems across files (`Library.problems()`), worked out once
-    /// per ``revision``.
-    @ObservationIgnored private var problemsCache: (revision: Int, problems: [LibraryIssue])?
     /// What's wrong with the library's files: ``loadIssues`` and the
     /// checks across files (`Library.problems()`), worked out again for
     /// each revision of ``library``, so they follow every edit and reload.
     var issues: [LibraryIssue] {
-        let revision = self.revision
-        if let cache = problemsCache, cache.revision == revision { return (loadIssues + cache.problems).sortedByPath() }
-        let problems = library.problems()
-        problemsCache = (revision, problems)
-        return (loadIssues + problems).sortedByPath()
+        (loadIssues + problems.value(for: revision) { library.problems() }).sortedByPath()
     }
     /// Sync conflicts merged since launch, newest first.
     private(set) var mergedConflicts: [ConflictResolution] = []
@@ -148,6 +141,7 @@ final class LibraryStore {
     @ObservationIgnored private var diskSnapshot: FolderSnapshot?
     @ObservationIgnored private let valuators = Memo<Int, Valuator>()
     @ObservationIgnored private let firstMoneyInOuts = Memo<Int, CalendarDate?>()
+    @ObservationIgnored private let problems = Memo<Int, [LibraryIssue]>()
     /// Counts the attempts at opening a library. An attempt that a newer one
     /// overtook (Try Again, another `open`) drops its results.
     @ObservationIgnored private var openingAttempt = 0
