@@ -1,7 +1,7 @@
 import Foundation
 import Model
 
-// Editing history after the fact: a value added in the past, corrected,
+// Editing history after the fact: a value imported in the past, corrected,
 // moved or removed. A valuation's flow is the money added since the
 // valuation before it (PROGRESS.md, "Data this needs from day one"), so an
 // edit can change what the next valuation's flow should be.
@@ -13,7 +13,7 @@ public struct FlowFollowUp: Hashable, Sendable {
     /// worked out again from the valuation now before them; as saved now,
     /// sorted by date, then account.
     public var recomputed: [Valuation] = []
-    /// Valuations whose flow was typed by hand, kept although the valuation
+    /// Valuations whose flow was recorded, kept although the valuation
     /// before them changed; sorted by date, then account. Never a cash or
     /// savings account's: their flows are always worked out again.
     public var kept: [Valuation] = []
@@ -31,21 +31,6 @@ public struct FlowFollowUp: Hashable, Sendable {
     }
 }
 
-/// What saving one value with ``Library/saveValue(_:replacing:)`` did
-/// besides writing it.
-public struct ValueEdit: Hashable, Sendable {
-    /// The account's opening date before the save, when the value was dated
-    /// before it: the opening date moved back to the value's date.
-    public var movedOpeningFrom: CalendarDate?
-    /// The flows of the account's later values that were worked out again or kept.
-    public var flows: FlowFollowUp
-
-    public init(movedOpeningFrom: CalendarDate? = nil, flows: FlowFollowUp = FlowFollowUp()) {
-        self.movedOpeningFrom = movedOpeningFrom
-        self.flows = flows
-    }
-}
-
 extension Library {
     /// Makes `edit` to the library's history and keeps the flows of the
     /// valuations that follow the ones it changed in step.
@@ -54,47 +39,21 @@ extension Library {
     /// inserted before it, the one before it corrected, moved or removed),
     /// its flow is worked out again from the new previous valuation if it was
     /// the automatic one: the default for the account's kind measured from
-    /// the old previous valuation, as a check-in would have filled it in
-    /// (``Valuator/defaultFlow(for:previous:)``). A flow typed by hand (one
-    /// that differs from that default) is kept, except on a cash or savings
-    /// account, whose flow is always worked out from what's recorded
-    /// (docs/ACCOUNTS.md, "New money"). Money in and out are kept too, and a valuation
-    /// that records them is listed when the one before it is now on another
-    /// date (``FlowFollowUp/moneyInOut``). When that date stays (the one
-    /// before was corrected), a current account's money out that was the
-    /// suggestion for the old flow (``CheckInDraft/defaultMoneyOut(moneyIn:flow:)``) follows the new
-    /// one. The valuations `edit` writes keep what it gave them.
+    /// the old previous valuation (``Valuator/defaultFlow(for:previous:)``).
+    /// A recorded flow (one that differs from that default) is kept, except
+    /// on a cash or savings account, whose flow is always worked out from
+    /// what's recorded (docs/ACCOUNTS.md, "New money"). Money in and out are
+    /// kept too, and a valuation that records them is listed when the one
+    /// before it is now on another date (``FlowFollowUp/moneyInOut``). When
+    /// that date stays (the one before was corrected), a current account's
+    /// money out that was the suggestion for the old flow
+    /// (``suggestedMoneyOut(moneyIn:flow:)``) follows the new one. The
+    /// valuations `edit` writes keep what it gave them.
     @discardableResult
     public mutating func editValuations(_ edit: (inout Library) throws -> Void) rethrows -> FlowFollowUp {
         let before = self
         try edit(&self)
         return followFlows(from: before)
-    }
-
-    /// Adds or replaces one account's value outside a check-in (*Update
-    /// Value*, the valuation editor): writes `valuation`, in place of the one
-    /// at `old` when given, moves the account's opening date back to the
-    /// value's date when it's earlier, and keeps the flows of the values
-    /// after it in step (see ``editValuations(_:)``).
-    @discardableResult
-    public mutating func saveValue(_ valuation: Valuation, replacing old: ValuationKey? = nil) -> ValueEdit {
-        var movedFrom: CalendarDate?
-        let flows = editValuations { library in
-            if let old { library.removeValuation(old) }
-            library.upsert(valuation)
-            if let opened = library.accounts[valuation.account]?.opened, valuation.date < opened {
-                library.accounts[valuation.account]?.opened = valuation.date
-                movedFrom = opened
-            }
-        }
-        return ValueEdit(movedOpeningFrom: movedFrom, flows: flows)
-    }
-
-    /// What ``saveValue(_:replacing:)`` would do, without doing it: for a
-    /// form to say it before saving.
-    public func previewSavingValue(_ valuation: Valuation, replacing old: ValuationKey? = nil) -> ValueEdit {
-        var copy = self
-        return copy.saveValue(valuation, replacing: old)
     }
 
     /// Removes one value and keeps the flow of the value after it in step
@@ -119,8 +78,8 @@ extension Library {
     /// rule of ``editValuations(_:)``. Valuations the change wrote keep what
     /// it gave them.
     ///
-    /// For an account that records trades, a change to its trades (see
-    /// ``addTrade(_:)``) counts too: the flow of each of its valuations is
+    /// For an account that records trades, a change to its trades counts
+    /// too: the flow of each of its valuations is
     /// the automatic one when it equals what its trades and cash gave
     /// before (``Valuator/defaultFlow(for:previous:)``), and is then
     /// worked out again from the trades as they are now.
@@ -163,13 +122,12 @@ extension Library {
                 }
                 var updated = valuation
                 updated.flow = recomputed
-                // Over the same days, a current account's money out that was the suggestion follows the
-                // flow, as at the check-in (a savings account's starts at 0). Over other days, money in no
-                // longer matches the flow.
+                // Over the same days, a current account's money out that was the suggestion of earlier
+                // versions' check-ins follows the flow. Over other days, money in no longer matches the flow.
                 if let newPrevious, newPrevious.date == oldPrevious?.date, accounts[account]?.kind == .cash,
                    let moneyIn = valuation.moneyIn, let moneyOut = valuation.moneyOut,
-                   moneyOut == CheckInDraft.defaultMoneyOut(moneyIn: moneyIn, flow: valuation.flow),
-                   let following = CheckInDraft.defaultMoneyOut(moneyIn: moneyIn, flow: recomputed) {
+                   moneyOut == Self.suggestedMoneyOut(moneyIn: moneyIn, flow: valuation.flow),
+                   let following = Self.suggestedMoneyOut(moneyIn: moneyIn, flow: recomputed) {
                     updated.moneyOut = following
                 }
                 guard updated != valuation else { continue }
@@ -183,5 +141,35 @@ extension Library {
             valuations(for: key.account).first { $0.key == key }
         }.sortedByKey()
         return result
+    }
+
+    /// A current account's money out as earlier versions' check-ins
+    /// suggested it when only the money in was typed: what came in minus the
+    /// flow (the change in balance); never negative. `nil` without a flow.
+    static func suggestedMoneyOut(moneyIn: Decimal, flow: Decimal?) -> Decimal? {
+        guard let flow else { return nil }
+        return max(0, moneyIn - flow)
+    }
+}
+
+// MARK: - A valuator built when needed
+
+/// A `Valuator` over a library, built the first time it's needed: most
+/// accounts' flows are followed without one.
+struct LazyValuator {
+    let library: Library
+    private var built: Valuator?
+
+    init(library: Library) {
+        self.library = library
+    }
+
+    var valuator: Valuator {
+        mutating get {
+            if let built { return built }
+            let valuator = Valuator(library: library)
+            built = valuator
+            return valuator
+        }
     }
 }

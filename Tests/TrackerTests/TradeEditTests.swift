@@ -4,68 +4,31 @@ import Testing
 import TestSupport
 import Tracker
 
-/// Adding, changing and removing trades keeps the flows of later
-/// valuations and the opening date in step, and says what went wrong.
+/// Removing a trade keeps the flows of later valuations in step, and says
+/// what went wrong.
 struct TradeEditTests {
-    private let transfer = TradeLibrary.trade(.transferIn, "2024-02-10", id: "tin0", instrument: "vwce",
-                                              quantity: "5", cost: "450")
-
-    @Test func addingATradeRecomputesTheAutomaticFlowAfterIt() throws {
+    @Test func removingATradeRecomputesTheAutomaticFlowAfterIt() throws {
         var library = TradeLibrary.typedCash()
-        let edit = library.addTrade(transfer)
-        #expect(edit.saved == transfer)
-        #expect(edit.movedOpeningFrom == nil)
-        #expect(edit.flows.recomputed.map(\.date) == ["2024-02-29"])
-        #expect(edit.flows.recomputed.map(\.flow) == [510])
-        #expect(Valuator(library: library).tradeIssues(for: "broker").isEmpty)
-        #expect(library.trade(transfer.key) == transfer)
+        let transfer = TradeLibrary.trade(.transferIn, "2024-02-10", id: "tin0", instrument: "vwce",
+                                          quantity: "5", cost: "450")
+        library.editValuations { $0.upsert(transfer) }
         #expect(library.valuations(for: "broker")[1].flow == 510)
-    }
-
-    @Test func addingNeverReplacesAnotherTrade() throws {
-        var library = TradeLibrary.typedCash()
-        var twin = TradeLibrary.trades[0]
-        twin.quantity = 1
-        let edit = library.addTrade(twin)
-        let saved = try #require(edit.saved)
-        #expect(saved.id != twin.id)
-        #expect(saved.id.rawValue.count == 8)
-        #expect(library.trades(for: "broker").filter { $0.date == "2024-01-05" }.count == 2)
-    }
-
-    @Test func movingATradeToAnotherDateReplacesItAndItsFlows() throws {
-        var library = TradeLibrary.typedCash()
-        library.addTrade(transfer)
-        var moved = transfer
-        moved.date = "2024-03-05"
-        let edit = library.updateTrade(moved, replacing: transfer.key)
+        let edit = library.removeTrade(transfer.key)
         #expect(library.trade(transfer.key) == nil)
-        #expect(library.trade(moved.key) == moved)
-        // February goes back to no flow; March gains the transfer at the latest price then (105).
-        #expect(edit.flows.recomputed.map(\.date) == ["2024-02-29", "2024-03-31"])
-        #expect(edit.flows.recomputed.map(\.flow) == [0, 1075])
+        #expect(edit.flows.recomputed.map(\.date) == ["2024-02-29"])
+        #expect(edit.flows.recomputed.map(\.flow) == [0])
+        #expect(edit.newIssues.isEmpty)
     }
 
     @Test func removingABuyShowsTheSaleItLeavesUncovered() throws {
         var library = TradeLibrary.recordedDeposits()
         let buy = TradeLibrary.trades[0]
         let edit = library.removeTrade(buy.key)
-        #expect(edit.saved == nil)
         #expect(edit.newIssues.map(\.kind) == [.oversold])
         #expect(edit.newIssues.first?.trade?.id == "sel1")
         #expect(library.trade(buy.key) == nil)
-        // Correcting it again clears the issue.
-        library.addTrade(buy)
-        #expect(Valuator(library: library).tradeIssues(for: "broker").isEmpty)
-    }
-
-    @Test func aTradeBeforeTheAccountOpenedMovesTheOpeningBack() throws {
-        var library = TradeLibrary.recordedDeposits()
-        let opening = TradeLibrary.trade(.opening, "2023-11-30", id: "open", instrument: "vwce", quantity: "3",
-                                         cost: "270")
-        let edit = library.addTrade(opening)
-        #expect(edit.movedOpeningFrom == "2024-01-01")
-        #expect(library.accounts["broker"]?.opened == "2023-11-30")
+        // Importing it again clears the issue.
+        library.upsert(buy)
         #expect(Valuator(library: library).tradeIssues(for: "broker").isEmpty)
     }
 }

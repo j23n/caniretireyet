@@ -92,10 +92,12 @@ struct MoneyInOutTests {
     @Test func editingHistoryKeepsMoneyInAndOutForAPersonToCheck() throws {
         var library = try Fixtures.exampleLibrary()
         // A balance from a statement in the middle of September.
-        let inserted = library.saveValue(Valuation(account: "conto-fineco", date: "2026-09-15", balance: 4400))
+        let inserted = library.editValuations {
+            $0.upsert(Valuation(account: "conto-fineco", date: "2026-09-15", balance: 4400))
+        }
         let september = ValuationKey(account: "conto-fineco", date: "2026-09-30")
-        #expect(inserted.flows.moneyInOut.map(\.key) == [september])
-        #expect(inserted.flows.moneyInOut.first?.moneyOut == d("2554.65"))
+        #expect(inserted.moneyInOut.map(\.key) == [september])
+        #expect(inserted.moneyInOut.first?.moneyOut == d("2554.65"))
 
         var removed = try Fixtures.exampleLibrary()
         let augustKey = ValuationKey(account: "conto-fineco", date: "2026-08-31")
@@ -111,17 +113,8 @@ struct MoneyInOutTests {
         var corrected = try Fixtures.exampleLibrary()
         var august = try #require(corrected.valuations(for: "conto-fineco").first { $0.date == "2026-08-31" })
         august.balance = 4500
-        let edit = corrected.saveValue(august, replacing: august.key)
-        #expect(edit.flows.moneyInOut.isEmpty)
-    }
-
-    @Test func aPastCheckInListsTheValueAfterIt() throws {
-        let library = try Fixtures.exampleLibrary()
-        var draft = CheckInDraft(date: "2026-09-15", library: library)
-        draft["conto-fineco"]?.setBalance(4400)
-        var saved = library
-        let followUp = draft.apply(to: &saved)
-        #expect(followUp.moneyInOut.map(\.key) == [ValuationKey(account: "conto-fineco", date: "2026-09-30")])
+        let edit = corrected.editValuations { $0.upsert(august) }
+        #expect(edit.moneyInOut.isEmpty)
     }
 
     @Test func leavesOutAnAccountsFirstValue() throws {

@@ -143,19 +143,6 @@ struct ExternalSettlementTests {
         #expect(spring.change.market == d("21.1") * 70 - d("31.1") * 62 + 680)
     }
 
-    @Test func theCheckInStartsFromNoCashAndCountsTheCostAsNewMoney() throws {
-        let library = GoldLibrary.external()
-        var draft = CheckInDraft(date: "2024-01-31", library: library)
-        let row = try #require(draft["coins"])
-        #expect(row.isTrades)
-        #expect(row.cash == 0)
-        #expect(row.derived?.positions.map(\.quantity) == [d("31.1")])
-        #expect(draft["coins"]?.markUnchanged() == true)
-        let review = try #require(draft.review(in: library).row(for: "coins"))
-        #expect(review.defaultFlow == 1876)
-        #expect(review.valuation == Valuation(account: "coins", date: "2024-01-31", cash: 0, flow: 1876))
-    }
-
     @Test func anExternalFeeIsACostOfTheAccountPaidFromElsewhere() throws {
         var library = GoldLibrary.external()
         library.upsert(Trade(account: "coins", date: "2024-02-10", id: "vault", type: .fee, amount: -40,
@@ -206,42 +193,27 @@ struct ExternalSettlementTests {
         #expect(valuator.ledger(for: "broker")?.positions(on: "2024-03-31")
             == [Position(instrument: "vwce", quantity: 8, costBasis: 800)])
         #expect(valuator.ledger(for: "broker")?.summary(for: 2024).realizedGain == 50)
-        // The check-in counts the deposit and the purchase from outside as new money.
-        var draft = CheckInDraft(date: "2024-01-31", library: library)
-        #expect(draft["broker"]?.cash == 200)
-        #expect(draft["broker"]?.markUnchanged() == true)
-        #expect(draft.review(in: library).row(for: "broker")?.defaultFlow == 1500)
+        // The deposit and the purchase from outside count as new money.
         let january = Valuation(account: "broker", date: "2024-01-31", cash: 200)
         #expect(valuator.defaultFlow(for: january, previous: nil) == 1500)
     }
 
-    @Test func theDefaultIsOutsideForMetalsAndAccountsThatNeverHeldCash() throws {
+    @Test func anAccountHasHeldCashOnceCashStayedInIt() throws {
         var library = GoldLibrary.external()
         #expect(!library.hasHeldCash("coins"))
-        #expect(library.defaultSettlement(for: .buy, in: "coins") == .external)
-        #expect(library.defaultSettlement(for: .sell, in: "coins") == .external)
-        #expect(library.defaultSettlement(for: .fee, in: "coins") == .external)
-        #expect(library.defaultSettlement(for: .dividend, in: "coins") == nil)
-        #expect(library.defaultSettlement(for: .buy, in: "nowhere") == nil)
-        // A brokerage account with nothing yet: its buys would take its cash below zero.
-        #expect(library.defaultSettlement(for: .buy, in: "broker") == .external)
-
+        #expect(!library.hasHeldCash("broker"))
         library.upsert(Trade(account: "broker", date: "2024-01-02", id: "dep", type: .deposit, amount: 1000))
         #expect(library.hasHeldCash("broker"))
-        #expect(library.defaultSettlement(for: .buy, in: "broker") == .account)
-
-        // A sale whose proceeds stayed is cash held; a metals account stays outside anyway.
+        // A sale whose proceeds stayed is cash held.
         library.upsert(Trade(account: "coins", date: "2024-03-20", id: "kept", type: .sell, instrument: "gold",
                              quantity: 1, price: 70))
         #expect(library.hasHeldCash("coins"))
-        #expect(library.defaultSettlement(for: .buy, in: "coins") == .external)
 
         var typed = GoldLibrary.base
         typed.upsert(Valuation(account: "broker", date: "2024-01-31", cash: 0))
         #expect(!typed.hasHeldCash("broker"))
         typed.upsert(Valuation(account: "broker", date: "2024-02-29", cash: 25))
         #expect(typed.hasHeldCash("broker"))
-        #expect(typed.defaultSettlement(for: .sell, in: "broker") == .account)
     }
 }
 
