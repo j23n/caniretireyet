@@ -5,14 +5,15 @@ name: CI
 
 # apple-ci's workflows decide when each job runs (its README's "When CI runs"): Linux on every push;
 # macOS on pushes to main, runs by hand (Actions › CI › Run workflow), and a pull request once it's
-# labeled ci:mac, which Claude's review adds when the change needs the Mac's build. The screenshots
+# labeled ci:mac, which Claude's review adds when the change needs the Mac's build. That run builds
+# only the Mac app; ci:ios builds the iOS Simulator's on a pull request too. The screenshots
 # are taken only when someone asks: by hand with "Take screenshots" ticked, or on a pull request they
 # label ci:screenshots.
 on:
   push:
   pull_request:
     # Only labeled: each commit already has its push's run. The ci:mac label's run adds the Mac's
-    # jobs, ci:screenshots the screenshots; another label's run skips them (apple-ci's README, "When
+    # jobs, ci:ios the iOS Simulator's build, ci:screenshots the screenshots; another label's run skips them (apple-ci's README, "When
     # CI runs").
     types: [labeled]
   workflow_dispatch:
@@ -46,6 +47,16 @@ jobs:
     with:
       name: macOS · package and app (iOS Simulator and Mac)
       run: ${{ github.event_name == 'pull_request' && 'make ci-macos-app' || 'make ci-macos' }}
+
+  # Only on a pull request labeled ci:ios: the app for the iOS Simulator, which a pull request's
+  # ci:mac run leaves out. Main and runs by hand build it in the macos job.
+  ios:
+    if: github.event_name == 'pull_request'
+    uses: j23n/apple-ci/.github/workflows/macos.yml@main
+    with:
+      name: macOS · app for the iOS Simulator
+      run: make build-ios
+      pull-request-label: ci:ios
 
   # Only when asked: by hand with the screenshots input, or on a pull request once it's labeled
   # ci:screenshots. Not on pushes, main's included, and the review never adds the label.

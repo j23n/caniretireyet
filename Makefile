@@ -79,7 +79,7 @@ ci-macos: build check-icons test-app
 	$(SWIFT) test --filter CloudSyncTests
 
 # A pull request's Mac run (ci.yml): the app for the Mac and its unit tests. The iOS Simulator's
-# build, whose iPhone-only code is a few hundred lines, waits for main.
+# build, whose iPhone-only code is a few hundred lines, waits for main, or a ci:ios label.
 ci-macos-app: build-mac test-app
 
 clean:
