@@ -62,7 +62,12 @@ extension PriceService {
                 tasks.addTask { await limit.run { StepOutput.quotes(await self.fetchQuotes(group, today: today)) } }
             }
             for need in needs.indices {
-                tasks.addTask { await limit.run { StepOutput.index(await self.fetchIndex(need)) } }
+                tasks.addTask {
+                    await limit.run {
+                        let (result, records) = await self.fetchIndex(need)
+                        return StepOutput.index(result, records)
+                    }
+                }
             }
             for await output in tasks {
                 switch output {
