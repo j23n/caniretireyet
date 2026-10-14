@@ -492,8 +492,9 @@ struct AccountValuationForm: Hashable, Sendable {
         valuation.moneyIn = fields.moneyInOut ? number(moneyIn) ?? 0 : original.moneyIn
         valuation.moneyOut = fields.moneyInOut ? number(moneyOut) : original.moneyOut
         valuation.interest = fields.interest ? number(interest) : original.interest
-        // The form doesn't show a one-off: it keeps the file's.
+        // The form doesn't show a one-off or tax: it keeps the file's.
         valuation.oneOff = original.oneOff
+        valuation.tax = original.tax
         if fields.flow {
             valuation.flow = number(flow)
         } else if valuation.date == original.date, valuation.balance == original.balance,
