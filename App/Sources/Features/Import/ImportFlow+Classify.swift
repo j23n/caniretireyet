@@ -236,6 +236,7 @@ extension ImportFlow {
         case .chosen: "Chosen for this line"
         case .rule(let phrase): "Your rule “\(phrase)”"
         case .trade(let key): "Matches a trade of \(accountName(key.account))"
+        case .paired(let id): "Matches a line of \(accountName(id))'s statement"
         case .account(let id): "Names \(accountName(id))"
         case .words: "The usual words"
         case .paidBefore: "Its sender was paid before"

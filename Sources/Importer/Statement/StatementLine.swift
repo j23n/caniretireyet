@@ -14,6 +14,10 @@ public struct StatementLine: Hashable, Sendable, Identifiable {
         /// account within a few days: a deposit, a withdrawal, or a buy or
         /// sale paid from outside that account.
         case trade(TradeKey)
+        /// A line of another account's statement imported with this one
+        /// (``StatementBatch``) moves the same amount the other way within
+        /// a few days: a transfer.
+        case paired(AccountID)
         /// The description names another account of the library (or its
         /// institution): a transfer, or a payment of a debt (spending).
         case account(AccountID)

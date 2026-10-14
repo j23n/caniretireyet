@@ -144,6 +144,31 @@ struct StatementPurchaseTests {
         #expect(saved.byAccount.values.reduce(Decimal(0), +) == 700)
     }
 
+    /// A value of the account sold on the sale's own day is from before the
+    /// sale: importing again still finds it. Counted in another value, it
+    /// isn't sold again.
+    @Test func aSaleOnADayWithAValueIsFoundAgain() throws {
+        var start = Self.library()
+        start.upsert(Valuation(account: "moto", date: "2026-03-18", balance: 12000))
+        var session = try Self.session()
+        let row = try Self.line(session.preview(against: start, today: Self.today), "Bonifico da Mario").row
+        session.setStatementAsset(.sale("moto"), forRow: row)
+        let library = session.preview(against: start, today: Self.today).apply(to: start).library
+        #expect(library.accounts["moto"]?.closed == "2026-04-01")
+        let again = session.preview(against: library, today: Self.today)
+        #expect(again.records.allSatisfy { $0.status == .identical })
+        #expect(again.accountChanges.isEmpty)
+        #expect(!again.issues.contains { !$0.isNote })
+
+        // A value of the current account checked in on 20 March: the line now counts in it.
+        var checked = library
+        checked.upsert(Valuation(account: "conto", date: "2026-03-20", balance: 18000))
+        let moved = session.preview(against: checked, today: Self.today)
+        #expect(moved.accountChanges.isEmpty)
+        #expect(!moved.records.contains { $0.id == .valuation(ValuationKey(account: "moto", date: "2026-03-20")) })
+        #expect(moved.issues.contains { $0.kind == .statementAssetLeftOut(row: row, account: "moto") })
+    }
+
     /// An older account with the purchase's name, such as the car before,
     /// isn't the one it starts.
     @Test func aPurchaseDoesntTakeAnOlderAccountsName() throws {
