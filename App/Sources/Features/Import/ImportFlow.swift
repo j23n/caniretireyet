@@ -435,6 +435,22 @@ struct ImportFlow: Sendable {
         refreshPreview()
     }
 
+    /// Changes the sessions of every file of the batch at once, each given
+    /// with its ID (a rule for every statement, a sender's lines in several
+    /// files), then makes the previews again once. Without a batch, changes
+    /// the one file's, with the ID `nil`.
+    mutating func editBatchSessions(_ edit: (Int?, inout ImportSession) -> Void) {
+        guard var batch else {
+            editSession { edit(nil, &$0) }
+            return
+        }
+        batch.editSessions(library: library) { edit($0, &$1) }
+        self.batch = batch
+        if let file = batch.files.first(where: { $0.id == batchFile }) { session = file.session }
+        problem = nil
+        refreshPreview()
+    }
+
     /// Changes the decisions and applies them to the preview (which isn't
     /// made again: decisions don't change what the file says).
     mutating func editDecisions(_ edit: (inout ImportDecisions) -> Void) {

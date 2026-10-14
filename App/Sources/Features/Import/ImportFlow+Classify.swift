@@ -2,21 +2,17 @@ import Foundation
 import Importer
 import Model
 
-/// The money in and out of one class of a bank statement's lines.
-struct StatementClassTotal: Identifiable, Hashable, Sendable {
-    var statementClass: StatementClass
-    var id: StatementClass { statementClass }
-    var lines: Int
-    /// The lines' money in, a positive sum.
-    var moneyIn: Decimal
-    /// The lines' money out, a positive sum.
-    var moneyOut: Decimal
-}
-
 /// A note or problem about a bank statement's lines or days.
 struct StatementNote: Hashable, Sendable {
     var text: String
     var isProblem: Bool
+}
+
+/// What a rule makes the lines with its words: a class, or money moved to
+/// or from an account.
+enum StatementRuleTarget: Hashable, Sendable {
+    case statementClass(StatementClass)
+    case moved(AccountID)
 }
 
 extension ImportIssue {
@@ -27,86 +23,144 @@ extension ImportIssue {
 }
 
 /// The Income step of a bank statement (the statement layout; IMPORT.md,
-/// "Bank statements"): each line with its class and why it has it, the
-/// rules that classify lines, and the days the file covers.
+/// "Bank statements"): each line with its class, the rules that classify
+/// lines, kept in each statement's profile, and the days the file covers.
 extension ImportFlow {
-    /// The file's lines in date order, each with its class.
+    /// The lines of the file on screen in date order, each with its class.
     var statementLines: [StatementLine] { preview?.statementLines ?? [] }
 
-    /// The classes a line can have, in menu order.
-    static let statementClasses: [StatementClass] = [
-        .income, .spending, .oneOff, .tax, .transfer, .interest, .ignore,
-    ]
+    /// The classes a line can be given, in menu order. Money moved between
+    /// your accounts is given by its account (``StatementAsset/moved(_:)``).
+    static let statementClasses: [StatementClass] = [.income, .spending, .oneOff, .tax, .interest, .ignore]
 
-    /// The account the statement is of, if it's chosen.
+    /// The account the file on screen is a statement of, if it's chosen.
     var statementAccount: Account? {
         constants.account.flatMap { library.accounts[$0] }
     }
 
-    /// Each class with its lines' money in and out, in menu order; classes
-    /// without lines are left out.
-    var statementClassTotals: [StatementClassTotal] {
-        let lines = statementLines
-        return Self.statementClasses.compactMap { statementClass in
-            let ofClass = lines.filter { $0.statementClass == statementClass }
-            guard !ofClass.isEmpty else { return nil }
-            let moneyIn = ofClass.filter { $0.amount > 0 }.reduce(Decimal(0)) { $0 + $1.amount }
-            let moneyOut = ofClass.filter { $0.amount < 0 }.reduce(Decimal(0)) { $0 - $1.amount }
-            return StatementClassTotal(statementClass: statementClass, lines: ofClass.count, moneyIn: moneyIn,
-                                       moneyOut: moneyOut)
-        }
-    }
-
-    /// Gives one line a class, for this file only; `nil` goes back to the
-    /// class its rule, a trade, an account's name, the words or its sign give.
+    /// Gives one line of the file on screen a class, for this file only;
+    /// `nil` goes back to the class its rule, a trade, an account's name,
+    /// the words or its sign give.
     mutating func setStatementClass(_ statementClass: StatementClass?, forRow row: Int) {
         editSession { $0.setStatementClass(statementClass, forRow: row) }
     }
 
-    /// Gives every line whose text has `phrase` a class, now and in next
-    /// month's file (it's kept in the profile, if saved); `nil` removes the rule.
+    /// Answers one line of the file on screen as money moved to or from an
+    /// account, a purchase you keep or a sale; `nil` takes the answer back.
+    mutating func setStatementAsset(_ asset: StatementAsset?, forRow row: Int) {
+        editSession { $0.setStatementAsset(asset, forRow: row) }
+    }
+
+    // MARK: Rules
+
+    /// Gives every line whose text has `phrase` a class, in every statement
+    /// open, now and in next month's files (it's kept in each statement's
+    /// profile, if saved); `nil` removes the rule.
     mutating func setStatementRule(_ statementClass: StatementClass?, for phrase: String) {
         let phrase = phrase.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !phrase.isEmpty else { return }
-        editSession { $0.setStatementRule(statementClass, for: phrase) }
+        editBatchSessions { _, session in session.setStatementRule(statementClass, for: phrase) }
     }
 
     /// Makes every line whose text has `phrase` money moved to or from
-    /// `account`, now and in next month's file; `nil` removes the rule.
+    /// `account`, in every statement open but the account's own, now and
+    /// in next month's files; `nil` removes the rule.
     mutating func setStatementRule(movingTo account: AccountID?, for phrase: String) {
         let phrase = phrase.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !phrase.isEmpty else { return }
-        editSession { $0.setStatementRule(movingTo: account, for: phrase) }
+        editBatchSessions { _, session in
+            if account == nil || session.profile.constants.account != account {
+                session.setStatementRule(movingTo: account, for: phrase)
+            }
+        }
     }
 
-    /// The profile's rules, in the order they were made.
-    var statementRules: [StatementRule] { session?.profile.rules ?? [] }
+    /// Makes `phrase` a rule with `target`, in every statement open;
+    /// `nil` removes it.
+    mutating func setStatementRule(to target: StatementRuleTarget?, for phrase: String) {
+        switch target {
+        case .statementClass(let statementClass)?: setStatementRule(statementClass, for: phrase)
+        case .moved(let account)?: setStatementRule(movingTo: account, for: phrase)
+        case nil: setStatementRule(nil, for: phrase)
+        }
+    }
 
-    /// How many of the file's lines a rule for `phrase` would classify:
-    /// those whose longest matching phrase it would be, leaving out lines
-    /// whose class was chosen alone. `nil` when `phrase` has no words to
-    /// match (e.g. "–"), so no rule can be made from it.
+    /// The statements' sessions: the batch's files, or the one file.
+    private var statementSessions: [ImportSession] {
+        batch.map { $0.files.map(\.session) } ?? (session.map { [$0] } ?? [])
+    }
+
+    /// The rules of the statements open, each phrase once, in the order
+    /// they were made.
+    var statementRules: [StatementRule] {
+        var rules: [StatementRule] = []
+        for rule in statementSessions.flatMap(\.profile.rules) where !rules.contains(where: { $0.match == rule.match }) {
+            rules.append(rule)
+        }
+        return rules
+    }
+
+    /// The rule for `phrase` itself in a statement open, if one has it.
+    func statementRule(matching phrase: String) -> StatementRule? {
+        statementSessions.lazy.compactMap { $0.statementRule(matching: phrase) }.first
+    }
+
+    /// What the rule for `phrase` makes its lines now, if there is one.
+    func statementRuleTarget(matching phrase: String) -> StatementRuleTarget? {
+        guard let rule = statementRule(matching: phrase) else { return nil }
+        if rule.statementClass == .transfer, let account = rule.account { return .moved(account) }
+        return .statementClass(rule.statementClass)
+    }
+
+    /// What a rule made from `line` can make its lines: a class, or money
+    /// moved to or from one of the accounts the line's money can move to.
+    func statementRuleTargets(for line: BatchStatementLine) -> [StatementRuleTarget] {
+        Self.statementClasses.map { .statementClass($0) } + moveChoices(for: line).map { .moved($0.id) }
+    }
+
+    /// "Income", "Left Out", "Moved to or from Tax pot".
+    func statementRuleTargetTitle(_ target: StatementRuleTarget) -> String {
+        switch target {
+        case .statementClass(let statementClass): Self.statementClassMenuTitle(statementClass)
+        case .moved(let account): "Moved to or from \(accountName(account))"
+        }
+    }
+
+    /// How many lines of the statements open a rule for `phrase` would
+    /// classify: in each file, those whose longest matching phrase it would
+    /// be, leaving out lines whose class was chosen alone. `nil` when
+    /// `phrase` has no words to match (e.g. "–"), so no rule can be made
+    /// from it.
     func linesMatching(rule phrase: String) -> Int? {
-        rowsMatching(rule: phrase)?.count
+        var count = 0
+        for file in batch?.files.map({ Optional($0.id) }) ?? [nil] {
+            guard let session = statementSession(ofFile: file) else { continue }
+            let lines = allStatementLines.filter { $0.file == file }.map(\.line)
+            guard let rows = Self.rows(of: lines, matching: phrase, in: session) else { return nil }
+            count += rows.count
+        }
+        return count
     }
 
-    /// The rows of the lines a rule for `phrase` would classify, as
-    /// ``linesMatching(rule:)`` counts them.
-    func rowsMatching(rule phrase: String) -> Set<Int>? {
-        guard var session else { return nil }
+    /// The rows of `lines` a rule for `phrase` would classify in `session`.
+    private static func rows(of lines: [StatementLine], matching phrase: String,
+                             in session: ImportSession) -> Set<Int>? {
         var alone = session
         alone.profile.rules = []
         alone.setStatementRule(.ignore, for: phrase)
         guard let rule = alone.profile.rules.first else { return nil }
+        var session = session
         session.setStatementRule(.ignore, for: phrase)
-        return Set(statementLines.filter { line in
+        return Set(lines.filter { line in
             line.source != .chosen && session.statementRule(for: line.text)?.match == rule.match
         }.map(\.row))
     }
 
-    /// The phrase to start a rule from: the line's text up to its first
-    /// number (dates, amounts and references differ from month to month).
+    /// The phrase to start a rule from: the line's sender, else its text
+    /// up to its first number (dates, amounts and references differ from
+    /// month to month).
     static func suggestedRulePhrase(for line: StatementLine) -> String {
+        if !line.sender.isEmpty { return line.sender }
         let first = line.text.components(separatedBy: " · ").first ?? line.text
         let words = first.split(separator: " ").prefix { word in !word.contains(where: \.isNumber) }
         let phrase = words.joined(separator: " ")
@@ -224,41 +278,8 @@ extension ImportFlow {
         }
     }
 
-    /// What a class does to the account's money in and out.
-    static func statementClassMeaning(_ statementClass: StatementClass) -> String {
-        switch statementClass {
-        case .income: "Money in"
-        case .spending: "Money out; money in, such as a refund, lowers it"
-        case .oneOff: "Neither income nor spending: an inheritance, a gift, a sale"
-        case .tax: "Tax paid: taken off what came in, not spent"
-        case .transfer: "Moved between your accounts: neither"
-        case .interest: "Interest: money in, or a savings account's own interest"
-        case .ignore: "Not counted"
-        default: ""
-        }
-    }
-
-    /// What a rule makes its lines, e.g. "Income", "Moved to or from Tax pot".
-    func statementRuleName(_ rule: StatementRule) -> String {
-        if let account = rule.account, rule.statementClass == .transfer {
-            return "Moved to or from \(accountName(account))"
-        }
-        return Self.statementClassName(rule.statementClass)
-    }
-
-    /// Why a line has its class, e.g. "Your rule “Spesa”", "Names Directa".
-    func statementSourceText(_ source: StatementLine.Source) -> String {
-        switch source {
-        case .chosen: "Chosen for this line"
-        case .rule(let phrase): "Your rule “\(phrase)”"
-        case .trade(let key): "Matches a trade of \(accountName(key.account))"
-        case .paired(let id): "Matches a line of \(accountName(id))'s statement"
-        case .account(let id): "Names \(accountName(id))"
-        case .words: "The usual words"
-        case .paidBefore: "Its sender was paid before"
-        case .recurring: "Pays you every month"
-        case .passThrough: "The same amount moves the other way within days"
-        case .sign: "By its sign"
-        }
+    /// A class as a menu item: "Left Out" for lines left out, else its name.
+    static func statementClassMenuTitle(_ statementClass: StatementClass) -> String {
+        statementClass == .ignore ? "Left Out" : statementClassName(statementClass)
     }
 }

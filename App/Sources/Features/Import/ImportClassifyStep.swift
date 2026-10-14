@@ -3,241 +3,501 @@ import Importer
 import Model
 import SwiftUI
 
-/// Step 4 of a bank statement (the statement layout), Income: the days the
-/// file covers, what its lines add up to, the large lines that need an
-/// answer, what was bought and sold, what was moved between your accounts,
-/// and the rest of its money in by sender, income or paid back. Other money
-/// out is spending unless a rule, a trade or an account's name says it's a
-/// transfer. A sender's class is a rule, which the profile keeps for next
-/// month's file; *All Lines* lists every line to change one alone
-/// (IMPORT.md, "Bank statements", "Moved to or from an account").
+/// Step 2 of bank statements, Income: every statement's lines on one page
+/// (UI.md, "Import"; IMPORT.md, "Bank statements"). The lines asked about,
+/// answered or not, with how many are left; what was moved between your
+/// accounts, a rule's moves, the transfers paired between the files and
+/// money that passed through; income by sender; and what came in, tax,
+/// spent and saved. *All Lines* changes any line alone or makes a rule.
+/// On the Mac and iPad the summary is a card beside the lists and All Lines
+/// a sheet; on iPhone the summary is three figures on top, what was found
+/// is one list, and All Lines is pushed.
 struct ImportClassifyStep: View {
     let model: ImportController
 
+    #if os(iOS)
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    #endif
     @State private var isShowingLines = false
-    @State private var showsAllPaidBack = false
+    /// What All Lines shows when it opens.
+    @State private var linesFilter = StatementLinesFilter()
     /// The line being answered as money moved to or from an account.
-    @State private var moveLine: StatementLine?
+    @State private var moveRequest: StatementMoveRequest?
 
-    /// How many senders of money paid back show before *Show All*.
-    private static let paidBackShown = 5
+    private var isCompact: Bool {
+        #if os(iOS)
+        horizontalSizeClass == .compact
+        #else
+        false
+        #endif
+    }
 
     var body: some View {
         let flow = model.flow
-        let currency = flow.statementAccount?.currency
-        Form {
-            if flow.isBatch {
-                Section {
-                    ImportBatchFilePicker(model: model)
-                } footer: {
-                    Text("Each statement's lines are answered on their own. Transfers between them are paired.")
+        Group {
+            if flow.allStatementLines.isEmpty {
+                ContentUnavailableView {
+                    Label("No Lines Yet", systemImage: "list.bullet.rectangle")
+                } description: {
+                    Text("Say which columns hold the dates and amounts in How It's Read… on the Files step.")
                 }
-            }
-            ImportStatementDays(model: model)
-
-            if flow.statementLines.isEmpty {
-                Section {
-                    Text(flow.statementAccount == nil
-                         ? "Choose the statement's account on the File step to see its lines."
-                         : "No lines can be read yet: say which columns hold the dates and amounts in How It's "
-                            + "Read… on the File step.")
-                        .foregroundStyle(Palette.secondaryInk)
-                }
+            } else if isCompact {
+                compactPage(flow)
             } else {
-                ImportStatementSumsSection(sums: flow.statementSums, currency: currency)
+                widePage(flow)
             }
+        }
+        .toolbar {
+            if !isCompact && !flow.allStatementLines.isEmpty {
+                ToolbarItem(placement: .primaryAction) {
+                    Button(flow.allLinesTitle + "…") { showLines(StatementLinesFilter()) }
+                }
+            }
+        }
+        .sheet(isPresented: $isShowingLines) {
+            ImportAllLinesSheet(model: model, filter: linesFilter)
+        }
+        .sheet(item: $moveRequest) { request in
+            ImportMovedSheet(model: model, request: request)
+        }
+    }
 
+    private func showLines(_ filter: StatementLinesFilter) {
+        linesFilter = filter
+        isShowingLines = true
+    }
+
+    private func askMove(_ line: BatchStatementLine) {
+        moveRequest = StatementMoveRequest(line: line)
+    }
+
+    // MARK: The Mac and iPad
+
+    private func widePage(_ flow: ImportFlow) -> some View {
+        ScrollView {
+            HStack(alignment: .top, spacing: Metrics.xl) {
+                VStack(alignment: .leading, spacing: Metrics.l) {
+                    VStack(alignment: .leading, spacing: Metrics.xs) {
+                        Text("What came in, and what went out?")
+                            .font(.title2.bold())
+                            .accessibilityAddTraits(.isHeader)
+                        Text("Every line is one of five things, in or out. Most are known; these weren't.")
+                            .foregroundStyle(Palette.secondaryInk)
+                    }
+                    questionsSection(flow)
+                    movesSection(flow)
+                    incomeSection(flow)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                if let summary = flow.incomeSummary {
+                    ImportIncomeSummaryCard(summary: summary)
+                        .frame(width: 250)
+                }
+            }
+            .padding(.top, 22)
+            .padding(.leading, Metrics.xl * 2)
+            .padding(.trailing, Metrics.xl + Metrics.l)
+            .padding(.bottom, Metrics.xl)
+        }
+    }
+
+    /// The lines asked about, with how many are left.
+    @ViewBuilder
+    private func questionsSection(_ flow: ImportFlow) -> some View {
+        let questions = flow.statementQuestions
+        if !questions.isEmpty {
+            let color = flow.unansweredQuestions > 0 ? Palette.warning : Palette.secondaryInk
+            IncomeSection(flow.questionsHeader, color: color) {
+                ForEach(Array(questions.enumerated()), id: \.element.id) { index, line in
+                    if index > 0 { Divider() }
+                    ImportQuestionRow(model: model, line: line, isCompact: false, askMove: { askMove(line) })
+                }
+            }
+        }
+    }
+
+    /// A rule's moves, the transfers paired between the files, money that
+    /// passed through, and lines moved one by one.
+    @ViewBuilder
+    private func movesSection(_ flow: ImportFlow) -> some View {
+        let moves = flow.moveGroups
+        if !moves.isEmpty {
+            IncomeSection("Moved between your accounts") {
+                ForEach(Array(moves.enumerated()), id: \.element.id) { index, group in
+                    if index > 0 { Divider() }
+                    moveRow(group, flow: flow)
+                }
+            }
+        }
+    }
+
+    private func moveRow(_ group: StatementMoveGroup, flow: ImportFlow) -> some View {
+        let currency = group.lines.first.flatMap { flow.currency(of: $0) }
+        return ImportGroupRow(title: group.title, detail: group.detail, why: group.why, amount: group.total,
+                              signed: group.isSigned, currency: currency, link: group.linkTitle) {
+            showLines(group.filter)
+        }
+    }
+
+    /// Income by sender.
+    @ViewBuilder
+    private func incomeSection(_ flow: ImportFlow) -> some View {
+        let income = flow.incomeGroups
+        if !income.isEmpty {
+            IncomeSection(flow.incomeHeader(income)) {
+                ForEach(Array(income.enumerated()), id: \.element.id) { index, group in
+                    if index > 0 { Divider() }
+                    senderRow(group, flow: flow)
+                }
+            }
+        }
+    }
+
+    private func senderRow(_ group: StatementSenderGroup, flow: ImportFlow) -> some View {
+        let currency = group.lines.first.flatMap { flow.currency(of: $0) }
+        return ImportGroupRow(title: group.sender.isEmpty ? "No sender named" : group.sender, detail: nil,
+                              why: flow.senderDetail(group), amount: group.total, signed: false,
+                              currency: currency, link: "Change…") {
+            showLines(ImportFlow.filter(for: group))
+        }
+    }
+
+    // MARK: iPhone
+
+    private func compactPage(_ flow: ImportFlow) -> some View {
+        List {
+            if let summary = flow.incomeSummary {
+                Section {
+                    ImportIncomeSummaryColumns(summary: summary)
+                }
+            }
             let questions = flow.statementQuestions
             if !questions.isEmpty {
                 Section {
                     ForEach(questions) { line in
-                        ImportStatementQuestionRow(model: model, line: line, currency: currency,
-                                                   askMove: { moveLine = line })
+                        ImportQuestionRow(model: model, line: line, isCompact: true, askMove: { askMove(line) })
                     }
                 } header: {
-                    Text("Needs an answer")
-                } footer: {
-                    Text("More than a month's spending, or more than a regular payer's usual amount, came in or "
-                        + "went out, and nothing says what it is. A one-off, such as an inheritance or the sale of "
-                        + "something you didn't track, is neither income nor spending. Tax is taken off what came "
-                        + "in. Money moved to or from one of your accounts, such as a tax pot, a purchase you keep "
-                        + "or a sale, is neither. Until it's answered, it counts as spending.")
+                    Text(flow.questionsHeader)
+                        .foregroundStyle(flow.unansweredQuestions > 0 ? Palette.warning : Palette.secondaryInk)
                 }
             }
-
-            let assets = flow.statementAssetLines
-            if !assets.isEmpty {
-                Section {
-                    ForEach(assets) { line in
-                        ImportStatementAssetRow(model: model, line: line, currency: currency)
-                    }
-                } header: {
-                    Text("Bought and sold")
-                } footer: {
-                    Text("Importing starts an account for each purchase, worth what you paid, and closes each "
-                        + "account sold. Both are money moved between your accounts, so they're neither spent "
-                        + "nor came in.")
-                }
-            }
-
-            let transfers = flow.statementTransferLines
-            if !transfers.isEmpty {
-                Section {
-                    ForEach(transfers) { line in
-                        ImportStatementTransferRow(model: model, line: line, currency: currency)
-                    }
-                } header: {
-                    Text("Moved between your accounts")
-                } footer: {
-                    Text("Answered as moved to or from one of your accounts, or the same amount came in and went "
-                        + "out again within a few days: money passing through. Neither came in nor was spent.")
-                }
-            }
-
-            let income = flow.incomingGroups(.income)
-            if !income.isEmpty {
-                Section {
-                    ForEach(income) { group in
-                        ImportStatementSenderRow(model: model, group: group, currency: currency,
-                                                 change: (statementClass: .spending, title: "Not Income"))
-                    }
-                } header: {
-                    Text("Income")
-                } footer: {
-                    Text("Pay, a pension, rent, a client: what came in. A sender's class is kept for next month's "
-                        + "file, unless its words also match other lines.")
-                }
-            }
-
-            let oneOffs = flow.incomingGroups(.oneOff)
-            if !oneOffs.isEmpty {
-                Section("One-offs") {
-                    ForEach(oneOffs) { group in
-                        ImportStatementSenderRow(model: model, group: group, currency: currency,
-                                                 change: (statementClass: .spending, title: "Not a One-Off"))
-                    }
-                }
-            }
-
-            let paidBack = flow.incomingGroups(.spending)
-            if !paidBack.isEmpty {
-                Section {
-                    let shown = showsAllPaidBack ? paidBack : Array(paidBack.prefix(Self.paidBackShown))
-                    ForEach(shown) { group in
-                        ImportStatementSenderRow(model: model, group: group, currency: currency,
-                                                 change: (statementClass: .income, title: "Income"))
-                    }
-                    if paidBack.count > Self.paidBackShown {
-                        Button(showsAllPaidBack ? "Show Fewer" : "Show All \(paidBack.count) Senders") {
-                            showsAllPaidBack.toggle()
+            let found = flow.foundForYou
+            if !found.isEmpty {
+                Section("Found for you") {
+                    ForEach(found) { row in
+                        LabeledContent {
+                            AmountText(row.amount)
+                                .foregroundStyle(Palette.secondaryInk)
+                        } label: {
+                            Text(verbatim: row.title)
+                                .privacySensitiveInFeedback()
                         }
                     }
-                } header: {
-                    Text("Paid back")
-                } footer: {
-                    Text("Refunds, a friend's share of a bill, an insurance payout: they lower what you spent. "
-                        + "Money in is paid back unless its sender is income or pays you every month.")
                 }
             }
-
             Section {
-                Button("All Lines…") { isShowingLines = true }
-            } footer: {
-                Text("Money out is spending, unless a rule, a trade of another account or another account's name "
-                    + "says it was moved between your accounts. All Lines shows every line and why it has its "
-                    + "class, to change one alone, move it to or from an account, or make a rule.")
-            }
-
-            let rules = flow.statementRules
-            if !rules.isEmpty {
-                Section {
-                    ForEach(rules, id: \.match) { rule in
-                        ImportStatementRuleRow(model: model, rule: rule)
-                    }
-                } header: {
-                    Text("Rules")
-                } footer: {
-                    Text("Rules are kept in the profile, if you save one, so next month's statement is classified "
-                        + "the same way.")
+                NavigationLink {
+                    ImportAllLinesList(model: model)
+                } label: {
+                    Text(flow.allLinesTitle)
                 }
             }
-        }
-        .formStyle(.grouped)
-        .sheet(isPresented: $isShowingLines) {
-            ImportStatementLinesSheet(model: model)
-        }
-        .sheet(item: $moveLine) { line in
-            ImportStatementMoveSheet(model: model, line: line, currency: currency)
         }
     }
 }
 
-// MARK: - The days the file covers
+// MARK: - Sections and rows
 
-/// The days the file is read as covering, the first and last day when the
-/// file covers part of a month, the balance before its first line when
-/// it's needed, and notes on how the lines became values.
-private struct ImportStatementDays: View {
+/// A titled card of rows on the wide page: an uppercase header, then the
+/// rows on a card.
+private struct IncomeSection<Content: View>: View {
+    let title: String
+    let color: Color
+    let content: Content
+
+    init(_ title: String, color: Color = Palette.secondaryInk, @ViewBuilder content: () -> Content) {
+        self.title = title
+        self.color = color
+        self.content = content()
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Metrics.s) {
+            Text(title)
+                .font(.caption.weight(.semibold))
+                .textCase(.uppercase)
+                .tracking(0.4)
+                .foregroundStyle(color)
+                .accessibilityAddTraits(.isHeader)
+            VStack(alignment: .leading, spacing: 0) {
+                content
+            }
+            .background(Palette.card, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .strokeBorder(Palette.border, lineWidth: 1)
+            }
+        }
+    }
+}
+
+/// The answers to a line, as a segmented control: Income, Spending,
+/// One-off, Tax, *Moved…*. Ringed in the warning color while the line
+/// waits for an answer.
+struct StatementAnswerPicker: View {
+    let selection: StatementAnswerChoice?
+    let isAsking: Bool
+    let choose: (StatementAnswerChoice) -> Void
+
+    var body: some View {
+        Picker("What is it?", selection: Binding(get: { selection }, set: { choice in
+            if let choice { choose(choice) }
+        })) {
+            ForEach(StatementAnswerChoice.all, id: \.self) { choice in
+                Text(choice.title).tag(StatementAnswerChoice?.some(choice))
+            }
+        }
+        .pickerStyle(.segmented)
+        .labelsHidden()
+        .overlay {
+            if isAsking {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .strokeBorder(Palette.warning, lineWidth: 1.5)
+                    .padding(-2)
+                    .allowsHitTesting(false)
+            }
+        }
+    }
+}
+
+/// A line asked about: who sent or was paid it and how much, its
+/// description, its day and account and what it was answered (a move
+/// opens its sheet again), and the answers. On the Mac the answers are
+/// beside it; on iPhone below it, and the row opens a move's sheet.
+private struct ImportQuestionRow: View {
     let model: ImportController
+    let line: BatchStatementLine
+    let isCompact: Bool
+    let askMove: () -> Void
 
     var body: some View {
         let flow = model.flow
-        let period = flow.statementPeriod
-        Section {
-            if let period {
-                LabeledContent("Read as covering") {
-                    Text(AmountFormat.mediumDate(period.from) + " – " + AmountFormat.mediumDate(period.through))
-                        .privacySensitiveInFeedback()
-                }
+        let picker = StatementAnswerPicker(selection: flow.answerChoice(line), isAsking: line.line.needsAnswer,
+                                           choose: answer)
+        if isCompact {
+            VStack(alignment: .leading, spacing: Metrics.s) {
+                info(flow)
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        if flow.answerDetail(line)?.opensSheet == true { askMove() }
+                    }
+                picker
             }
-            Toggle("Starts on a day of its own", isOn: Binding(get: { model.flow.statementFrom != nil }, set: { on in
-                model.flow.setStatementFrom(on ? (period?.from ?? model.flow.statementLines.first?.date) : nil)
-            }))
-            if let from = flow.statementFrom {
-                DatePicker("First day", selection: Binding(get: { from.dateValue }, set: { date in
-                    model.flow.setStatementFrom(CalendarDate(date, in: .current))
-                }), in: ...(flow.statementThrough?.dateValue ?? Date()), displayedComponents: .date)
-                    .personalControl()
+            .padding(.vertical, Metrics.xs)
+        } else {
+            HStack(alignment: .center, spacing: Metrics.l) {
+                info(flow)
+                picker.fixedSize()
             }
-            Toggle("Ends on a day of its own", isOn: Binding(get: { model.flow.statementThrough != nil }, set: { on in
-                model.flow.setStatementThrough(on ? Self.lastDay(of: model.flow) : nil)
-            }))
-            if let through = flow.statementThrough {
-                DatePicker("Last day", selection: Binding(get: { through.dateValue }, set: { date in
-                    model.flow.setStatementThrough(CalendarDate(date, in: .current))
-                }), in: min(flow.statementFrom?.dateValue ?? .distantPast, Date())...Date(), displayedComponents: .date)
-                    .personalControl()
-            }
-            if flow.needsOpeningBalance || flow.statementOpeningBalance != nil {
-                ImportOpeningBalanceField(model: model)
-            }
-            ForEach(flow.statementNotes, id: \.self) { note in
-                Label(note.text, systemImage: note.isProblem ? "exclamationmark.triangle" : "info.circle")
-                    .font(.footnote)
-                    .foregroundStyle(note.isProblem ? Palette.warning : Palette.secondaryInk)
-                    .privacySensitiveInFeedback()
-            }
-        } header: {
-            Text("Days")
-        } footer: {
-            Text("A statement is read as whole months: from the first day of its first line's month to the last day "
-                + "of its last line's month, or today. A bank's export of the last 90 days, or one made in the "
-                + "middle of a month, covers less: give its first and last days. The last day gets a value of its "
-                + "own, which next month's file follows on from.")
+            .padding(.vertical, Metrics.m)
+            .padding(.horizontal, Metrics.l)
         }
     }
 
-    /// The last day to start from: the file's last line, or the period's last day if earlier.
-    private static func lastDay(of flow: ImportFlow) -> CalendarDate? {
-        let today = CalendarDate.today()
-        let last = flow.statementLines.last?.date ?? flow.statementPeriod?.through
-        return last.map { min($0, today) }
+    /// A class answers the line alone; *Moved…* asks where in a sheet.
+    private func answer(_ choice: StatementAnswerChoice) {
+        switch choice {
+        case .statementClass(let statementClass): model.flow.setStatementClass(statementClass, for: line)
+        case .moved: askMove()
+        }
+    }
+
+    private func info(_ flow: ImportFlow) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(alignment: .firstTextBaseline, spacing: Metrics.m) {
+                Text(verbatim: line.title.isEmpty ? "—" : line.title)
+                    .fontWeight(.semibold)
+                    .lineLimit(1)
+                    .privacySensitiveInFeedback()
+                Spacer(minLength: Metrics.s)
+                AmountText(line.amount, currency: flow.currency(of: line), precision: .cents, signed: true)
+                    .fontWeight(.semibold)
+            }
+            if !line.line.sender.isEmpty && line.line.text != line.line.sender {
+                Text(verbatim: line.line.text)
+                    .font(isCompact ? .footnote : .caption)
+                    .foregroundStyle(Palette.ink.opacity(0.8))
+                    .lineLimit(2)
+                    .privacySensitiveInFeedback()
+            }
+            HStack(spacing: 0) {
+                Text(verbatim: flow.dateAndAccount(line))
+                if let detail = flow.answerDetail(line) {
+                    Text(verbatim: " · ")
+                    if detail.opensSheet {
+                        Button(action: askMove) {
+                            Text(verbatim: detail.text)
+                                .foregroundStyle(detail.isProblem ? Palette.warning : Palette.accent)
+                        }
+                        .buttonStyle(.plain)
+                    } else {
+                        Text(verbatim: detail.text)
+                    }
+                }
+            }
+            .font(isCompact ? .footnote : .caption)
+            .foregroundStyle(Palette.secondaryInk)
+            .lineLimit(1)
+            .privacySensitiveInFeedback()
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
+/// A row of *Moved between your accounts* or *Income* on the wide page:
+/// its title and detail, why, the amount, and a link to its lines in All
+/// Lines.
+private struct ImportGroupRow: View {
+    let title: String
+    let detail: String?
+    let why: String
+    let amount: Decimal
+    let signed: Bool
+    let currency: CurrencyCode?
+    let link: String
+    let open: () -> Void
+
+    var body: some View {
+        HStack(spacing: Metrics.m) {
+            HStack(alignment: .firstTextBaseline, spacing: Metrics.xs) {
+                Text(verbatim: title)
+                    .fontWeight(.semibold)
+                if let detail {
+                    Text(verbatim: detail)
+                        .foregroundStyle(Palette.secondaryInk)
+                }
+            }
+            .lineLimit(1)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .privacySensitiveInFeedback()
+            Text(verbatim: why)
+                .font(.caption)
+                .foregroundStyle(Palette.secondaryInk)
+                .lineLimit(2)
+                .frame(width: 190, alignment: .leading)
+                .privacySensitiveInFeedback()
+            AmountText(amount, currency: currency, precision: .cents, signed: signed)
+                .frame(width: 110, alignment: .trailing)
+            Button(link, action: open)
+                .buttonStyle(.borderless)
+                .font(.caption)
+                .foregroundStyle(Palette.accent)
+                .frame(width: 80, alignment: .trailing)
+        }
+        .padding(.vertical, 9)
+        .padding(.horizontal, Metrics.l)
+    }
+}
+
+// MARK: - The summary
+
+/// What came in, tax, after tax, spent, saved and the savings rate, beside
+/// the lists on the Mac and iPad.
+private struct ImportIncomeSummaryCard: View {
+    let summary: IncomeSummary
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(verbatim: summary.title)
+                .font(.caption.weight(.semibold))
+                .textCase(.uppercase)
+                .tracking(0.4)
+                .foregroundStyle(Palette.secondaryInk)
+                .privacySensitiveInFeedback()
+            row("Came in", summary.cameIn)
+            row("Tax, paid and set aside", -summary.tax, signed: true)
+            Divider()
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Came in after tax")
+                    .font(.caption)
+                    .foregroundStyle(Palette.secondaryInk)
+                AmountText(summary.afterTax, tabular: false)
+                    .font(.title.bold())
+            }
+            row("Spent", summary.spent)
+            row("Saved", summary.saved)
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    Text("Savings rate")
+                    Spacer(minLength: Metrics.s)
+                    Text(verbatim: summary.rateText)
+                        .monospacedDigit()
+                        .privacySensitiveInFeedback()
+                }
+                .fontWeight(.semibold)
+                ProgressView(value: min(max(summary.rate?.doubleValue ?? 0, 0), 1))
+                    .tint(Palette.accent)
+                    .privacySensitiveInFeedback()
+                    .accessibilityHidden(true)
+            }
+            Text("Saved comes from the balances, so answers move only what came in, the tax and what you spent.")
+                .font(.caption)
+                .foregroundStyle(Palette.secondaryInk)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.vertical, Metrics.l)
+        .padding(.horizontal, 18)
+        .background(Palette.card, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .strokeBorder(Palette.border, lineWidth: 1)
+        }
+    }
+
+    private func row(_ title: String, _ amount: Decimal, signed: Bool = false) -> some View {
+        HStack {
+            Text(title)
+                .foregroundStyle(Palette.secondaryInk)
+            Spacer(minLength: Metrics.s)
+            AmountText(amount, signed: signed)
+        }
+    }
+}
+
+/// The summary on iPhone: after tax, spent, and the savings rate.
+private struct ImportIncomeSummaryColumns: View {
+    let summary: IncomeSummary
+
+    var body: some View {
+        HStack(alignment: .top, spacing: Metrics.s) {
+            column("After tax") { AmountText(summary.afterTax) }
+            column("Spent") { AmountText(summary.spent) }
+            column("Saved") {
+                Text(verbatim: summary.rateText)
+                    .monospacedDigit()
+                    .privacySensitiveInFeedback()
+            }
+        }
+    }
+
+    private func column<Value: View>(_ title: String, @ViewBuilder value: () -> Value) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title)
+                .font(.caption)
+                .foregroundStyle(Palette.secondaryInk)
+            value()
+                .font(.headline)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+// MARK: - The balance before the first line
+
 /// The balance before a statement's first line, typed in, for a file
 /// without a balance column that doesn't follow on from the library's
-/// values. Classify's Days and Preview show it.
+/// values. Review shows it.
 struct ImportOpeningBalanceField: View {
     let model: ImportController
 
@@ -267,661 +527,7 @@ struct ImportOpeningBalanceField: View {
     }
 }
 
-// MARK: - Sums, questions and senders
-
-/// What the file's lines add up to: what came in, tax and what came in
-/// after it, what was paid back and spent, one-offs, and what was moved
-/// between your accounts.
-private struct ImportStatementSumsSection: View {
-    let sums: StatementSums
-    let currency: CurrencyCode?
-
-    var body: some View {
-        Section {
-            row("Came in", sums.cameIn)
-            if sums.tax != 0 {
-                row("Tax", -sums.tax, signed: true)
-                row("After tax", sums.afterTax)
-            }
-            if sums.interest != 0 { row("Interest", sums.interest) }
-            if sums.oneOffs != 0 { row("One-offs", sums.oneOffs) }
-            if sums.bought != 0 { row("Bought to keep", sums.bought) }
-            if sums.sold != 0 { row("Sold", sums.sold) }
-            row("Spent", sums.spent, detail: sums.paidBack == 0 ? nil : "after paid back")
-            if sums.paidBack != 0 { row("Paid back", sums.paidBack) }
-            if sums.moved != 0 { row("Moved between your accounts", sums.moved, signed: true) }
-            if sums.leftOut != 0 { row("Left out", sums.leftOut, signed: true) }
-        } header: {
-            Text("This file")
-        } footer: {
-            Text("What you saved comes from the balances, so these classes only move money between came in and "
-                + "spent.")
-        }
-    }
-
-    private func row(_ title: String, _ amount: Decimal, detail: String? = nil, signed: Bool = false) -> some View {
-        LabeledContent {
-            AmountText(amount, currency: currency, precision: .cents, signed: signed)
-        } label: {
-            if let detail {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(title)
-                    Text(detail)
-                        .font(.caption)
-                        .foregroundStyle(Palette.secondaryInk)
-                }
-            } else {
-                Text(title)
-            }
-        }
-    }
-}
-
-/// A line that needs an answer: who sent or was paid it, its description,
-/// when, how much, and the answers for this line: income, spending, a
-/// one-off, tax, or *Moved…*, which asks which account the money moved to
-/// or from.
-private struct ImportStatementQuestionRow: View {
-    let model: ImportController
-    let line: StatementLine
-    let currency: CurrencyCode?
-    let askMove: () -> Void
-
-    /// An answer: a class, or money moved to or from an account, which a
-    /// sheet asks about.
-    private enum Answer: Hashable {
-        case statementClass(StatementClass)
-        case moved
-    }
-
-    private static let answers: [Answer] = [
-        .statementClass(.income), .statementClass(.spending), .statementClass(.oneOff), .statementClass(.tax), .moved,
-    ]
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: Metrics.s) {
-            HStack(alignment: .firstTextBaseline) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(verbatim: line.sender.isEmpty ? line.text : line.sender)
-                        .lineLimit(2)
-                        .privacySensitiveInFeedback()
-                    if !line.sender.isEmpty && line.text != line.sender {
-                        Text(verbatim: line.text)
-                            .font(.caption)
-                            .foregroundStyle(Palette.secondaryInk)
-                            .lineLimit(3)
-                            .privacySensitiveInFeedback()
-                    }
-                    Text(AmountFormat.mediumDate(line.date))
-                        .font(.caption)
-                        .foregroundStyle(Palette.secondaryInk)
-                        .privacySensitiveInFeedback()
-                }
-                Spacer()
-                AmountText(line.amount, currency: currency, precision: .cents, signed: true)
-            }
-            Picker("What is it?", selection: Binding(get: { Answer?.none }, set: { answer in
-                switch answer {
-                case .statementClass(let statementClass)?:
-                    model.flow.setStatementClass(statementClass, forRow: line.row)
-                case .moved?: askMove()
-                case nil: break
-                }
-            })) {
-                ForEach(Self.answers, id: \.self) { answer in
-                    Text(Self.title(answer)).tag(Answer?.some(answer))
-                }
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-        }
-    }
-
-    private static func title(_ answer: Answer) -> String {
-        switch answer {
-        case .statementClass(let statementClass): ImportFlow.statementClassName(statementClass)
-        case .moved: "Moved…"
-        }
-    }
-}
-
-/// A large line that's money moved between your accounts: who sent or
-/// was paid it, its description, the account, when, the amount, and a way
-/// back. A transfer or a move chosen for the line has *Undo*, which asks
-/// again; money that passed through has *Not a Transfer*, which counts it
-/// as spending.
-private struct ImportStatementTransferRow: View {
-    let model: ImportController
-    let line: StatementLine
-    let currency: CurrencyCode?
-
-    var body: some View {
-        LabeledContent {
-            HStack(spacing: Metrics.m) {
-                AmountText(line.amount, currency: currency, precision: .cents, signed: true)
-                if case .passThrough = line.source {
-                    Button("Not a Transfer") {
-                        model.flow.setStatementClass(.spending, forRow: line.row)
-                    }
-                } else {
-                    Button("Undo") {
-                        if model.flow.statementAnswer(line) != nil {
-                            model.flow.setStatementAsset(nil, forRow: line.row)
-                        } else {
-                            model.flow.setStatementClass(nil, forRow: line.row)
-                        }
-                    }
-                }
-            }
-            .buttonStyle(.bordered)
-            .controlSize(.small)
-        } label: {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(verbatim: line.sender.isEmpty ? line.text : line.sender)
-                    .lineLimit(1)
-                    .privacySensitiveInFeedback()
-                if !line.sender.isEmpty && line.text != line.sender {
-                    Text(verbatim: line.text)
-                        .font(.caption)
-                        .foregroundStyle(Palette.secondaryInk)
-                        .lineLimit(2)
-                        .privacySensitiveInFeedback()
-                }
-                Text(AmountFormat.mediumDate(line.date)
-                    + (model.flow.statementAssetText(line).map { " · " + $0 } ?? ""))
-                    .font(.caption)
-                    .foregroundStyle(line.asset == nil && model.flow.statementAnswer(line) != nil
-                                     ? Palette.warning : Palette.secondaryInk)
-                    .privacySensitiveInFeedback()
-            }
-        }
-    }
-}
-
-/// A line answered as a purchase you keep or a sale: what was bought or
-/// sold, when, the amount, and *Undo*, which asks again.
-private struct ImportStatementAssetRow: View {
-    let model: ImportController
-    let line: StatementLine
-    let currency: CurrencyCode?
-
-    var body: some View {
-        LabeledContent {
-            HStack(spacing: Metrics.m) {
-                AmountText(line.amount, currency: currency, precision: .cents, signed: true)
-                Button("Undo") {
-                    model.flow.setStatementAsset(nil, forRow: line.row)
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
-            }
-        } label: {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(verbatim: title)
-                    .lineLimit(1)
-                    .privacySensitiveInFeedback()
-                Text(detail)
-                    .font(.caption)
-                    .foregroundStyle(line.asset == nil ? Palette.warning : Palette.secondaryInk)
-                    .privacySensitiveInFeedback()
-            }
-        }
-    }
-
-    /// The new account's name, or the account sold.
-    private var title: String {
-        switch model.flow.statementAnswer(line) {
-        case .purchase(let name, _)?: name
-        case .sale(let id)?, .moved(let id)?: model.flow.accountName(id)
-        case nil: line.text
-        }
-    }
-
-    /// "Belongings · bought 20 Feb 2026", "Sold 18 Mar 2026", or why it
-    /// isn't recorded.
-    private var detail: String {
-        if line.asset == nil, model.flow.statementAnswer(line) != nil {
-            return "Not recorded: " + model.flow.statementAssetLeftOutReason(line)
-        }
-        return switch model.flow.statementAnswer(line) {
-        case .purchase(_, let kind)?: "\(kind.displayName) · bought \(AmountFormat.mediumDate(line.date))"
-        case .sale?: "Sold \(AmountFormat.mediumDate(line.date))"
-        case .moved?, nil: AmountFormat.mediumDate(line.date)
-        }
-    }
-}
-
-/// Answers a line as money moved to or from one of your accounts: an
-/// account of the library (tax pots first), a new account for a purchase
-/// you keep (money out), or an account sold (money in). A move to an
-/// account can be every line with the line's words, a rule the profile
-/// keeps for next month's file.
-private struct ImportStatementMoveSheet: View {
-    let model: ImportController
-    let line: StatementLine
-    let currency: CurrencyCode?
-
-    /// Where the money went or came from.
-    private enum Choice: Hashable {
-        case account(AccountID)
-        case sale(AccountID)
-        case purchase
-    }
-
-    @State private var choice: Choice?
-    @State private var name = ""
-    @State private var kind: AccountKind = .belongings
-    @State private var everyLine = false
-    @Environment(\.dismiss) private var dismiss
-
-    private var trimmedName: String { name.trimmingCharacters(in: .whitespacesAndNewlines) }
-    /// The words a rule for every such line has.
-    private var phrase: String { ImportFlow.suggestedRulePhrase(for: line) }
-
-    var body: some View {
-        let accounts = model.flow.moveChoices(for: line)
-        let sales = line.amount > 0 ? model.flow.saleChoices(for: line) : []
-        NavigationStack {
-            Form {
-                ImportStatementLineSection(line: line, currency: currency)
-                Section {
-                    Picker("Account", selection: $choice) {
-                        ForEach(accounts, id: \.id) { account in
-                            Text(verbatim: account.name).tag(Choice?.some(.account(account.id)))
-                        }
-                        ForEach(sales, id: \.id) { account in
-                            Text(verbatim: "Sold: \(account.name)").tag(Choice?.some(.sale(account.id)))
-                        }
-                        if line.amount < 0 {
-                            Text("A New Account").tag(Choice?.some(.purchase))
-                        }
-                    }
-                    .pickerStyle(.inline)
-                    .labelsHidden()
-                    .personalControl()
-                } header: {
-                    Text(line.amount < 0 ? "Moved to" : "Moved from")
-                } footer: {
-                    Text("Money moved to or from one of your accounts isn't spent and didn't come in. A tax pot's "
-                        + "values follow from it, and what goes in counts as tax. A purchase you keep starts an "
-                        + "account worth what you paid; money in from an account you sold closes it.")
-                }
-                switch choice {
-                case .purchase?:
-                    Section {
-                        TextField("Name", text: $name, prompt: Text("Car"))
-                        Picker("Kind", selection: $kind) {
-                            ForEach(StatementAsset.purchaseKinds, id: \.self) { kind in
-                                Text(kind.displayName).tag(kind)
-                            }
-                        }
-                    } header: {
-                        Text("A new account")
-                    } footer: {
-                        Text("Importing starts this account, worth what you paid from the day you paid it. The "
-                            + "money moved from this account into something you keep, so it counts as saved, not "
-                            + "spent. As it gains or loses value, update it at a check-in.")
-                    }
-                case .account?:
-                    if let count = model.flow.linesMatching(rule: phrase) {
-                        Section {
-                            Toggle(isOn: $everyLine) {
-                                Text(verbatim: "Every line with “\(phrase)”")
-                                    .privacySensitiveInFeedback()
-                            }
-                        } footer: {
-                            Text((count == 1 ? "1 line" : "\(count) lines") + " in this file. The rule is kept "
-                                + "in the profile, if you save one, so next month's lines move too.")
-                        }
-                    }
-                case .sale?, nil:
-                    EmptyView()
-                }
-            }
-            .formStyle(.grouped)
-            .navigationTitle("Moved to or From")
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
-                        save()
-                        dismiss()
-                    }
-                    .disabled(choice == nil || (choice == .purchase && trimmedName.isEmpty))
-                }
-            }
-        }
-        .frame(minWidth: 380, minHeight: 420)
-    }
-
-    private func save() {
-        switch choice {
-        case .account(let id)?:
-            if everyLine {
-                // The line's own answer or class would take the rule's place.
-                model.flow.setStatementAsset(nil, forRow: line.row)
-                model.flow.setStatementClass(nil, forRow: line.row)
-                model.flow.setStatementRule(movingTo: id, for: phrase)
-            } else {
-                model.flow.setStatementAsset(.moved(id), forRow: line.row)
-            }
-        case .sale(let id)?:
-            model.flow.setStatementAsset(.sale(id), forRow: line.row)
-        case .purchase?:
-            model.flow.setStatementAsset(.purchase(name: trimmedName, kind: kind), forRow: line.row)
-        case nil:
-            break
-        }
-    }
-}
-
-/// The line a sheet answers: its text, date and amount.
-private struct ImportStatementLineSection: View {
-    let line: StatementLine
-    let currency: CurrencyCode?
-
-    var body: some View {
-        Section {
-            LabeledContent {
-                AmountText(line.amount, currency: currency, precision: .cents, signed: true)
-            } label: {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(verbatim: line.text.isEmpty ? "—" : line.text)
-                        .lineLimit(2)
-                        .privacySensitiveInFeedback()
-                    Text(AmountFormat.mediumDate(line.date))
-                        .font(.caption)
-                        .foregroundStyle(Palette.secondaryInk)
-                        .privacySensitiveInFeedback()
-                }
-            }
-        } header: {
-            Text("The line")
-        }
-    }
-}
-
-/// A sender's money in of one class: who, how many payments, the total,
-/// why, and a button that gives all of them another class.
-private struct ImportStatementSenderRow: View {
-    let model: ImportController
-    let group: StatementSenderGroup
-    let currency: CurrencyCode?
-    /// The class the button gives, and its title.
-    let change: (statementClass: StatementClass, title: String)
-
-    var body: some View {
-        LabeledContent {
-            HStack(spacing: Metrics.m) {
-                AmountText(group.total, currency: currency, precision: .cents)
-                Button(change.title) {
-                    model.flow.setStatementClass(change.statementClass, for: group)
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
-            }
-        } label: {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(verbatim: group.sender.isEmpty ? "No sender named" : group.sender)
-                    .lineLimit(1)
-                    .privacySensitiveInFeedback()
-                Text(detail)
-                    .font(.caption)
-                    .foregroundStyle(Palette.secondaryInk)
-                    .privacySensitiveInFeedback()
-            }
-        }
-    }
-
-    /// "3 payments · Pays you every month".
-    private var detail: String {
-        let count = group.lines.count == 1 ? "1 payment" : "\(group.lines.count) payments"
-        guard let source = group.source else { return count }
-        return count + " · " + model.flow.statementSourceText(source)
-    }
-}
-
-// MARK: - All lines
-
-/// Every line of the file with its class and why, each class's money in
-/// and out, a menu to change a line alone, and *Make a Rule…*.
-private struct ImportStatementLinesSheet: View {
-    let model: ImportController
-
-    /// The line a new rule starts from.
-    @State private var ruleLine: StatementLine?
-    /// The line being answered as money moved to or from an account.
-    @State private var moveLine: StatementLine?
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        let flow = model.flow
-        let currency = flow.statementAccount?.currency
-        NavigationStack {
-            List {
-                Section {
-                    ForEach(flow.statementClassTotals) { total in
-                        ImportStatementTotalRow(total: total, currency: currency)
-                    }
-                } header: {
-                    Text("Classes")
-                }
-                Section {
-                    ForEach(flow.statementLines) { line in
-                        ImportStatementLineRow(model: model, line: line, currency: currency,
-                                               makeRule: { ruleLine = line }, askMove: { moveLine = line })
-                    }
-                } header: {
-                    Text("Lines")
-                } footer: {
-                    Text("Each line's class comes from your answers and rules, then a trade of another account "
-                        + "moving the same amount, another account's name, the usual words, a sender you paid "
-                        + "before or one who pays every month, and last its sign.")
-                }
-            }
-            .navigationTitle("All Lines")
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
-                }
-            }
-        }
-        #if os(macOS)
-        .frame(minWidth: 640, idealWidth: 760, minHeight: 520, idealHeight: 680)
-        #endif
-        .sheet(item: $ruleLine) { line in
-            ImportStatementRuleSheet(model: model, line: line)
-        }
-        .sheet(item: $moveLine) { line in
-            ImportStatementMoveSheet(model: model, line: line, currency: currency)
-        }
-    }
-}
-
-// MARK: - Classes and lines
-
-/// A class with how many lines have it and their money in and out.
-private struct ImportStatementTotalRow: View {
-    let total: StatementClassTotal
-    let currency: CurrencyCode?
-
-    var body: some View {
-        LabeledContent {
-            HStack(spacing: Metrics.m) {
-                if total.moneyIn != 0 {
-                    AmountText(total.moneyIn, currency: currency, precision: .cents, signed: true)
-                }
-                if total.moneyOut != 0 {
-                    AmountText(-total.moneyOut, currency: currency, precision: .cents, signed: true)
-                }
-            }
-        } label: {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(ImportFlow.statementClassName(total.statementClass))
-                Text((total.lines == 1 ? "1 line" : "\(total.lines) lines") + " · "
-                    + ImportFlow.statementClassMeaning(total.statementClass))
-                    .font(.caption)
-                    .foregroundStyle(Palette.secondaryInk)
-            }
-        }
-    }
-}
-
-/// A line of the statement: its text, date and amount, why it has its
-/// class, and a menu to change the class, move it to or from an account,
-/// or make a rule.
-private struct ImportStatementLineRow: View {
-    let model: ImportController
-    let line: StatementLine
-    let currency: CurrencyCode?
-    let makeRule: () -> Void
-    let askMove: () -> Void
-
-    var body: some View {
-        LabeledContent {
-            HStack(spacing: Metrics.m) {
-                AmountText(line.amount, currency: currency, precision: .cents, signed: true)
-                Menu {
-                    Picker("Class", selection: Binding(get: { line.statementClass }, set: { statementClass in
-                        model.flow.setStatementClass(statementClass, forRow: line.row)
-                    })) {
-                        ForEach(ImportFlow.statementClasses, id: \.self) { statementClass in
-                            Text(ImportFlow.statementClassName(statementClass)).tag(statementClass)
-                        }
-                    }
-                    .pickerStyle(.inline)
-                    Button("Moved to or From…", action: askMove)
-                    Divider()
-                    Button("Make a Rule…", action: makeRule)
-                    if model.flow.statementAnswer(line) != nil {
-                        Button("Undo This Line's Answer") {
-                            model.flow.setStatementAsset(nil, forRow: line.row)
-                        }
-                    } else if line.source == .chosen {
-                        Button("Undo This Line's Choice") {
-                            model.flow.setStatementClass(nil, forRow: line.row)
-                        }
-                    }
-                } label: {
-                    Text(ImportFlow.statementClassName(line.statementClass))
-                }
-                .fixedSize()
-            }
-        } label: {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(verbatim: line.text.isEmpty ? "—" : line.text)
-                    .lineLimit(2)
-                    .privacySensitiveInFeedback()
-                Text(AmountFormat.mediumDate(line.date) + " · "
-                    + (model.flow.statementAssetText(line) ?? model.flow.statementSourceText(line.source)))
-                    .font(.caption)
-                    .foregroundStyle(line.source == .sign ? Palette.warning : Palette.secondaryInk)
-                    .privacySensitiveInFeedback()
-            }
-        }
-    }
-}
-
-/// A rule of the profile, with a button to remove it.
-private struct ImportStatementRuleRow: View {
-    let model: ImportController
-    let rule: StatementRule
-
-    var body: some View {
-        LabeledContent {
-            HStack(spacing: Metrics.m) {
-                if rule.account != nil {
-                    Text(verbatim: model.flow.statementRuleName(rule))
-                        .privacySensitiveInFeedback()
-                } else {
-                    Text(ImportFlow.statementClassName(rule.statementClass))
-                }
-                Button(role: .destructive) {
-                    model.flow.setStatementRule(nil, for: rule.match)
-                } label: {
-                    Image(systemName: "trash")
-                }
-                .buttonStyle(.borderless)
-                .accessibilityLabel("Remove Rule")
-            }
-        } label: {
-            Text(verbatim: "“\(rule.match)”")
-                .privacySensitiveInFeedback()
-        }
-    }
-}
-
-// MARK: - A new rule
-
-/// Makes a rule from a line: the words a line's text must have, and the
-/// class every such line gets.
-private struct ImportStatementRuleSheet: View {
-    let model: ImportController
-    let line: StatementLine
-
-    @State private var phrase: String
-    @State private var statementClass: StatementClass
-    @Environment(\.dismiss) private var dismiss
-
-    init(model: ImportController, line: StatementLine) {
-        self.model = model
-        self.line = line
-        _phrase = State(initialValue: ImportFlow.suggestedRulePhrase(for: line))
-        _statementClass = State(initialValue: line.statementClass)
-    }
-
-    var body: some View {
-        NavigationStack {
-            Form {
-                Section {
-                    TextField("Words", text: $phrase)
-                    Picker("Class", selection: $statementClass) {
-                        ForEach(ImportFlow.statementClasses, id: \.self) { statementClass in
-                            Text(ImportFlow.statementClassName(statementClass)).tag(statementClass)
-                        }
-                    }
-                } footer: {
-                    Text(matches)
-                }
-                Section {
-                    Text(verbatim: line.text)
-                        .privacySensitiveInFeedback()
-                } header: {
-                    Text("The line")
-                }
-            }
-            .formStyle(.grouped)
-            .navigationTitle("New Rule")
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
-                        model.flow.setStatementRule(statementClass, for: phrase)
-                        dismiss()
-                    }
-                    .disabled(model.flow.linesMatching(rule: phrase) == nil)
-                }
-            }
-        }
-        .frame(minWidth: 380, minHeight: 280)
-    }
-
-    /// E.g. "Every line whose text has these words, ignoring case and accents: 3 lines in this file…".
-    private var matches: String {
-        guard let count = model.flow.linesMatching(rule: phrase) else {
-            return "Give a word or more that a line's text has, ignoring case and accents."
-        }
-        return "Every line whose text has these words, ignoring case and accents: "
-            + (count == 1 ? "1 line" : "\(count) lines") + " in this file. A line you changed alone keeps its "
-            + "class. The rule is kept in the profile, if you save one."
-    }
-}
-
-#Preview("Classify") {
+#Preview("Income") {
     NavigationStack {
         ImportPreviewHost(step: .classify, file: .statement)
     }
