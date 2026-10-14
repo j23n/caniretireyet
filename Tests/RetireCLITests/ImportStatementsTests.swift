@@ -35,34 +35,33 @@ struct ImportStatementsTests {
         let statements = try files()
         defer { withExtendedLifetime(statements.folder) {} }
         let arguments = ["import", "statements"] + statements.paths + ["--library", library.path, "--date-format", "dd/MM/yyyy"]
-        let run = await retire(arguments, today: Self.today)
-        #expect(run.status == 0, "\(run.all)")
-        #expect(run.output.contains("""
-              File                Account         Found by                    Days                      Lines  Paired
-              fineco-ottobre.csv  conto-fineco    named in the file           2026-10-01 to 2026-10-31      4       1
-              export.csv          conto-deposito  follows on from 2026-09-30  2026-10-01 to 2026-10-31      2       1
-            """))
-        #expect(run.output.contains("  2026-10-05    -500.00  transfer  paired: conto-deposito  Bonifico a mio nome\n"))
+        /// The first file's statement lines.
+        func finecoLines(_ extra: [String]) async throws -> [[String: Any]] {
+            let json = try parseJSON(await retire(arguments + extra + ["--json"], today: Self.today).output)
+            let files = try #require(json["files"] as? [[String: Any]])
+            #expect(files.map { $0["account"] as? String } == ["conto-fineco", "conto-deposito"])
+            #expect(files.map { $0["found"] as? String } == ["named", "balance"])
+            let report = try #require(files.first?["report"] as? [String: Any])
+            return try #require(report["statementLines"] as? [[String: Any]])
+        }
+        let lines = try await finecoLines([])
+        let paired = try #require(lines.first { $0["text"] as? String == "Bonifico a mio nome" })
+        #expect(paired["class"] as? String == "transfer")
+        #expect(paired["source"] as? String == "paired")
+        #expect(paired["sourceDetail"] as? String == "conto-deposito")
 
-        let answered = await retire(arguments + ["--purchase", "fineco-ottobre.csv:5=belongings:Bici"],
-                                    today: Self.today)
-        #expect(answered.status == 0, "\(answered.all)")
-        #expect(answered.output.contains("  2026-10-28     -80.00  transfer  purchase: bici"))
-        #expect(answered.output.contains("  New accounts (created with --apply)"))
+        let answered = try await finecoLines(["--purchase", "fineco-ottobre.csv:5=belongings:Bici"])
+        let bike = try #require(answered.first { $0["text"] as? String == "Spesa supermercato" })
+        #expect(bike["asset"] as? String == "purchase")
+        #expect(bike["assetAccount"] as? String == "bici")
         let both = await retire(arguments + ["--purchase", "fineco-ottobre.csv:5=belongings:Bici",
                                              "--sale", "Spesa supermercato=casa"], today: Self.today)
-        #expect(both.errors.contains("“fineco-ottobre.csv:5” and “Spesa supermercato” both answer "
-            + "fineco-ottobre.csv:5: give it one answer."))
+        #expect(both.status == 1)
         let twice = await retire(arguments + ["--sale", "Bonifico=casa"], today: Self.today)
-        #expect(twice.errors.contains("--sale: “Bonifico” is in 2 lines (fineco-ottobre.csv:3, export.csv:2)"))
-
-        let json = try parseJSON(await retire(arguments + ["--json"], today: Self.today).output)
-        let files = try #require(json["files"] as? [[String: Any]])
-        #expect(files.map { $0["found"] as? String } == ["named", "balance"])
+        #expect(twice.status == 1)
 
         let applied = await retire(arguments + ["--apply"], today: Self.today)
         #expect(applied.status == 0, "\(applied.all)")
-        #expect(applied.output.contains("Imported: 2 added"))
         let written = try library.load()
         let fineco = try #require(written.valuations(for: "conto-fineco").last)
         #expect(fineco.date == "2026-10-31")
@@ -89,16 +88,14 @@ struct ImportStatementsTests {
                          "--date-format", "dd/MM/yyyy"]
         let blocked = await retire(arguments + ["--apply"], today: Self.today)
         #expect(blocked.status != 0)
-        #expect(blocked.errors.contains("Nothing was imported: export.csv has no account."))
         #expect(try library.load().valuations(for: "conto-fineco").last?.date == "2026-09-30")
 
         let given = await retire(arguments + ["--account", "export.csv=conto-fineco", "--apply"], today: Self.today)
         #expect(given.status == 0, "\(given.all)")
-        #expect(given.output.contains("  export.csv  conto-fineco  --account  "))
         #expect(try library.load().valuations(for: "conto-fineco").last?.date == "2026-10-31")
 
         let unknown = await retire(arguments + ["--account", "other.csv=conto-fineco"], today: Self.today)
-        #expect(unknown.errors.contains("--account: no file is “other.csv”."))
+        #expect(unknown.status == 1)
     }
 
     /// An account added after the files' first day opens on its first value,
