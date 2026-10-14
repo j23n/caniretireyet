@@ -269,11 +269,7 @@ struct PlanYearFigures: View {
 
     /// How many of the baseline's 100 futures are below your money: "92 in 100".
     private var futures: String {
-        guard let position = year.position else { return "–" }
-        if let percentile = position.percentile { return "\(Int(wholeNumber: percentile)) in 100" }
-        if position.isAboveNinetieth { return "Over 9 in 10" }
-        if position.isBelowTenth { return "Under 1 in 10" }
-        return "–"
+        year.position?.futuresBelow ?? "–"
     }
 
     /// A figure: its title, the figure (an amount hides with the eye), and a

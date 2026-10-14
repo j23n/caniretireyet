@@ -179,6 +179,21 @@ struct PlanWords: Hashable, Sendable {
         .amount(AmountFormat.amount(value, currency: currency, locale: locale))
     }
 
+    /// Without its sign, for words that say which way it went: "3.000 €".
+    func unsigned(_ value: Decimal) -> AmountSentence {
+        amount(abs(value))
+    }
+
+    /// "you saved 13.200 € and markets added 22.200 €.", "you took out 900 €
+    /// and markets took 4.000 €.": what came from you and from markets.
+    /// `verb` is what you did with money you added: "saved", "put in".
+    func savedAndMarkets(saved: Decimal, markets: Decimal, verb: String = "saved") -> AmountSentence {
+        let you: AmountSentence = saved >= 0 ? "you \(verb) \(unsigned(saved))" : "you took out \(unsigned(saved))"
+        let them: AmountSentence = markets >= 0 ? "markets added \(unsigned(markets))"
+            : "markets took \(unsigned(markets))"
+        return "\(you) and \(them)."
+    }
+
     /// With its sign: "+150.000 €" for a windfall, "−25.000 €" for an expense.
     func signedAmount(_ value: Decimal) -> AmountSentence {
         .amount(AmountFormat.signedAmount(value, currency: currency, locale: locale))

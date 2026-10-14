@@ -306,17 +306,11 @@ struct PlanProgressView: View {
         }
         let saved = report.total.newMoney
         let markets = report.total.market
-        func amount(_ value: Decimal) -> AmountSentence {
-            .amount(AmountFormat.amount(abs(value), currency: report.currency, locale: locale))
-        }
-        let signedMarkets = AmountSentence.amount(
-            AmountFormat.signedAmount(markets, currency: report.currency, locale: locale))
-        let savedWords: AmountSentence = saved >= 0 ? "you saved \(amount(saved))" : "you took out \(amount(saved))"
-        let marketWords: AmountSentence = markets >= 0 ? "markets added \(amount(markets))"
-            : "markets took \(amount(markets))"
-        let figures: AmountSentence = "\(saved >= 0 ? "Saved" : "Took out") \(amount(saved)) · markets \(signedMarkets)"
+        let words = PlanWords(currency: report.currency, locale: locale)
+        let took = saved >= 0 ? "Saved" : "Took out"
+        let figures: AmountSentence = "\(took) \(words.amount(abs(saved))) · markets \(words.signedAmount(markets))"
         return MonthReport(title: AmountFormat.monthName(report.to, locale: locale), figures: figures,
-                           sentence: "\(savedWords) and \(marketWords).")
+                           sentence: words.savedAndMarkets(saved: saved, markets: markets))
     }
 
     /// "15½ years", "8 months".
