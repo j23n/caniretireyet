@@ -224,11 +224,12 @@ public struct ImportIssue: Hashable, Sendable, CustomStringConvertible {
         case .statementAssetLeftOut(let row, let account?):
             return "Row \(row) can't sell \(account): it needs to be an open account of the library valued by its "
                 + "balance in the statement's currency, not a cash or savings account or a debt, opened by the line, "
-                + "with no values after it, sold once. The line counts by its class."
+                + "with no values after it, sold once. The line counts by its class, or in no value if it counts in "
+                + "none."
         case .statementAssetLeftOut(let row, nil):
             return "Row \(row) can't be a purchase or a sale: a purchase is money out that starts a belongings, "
                 + "property or other account, and a sale is money in, each counted in a value whose money in and out "
-                + "the file covers. The line counts by its class."
+                + "the file covers. The line counts by its class, or in no value if it counts in none."
         }
     }
 }

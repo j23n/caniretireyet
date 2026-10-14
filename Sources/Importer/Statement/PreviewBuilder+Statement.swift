@@ -114,7 +114,8 @@ extension PreviewBuilder {
     // MARK: - Classifying
 
     /// Each line's class and why: chosen for the line, a rule, a trade of
-    /// another account moving the same amount, another account named in
+    /// another account moving the same amount, a line of another account's
+    /// statement imported with it moving it the other way, another account named in
     /// the text, the usual words; for money in, a sender paid before or a
     /// recurring one; else the sign. Then the money in that needs an answer.
     private func classify(_ read: [ReadLine], account: Account) -> [StatementLine] {
@@ -122,7 +123,7 @@ extension PreviewBuilder {
         let answered = answeredAssets(read, account: account)
         let open = read.indices.filter { index in
             session.statementLineClasses[read[index].row] == nil && session.statementRule(for: read[index].text) == nil
-                && answered[read[index].row] == nil
+                && answered[read[index].row] == nil && session.statementPairs[read[index].row] == nil
         }
         let trades = matchTrades(read, lines: open, excluding: account.id)
         var lines = read.indices.map { index in
@@ -137,6 +138,8 @@ extension PreviewBuilder {
                 chosen = (rule.statementClass, .rule(rule.match))
             } else if let trade = trades[index] {
                 chosen = (.transfer, .trade(trade))
+            } else if let other = session.statementPairs[line.row] {
+                chosen = (.transfer, .paired(other))
             } else if let named = Self.namedAccount(in: line.text, names: names) {
                 // Paying a debt is spending; a loan paid out into the account is moved between accounts.
                 chosen = (named.isLiability && line.amount < 0 ? .spending : .transfer, .account(named.id))
@@ -339,16 +342,18 @@ extension PreviewBuilder {
         return answered
     }
 
-    /// Whether `account` is closed the day after its only value from `date`
-    /// on, a value of 0: sold on `date` by importing this statement before,
-    /// so importing it again with the same answer finds the same sale.
+    /// Whether `account` is closed the day after a value of 0 on or after
+    /// `date`, its only value after `date`: sold on `date` by importing this
+    /// statement before, so importing it again with the same answer finds
+    /// the same sale. A value on `date` itself is from before the sale.
     private func soldBefore(_ account: Account, on date: CalendarDate) -> Bool {
-        let after = library.valuations(for: account.id).filter { $0.date >= date }
-        guard let closed = account.closed, after.count == 1, let zero = after.first, (zero.balance ?? 0) == 0 else {
+        guard let closed = account.closed, closed > date else { return false }
+        let zeroDay = closed.adding(days: -1)
+        let after = library.valuations(for: account.id).filter { $0.date > date || $0.date == zeroDay }
+        guard after.count == 1, let zero = after.first, zero.date == zeroDay, (zero.balance ?? 0) == 0 else {
             return false
         }
-        return closed == zero.date.adding(days: 1) && !account.recordsTrades && !account.kind.recordsMoneyInOut
-            && !account.kind.isLiability
+        return !account.recordsTrades && !account.kind.recordsMoneyInOut && !account.kind.isLiability
     }
 
     /// The records of the lines answered as a purchase or a sale, at the
@@ -373,9 +378,14 @@ extension PreviewBuilder {
         for row in session.statementAssets.keys.sorted() {
             guard let index = lines.firstIndex(where: { $0.row == row }) else { continue }
             let line = lines[index]
-            guard let asset = answered[row], let cut = line.period else {
+            // A sale found from an earlier import counts in the same value, or it's another sale.
+            let soldElsewhere = answered[row].map { asset in
+                guard case .sale(let sold) = asset, let closed = library.accounts[sold]?.closed else { return false }
+                return closed != line.period?.adding(days: 1)
+            } ?? false
+            guard let asset = answered[row], let cut = line.period, !soldElsewhere else {
                 var account: AccountID?
-                if case .sale(let id)? = session.statementAssets[row], answered[row] == nil,
+                if case .sale(let id)? = session.statementAssets[row], answered[row] == nil || soldElsewhere,
                    session.statementAssets[row]?.fits(line.amount) == true { account = id }
                 issues.append(ImportIssue(kind: .statementAssetLeftOut(row: row, account: account)))
                 continue

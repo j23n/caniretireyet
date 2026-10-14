@@ -1,0 +1,177 @@
+import Foundation
+@testable import Importer
+import Model
+import Testing
+import TestSupport
+
+/// Several statements imported at once (IMPORT.md, "Several statements at
+/// once"): each file's account found, transfers between them paired, and
+/// files of one account applied in order. Made-up accounts and files.
+struct StatementBatchTests {
+    static let today: CalendarDate = "2026-04-12"
+
+    static func library() -> Library {
+        var library = Library(accounts: [
+            Account(id: "conto", name: "Conto corrente", kind: .cash, currency: .eur, opened: "2020-01-01",
+                    institution: "Fineco"),
+            Account(id: "risparmio", name: "Risparmio", kind: .savings, currency: .eur, opened: "2020-01-01",
+                    institution: "Banca Esempio"),
+        ])
+        library.upsert(Valuation(account: "conto", date: "2025-12-31", balance: 5000))
+        library.upsert(Valuation(account: "risparmio", date: "2025-12-31", balance: 10000))
+        return library
+    }
+
+    /// The current account's January, without a balance column; its bank is in the file's name.
+    static let current = """
+        Data;Importo;Descrizione
+        05/01/2026;-900,00;Affitto gennaio
+        15/01/2026;-1.000,00;Bonifico a mio nome
+        27/01/2026;3.000,00;Stipendio ACME
+        """
+
+    /// The savings account's January, with a balance column that follows on from its value.
+    static let savings = """
+        Data;Importo;Descrizione;Saldo
+        16/01/2026;1.000,00;Bonifico da Mario Rossi;11.000,00
+        31/01/2026;2,50;Interessi;11.002,50
+        """
+
+    static func batch(_ files: [(String, String)], library: Library = library()) -> StatementBatch {
+        StatementBatch(files: files.map { (name: $0.0, data: Data($0.1.utf8)) }, library: library, today: today)
+    }
+
+    static func lines(_ batch: StatementBatch, _ file: Int) -> [StatementLine] {
+        batch.files[file].session.preview(against: library(), today: today).statementLines
+    }
+
+    @Test func eachFilesAccountIsFound() {
+        let batch = Self.batch([("fineco-gennaio.csv", Self.current), ("export.csv", Self.savings)])
+        #expect(batch.files.map(\.account) == ["conto", "risparmio"])
+        #expect(batch.files.map(\.accountSource) == [.named, .balance("2025-12-31")])
+        // Nothing says which account a file is: it waits for a choice.
+        let unknown = Self.batch([("export.csv", Self.current)])
+        #expect(unknown.files.first?.account == nil)
+        #expect(unknown.files.first?.accountSource == nil)
+    }
+
+    /// In a month that isn't over the file makes no value yet, and its
+    /// balance still says which account it follows on from. An account's
+    /// own word names it: "Conto Arancio" is "arancio".
+    @Test func anUnfinishedMonthsFileFollowsOnByItsBalance() {
+        var library = Self.library()
+        library.accounts["arancio"] = Account(id: "arancio", name: "Conto Arancio", kind: .cash, currency: .eur,
+                                              opened: "2020-01-01")
+        for (id, balance) in [("conto", 5000), ("risparmio", 10000), ("arancio", 300)] as [(AccountID, Decimal)] {
+            library.upsert(Valuation(account: id, date: "2026-03-31", balance: balance))
+        }
+        let april = """
+            Data;Importo;Descrizione;Saldo
+            02/04/2026;-200,00;Bonifico a Mario Rossi;9.800,00
+            02/04/2026;50,00;Rimborso;9.850,00
+            """
+        let batch = Self.batch([("export.csv", april), ("arancio.csv", Self.current)], library: library)
+        #expect(batch.files.map(\.account) == ["risparmio", "arancio"])
+        #expect(batch.files.first?.accountSource == .balance("2026-03-31"))
+    }
+
+    /// A saved profile's account is the file's, while a statement can be
+    /// of it. A closed account's file waits for a choice.
+    @Test func aSavedProfileNamesItsAccount() throws {
+        var session = try ImportSession(data: Data(Self.current.utf8))
+        session.proposeMapping(layout: .statement)
+        session.profile.constants.account = "conto"
+        var library = Self.library()
+        library.importProfiles["fineco"] = session.makeProfile(id: "fineco", name: "Fineco", library: library)
+        let batch = Self.batch([("export.csv", Self.current)], library: library)
+        #expect(batch.files.first?.account == "conto")
+        #expect(batch.files.first?.accountSource == .profile)
+
+        library.accounts["conto"]?.closed = "2026-01-31"
+        let closed = Self.batch([("export.csv", Self.current)], library: library)
+        #expect(closed.files.first?.account == nil)
+        #expect(closed.files.first?.accountSource == nil)
+        #expect(closed.previews(against: library, today: Self.today).isEmpty)
+    }
+
+    /// Accounts in different currencies don't pair: a transfer between
+    /// them moves different amounts.
+    @Test func aTransferPairsOnlyInOneCurrency() throws {
+        var library = Self.library()
+        library.accounts["risparmio"]?.currency = .usd
+        let batch = Self.batch([("fineco-gennaio.csv", Self.current), ("export.csv", Self.savings)],
+                               library: library)
+        let lines = batch.files[0].session.preview(against: library, today: Self.today).statementLines
+        #expect(lines.first { $0.amount == -1000 }?.source == .sign)
+    }
+
+    @Test func aTransferBetweenTheFilesIsPaired() throws {
+        let batch = Self.batch([("fineco-gennaio.csv", Self.current), ("export.csv", Self.savings)])
+        let out = try #require(Self.lines(batch, 0).first { $0.amount == -1000 })
+        #expect(out.statementClass == .transfer)
+        #expect(out.source == .paired("risparmio"))
+        let incoming = try #require(Self.lines(batch, 1).first { $0.amount == 1000 })
+        #expect(incoming.statementClass == .transfer)
+        #expect(incoming.source == .paired("conto"))
+        // Rent has no line the other way.
+        #expect(Self.lines(batch, 0).first?.source == .sign)
+
+        let previews = batch.previews(against: Self.library(), today: Self.today)
+        #expect(previews.map(\.file) == [0, 1])
+        let result = StatementBatch.apply(previews.map(\.preview), to: Self.library())
+        let conto = try #require(result.library.valuations(for: "conto").last)
+        #expect(conto.date == "2026-01-31")
+        #expect(conto.moneyIn == 3000)
+        #expect(conto.moneyOut == 900)
+        let risparmio = try #require(result.library.valuations(for: "risparmio").last)
+        #expect(risparmio.balance == Decimal(string: "11002.5"))
+        #expect(risparmio.moneyIn == 0)
+        #expect(result.added == 2)
+    }
+
+    @Test func aChosenAccountPairsAgain() throws {
+        var batch = Self.batch([("export.csv", Self.current), ("export (2).csv", Self.savings)])
+        #expect(batch.files[0].account == nil)
+        #expect(Self.lines(batch, 1).first?.source != .paired("conto"))
+        batch.setAccount("conto", forFile: 0, library: Self.library(), today: Self.today)
+        #expect(batch.files[0].accountSource == .chosen)
+        #expect(Self.lines(batch, 1).first?.source == .paired("conto"))
+    }
+
+    /// February's file follows on from January's, applied before it.
+    @Test func filesOfOneAccountFollowOnInOrder() throws {
+        let february = """
+            Data;Importo;Descrizione
+            05/02/2026;-900,00;Affitto febbraio
+            27/02/2026;3.000,00;Stipendio ACME
+            """
+        let april = """
+            Data;Importo;Descrizione
+            05/04/2026;-900,00;Affitto aprile
+            """
+        let batch = Self.batch([("fineco-febbraio.csv", february), ("fineco-gennaio.csv", Self.current)])
+        let previews = batch.previews(against: Self.library(), today: Self.today)
+        #expect(previews.map(\.file) == [1, 0])
+        let result = StatementBatch.apply(previews.map(\.preview), to: Self.library())
+        let values = result.library.valuations(for: "conto")
+        #expect(values.map(\.date) == ["2025-12-31", "2026-01-31", "2026-02-28"])
+        #expect(values.last?.moneyOut == 900)
+        #expect(values.last?.balance == 8200)
+        #expect(StatementBatch.gaps(in: previews, batch: batch).isEmpty)
+
+        let gap = Self.batch([("fineco-gennaio.csv", Self.current), ("fineco-aprile.csv", april)])
+        let gaps = StatementBatch.gaps(in: gap.previews(against: Self.library(), today: Self.today), batch: gap)
+        #expect(gaps == [StatementGap(account: "conto", before: 0, after: 1, from: "2026-02-01", through: "2026-03-31",
+                                      isOverlap: false)])
+        let twice = Self.batch([("fineco-gennaio.csv", Self.current), ("fineco-copia.csv", Self.current)])
+        let overlaps = StatementBatch.gaps(in: twice.previews(against: Self.library(), today: Self.today),
+                                           batch: twice)
+        #expect(overlaps.map(\.isOverlap) == [true])
+    }
+
+    @Test func aFileThatCantBeReadIsSaidSo() {
+        let batch = Self.batch([("empty.csv", ""), ("fineco-gennaio.csv", Self.current)])
+        #expect(batch.unreadable.map(\.name) == ["empty.csv"])
+        #expect(batch.files.map(\.id) == [1])
+    }
+}
