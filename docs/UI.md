@@ -198,7 +198,7 @@ The flow that has to be fast. It opens as a full-screen sheet on iPhone and as t
 ```
 ┌──────────────────────────────────────────┐
 │ Cancel          Check-in          Review │
-│ 30 September 2026 ▾                      │
+│ 30 September 2026 ⌄                      │
 │ ✓ Prices and FX updated (4)           ▸  │
 │                                          │
 │ CASH                                     │
@@ -224,7 +224,7 @@ The flow that has to be fast. It opens as a full-screen sheet on iPhone and as t
 │ Mutuo              −182.340,00 €      ○  │
 │                                          │
 │ ╭──────────────────────────────────────╮ │
-│ │ 7 of 9 reviewed   Mark rest unchanged│ │
+│ │ 7 of 9 done       Mark Rest Unchanged│ │
 │ ╰──────────────────────────────────────╯ │
 └──────────────────────────────────────────┘
   ●  updated   ✓  unchanged, from trades or no trades   ○  not reviewed yet
@@ -232,9 +232,16 @@ The flow that has to be fast. It opens as a full-screen sheet on iPhone and as t
 
 - **Date.** Defaults to today. In the first days of a month it suggests the end of the previous month. An earlier date fills in history: see [Adding history](#adding-history).
 - **Prices.** Fetched as soon as the sheet opens, while you work. The status row opens the price list, where you can see the source and time of each price and type in any that failed.
-- **Statements first.** Under the prices, the accounts a bank statement fills in: those a saved statement profile is of, and any with a value imported on the check-in's date. Until one is imported, a card asks for them first: "Start with September's statements", each account with its last value's day, *Add Statements…* and *Type Every Value Instead*, which puts the card away. After that it's a *Statements* section, a line per account ("Imported" with a check, or "Last value 31 Aug") and *Add Statements…*; with no such account, only the button.
-  - *Add Statements…* chooses one or more CSV files and opens the import over the check-in, with every step (on iPhone too, so their lines are answered on Income). A statement covers through the check-in's date when its last line is in that month and not after it, so each account gets a value on the date, its tax pot too ([IMPORT.md](IMPORT.md#bank-statements)). Days given on Income win.
-  - The import writes into the library as any import does, with its backup, and *Undo Import* on its Done step. The check-in follows the library: a row with nothing typed is filled in from the imported value, updated (●), and says "Imported". A row with something typed keeps it, and the review asks which to keep, as for a value saved on another device. Imported values don't count as a check-in already saved on the date.
+- **Statements first.** With cash or savings accounts, the check-in starts with their bank statements, and you type only the rest.
+  - **The start card.** Under the prices, until a statement is added: "Start with September's statements", the accounts a statement can be of (open cash and savings accounts that don't record trades; not tax pots, whose values follow from other statements), each with "last: 31 Aug" when its last value came from an import or "typed by hand", then *Add Statements…* and *Type Every Value Instead*, which puts the card away. Under it the accounts are dimmed, a name and a value each, with nothing to type, and *Review* waits.
+  - *Add Statements…* chooses one or more CSV files (on the Mac, drop them on the statements too). They're read together for the check-in's date: each file's account is found, transfers between them are paired, and a statement covers through the check-in's date when its last line is in that month and not after it, so each account gets a value on the date, its tax pot too ([IMPORT.md](IMPORT.md#bank-statements)). The import's steps open over the check-in only for a file whose account isn't found (on Files).
+  - **The statements belong to the check-in.** It holds them, in memory, and writes nothing until it's saved: then their values and the check-in's are written as one change, with an import's backup, which one undo takes back (`retire import --undo`, or restoring the backup). Cancel drops them, *Keep for later* too: a draft kept on the device, or resumed after the app quit, starts again from the card. Moving the check-in to another date reads them again for it, keeping their answers.
+  - **A line per file**, under *Statements*: on iPhone "② Lines to answer · Conto Fineco · 1–30 Sep ›" while a file has lines that need an answer, else "✓ Girokonto · 1–30 Sep · 48 lines · all answered", then *Add Statements…*. A row opens that file's Income, on the statements the check-in holds; its *Back to Check-in* (where an import has *Import*) closes it. Lines to answer are a hint, not a gate: the check-in saves without them, as the import would. Its menu takes the file out.
+  - **Rows from a statement** are read-only text: the value with ●, and "From statement · in 3.400,00 · out 3.210,20" with what moved between your accounts; a tax pot filled in by money moved into it says "+500,00 from Girokonto · counts as tax". *Edit Value* in the row's menu types over it, and *Use the Statement's Value* takes it back. A row typed before its statement was added takes the statement's value.
+  - **Rows to type** say what the statements moved into them: "No statement · expects +500,00 from Conto Fineco", with the balance it can expect (the last value plus that) as the field's prompt; a debt the statements paid "Conto Fineco paid 725,00 to it". Their money in and out shows once the balance is typed. *Mark Rest Unchanged* keeps the last value.
+  - **Groups.** On iPhone *Cash*, then *To type* for pensions, property, debts and other; on the Mac the same groups in one band, "Pension · Property · Debts".
+  - The bar at the bottom says "4 of 8 done · 3 from statements" (the Mac adds "1 from trades · 2 lines to answer first").
+  - Values imported before the check-in (from the Import screen) fill rows in as any value saved on the date, "Imported"; they don't count as a check-in already saved on the date.
 - **Accounts, in groups.** Each row has one of three states:
   - **updated:** you entered a new value;
   - **unchanged:** you confirmed it's the same. This still writes a valuation, so the account isn't stale;
@@ -265,7 +272,7 @@ The flow that has to be fast. It opens as a full-screen sheet on iPhone and as t
   └────────────────────────────────────────────────────┘
   ```
 
-  - **As the trades say.** Saving writes the cash the trades give and the new money they record: the deposits, withdrawals and transfers recorded as trades since the previous value, and what was bought or sold paid from outside the account. It's shown read-only when it isn't zero ("New money +1.200,00 · paid from outside", or with several parts "New money +1.650,60 · deposits +450,60 · paid from outside +1.200,00"). *Mark rest unchanged* leaves the row alone.
+  - **As the trades say.** Saving writes the cash the trades give and the new money they record: the deposits, withdrawals and transfers recorded as trades since the previous value, and what was bought or sold paid from outside the account. It's shown read-only when it isn't zero ("New money +1.200,00 · paid from outside", or with several parts "New money +1.650,60 · deposits +450,60 · paid from outside +1.200,00"). *Mark Rest Unchanged* leaves the row alone.
   - ***Add Trade…*** (a bordered button, not a footnote) opens the trade sheet dated on the check-in's date. Once it's saved the row follows: the positions, the cash and the new money are worked out again, and a cash from a statement stays.
   - **Cash.** When the account holds cash by its trades (a trade settled in its cash, a deposit or withdrawal, or a value that recorded cash), it shows read-only, "Cash 312,30 · from trades", with *Enter From Statement* to type the cash from a broker statement to compare. Typed, it anchors the cash and the difference counts as money added or taken out that no trade records; the new money is then shown as for other accounts, editable, with its split:
 
@@ -302,10 +309,13 @@ The flow that has to be fast. It opens as a full-screen sheet on iPhone and as t
 
 **On the Mac**, the check-in is a table, and the whole thing can be done without touching the mouse:
 
-- columns: Account, Last, Now, Change, New money, Note;
-- under a cash or savings account, lines for *In*, *Out*, *Interest* (savings) and "moved" in the Now column; New money is read-only but for the kinds that ask for it;
-- Tab and Return move between cells;
-- ⌘↩ saves.
+- the title is "Check-in" and the date its subtitle; the title's menu has *Change Date…* and *Cancel Check-in…*. The prices' status is in the middle of the toolbar. The page is left through the sidebar;
+- above the table, "SEPTEMBER'S STATEMENTS · 2": a card with a line per file (its account and name, its days with "follows on from 31 Aug" or "3 transfers paired with Conto Fineco", "63 lines", and *② Answer…* or "✓ All answered") and a last line, "Drop more statements here, or Add Statements… · last time also: Conto deposito". The card takes dropped CSV files, ahead of the window's drop that starts an import;
+- columns: Account, Last, Now, Change, New money, From. From says where the value comes from or what to do for it: "Statement · 2 lines to answer" (which opens that file's Income), "Statement", "Girokonto's “Steuer-Rücklage” · tax", "Type it, or drop its statement · expects +500,00 from Conto Fineco", "Type it · no statement for this kind", "Trades · no trades since 31 Aug". Change shows "—" until a row is reviewed. A row's note is written in its menu (*Add Note…*);
+- under a cash or savings account, lines for *In*, *Out*, *Interest* (savings) and "moved" in the Now column; under a row from a statement one read-only line, "In 3.400,00 · Out 3.210,20 · Moved −500,00". New money is read-only but for the kinds that ask for it;
+- the footer: "4 of 8 done · 3 from statements, 1 from trades · 2 lines to answer first", *Mark Rest Unchanged* (⇧⌘U) and *Review*;
+- Tab and Return move between cells, past the rows from a statement;
+- ⌘↩ opens the review, where ⌘↩ saves.
 
 ## Accounts
 
@@ -369,7 +379,7 @@ The flow that has to be fast. It opens as a full-screen sheet on iPhone and as t
 Accounts added in the app open on the day they're added, unless you set an earlier opening date. Their past values can be added three ways, without an import file.
 
 - **A past check-in.** Pick an earlier date in the check-in's date panel.
-  - The accounts open on that date are listed as usual. Accounts that open after it are listed last, under **Opened later** (collapsed on iPhone). They're optional: never counted as missing, *Mark rest unchanged* leaves them alone, and left empty they change nothing.
+  - The accounts open on that date are listed as usual. Accounts that open after it are listed last, under **Opened later** (collapsed on iPhone). They're optional: never counted as missing, *Mark Rest Unchanged* leaves them alone, and left empty they change nothing.
   - A value entered for one of them moves the account's opening date back to the check-in's date when it's saved. The row says so ("Saving moves its opening date to 31 Mar 2024."), and the review lists the accounts whose opening date will move.
   - Prices and FX rates are fetched for that date: Yahoo Finance and Frankfurter (ECB) have history, CoinGecko about the last year on its free API, and Yahoo Finance's pairs (`BTC-EUR`) before that. gold-api.com only has today's price, so a metal's price comes from its futures on Yahoo Finance, and the price list says so: "Yahoo Finance · GC=F (history)". Only when no source has one does it say "No history for this date: type the price."
   - Values saved after the date stay as they are, and a banner says it's a past check-in.
