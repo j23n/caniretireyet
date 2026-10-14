@@ -32,7 +32,7 @@ public struct DateParser: Sendable {
     }
 
     /// The pattern as shown in messages.
-    public var patternDescription: String {
+    private var patternDescription: String {
         format.pattern ?? "yyyy-MM-dd"
     }
 

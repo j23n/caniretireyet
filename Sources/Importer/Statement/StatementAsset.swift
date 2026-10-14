@@ -36,7 +36,7 @@ extension Account {
     /// Whether a statement's sale can close it (``StatementAsset/sale(_:)``):
     /// an open account valued by its balance that isn't a cash or savings
     /// account or a debt, such as a car or a home.
-    public var canBeSoldFromStatement: Bool {
+    fileprivate var canBeSoldFromStatement: Bool {
         !isClosed && !recordsTrades && !kind.recordsMoneyInOut && !kind.isLiability
     }
 }
@@ -70,7 +70,7 @@ extension Library {
     /// `date`, its only value after `date`: sold on `date` by importing a
     /// statement before. A value on `date` is from before the sale, unless
     /// it is the zero itself (a line on its period's last day).
-    public func soldFromStatement(_ account: Account, on date: CalendarDate) -> Bool {
+    private func soldFromStatement(_ account: Account, on date: CalendarDate) -> Bool {
         guard let closed = account.closed, closed > date else { return false }
         let zeroDay = closed.adding(days: -1)
         let after = valuations(for: account.id).filter { $0.date > date || $0.date == zeroDay }

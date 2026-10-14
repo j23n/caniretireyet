@@ -84,8 +84,8 @@ extension StatementBatch {
             if remembered[index].isNew { remembered[index].profile.answers = [] }
             for id in remembered[index].files {
                 guard let file = files.first(where: { $0.id == id }) else { continue }
-                remembered[index].profile.answers = Self.answers(of: file, addedTo: remembered[index].profile,
-                                                                 library: library, today: today)
+                remembered[index].profile.answers = answers(of: file, addedTo: remembered[index].profile,
+                                                            library: library, today: today)
             }
         }
         return remembered
@@ -93,12 +93,12 @@ extension StatementBatch {
 
     /// `profile`'s answers with the classes chosen for single lines of
     /// `file` added.
-    static func answers(of file: File, addedTo profile: ImportProfile, library: Library,
-                        today: CalendarDate) -> [StatementAnswer] {
+    func answers(of file: File, addedTo profile: ImportProfile, library: Library,
+                 today: CalendarDate) -> [StatementAnswer] {
         guard !file.session.statementLineClasses.isEmpty else { return profile.answers }
         var session = file.session
         session.profile.answers = profile.answers
-        return session.statementAnswers(adding: file.session.preview(against: library, today: today).statementLines)
+        return session.statementAnswers(adding: preview(of: file, against: library, today: today).statementLines)
     }
 
     /// A new profile's name: the account's bank and its name, "Fineco,

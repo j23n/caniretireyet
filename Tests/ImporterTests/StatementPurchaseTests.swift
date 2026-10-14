@@ -306,6 +306,7 @@ struct StatementPurchaseTests {
         #expect(try Self.line(preview, "Bonifico da Mario Verdi").statementClass == .spending)
         #expect(try Self.line(preview, "Bonifico a Autosalone Neri").statementClass == .spending)
         #expect(try Self.line(preview, "Affitto marzo").asset == nil)
+        #expect(try Self.line(preview, "Affitto marzo").assetLeftOut == .doesntFit)
         // A sale of money out is left out for its sign, not for the account.
         #expect(preview.issues.contains { $0.kind == .statementAssetLeftOut(row: rent, account: nil) })
         #expect(preview.newAccounts.isEmpty)

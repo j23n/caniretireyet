@@ -29,6 +29,9 @@ public struct StatementBatch: Sendable {
         public var session: ImportSession
         /// How its account was found; `nil` while it has none.
         public var accountSource: AccountSource?
+        /// Its lines that a line of another file moves to or from, by
+        /// 1-based row, with that file's account (``pairTransfers(in:today:)``).
+        var pairs: [Int: AccountID] = [:]
 
         /// The account the file is a statement of, once known.
         public var account: AccountID? { session.profile.constants.account }
@@ -60,6 +63,20 @@ public struct StatementBatch: Sendable {
         add(files: files, library: library, checkIn: checkIn, today: today)
     }
 
+    /// Takes files already read, each its own ``ImportSession`` (a file read
+    /// with a profile chosen for it, or with options given for it), and
+    /// finds their accounts and pairs their transfers as
+    /// ``init(files:library:checkIn:today:)`` does.
+    public init(sessions: [(name: String, session: ImportSession)], library: Library,
+                today: CalendarDate = .today()) {
+        var added = Set<Int>()
+        for file in sessions {
+            added.insert(append(file.name, file.session))
+        }
+        recognizeAccounts(in: library, today: today, only: added)
+        pairTransfers(in: library, today: today)
+    }
+
     /// Adds files to the batch, read as ``init(files:library:checkIn:today:)``
     /// reads them, after the files it has: the files already read keep
     /// their accounts and edits. Then pairs the transfers again.
@@ -69,19 +86,25 @@ public struct StatementBatch: Sendable {
             .sorted { ($0.name, $0.id) < ($1.name, $1.id) }
         var added = Set<Int>()
         for file in new {
-            let id = given
-            given += 1
             do {
                 var session = try Self.read(file.data, profiles: profiles)
                 session.statementCheckIn = checkIn
-                files.append(File(id: id, name: file.name, session: session))
-                added.insert(id)
+                added.insert(append(file.name, session))
             } catch {
+                given += 1
                 unreadable.append(UnreadableFile(name: file.name, error: error))
             }
         }
         recognizeAccounts(in: library, today: today, only: added)
         pairTransfers(in: library, today: today)
+    }
+
+    /// Adds a file read, under the next ID, and returns the ID.
+    private mutating func append(_ name: String, _ session: ImportSession) -> Int {
+        let id = given
+        given += 1
+        files.append(File(id: id, name: name, session: session))
+        return id
     }
 
     /// Takes the file `id` out of the batch, and pairs the transfers again.
@@ -228,19 +251,17 @@ public struct StatementBatch: Sendable {
     /// in the same currency that moves the same amount within
     /// ``PreviewBuilder/transferDays``,
     /// the nearest in date first, each line once: both are transfers
-    /// (``ImportSession/statementPairs``). Only lines that nothing surer
+    /// (``File/pairs``). Only lines that nothing surer
     /// than the usual words classified, and that have no answer, are paired.
     mutating func pairTransfers(in library: Library, today: CalendarDate) {
-        let accounts = Set(files.compactMap(\.account))
         for index in files.indices {
-            files[index].session.statementPairs = [:]
-            files[index].session.statementBatchAccounts = accounts.subtracting(files[index].account.map { [$0] } ?? [])
+            files[index].pairs = [:]
         }
         var open: [(file: Int, account: AccountID, line: StatementLine)] = []
         firstDates = [:]
         for index in files.indices {
             guard let account = files[index].account else { continue }
-            let preview = files[index].session.preview(against: library, today: today)
+            let preview = self.preview(of: files[index], against: library, today: today)
             firstDates[files[index].id] = .some(preview.firstDate)
             // A line answered as a move, a purchase or a sale is never a transfer to pair.
             for line in preview.statementLines
@@ -267,8 +288,8 @@ public struct StatementBatch: Sendable {
         where !used.contains(pair.out) && !used.contains(pair.in) {
             used.formUnion([pair.out, pair.in])
             let out = open[pair.out], incoming = open[pair.in]
-            files[out.file].session.statementPairs[out.line.row] = incoming.account
-            files[incoming.file].session.statementPairs[incoming.line.row] = out.account
+            files[out.file].pairs[out.line.row] = incoming.account
+            files[incoming.file].pairs[incoming.line.row] = out.account
         }
     }
 
@@ -296,7 +317,7 @@ public struct StatementBatch: Sendable {
         }.compactMap(\.account))
         return files.filter { $0.account != nil }
             .map { file in
-                (file: file, first: firstDates[file.id] ?? file.session.preview(against: library, today: today).firstDate)
+                (file: file, first: firstDates[file.id] ?? preview(of: file, against: library, today: today).firstDate)
             }
             .sorted { lhs, rhs in
                 func key(_ entry: (file: File, first: CalendarDate?)) -> (Int, String, CalendarDate, Int) {
@@ -307,6 +328,14 @@ public struct StatementBatch: Sendable {
                 return key(lhs) < key(rhs)
             }
             .map(\.file.id)
+    }
+
+    /// `file`'s preview against `library` alone, with the transfers paired
+    /// with the other files and their accounts.
+    public func preview(of file: File, against library: Library, today: CalendarDate = .today()) -> ImportPreview {
+        let others = Set(files.compactMap(\.account)).subtracting(file.account.map { [$0] } ?? [])
+        return file.session.preview(against: library, today: today,
+                                    batch: StatementBatchContext(pairs: file.pairs, accounts: others))
     }
 
     /// Previews each file with an account, in ``order(against:today:)``,
@@ -322,7 +351,7 @@ public struct StatementBatch: Sendable {
         var previews: [(file: Int, preview: ImportPreview)] = []
         for id in order(against: library, today: today) {
             guard let file = files.first(where: { $0.id == id }) else { continue }
-            var preview = file.session.preview(against: current, today: today)
+            var preview = self.preview(of: file, against: current, today: today)
             decide(id, &preview)
             previews.append((id, preview))
             current = preview.apply(to: current).library
@@ -330,14 +359,17 @@ public struct StatementBatch: Sendable {
         return previews
     }
 
-    /// Applies the previews of ``previews(against:today:decide:)`` one
-    /// after another to `library`, as one result.
-    public static func apply(_ previews: [ImportPreview], to library: Library) -> ImportResult {
-        var result = ImportResult(library: library)
-        for preview in previews {
-            result.merge(preview.apply(to: result.library))
-        }
-        return result
+    /// Imports: applies the previews of ``previews(against:today:decide:)``
+    /// to `library` one after another (``ImportPreview/apply(_:to:)``), and
+    /// with `remembering` adds the profiles that remember how the files are
+    /// read (``rememberedProfiles(in:today:)``) to the library it returns.
+    public func apply(_ previews: [ImportPreview], to library: Library, remembering: Bool,
+                      today: CalendarDate = .today()) -> (result: ImportResult, remembered: [RememberedProfile]) {
+        var result = ImportPreview.apply(previews, to: library)
+        guard remembering else { return (result, []) }
+        let remembered = rememberedProfiles(in: result.library, today: today)
+        for profile in remembered { result.library.importProfiles[profile.profile.id] = profile.profile }
+        return (result, remembered)
     }
 
     /// Where files of one account leave days out or cover days twice:
@@ -377,38 +409,4 @@ public struct StatementGap: Hashable, Sendable {
     public var through: CalendarDate
     /// Whether both files cover the days, so their lines would count twice.
     public var isOverlap: Bool
-}
-
-extension ImportPreview {
-    /// The days a statement is read as covering, from its note
-    /// (``ImportIssue/Kind/statementPeriod(from:through:)``).
-    public var statementPeriod: (from: CalendarDate, through: CalendarDate)? {
-        for issue in issues {
-            if case .statementPeriod(let from, let through) = issue.kind { return (from, through) }
-        }
-        return nil
-    }
-}
-
-extension ImportResult {
-    /// Adds what `next`, applied after this result, changed: its library
-    /// becomes this one's.
-    public mutating func merge(_ next: ImportResult) {
-        library = next.library
-        changedMonths = Set(changedMonths + next.changedMonths).sorted()
-        changedAccounts = Set(changedAccounts + next.changedAccounts).sorted()
-        createdAccounts = Set(createdAccounts + next.createdAccounts).sorted()
-        closedAccounts = Set(closedAccounts + next.closedAccounts).sorted()
-        createdInstruments = Set(createdInstruments + next.createdInstruments).sorted()
-        tradesAccounts = Set(tradesAccounts + next.tradesAccounts).sorted()
-        added += next.added
-        tradesWritten += next.tradesWritten
-        updated += next.updated
-        overwritten += next.overwritten
-        kept += next.kept
-        undecided += next.undecided
-        removed += next.removed
-        identical += next.identical
-        skipped += next.skipped
-    }
 }

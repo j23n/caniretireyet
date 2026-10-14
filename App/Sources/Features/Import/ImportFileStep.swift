@@ -10,12 +10,11 @@ import SwiftUI
 /// see how it's read, a zone to drop more, and what's between the files.
 /// Another kind of file (a spreadsheet, a broker's transactions, read one
 /// at a time) shows what was read and the mapping to read it with: a saved
-/// profile or a proposed one. On iPhone one such file is "Import with
-/// profile…", with a way into every step. Files dropped or added join
-/// those listed.
+/// profile or a proposed one. Files dropped or added join those listed.
 struct ImportFileStep: View {
     let model: ImportController
-    let isCompact: Bool
+    @Environment(\.pageLayout) private var layout
+    private var isCompact: Bool { !layout.isWide }
     /// Shows the file importer, which adds files.
     let chooseFile: () -> Void
     /// Adds files dropped on the step.
@@ -39,7 +38,7 @@ struct ImportFileStep: View {
             .sheet(item: $sheet) { sheet in
                 switch sheet {
                 case .reading:
-                    ImportReadingSheet(model: model, isCompact: isCompact)
+                    ImportReadingSheet(model: model)
                 case .days:
                     ImportFileDaysSheet(model: model)
                 }
@@ -144,17 +143,6 @@ struct ImportFileStep: View {
                 mappingSection(flow)
             }
 
-            if flow.isGuided {
-                Section {
-                    Button("Set Up the Columns Step by Step") {
-                        model.flow.setGuided(false)
-                    }
-                } footer: {
-                    Text("For a file no saved profile fits. There's more room for the table on a Mac or an iPad, "
-                        + "and you can save the mapping as a profile at the end.")
-                }
-            }
-
             Section {
                 NavigationLink {
                     ImportProfilesScreen()
@@ -166,16 +154,13 @@ struct ImportFileStep: View {
         .formStyle(.grouped)
     }
 
-    /// The saved profiles, best fit first, and (except on iPhone's "Import
-    /// with profile…") a mapping the importer proposes.
+    /// A mapping the importer proposes, and the saved profiles, best fit first.
     private func mappingSection(_ flow: ImportFlow) -> some View {
         Section {
-            if !flow.isGuided {
-                ImportChoiceRow(title: "Propose a new mapping",
-                                detail: "The importer reads the headers and values; check them step by step.",
-                                isSelected: flow.source == .proposed) {
-                    model.flow.useProfile(nil)
-                }
+            ImportChoiceRow(title: "Propose a new mapping",
+                            detail: "The importer reads the headers and values; check them step by step.",
+                            isSelected: flow.source == .proposed) {
+                model.flow.useProfile(nil)
             }
             ForEach(flow.profileFits) { fit in
                 ImportChoiceRow(title: fit.profile.name, detail: fit.summary,
@@ -184,13 +169,8 @@ struct ImportFileStep: View {
                 }
                 .privacySensitiveInFeedback()
             }
-            if flow.isGuided && flow.profileFits.isEmpty {
-                Text("There are no saved profiles yet. Set up this file step by step, and save the mapping as a "
-                    + "profile at the end.")
-                    .foregroundStyle(Palette.secondaryInk)
-            }
         } header: {
-            Text(flow.isGuided ? "Import with profile" : "Read it with")
+            Text("Read it with")
         } footer: {
             Text("A profile is a saved mapping: the next file of the same shape imports in one step.")
         }
@@ -356,13 +336,6 @@ struct ImportFileDaysSheet: View {
 #Preview("Files") {
     NavigationStack {
         ImportPreviewHost(step: .file, file: .statement)
-    }
-    .previewEnvironment()
-}
-
-#Preview("Import with profile") {
-    NavigationStack {
-        ImportPreviewHost(step: .file, guided: true)
     }
     .previewEnvironment()
 }

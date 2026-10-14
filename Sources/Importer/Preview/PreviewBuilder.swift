@@ -6,9 +6,25 @@ extension ImportSession {
     /// resulting records with `library`. Nothing is written. A date before
     /// 1900 or more than a week after `today` is a cell problem.
     public func preview(against library: Library, today: CalendarDate = .today()) -> ImportPreview {
-        var builder = PreviewBuilder(session: self, library: library, today: today)
+        preview(against: library, today: today, batch: StatementBatchContext())
+    }
+
+    /// The preview of a statement imported with others (``StatementBatch``).
+    func preview(against library: Library, today: CalendarDate, batch: StatementBatchContext) -> ImportPreview {
+        var builder = PreviewBuilder(session: self, library: library, today: today, batch: batch)
         return builder.build()
     }
+}
+
+/// What a statement's preview takes from the other statements imported
+/// with it (``StatementBatch``), which its session doesn't hold.
+struct StatementBatchContext: Hashable, Sendable {
+    /// Lines that a line of another file moves to or from, by 1-based row,
+    /// with that file's account: transfers.
+    var pairs: [Int: AccountID] = [:]
+    /// The other files' accounts. Money moved to one of them is that file's
+    /// to record, not this one's.
+    var accounts: Set<AccountID> = []
 }
 
 /// One value read from the file, before names are matched.
@@ -48,6 +64,8 @@ struct PreviewBuilder {
     let session: ImportSession
     let library: Library
     let today: CalendarDate
+    /// Statement layout: what the other statements imported with it say.
+    let batch: StatementBatchContext
     /// The last date a row may have: a week after today.
     let latestDate: CalendarDate
     let bindings: ImportSession.Bindings
@@ -79,6 +97,9 @@ struct PreviewBuilder {
     var removedTrades: [(trade: Trade, cells: [ImportCellRef])] = []
     /// Statement layout: the lines read, with their classes.
     var statementLines: [StatementLine] = []
+    /// Statement layout: the days the file covers, and its balance's breaks.
+    var statementPeriod: StatementPeriod?
+    var runningBalanceBreaks = 0
     /// Statement layout: the accounts the file's sales close.
     var statementCloses: [AccountChangeProposal] = []
 
@@ -88,10 +109,12 @@ struct PreviewBuilder {
     /// The first date a row may have.
     static let earliestDate: CalendarDate = "1900-01-01"
 
-    init(session: ImportSession, library: Library, today: CalendarDate) {
+    init(session: ImportSession, library: Library, today: CalendarDate,
+         batch: StatementBatchContext = StatementBatchContext()) {
         self.session = session
         self.library = library
         self.today = today
+        self.batch = batch
         latestDate = today.adding(days: 7)
         bindings = session.bindings
         matcher = NameMatcher(library: library, matches: session.profile.matches)
@@ -121,6 +144,8 @@ struct PreviewBuilder {
         }
         compare(records, into: &preview)
         preview.statementLines = statementLines
+        preview.statementPeriod = statementPeriod
+        preview.runningBalanceBreaks = runningBalanceBreaks
         preview.cellErrors = errors.sorted { $0.cell < $1.cell }
         preview.issues = issues
         preview.nameMatches = matcher.found
@@ -583,8 +608,7 @@ struct PreviewBuilder {
         var changes: [AccountChangeProposal] = []
         for (id, accountRecords) in byAccount.sorted(by: { $0.key < $1.key }) {
             let account = library.accounts[id] ?? newAccounts.first { $0.account.id == id }?.account
-            guard let account else { continue }
-            let first = accountRecords.map(\.key.date).min()!
+            guard let account, let first = accountRecords.map(\.key.date).min() else { continue }
             if library.accounts[id] != nil, first < account.opened {
                 changes.append(AccountChangeProposal(account: id, change: .openEarlier(on: first)))
             }

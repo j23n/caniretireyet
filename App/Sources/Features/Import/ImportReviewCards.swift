@@ -13,17 +13,9 @@ import SwiftUI
 struct ImportStatementReview: View {
     let model: ImportController
 
-    #if os(iOS)
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
-    #endif
+    @Environment(\.pageLayout) private var layout
 
-    private var isCompact: Bool {
-        #if os(iOS)
-        return horizontalSizeClass == .compact
-        #else
-        return false
-        #endif
-    }
+    private var isCompact: Bool { !layout.isWide }
 
     var body: some View {
         let flow = model.flow
@@ -54,11 +46,11 @@ struct ImportStatementReview: View {
                                  personal: .title)
                 }
                 if let charts = flow.statementCharts {
-                    ImportStatementChartsCards(charts: charts, isCompact: isCompact)
+                    ImportStatementChartsCards(charts: charts)
                 }
-                ImportReviewConflicts(model: model, isCompact: isCompact)
-                ImportReviewAccounts(flow: flow, isCompact: isCompact)
-                ImportCellErrorsCard(errors: flow.reviewPreviews.flatMap(\.preview.cellErrors), isStatement: true)
+                ImportReviewConflicts(model: model)
+                ImportReviewAccounts(flow: flow)
+                ImportCellErrorsCard(errors: flow.previews.flatMap(\.preview.cellErrors), isStatement: true)
             }
             .padding(.horizontal, isCompact ? Metrics.l : Metrics.xl)
             .padding(.vertical, Metrics.l)
@@ -145,7 +137,6 @@ private struct ImportReviewOpeningBalanceField: View {
 /// choice for all of them.
 private struct ImportReviewConflicts: View {
     let model: ImportController
-    let isCompact: Bool
 
     @State private var showsAll = false
 
@@ -156,7 +147,7 @@ private struct ImportReviewConflicts: View {
         let conflicts = model.flow.reviewConflicts()
         let shown = showsAll ? conflicts : Array(conflicts.prefix(Self.folded))
         ForEach(shown) { conflict in
-            ImportConflictBanner(model: model, conflict: conflict, isCompact: isCompact)
+            ImportConflictBanner(model: model, conflict: conflict)
         }
         if conflicts.count > shown.count {
             ViewThatFits(in: .horizontal) {
@@ -186,7 +177,8 @@ private struct ImportReviewConflicts: View {
 private struct ImportConflictBanner: View {
     let model: ImportController
     let conflict: ImportReviewConflict
-    let isCompact: Bool
+    @Environment(\.pageLayout) private var layout
+    private var isCompact: Bool { !layout.isWide }
 
     @Environment(\.locale) private var locale
 
@@ -267,7 +259,8 @@ private struct ImportConflictBanner: View {
 /// the year began; on the iPhone a list of the balance over the change.
 private struct ImportReviewAccounts: View {
     let flow: ImportFlow
-    let isCompact: Bool
+    @Environment(\.pageLayout) private var layout
+    private var isCompact: Bool { !layout.isWide }
 
     var body: some View {
         let accounts = flow.reviewAccounts
@@ -309,7 +302,7 @@ private struct ImportReviewAccounts: View {
                             .foregroundStyle(Palette.ink)
                             .privacySensitiveInFeedback()
                         if account.isNew {
-                            ImportNewBadge(isCompact: false)
+                            ImportNewBadge()
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -353,7 +346,7 @@ private struct ImportReviewAccounts: View {
                                 .foregroundStyle(Palette.ink)
                                 .privacySensitiveInFeedback()
                             if account.isNew {
-                                ImportNewBadge(isCompact: true)
+                                ImportNewBadge()
                             }
                         }
                         Spacer(minLength: Metrics.s)
@@ -396,7 +389,8 @@ private struct ImportReviewAccounts: View {
 /// "New" after an account the import creates, or gives its first values:
 /// a pill on the Mac, accent text on the iPhone.
 private struct ImportNewBadge: View {
-    let isCompact: Bool
+    @Environment(\.pageLayout) private var layout
+    private var isCompact: Bool { !layout.isWide }
 
     var body: some View {
         if isCompact {
@@ -421,7 +415,8 @@ private struct ImportNewBadge: View {
 /// wide Import, Back being in the navigation bar.
 struct ImportReviewBottomBar: View {
     let model: ImportController
-    let isCompact: Bool
+    @Environment(\.pageLayout) private var layout
+    private var isCompact: Bool { !layout.isWide }
 
     @Environment(LibraryStore.self) private var library
 

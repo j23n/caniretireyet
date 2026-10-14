@@ -136,7 +136,7 @@ extension PreviewBuilder {
         let open = read.indices.filter { index in
             session.statementLineClasses[read[index].row] == nil && remembered(read[index]) == nil
                 && read[index].rule == nil
-                && answered[read[index].row] == nil && session.statementPairs[read[index].row] == nil
+                && answered[read[index].row] == nil && batch.pairs[read[index].row] == nil
         }
         let trades = matchTrades(read, lines: open, excluding: account.id)
         var lines = read.indices.map { index in
@@ -158,7 +158,7 @@ extension PreviewBuilder {
                 chosen = (rule.statementClass, .rule(rule.match))
             } else if let trade = trades[index] {
                 chosen = (.transfer, .trade(trade))
-            } else if let other = session.statementPairs[line.row] {
+            } else if let other = batch.pairs[line.row] {
                 chosen = (.transfer, .paired(other))
             } else if let named = Self.namedAccount(in: line.words, names: names) {
                 // Paying a debt is spending; a loan paid out into the account is moved between accounts.
@@ -472,13 +472,14 @@ extension PreviewBuilder {
             let cells = read.first { $0.row == row }?.cells ?? []
             if case .moved(let other)? = answered[row] {
                 if let to = library.accounts[other], Self.followsMoves(to, of: account),
-                   !session.statementBatchAccounts.contains(other) {
+                   !batch.accounts.contains(other) {
                     if let cut = line.period {
                         moves[other, default: []].append(StatementMove(date: line.date, cut: cut,
                                                                        amount: -line.amount, cells: cells))
                     } else if to.kind == .taxPot {
                         // Still a transfer, as the answer says, but the pot's value can't follow from it.
                         issues.append(ImportIssue(kind: .statementMoveLeftOut(row: row, account: other)))
+                        lines[index].assetLeftOut = .notCovered
                         continue
                     }
                 }
@@ -497,12 +498,14 @@ extension PreviewBuilder {
             guard let asset = answered[row], !unrecorded else {
                 if case .moved(let other)? = session.statementAssets[row] {
                     issues.append(ImportIssue(kind: .statementMoveLeftOut(row: row, account: other)))
+                    lines[index].assetLeftOut = .accountCantTakeMoves
                     continue
                 }
                 var account: AccountID?
                 if case .sale(let id)? = session.statementAssets[row], answered[row] == nil || unrecorded,
                    session.statementAssets[row]?.fits(line.amount) == true { account = id }
                 issues.append(ImportIssue(kind: .statementAssetLeftOut(row: row, account: account)))
+                lines[index].assetLeftOut = .doesntFit
                 continue
             }
             let amount = -line.amount
@@ -560,6 +563,9 @@ extension PreviewBuilder {
         for line in read where answered[line.row] == nil {
             if case .moved(let other)? = ruleMove(for: line) {
                 issues.append(ImportIssue(kind: .statementMoveLeftOut(row: line.row, account: other)))
+                if let index = lines.firstIndex(where: { $0.row == line.row }) {
+                    lines[index].assetLeftOut = .accountCantTakeMoves
+                }
             }
         }
         for (other, otherMoves) in moves {
@@ -655,6 +661,7 @@ extension PreviewBuilder {
             issues.append(ImportIssue(kind: .linesOutsidePeriod(count: outside, from: start, through: end)))
             return [:]
         }
+        statementPeriod = StatementPeriod(from: start, through: end)
         issues.append(ImportIssue(kind: .statementPeriod(from: start, through: end)))
         let valuations = library.valuations(for: account.id)
         let anchor = valuations.last { $0.date < start }
@@ -667,6 +674,7 @@ extension PreviewBuilder {
         // A file said to end on a day has a value on that day, which the next file follows on from.
         if through != nil { cuts.insert(end) }
         let balances = RunningBalances(lines)
+        runningBalanceBreaks = balances.breaks
         if balances.breaks > 0 { issues.append(ImportIssue(kind: .runningBalanceBreaks(count: balances.breaks))) }
         let fromFile = balances.opening
         let adjacent = anchor.map { $0.date >= start.adding(days: -1) } ?? false

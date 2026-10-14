@@ -319,7 +319,7 @@ extension ImportFlow {
     /// An account's name: the library's, a proposed one's (of any file
     /// open), or its ID.
     func accountName(_ id: AccountID) -> String {
-        let proposals = (preview?.newAccounts ?? []) + batchPreviews.flatMap(\.preview.newAccounts)
+        let proposals = previews.flatMap(\.preview.newAccounts)
         return library.accounts[id]?.name ?? proposals.first { $0.account.id == id }?.account.name ?? id.rawValue
     }
 

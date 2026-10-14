@@ -38,6 +38,12 @@ public struct ImportPreview: Hashable, Sendable {
     /// Statement layout: the file's lines in date order, each with its
     /// class and the value it counts in.
     public var statementLines: [StatementLine] = []
+    /// Statement layout: the days the file is read as covering; `nil` until
+    /// it has an account and its lines fit the days.
+    public var statementPeriod: StatementPeriod?
+    /// Statement layout: the days whose balance in the file doesn't follow
+    /// from the day before and the day's lines.
+    public var runningBalanceBreaks = 0
 
     /// Counts for the summary.
     public var summary: ImportSummary {

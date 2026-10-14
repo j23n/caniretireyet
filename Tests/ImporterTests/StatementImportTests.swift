@@ -369,6 +369,8 @@ struct StatementImportTests {
         var session = try Self.session("italian-bank.csv", account: "conto")
         let preview = session.preview(against: Self.library(), today: Self.today)
         #expect(preview.issues.contains { $0.kind == .statementPeriod(from: "2026-02-01", through: "2026-04-12") })
+        #expect(preview.statementPeriod == StatementPeriod(from: "2026-02-01", through: "2026-04-12"))
+        #expect(preview.runningBalanceBreaks == 0)
 
         // An export made on 5 April: its last day gets a value, which the next file follows on from.
         session.statementThrough = "2026-04-05"
@@ -503,6 +505,7 @@ struct StatementImportTests {
         session.profile.constants.account = "conto"
         let preview = session.preview(against: Self.library(), today: Self.today)
         #expect(preview.issues.contains { $0.kind == .runningBalanceBreaks(count: 1) })
+        #expect(preview.runningBalanceBreaks == 1)
     }
 
     @Test func onlyCashAndSavingsAccountsTakeAStatement() throws {

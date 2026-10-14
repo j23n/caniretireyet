@@ -64,9 +64,8 @@ enum ImportPreviewData {
     /// cash account) against `library`, on `step` (Done needs the import
     /// run; see `ImportPreviewHost`).
     @MainActor
-    static func controller(library: Library, step: ImportStep, guided: Bool = false,
-                           file: File = .sheet) -> ImportController {
-        let controller = ImportController(library: library, guided: guided)
+    static func controller(library: Library, step: ImportStep, file: File = .sheet) -> ImportController {
+        let controller = ImportController(library: library)
         switch file {
         case .sheet:
             controller.open(Data(sheet.utf8), fileName: fileName)
@@ -78,9 +77,6 @@ enum ImportPreviewData {
             controller.open(Data(statement.utf8), fileName: statementFileName)
             let account = library.sortedAccounts.first { $0.kind == .cash && !$0.recordsTrades }
             controller.flow.setConstants { $0.account = account?.id }
-        }
-        if guided, let profile = controller.flow.profileFits.first?.profile {
-            controller.flow.useProfile(profile.id)
         }
         controller.flow.show(step)
         return controller

@@ -15,22 +15,14 @@ import SwiftUI
 struct ImportClassifyStep: View {
     let model: ImportController
 
-    #if os(iOS)
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
-    #endif
+    @Environment(\.pageLayout) private var layout
     @State private var isShowingLines = false
     /// What All Lines shows when it opens.
     @State private var linesFilter = StatementLinesFilter()
     /// The line being answered as money moved to or from an account.
     @State private var moveRequest: StatementMoveRequest?
 
-    private var isCompact: Bool {
-        #if os(iOS)
-        horizontalSizeClass == .compact
-        #else
-        false
-        #endif
-    }
+    private var isCompact: Bool { !layout.isWide }
 
     var body: some View {
         let flow = model.flow
@@ -110,7 +102,7 @@ struct ImportClassifyStep: View {
             IncomeSection(flow.questionsHeader, color: color) {
                 ForEach(Array(questions.enumerated()), id: \.element.id) { index, line in
                     if index > 0 { Divider() }
-                    ImportQuestionRow(model: model, line: line, isCompact: false, askMove: { askMove(line) })
+                    ImportQuestionRow(model: model, line: line, askMove: { askMove(line) })
                 }
             }
         }
@@ -175,7 +167,7 @@ struct ImportClassifyStep: View {
             if !questions.isEmpty {
                 Section {
                     ForEach(questions) { line in
-                        ImportQuestionRow(model: model, line: line, isCompact: true, askMove: { askMove(line) })
+                        ImportQuestionRow(model: model, line: line, askMove: { askMove(line) })
                     }
                 } header: {
                     Text(flow.questionsHeader)
@@ -278,7 +270,8 @@ struct StatementAnswerPicker: View {
 private struct ImportQuestionRow: View {
     let model: ImportController
     let line: BatchStatementLine
-    let isCompact: Bool
+    @Environment(\.pageLayout) private var layout
+    private var isCompact: Bool { !layout.isWide }
     let askMove: () -> Void
 
     var body: some View {
@@ -490,40 +483,6 @@ private struct ImportIncomeSummaryColumns: View {
                 .font(.headline)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-    }
-}
-
-// MARK: - The balance before the first line
-
-/// The balance before a statement's first line, typed in, for a file
-/// without a balance column that doesn't follow on from the library's
-/// values. Review shows it.
-struct ImportOpeningBalanceField: View {
-    let model: ImportController
-
-    @State private var openingText = ""
-
-    var body: some View {
-        LabeledContent("Balance before the first line") {
-            HStack(spacing: Metrics.s) {
-                TextField("Balance", text: $openingText)
-                    .multilineTextAlignment(.trailing)
-                    .onSubmit(apply)
-                Button("Use", action: apply)
-                    .disabled(AmountInput.parse(openingText).value == model.flow.statementOpeningBalance)
-            }
-        }
-        .onAppear {
-            openingText = model.flow.statementOpeningBalance.map { AmountInput.text(for: $0) } ?? ""
-        }
-    }
-
-    private func apply() {
-        switch AmountInput.parse(openingText) {
-        case .empty: model.flow.setStatementOpeningBalance(nil)
-        case .value(let value): model.flow.setStatementOpeningBalance(value)
-        case .unreadable: break
-        }
     }
 }
 

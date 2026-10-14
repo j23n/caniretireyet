@@ -166,9 +166,9 @@ struct StatementTaxTests {
     }
 
     @Test func aPotWithAStatementOfItsOwnRecordsItsSide() throws {
-        var session = try Self.session()
-        session.statementBatchAccounts = ["tax-pot"]
-        let preview = session.preview(against: Self.library(), today: Self.today)
+        let session = try Self.session()
+        let preview = session.preview(against: Self.library(), today: Self.today,
+                                      batch: StatementBatchContext(accounts: ["tax-pot"]))
         #expect(try Self.line(preview, "Accantonamento tasse gennaio").statementClass == .transfer)
         #expect(!preview.records.contains { $0.imported.key.account == "tax-pot" })
     }
@@ -179,6 +179,7 @@ struct StatementTaxTests {
         session.setStatementAsset(.moved("conto"), forRow: row)
         let preview = session.preview(against: Self.library(), today: Self.today)
         #expect(try Self.line(preview, "Affitto marzo").statementClass == .spending)
+        #expect(try Self.line(preview, "Affitto marzo").assetLeftOut == .accountCantTakeMoves)
         #expect(preview.issues.contains { $0.kind == .statementMoveLeftOut(row: row, account: "conto") })
     }
 
