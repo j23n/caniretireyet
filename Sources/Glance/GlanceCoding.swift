@@ -124,3 +124,57 @@ extension AllocationSlice: Codable {
         try c.encodeIfPresent(share, forKey: .share)
     }
 }
+
+extension JourneyGlance: Codable {
+    enum CodingKeys: String, CodingKey {
+        case birthDate, firstRecord, checkIns, planName, planChanged, reached, yearlySpending, years
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        birthDate = try c.decodeIfPresent(CalendarDate.self, forKey: .birthDate)
+        firstRecord = try c.decodeIfPresent(CalendarDate.self, forKey: .firstRecord)
+        checkIns = try c.decodeIfPresent([JourneyPoint].self, forKey: .checkIns) ?? []
+        planName = try c.decodeIfPresent(String.self, forKey: .planName)
+        planChanged = try c.decodeIfPresent(CalendarDate.self, forKey: .planChanged)
+        reached = try c.decodeIfPresent([CalendarDate].self, forKey: .reached) ?? []
+        yearlySpending = try c.decodeDecimalIfPresent(forKey: .yearlySpending)
+        years = try c.decodeIfPresent([JourneyYear].self, forKey: .years) ?? []
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encodeIfPresent(birthDate, forKey: .birthDate)
+        try c.encodeIfPresent(firstRecord, forKey: .firstRecord)
+        try c.encode(checkIns, forKey: .checkIns)
+        try c.encodeIfPresent(planName, forKey: .planName)
+        try c.encodeIfPresent(planChanged, forKey: .planChanged)
+        try c.encode(reached, forKey: .reached)
+        try c.encodeDecimalIfPresent(yearlySpending, forKey: .yearlySpending)
+        try c.encode(years, forKey: .years)
+    }
+}
+
+extension JourneyYear: Codable {
+    enum CodingKeys: String, CodingKey {
+        case year, from, to, saved, markets
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        year = try c.decode(Int.self, forKey: .year)
+        from = try c.decode(CalendarDate.self, forKey: .from)
+        to = try c.decode(CalendarDate.self, forKey: .to)
+        saved = try c.decodeDecimal(forKey: .saved)
+        markets = try c.decodeDecimal(forKey: .markets)
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(year, forKey: .year)
+        try c.encode(from, forKey: .from)
+        try c.encode(to, forKey: .to)
+        try c.encodeDecimal(saved, forKey: .saved)
+        try c.encodeDecimal(markets, forKey: .markets)
+    }
+}

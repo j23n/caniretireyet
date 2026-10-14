@@ -209,3 +209,39 @@ struct GlanceSnapshotTests {
         #expect(GlanceFile.snapshot(from: Data("not json".utf8)) == nil)
     }
 }
+
+/// The journey of the example library's main plan.
+struct ExampleLibraryJourneyTests {
+    @Test func readsTheMainPlansAnswersAndYears() throws {
+        let library = try Fixtures.exampleLibrary()
+        let valuator = Valuator(library: library)
+        let journey = JourneyGlance(library: library, valuator: valuator, asOf: "2026-09-30",
+                                    reached: ["2026-06-30", "2026-03-31"], yearlySpending: 36000)
+        #expect(journey.birthDate == "1988-04-12")
+        #expect(journey.firstRecord == valuator.firstValuationDate(in: .netWorth))
+        #expect(journey.planName == library.plans["base"]?.name)
+        #expect(journey.checkIns.first?.date == "2026-01-31")
+        #expect(journey.checkIns.last?.date == "2026-09-30")
+        // The plan changed at the May check-in.
+        #expect(journey.planChanged == "2026-05-31")
+        #expect(journey.reached == ["2026-03-31", "2026-06-30"])
+        let thisYear = try #require(journey.year(2026))
+        #expect(thisYear.to == "2026-09-30")
+        let split = valuator.savedSplit(of: valuator.change(from: thisYear.from, to: "2026-09-30"))
+        #expect(thisYear.saved == split.newMoney)
+        #expect(thisYear.markets == split.market)
+        #expect(!thisYear.isComplete)
+    }
+
+    @Test func roundTripsThroughTheSnapshotFile() throws {
+        let library = try Fixtures.exampleLibrary()
+        let valuator = Valuator(library: library)
+        var snapshot = GlanceSnapshot(library: library, valuator: valuator, asOf: "2026-09-30", answer: nil,
+                                      checkIn: checkIn)
+        snapshot.journey = JourneyGlance(library: library, valuator: valuator, asOf: "2026-09-30",
+                                         reached: ["2026-03-31"], yearlySpending: Decimal(string: "36000.5"))
+        let data = try JSONEncoder().encode(snapshot)
+        #expect(try JSONDecoder().decode(GlanceSnapshot.self, from: data) == snapshot)
+        #expect(String(decoding: data, as: UTF8.self).contains("\"yearlySpending\":\"36000.5\""))
+    }
+}
