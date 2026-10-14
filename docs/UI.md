@@ -264,12 +264,11 @@ A year of the main plan looked back on, as a sheet with *Done*: last year in Jan
 
 - **"Your 2026"**, "January to December" or "January to September", and "12 check-ins".
 - **The ring:** readiness at the year's last check-in, with where it started ("58% ready, from 41%"), and the answer: "You could retire at 54, 2 years sooner than a year ago." Your last Monday's month and how far away it is: "Your last Monday: about 15 years away, in March 2042".
-- **Tiles:** *You saved* and *Markets* for the year, each an amount with its time of the life you plan under it ("8 months of the life you plan", "added about 2 months"), and the milestones passed.
+- **Tiles:** *You saved* and *Markets* for the year as time of the life you plan, never as amounts: "8 months" over "of the life you plan", "2 months" over "added" (or "took").
 - **The age you could retire at:** the step line through the year's check-ins.
-- **Your money through the year:** plan assets at each month end against what January's plan expected (its median and 25–75% band, as Progress draws a year), with a flag where a milestone was passed, and a line under it: "…, above what January expected all year", "…, around what January expected".
-- **Reached:** the milestones passed this year, each with its month.
+- **Your money through the year:** plan assets through the year against what January's plan expected (its median, dashed), the lines of the year's card on Progress, with a flag where a milestone was passed and no amount axis. Under it, the milestones passed this year, each with its month. VoiceOver reads "Plan assets through the year, above what January expected all year; 3 milestones passed."
 - **Month by month:** saving and markets for each month as bars ([Check-in](#check-in)'s chart).
-- **The year ahead:** the next milestone and when it's typical, and the countdown.
+- **The year ahead:** the next milestone, how far there with its bar, and when it's typical.
 - *Open 2026 on Progress* opens the year on the plan's Progress.
 
 Without an answer from a check-in: "Your year shows once the main plan has an answer from a check-in." Amounts hide as everywhere; ages, months and charts hide in a feedback screenshot.
