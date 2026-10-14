@@ -134,9 +134,20 @@ extension ImportFlow {
     /// Switches between one row per date (wide), one row per record (long),
     /// one row per trade (trades) and one row per line of a bank statement
     /// (statement): the importer proposes the columns again for that layout.
+    /// Bank statements are read as a batch, so switching to or from them
+    /// reads the files given again: every file as a statement, or the
+    /// file on screen alone as another layout.
     mutating func setLayout(_ layout: ImportLayout) {
         guard layout != self.layout else { return }
-        editSession { $0.proposeMapping(layout: layout) }
+        if batch != nil {
+            let shown = batchFile.flatMap { givenFiles.indices.contains($0) ? givenFiles[$0] : nil }
+            guard let file = shown ?? givenFiles.first else { return }
+            reopen(file, as: layout)
+        } else if layout == .statement, !givenFiles.isEmpty {
+            open(statements: givenFiles)
+        } else {
+            editSession { $0.proposeMapping(layout: layout) }
+        }
     }
 
     /// Every file column, for the Columns table.

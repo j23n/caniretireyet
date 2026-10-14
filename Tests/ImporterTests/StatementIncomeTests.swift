@@ -56,6 +56,14 @@ struct StatementIncomeTests {
         #expect(StatementWords.sender(of: "Bonifico a vostro favore disposto da: Mario Rossi") == "Mario Rossi")
     }
 
+    /// A payment processor writes the merchant after a `*`.
+    @Test func aProcessorsLineIsItsMerchants() {
+        #expect(StatementWords.sender(of: "PayPal Europe *Kleinanzeigen Fahrrad") == "Kleinanzeigen")
+        #expect(StatementWords.sender(of: "SUMUP *BarCentrale 0412") == "BarCentrale")
+        #expect(StatementWords.sender(of: "PayPal *") == "PayPal")
+        #expect(StatementWords.sender(of: "Libreria *Rossi") == "Libreria Rossi")
+    }
+
     @Test func aPensionAndARefundAreKnownByTheirWords() {
         #expect(StatementWords.suggestion(for: "Accredito pensione INPS", amount: 1200) == .income)
         #expect(StatementWords.suggestion(for: "Rimborso Amazon", amount: 30) == .spending)
@@ -78,6 +86,26 @@ struct StatementIncomeTests {
         let advance = try Self.line(preview, "Bonifico SEPA da ACME GmbH rif anticipo")
         #expect(advance.statementClass == .income)
         #expect(advance.source == .recurring)
+    }
+
+    /// An answered question stays a question: the line was asked.
+    @Test func anAnsweredLineWasAsked() throws {
+        let csv = Self.csv + "\n30/03/2026;15.000,00;Bonifico SEPA da ACME GmbH rif TFR"
+        var session = try ImportSession(data: Data(csv.utf8))
+        session.proposeMapping(layout: .statement)
+        session.profile.constants.account = "conto"
+        let before = session.preview(against: Self.library(), today: Self.today)
+        let asked = try Self.line(before, "Bonifico SEPA da ACME GmbH rif TFR")
+        #expect(asked.needsAnswer)
+        #expect(asked.wasAsked)
+        session.setStatementClass(.oneOff, forRow: asked.row)
+        let preview = session.preview(against: Self.library(), today: Self.today)
+        let answered = try Self.line(preview, "Bonifico SEPA da ACME GmbH rif TFR")
+        #expect(!answered.needsAnswer)
+        #expect(answered.wasAsked)
+        #expect(answered.statementClass == .oneOff)
+        #expect(preview.statementLines.filter(\.wasAsked).map(\.row)
+            == before.statementLines.filter(\.needsAnswer).map(\.row))
     }
 
     @Test func aRegularPayersLargerLineNeedsAnAnswerWhateverItsSize() throws {

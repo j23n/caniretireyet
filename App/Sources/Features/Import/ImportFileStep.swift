@@ -3,28 +3,122 @@ import Importer
 import Model
 import SwiftUI
 
-/// Step 1, File: a drop zone and a file importer, what was read, and the
-/// mapping to read it with: a saved profile or a proposed one. A bank
-/// statement's account is asked here, before any other step, with its
-/// format and columns in a sheet. Several statements dropped at once are
-/// listed each with its account, the transfers paired between them, and
-/// the gaps between an account's files. On iPhone this is "Import with
-/// profile…", with a way into every step.
+/// Step 1, Files (UI.md, "Import"). Bank statements, one or many, are a
+/// table on the Mac and iPad (`ImportFilesPage`) and a list on iPhone
+/// (`ImportFilesList`): each file's bank, what it covers, whether its
+/// balance adds up and its account, a menu to remove it, give its days or
+/// see how it's read, a zone to drop more, and what's between the files.
+/// Another kind of file (a spreadsheet, a broker's transactions, read one
+/// at a time) shows what was read and the mapping to read it with: a saved
+/// profile or a proposed one. On iPhone one such file is "Import with
+/// profile…", with a way into every step. Files dropped or added join
+/// those listed.
 struct ImportFileStep: View {
     let model: ImportController
     let isCompact: Bool
+    /// Shows the file importer, which adds files.
     let chooseFile: () -> Void
-    let openFiles: ([URL]) -> Void
+    /// Adds files dropped on the step.
+    let addFiles: ([URL]) -> Void
+    /// What the files are before any is read.
+    var kindBeforeFiles: Binding<ImportFilesKind> = .constant(.statements)
 
     @Environment(LibraryStore.self) private var library
     @State private var isTargeted = false
-    @State private var isShowingReading = false
+    @State private var sheet: ImportFileSheet?
 
     var body: some View {
+        content
+            .dropDestination(for: URL.self) { urls, _ in
+                guard !urls.isEmpty else { return false }
+                addFiles(urls)
+                return true
+            } isTargeted: { targeted in
+                isTargeted = targeted
+            }
+            .sheet(item: $sheet) { sheet in
+                switch sheet {
+                case .reading:
+                    ImportReadingSheet(model: model, isCompact: isCompact)
+                case .days:
+                    ImportFileDaysSheet(model: model)
+                }
+            }
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        if model.flow.isBatch {
+            if isCompact {
+                ImportFilesList(model: model, kind: kind, addFiles: chooseFile, showReading: showReading,
+                                showDays: showDays)
+            } else {
+                ImportFilesPage(model: model, kind: kind, isTargeted: isTargeted, showReading: showReading,
+                                showDays: showDays)
+            }
+        } else {
+            oneFileForm
+        }
+    }
+
+    /// What the files are: the open files' kind, or before any is read the
+    /// one chosen. Choosing reads the files given again as that kind.
+    private var kind: Binding<ImportFilesKind> {
+        Binding(get: { model.flow.filesKind ?? kindBeforeFiles.wrappedValue }, set: { kind in
+            kindBeforeFiles.wrappedValue = kind
+            if model.flow.hasFile, model.flow.filesKind != nil {
+                model.flow.setFilesKind(kind)
+            }
+        })
+    }
+
+    private func showReading(_ id: Int) {
+        model.flow.showBatchFile(id)
+        sheet = .reading(id)
+    }
+
+    private func showDays(_ id: Int) {
+        model.flow.showBatchFile(id)
+        sheet = .days(id)
+    }
+
+    // MARK: Another kind of file, or none yet
+
+    /// Before a file is read, and for a spreadsheet or a broker's
+    /// transactions: what the files are, a drop zone, what was read, and
+    /// the mapping to read it with.
+    private var oneFileForm: some View {
         let flow = model.flow
-        Form {
+        return Form {
+            if !flow.hasFile || flow.filesKind != nil {
+                Section {
+                    ImportFilesKindPicker(kind: kind, short: isCompact)
+                } header: {
+                    Text("These files are")
+                } footer: {
+                    if flow.filesKind == .brokerage, flow.givenFileNames.count > 1 {
+                        Text("Brokerage transactions are read one file at a time. Import this one, then choose the "
+                            + "next.")
+                    }
+                }
+                if flow.filesKind == .brokerage, flow.givenFileNames.count > 1 {
+                    Section {
+                        Picker("File", selection: Binding(get: { flow.shownGivenFile ?? 0 }, set: { index in
+                            model.flow.readGivenFile(index)
+                        })) {
+                            ForEach(Array(flow.givenFileNames.enumerated()), id: \.offset) { index, name in
+                                Text(verbatim: name).tag(index)
+                            }
+                        }
+                        .pickerStyle(.menu)
+                        .personalControl()
+                    }
+                }
+            }
+
             Section {
-                ImportDropZone(fileName: flow.displayName, isTargeted: isTargeted, chooseFile: chooseFile)
+                ImportDropZone(fileName: flow.fileName, kind: kind.wrappedValue, isTargeted: isTargeted,
+                               chooseFile: chooseFile)
             } footer: {
                 Text("A CSV or TSV file, as Excel, Numbers or a bank exports it, in any delimiter, encoding, "
                     + "date and number format. Several bank statements, of one account or many, import together.")
@@ -36,9 +130,7 @@ struct ImportFileStep: View {
                 }
             }
 
-            if flow.isBatch {
-                batchSections(flow)
-            } else if flow.hasFile {
+            if flow.hasFile {
                 Section("File") {
                     LabeledContent("Name", value: flow.fileName ?? "")
                         .privacySensitiveInFeedback()
@@ -48,9 +140,6 @@ struct ImportFileStep: View {
                                        value: "\(AmountFormat.mediumDate(first)) – \(AmountFormat.mediumDate(last))")
                             .privacySensitiveInFeedback()
                     }
-                }
-                if flow.layout == .statement {
-                    statementSection(flow)
                 }
                 mappingSection(flow)
             }
@@ -75,87 +164,6 @@ struct ImportFileStep: View {
             }
         }
         .formStyle(.grouped)
-        .dropDestination(for: URL.self) { urls, _ in
-            guard !urls.isEmpty else { return false }
-            openFiles(urls)
-            return true
-        } isTargeted: { targeted in
-            isTargeted = targeted
-        }
-        .sheet(isPresented: $isShowingReading) {
-            ImportReadingSheet(model: model, isCompact: isCompact)
-        }
-    }
-
-    /// A bank statement: the account it's of, which every later step needs,
-    /// and how the file is read.
-    private func statementSection(_ flow: ImportFlow) -> some View {
-        Section {
-            ImportStatementAccountPicker(model: model)
-            Button("How It's Read…") {
-                isShowingReading = true
-            }
-        } header: {
-            Text("Bank statement")
-        } footer: {
-            if flow.needsStatementAccount {
-                Text("Which account is this a statement of? A cash or savings account that doesn't record trades.")
-                    .foregroundStyle(Palette.warning)
-            } else if flow.source != .proposed {
-                Text("Its format and columns come from the chosen profile. How It's Read… shows them, to correct.")
-            } else {
-                Text("Its format and columns were read from the file. How It's Read… shows them, to correct.")
-            }
-        }
-    }
-
-    /// Several statements: each file with what's in it, its account and
-    /// how it was found, and how it's read; the files that can't be read;
-    /// then the transfers paired and the gaps between an account's files.
-    @ViewBuilder
-    private func batchSections(_ flow: ImportFlow) -> some View {
-        Section {
-            ForEach(flow.batchFiles) { file in
-                ImportBatchFileRow(model: model, file: file) {
-                    model.flow.showBatchFile(file.id)
-                    isShowingReading = true
-                }
-            }
-        } header: {
-            Text("Bank statements")
-        } footer: {
-            if let file = flow.batchFileWithoutAccount {
-                Text("Which account is \(file.name) a statement of? A cash or savings account that doesn't record "
-                    + "trades.")
-                    .foregroundStyle(Palette.warning)
-                    .privacySensitiveInFeedback()
-            } else {
-                Text("Each file's account was recognized or chosen. They're imported one after another, so each "
-                    + "month follows on from the one before.")
-            }
-        }
-        if let unreadable = flow.batch?.unreadable, !unreadable.isEmpty {
-            Section("Can't be read") {
-                ForEach(unreadable, id: \.name) { file in
-                    StatusBanner(.warning, file.name, message: ImportFlow.describe(file.error), personal: .title)
-                }
-            }
-        }
-        let notes = flow.batchNotes
-        if !notes.isEmpty {
-            Section {
-                ForEach(notes, id: \.self) { note in
-                    Label {
-                        Text(note.text)
-                            .foregroundStyle(note.isProblem ? Palette.warning : Palette.ink)
-                    } icon: {
-                        Image(systemName: note.isProblem ? "exclamationmark.triangle" : "checkmark.circle")
-                            .foregroundStyle(note.isProblem ? Palette.warning : Palette.positive)
-                    }
-                    .privacySensitiveInFeedback()
-                }
-            }
-        }
     }
 
     /// The saved profiles, best fit first, and (except on iPhone's "Import
@@ -164,9 +172,7 @@ struct ImportFileStep: View {
         Section {
             if !flow.isGuided {
                 ImportChoiceRow(title: "Propose a new mapping",
-                                detail: flow.layout == .statement
-                                    ? "The importer reads the headers and values; How It's Read… shows them."
-                                    : "The importer reads the headers and values; check them step by step.",
+                                detail: "The importer reads the headers and values; check them step by step.",
                                 isSelected: flow.source == .proposed) {
                     model.flow.useProfile(nil)
                 }
@@ -191,45 +197,14 @@ struct ImportFileStep: View {
     }
 }
 
-/// How a bank statement is read: the Format and Columns steps in a sheet,
-/// for a file the importer read wrongly (UI.md, "Import").
-struct ImportReadingSheet: View {
-    let model: ImportController
-    let isCompact: Bool
+/// The sheets the Files step opens for one of its files.
+private enum ImportFileSheet: Identifiable, Hashable {
+    /// *How It's Read*.
+    case reading(Int)
+    /// *Days*.
+    case days(Int)
 
-    @Environment(\.dismiss) private var dismiss
-    @State private var page: ImportStep = .columns
-
-    var body: some View {
-        NavigationStack {
-            Group {
-                if page == .format {
-                    ImportFormatStep(model: model)
-                } else {
-                    ImportColumnsStep(model: model, isCompact: isCompact)
-                }
-            }
-            .navigationTitle("How It's Read")
-            .toolbar {
-                ToolbarItem(placement: .principal) {
-                    Picker("Show", selection: $page) {
-                        Text("Format").tag(ImportStep.format)
-                        Text("Columns").tag(ImportStep.columns)
-                    }
-                    .pickerStyle(.segmented)
-                    .fixedSize()
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") {
-                        dismiss()
-                    }
-                }
-            }
-        }
-        #if os(macOS)
-        .frame(minWidth: 820, idealWidth: 960, minHeight: 600, idealHeight: 720)
-        #endif
-    }
+    var id: Self { self }
 }
 
 /// A selectable row: a circle (filled when selected), a title and a detail line.
@@ -261,9 +236,10 @@ struct ImportChoiceRow: View {
     }
 }
 
-/// Where to drop a file, with a button to choose one.
+/// Where to drop files, with a button to add them.
 private struct ImportDropZone: View {
     let fileName: String?
+    let kind: ImportFilesKind
     let isTargeted: Bool
     let chooseFile: () -> Void
 
@@ -273,12 +249,12 @@ private struct ImportDropZone: View {
                 .font(.system(size: 34, weight: .light))
                 .foregroundStyle(Palette.accent)
                 .accessibilityHidden(true)
-            Text(fileName ?? "Drop a spreadsheet export here")
+            Text(fileName ?? (kind == .brokerage ? "Drop brokerage transactions here" : "Drop statements here"))
                 .font(.headline)
                 .foregroundStyle(Palette.ink)
                 .multilineTextAlignment(.center)
                 .privacySensitiveInFeedback(fileName != nil)
-            Button(fileName == nil ? "Choose File…" : "Choose Another File…", action: chooseFile)
+            Button("Add Files…", action: chooseFile)
                 .buttonStyle(.bordered)
         }
         .frame(maxWidth: .infinity)
@@ -292,9 +268,94 @@ private struct ImportDropZone: View {
     }
 }
 
-#Preview("File") {
+// MARK: - Days
+
+/// The days one statement is read as covering (its *Days…*): whole months
+/// unless it starts or ends on a day of its own. *Cancel* puts the import
+/// back as it was; *Done* keeps the change.
+struct ImportFileDaysSheet: View {
+    let model: ImportController
+
+    @Environment(\.dismiss) private var dismiss
+    @Environment(LibraryStore.self) private var library
+    /// The import as the sheet opened it, for *Cancel*.
+    @State private var saved: ImportFlow?
+
+    var body: some View {
+        let flow = model.flow
+        NavigationStack {
+            Form {
+                Section {
+                    if let period = flow.shownFilePeriod() {
+                        LabeledContent("Read as covering") {
+                            Text(AmountFormat.mediumDate(period.from) + " – "
+                                + AmountFormat.mediumDate(period.through))
+                                .privacySensitiveInFeedback()
+                        }
+                    }
+                    Toggle("Starts on a day of its own", isOn: Binding(get: { model.flow.statementFrom != nil },
+                                                                        set: { on in
+                        model.flow.setStatementFrom(on ? model.flow.shownFileFirstDay() : nil)
+                    }))
+                    if let from = flow.statementFrom {
+                        DatePicker("First day", selection: Binding(get: { from.dateValue }, set: { date in
+                            model.flow.setStatementFrom(CalendarDate(date, in: .current))
+                        }), in: ...(flow.statementThrough?.dateValue ?? Date()), displayedComponents: .date)
+                            .personalControl()
+                    }
+                    Toggle("Ends on a day of its own", isOn: Binding(get: { model.flow.statementThrough != nil },
+                                                                      set: { on in
+                        model.flow.setStatementThrough(on ? model.flow.shownFileLastDay() : nil)
+                    }))
+                    if let through = flow.statementThrough {
+                        DatePicker("Last day", selection: Binding(get: { through.dateValue }, set: { date in
+                            model.flow.setStatementThrough(CalendarDate(date, in: .current))
+                        }), in: min(flow.statementFrom?.dateValue ?? .distantPast, Date())...Date(),
+                                   displayedComponents: .date)
+                            .personalControl()
+                    }
+                } footer: {
+                    Text("A statement is read as whole months: from the first day of its first line's month to the "
+                        + "last day of its last line's month, or today. A bank's export of the last 90 days, or one "
+                        + "made in the middle of a month, covers less: give its first and last days. The last day "
+                        + "gets a value of its own, which next month's file follows on from.")
+                }
+            }
+            .formStyle(.grouped)
+            .personalNavigationTitle("Days of \(flow.fileName ?? "the file")", hidden: "Days")
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        if let saved {
+                            model.flow = saved
+                            model.libraryChanged(library.library)
+                        }
+                        dismiss()
+                    }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") {
+                        dismiss()
+                    }
+                }
+            }
+        }
+        .interactiveDismissDisabled()
+        .onAppear {
+            if saved == nil { saved = model.flow }
+        }
+        #if os(macOS)
+        .frame(minWidth: 480, idealWidth: 520, minHeight: 360, idealHeight: 420)
+        #endif
+    }
+}
+
+#Preview("Files") {
     NavigationStack {
-        ImportPreviewHost(step: .file)
+        ImportPreviewHost(step: .file, file: .statement)
     }
     .previewEnvironment()
 }
@@ -306,54 +367,7 @@ private struct ImportDropZone: View {
     .previewEnvironment()
 }
 
-/// One of several statements: its name, what's in it, its account (to
-/// choose when nothing recognized it) and how it was found, and How It's
-/// Read….
-private struct ImportBatchFileRow: View {
-    let model: ImportController
-    let file: StatementBatch.File
-    let showReading: () -> Void
-
-    var body: some View {
-        let flow = model.flow
-        VStack(alignment: .leading, spacing: Metrics.xs) {
-            HStack(alignment: .firstTextBaseline) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(verbatim: file.name)
-                        .lineLimit(1)
-                        .privacySensitiveInFeedback()
-                    Text(flow.batchFileDetail(file))
-                        .font(.caption)
-                        .foregroundStyle(Palette.secondaryInk)
-                        .privacySensitiveInFeedback()
-                }
-                Spacer(minLength: Metrics.s)
-                Button("How It's Read…", action: showReading)
-                    .buttonStyle(.borderless)
-                    .font(.caption)
-            }
-            Picker("Account", selection: Binding(get: { file.account }, set: { account in
-                model.flow.setBatchAccount(account, forFile: file.id)
-            })) {
-                Text("Choose…").tag(AccountID?.none)
-                ForEach(flow.statementAccountChoices) { account in
-                    Text(account.name).tag(AccountID?.some(account.id))
-                }
-            }
-            .pickerStyle(.menu)
-            .personalControl()
-            if let found = flow.batchAccountSourceText(file) {
-                Text(found)
-                    .font(.caption)
-                    .foregroundStyle(Palette.secondaryInk)
-                    .privacySensitiveInFeedback()
-            }
-        }
-        .padding(.vertical, 2)
-    }
-}
-
-/// Several statements: the file Income and Preview show, by name and
+/// Several statements: the file Income and Review show, by name and
 /// account, in the order they're imported.
 struct ImportBatchFilePicker: View {
     let model: ImportController

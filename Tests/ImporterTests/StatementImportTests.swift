@@ -187,6 +187,9 @@ struct StatementImportTests {
         #expect(session.statementRule(for: "Accredito stipendio ACME")?.statementClass == .transfer)
         session.setStatementRule(.spending, for: "Accredito Stipendio")
         #expect(session.profile.rules.filter { $0.match.lowercased().hasPrefix("accredito") }.count == 2)
+        #expect(session.statementRule(matching: "ACCREDITO, stipendio")?.statementClass == .spending)
+        #expect(session.statementRule(matching: "Accredito stipendio ACME") == nil)
+        #expect(session.statementRule(matching: " – ") == nil)
         session.setStatementRule(nil, for: "accredito stipendio")
         #expect(session.statementRule(for: "Accredito stipendio ACME")?.statementClass == .income)
     }
@@ -514,6 +517,9 @@ struct StatementImportTests {
         let preview = session.preview(against: library, today: Self.today)
         #expect(preview.issues.filter { !$0.isNote }.isEmpty, "\(preview.issues)")
         #expect(try Self.line(preview, row: 11).source == .rule("Addebito carta di credito"))
+        // Its remembered answer: the expenses paid back on 3 March are income, not a refund.
+        #expect(try Self.line(preview, row: 9).statementClass == .income)
+        #expect(try Self.line(preview, row: 9).source == .chosen)
         #expect(preview.records.map(\.imported.key) == [.valuation("conto-fineco", "2026-02-28"),
                                                         .valuation("conto-fineco", "2026-03-31")])
     }

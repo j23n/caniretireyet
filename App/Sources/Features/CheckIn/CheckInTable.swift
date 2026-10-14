@@ -6,10 +6,17 @@ import Tracker
 
 /// The check-in on the Mac (UI.md, "On the Mac"): a table that can be
 /// filled in without touching the mouse. Columns Account, Last, Now,
-/// Change, New money and Note; accounts by group. Under a cash or savings
-/// account, its money in and out (and a savings account's interest) and
-/// what moved between your accounts; under a trades account, its positions
-/// and cash. New money is typed only for the kinds that ask for it.
+/// Change, New money and From (where the value comes from, or what to do
+/// for it); accounts by group. Under a cash or savings account, its money
+/// in and out (and a savings account's interest) and what moved between
+/// your accounts; under a trades account, its positions and cash. New
+/// money is typed only for the kinds that ask for it. A row's note is in
+/// its menu.
+///
+/// The statements of the check-in come first (UI.md, "Statements first"),
+/// in a card that takes dropped files. The rows they fill in are
+/// read-only, with "In · Out · Moved" under them; the accounts typed by
+/// hand are grouped in one band, "Pension · Property · Debts".
 ///
 /// Tab moves to the next cell, Return down the Now column, ⌘↩ opens the
 /// review, where ⌘↩ saves. Click a row's state to mark it unchanged, or
@@ -31,6 +38,7 @@ struct CheckInTable: View {
     @Bindable var session: CheckInSession
 
     @Environment(LibraryStore.self) private var library
+    @Environment(CheckInStore.self) private var checkIn
     @FocusState private var focus: CheckInField?
 
     init(draft: CheckInDraft, session: CheckInSession) {
@@ -39,16 +47,23 @@ struct CheckInTable: View {
     }
 
     var body: some View {
-        let snapshot = library.library
+        // The draft follows the library with the statements it holds imported.
+        let snapshot = checkIn.statementsLibrary
         let review = draft.review(in: snapshot)
-        let sections = CheckInSection.sections(of: draft, in: snapshot)
+        let statements = checkIn.heldStatements(for: draft)
+        let forStatements = statements.groupsForStatements(dismissed: session.typesEveryValue)
+        let sections = CheckInSection.sections(of: draft, in: snapshot, forStatements: forStatements)
         let rows = sections.flatMap(\.rows)
-        let moneyInOut = Set(rows.filter { CheckInRowDisplay.showsMoneyInOut($0) }.map(\.account))
-        let order = CheckInFieldOrder.nowColumn(rows: rows, editingCash: session.editingCash, moneyInOut: moneyInOut)
+        let moneyInOut = Set(rows.filter { CheckInRowDisplay.showsMoneyInOut($0, forStatements: forStatements) }
+            .map(\.account))
+        let readOnly = Set(rows.filter { statements.isFromStatement($0) }.map(\.account))
+        let order = CheckInFieldOrder.nowColumn(rows: rows, editingCash: session.editingCash, moneyInOut: moneyInOut,
+                                                readOnly: readOnly)
         VStack(spacing: 0) {
             ScrollViewReader { proxy in
                 ScrollView {
-                    table(review: review, sections: sections, order: order)
+                    table(review: review, sections: sections, order: order, statements: statements,
+                          forStatements: forStatements)
                 }
                 .onChange(of: session.focusRequest) { _, request in
                     guard let request, session.page == nil else { return }
@@ -62,7 +77,7 @@ struct CheckInTable: View {
                 }
             }
             Divider()
-            CheckInTableFooter(draft: draft, session: session)
+            CheckInTableFooter(draft: draft, statements: statements, session: session)
         }
         .frame(minWidth: 860)
         .background(Palette.card)
@@ -70,18 +85,20 @@ struct CheckInTable: View {
         .tradeEditorSheet($session.tradeRequest)
     }
 
-    private func table(review: CheckInReview, sections: [CheckInSection], order: CheckInFieldOrder) -> some View {
+    private func table(review: CheckInReview, sections: [CheckInSection], order: CheckInFieldOrder,
+                       statements: CheckInStatements, forStatements: Bool) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             CheckInBanners(draft: draft, session: session)
                 .padding(.horizontal, CheckInColumns.inset)
                 .padding(.vertical, Metrics.m)
-            if library.canEdit {
-                CheckInStatementsBox(statements: CheckInStatements.make(draft: draft, library: library.library),
-                                     session: session)
-                    .padding(.horizontal, CheckInColumns.inset)
-                    .padding(.bottom, Metrics.m)
+            if library.canEdit, statements.isHeld || !statements.accounts.isEmpty || !statements.unreadable.isEmpty {
+                CheckInStatementsBox(statements: statements, session: session) { urls in
+                    Task { await session.addStatements(from: urls, checkIn: checkIn) }
+                }
+                .padding(.horizontal, CheckInColumns.inset)
+                .padding(.bottom, Metrics.m)
             }
-            CheckInTableHeader(previousCheckIn: review.previousCheckIn)
+            CheckInTableHeader()
             Divider()
             ForEach(sections) { section in
                 CheckInTableGroupHeader(title: section.title,
@@ -91,7 +108,8 @@ struct CheckInTable: View {
                 ForEach(section.rows) { row in
                     CheckInTableRow(
                         row: row, review: review.row(for: row.account), date: draft.date,
-                        previousCheckIn: review.previousCheckIn, session: session, focus: $focus, focused: focus
+                        previousCheckIn: review.previousCheckIn, statements: statements,
+                        forStatements: forStatements, session: session, focus: $focus, focused: focus
                     ) { field in
                         if let target = order.returnTarget(after: field) { focus = target }
                     }
@@ -113,32 +131,33 @@ private enum CheckInColumns {
     static let now: CGFloat = 146
     static let change: CGFloat = 116
     static let newMoney: CGFloat = 126
-    static let note: CGFloat = 160
+    static let fromMin: CGFloat = 190
     /// Space left and right of the table.
     static let inset: CGFloat = Metrics.xl
 }
 
-/// One line of the table: seven cells at the columns' widths.
+/// One line of the table: seven cells at the columns' widths. The
+/// Account and From columns share what's left.
 private struct CheckInTableLine<StateCell: View, AccountCell: View, LastCell: View, NowCell: View, ChangeCell: View,
-    NewMoneyCell: View, NoteCell: View>: View {
+    NewMoneyCell: View, FromCell: View>: View {
     let state: StateCell
     let account: AccountCell
     let last: LastCell
     let now: NowCell
     let change: ChangeCell
     let newMoney: NewMoneyCell
-    let note: NoteCell
+    let from: FromCell
 
     init(@ViewBuilder state: () -> StateCell, @ViewBuilder account: () -> AccountCell,
          @ViewBuilder last: () -> LastCell, @ViewBuilder now: () -> NowCell, @ViewBuilder change: () -> ChangeCell,
-         @ViewBuilder newMoney: () -> NewMoneyCell, @ViewBuilder note: () -> NoteCell) {
+         @ViewBuilder newMoney: () -> NewMoneyCell, @ViewBuilder from: () -> FromCell) {
         self.state = state()
         self.account = account()
         self.last = last()
         self.now = now()
         self.change = change()
         self.newMoney = newMoney()
-        self.note = note()
+        self.from = from()
     }
 
     var body: some View {
@@ -160,36 +179,31 @@ private struct CheckInTableLine<StateCell: View, AccountCell: View, LastCell: Vi
             newMoney
                 .padding(.horizontal, Metrics.xs)
                 .frame(width: CheckInColumns.newMoney, alignment: .trailing)
-            note
-                .padding(.horizontal, Metrics.xs)
-                .frame(width: CheckInColumns.note, alignment: .leading)
+            from
+                .padding(.horizontal, Metrics.s)
+                .frame(minWidth: CheckInColumns.fromMin, maxWidth: .infinity, alignment: .leading)
         }
         .padding(.horizontal, CheckInColumns.inset)
     }
 }
 
-/// Account · Last · 31 Aug · Now · Change · New money · Note.
+/// Account · Last · Now · Change · New money · From.
 private struct CheckInTableHeader: View {
-    let previousCheckIn: CalendarDate?
-
-    @Environment(\.locale) private var locale
-
     var body: some View {
         CheckInTableLine {
             Color.clear
         } account: {
             Text("Account")
         } last: {
-            Text(verbatim: previousCheckIn.map { "Last · " + AmountFormat.shortDate($0, locale: locale) } ?? "Last")
-                .privacySensitiveInFeedback()
+            Text("Last")
         } now: {
             Text("Now")
         } change: {
             Text("Change")
         } newMoney: {
             Text("New money")
-        } note: {
-            Text("Note")
+        } from: {
+            Text("From")
         }
         .font(.caption.weight(.semibold))
         .foregroundStyle(Palette.secondaryInk)
@@ -236,6 +250,12 @@ private struct CheckInTableRow: View {
     /// The check-in's date.
     let date: CalendarDate
     let previousCheckIn: CalendarDate?
+    /// The statements the check-in holds: the rows they fill in are
+    /// read-only, and the From column says where each value comes from.
+    let statements: CheckInStatements
+    /// Whether the check-in starts with its statements: a row not reviewed
+    /// shows money in and out once its balance is typed.
+    let forStatements: Bool
     let session: CheckInSession
     let focus: FocusState<CheckInField?>.Binding
     let focused: CheckInField?
@@ -249,7 +269,11 @@ private struct CheckInTableRow: View {
     var body: some View {
         VStack(spacing: 0) {
             accountLine
-            if row.isTrades {
+            if isFromStatement {
+                if let figures = statements.statementFigures(for: row, review: review, locale: locale) {
+                    figuresLine(figures)
+                }
+            } else if row.isTrades {
                 tradeActionsLine
                 ForEach(review?.positions ?? [], id: \.instrument) { position in
                     derivedLine(position)
@@ -260,7 +284,7 @@ private struct CheckInTableRow: View {
                 if row.showsCash && row.state != .skipped {
                     cashLine
                 }
-            } else if CheckInRowDisplay.showsMoneyInOut(row) {
+            } else if CheckInRowDisplay.showsMoneyInOut(row, forStatements: forStatements) {
                 // Empty, money in is 0; money out follows money in and the change (a savings account's is 0).
                 moneyLine(.moneyIn(row.account), title: "In", value: row.moneyIn) {
                     $0.setMoneyIn($1)
@@ -269,7 +293,7 @@ private struct CheckInTableRow: View {
                           value: row.enteredMoneyOut ?? review?.valuation?.moneyOut) {
                     $0.setMoneyOut($1)
                 }
-                if CheckInRowDisplay.showsInterest(row) {
+                if CheckInRowDisplay.showsInterest(row, forStatements: forStatements) {
                     moneyLine(.interest(row.account), title: "Interest", value: row.interest) {
                         $0.setInterest($1)
                     }
@@ -282,35 +306,34 @@ private struct CheckInTableRow: View {
                 .padding(.leading, CheckInColumns.inset)
         }
         .contextMenu {
-            CheckInRowMenu(row: row, rule: rule, date: date, session: session, checkIn: checkIn)
+            CheckInRowMenu(row: row, rule: rule, date: date, session: session, checkIn: checkIn,
+                           isFromStatement: isFromStatement,
+                           isFilledByStatement: statements.filled.contains(row.account))
         }
     }
 
     // MARK: Values
+
+    private var isFromStatement: Bool { statements.isFromStatement(row) }
 
     private var account: Account? { library.account(row.account) }
     private var name: String { account?.name ?? row.account.rawValue }
     private var currency: CurrencyCode { account?.currency ?? library.baseCurrency }
     private var rule: FlowDefault { review?.flowRule ?? .ask }
 
-    /// "FinecoBank", "3 positions · from trades", "last value 31 May", plus
-    /// the currency when it isn't the base one. For an account that opens
-    /// later, when it opens or that saving moves that. A quantity in it
-    /// hides with the eye.
-    private var detail: AmountSentence? {
-        var parts: [AmountSentence] = []
-        if row.state == .updated, row.source == .import { parts.append(AmountSentence(CheckInWording.imported)) }
+    /// "last value 31 May", plus the currency when it isn't the base one.
+    /// For an account that opens later, when it opens or that saving moves
+    /// that. Where the value comes from is in the From column.
+    private var detail: String? {
+        var parts: [String] = []
         if let opening = CheckInWording.openingDetail(for: row, opened: account?.opened, date: date,
                                                       locale: locale) {
-            parts.append(AmountSentence(opening))
-        } else if row.isTrades {
-            parts.append(CheckInWording.tradesSummary(row, instruments: library.library.instruments, locale: locale))
-        } else if let note = CheckInWording.lastValueNote(for: row, previousCheckIn: previousCheckIn, locale: locale) {
-            parts.append(AmountSentence(note.prefix(1).lowercased() + String(note.dropFirst())))
-        } else if let institution = account?.institution {
-            parts.append(AmountSentence(institution))
+            parts.append(opening)
+        } else if !row.isTrades,
+                  let note = CheckInWording.lastValueNote(for: row, previousCheckIn: previousCheckIn, locale: locale) {
+            parts.append(note.prefix(1).lowercased() + String(note.dropFirst()))
         }
-        if currency != library.baseCurrency { parts.append(AmountSentence(currency.rawValue)) }
+        if currency != library.baseCurrency { parts.append(currency.rawValue) }
         return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 
@@ -323,8 +346,11 @@ private struct CheckInTableRow: View {
         row.mode == .balance ? row.balance : review?.value?.knownValue
     }
 
+    /// "—" while the row isn't reviewed, or is skipped.
     private var changeAmount: Decimal? {
-        guard row.state != .skipped, let now = nowAmount, let last = lastAmount else { return nil }
+        guard row.state != .skipped, row.state != .notReviewed, let now = nowAmount, let last = lastAmount else {
+            return nil
+        }
         return now - last
     }
 
@@ -345,16 +371,17 @@ private struct CheckInTableRow: View {
                 CheckInStateIndicator(row: row, size: 20)
             }
             .buttonStyle(.plain)
-            .disabled(!row.canMarkUnchanged || row.state == .unchanged)
+            .disabled(!row.canMarkUnchanged || row.state == .unchanged || isFromStatement)
             .help(stateHelp)
         } account: {
             HStack(spacing: 0) {
                 Text(verbatim: name)
-                    .fontWeight(.medium)
+                    .fontWeight(.semibold)
                     .privacySensitiveInFeedback()
                 if let detail {
-                    AmountSentenceText(" · \(detail)")
+                    Text(verbatim: " · " + detail)
                         .foregroundStyle(Palette.secondaryInk)
+                        .privacySensitiveInFeedback()
                 }
             }
             .lineLimit(1)
@@ -368,19 +395,27 @@ private struct CheckInTableRow: View {
             CheckInPlainDelta(changeAmount)
         } newMoney: {
             flowCell
-        } note: {
-            noteCell
+        } from: {
+            fromCell
         }
         .frame(height: 34)
     }
 
     @ViewBuilder
     private var nowCell: some View {
-        if row.mode == .balance {
+        if isFromStatement {
+            CheckInPlainAmount(row.balance)
+                .fontWeight(.semibold)
+        } else if row.mode == .balance {
             let field = CheckInField.balance(row.account)
+            let style = CheckInRowDisplay.balanceStyle(of: row.account, in: library.library)
+            // Not reviewed, with money a statement moved into it: empty, with
+            // the balance it can expect as the prompt.
+            let suggestion = statements.suggestedBalance(for: row)
             CheckInNumberField(
-                field, focus: focus, isFocused: focused == field, value: row.balance,
-                style: CheckInRowDisplay.balanceStyle(of: row.account, in: library.library), prompt: "0,00",
+                field, focus: focus, isFocused: focused == field, value: suggestion == nil ? row.balance : nil,
+                style: style,
+                prompt: suggestion.map { CheckInFieldFormat.text(for: $0, style: style, locale: locale) } ?? "0,00",
                 label: "\(name), now", onSubmit: { onReturn(field) }
             ) { amount in
                 guard let amount else { return }
@@ -395,7 +430,12 @@ private struct CheckInTableRow: View {
 
     @ViewBuilder
     private var flowCell: some View {
-        if row.state == .skipped {
+        if row.state == .notReviewed, let expected = expectedFlow {
+            // What the statements moved into it, until its value is typed.
+            CheckInPlainAmount(expected, signed: true)
+                .foregroundStyle(Palette.mutedInk)
+                .help("What the statements moved into it since its last value")
+        } else if row.state == .skipped {
             Text(verbatim: "—")
                 .foregroundStyle(Palette.mutedInk)
         } else if !CheckInRowDisplay.canEditFlow(row, rule: rule) {
@@ -418,16 +458,72 @@ private struct CheckInTableRow: View {
         }
     }
 
-    private var noteCell: some View {
-        let field = CheckInField.note(row.account)
-        return CheckInNoteField(
-            field, focus: focus, isFocused: focused == field, note: row.note, label: "\(name), note",
-            onSubmit: { onReturn(field) }
-        ) { text in
-            checkIn.updateRow(row.account) { $0.note = text.isEmpty ? nil : text }
+    /// The new money the statements' moves give a row not reviewed: `nil`
+    /// when they only paid it (a debt), whose new money is worked out once
+    /// its value is typed.
+    private var expectedFlow: Decimal? {
+        guard let moves = statements.expectedMoves(for: row), !moves.allSatisfy(\.isPayment) else { return nil }
+        return statements.expectedAmount(for: row)
+    }
+
+    /// Where the value comes from, or what to do for it: "Statement · 2
+    /// lines to answer" opens that file's Income. A row's note shows after
+    /// it; it's written in the row's menu.
+    @ViewBuilder
+    private var fromCell: some View {
+        let from = statements.from(for: row, locale: locale)
+        HStack(spacing: Metrics.xs) {
+            if let file = from.opensFile {
+                Button {
+                    session.answer(file: file, checkIn: checkIn)
+                } label: {
+                    AmountSentenceText(from.text)
+                        .foregroundStyle(Palette.accent)
+                }
+                .buttonStyle(.plain)
+                .help("Opens the statement's Income to answer its lines")
+            } else {
+                AmountSentenceText(from.text)
+                    .foregroundStyle(Palette.secondaryInk)
+            }
+            if let note = row.note, !note.isEmpty {
+                Image(systemName: "note.text")
+                    .foregroundStyle(Palette.mutedInk)
+                    .help(note)
+                    .accessibilityLabel(Text(verbatim: "Note: " + note))
+                    .privacySensitiveInFeedback()
+            }
         }
-        .foregroundStyle(Palette.secondaryInk)
-        .checkInFieldBox(isFocused: focused == field, height: 26)
+        .font(.caption)
+        .lineLimit(2)
+        .monospacedDigit()
+    }
+
+    /// "In 3.400,00 · Out 3.210,20 · Moved −500,00" under a row a statement
+    /// filled in, read-only.
+    private func figuresLine(_ figures: AmountSentence) -> some View {
+        CheckInTableLine {
+            Color.clear
+        } account: {
+            AmountSentenceText(figures)
+                .foregroundStyle(Palette.secondaryInk)
+                .monospacedDigit()
+                .lineLimit(1)
+                .padding(.leading, Metrics.l)
+        } last: {
+            Color.clear
+        } now: {
+            Color.clear
+        } change: {
+            Color.clear
+        } newMoney: {
+            Color.clear
+        } from: {
+            Color.clear
+        }
+        .font(.caption)
+        .frame(height: 20)
+        .padding(.bottom, 4)
     }
 
     // MARK: Trades accounts
@@ -465,7 +561,7 @@ private struct CheckInTableRow: View {
         } newMoney: {
             Text("from trades")
                 .foregroundStyle(Palette.mutedInk)
-        } note: {
+        } from: {
             Color.clear
         }
         .font(.callout)
@@ -512,7 +608,7 @@ private struct CheckInTableRow: View {
             }
             .buttonStyle(.borderless)
             .controlSize(.small)
-        } note: {
+        } from: {
             Color.clear
         }
         .font(.callout)
@@ -566,7 +662,7 @@ private struct CheckInTableRow: View {
             Color.clear
         } newMoney: {
             Color.clear
-        } note: {
+        } from: {
             Color.clear
         }
         .frame(height: 32)
@@ -620,7 +716,7 @@ private struct CheckInTableRow: View {
             CheckInPlainDelta(change)
         } newMoney: {
             cashAction(hasField: hasField)
-        } note: {
+        } from: {
             Color.clear
         }
         .font(.callout)
@@ -653,7 +749,7 @@ private struct CheckInTableRow: View {
             Color.clear
         } newMoney: {
             Color.clear
-        } note: {
+        } from: {
             Color.clear
         }
         .font(.callout)
@@ -680,7 +776,7 @@ private struct CheckInTableRow: View {
             Color.clear
         } newMoney: {
             Color.clear
-        } note: {
+        } from: {
             Color.clear
         }
         .font(.callout)
@@ -724,52 +820,45 @@ private struct CheckInTableRow: View {
 
 // MARK: - Footer
 
-/// "7 of 9 reviewed ▬▬▬▭ · Not reviewed: Fondo pensione, Mutuo ·
-/// [Mark rest unchanged] [Review & save ⌘↩]".
+/// "4 of 8 done · 3 from statements, 1 from trades · 2 lines to answer
+/// first   [Mark Rest Unchanged] [Review]". Lines to answer are a hint:
+/// Review opens all the same.
 private struct CheckInTableFooter: View {
     let draft: CheckInDraft
+    let statements: CheckInStatements
     let session: CheckInSession
 
     @Environment(CheckInStore.self) private var checkIn
-    @Environment(LibraryStore.self) private var library
 
     var body: some View {
+        let progress = CheckInWording.progress(draft, statements: statements, compact: false)
         HStack(spacing: Metrics.l) {
-            VStack(alignment: .leading, spacing: 6) {
-                Text(verbatim: CheckInWording.reviewed(draft))
-                    .font(.callout.weight(.semibold))
-                    .monospacedDigit()
-                CheckInProgressBar(reviewed: draft.reviewedCount, total: draft.progressTotal)
-                    .frame(width: 140)
+            HStack(spacing: 0) {
+                Text(verbatim: progress.lead)
+                    .fontWeight(.semibold)
+                if let detail = progress.detail {
+                    Text(verbatim: " · " + detail)
+                        .foregroundStyle(Palette.secondaryInk)
+                }
             }
-            if let notReviewed = CheckInWording.notReviewed(notReviewedNames) {
-                Text(verbatim: notReviewed)
-                    .font(.caption)
-                    .foregroundStyle(Palette.secondaryInk)
-                    .lineLimit(1)
-                    .privacySensitiveInFeedback()
-            }
+            .font(.callout)
+            .monospacedDigit()
+            .lineLimit(1)
+            .accessibilityElement(children: .combine)
             Spacer(minLength: Metrics.m)
-            Text("Tab and Return move between cells · ⌘↩ reviews and saves")
-                .font(.caption)
-                .foregroundStyle(Palette.mutedInk)
-                .lineLimit(1)
-            Button("Mark rest unchanged") { checkIn.markRestUnchanged() }
+            Button("Mark Rest Unchanged") { checkIn.markRestUnchanged() }
                 .disabled(draft.isReadyToSave)
                 .keyboardShortcut("u", modifiers: [.command, .shift])
                 .help("Keeps the last value of every account not reviewed yet (⇧⌘U)")
-            Button("Review & save") { session.page = .review }
+            Button("Review") { session.page = .review }
                 .buttonStyle(.borderedProminent)
                 .keyboardShortcut(.return, modifiers: .command)
                 .disabled(session.isSaving)
+                .help("Review the check-in before saving it (⌘↩)")
         }
         .padding(.horizontal, Metrics.xl)
-        .frame(height: 60)
+        .frame(height: 52)
         .background(.bar)
-    }
-
-    private var notReviewedNames: [String] {
-        draft.notReviewed.map { library.account($0)?.name ?? $0.rawValue }
     }
 }
 

@@ -22,7 +22,8 @@ public struct StatementBatch: Sendable {
 
     /// One file of the batch.
     public struct File: Sendable, Identifiable {
-        /// Its place in the order the files were given.
+        /// Its place in the order the files were given, those that couldn't
+        /// be read included.
         public let id: Int
         public let name: String
         public var session: ImportSession
@@ -42,6 +43,8 @@ public struct StatementBatch: Sendable {
     /// The files read, in the order given.
     public private(set) var files: [File] = []
     public private(set) var unreadable: [UnreadableFile] = []
+    /// How many files were given, read or not: the next file's ID.
+    private var given = 0
 
     /// Reads each file as a statement: with the first saved statement
     /// profile (by name) that reads every column, else with a proposed
@@ -51,32 +54,53 @@ public struct StatementBatch: Sendable {
     /// (``ImportSession/statementCheckIn``).
     public init(files: [(name: String, data: Data)], library: Library, checkIn: CalendarDate? = nil,
                 today: CalendarDate = .today()) {
+        add(files: files, library: library, checkIn: checkIn, today: today)
+    }
+
+    /// Adds files to the batch, read as ``init(files:library:checkIn:today:)``
+    /// reads them, after the files it has: the files already read keep
+    /// their accounts and edits. Then pairs the transfers again.
+    public mutating func add(files new: [(name: String, data: Data)], library: Library,
+                             checkIn: CalendarDate? = nil, today: CalendarDate = .today()) {
         let profiles = library.importProfiles.values.filter { $0.layout == .statement }
             .sorted { ($0.name, $0.id) < ($1.name, $1.id) }
-        for (index, file) in files.enumerated() {
+        var added = Set<Int>()
+        for file in new {
+            let id = given
+            given += 1
             do {
-                let fitting = profiles.lazy.compactMap { profile -> ImportSession? in
-                    guard let session = try? ImportSession(data: file.data, profile: profile),
-                          session.dateColumn != nil,
-                          !session.issues.contains(where: { $0.kind == .missingColumn || $0.kind == .unknownColumn })
-                    else { return nil }
-                    return session
-                }.first
-                var session: ImportSession
-                if let fitting {
-                    session = fitting
-                } else {
-                    session = try ImportSession(data: file.data)
-                    session.proposeMapping(layout: .statement)
-                }
+                var session = try Self.read(file.data, profiles: profiles)
                 session.statementCheckIn = checkIn
-                self.files.append(File(id: index, name: file.name, session: session))
+                files.append(File(id: id, name: file.name, session: session))
+                added.insert(id)
             } catch {
                 unreadable.append(UnreadableFile(name: file.name, error: error))
             }
         }
-        recognizeAccounts(in: library, today: today)
+        recognizeAccounts(in: library, today: today, only: added)
         pairTransfers(in: library, today: today)
+    }
+
+    /// Takes the file `id` out of the batch, and pairs the transfers again.
+    public mutating func remove(file id: Int, library: Library, today: CalendarDate = .today()) {
+        files.removeAll { $0.id == id }
+        pairTransfers(in: library, today: today)
+    }
+
+    /// A file read with the first saved statement profile (by name) that
+    /// reads every column, else with a proposed mapping.
+    private static func read(_ data: Data, profiles: [ImportProfile]) throws(ImportError) -> ImportSession {
+        let fitting = profiles.lazy.compactMap { profile -> ImportSession? in
+            guard let session = try? ImportSession(data: data, profile: profile),
+                  session.dateColumn != nil,
+                  !session.issues.contains(where: { $0.kind == .missingColumn || $0.kind == .unknownColumn })
+            else { return nil }
+            return session
+        }.first
+        if let fitting { return fitting }
+        var session = try ImportSession(data: data)
+        session.proposeMapping(layout: .statement)
+        return session
     }
 
     // MARK: - Accounts
@@ -107,13 +131,25 @@ public struct StatementBatch: Sendable {
         pairTransfers(in: library, today: today)
     }
 
+    /// Edits the session of every file, given with its ID (a rule for every
+    /// statement, a sender's lines in several files), then pairs the
+    /// transfers again once.
+    public mutating func editSessions(library: Library, today: CalendarDate = .today(),
+                                      _ edit: (Int, inout ImportSession) -> Void) {
+        for index in files.indices {
+            edit(files[index].id, &files[index].session)
+        }
+        pairTransfers(in: library, today: today)
+    }
+
     /// Finds the account of each file without one, the first way that
     /// names exactly one: the profile's account, then an account the
     /// file's opening balance follows on from, then one its name or title
     /// rows name.
-    mutating func recognizeAccounts(in library: Library, today: CalendarDate) {
+    /// Only the files `only` names are looked at, when it's given.
+    mutating func recognizeAccounts(in library: Library, today: CalendarDate, only: Set<Int>? = nil) {
         let candidates = Self.statementAccounts(in: library)
-        for index in files.indices {
+        for index in files.indices where only?.contains(files[index].id) ?? true {
             let session = files[index].session
             if let id = session.profile.constants.account {
                 if candidates.contains(where: { $0.id == id }) {

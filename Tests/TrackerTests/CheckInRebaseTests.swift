@@ -43,6 +43,27 @@ struct CheckInRebaseTests {
                          moneyOut: 0))
     }
 
+    /// A row taken back to what the library has (a statement's value a
+    /// check-in holds, or the previous one): what was typed goes, a typed
+    /// note stays.
+    @Test func aRowFilledInAgainDropsWhatWasTyped() throws {
+        let changed = savedElsewhere()
+        var draft = CheckInDraft(date: "2026-10-31", library: changed)
+        draft["conto-fineco"]?.setBalance(4600)
+        draft["conto-fineco"]?.note = "Typed"
+        draft.refill("conto-fineco", from: changed)
+        let row = try #require(draft["conto-fineco"])
+        #expect(row.state == .updated)
+        #expect(row.balance == 5000)
+        #expect(!row.hasUserInput)
+        #expect(row.note == "Typed")
+
+        draft["conto-deposito"]?.setBalance(1)
+        draft.refill("conto-deposito", from: changed)
+        #expect(draft["conto-deposito"]?.state == .notReviewed)
+        #expect(draft["conto-deposito"]?.balance == draft["conto-deposito"]?.previous?.balance)
+    }
+
     @Test func enteredValuesThatDifferFromTheSavedOneConflictAndWriteNothing() throws {
         var draft = CheckInDraft(date: "2026-10-31", library: library)
         draft["conto-fineco"]?.setBalance(4600)

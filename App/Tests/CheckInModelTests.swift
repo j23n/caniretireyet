@@ -111,7 +111,7 @@ struct CheckInModelTests {
     @Test func moneyInOutAndInterestFollowTheBalance() throws {
         let draft = draft()
         let rows = try ["conto-fineco", "conto-deposito", "mutuo-casa"].map { try row($0, in: draft) }
-        let shown = Set(rows.filter(CheckInRowDisplay.showsMoneyInOut).map(\.account))
+        let shown = Set(rows.filter { CheckInRowDisplay.showsMoneyInOut($0) }.map(\.account))
         let review = draft.review(in: library)
         let list = CheckInFieldOrder.list(rows: rows, review: review, expanded: [], editingFlows: [],
                                           moneyInOut: shown)
@@ -195,18 +195,19 @@ struct CheckInModelTests {
 
     // MARK: Statements first
 
+    /// The example library's current and savings accounts can be read from
+    /// a statement; a closed account, a trades account and the kinds typed
+    /// by hand can't. More in `CheckInStatementsTests`.
     @Test func aCheckInStartsWithTheAccountsAStatementFillsIn() {
         let statements = CheckInStatements.make(draft: draft(), library: library)
-        #expect(statements.accounts.map(\.id) == ["conto-fineco"])
-        #expect(statements.importedCount == 0)
+        #expect(Set(statements.accounts.map(\.id)) == ["conto-fineco", "conto-deposito"])
         #expect(statements.showsStart(dismissed: false))
         #expect(!statements.showsStart(dismissed: true))
         #expect(statements.startTitle(locale: locale) == "Start with October's statements")
-        let fineco = statements.accounts[0]
-        #expect(CheckInStatements.status(of: fineco, locale: locale).hasPrefix("Last value "))
+        #expect(!statements.isHeld)
     }
 
-    @Test func anImportedValueOnTheDateIsMarkedAndFillsTheRow() throws {
+    @Test func anImportedValueOnTheDateFillsTheRow() throws {
         var imported = library
         for account: AccountID in ["conto-fineco", "conto-deposito"] {
             var value = Valuation(account: account, date: date, balance: 1000)
@@ -215,12 +216,6 @@ struct CheckInModelTests {
         }
         var draft = CheckInDraft(date: date, library: library)
         draft.rebase(onto: imported)
-        let statements = CheckInStatements.make(draft: draft, library: imported)
-        #expect(Set(statements.accounts.map(\.id)) == ["conto-fineco", "conto-deposito"])
-        #expect(statements.importedCount == 2)
-        #expect(!statements.showsStart(dismissed: false))
-        #expect(statements.progress == "2 of 2 imported")
-        #expect(CheckInStatements.status(of: statements.accounts[0], locale: locale) == "Imported")
         let row = try row("conto-fineco", in: draft)
         #expect(row.state == .updated)
         #expect(row.source == .import)

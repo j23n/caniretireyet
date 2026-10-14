@@ -132,6 +132,27 @@ struct StatementTaxTests {
         #expect(preview.record(.valuation("conto", "2026-03-31"))?.imported.moneyOut == 0)
     }
 
+    /// A savings account with a value before the move follows from it:
+    /// its balance moves by the amount, and what else came in or went out
+    /// (its interest) stays unknown.
+    @Test func aSavingsAccountWithAValueFollowsFromTheMove() throws {
+        var library = Self.library()
+        library.upsert(Valuation(account: "risparmio", date: "2025-12-31", balance: 2000))
+        var session = try Self.session()
+        let row = try Self.line(session.preview(against: library, today: Self.today), "Affitto marzo").row
+        session.setStatementAsset(.moved("risparmio"), forRow: row)
+        let preview = session.preview(against: library, today: Self.today)
+        let march = try #require(preview.record(.valuation("risparmio", "2026-03-31"))?.imported)
+        #expect(march.balance == 2900)
+        #expect(march.flow == 900)
+        #expect(march.moneyIn == nil)
+        #expect(march.moneyOut == nil)
+        // In another currency it doesn't.
+        library.accounts["risparmio"]?.currency = .usd
+        #expect(session.preview(against: library, today: Self.today)
+            .record(.valuation("risparmio", "2026-03-31")) == nil)
+    }
+
     @Test func aClassChosenForALineTakesThePlaceOfARulesMove() throws {
         var session = try Self.session()
         let row = try Self.line(session.preview(against: Self.library(), today: Self.today),

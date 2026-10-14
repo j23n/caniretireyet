@@ -91,6 +91,22 @@ extension CheckInDraft {
         rows[index] = row
     }
 
+    /// Fills `account`'s row in again from `library`, dropping what was
+    /// entered: from the valuation saved on the date, as the check-in
+    /// started from it (e.g. a statement's value it holds), else from the
+    /// previous one, not reviewed. A note typed in the row stays. Does
+    /// nothing for an account the draft or `library` doesn't have.
+    public mutating func refill(_ account: AccountID, from library: Library) {
+        guard let index = rows.firstIndex(where: { $0.account == account }),
+              let details = library.accounts[account] else { return }
+        let valuations = library.valuations(for: account)
+        var valuator = LazyValuator(library: libraryWithRates(library))
+        var row = CheckInRow(account: details, date: date, previous: valuations.last { $0.date < date },
+                             existing: valuations.last { $0.date == date }, valuator: &valuator)
+        if rows[index].hasTypedNote { row.note = rows[index].note }
+        rows[index] = row
+    }
+
     // MARK: - Internals
 
     /// `old` filled in again from the account's `previous` valuation and the

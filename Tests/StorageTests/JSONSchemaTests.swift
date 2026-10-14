@@ -112,6 +112,7 @@ import TestSupport
         ("ImportNumberFormat", ImportNumberFormat.knownKeys, "import-profile.schema.json",
          "/$defs/format/properties/number"),
         ("StatementRule", StatementRule.knownKeys, "import-profile.schema.json", "/properties/rules/items"),
+        ("StatementAnswer", StatementAnswer.knownKeys, "import-profile.schema.json", "/properties/answers/items"),
     ]
 
     @Test func everyKnownKeyIsInItsSchemaAndNoMore() throws {
@@ -296,6 +297,7 @@ import TestSupport
               "onConflict": "keep",
               "target": "price",
               "rules": [{ "class": "transfer", "match": "Giroconto" }],
+              "answers": [{ "amount": "1200", "class": "oneOff", "date": "2025-03-14", "match": "Bonifico da Notaio Bianchi" }],
               "tradeTypes": { "Acquisto": "buy", "Giroconto": "ignore" }
             }
             """, against: "import-profile.schema.json")

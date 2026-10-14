@@ -27,14 +27,12 @@ enum CheckInField: Hashable, Sendable {
     case moneyOut(AccountID)
     /// The interest a savings account earned.
     case interest(AccountID)
-    /// The valuation's note (the Mac table's Note column).
-    case note(AccountID)
 
     /// The account the field belongs to.
     var account: AccountID {
         switch self {
         case .balance(let account), .cash(let account), .flow(let account), .moneyIn(let account),
-             .moneyOut(let account), .interest(let account), .note(let account):
+             .moneyOut(let account), .interest(let account):
             account
         case .quantity(let account, _):
             account
@@ -66,7 +64,6 @@ extension CheckInField {
         case .moneyIn: return name + " · money in"
         case .moneyOut: return name + " · money out"
         case .interest: return name + " · interest"
-        case .note: return name + " · note"
         }
     }
 }
@@ -154,12 +151,13 @@ struct CheckInFieldOrder: Hashable, Sendable {
     /// (``CheckInRowDisplay/showsCashField(_:isEditing:)``, `editingCash`);
     /// and each new-money field that's shown; money in and out, and a
     /// savings account's interest, after the balance of the accounts in
-    /// `moneyInOut`.
+    /// `moneyInOut`. Rows in `readOnly` (filled in from a statement) have
+    /// none, so the first field is the first row to type.
     static func list(rows: [CheckInRow], review: CheckInReview, expanded: Set<AccountID>,
                      editingFlows: Set<AccountID>, editingCash: Set<AccountID> = [],
-                     moneyInOut: Set<AccountID> = []) -> CheckInFieldOrder {
+                     moneyInOut: Set<AccountID> = [], readOnly: Set<AccountID> = []) -> CheckInFieldOrder {
         var fields: [CheckInField] = []
-        for row in rows {
+        for row in rows where !readOnly.contains(row.account) {
             if row.isTrades {
                 if expanded.contains(row.account) {
                     fields += row.positions.map { .quantity(row.account, $0.instrument) }
@@ -183,11 +181,12 @@ struct CheckInFieldOrder: Hashable, Sendable {
     /// account's statement quantities (if any were entered) and its cash
     /// when it has a field (`editingCash`); money in and out, and a
     /// savings account's interest, after the balance of the accounts in
-    /// `moneyInOut`. Return moves down this column.
+    /// `moneyInOut`. Return moves down this column, past rows in `readOnly`
+    /// (filled in from a statement).
     static func nowColumn(rows: [CheckInRow], editingCash: Set<AccountID> = [],
-                          moneyInOut: Set<AccountID> = []) -> CheckInFieldOrder {
+                          moneyInOut: Set<AccountID> = [], readOnly: Set<AccountID> = []) -> CheckInFieldOrder {
         var fields: [CheckInField] = []
-        for row in rows {
+        for row in rows where !readOnly.contains(row.account) {
             if row.isTrades {
                 fields += row.positions.map { .quantity(row.account, $0.instrument) }
                 if CheckInRowDisplay.showsCashField(row, isEditing: editingCash.contains(row.account)) {
@@ -207,8 +206,8 @@ struct CheckInFieldOrder: Hashable, Sendable {
     }
 
     /// Where Return goes from `field` in the Mac table: down the "Now"
-    /// column. From a cell in another column (new money, note) it goes to
-    /// the "Now" cell below that row.
+    /// column. From a cell in another column (new money) it goes to the
+    /// "Now" cell below that row.
     func returnTarget(after field: CheckInField) -> CheckInField? {
         if fields.contains(field) { return next(after: field) }
         guard let anchor = fields.last(where: { $0.account == field.account }) else { return nil }
@@ -220,36 +219,81 @@ struct CheckInFieldOrder: Hashable, Sendable {
 
 /// The accounts of one group in the check-in (Cash, Investments, …), in the
 /// draft's order; or, at the end of a past check-in, the accounts that open
-/// after its date ("Opened later").
+/// after its date ("Opened later"). A check-in that starts with its
+/// statements puts the groups that are typed by hand in one section after
+/// the others ("To type"; UI.md, "Statements first").
 struct CheckInSection: Identifiable, Hashable, Sendable {
     enum ID: Hashable, Sendable {
         case group(AccountGroup)
+        case toType
         case openedLater
     }
 
-    /// The accounts' group; `nil` for the "Opened later" section.
-    var group: AccountGroup?
-    var rows: [CheckInRow]
+    /// The groups typed by hand, which a check-in that starts with its
+    /// statements lists together: pensions, property, debts and other.
+    static let typedGroups: [AccountGroup] = [.pension, .property, .debts, .other]
 
-    var id: ID { group.map(ID.group) ?? .openedLater }
+    /// The accounts' groups: one, several for "To type", none for "Opened
+    /// later".
+    var groups: [AccountGroup]
+    var rows: [CheckInRow]
+    /// Whether this is the section of the groups typed by hand.
+    var isToType = false
+
+    init(group: AccountGroup?, rows: [CheckInRow]) {
+        groups = group.map { [$0] } ?? []
+        self.rows = rows
+    }
+
+    init(toType groups: [AccountGroup], rows: [CheckInRow]) {
+        self.groups = groups
+        self.rows = rows
+        isToType = true
+    }
+
+    /// The accounts' group, when the section has one.
+    var group: AccountGroup? { isToType ? nil : groups.first }
+
+    var id: ID {
+        if isToType { return .toType }
+        return group.map(ID.group) ?? .openedLater
+    }
 
     /// Whether this is the section of accounts that open after the date.
-    var isOpenedLater: Bool { group == nil }
+    var isOpenedLater: Bool { groups.isEmpty }
 
-    /// "Cash", "Investments", …, "Opened later".
-    var title: String { group?.description ?? "Opened later" }
+    /// "Cash", "Investments", …, "Opened later"; for the groups typed by
+    /// hand their names, "Pension · Property · Debts", as the Mac's band
+    /// says them.
+    var title: String {
+        if isToType { return groups.map(\.description).joined(separator: " · ") }
+        return group?.description ?? "Opened later"
+    }
+
+    /// The iPhone's title: "To type" for the groups typed by hand, else ``title``.
+    var compactTitle: String { isToType ? "To type" : title }
 
     /// The draft's rows by account group, in display order. An account no
     /// longer in the library goes under "Other". Accounts that open after
     /// the date (``CheckInRow/opensLater``) come last, in their own section.
-    static func sections(of draft: CheckInDraft, in library: Library) -> [CheckInSection] {
+    /// `forStatements` puts the groups typed by hand (``typedGroups``) in
+    /// one section after the others.
+    static func sections(of draft: CheckInDraft, in library: Library,
+                         forStatements: Bool = false) -> [CheckInSection] {
         var rowsByGroup: [AccountGroup: [CheckInRow]] = [:]
         for row in draft.rows where !row.opensLater {
             let group = library.accounts[row.account]?.group ?? .other
             rowsByGroup[group, default: []].append(row)
         }
-        var sections = AccountGroup.allCases.compactMap { group in
-            rowsByGroup[group].map { CheckInSection(group: group, rows: $0) }
+        var sections: [CheckInSection] = []
+        for group in AccountGroup.allCases where !(forStatements && typedGroups.contains(group)) {
+            if let rows = rowsByGroup[group] { sections.append(CheckInSection(group: group, rows: rows)) }
+        }
+        if forStatements {
+            let typed = typedGroups.filter { rowsByGroup[$0] != nil }
+            if !typed.isEmpty {
+                sections.append(CheckInSection(toType: typed, rows: typed.flatMap { rowsByGroup[$0] ?? [] }))
+            }
         }
         let later = draft.rowsOpeningLater
         if !later.isEmpty { sections.append(CheckInSection(group: nil, rows: later)) }
@@ -309,16 +353,19 @@ enum CheckInRowDisplay {
     /// "Money in and out"): a cash or savings account's
     /// (``Tracker/CheckInRow/asksMoneyInOut``), at every value after its
     /// first; never for a row marked unchanged (it records 0 and 0) or
-    /// skipped. An account's first value asks only for its balance.
-    static func showsMoneyInOut(_ row: CheckInRow) -> Bool {
+    /// skipped. An account's first value asks only for its balance. In a
+    /// check-in that starts with its statements (`forStatements`), a row
+    /// not reviewed shows them once its balance is typed.
+    static func showsMoneyInOut(_ row: CheckInRow, forStatements: Bool = false) -> Bool {
         guard row.mode == .balance, !row.isTrades, row.asksMoneyInOut, row.previous != nil else { return false }
+        if forStatements, row.state == .notReviewed { return false }
         return row.state != .unchanged && row.state != .skipped
     }
 
     /// Whether a balance row shows a savings account's interest, under its
     /// money in and out.
-    static func showsInterest(_ row: CheckInRow) -> Bool {
-        showsMoneyInOut(row) && row.asksInterest
+    static func showsInterest(_ row: CheckInRow, forStatements: Bool = false) -> Bool {
+        showsMoneyInOut(row, forStatements: forStatements) && row.asksInterest
     }
 
     /// Whether a trades row offers *No Trades* next to *Add Trade…*: it's
@@ -456,7 +503,13 @@ enum CheckInEditing {
     /// marked unchanged or skipped, a note, or a price or rate typed in.
     /// Rows only pre-filled from values already saved on the date (e.g. by
     /// the other device) don't count. Cancel asks before throwing such a
-    /// draft away.
+    /// draft away, and before dropping the statements it holds
+    /// (`holdsStatements`).
+    static func hasEdits(_ draft: CheckInDraft, holdsStatements: Bool) -> Bool {
+        holdsStatements || hasEdits(draft)
+    }
+
+    /// ``hasEdits(_:holdsStatements:)`` for a check-in without statements.
     static func hasEdits(_ draft: CheckInDraft) -> Bool {
         draft.rows.contains { $0.hasUserInput || ($0.note ?? "") != ($0.existing?.note ?? "") }
             || draft.prices.contains { $0.source == .manual }
@@ -503,38 +556,29 @@ enum CheckInWording {
         return row.hasNewTrades ? "Use the Trades' Values" : "No Trades"
     }
 
-    /// "7 of 9 reviewed". Accounts that open later count once something was
-    /// entered for them.
-    static func reviewed(_ draft: CheckInDraft) -> String {
-        "\(draft.reviewedCount) of \(draft.progressTotal) reviewed"
-    }
-
-    /// The number of accounts a check-in's date line counts: those open on
-    /// its date.
-    static func accountCount(_ draft: CheckInDraft) -> Int {
-        draft.rows.count { !$0.opensLater }
+    /// The progress at the bottom of the check-in: "4 of 8 done", then
+    /// where the values came from. On the Mac "3 from statements, 1 from
+    /// trades · 2 lines to answer first"; on iPhone (`compact`) "3 from
+    /// statements". `detail` is `nil` when there's nothing to add. Accounts
+    /// that open later count once something was entered for them.
+    static func progress(_ draft: CheckInDraft, statements: CheckInStatements?,
+                         compact: Bool) -> (lead: String, detail: String?) {
+        let lead = "\(draft.reviewedCount) of \(draft.progressTotal) done"
+        let fromStatements = statements.map { held in draft.rows.count { held.isFromStatement($0) } } ?? 0
+        let fromTrades = draft.rows.count { $0.followsTrades && $0.countsInProgress }
+        var sources: [String] = []
+        if fromStatements > 0 { sources.append("\(fromStatements) from statements") }
+        if fromTrades > 0, !compact { sources.append("\(fromTrades) from trades") }
+        var parts: [String] = sources.isEmpty ? [] : [sources.joined(separator: ", ")]
+        if !compact, let lines = statements?.linesToAnswer, lines > 0 {
+            parts.append(Wording.count(lines, "line") + " to answer first")
+        }
+        return (lead, parts.isEmpty ? nil : parts.joined(separator: " · "))
     }
 
     /// "1 account not reviewed", "2 accounts not reviewed".
     static func notReviewedTitle(count: Int) -> String {
         Wording.count(count, "account") + " not reviewed"
-    }
-
-    /// "Not reviewed: Fondo pensione, Mutuo" (at most three names, then "and 2 more").
-    static func notReviewed(_ names: [String]) -> String? {
-        guard !names.isEmpty else { return nil }
-        let shown = names.prefix(3).joined(separator: ", ")
-        let more = names.count - 3
-        return "Not reviewed: " + shown + (more > 0 ? " and \(more) more" : "")
-    }
-
-    /// "Last check-in 31 August · 9 accounts" under the date; "First
-    /// check-in · 9 accounts" before there's one.
-    static func dateLine(previousCheckIn: CalendarDate?, accounts: Int, locale: Locale = .current) -> String {
-        let count = Wording.count(accounts, "account")
-        guard let previousCheckIn else { return "First check-in · " + count }
-        let day = previousCheckIn.dateValue.formatted(.dateTime.day().month(.wide).locale(locale))
-        return "Last check-in \(day) · " + count
     }
 
     /// What an updated row with a value imported on the check-in's date

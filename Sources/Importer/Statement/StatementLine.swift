@@ -65,6 +65,10 @@ public struct StatementLine: Hashable, Sendable, Identifiable {
     /// tax, or moved to or from an account? Until it's answered it counts
     /// as spending.
     public var needsAnswer = false
+    /// Whether the line needs an answer, or would without the class or
+    /// the answer chosen for it alone: a question that stays a question
+    /// once it's answered.
+    public var wasAsked = false
     /// The line's answer as money moved to or from an account, a purchase
     /// you keep or a sale (``ImportSession/setStatementAsset(_:forRow:)``,
     /// or a rule with an account), when the import takes it: the line is
@@ -178,11 +182,23 @@ public enum StatementWords {
         "december",
     ]
 
+    /// Card and payment processors that write the merchant after a `*`, as
+    /// in `PayPal Europe *Kleinanzeigen Fahrrad`.
+    static let processors: Set<String> = ["paypal", "sumup", "zettle", "izettle", "klarna", "stripe", "sq"]
+
     /// Who paid or was paid, from a counterparty or a description: its
     /// first run of up to 4 words that aren't ``noise`` or numbers, as the
-    /// text writes them, so a rule with them matches the line. Empty when
-    /// no word names anyone.
+    /// text writes them, so a rule with them matches the line. A
+    /// processor's line (``processors``) is its merchant's: the word after
+    /// the `*`. Empty when no word names anyone.
     public static func sender(of text: String) -> String {
+        if let star = text.firstIndex(of: "*"),
+           TextTools.words(String(text[..<star])).contains(where: processors.contains),
+           let merchant = text[text.index(after: star)...]
+               .split(whereSeparator: { !($0.isLetter || $0.isNumber) }).first,
+           merchant.contains(where: \.isLetter) {
+            return String(merchant)
+        }
         let folded = TextTools.words(text)
         let written = text.split { !($0.isLetter || $0.isNumber) }.map(String.init)
         let shown = written.count == folded.count ? written : folded

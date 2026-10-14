@@ -4,8 +4,7 @@ import Tracker
 
 // Views the check-in's iPhone list and Mac table share: the number field,
 // the state indicator, a row's menu, amounts without a currency, the
-// progress bar, the legend, the date panel, the banners at the top and the
-// page while saving.
+// legend, the date panel, the banners at the top and the page while saving.
 
 // MARK: - Number field
 
@@ -99,46 +98,6 @@ struct CheckInNumberField: View {
         }
         guard let amount = CheckInFieldFormat.value(from: newText, style: style, locale: locale) else { return }
         onChange(amount)
-    }
-}
-
-/// A row's note (the Mac table's Note column). Editing it doesn't change
-/// the row's state.
-struct CheckInNoteField: View {
-    let field: CheckInField
-    let focus: FocusState<CheckInField?>.Binding
-    let isFocused: Bool
-    let note: String?
-    let label: String
-    let onSubmit: () -> Void
-    let onChange: (String) -> Void
-
-    @State private var text: String
-
-    init(_ field: CheckInField, focus: FocusState<CheckInField?>.Binding, isFocused: Bool, note: String?,
-         label: String, onSubmit: @escaping () -> Void = {}, onChange: @escaping (String) -> Void) {
-        self.field = field
-        self.focus = focus
-        self.isFocused = isFocused
-        self.note = note
-        self.label = label
-        self.onSubmit = onSubmit
-        self.onChange = onChange
-        _text = State(initialValue: note ?? "")
-    }
-
-    var body: some View {
-        TextField(label, text: $text, prompt: Text(verbatim: ""))
-            .labelsHidden()
-            .textFieldStyle(.plain)
-            .focused(focus, equals: field)
-            .onSubmit { onSubmit() }
-            .onChange(of: note) { _, newNote in
-                if !isFocused { text = newNote ?? "" }
-            }
-            .onChange(of: text) { _, newText in
-                if isFocused { onChange(newText.trimmingCharacters(in: .whitespaces)) }
-            }
     }
 }
 
@@ -237,37 +196,13 @@ struct CheckInLegend: View {
     }
 }
 
-/// How many accounts are reviewed, as a thin bar.
-struct CheckInProgressBar: View {
-    let reviewed: Int
-    let total: Int
-
-    var body: some View {
-        GeometryReader { proxy in
-            ZStack(alignment: .leading) {
-                Capsule()
-                    .fill(Palette.accent.opacity(0.2))
-                Capsule()
-                    .fill(Palette.accent)
-                    .frame(width: proxy.size.width * fraction)
-            }
-        }
-        .frame(height: 4)
-        .accessibilityElement()
-        .accessibilityLabel(Text(verbatim: "\(reviewed) of \(total) accounts reviewed"))
-    }
-
-    private var fraction: CGFloat {
-        total > 0 ? CGFloat(reviewed) / CGFloat(total) : 0
-    }
-}
-
 // MARK: - Row menu
 
 /// A row's menu (long-press on iPhone, right-click on the Mac): mark it
 /// unchanged or skip it, its new money; for a trades account its trades,
-/// its cash and a statement to compare with. The iPhone's commands have
-/// icons, the Mac's are words alone.
+/// its cash and a statement to compare with; a row a statement fills in
+/// can be typed over, and taken back to the statement's value; and the
+/// row's note. The iPhone's commands have icons, the Mac's are words alone.
 /// The row hands it what it works with, so it reads nothing from the
 /// environment.
 struct CheckInRowMenu: View {
@@ -278,8 +213,35 @@ struct CheckInRowMenu: View {
     let date: CalendarDate
     let session: CheckInSession
     let checkIn: CheckInStore
+    /// Whether the row shows a statement's value, read-only
+    /// (``CheckInStatements/isFromStatement(_:)``).
+    var isFromStatement = false
+    /// Whether a statement the check-in holds gives the row's value, typed
+    /// over or not.
+    var isFilledByStatement = false
 
     var body: some View {
+        if isFromStatement {
+            command("Edit Value", "pencil") {
+                checkIn.updateRow(row.account) { $0.setBalance($0.balance) }
+                session.focusRequest = .balance(row.account)
+            }
+        } else {
+            statusCommands
+        }
+        if isFilledByStatement && !isFromStatement {
+            command("Use the Statement's Value", "doc.text") {
+                checkIn.refillRow(row.account)
+                session.editingFlows.remove(row.account)
+            }
+        }
+        command(row.note?.isEmpty == false ? "Edit Note…" : "Add Note…", "note.text") {
+            session.editNote(of: row)
+        }
+    }
+
+    @ViewBuilder
+    private var statusCommands: some View {
         if row.canMarkUnchanged && !row.followsTrades {
             command(CheckInWording.markUnchangedTitle(for: row), "checkmark") {
                 session.markUnchanged(row.account, checkIn: checkIn)
@@ -639,8 +601,6 @@ struct CheckInSavingView: View {
             CheckInPlainDelta(PreviewLibrary.d("3652.35"))
             CheckInQuantityChange(PreviewLibrary.d("10.5"))
         }
-        CheckInProgressBar(reviewed: 7, total: 9)
-            .frame(width: 112)
         ForEach([CheckInPriceStatus.Kind.fetching, .updated, .needsAttention, .notFetched], id: \.self) { kind in
             CheckInPriceStatusIcon(kind: kind)
         }

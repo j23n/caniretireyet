@@ -137,6 +137,23 @@ struct StatementBatchTests {
         #expect(result.added == 2)
     }
 
+    /// A rule made for every file classifies each file's lines, and a line
+    /// a rule classifies isn't paired.
+    @Test func everyFileIsEditedAtOnce() throws {
+        var batch = Self.batch([("fineco-gennaio.csv", Self.current), ("export.csv", Self.savings)])
+        var edited: [Int] = []
+        batch.editSessions(library: Self.library(), today: Self.today) { id, session in
+            edited.append(id)
+            session.setStatementRule(.spending, for: "Bonifico")
+        }
+        #expect(edited == [0, 1])
+        #expect(batch.files.map { $0.session.profile.rules.map(\.match) } == [["Bonifico"], ["Bonifico"]])
+        let out = try #require(Self.lines(batch, 0).first { $0.amount == -1000 })
+        #expect(out.source == .rule("Bonifico"))
+        let incoming = try #require(Self.lines(batch, 1).first { $0.amount == 1000 })
+        #expect(incoming.source == .rule("Bonifico"))
+    }
+
     @Test func aChosenAccountPairsAgain() throws {
         var batch = Self.batch([("export.csv", Self.current), ("export (2).csv", Self.savings)])
         #expect(batch.files[0].account == nil)
@@ -181,5 +198,37 @@ struct StatementBatchTests {
         let batch = Self.batch([("empty.csv", ""), ("fineco-gennaio.csv", Self.current)])
         #expect(batch.unreadable.map(\.name) == ["empty.csv"])
         #expect(batch.files.map(\.id) == [1])
+    }
+
+    /// Files added later keep the ones read before as they are, and pair
+    /// with them.
+    @Test func addedFilesFollowOnAndPair() throws {
+        var batch = Self.batch([("export.csv", Self.current)])
+        batch.setAccount("conto", forFile: 0, library: Self.library(), today: Self.today)
+        batch.add(files: [(name: "empty.csv", data: Data()), (name: "export (2).csv", data: Data(Self.savings.utf8))],
+                  library: Self.library(), today: Self.today)
+        #expect(batch.files.map(\.id) == [0, 2])
+        #expect(batch.files.map(\.account) == ["conto", "risparmio"])
+        #expect(batch.files[0].accountSource == .chosen)
+        #expect(Self.lines(batch, 0).first { $0.amount == -1000 }?.source == .paired("risparmio"))
+
+        batch.remove(file: 2, library: Self.library(), today: Self.today)
+        #expect(batch.files.map(\.id) == [0])
+        #expect(Self.lines(batch, 0).first { $0.amount == -1000 }?.source == .sign)
+    }
+
+    @Test func aFileSaysWhatItCoversBeforeItHasAnAccount() throws {
+        let files = Self.batch([("export.csv", Self.current), ("export (2).csv", Self.savings)]).files
+        let current = try #require(files[0].session.statementSummary(today: Self.today))
+        #expect(current.lines == 3)
+        #expect(current.first == "2026-01-05")
+        #expect(current.last == "2026-01-27")
+        #expect(current.from == "2026-01-01")
+        #expect(current.through == "2026-01-31")
+        #expect(!current.hasBalance)
+        #expect(!current.addsUp)
+        let savings = try #require(files[1].session.statementSummary(today: Self.today))
+        #expect(savings.addsUp)
+        #expect(savings.closingBalance == Decimal(string: "11002.5"))
     }
 }

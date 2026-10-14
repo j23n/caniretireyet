@@ -24,6 +24,15 @@ extension ImportSession {
             .max { $0.phrase.count < $1.phrase.count }?.rule
     }
 
+    /// The profile's rule for `phrase` itself, the one
+    /// ``setStatementRule(_:for:)`` with it replaces: the same words,
+    /// ignoring case, accents and punctuation.
+    public func statementRule(matching phrase: String) -> StatementRule? {
+        let words = TextTools.words(phrase)
+        guard !words.isEmpty else { return nil }
+        return profile.rules.first { TextTools.words($0.match) == words }
+    }
+
     /// Makes every line whose text has `phrase` a `statementClass`, in the
     /// profile's rules, replacing a rule for the same phrase; `nil` removes it.
     public mutating func setStatementRule(_ statementClass: StatementClass?, for phrase: String) {
@@ -52,6 +61,67 @@ extension ImportSession {
     public mutating func setStatementClass(_ statementClass: StatementClass?, forRow row: Int) {
         statementLineClasses[row] = statementClass
         if statementClass != nil { statementAssets[row] = nil }
+    }
+
+    // MARK: - Remembered answers
+
+    /// The profile's remembered answer for a line (``ImportProfile/answers``):
+    /// the same date and amount, and text with the same words, ignoring
+    /// case, accents and punctuation.
+    public func statementAnswer(date: CalendarDate, amount: Decimal, text: String) -> StatementAnswer? {
+        guard !profile.answers.isEmpty else { return nil }
+        let words = TextTools.words(text)
+        return profile.answers.last { answer in
+            answer.date == date && answer.amount == amount && TextTools.words(answer.match) == words
+        }
+    }
+
+    /// The profile's answers with the classes chosen for single lines of
+    /// `lines` added, to remember: a line's new class replaces the answer
+    /// it had. Oldest first.
+    public func statementAnswers(adding lines: [StatementLine]) -> [StatementAnswer] {
+        var answers = profile.answers
+        for line in lines {
+            guard let statementClass = statementLineClasses[line.row], !TextTools.trim(line.text).isEmpty else {
+                continue
+            }
+            let words = TextTools.words(line.text)
+            answers.removeAll { answer in
+                answer.date == line.date && answer.amount == line.amount && TextTools.words(answer.match) == words
+            }
+            answers.append(StatementAnswer(date: line.date, amount: line.amount, match: line.text,
+                                           statementClass: statementClass))
+        }
+        return answers.enumerated().sorted { ($0.element.date, $0.offset) < ($1.element.date, $1.offset) }
+            .map(\.element)
+    }
+
+    // MARK: - Before it has an account
+
+    /// What the file says as a statement before it's an account's: its
+    /// lines, the days it covers, and whether its balance column adds up.
+    /// `nil` when no line can be read. The lines are read as the statement
+    /// of a cash account without values, so nothing here depends on the
+    /// account it turns out to be.
+    public func statementSummary(today: CalendarDate = .today()) -> StatementSummary? {
+        let id = AccountID("statement")
+        var trial = self
+        trial.profile.constants.account = id
+        let library = Library(accounts: [
+            Account(id: id, name: "Statement", kind: .cash, currency: .eur, opened: PreviewBuilder.earliestDate),
+        ])
+        let preview = trial.preview(against: library, today: today)
+        let lines = preview.statementLines
+        guard let first = lines.map(\.date).min(), let last = lines.map(\.date).max() else { return nil }
+        let period = preview.statementPeriod ?? (first.startOfMonth, last)
+        var breaks = 0
+        for issue in preview.issues {
+            if case .runningBalanceBreaks(let count) = issue.kind { breaks = count }
+        }
+        let balances = lines.compactMap(\.balance)
+        return StatementSummary(lines: lines.count, first: first, last: last, from: period.from,
+                                through: period.through, hasBalance: !balances.isEmpty, balanceBreaks: breaks,
+                                closingBalance: lines.last { $0.balance != nil }?.balance)
     }
 
     // MARK: - Detecting a statement
@@ -134,4 +204,27 @@ extension ImportSession {
                                                 field: fields[analysis.column] ?? .ignore))
         }
     }
+}
+
+/// What a statement's file says before it's an account's
+/// (``ImportSession/statementSummary(today:)``).
+public struct StatementSummary: Hashable, Sendable {
+    /// The lines read.
+    public var lines: Int
+    /// The first and last lines' days.
+    public var first: CalendarDate
+    public var last: CalendarDate
+    /// The days the file is read as covering.
+    public var from: CalendarDate
+    public var through: CalendarDate
+    /// Whether the file has a balance column.
+    public var hasBalance: Bool
+    /// The lines whose balance isn't the line before's plus their amount.
+    public var balanceBreaks: Int
+    /// The last line's balance, when the file has a balance column.
+    public var closingBalance: Decimal?
+
+    /// Whether the balance column adds up: every line's balance is the
+    /// one before plus its amount.
+    public var addsUp: Bool { hasBalance && balanceBreaks == 0 }
 }
