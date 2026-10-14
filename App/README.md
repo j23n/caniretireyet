@@ -26,7 +26,7 @@ Stores (@Observable, @MainActor)
 
 | Folder | What goes there | Owner |
 | --- | --- | --- |
-| `App/` | `@main`, `AppModel` (creates the stores), environment injection, menu commands | app core |
+| `App/` | `@main`, `AppModel` (creates the stores and keeps them in step: kept results and a missing check-in answer once the library opens, the widgets' snapshot when its inputs change), environment injection, menu commands | app core |
 | `Stores/` | The stores, and the logic they need that isn't UI | app core (PlanStore: Plan engineer fills in the engine) |
 | `Navigation/` | Root view, tabs, sidebar, the check-in accessory (shown while a check-in is due or open; else *Check In* in the Overview's toolbar, `CheckInToolbarButton`), sheets, `AppNavigation` | app core |
 | `DesignSystem/` | Colours, spacing, number formatting (amounts; quantities and unit prices, `QuantityFormat`), `AmountText`, `DeltaText`, `Card`, `SectionHeader`, `StatusBanner`, `OverflowScrollView`, `PageTable`, input parsing, SF Symbol names | app core |

@@ -13,7 +13,7 @@ import WidgetKit
 /// it draws the snapshot this store writes into the App Group's container
 /// (``AppGroup``), and redraws when asked to.
 ///
-/// The root view calls ``refresh()`` whenever ``inputs`` change: the library
+/// `AppModel` calls ``refresh()`` a second after ``inputs`` change: the library
 /// loads or changes (here or on the other device), or the main plan gets new
 /// results. An unchanged snapshot isn't written again.
 @Observable @MainActor
