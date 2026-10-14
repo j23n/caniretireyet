@@ -25,14 +25,14 @@ struct AgesWithoutTests {
     let options = PlannerOptions(maxRetirementAge: 75, solveSustainableSpending: false, solveAssetsNeeded: false)
 
     @Test func savingNothingCapsPayAtSpendingAndStopsContributions() {
-        let coast = Planner.plan(plan(), without: .saving)
+        let coast = Planner.coasting(plan())
         #expect(coast.work.map(\.netIncome) == [30_000])
         #expect(coast.work.map(\.realGrowth) == [nil])
         #expect(coast.contributions.isEmpty)
         // Pay already below spending stays as it is.
         var short = plan()
         short.work[0].netIncome = 25_000
-        #expect(Planner.plan(short, without: .saving).work.map(\.netIncome) == [25_000])
+        #expect(Planner.coasting(short).work.map(\.netIncome) == [25_000])
     }
 
     @Test func theCoastAgeIsTheEarliestAgeOfThePlanSavingNothing() async throws {
@@ -40,7 +40,7 @@ struct AgesWithoutTests {
         withCoast.solveCoastAge = true
         let result = try await Planner.run(plan: plan(), library: library, options: withCoast)
         let coast = try #require(result.answer.agesWithout.coast)
-        let scanned = try await Planner.run(plan: Planner.plan(plan(), without: .saving), library: library,
+        let scanned = try await Planner.run(plan: Planner.coasting(plan()), library: library,
                                             options: options)
         #expect(coast.earliestAge == scanned.answer.earliestAge)
         let earliest = try #require(result.answer.earliestAge)
@@ -68,13 +68,13 @@ struct AgesWithoutTests {
         let result = try await Planner.run(plan: plan(events: events), library: library, options: withWindfalls)
         let without = try #require(result.answer.agesWithout.withoutWindfall(2))
         #expect(result.answer.agesWithout.map(\.change) == [.windfall(index: 2)])
-        let scanned = try await Planner.run(plan: Planner.plan(plan(events: events), without: .windfall(index: 2)),
+        let scanned = try await Planner.run(plan: Planner.plan(plan(events: events), withoutWindfall: 2),
                                             library: library, options: options)
         #expect(without.earliestAge == scanned.answer.earliestAge)
         let earliest = try #require(result.answer.earliestAge)
         #expect(try #require(without.earliestAge) > earliest)
         // The windfall stays in the plan, never coming.
-        #expect(Planner.plan(plan(events: events), without: .windfall(index: 2)).events[2].probability == 0)
+        #expect(Planner.plan(plan(events: events), withoutWindfall: 2).events[2].probability == 0)
     }
 
     @Test func withoutAnEarliestAgeThereIsNoneWithoutSavingEither() async throws {

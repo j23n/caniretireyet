@@ -4,6 +4,7 @@ import FeedbackKit
 #endif
 import Foundation
 import Model
+import Observation
 import Prices
 
 /// Every store the app has, created once and injected into each scene's
@@ -49,20 +50,14 @@ final class AppModel {
     }
 
     /// The real app: the library in iCloud Drive or on this device, prices
-    /// from the network with API keys from the Keychain, each plan's latest
-    /// results in the app's caches, and the widgets' snapshot in the App
-    /// Group's container.
+    /// from the network, each plan's latest results in the app's caches, and
+    /// the widgets' snapshot in the App Group's container.
     static func live() -> AppModel {
         let preferences = AppPreferences()
-        #if canImport(Security)
-        let credentials: any CredentialsProvider = KeychainCredentials()
-        #else
-        let credentials: any CredentialsProvider = StaticCredentials()
-        #endif
         return AppModel(
             preferences: preferences,
             library: LibraryStore(locator: LibraryLocator(), preferences: preferences),
-            prices: PriceStore(service: .standard(credentials: credentials)),
+            prices: PriceStore(service: .standard()),
             planEngine: PlannerPlanEngine(),
             planResults: PlanResultsArchive.standard(),
             widgetSnapshotURL: AppGroup.snapshotURL)
@@ -81,15 +76,66 @@ final class AppModel {
             prices: PriceStore(service: nil), planEngine: planEngine, planResults: planResults)
     }
 
-    /// Launch work: find and load the library, and refresh the reminders
-    /// scheduled on this device.
+    /// Whether ``keepInStep()`` runs.
+    private var keepsInStep = false
+    /// Whether the library was open when ``keepInStep()`` last looked.
+    private var wasReady = false
+    /// The widgets' inputs their snapshot was last written for.
+    private var widgetInputs: WidgetStore.Inputs?
+
+    /// Launch work: find and load the library, refresh the reminders
+    /// scheduled on this device, and keep the stores in step from then on.
     func start() async {
         #if canImport(UserNotifications)
         if let reminder = preferences.reminder {
             Task { await ReminderScheduler.apply(reminder) }
         }
         #endif
+        if !keepsInStep {
+            keepsInStep = true
+            keepInStep()
+        }
         guard library.phase == .starting else { return }
         await library.start()
+    }
+
+    /// Keeps the stores in step for as long as the model lives, one step
+    /// each time what they read changes. It holds the model only while a
+    /// step runs, so a preview's or a test's model still goes away.
+    private func keepInStep() {
+        Task { [weak self] in
+            while let changes = await self?.step() {
+                for await _ in changes {}
+            }
+        }
+    }
+
+    /// One step: when the library has opened (again), the plans' results
+    /// kept from the last launch, then a check-in's answer the app was
+    /// closed before recording; when the widgets' inputs changed, their
+    /// snapshot, a second later, so a burst of changes (a check-in's files,
+    /// a sync) writes it once. Returns what finishes at the next change,
+    /// one during the step too.
+    private func step() async -> AsyncStream<Void> {
+        let (changes, continuation) = AsyncStream<Void>.makeStream()
+        withObservationTracking {
+            _ = library.phase
+            _ = widgets.inputs
+        } onChange: {
+            continuation.finish()
+        }
+        let isReady = library.phase == .ready
+        if isReady && !wasReady {
+            // First, so recording a missing answer finds results of exactly this library.
+            await plans.restoreKeptResults()
+            plans.recordMissingCheckInAnswer()
+        }
+        wasReady = isReady
+        if widgets.inputs != widgetInputs {
+            try? await Task.sleep(for: .seconds(1))
+            widgetInputs = widgets.inputs
+            await widgets.refresh()
+        }
+        return changes
     }
 }

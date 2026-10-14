@@ -66,15 +66,12 @@ struct PlanChapterStory: Hashable, Sendable {
 extension PlanChapterStory {
     /// The words for the chapter at `index` of `model`. `results` add the
     /// tax on what's sold to retirement's bar, what an uncertain windfall
-    /// is worth to the answer, and where and when futures run out; the
-    /// library's `valuator` puts that tax in the base currency
-    /// (``monthlyTax(in:results:valuator:)``).
-    init(chapterAt index: Int, in model: PlanChaptersModel, results: PlanResults?, valuator: Valuator,
-         words: PlanWords) {
+    /// is worth to the answer, and where and when futures run out.
+    init(chapterAt index: Int, in model: PlanChaptersModel, results: PlanResults?, words: PlanWords) {
         let chapter = model.chapters.chapters[index]
         story = Self.sentences(chapter, model: model, words: words, results: results).enumerated()
             .flatMap { offset, sentence in offset == 0 ? sentence : [Run.text(" ")] + sentence }
-        bar = Self.bar(chapter, model: model, results: results, valuator: valuator, words: words)
+        bar = Self.bar(chapter, model: model, results: results, words: words)
         risks = results.map { Self.risks(chapter, details: $0.details) } ?? []
     }
 
@@ -255,8 +252,8 @@ extension PlanChapterStory {
     /// A month's money at the chapter's start: pay spent and saved while
     /// working; what comes from savings (and its tax) and what pensions pay
     /// once retired. `nil` without pay to show.
-    static func bar(_ chapter: PlanChapter, model: PlanChaptersModel, results: PlanResults?, valuator: Valuator,
-                    words: PlanWords) -> Bar? {
+    static func bar(_ chapter: PlanChapter, model: PlanChaptersModel, results: PlanResults?, words: PlanWords)
+        -> Bar? {
         let plan = model.plan
         switch chapter.kind {
         case .working(let index):
@@ -294,7 +291,7 @@ extension PlanChapterStory {
             let pays = other == 0 ? "pay" : "pays"
             if pensions == 0 {
                 let fromSavings = words.monthlyValue(spend)
-                let tax = PlanChapterMoney.monthlyTax(in: chapter, results: results, valuator: valuator)
+                let tax = PlanChapterMoney.monthlyTax(in: chapter, results: results)
                 guard let tax, tax >= 1 else {
                     return Bar(segments: [Bar.Segment(value: fromSavings, role: .fromSavings)],
                                leading: "\(words.monthly(spend)) from savings", trailing: "", trailingRole: nil,

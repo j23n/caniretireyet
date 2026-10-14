@@ -69,14 +69,14 @@ extension Planner {
     /// without an assumption counts as 0% with no volatility.
     public static func growth(of mix: [AssetClass: Double], assumptions: PlanAssumptions) -> Double {
         let classes = mix.filter { $0.value > 0 }.keys.sorted()
-        let total = classes.reduce(0) { $0 + mix[$1]! }
+        let total = classes.reduce(0) { $0 + (mix[$1] ?? 0) }
         guard total > 0 else { return 0 }
         var issues: [PlanIssue] = []
         let model = ReturnModel(assumptions: assumptions, heldClasses: classes, issues: &issues)
         let correlations = model.drawIndex.map { i in
             model.drawIndex.map { j in zip(model.cholesky[i], model.cholesky[j]).reduce(0) { $0 + $1.0 * $1.1 } }
         }
-        let weights = classes.map { mix[$0]! / total }
+        let weights = classes.map { (mix[$0] ?? 0) / total }
         var mean = 0.0
         var variance = 0.0
         for i in weights.indices {

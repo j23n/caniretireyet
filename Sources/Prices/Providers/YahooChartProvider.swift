@@ -9,10 +9,11 @@ import Model
 ///       "priceHint": 2, … }, "timestamp": [1789455600, …],
 ///       "indicators": { "quote": [{ "close": [137.1199951171875, null, …] }] } }], "error": null } }
 ///
-/// The price is the latest non-null daily close whose trading day, in the
-/// exchange's time zone, is on or before the date: Friday's close for a
-/// Sunday check-in, and the last trading day before a holiday. On the day
-/// itself, while the market is open, it's the latest price.
+/// A date's price is the latest non-null daily close whose trading day, in
+/// the exchange's time zone, is on or before it (``PriceHistory/quote(onOrBefore:)``):
+/// Friday's close for a Sunday check-in, and the last trading day before a
+/// holiday. On the day itself, while the market is open, it's the latest
+/// price. Crypto pairs are listed as `<TICKER>-<CURRENCY>`, e.g. `BTC-EUR`.
 ///
 /// The endpoint is unofficial and changes without notice, so the response
 /// is read field by field and anything unexpected fails with
@@ -21,8 +22,6 @@ import Model
 /// unit, and closes are rounded to the exchange's `priceHint` decimals.
 public struct YahooChartProvider: InstrumentPriceProvider {
     static let baseURL = URL(string: "https://query1.finance.yahoo.com/v8/finance/chart/")!
-    /// How many days before the date to look for a close.
-    static let lookbackDays = 14
     /// The `User-Agent` header. Yahoo rejects requests without a browser-like one.
     static let userAgent = "Mozilla/5.0"
 
@@ -34,44 +33,6 @@ public struct YahooChartProvider: InstrumentPriceProvider {
 
     public init(client: any HTTPClient = URLSessionHTTPClient(), policy: RequestPolicy = .standard) {
         self.fetcher = HTTPFetcher(client: client, policy: policy, service: "Yahoo Finance")
-    }
-
-    public func quote(for request: QuoteRequest) async throws -> Quote {
-        // From the start of the lookback window to two days after the date
-        // (UTC), wide enough for exchanges in any time zone; closes after the
-        // date in the exchange's time zone are skipped.
-        let period1 = Self.epochSeconds(request.date.adding(days: -Self.lookbackDays))
-        let period2 = Self.epochSeconds(request.date.adding(days: 2))
-        let url = Self.baseURL.appending(segments: [request.symbol], query: [
-            ("period1", String(period1)), ("period2", String(period2)),
-            ("interval", "1d"), ("includePrePost", "false"),
-        ])
-        let response = try await fetcher.get(url, headers: ["User-Agent": Self.userAgent])
-        try response.requireSuccess(service: name, symbol: request.symbol)
-        let envelope = try response.decodeJSON(Envelope.self, service: name)
-        return try Self.close(in: envelope, symbol: request.symbol, onOrBefore: request.date, today: request.today,
-                              service: name)
-    }
-
-    /// The latest close on or before `date` in a chart response.
-    static func close(
-        in envelope: Envelope, symbol: String, onOrBefore date: CalendarDate, today: CalendarDate, service: String
-    ) throws(PriceFetchError) -> Quote {
-        let bars = try Bars(envelope, symbol: symbol, today: today, service: service)
-        guard !bars.isEmpty else {
-            throw .noData(service: service, detail: "no trading days for \(symbol) up to \(date)")
-        }
-        var best: (day: CalendarDate, close: Decimal)?
-        for (instant, close) in bars.closes {
-            let day = CalendarDate(instant, in: bars.timeZone)
-            // The latest day wins; on the same day, the later bar (Yahoo
-            // sometimes repeats today's bar with the live price).
-            if day <= date, best.map({ day >= $0.day }) ?? true { best = (day, close) }
-        }
-        guard let best else {
-            throw .noData(service: service, detail: "no close for \(symbol) on or before \(date)")
-        }
-        return Quote(price: bars.price(best.close), currency: bars.currency, observedOn: best.day)
     }
 
     // MARK: - History
@@ -120,8 +81,8 @@ public struct YahooChartProvider: InstrumentPriceProvider {
         return PriceHistory(quotes: quotes, spacing: monthly ? .monthly : .daily)
     }
 
-    /// The symbol's own history: one request per range.
-    public func historyRoutes(symbol: String, currency: CurrencyCode, today: CalendarDate) -> [HistoryRoute] {
+    /// The symbol's own closes: one request per range.
+    public func routes(symbol: String, today: CalendarDate) -> [HistoryRoute] {
         let provider = self
         return [HistoryRoute(name: "\(name) · \(symbol)") { range in
             try await provider.history(symbol: symbol, range: range)

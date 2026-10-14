@@ -214,52 +214,26 @@ private struct YouSection: View {
     }
 }
 
-/// Where prices come from, fetching at check-in, and API keys (in the Keychain).
+/// Where prices come from, and fetching at check-in.
 private struct PricesSection: View {
     @Environment(AppPreferences.self) private var preferences
-    @State private var coinGeckoKey = ""
-    @State private var keySaved = false
-
-    private static let coinGecko = URL(string: "https://www.coingecko.com")!
 
     var body: some View {
         @Bindable var preferences = preferences
         Section {
             Toggle("Fetch prices when a check-in opens", isOn: $preferences.fetchPricesOnCheckIn)
-            LabeledContent("ETFs and stocks", value: InstrumentForm.name(of: PriceProvider.yahoo))
-            LabeledContent("Crypto", value: InstrumentForm.name(of: PriceProvider.coingecko))
-            // CoinGecko's free and Demo plans ask for this attribution, linked to its site.
-            Link("Powered by CoinGecko", destination: Self.coinGecko)
+            LabeledContent("ETFs, stocks and crypto", value: InstrumentForm.name(of: PriceProvider.yahoo))
             LabeledContent("Gold and silver", value: InstrumentForm.name(of: PriceProvider.goldAPI))
             LabeledContent("Exchange rates", value: "ECB, via Frankfurter")
             LabeledContent("Inflation", value: "Eurostat HICP, BLS (US), ONS (UK)")
-            #if canImport(Security)
-            SecureField("CoinGecko API key (optional)", text: $coinGeckoKey)
-                .onSubmit(saveKey)
-            if keySaved {
-                Text("Saved in the Keychain on this device.").font(.footnote).foregroundStyle(Palette.secondaryInk)
-            }
-            #endif
         } header: {
             Text("Prices")
         } footer: {
-            Text("Each instrument names its own price source. Only symbols, dates and what you search for to find a "
-                + "symbol leave this device; any price can be typed in by hand. "
-                + "Yahoo Finance has no official interface for apps, so its prices may stop working without notice.")
+            Text("Each instrument names its own price source; crypto is priced from Yahoo Finance's pairs, "
+                + "such as BTC-EUR. Only symbols, dates and what you search for to find a symbol leave this "
+                + "device; any price can be typed in by hand. Yahoo Finance has no official interface for apps, "
+                + "so its prices may stop working without notice.")
         }
-        #if canImport(Security)
-        .onAppear { coinGeckoKey = KeychainCredentials.read(.coingecko) ?? "" }
-        .onDisappear(perform: saveKey)
-        #endif
-    }
-
-    private func saveKey() {
-        #if canImport(Security)
-        let trimmed = coinGeckoKey.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard trimmed != (KeychainCredentials.read(.coingecko) ?? "") else { return }
-        KeychainCredentials.write(trimmed, for: .coingecko)
-        keySaved = !trimmed.isEmpty
-        #endif
     }
 }
 

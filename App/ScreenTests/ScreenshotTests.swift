@@ -106,7 +106,7 @@ struct ScreenshotTests {
         let main = try #require(launch.library.settings.mainPlan)
         let model = launch.model()
         try await ScreenCapture.keep(root(model), named: name) {
-            !calculates || model.plans.results[main] != nil || model.plans.errors[main] != nil
+            !calculates || model.plans.results(of: main) != nil || model.plans.errors[main] != nil
         }
         #expect(model.plans.errors[main] == nil, "The main plan didn't calculate.")
     }

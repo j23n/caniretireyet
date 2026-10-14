@@ -7,7 +7,8 @@ import Tracker
 
 // *Fill In Past Prices* (UI.md, "Instruments" and "Adding history"): what the
 // library is missing on past dates, fetched a range per instrument at a time
-// (`PriceService.fillPastPrices`) and saved in one edit that replaces nothing.
+// (`PriceService.fetch(_:in:refresh:progress:)`) and saved in one edit that
+// replaces nothing.
 // Free of SwiftUI so it can be checked on Linux.
 
 /// One line of *Fill In Past Prices*: an instrument, an exchange rate or an
@@ -26,7 +27,7 @@ struct PastPriceLine: Identifiable, Hashable, Sendable {
         case index
     }
 
-    var item: PriceListEntry.Item
+    var item: PriceItem
     var kind: Kind
     /// The instrument's name, "USD", "Inflation (Germany)".
     var title: String
@@ -35,9 +36,9 @@ struct PastPriceLine: Identifiable, Hashable, Sendable {
     /// The dates it needs a value on, sorted.
     var dates: [CalendarDate]
     /// What the fill did, once it ran.
-    var result: PastPriceResult?
+    var result: PriceResult?
 
-    var id: PriceListEntry.Item { item }
+    var id: PriceItem { item }
 
     var instrument: InstrumentID? {
         if case .instrument(let id) = item { id } else { nil }
@@ -52,15 +53,15 @@ struct PastPriceLine: Identifiable, Hashable, Sendable {
 
 /// What *Fill In Past Prices* will fetch, and what has to be typed in.
 struct PastPricePlan: Hashable, Sendable {
-    var needs: PastPriceNeeds
+    var needs: PriceNeeds
     /// Fetched instruments, then rates, then indices, then instruments
     /// typed in and unknown ones.
     var lines: [PastPriceLine]
 
-    init(needs: PastPriceNeeds, library: Library) {
+    init(needs: PriceNeeds, library: Library) {
         self.needs = needs
         func name(_ id: InstrumentID) -> String { library.instruments[id]?.name ?? id.rawValue }
-        let byName: (PastPriceNeeds.InstrumentDates, PastPriceNeeds.InstrumentDates) -> Bool = {
+        let byName: (PriceNeeds.InstrumentDates, PriceNeeds.InstrumentDates) -> Bool = {
             (name($0.instrument).lowercased(), $0.instrument) < (name($1.instrument).lowercased(), $1.instrument)
         }
         var lines = needs.instruments.sorted(by: byName).map { need in
@@ -152,9 +153,9 @@ enum PastPriceText {
     }
 
     /// Where the values came from: "Yahoo Finance · GC=F (history)"; for
-    /// two sources, the newer first: "CoinGecko · ethereum back to Oct 2025,
-    /// Yahoo Finance · ETH-EUR (history) before"; for more, each with its dates.
-    static func sources(_ runs: [PastPriceSource], locale: Locale = .current) -> String? {
+    /// two sources, the newer first: "gold-api.com · XAU back to Sep 2026,
+    /// Yahoo Finance · GC=F (history) before"; for more, each with its dates.
+    static func sources(_ runs: [SourceRun], locale: Locale = .current) -> String? {
         switch runs.count {
         case 0:
             return nil
@@ -190,7 +191,7 @@ final class PastPriceFiller {
         /// Showing what's missing.
         case ready
         /// Fetching; how far it's got.
-        case fetching(PastPriceProgress)
+        case fetching(FetchProgress)
         case saving
         /// Fetched and saved; the lines have their results.
         case done
@@ -202,7 +203,7 @@ final class PastPriceFiller {
     private(set) var plan: PastPricePlan?
     private(set) var phase: Phase = .ready
     /// What saving added, and kept.
-    private(set) var inserted: PastPriceInsertion?
+    private(set) var inserted: PriceMerge?
 
     init() {}
 
@@ -238,7 +239,7 @@ final class PastPriceFiller {
     /// Fetches everything the plan lists, then saves it.
     func run(library: LibraryStore, prices: PriceStore) async {
         guard canRun(library: library, prices: prices), var plan else { return }
-        phase = .fetching(PastPriceProgress(done: 0, total: plan.fetchedLines.count))
+        phase = .fetching(FetchProgress(done: 0, total: plan.fetchedLines.count))
         let fetched = await prices.fillPastPrices(plan.needs, in: library.library) { [weak self] progress in
             self?.phase = .fetching(progress)
         }
@@ -250,7 +251,7 @@ final class PastPriceFiller {
         self.plan = plan
         phase = .saving
         do {
-            inserted = fetched.recordCount > 0 ? try await library.insertMissing(fetched) : PastPriceInsertion()
+            inserted = fetched.recordCount > 0 ? try await library.insertMissing(fetched) : PriceMerge()
             phase = .done
         } catch {
             phase = .failed("The prices couldn't be saved. " + LibraryStore.describe(error))
@@ -259,7 +260,7 @@ final class PastPriceFiller {
 
     /// The lines with their results, plus a line for each rate the fill
     /// fetched only to convert prices.
-    static func merge(_ lines: [PastPriceLine], with fill: PastPriceFill) -> [PastPriceLine] {
+    static func merge(_ lines: [PastPriceLine], with fill: FetchedPrices) -> [PastPriceLine] {
         var merged = lines.map { line in
             var line = line
             line.result = fill.result(for: line.item)
@@ -294,8 +295,9 @@ final class PastPriceFiller {
             if inserted.fx > 0 { parts.append(Wording.count(inserted.fx, "exchange rate")) }
             if inserted.indices > 0 { parts.append(Wording.count(inserted.indices, "inflation month")) }
             var text = parts.isEmpty ? "Nothing new to add." : "Added " + Wording.list(parts) + "."
-            if inserted.kept > 0 {
-                text += " Kept \(Wording.count(inserted.kept, "value")) the library had by then."
+            let kept = inserted.kept + inserted.identical
+            if kept > 0 {
+                text += " Kept \(Wording.count(kept, "value")) the library had by then."
             }
             return text
         case .failed(let reason):

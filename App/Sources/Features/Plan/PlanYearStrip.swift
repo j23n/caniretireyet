@@ -17,16 +17,10 @@ struct PlanYearStrip: View {
     let timeline: PlanProgressTimeline
     /// The index of the selected card.
     @Binding var selection: Int
-    /// Points a month along the time axis.
-    var pointsPerMonth: CGFloat = 21
-    /// The strip's inset at both ends, so its cards line up with the page.
-    var inset: CGFloat = Metrics.l
-    /// Whether each card shows its year's figures in a line under its graph
-    /// (the Mac and iPad).
-    var showsFooter = false
     /// Today, marked on the latest year's card.
     var today: CalendarDate?
 
+    @Environment(\.pageLayout) private var layout
     @Environment(\.redactionReasons) private var redactionReasons
     @Environment(\.locale) private var locale
     @Environment(\.dynamicTypeSize) private var typeSize
@@ -34,6 +28,13 @@ struct PlanYearStrip: View {
 
     /// Whether amounts are hidden: VoiceOver doesn't read them.
     private var hidesAmounts: Bool { redactionReasons.hidesAmounts }
+
+    /// Points a month along the time axis.
+    private var pointsPerMonth: CGFloat { layout.isWide ? 26 : 21 }
+
+    /// Whether each card shows its year's figures in a line under its graph
+    /// (the Mac and iPad).
+    private var showsFooter: Bool { layout.isWide }
 
     /// The oldest years, before the first with a recorded answer: folded
     /// into one card until shown.
@@ -49,13 +50,12 @@ struct PlanYearStrip: View {
         let height = PlanYearCardView.height(textScale: textScale)
         PlanCardStrip(
             indices: Array(timeline.cards.indices.dropFirst(folds ? early : 0)), selection: $selection,
-            inset: inset, opensAtEnd: true, identifier: "progress.years",
+            inset: layout.gutter, opensAtEnd: true, identifier: "progress.years",
             scale: { timeline.scale(fitting: $0, inset: Double(PlanYearCardView.pad)) },
             spokenLabel: { accessibilityLabel(timeline.cards[$0]) }, chart: { chartSummary(timeline.cards[$0]) }
         ) {
             if folds {
-                PlanEarlyYearsCard(cards: Array(timeline.cards.prefix(early)), height: height,
-                                   isCompact: !showsFooter) {
+                PlanEarlyYearsCard(cards: Array(timeline.cards.prefix(early)), height: height) {
                     withAnimation(.snappy) { showsEarlyYears = true }
                 }
             }
@@ -116,11 +116,13 @@ struct PlanYearStrip: View {
 struct PlanEarlyYearsCard: View {
     let cards: [PlanProgressTimeline.Card]
     var height: CGFloat = PlanYearCardView.height(textScale: 1)
-    /// Narrow, with the amounts in short, beside today's card on iPhone.
-    var isCompact = false
     let onShow: () -> Void
 
+    @Environment(\.pageLayout) private var layout
     @Environment(\.locale) private var locale
+
+    /// Narrow, with the amounts in short, beside today's card on iPhone.
+    private var isCompact: Bool { !layout.isWide }
 
     private var span: String {
         guard let first = cards.first?.year.year, let last = cards.last?.year.year else { return "" }

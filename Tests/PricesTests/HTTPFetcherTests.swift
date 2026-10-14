@@ -40,23 +40,23 @@ struct HTTPFetcherTests {
     @Test func givesUpOnALongRetryAfter() async throws {
         let client = MockHTTPClient()
         await client.on("quote", HTTPResponse(statusCode: 429, headers: ["retry-after": "60"], text: "{}"))
-        let fetcher = HTTPFetcher(client: client, policy: .standard, service: "CoinGecko")
+        let fetcher = HTTPFetcher(client: client, policy: .standard, service: "Yahoo Finance")
 
-        await #expect(throws: PriceFetchError.rateLimited(service: "CoinGecko", retryAfter: .seconds(60))) {
+        await #expect(throws: PriceFetchError.rateLimited(service: "Yahoo Finance", retryAfter: .seconds(60))) {
             _ = try await fetcher.get(url)
         }
         #expect(await client.requestCount == 1)
-        #expect(PriceFetchError.rateLimited(service: "CoinGecko", retryAfter: .seconds(60)).description
-            == "CoinGecko is limiting requests. Try again in 60 seconds.")
+        #expect(PriceFetchError.rateLimited(service: "Yahoo Finance", retryAfter: .seconds(60)).description
+            == "Yahoo Finance is limiting requests. Try again in 60 seconds.")
     }
 
     @Test func retriesOnceWithoutAHintThenReportsTheRateLimit() async throws {
         let client = MockHTTPClient()
         await client.on("quote", HTTPResponse(statusCode: 429, text: rateLimitBody))
         let policy = RequestPolicy(maxRetries: 1, retryWaitWithoutHint: .milliseconds(1))
-        let fetcher = HTTPFetcher(client: client, policy: policy, service: "CoinGecko")
+        let fetcher = HTTPFetcher(client: client, policy: policy, service: "Yahoo Finance")
 
-        await #expect(throws: PriceFetchError.rateLimited(service: "CoinGecko", retryAfter: nil)) {
+        await #expect(throws: PriceFetchError.rateLimited(service: "Yahoo Finance", retryAfter: nil)) {
             _ = try await fetcher.get(url)
         }
         #expect(await client.requestCount == 2)
@@ -87,7 +87,7 @@ struct HTTPFetcherTests {
         let refused = #"{"error":{"status":{"error_code":10012,"error_message":"Beyond the allowed time range."}}}"#
         #expect(error(401, refused) == .unauthorized(service: "Example", message: "Beyond the allowed time range."))
         #expect(error(401, refused)?.description
-            == "Example refused the request: Beyond the allowed time range. Check the API key in Settings.")
+            == "Example refused the request: Beyond the allowed time range.")
         #expect(error(429, rateLimitBody) == .rateLimited(service: "Example", retryAfter: nil))
         #expect(error(500, "<html><body>Oops</body></html>") == .httpStatus(service: "Example", code: 500, message: nil))
         #expect(error(503, "Service Unavailable\n") == .httpStatus(service: "Example", code: 503,

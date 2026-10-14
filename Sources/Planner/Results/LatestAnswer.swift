@@ -8,8 +8,7 @@ import Tracker
 /// the date they start from (on the other device, say, while these were
 /// kept on this one); else the last answer recorded at a check-in.
 public struct LatestAnswer: Hashable, Sendable {
-    /// The answer, with its amounts in the library's base currency
-    /// (``PlanResults/answer(in:valuator:)``).
+    /// The answer.
     public var answer: RetirementAnswer
     /// The results it comes from; `nil` for a recorded answer.
     public var results: PlanResults?
@@ -18,9 +17,9 @@ public struct LatestAnswer: Hashable, Sendable {
 
     /// The latest answer from `results` (the plan's latest, if any) and the
     /// headlines `recorded` at check-ins, oldest first; `nil` without either.
-    public init?(results: PlanResults?, recorded: [Headline], birthDate: CalendarDate?, valuator: Valuator) {
+    public init?(results: PlanResults?, recorded: [Headline], birthDate: CalendarDate?) {
         if let latest = Self.latestResults(results, recorded: recorded) {
-            answer = latest.answer(in: valuator.baseCurrency, valuator: valuator)
+            answer = latest.headline
             self.results = latest
             self.recorded = nil
         } else if let last = recorded.last {
@@ -33,9 +32,9 @@ public struct LatestAnswer: Hashable, Sendable {
     }
 
     /// The latest answer of `plan` in `library`, with its latest `results`.
-    public init?(plan: PlanID, library: Library, valuator: Valuator, results: PlanResults?) {
+    public init?(plan: PlanID, library: Library, results: PlanResults?) {
         self.init(results: results, recorded: library.headlines(for: plan),
-                  birthDate: library.settings.person?.birthDate, valuator: valuator)
+                  birthDate: library.settings.person?.birthDate)
     }
 
     /// `results`, unless a check-in recorded an answer after the date they

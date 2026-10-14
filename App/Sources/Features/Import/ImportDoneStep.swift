@@ -174,7 +174,7 @@ struct ImportDoneStep: View {
             Text("Past prices")
         } footer: {
             Text("These values are counted at an older price, or none, because the file has no price for their "
-                + "dates. Fill In Past Prices fetches them from Yahoo Finance, CoinGecko and the ECB, and replaces "
+                + "dates. Fill In Past Prices fetches them from Yahoo Finance and the ECB, and replaces "
                 + "nothing already saved.")
         }
     }

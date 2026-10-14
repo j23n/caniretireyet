@@ -49,22 +49,6 @@ public enum PriceResponses {
         return days
     }
 
-    /// A CoinGecko `coins/{id}/market_chart/range` response: `[ms, price]`
-    /// points, with market caps and volumes alongside as CoinGecko sends them.
-    public static func coinGeckoMarketChart(_ points: [(instant: Date, price: Decimal)]) -> String {
-        func series(_ scale: Decimal) -> String {
-            points.map { "[\(Int64($0.instant.timeIntervalSince1970 * 1000)),\(($0.price * scale).description)]" }
-                .joined(separator: ",")
-        }
-        return #"{"prices":[\#(series(1))],"market_caps":[\#(series(120_000_000))],"#
-            + #""total_volumes":[\#(series(9_000_000))]}"#
-    }
-
-    /// Midnight UTC at the start of `day`.
-    public static func midnightUTC(_ day: CalendarDate) -> Date {
-        Date(timeIntervalSince1970: TimeInterval(day.daysSinceEpoch) * 86_400)
-    }
-
     /// `value` as Yahoo writes a close: the float32 nearest to it, printed as a double.
     static func float32(_ value: Decimal) -> String {
         let single = Float((value as NSDecimalNumber).doubleValue)
@@ -117,9 +101,6 @@ extension PriceResponses {
     "2026-09-24":{"USD":1.1369},"2026-09-25":{"USD":1.1371},"2026-09-28":{"USD":1.1385},\
     "2026-09-29":{"USD":1.139},"2026-09-30":{"USD":1.1398}}}
     """
-
-    /// CoinGecko, `GET simple/price?ids=bitcoin&vs_currencies=usd&include_last_updated_at=true&precision=full`.
-    public static let coinGeckoBitcoinUSD = #"{"bitcoin":{"usd":111400,"last_updated_at":1790758680}}"#
 
     /// gold-api.com, `GET price/XAU`: USD per troy ounce.
     public static let goldAPIGold = """
