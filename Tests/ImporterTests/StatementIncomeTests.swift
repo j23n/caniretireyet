@@ -57,6 +57,14 @@ struct StatementIncomeTests {
         #expect(StatementWords.sender(of: "Bonifico a vostro favore disposto da: Mario Rossi") == "Mario Rossi")
     }
 
+    /// A sender's key is the words the importer matches, so case, accents
+    /// and punctuation don't make two senders.
+    @Test func aSendersKeyIsItsFoldedWords() {
+        #expect(StatementWords.key("Müller, Anna") == "muller anna")
+        #expect(StatementWords.key("MÜLLER ANNA") == StatementWords.key("Müller  Anna"))
+        #expect(StatementWords.key("Bar-Centrale") == "bar centrale")
+    }
+
     /// A payment processor writes the merchant after a `*`.
     @Test func aProcessorsLineIsItsMerchants() {
         #expect(StatementWords.sender(of: "PayPal Europe *Kleinanzeigen Fahrrad") == "Kleinanzeigen")

@@ -190,6 +190,13 @@ public enum StatementWords {
     /// in `PayPal Europe *Kleinanzeigen Fahrrad`.
     static let processors: Set<String> = ["paypal", "sumup", "zettle", "izettle", "klarna", "stripe", "sq"]
 
+    /// A sender's or a search's words as the importer matches them
+    /// (lowercase, no accents, no punctuation), joined by spaces: lines
+    /// whose senders have the same key are one sender's.
+    public static func key(_ text: String) -> String {
+        TextTools.words(text).joined(separator: " ")
+    }
+
     /// Who paid or was paid, from a counterparty or a description: its
     /// first run of up to 4 words that aren't ``noise`` or numbers, as the
     /// text writes them, so a rule with them matches the line. A

@@ -93,9 +93,10 @@ struct IncomeFoundRow: Identifiable, Hashable, Sendable {
 /// The Income step of the bank statements open: the lines asked about,
 /// what was moved between your accounts, income by sender, and the summary.
 extension ImportFlow {
-    /// A sender's words without case or accents, to group its lines.
+    /// A sender's words as the importer matches them, to group its lines
+    /// (``StatementWords/key(_:)``).
     static func senderKey(_ sender: String) -> String {
-        sender.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil)
+        StatementWords.key(sender)
     }
 
     /// The bottom bar's note on Income.
