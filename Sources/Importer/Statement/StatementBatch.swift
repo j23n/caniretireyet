@@ -188,7 +188,11 @@ public struct StatementBatch: Sendable {
     /// (``ImportSession/statementPairs``). Only lines that nothing surer
     /// than the usual words classified are paired.
     mutating func pairTransfers(in library: Library, today: CalendarDate) {
-        for index in files.indices { files[index].session.statementPairs = [:] }
+        let accounts = Set(files.compactMap(\.account))
+        for index in files.indices {
+            files[index].session.statementPairs = [:]
+            files[index].session.statementBatchAccounts = accounts.subtracting(files[index].account.map { [$0] } ?? [])
+        }
         var open: [(file: Int, account: AccountID, line: StatementLine)] = []
         for index in files.indices {
             guard let account = files[index].account else { continue }

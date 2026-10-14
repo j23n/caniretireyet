@@ -22,7 +22,9 @@ extension PreviewBuilder {
 
     /// Reads the lines, classifies them (``statementLines``) and works out
     /// the account's values: one at each of its values in the file's span,
-    /// and one at each month end of a month that has none.
+    /// and one at each month end of a month that has none. Then the other
+    /// side of the money the answers move: a tax pot's values, a purchase's
+    /// new account, an account sold.
     mutating func statementRecords(dateColumn: Int, dates: DateParser) -> [ImportRecordKey: Accumulator] {
         guard let id = profile.constants.account else {
             issues.append(ImportIssue(kind: .missingField(.account)))
@@ -113,11 +115,12 @@ extension PreviewBuilder {
 
     // MARK: - Classifying
 
-    /// Each line's class and why: chosen for the line, a rule, a trade of
-    /// another account moving the same amount, a line of another account's
-    /// statement imported with it moving it the other way, another account named in
+    /// Each line's class and why: an answer that moves money to or from an
+    /// account, chosen for the line, a rule, a trade of another account
+    /// moving the same amount, a line of another account's statement
+    /// imported with it moving it the other way, another account named in
     /// the text, the usual words; for money in, a sender paid before or a
-    /// recurring one; else the sign. Then the money in that needs an answer.
+    /// recurring one; else the sign. Then the lines that need an answer.
     private func classify(_ read: [ReadLine], account: Account) -> [StatementLine] {
         let names = accountNames(excluding: account)
         let answered = answeredAssets(read, account: account)
@@ -128,13 +131,18 @@ extension PreviewBuilder {
         let trades = matchTrades(read, lines: open, excluding: account.id)
         var lines = read.indices.map { index in
             let line = read[index]
+            let rule = session.statementRule(for: line.text)
             let chosen: (StatementClass, StatementLine.Source)
             if answered[line.row] != nil {
-                // A purchase or a sale moves money between your accounts.
-                chosen = (.transfer, .chosen)
+                // Money moved to or from an account, a purchase or a sale moves money between your accounts.
+                if session.statementAssets[line.row] == nil, let rule {
+                    chosen = (.transfer, .rule(rule.match))
+                } else {
+                    chosen = (.transfer, .chosen)
+                }
             } else if let statementClass = session.statementLineClasses[line.row] {
                 chosen = (statementClass, .chosen)
-            } else if let rule = session.statementRule(for: line.text) {
+            } else if let rule {
                 chosen = (rule.statementClass, .rule(rule.match))
             } else if let trade = trades[index] {
                 chosen = (.transfer, .trade(trade))
@@ -146,9 +154,9 @@ extension PreviewBuilder {
             } else if let suggested = StatementWords.suggestion(for: line.text, amount: line.amount) {
                 chosen = (suggested, .words)
             } else if line.amount > 0, Self.paidBefore(line, in: read) {
-                chosen = (.paidBack, .paidBefore)
+                chosen = (.spending, .paidBefore)
             } else {
-                chosen = (line.amount >= 0 ? .paidBack : .spending, .sign)
+                chosen = (.spending, .sign)
             }
             return StatementLine(row: line.row, date: line.date, amount: line.amount, text: line.text,
                                  sender: line.sender, balance: line.balance, statementClass: chosen.0,
@@ -207,7 +215,7 @@ extension PreviewBuilder {
 
     /// Money in classified by its sign alone that is more than a typical
     /// month's spending in the file (the median of its months' money out)
-    /// needs an answer: income, a one-off or paid back.
+    /// needs an answer.
     private static func markQuestions(_ lines: inout [StatementLine]) {
         let spending = lines.filter { $0.amount < 0 && $0.statementClass == .spending }
         let months = Dictionary(grouping: spending, by: \.date.yearMonth).values
@@ -220,7 +228,7 @@ extension PreviewBuilder {
     }
 
     /// Money out classified by its sign alone that is more than a typical
-    /// month's spending needs an answer: spending, or a purchase you keep.
+    /// month's spending needs an answer.
     /// The typical month is the median of the file's months' money out
     /// without the line itself, and of `history`, the money out of the
     /// account's last 12 values before the file; a month whose only
@@ -339,10 +347,13 @@ extension PreviewBuilder {
             .max { $0.phrase.count < $1.phrase.count }.map { ($0.id, $0.isLiability) }
     }
 
-    // MARK: - Purchases and sales
+    // MARK: - Moved to or from an account
 
-    /// The session's answers as a purchase or a sale that the import can
-    /// record, by row (docs/IMPORT.md, "Purchases and sales"): a purchase
+    /// The answers that move a line's money to or from an account, by row
+    /// (docs/IMPORT.md, "Moved to or from an account"): the session's, else
+    /// a rule's with an account for a line without a chosen class. Each
+    /// is one the import can take: money moved to or from an account it
+    /// can move to (``Library/canMoveFromStatement(_:of:on:)``); a purchase
     /// of money out, of a kind it can start; a sale of money in, of an
     /// account that can be sold from `account`'s statement
     /// (``Library/canSellFromStatement(_:of:on:)``), the first sale of it
@@ -351,8 +362,15 @@ extension PreviewBuilder {
         var answered: [Int: StatementAsset] = [:]
         var sold = Set<AccountID>()
         for line in read {
-            guard let asset = session.statementAssets[line.row], asset.fits(line.amount) else { continue }
+            let byRule = session.statementLineClasses[line.row] == nil
+                ? session.statementRule(for: line.text).flatMap { rule in
+                    rule.statementClass == .transfer ? rule.account.map(StatementAsset.moved) : nil
+                } : nil
+            guard let asset = session.statementAssets[line.row] ?? byRule, asset.fits(line.amount) else { continue }
             switch asset {
+            case .moved(let id):
+                guard let other = library.accounts[id], library.canMoveFromStatement(other, of: account, on: line.date)
+                else { continue }
             case .purchase(_, let kind):
                 guard StatementAsset.purchaseKinds.contains(kind) else { continue }
             case .sale(let id):
@@ -366,18 +384,20 @@ extension PreviewBuilder {
         return answered
     }
 
-    /// The records of the lines answered as a purchase or a sale, at the
-    /// file's value the line counts in (``StatementLine/period``), where
-    /// the account's money moved. A purchase starts a new account (proposed,
-    /// accepted), opened and worth 0 on the line's day (the day before,
-    /// when that's the value's), then worth the line's amount, with the
-    /// amount as its flow: its first value is 0, so the amount is new
-    /// money moved from the account, not what it already held. A sale
-    /// values the account sold at 0, with the amount as its flow out, and
-    /// closes it the day after (proposed, accepted, unless this sale closed
-    /// it already). Answers it can't record are issues: one that doesn't
-    /// fit leaves the line classified as if it had none, and a line that
-    /// counts in no value has no money in and out to move.
+    /// The other side of the answers that move money, at the file's value
+    /// the line counts in (``StatementLine/period``). Money moved to or
+    /// from an account is a transfer, and a tax pot's values follow from it
+    /// (``potRecords(_:)``), unless the pot's statement is imported with
+    /// this one. A purchase starts a new account (proposed, accepted),
+    /// opened and worth 0 on the line's day (the day before, when that's
+    /// the value's), then worth the line's amount, with the amount as its
+    /// flow: its first value is 0, so the amount is new money moved from
+    /// the account, not what it already held. A sale values the account
+    /// sold at 0, with the amount as its flow out, and closes it the day
+    /// after (proposed, accepted, unless this sale closed it already).
+    /// Answers it can't take are issues: one that doesn't fit leaves the
+    /// line classified as if it had none, and a line that counts in no
+    /// value has no money in and out to move.
     private mutating func statementAssetRecords(_ lines: inout [StatementLine], read: [ReadLine],
                                                 account: Account)
         -> [ImportRecordKey: Accumulator] {
@@ -385,15 +405,35 @@ extension PreviewBuilder {
         var records: [ImportRecordKey: Accumulator] = [:]
         var taken = Set(library.accounts.keys.map(\.rawValue) + accountProposals.map(\.account.id.rawValue))
         var found = Set<AccountID>()
-        for row in session.statementAssets.keys.sorted() {
+        var moves: [AccountID: [PotMove]] = [:]
+        for row in Set(session.statementAssets.keys).union(answered.keys).sorted() {
             guard let index = lines.firstIndex(where: { $0.row == row }) else { continue }
             let line = lines[index]
+            let cells = read.first { $0.row == row }?.cells ?? []
+            if case .moved(let other)? = answered[row] {
+                if library.accounts[other]?.kind == .taxPot, !session.statementBatchAccounts.contains(other) {
+                    guard let cut = line.period else {
+                        // Still a transfer, as the answer says, but the pot's value can't follow from it.
+                        issues.append(ImportIssue(kind: .statementMoveLeftOut(row: row, account: other)))
+                        continue
+                    }
+                    moves[other, default: []].append(PotMove(date: line.date, cut: cut, amount: -line.amount,
+                                                             cells: cells))
+                }
+                lines[index].asset = answered[row]
+                lines[index].assetAccount = other
+                continue
+            }
             // A sale found from an earlier import counts in the same value, or it's another sale.
             let soldElsewhere = answered[row].map { asset in
                 guard case .sale(let sold) = asset, let closed = library.accounts[sold]?.closed else { return false }
                 return closed != line.period?.adding(days: 1)
             } ?? false
             guard let asset = answered[row], let cut = line.period, !soldElsewhere else {
+                if case .moved(let other)? = session.statementAssets[row] {
+                    issues.append(ImportIssue(kind: .statementMoveLeftOut(row: row, account: other)))
+                    continue
+                }
                 var account: AccountID?
                 if case .sale(let id)? = session.statementAssets[row], answered[row] == nil || soldElsewhere,
                    session.statementAssets[row]?.fits(line.amount) == true { account = id }
@@ -403,6 +443,7 @@ extension PreviewBuilder {
             let amount = -line.amount
             let id: AccountID
             switch asset {
+            case .moved: continue
             case .purchase(let name, let kind):
                 let opened = min(line.date, cut.adding(days: -1))
                 let started = library.accounts.values.sorted { $0.id < $1.id }.first { existing in
@@ -421,7 +462,7 @@ extension PreviewBuilder {
                 }
                 var start = ImportedRecord(key: .valuation(ValuationKey(account: id, date: opened)))
                 start.balance = 0
-                records[start.key] = Accumulator(record: start, cells: read.first { $0.row == row }?.cells ?? [])
+                records[start.key] = Accumulator(record: start, cells: cells)
             case .sale(let sold):
                 id = sold
                 if library.accounts[sold]?.closed != cut.adding(days: 1) {
@@ -433,9 +474,58 @@ extension PreviewBuilder {
             var record = ImportedRecord(key: .valuation(ValuationKey(account: id, date: cut)))
             record.balance = line.amount < 0 ? amount : 0
             record.flow = amount
-            records[record.key] = Accumulator(record: record, cells: read.first { $0.row == row }?.cells ?? [])
+            records[record.key] = Accumulator(record: record, cells: cells)
             lines[index].asset = asset
             lines[index].assetAccount = id
+        }
+        for (pot, potMoves) in moves {
+            records.merge(potRecords(pot, moves: potMoves)) { $1 }
+        }
+        return records
+    }
+
+    /// Money a statement's line moved into a tax pot (negative: taken out),
+    /// on the line's day, counted in the statement's value on `cut`.
+    private struct PotMove {
+        var date: CalendarDate
+        var cut: CalendarDate
+        var amount: Decimal
+        var cells: [ImportCellRef]
+    }
+
+    /// A tax pot's values from the money the file moved into it and out
+    /// (docs/IMPORT.md, "Moved to or from an account"): one on each of the
+    /// statement's values the moves count in, with the money moved since
+    /// the pot's value before it as its flow, no money in or out (so it's
+    /// all moved, ``Model/Valuation/moved``), and the balance that value's
+    /// plus the flow. A value the pot has between moves takes the moves
+    /// before it as counted already. A pot with no value before the first
+    /// move starts worth 0 the day before it, a value that isn't counted.
+    private func potRecords(_ pot: AccountID, moves: [PotMove]) -> [ImportRecordKey: Accumulator] {
+        guard let first = moves.map(\.date).min() else { return [:] }
+        let cuts = Set(moves.map(\.cut)).sorted()
+        var values = library.valuations(for: pot).filter { !cuts.contains($0.date) }
+            .map { (date: $0.date, balance: $0.balance ?? 0) }
+        var records: [ImportRecordKey: Accumulator] = [:]
+        if !values.contains(where: { $0.date < first }) {
+            let start = first.adding(days: -1)
+            var record = ImportedRecord(key: .valuation(ValuationKey(account: pot, date: start)))
+            record.balance = 0
+            records[record.key] = Accumulator(record: record, cells: [])
+            values.append((start, 0))
+        }
+        for cut in cuts {
+            guard let before = values.filter({ $0.date < cut }).max(by: { $0.date < $1.date }) else { continue }
+            let counted = moves.filter { $0.cut == cut && $0.date > before.date }
+            guard !counted.isEmpty else { continue }
+            let moved = counted.reduce(Decimal(0)) { $0 + $1.amount }
+            var record = ImportedRecord(key: .valuation(ValuationKey(account: pot, date: cut)))
+            record.balance = before.balance + moved
+            record.flow = moved
+            record.moneyIn = 0
+            record.moneyOut = 0
+            records[record.key] = Accumulator(record: record, cells: counted.flatMap(\.cells).sorted())
+            values.append((cut, before.balance + moved))
         }
         return records
     }
@@ -514,6 +604,7 @@ extension PreviewBuilder {
                     total.moneyIn += counted.moneyIn
                     total.moneyOut += counted.moneyOut
                     total.oneOff += counted.oneOff
+                    total.tax += counted.tax
                     total.interest += counted.interest
                 }
                 let interest = total.interest
@@ -521,6 +612,7 @@ extension PreviewBuilder {
                 // More paid back than spent in a period leaves money out at 0, and the rest counts as moved.
                 record.moneyOut = max(total.moneyOut, 0)
                 if total.oneOff != 0 { record.oneOff = total.oneOff }
+                if total.tax != 0 { record.tax = total.tax }
                 record.countsMoneyInOutFromLines = true
                 if interest != 0 { record.interest = interest }
                 if let previousBalance = previous?.balance {

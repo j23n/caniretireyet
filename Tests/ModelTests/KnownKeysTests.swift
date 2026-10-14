@@ -94,7 +94,7 @@ struct KnownKeysTests {
                        matches: ImportMatches(accounts: ["A": "a"]), onConflict: .keep,
                        tradeTypes: ["Acquisto": .buy],
                        rules: [StatementRule(match: "Giroconto", statementClass: .transfer)]), ImportProfile.knownKeys),
-        (StatementRule(match: "Giroconto", statementClass: .transfer), StatementRule.knownKeys),
+        (StatementRule(match: "Accantonamento", statementClass: .transfer, account: "tax-pot"), StatementRule.knownKeys),
         (ImportFileSettings(encoding: .utf8, delimiter: ";", headerRow: 1, excludeRows: ["Totale"]), ImportFileSettings.knownKeys),
         (ImportColumn(header: "A", index: 1, target: .fx, field: .value, account: "a", instrument: "i", currency: .eur,
                       base: .eur, quote: .usd, format: format), ImportColumn.knownKeys),

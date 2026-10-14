@@ -1,10 +1,15 @@
 import Foundation
 import Model
 
-/// A large statement line answered as a purchase you keep or a sale
-/// (docs/IMPORT.md, "Purchases and sales"). The line is money moved
-/// between your accounts, and the import records the other account's side.
+/// A statement line answered as money moved to or from one of your
+/// accounts, a purchase you keep or a sale (docs/IMPORT.md, "Moved to or
+/// from an account"). The line is money moved between your accounts, and
+/// the import records the other account's side where the account has no
+/// statement of its own: a tax pot's, a purchase's or a sale's.
 public enum StatementAsset: Hashable, Sendable {
+    /// Money moved to or from an account of the library: a transfer. A tax
+    /// pot's value follows from the money moved (``Model/AccountKind/taxPot``).
+    case moved(AccountID)
     /// Money out for something you keep: a new account of `kind` named
     /// `name`, worth the line's amount from the line's day.
     case purchase(name: String, kind: AccountKind)
@@ -17,9 +22,10 @@ public enum StatementAsset: Hashable, Sendable {
     public static let purchaseKinds: [AccountKind] = [.belongings, .property, .other]
 
     /// Whether a line of `amount` can be this: a purchase is money out, a
-    /// sale money in.
+    /// sale money in, and money moves either way.
     func fits(_ amount: Decimal) -> Bool {
         switch self {
+        case .moved: true
         case .purchase: amount < 0
         case .sale: amount > 0
         }
@@ -36,6 +42,15 @@ extension Account {
 }
 
 extension Library {
+    /// Whether a line of `statement`'s statement on `date` can move money to
+    /// or from `account` (``StatementAsset/moved(_:)``): another account,
+    /// not closed by `date`; a tax pot, whose value follows from the money
+    /// moved, in the statement's currency too.
+    public func canMoveFromStatement(_ account: Account, of statement: Account, on date: CalendarDate) -> Bool {
+        guard account.id != statement.id, account.closed.map({ date < $0 }) ?? true else { return false }
+        return account.kind != .taxPot || account.currency == statement.currency
+    }
+
     /// Whether a line in on `date` of `statement`'s statement can be the
     /// sale of `account` (IMPORT.md, "Purchases and sales"): another
     /// account, in the statement's currency, opened by `date`, that can be
@@ -67,9 +82,9 @@ extension Library {
 }
 
 extension ImportSession {
-    /// Answers one line, by its 1-based row, as a purchase or a sale, for
-    /// this file only; `nil` removes the answer. An answer replaces a class
-    /// chosen for the line.
+    /// Answers one line, by its 1-based row, as money moved to or from an
+    /// account, a purchase or a sale, for this file only; `nil` removes the
+    /// answer. An answer replaces a class chosen for the line.
     public mutating func setStatementAsset(_ asset: StatementAsset?, forRow row: Int) {
         statementAssets[row] = asset
         if asset != nil { statementLineClasses[row] = nil }

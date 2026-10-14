@@ -36,9 +36,15 @@ struct ImportStatementsCommand: RetireSubcommand {
     var accounts: [String] = []
 
     @Option(name: .customLong("class"), parsing: .singleValue,
-            help: ArgumentHelp("Make every line of the files whose text has these words income, spending, paidBack, "
-                                   + "oneOff, transfer, interest or ignore. Repeatable.", valueName: "words=class"))
+            help: ArgumentHelp("Make every line of the files whose text has these words income, spending, oneOff, "
+                                   + "tax, transfer, interest or ignore. Repeatable.", valueName: "words=class"))
     var classes: [String] = []
+
+    @Option(name: .customLong("move"), parsing: .singleValue,
+            help: ArgumentHelp("Every line of the files whose text has these words moves money to or from this "
+                                   + "account, a transfer; a tax pot's values follow from it. Repeatable.",
+                               valueName: "words=account"))
+    var moves: [String] = []
 
     @Option(name: .customLong("purchase"), parsing: .singleValue,
             help: ArgumentHelp("A line out, by words only it has, or <file>:<row>, is a purchase you keep: it starts an "
@@ -85,8 +91,12 @@ struct ImportStatementsCommand: RetireSubcommand {
                 + "not “\(mapping)”.")
         }
         for rule in classes where ImportCommand.classRule(rule) == nil {
-            throw ValidationError("--class needs words and a class (income, spending, paidBack, oneOff, transfer, "
+            throw ValidationError("--class needs words and a class (income, spending, oneOff, tax, transfer, "
                 + "interest or ignore), e.g. --class \"Giroconto=transfer\", not “\(rule)”.")
+        }
+        for move in moves where ImportCommand.moveRule(move) == nil {
+            throw ValidationError("--move needs words and an account ID, e.g. --move \"Steuer-Rücklage=tax-pot\", "
+                + "not “\(move)”.")
         }
         for purchase in purchases where ImportCommand.assetAnswer(purchase, sale: false) == nil {
             throw ValidationError("--purchase needs a line, a kind (belongings, property or other) and a name, e.g. "
@@ -126,6 +136,11 @@ struct ImportStatementsCommand: RetireSubcommand {
                 for rule in classes {
                     if let (words, statementClass) = ImportCommand.classRule(rule) {
                         session.setStatementRule(statementClass, for: words)
+                    }
+                }
+                for move in moves {
+                    if let (words, account) = ImportCommand.moveRule(move) {
+                        session.setStatementRule(movingTo: account, for: words)
                     }
                 }
                 if let dateFormat {
@@ -328,8 +343,9 @@ struct ImportStatementsReport: CommandReport {
             lines += section("  Cells that can't be read (\(preview.cellErrors.count))", report.cellErrorLines())
         }
         lines.append("")
-        lines.append("  Correct a class with --class \"<words in the text>=<class>\" (income, spending, paidBack, "
-            + "oneOff, transfer, interest or ignore). A line out for something you keep: --purchase "
+        lines.append("  Correct a class with --class \"<words in the text>=<class>\" (income, spending, oneOff, "
+            + "tax, transfer, interest or ignore). Money moved to or from an account: --move \"<words>=<account>\". "
+            + "A line out for something you keep: --purchase "
             + "\"<words or file:row>=belongings:<name>\"; a line in from selling one: --sale \"<words or file:row>="
             + "<account>\".")
         lines.append("")

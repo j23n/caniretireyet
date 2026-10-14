@@ -58,8 +58,8 @@ struct StatementIncomeTests {
 
     @Test func aPensionAndARefundAreKnownByTheirWords() {
         #expect(StatementWords.suggestion(for: "Accredito pensione INPS", amount: 1200) == .income)
-        #expect(StatementWords.suggestion(for: "Rimborso Amazon", amount: 30) == .paidBack)
-        #expect(StatementWords.suggestion(for: "Rimborso Amazon", amount: -30) != .paidBack)
+        #expect(StatementWords.suggestion(for: "Rimborso Amazon", amount: 30) == .spending)
+        #expect(StatementWords.suggestion(for: "Rimborso Amazon", amount: -30) == nil)
     }
 
     @Test func aLargerLineFromASenderWhoPaysEveryMonthNeedsAnAnswer() throws {
@@ -104,15 +104,15 @@ struct StatementIncomeTests {
         #expect(pay.count == 3)
         #expect(pay.allSatisfy { $0.statementClass == .income && $0.source == .recurring })
         let share = try Self.line(preview, "Bonifico SEPA da Ristorante Verdi")
-        #expect(share.statementClass == .paidBack)
+        #expect(share.statementClass == .spending)
         #expect(share.source == .paidBefore)
         let small = try Self.line(preview, "Bonifico da Mario Neri")
-        #expect(small.statementClass == .paidBack)
+        #expect(small.statementClass == .spending)
         #expect(small.source == .sign)
         #expect(!small.needsAnswer)
         // More than a typical month's spending, 1.300: asked about, paid back until it's answered.
         let large = try Self.line(preview, "Bonifico da Notaio Bianchi")
-        #expect(large.statementClass == .paidBack)
+        #expect(large.statementClass == .spending)
         #expect(large.needsAnswer)
         #expect(preview.statementLines.filter(\.needsAnswer).count == 1)
 
@@ -146,7 +146,7 @@ struct StatementIncomeTests {
         #expect(written.oneOff == 18000)
         #expect(written.moved == 0)
         // Paid back after all: the one-off the library has goes.
-        session.setStatementClass(.paidBack, forRow: row)
+        session.setStatementClass(.spending, forRow: row)
         let again = session.preview(against: library, today: Self.today).apply(to: library).library
         let corrected = try #require(again.valuations(for: "conto").first { $0.date == "2026-03-31" })
         #expect(corrected.oneOff == nil)
@@ -198,7 +198,7 @@ struct StatementIncomeTests {
     @Test func smallLinesDontPassThrough() throws {
         let preview = try Self.passThroughSession().preview(against: Self.library(), today: Self.today)
         let share = try Self.line(preview, "Bonifico da Mario Neri")
-        #expect(share.statementClass == .paidBack)
+        #expect(share.statementClass == .spending)
         #expect(share.source == .sign)
         let bar = try Self.line(preview, "Pagamento POS Bar Centrale")
         #expect(bar.statementClass == .spending)

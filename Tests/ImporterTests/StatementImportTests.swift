@@ -126,7 +126,7 @@ struct StatementImportTests {
         #expect(try Self.line(preview, row: 12).source == .sign)
         #expect(try Self.line(preview, row: 6).statementClass == .interest)
         // A refund isn't income: it lowers money out.
-        #expect(try Self.line(preview, row: 9).statementClass == .paidBack)
+        #expect(try Self.line(preview, row: 9).statementClass == .spending)
         #expect(try Self.line(preview, row: 9).source == .words)
     }
 

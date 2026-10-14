@@ -207,7 +207,7 @@ struct StatementPurchaseTests {
         session.setStatementAsset(.purchase(name: "Auto", kind: .cash), forRow: car)
         session.setStatementAsset(.sale("broker"), forRow: rent)
         let preview = session.preview(against: Self.library(), today: Self.today)
-        #expect(try Self.line(preview, "Bonifico da Mario Verdi").statementClass == .paidBack)
+        #expect(try Self.line(preview, "Bonifico da Mario Verdi").statementClass == .spending)
         #expect(try Self.line(preview, "Bonifico a Autosalone Neri").statementClass == .spending)
         #expect(try Self.line(preview, "Affitto marzo").asset == nil)
         // A sale of money out is left out for its sign, not for the account.

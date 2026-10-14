@@ -63,18 +63,20 @@ struct ImportCommand: RetireSubcommand {
 
             A bank statement (dates, a description, and signed amounts or columns for money in \
             and out) is read as one cash or savings account's lines (--layout statement, with \
-            --account <id>). Each line is income, spending, a transfer between your accounts, \
-            interest, or ignored: by a rule, a trade of another account moving the same amount, \
-            another account's name in the text, the usual words, else its sign. The lines become \
-            the account's values at its values in the file's months and at the end of the other \
-            months, with the balance and money in and out. Correct classes with --class \
-            "Giroconto=transfer"; --save-profile keeps them. A large line out for something you \
-            keep starts an account with --purchase "Autosalone=belongings:Car" (or property, \
-            other), and a line in from selling one closes it with --sale "Rogito=casa"; name \
-            the line by words in its text or by its row. The file is taken to cover whole \
-            months; --from and --through give the days a file of the last 90 days, or one \
-            exported mid-month, covers. A file without a balance column that doesn't follow on \
-            from the library's values needs --opening-balance.
+            --account <id>). Each line is income, spending, a one-off, tax, a transfer between \
+            your accounts, interest, or ignored: by a rule, a trade of another account moving the \
+            same amount, another account's name in the text, the usual words, else its sign. The \
+            lines become the account's values at its values in the file's months and at the end \
+            of the other months, with the balance and money in and out. Correct classes with \
+            --class "Giroconto=transfer" or --class "Finanzamt=tax"; --save-profile keeps them. \
+            Lines that move money to or from an account are transfers with --move \
+            "Steuer-Rücklage=tax-pot", and a tax pot's values follow from them. A large line out \
+            for something you keep starts an account with --purchase "Autosalone=belongings:Car" \
+            (or property, other), and a line in from selling one closes it with --sale \
+            "Rogito=casa"; name the line by words in its text or by its row. The file is taken \
+            to cover whole months; --from and --through give the days a file of the last 90 \
+            days, or one exported mid-month, covers. A file without a balance column that \
+            doesn't follow on from the library's values needs --opening-balance.
             """)
 
     enum Layout: String, ExpressibleByArgument, CaseIterable {
@@ -149,9 +151,15 @@ struct ImportCommand: RetireSubcommand {
     var account: String?
 
     @Option(name: .customLong("class"), parsing: .singleValue,
-            help: ArgumentHelp("Statement: make every line whose text has these words income, spending, paidBack, "
-                                   + "oneOff, transfer, interest or ignore. Repeatable.", valueName: "words=class"))
+            help: ArgumentHelp("Statement: make every line whose text has these words income, spending, oneOff, "
+                                   + "tax, transfer, interest or ignore. Repeatable.", valueName: "words=class"))
     var classes: [String] = []
+
+    @Option(name: .customLong("move"), parsing: .singleValue,
+            help: ArgumentHelp("Statement: every line whose text has these words moves money to or from this "
+                                   + "account, a transfer; a tax pot's values follow from it. Repeatable.",
+                               valueName: "words=account"))
+    var moves: [String] = []
 
     @Option(name: .customLong("purchase"), parsing: .singleValue,
             help: ArgumentHelp("Statement: the line out, by its row (a number) or words in its text, is a purchase "
@@ -274,8 +282,12 @@ struct ImportCommand: RetireSubcommand {
                 + "“\(mapping)”.")
         }
         for rule in classes where Self.classRule(rule) == nil {
-            throw ValidationError("--class needs words and a class (income, spending, paidBack, oneOff, transfer, "
+            throw ValidationError("--class needs words and a class (income, spending, oneOff, tax, transfer, "
                 + "interest or ignore), e.g. --class \"Giroconto=transfer\", not “\(rule)”.")
+        }
+        for move in moves where Self.moveRule(move) == nil {
+            throw ValidationError("--move needs words and an account ID, e.g. --move \"Steuer-Rücklage=tax-pot\", "
+                + "not “\(move)”.")
         }
         for purchase in purchases where Self.assetAnswer(purchase, sale: false) == nil {
             throw ValidationError("--purchase needs a line's row or words, a kind (belongings, property or other) and a "
@@ -303,6 +315,16 @@ struct ImportCommand: RetireSubcommand {
             .trimmingCharacters(in: .whitespaces))
         guard !words.isEmpty, statementClass.isKnown else { return nil }
         return (words, statementClass)
+    }
+
+    /// `Steuer-Rücklage=tax-pot` → the words and the account; `nil` unless
+    /// both are there.
+    static func moveRule(_ text: String) -> (words: String, account: AccountID)? {
+        guard let equals = text.lastIndex(of: "=") else { return nil }
+        let words = text[..<equals].trimmingCharacters(in: .whitespaces)
+        let account = text[text.index(after: equals)...].trimmingCharacters(in: .whitespaces)
+        guard !words.isEmpty, Slug.isValid(account) else { return nil }
+        return (words, AccountID(account))
     }
 
     /// `Autosalone=belongings:Car` (a purchase) or `Rogito=casa` (a sale) →
@@ -466,6 +488,9 @@ struct ImportCommand: RetireSubcommand {
         }
         for rule in classes {
             if let (words, statementClass) = Self.classRule(rule) { session.setStatementRule(statementClass, for: words) }
+        }
+        for move in moves {
+            if let (words, account) = Self.moveRule(move) { session.setStatementRule(movingTo: account, for: words) }
         }
         if let openingBalance {
             session.statementOpeningBalance = Decimal(fileString: openingBalance)

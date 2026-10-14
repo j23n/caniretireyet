@@ -485,12 +485,37 @@ struct ImportTests {
         let large = try #require(lines.first { $0["text"] as? String == "Bonifico da Notaio Bianchi" })
         #expect(large["sender"] as? String == "Notaio Bianchi")
         #expect(large["needsAnswer"] as? Bool == true)
-        #expect(large["class"] as? String == "paidBack")
+        #expect(large["class"] as? String == "spending")
 
         let oneOff = await runCLI(arguments + ["--class", "Notaio Bianchi=oneOff"])
         #expect(oneOff.status == 0, "\(oneOff.all)")
         #expect(oneOff.output.contains("one-off 5,000.00"))
         #expect(!oneOff.output.contains("needs an answer"))
+    }
+
+    @Test func aLineCanMoveMoneyToAnAccount() async throws {
+        let library = try TemporaryFolder.exampleLibrary()
+        let folder = try TemporaryFolder()
+        let csv = try String(contentsOf: Samples.url("statement.csv"), encoding: .utf8)
+            + "20/10/2026;-5.000,00;Bonifico a Directa SIM rif 7\n"
+            + "22/10/2026;-1.200,00;Pagamento F24 Agenzia delle Entrate\n"
+        try folder.write("statement.csv", Data(csv.utf8))
+        let arguments = ["import", folder.url("statement.csv").path, "--library", library.path,
+                         "--account", "conto-fineco", "--move", "rif 7=directa", "--json"]
+        let json = try parseJSON(await runCLI(arguments).output)
+        let lines = try #require(json["statementLines"] as? [[String: Any]])
+        let moved = try #require(lines.first { $0["text"] as? String == "Bonifico a Directa SIM rif 7" })
+        #expect(moved["class"] as? String == "transfer")
+        #expect(moved["source"] as? String == "rule")
+        #expect(moved["asset"] as? String == "moved")
+        #expect(moved["assetAccount"] as? String == "directa")
+        let tax = try #require(lines.first { $0["text"] as? String == "Pagamento F24 Agenzia delle Entrate" })
+        #expect(tax["class"] as? String == "tax")
+
+        let invalid = await runCLI(["import", folder.url("statement.csv").path, "--library", library.path,
+                                    "--account", "conto-fineco", "--move", "rif 7"])
+        #expect(invalid.status != 0)
+        #expect(invalid.all.contains("--move needs words and an account ID"))
     }
 
     @Test func aPurchaseStartsAnAccountAndASaleClosesOne() async throws {

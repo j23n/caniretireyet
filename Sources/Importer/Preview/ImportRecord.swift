@@ -97,12 +97,14 @@ public struct ImportedRecord: Hashable, Sendable {
     public var balance: Decimal?
     public var cash: Decimal?
     public var positions: [ImportedPosition]
-    /// Valuations of a bank statement: money in and out, one-offs, and a
-    /// savings account's interest, since the account's previous value, and
-    /// the flow worked out from them (docs/IMPORT.md, "Bank statements").
+    /// Valuations of a bank statement: money in and out, one-offs, tax
+    /// paid, and a savings account's interest, since the account's previous
+    /// value, and the flow worked out from them (docs/IMPORT.md, "Bank
+    /// statements").
     public var moneyIn: Decimal?
     public var moneyOut: Decimal?
     public var oneOff: Decimal?
+    public var tax: Decimal?
     public var interest: Decimal?
     /// Follows from the balance and the interest, so it's never a conflict
     /// of its own: it changes with them, or fills in a missing one.
@@ -229,7 +231,7 @@ enum RecordMerge {
                     }
                 }.sorted { $0.instrument < $1.instrument },
                 flow: imported.flow, moneyIn: imported.moneyIn, moneyOut: imported.moneyOut,
-                oneOff: imported.oneOff, interest: imported.interest, source: .import)
+                oneOff: imported.oneOff, tax: imported.tax, interest: imported.interest, source: .import)
             return Outcome(status: .new, kept: .valuation(valuation), overwritten: .valuation(valuation))
         case (.price(let key), let existing):
             let record = PriceRecord(instrument: key.instrument, date: key.date, price: imported.price ?? 0,
@@ -368,14 +370,16 @@ enum RecordMerge {
         // check-in's guess or an earlier import of the file.
         let recounts = imported.countsMoneyInOutFromLines && !conflict
         var recounted = false
-        // Lines that count no interest or one-off leave it out: the library's goes too.
-        for (path, value) in [(\Valuation.interest, imported.interest), (\.oneOff, imported.oneOff)]
+        // Lines that count no interest, one-off or tax leave it out: the library's goes too.
+        for (path, value) in [(\Valuation.interest, imported.interest), (\.oneOff, imported.oneOff),
+                              (\.tax, imported.tax)]
         where recounts && value == nil && valuation[keyPath: path] != nil {
             valuation[keyPath: path] = nil
             recounted = true
         }
         for (path, value) in [(\Valuation.moneyIn, imported.moneyIn), (\.moneyOut, imported.moneyOut),
-                              (\.oneOff, imported.oneOff), (\.interest, imported.interest)] {
+                              (\.oneOff, imported.oneOff), (\.tax, imported.tax),
+                              (\.interest, imported.interest)] {
             guard let value else { continue }
             if let old = valuation[keyPath: path] {
                 if old != value {

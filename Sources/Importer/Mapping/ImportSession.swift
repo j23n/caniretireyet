@@ -30,6 +30,10 @@ public struct ImportSession: Sendable {
     /// imported with this one moves to or from, by 1-based row, with that
     /// account: transfers (``StatementBatch`` sets them).
     public var statementPairs: [Int: AccountID] = [:]
+    /// Statement layout: the accounts of the other statements imported with
+    /// this one (``StatementBatch`` sets them). Money moved to one of them
+    /// is that statement's to record, not this one's.
+    public var statementBatchAccounts: Set<AccountID> = []
     /// Statement layout: the account's balance before the file's first line,
     /// for a file without a balance column that doesn't follow on from the
     /// library's values.

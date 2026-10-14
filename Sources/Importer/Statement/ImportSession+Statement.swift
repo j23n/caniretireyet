@@ -27,10 +27,23 @@ extension ImportSession {
     /// Makes every line whose text has `phrase` a `statementClass`, in the
     /// profile's rules, replacing a rule for the same phrase; `nil` removes it.
     public mutating func setStatementRule(_ statementClass: StatementClass?, for phrase: String) {
+        setStatementRule(statementClass.map { StatementRule(match: phrase, statementClass: $0) }, for: phrase)
+    }
+
+    /// Makes every line whose text has `phrase` money moved to or from
+    /// `account`, in the profile's rules, replacing a rule for the same
+    /// phrase; `nil` removes it.
+    public mutating func setStatementRule(movingTo account: AccountID?, for phrase: String) {
+        setStatementRule(account.map { StatementRule(match: phrase, statementClass: .transfer, account: $0) },
+                         for: phrase)
+    }
+
+    private mutating func setStatementRule(_ rule: StatementRule?, for phrase: String) {
         let words = TextTools.words(phrase)
         profile.rules.removeAll { TextTools.words($0.match) == words }
-        guard let statementClass, !words.isEmpty else { return }
-        profile.rules.append(StatementRule(match: TextTools.trim(phrase), statementClass: statementClass))
+        guard var rule, !words.isEmpty else { return }
+        rule.match = TextTools.trim(phrase)
+        profile.rules.append(rule)
     }
 
     /// Chooses the class of one line, by its 1-based row, for this file
