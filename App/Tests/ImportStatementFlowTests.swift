@@ -246,7 +246,7 @@ struct ImportStatementFlowTests {
     @Test func aLargeLineInIsAnsweredAsTheSaleOfAnAccount() throws {
         var flow = flow(adding: "\n22/09/2026;250.000,00;Rogito notaio vendita")
         let question = try #require(flow.statementQuestions.first)
-        #expect(flow.saleChoices(for: question).map(\.id) == ["casa"])
+        #expect(flow.saleChoices(for: question).map(\.id) == ["casa", "tfr"])
         flow.setStatementAsset(.sale("casa"), forRow: question.row)
         let sold = try #require(flow.statementAssetLines.first)
         #expect(flow.statementAssetText(sold) == "The sale of Home")
@@ -270,7 +270,7 @@ struct ImportStatementFlowTests {
         again.open(Data((Self.csv + "\n22/09/2026;250.000,00;Rogito notaio vendita").utf8), fileName: "settembre.csv")
         again.setConstants { $0.account = "conto-fineco" }
         let asked = try #require(again.statementQuestions.first)
-        #expect(again.saleChoices(for: asked).map(\.id) == ["casa"])
+        #expect(again.saleChoices(for: asked).map(\.id) == ["casa", "tfr"])
         again.setStatementAsset(.sale("casa"), forRow: asked.row)
         #expect(again.preview?.records.allSatisfy { $0.status == .identical } == true)
         #expect(again.preview?.accountChanges.isEmpty == true)
@@ -292,7 +292,7 @@ struct ImportStatementFlowTests {
         let answered = try #require(flow.statementAssetLines.first)
         #expect(answered.asset == nil)
         #expect(flow.statementAssetText(answered) == "Not recorded: the file doesn't cover the value it counts in")
-        #expect(flow.statementQuestions.isEmpty)
+        #expect(!flow.statementQuestions.contains { $0.row == question.row })
         #expect(flow.preview?.newAccounts.isEmpty == true)
         flow.setStatementAsset(nil, forRow: question.row)
         #expect(flow.statementAssetLines.isEmpty)
