@@ -15,8 +15,8 @@ struct PlanLastTwelveMonthsCard: View {
     /// The plan's spending while working, a year; `nil` when it's past
     /// working.
     var plannedSpending: Decimal?
-    var isWide = false
 
+    @Environment(\.pageLayout) private var layout
     @Environment(\.locale) private var locale
 
     var body: some View {
@@ -43,7 +43,7 @@ struct PlanLastTwelveMonthsCard: View {
 
     @ViewBuilder
     private func tiles(_ tiles: [PlanLastTwelveMonths.Tile], currency: CurrencyCode) -> some View {
-        if isWide {
+        if layout.isWide {
             EqualColumns(spacing: Metrics.m, equalHeights: true) {
                 ForEach(tiles) { tile in
                     PlanMoneyTile(tile: tile, currency: currency)
@@ -177,8 +177,11 @@ struct PlanMoneyInOutEmptyCard: View {
     ScrollView {
         VStack(spacing: Metrics.l) {
             PlanLastTwelveMonthsCard(year: year, plannedSpending: 36_000)
-            PlanLastTwelveMonthsCard(year: year, plannedSpending: 36_000, isWide: true)
+                .environment(\.pageLayout, PageLayout())
             PlanLastTwelveMonthsCard(year: year, plannedSpending: 36_000)
+                .environment(\.pageLayout, PageLayout(isWide: true))
+            PlanLastTwelveMonthsCard(year: year, plannedSpending: 36_000)
+                .environment(\.pageLayout, PageLayout())
                 .redacted(reason: .privacy)
             PlanMoneyInOutEmptyCard()
         }

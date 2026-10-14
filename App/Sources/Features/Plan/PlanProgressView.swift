@@ -13,7 +13,6 @@ import Tracker
 /// money against any baseline. The answer at each check-in is on Trends.
 struct PlanProgressView: View {
     let session: PlanSession
-    var isWide = false
     /// Asks for a label and saves a baseline (the screen owns the alert).
     let onSaveBaseline: () -> Void
     /// Shows the plan.
@@ -23,6 +22,7 @@ struct PlanProgressView: View {
     var openingYear: Binding<Int?> = .constant(nil)
 
     @Environment(LibraryStore.self) private var library
+    @Environment(\.pageLayout) private var layout
     @Environment(\.redactionReasons) private var redactionReasons
     @Environment(\.hidesPersonalData) private var hidesPersonalData
     @Environment(\.locale) private var locale
@@ -37,7 +37,9 @@ struct PlanProgressView: View {
     @State private var deletingBaseline: PlanBaselineEntry?
     @State private var confirmsBaselineDelete = false
 
-    private var gutter: CGFloat { isWide ? Metrics.xl : Metrics.l }
+    private var isWide: Bool { layout.isWide }
+
+    private var gutter: CGFloat { layout.gutter }
 
     /// The column beside the strip on the Mac and iPad: the milestones and what's next.
     private static let sideWidth: CGFloat = 300
@@ -329,10 +331,8 @@ struct PlanProgressView: View {
             // An inset at both ends, beside the milestones too: on the Mac
             // the strip opened with today's card a scroller's width (16
             // points) past its trailing edge without one.
-            PlanYearStrip(timeline: timeline, selection: selection, pointsPerMonth: isWide ? 26 : 21,
-                          inset: gutter, showsFooter: isWide,
-                          today: library.asOfDate)
-            PlanYearDetails(card: cards[selected], index: selected, count: cards.count, isWide: isWide,
+            PlanYearStrip(timeline: timeline, selection: selection, today: library.asOfDate)
+            PlanYearDetails(card: cards[selected], index: selected, count: cards.count,
                             onSelect: { selection.wrappedValue = $0 }, onAddPastBaseline: addPastBaseline)
                 .padding(.leading, gutter)
                 .padding(.trailing, isWide ? 0 : gutter)
@@ -593,12 +593,14 @@ enum PlanProgressFont {
 #Preview("Progress") {
     PlanPreviewHost(model: AppModel.preview()) { session in
         PlanProgressView(session: session, onSaveBaseline: {}, onShowPlan: {})
+            .environment(\.pageLayout, PageLayout())
     }
 }
 
 #Preview("Progress · Mac") {
     PlanPreviewHost(model: AppModel.preview()) { session in
-        PlanProgressView(session: session, isWide: true, onSaveBaseline: {}, onShowPlan: {})
+        PlanProgressView(session: session, onSaveBaseline: {}, onShowPlan: {})
+            .environment(\.pageLayout, PageLayout(isWide: true))
             .frame(width: 1_100, height: 1_000)
     }
 }

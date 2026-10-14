@@ -104,6 +104,7 @@ struct PlanContentView: View {
 
     @Environment(LibraryStore.self) private var library
     @Environment(AppNavigation.self) private var navigation
+    @Environment(\.pageLayout) private var layout
     @Environment(\.locale) private var locale
     @State private var session: PlanSession
     @State private var part: PlanPart = .plan
@@ -125,7 +126,7 @@ struct PlanContentView: View {
     }
 
     /// The sidebar layout (Mac, iPad): What-if in the inspector.
-    private var isWide: Bool { navigation.layout == .sidebar }
+    private var isWide: Bool { layout.isWide }
 
     private var name: String { session.plan?.name ?? "Plan" }
 
@@ -225,7 +226,7 @@ struct PlanContentView: View {
 
     /// iPhone: Plan | Progress | Trends.
     private var compactLayout: some View {
-        compactPart
+        partView
             .safeAreaInset(edge: .top, spacing: 0) {
                 Picker("Show", selection: $part) {
                     ForEach(PlanPart.allCases) { part in
@@ -249,17 +250,27 @@ struct PlanContentView: View {
             }
     }
 
+    /// Opens the What-if sheet, on iPhone; `nil` on the Mac and iPad.
+    private var openWhatIfSheet: (() -> Void)? {
+        guard !isWide else { return nil }
+        return { showsWhatIf = true }
+    }
+
+    /// The part shown. On iPhone *What if…* on the answer opens the
+    /// What-if sheet; on the Mac and iPad What if is in the toolbar, and
+    /// takes a column beside the plan, which narrows its page.
     @ViewBuilder
-    private var compactPart: some View {
+    private var partView: some View {
         switch part {
         case .plan:
-            PlanTimelineView(session: session, isWide: false, onWhatIf: { showsWhatIf = true },
+            PlanTimelineView(session: session, onWhatIf: openWhatIfSheet,
                              onShowProgress: { part = .progress }, onExport: { exportCalculations() })
+                .environment(\.pageLayout, PageLayout(isWide: isWide, besideWhatIf: showsWhatIfColumn))
         case .progress:
-            PlanProgressView(session: session, isWide: false, onSaveBaseline: { startSavingBaseline() },
+            PlanProgressView(session: session, onSaveBaseline: { startSavingBaseline() },
                              onShowPlan: { part = .plan }, openingYear: $progressYear)
         case .trends:
-            PlanTrendsView(session: session, isWide: false, onShowYear: showProgress(of:))
+            PlanTrendsView(session: session, onShowYear: showProgress(of:))
         }
     }
 
@@ -277,7 +288,7 @@ struct PlanContentView: View {
     /// content doesn't move the minimum either.
     private var wideLayout: some View {
         HStack(spacing: 0) {
-            widePart
+            partView
                 .fixedMinimumSize(width: 320, height: 300)
                 // Flexible, so the page takes what the column leaves.
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -287,21 +298,6 @@ struct PlanContentView: View {
                     .frame(width: PlanInspector.width)
                     .transition(.move(edge: .trailing))
             }
-        }
-    }
-
-    @ViewBuilder
-    private var widePart: some View {
-        switch part {
-        case .plan:
-            // What if is in the toolbar.
-            PlanTimelineView(session: session, isWide: true, besideWhatIf: showsWhatIfColumn,
-                             onShowProgress: { part = .progress }, onExport: { exportCalculations() })
-        case .progress:
-            PlanProgressView(session: session, isWide: true, onSaveBaseline: { startSavingBaseline() },
-                             onShowPlan: { part = .plan }, openingYear: $progressYear)
-        case .trends:
-            PlanTrendsView(session: session, isWide: true, onShowYear: showProgress(of:))
         }
     }
 

@@ -19,18 +19,20 @@ struct PlanYearDetails: View {
     let card: PlanProgressTimeline.Card
     let index: Int
     let count: Int
-    /// The Mac and iPad: columns, and no arrows of its own.
-    var isWide = false
     var onSelect: (Int) -> Void = { _ in }
     /// *Add What You Planned in 2021…*, for a year without a baseline: opens
     /// *Add Past Baseline…* at its start.
     var onAddPastBaseline: ((Int) -> Void)?
 
+    @Environment(\.pageLayout) private var layout
     @Environment(\.locale) private var locale
     @State private var width: CGFloat = 0
     @State private var fillsPastPrices = false
 
     private var year: PlanProgressYear { card.year }
+
+    /// The Mac and iPad: columns, and no arrows of its own.
+    private var isWide: Bool { layout.isWide }
 
     /// Below this width the parts are one after the other, as on iPhone.
     private static let twoColumnWidth: CGFloat = 640

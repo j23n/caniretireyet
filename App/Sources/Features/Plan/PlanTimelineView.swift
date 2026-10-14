@@ -13,32 +13,22 @@ import SwiftUI
 /// plan or the library changed, an *Out of date* banner offers *Recalculate*.
 struct PlanTimelineView: View {
     let session: PlanSession
-    /// The sidebar layout (Mac, iPad): wider cards, and a chapter's inputs
-    /// beside its words.
-    var isWide = false
     /// Opens the What-if sheet (iPhone); on the Mac and iPad What if is in the toolbar.
     var onWhatIf: (() -> Void)?
-    /// Whether What if takes a column beside the page (the Mac and iPad):
-    /// the page is narrower, so the chosen chapter's settings go under its
-    /// words, and the answer's pill under its words.
-    var besideWhatIf = false
     /// Shows Progress.
     var onShowProgress: (() -> Void)?
     /// Export Calculations…
     var onExport: (() -> Void)?
 
     @Environment(AppNavigation.self) private var navigation
+    @Environment(\.pageLayout) private var layout
     @Environment(\.locale) private var locale
     @State private var editing: PlanEditTarget?
     @State private var showsTargetMix = false
     @State private var showsAssumptions = false
     @State private var showsMoreCharts = false
 
-    private var gutter: CGFloat { isWide ? Metrics.xl : Metrics.l }
-
-    /// Whether the page has the width for things side by side: the Mac and
-    /// iPad, unless What if takes a column beside it.
-    private var isRoomy: Bool { isWide && !besideWhatIf }
+    private var gutter: CGFloat { layout.gutter }
 
     private var milestoneText: PlanMilestoneText {
         PlanMilestoneText(currency: session.currency, locale: locale)
@@ -96,8 +86,8 @@ struct PlanTimelineView: View {
     @ViewBuilder
     private func headline(_ state: PlanResultsState, position: PlanBaselineComparison.Position?) -> some View {
         if let results = state.results {
-            PlanTimelineHeadline(session: session, results: results, isWide: isWide, stacksPill: besideWhatIf,
-                                 progress: position, onShowProgress: onShowProgress, onWhatIf: onWhatIf)
+            PlanTimelineHeadline(session: session, results: results, progress: position,
+                                 onShowProgress: onShowProgress, onWhatIf: onWhatIf)
                 .opacity(state.isRunning ? 0.5 : 1)
                 .accessibilityElement(children: .contain)
                 .accessibilityIdentifier("plan.answer")
@@ -128,18 +118,17 @@ struct PlanTimelineView: View {
                                              set: { session.selectChapter($0, in: model) })
                 PlanStripHeader(
                     title: PlanTimelineText.chapters(count),
-                    hint: isWide ? "Scroll sideways, or use the arrows." : "Scroll sideways; tap a chapter.",
-                    steps: isWide ? PlanStepButtons(index: selected, count: count, today: 0,
+                    hint: layout.isWide ? "Scroll sideways, or use the arrows." : "Scroll sideways; tap a chapter.",
+                    steps: layout.isWide ? PlanStepButtons(index: selected, count: count, today: 0,
                                                     select: { selection.wrappedValue = $0 }) : nil)
                     .padding(.horizontal, gutter)
-                PlanChapterStrip(timeline: timeline, selection: selection, pointsPerYear: isWide ? 26 : 22,
-                                 inset: gutter, fillsWidth: !isWide)
+                PlanChapterStrip(timeline: timeline, selection: selection)
                     .opacity(state.dimsResults ? 0.7 : 1)
                 PlanChapterDetails(
                     model: model, index: selected,
                     story: PlanChapterStory(chapterAt: selected, in: model, results: state.results, words: words),
                     barMaximum: derived.barMaximum, plan: plan, words: words,
-                    issues: issues, isWide: isRoomy, showsSteps: !isWide, canEdit: session.canEdit,
+                    issues: issues, canEdit: session.canEdit,
                     editing: $editing,
                     milestones: timeline.cards.indices.contains(selected) ? timeline.cards[selected].milestones : [],
                     milestoneText: milestoneText,
@@ -194,7 +183,7 @@ struct PlanTimelineView: View {
             DisclosureGroup(isExpanded: $showsMoreCharts) {
                 VStack(alignment: .leading, spacing: Metrics.l) {
                     PlanFanCard(results: results)
-                    if isRoomy {
+                    if layout.isRoomy {
                         EqualColumns(spacing: Metrics.l) {
                             PlanSuccessCard(session: session, results: results)
                             PlanIncomeCard(results: results)
@@ -235,14 +224,11 @@ struct PlanTimelineView: View {
 struct PlanTimelineHeadline: View {
     let session: PlanSession
     let results: PlanResults
-    var isWide = false
-    /// Whether the pill goes under the words rather than beside them (a
-    /// narrower page, beside What if).
-    var stacksPill = false
     var progress: PlanBaselineComparison.Position?
     var onShowProgress: (() -> Void)?
     var onWhatIf: (() -> Void)?
 
+    @Environment(\.pageLayout) private var layout
     @Environment(\.locale) private var locale
 
     private var focusAge: Int { results.details.focus.age }
@@ -253,7 +239,9 @@ struct PlanTimelineHeadline: View {
 
     var body: some View {
         let title = PlanTimelineText.headline(results.headline, locale: locale)
-        if isWide && stacksPill {
+        // On the Mac and iPad, the pill goes under the words rather than
+        // beside them when What if narrows the page.
+        if layout.isWide && layout.besideWhatIf {
             VStack(alignment: .leading, spacing: 6) {
                 Text(title)
                     .font(Self.wideTitleFont)
@@ -266,7 +254,7 @@ struct PlanTimelineHeadline: View {
                 progressPill
                     .padding(.top, Metrics.xs)
             }
-        } else if isWide {
+        } else if layout.isWide {
             HStack(alignment: .top, spacing: Metrics.l) {
                 VStack(alignment: .leading, spacing: 6) {
                     Text(title)
@@ -349,7 +337,7 @@ struct PlanTimelineHeadline: View {
             let standing = progress.standing
             Button(action: onShowProgress) {
                 HStack(spacing: 4) {
-                    if isWide {
+                    if layout.isWide {
                         Text(verbatim: "\(standing.label) ·")
                             .privacySensitiveInFeedback()
                     }
@@ -456,9 +444,6 @@ struct PlanChapterDetails: View {
     /// Amounts in the plan's currency, hidden with the eye.
     let words: PlanWords
     let issues: PlanInputIssues
-    var isWide = false
-    /// Whether ‹ › are in its header (iPhone; on the Mac and iPad they're above the strip).
-    var showsSteps = true
     var canEdit = true
     @Binding var editing: PlanEditTarget?
     /// The milestones the median future reaches in the chapter.
@@ -472,10 +457,13 @@ struct PlanChapterDetails: View {
     /// The milestones listed before "and N more".
     private static let shownMilestones = 4
 
+    @Environment(\.pageLayout) private var layout
+
     private var chapter: PlanChapter { model.chapters.chapters[index] }
 
     var body: some View {
-        if isWide {
+        // The settings beside the words when the page has the room.
+        if layout.isRoomy {
             Card {
                 VStack(alignment: .leading, spacing: Metrics.l) {
                     header
@@ -516,7 +504,8 @@ struct PlanChapterDetails: View {
             }
             .privacySensitiveInFeedback()
             Spacer(minLength: Metrics.s)
-            if showsSteps {
+            // ‹ › on iPhone; on the Mac and iPad they're above the strip.
+            if !layout.isWide {
                 PlanStepButtons(index: index, count: model.chapters.chapters.count, select: onSelect)
             }
         }
@@ -648,12 +637,14 @@ struct PlanAssumptionsFooter: View {
 #Preview("Plan · iPhone") {
     PlanPreviewHost(model: AppModel.preview()) { session in
         PlanTimelineView(session: session, onWhatIf: {}, onShowProgress: {}, onExport: {})
+            .environment(\.pageLayout, PageLayout())
     }
 }
 
 #Preview("Plan · Mac") {
     PlanPreviewHost(model: AppModel.preview()) { session in
-        PlanTimelineView(session: session, isWide: true, onShowProgress: {}, onExport: {})
+        PlanTimelineView(session: session, onShowProgress: {}, onExport: {})
+            .environment(\.pageLayout, PageLayout(isWide: true))
             .frame(width: 1_100, height: 1_000)
     }
 }

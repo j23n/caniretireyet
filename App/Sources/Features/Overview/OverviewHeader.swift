@@ -36,6 +36,7 @@ struct OverviewHeader: View {
     @Environment(LibraryStore.self) private var library
     @Environment(PlanStore.self) private var plans
     @Environment(AppNavigation.self) private var navigation
+    @Environment(\.pageLayout) private var layout
     @Environment(\.locale) private var locale
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.redactionReasons) private var redactionReasons
@@ -395,7 +396,7 @@ struct OverviewHeader: View {
     // MARK: State
 
     /// The Mac and iPad.
-    private var isWide: Bool { navigation.layout == .sidebar }
+    private var isWide: Bool { layout.isWide }
 
     /// Between the tiles: 12 points on iPhone, 16 on the Mac and iPad.
     private var tileSpacing: CGFloat { isWide ? Metrics.l : Metrics.m }
