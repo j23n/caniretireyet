@@ -16,7 +16,7 @@ The rules are in `Sources/Model/Accounts/`: `AccountKind.defaultValuationMode`, 
 | `brokerage` | Trades (`"valuation": "trades"`); a broker statement's cash and positions are a check. Set in its file, a balance instead (`"valuation": "balance"`) | Worked out from the trades; for a balance, the whole change |
 | `crypto` | As brokerage | Worked out from the trades |
 | `metals` | As brokerage | Worked out from the trades |
-| `pensionFund` | Balance, and the new money from its file ("Paid in since …") | Recorded; left out, what the main plan pays in counts |
+| `pensionFund` | Balance, and the new money from its file ("Paid in since …") | Recorded, from a spreadsheet's saved column ([IMPORT.md](IMPORT.md#saved)); left out, unknown, and the change counts as other |
 | `tfr` | As a pension fund | As a pension fund |
 | `property` | As a pension fund (usually nothing paid in) | As a pension fund |
 | `belongings` | Things you own that lose value and might sell (a car, a bike, a boat, electronics): balance, and optionally an estimated loss of value a year (`depreciation`) | The whole change, so its loss of value is spent; between values, the estimated loss |
