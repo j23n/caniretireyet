@@ -38,7 +38,10 @@ struct ImportDoneStep: View {
                 if receipt.hasChanges {
                     undoSection(receipt)
                 }
-                profileSection(receipt)
+                // Several statements are each read with their own profile, or a proposed one.
+                if !model.flow.isBatch {
+                    profileSection(receipt)
+                }
             }
         }
         .formStyle(.grouped)
@@ -75,7 +78,7 @@ struct ImportDoneStep: View {
                 StatusBanner(.info, "The import was undone",
                              message: "The library's files are back to how they were before it.")
             } else if receipt.hasChanges {
-                StatusBanner(.success, "Imported \(receipt.fileName)", personal: .title)
+                StatusBanner(.success, receipt.batchSummary ?? "Imported \(receipt.fileName)", personal: .title)
             } else if receipt.kept > 0 {
                 StatusBanner(.info, "Nothing changed", message: "Every record that differs was a conflict, and the "
                     + "library's values were kept.")

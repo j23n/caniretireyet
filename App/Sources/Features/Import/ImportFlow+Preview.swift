@@ -218,10 +218,11 @@ extension ImportFlow {
                 reasons.append("Everything the file changes is a conflict the library's values are kept for: "
                     + "overwrite them to import the file's.")
             } else {
-                reasons.append("The library already has everything in this file.")
+                reasons.append(isBatch ? "The library already has everything in these files."
+                    : "The library already has everything in this file.")
             }
         }
-        return reasons
+        return reasons + batchBlockers
     }
 
     // MARK: Describing records

@@ -17,9 +17,18 @@ struct ImportAccountsStep: View {
         let newInstruments = flow.preview?.newInstruments ?? []
         let changes = flow.preview?.accountChanges ?? []
         Form {
+            if flow.isBatch {
+                Section {
+                    ImportBatchFilePicker(model: model)
+                } footer: {
+                    Text("Each statement's openings and closings are answered on their own.")
+                }
+            }
+
             if names.isEmpty && newAccounts.isEmpty && newInstruments.isEmpty && changes.isEmpty {
                 Section {
-                    Text("No accounts or instruments are named yet: say what the columns hold in Columns.")
+                    Text(flow.isBatch ? "This statement opens and closes no account."
+                         : "No accounts or instruments are named yet: say what the columns hold in Columns.")
                         .foregroundStyle(Palette.secondaryInk)
                 }
             }
