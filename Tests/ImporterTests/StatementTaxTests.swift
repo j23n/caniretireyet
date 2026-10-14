@@ -179,6 +179,7 @@ struct StatementTaxTests {
         session.setStatementAsset(.moved("conto"), forRow: row)
         let preview = session.preview(against: Self.library(), today: Self.today)
         #expect(try Self.line(preview, "Affitto marzo").statementClass == .spending)
+        #expect(try Self.line(preview, "Affitto marzo").assetLeftOut == .accountCantTakeMoves)
         #expect(preview.issues.contains { $0.kind == .statementMoveLeftOut(row: row, account: "conto") })
     }
 

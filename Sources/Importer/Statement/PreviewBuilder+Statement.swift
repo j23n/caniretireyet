@@ -479,6 +479,7 @@ extension PreviewBuilder {
                     } else if to.kind == .taxPot {
                         // Still a transfer, as the answer says, but the pot's value can't follow from it.
                         issues.append(ImportIssue(kind: .statementMoveLeftOut(row: row, account: other)))
+                        lines[index].assetLeftOut = .notCovered
                         continue
                     }
                 }
@@ -497,12 +498,14 @@ extension PreviewBuilder {
             guard let asset = answered[row], !unrecorded else {
                 if case .moved(let other)? = session.statementAssets[row] {
                     issues.append(ImportIssue(kind: .statementMoveLeftOut(row: row, account: other)))
+                    lines[index].assetLeftOut = .accountCantTakeMoves
                     continue
                 }
                 var account: AccountID?
                 if case .sale(let id)? = session.statementAssets[row], answered[row] == nil || unrecorded,
                    session.statementAssets[row]?.fits(line.amount) == true { account = id }
                 issues.append(ImportIssue(kind: .statementAssetLeftOut(row: row, account: account)))
+                lines[index].assetLeftOut = .doesntFit
                 continue
             }
             let amount = -line.amount
@@ -560,6 +563,9 @@ extension PreviewBuilder {
         for line in read where answered[line.row] == nil {
             if case .moved(let other)? = ruleMove(for: line) {
                 issues.append(ImportIssue(kind: .statementMoveLeftOut(row: line.row, account: other)))
+                if let index = lines.firstIndex(where: { $0.row == line.row }) {
+                    lines[index].assetLeftOut = .accountCantTakeMoves
+                }
             }
         }
         for (other, otherMoves) in moves {

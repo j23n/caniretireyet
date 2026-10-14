@@ -206,14 +206,18 @@ extension ImportFlow {
                                      opensSheet: false, isProblem: false)
     }
 
-    /// Why an answered line isn't recorded: the account can't take the
-    /// move, or a move counts in no value whose money in and out the file
-    /// covers; else the answer doesn't fit it. A purchase or a sale needs
-    /// no value of the file.
+    /// Why an answered line isn't recorded, as the importer says
+    /// (``Importer/StatementLine/assetLeftOut``).
     func statementAssetLeftOutReason(_ line: BatchStatementLine) -> String {
-        guard case .moved(let id)? = statementAnswer(line) else { return "the answer doesn't fit this line" }
-        return line.line.period == nil ? "the file doesn't cover the value it counts in"
-            : "\(accountName(id)) can't take money moved from this statement"
+        switch line.line.assetLeftOut {
+        case .accountCantTakeMoves:
+            if case .moved(let id)? = statementAnswer(line) {
+                return "\(accountName(id)) can't take money moved from this statement"
+            }
+            return "the answer doesn't fit this line"
+        case .notCovered: return "the file doesn't cover the value it counts in"
+        case .doesntFit, nil: return "the answer doesn't fit this line"
+        }
     }
 
     // MARK: Moved to or from

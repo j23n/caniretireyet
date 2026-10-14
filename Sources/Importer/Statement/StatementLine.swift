@@ -38,6 +38,20 @@ public struct StatementLine: Hashable, Sendable, Identifiable {
         case sign
     }
 
+    /// Why the import leaves out the line's answer as money moved, a
+    /// purchase or a sale (``ImportIssue/Kind/statementMoveLeftOut(row:account:)``,
+    /// ``ImportIssue/Kind/statementAssetLeftOut(row:account:)``).
+    public enum AssetLeftOut: Hashable, Sendable {
+        /// The account can't take money moved from this statement
+        /// (``Library/canMoveFromStatement(_:of:on:)``).
+        case accountCantTakeMoves
+        /// The move is to a tax pot, and the line counts in no value whose
+        /// money in and out the file covers.
+        case notCovered
+        /// The purchase or the sale doesn't fit the line.
+        case doesntFit
+    }
+
     /// The 1-based row in the file.
     public var row: Int
     public var date: CalendarDate
@@ -78,6 +92,9 @@ public struct StatementLine: Hashable, Sendable, Identifiable {
     /// purchase's new account (``ImportPreview/newAccounts``), or the
     /// account sold.
     public var assetAccount: AccountID?
+    /// Why the line's answer is left out; `nil` when it's taken or there
+    /// is none.
+    public var assetLeftOut: AssetLeftOut?
 
     public var id: Int { row }
 
