@@ -20,7 +20,7 @@ struct NoteChartView: View {
                     Text("The age you could retire at")
                         .font(.subheadline.weight(.semibold))
                     Spacer(minLength: Metrics.s)
-                    Text("last 12 months")
+                    Text("last 12 check-ins")
                         .font(.caption)
                         .foregroundStyle(Palette.secondaryInk)
                 }
