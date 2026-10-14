@@ -985,7 +985,7 @@ Several bank statements chosen or dropped at once, of one account or many, impor
 - **Accounts**, when a file proposes opening an account earlier or closing one, shows one statement at a time too, opening on the first that proposes one.
 - **Done** says "Imported 13 months for 2 accounts", with *Undo Import* for them all. Each file's profile is saved with the import when *Remember these banks and senders* is on.
 
-On iPhone, a CSV opened from Files that isn't a bank statement goes straight to "Import with profile…": choose the profile, preview, import. Bank statements, one or several, take every step, and the next file opens as "Import with profile…" again.
+The iPhone takes the same steps as the Mac, for every kind of file: a file a saved profile fits exactly is read with it, and Continue goes through the steps to Review.
 
 ## Settings
 

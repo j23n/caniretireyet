@@ -29,8 +29,8 @@ final class ImportController {
     private var beforeImport: ImportFlow?
 
     /// `checkIn` is the date of the check-in the import is opened from, if any.
-    init(library: Library = Library(), guided: Bool = false, checkIn: CalendarDate? = nil) {
-        flow = ImportFlow(library: library, guided: guided, checkIn: checkIn)
+    init(library: Library = Library(), checkIn: CalendarDate? = nil) {
+        flow = ImportFlow(library: library, checkIn: checkIn)
     }
 
     /// The import of the Mac's and iPad's Import page, which survives

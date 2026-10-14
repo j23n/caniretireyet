@@ -224,7 +224,7 @@ extension ImportFlow {
     /// The steps along the top, and before a file is read those of `kind`:
     /// Files, Income and Review for bank statements.
     func barSteps(beforeFiles kind: ImportFilesKind) -> [ImportStep] {
-        guard !hasFile, !isGuided else { return barSteps }
+        guard !hasFile else { return barSteps }
         switch kind {
         case .statements: return [.file, .classify, .preview]
         case .brokerage: return [.file, .format, .columns, .types, .accounts, .preview]

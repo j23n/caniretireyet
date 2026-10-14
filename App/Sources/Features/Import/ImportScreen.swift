@@ -18,9 +18,8 @@ import UniformTypeIdentifiers
 ///   other pages.
 /// - **iPhone:** a sheet. The navigation bar has *Cancel* (or *Back* to the
 ///   step before), "Step 1 of 3" and *Next*, under it the step's large
-///   title; Review imports with a button at the bottom. One file that
-///   isn't a bank statement starts as "Import with profile…": the file and
-///   a saved profile, the preview, Done.
+///   title; Review imports with a button at the bottom. The steps are the
+///   Mac's.
 ///
 /// ⌘⇧I, the sidebar's Import… and dropping a CSV on the window create it,
 /// with the file if there is one; the sidebar's file is taken from
@@ -44,7 +43,6 @@ struct ImportScreen: View {
     /// Mac and iPad page use ``ImportController/page``.
     @State private var sheetModel = ImportController()
     @State private var isChoosingFile = false
-    @State private var didStart = false
     /// What the files are before any is read: the Files step's switch, and
     /// the steps along the top until a file says.
     @State private var kindBeforeFiles: ImportFilesKind = .statements
@@ -232,15 +230,9 @@ struct ImportScreen: View {
         }
     }
 
-    /// First appearance: the preview compares with this library, and on
-    /// iPhone a new import starts as "Import with profile…".
+    /// First appearance: the preview compares with this library.
     private func start() {
         model.libraryChanged(library.library)
-        guard !didStart else { return }
-        didStart = true
-        if !model.flow.hasFile, model.flow.step == .file {
-            model.flow.setGuided(isCompact)
-        }
     }
 
     /// Reads the file the screen was created with, once, then takes it from the navigation.

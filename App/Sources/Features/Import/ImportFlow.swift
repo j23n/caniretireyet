@@ -83,12 +83,6 @@ struct ImportFlow: Sendable {
     private(set) var profileFits: [ProfileFit] = []
     /// The step on screen.
     private(set) var step: ImportStep = .file
-    /// iPhone's "Import with profile…": the file and a saved profile, then
-    /// the preview. Otherwise every step (the Mac-first flow), as always
-    /// for bank statements, which need Files' accounts and Income.
-    var isGuided: Bool { prefersGuided && batch == nil }
-    /// Whether one file opens as "Import with profile…".
-    private(set) var prefersGuided: Bool
     /// The bank statements open (IMPORT.md, "Several statements at
     /// once"), one or more; `nil` for another kind of file. ``session`` is
     /// then the file on screen (``batchFile``), kept in step with the batch.
@@ -109,9 +103,8 @@ struct ImportFlow: Sendable {
     /// (``ImportSession/statementCheckIn``).
     private(set) var checkIn: CalendarDate?
 
-    init(library: Library = Library(), guided: Bool = false, checkIn: CalendarDate? = nil) {
+    init(library: Library = Library(), checkIn: CalendarDate? = nil) {
         self.library = library
-        prefersGuided = guided
         self.checkIn = checkIn
     }
 
@@ -128,7 +121,7 @@ struct ImportFlow: Sendable {
     /// Reads one file as ``open(_:fileName:)`` does, without making a bank
     /// statement a batch.
     private mutating func openOne(_ data: Data, fileName: String) {
-        self = ImportFlow(library: library, guided: prefersGuided, checkIn: checkIn)
+        self = ImportFlow(library: library, checkIn: checkIn)
         self.data = data
         self.fileName = fileName
         givenFiles = [(fileName, data)]
@@ -163,7 +156,7 @@ struct ImportFlow: Sendable {
 
     /// Reads `files` as bank statements, however many.
     mutating func open(statements files: [(name: String, data: Data)]) {
-        self = ImportFlow(library: library, guided: prefersGuided, checkIn: checkIn)
+        self = ImportFlow(library: library, checkIn: checkIn)
         givenFiles = files
         let batch = StatementBatch(files: files, library: library, checkIn: checkIn)
         guard let first = batch.order(against: library).first ?? batch.files.first?.id else {
@@ -240,7 +233,7 @@ struct ImportFlow: Sendable {
 
     /// Records that a file couldn't be opened at all (e.g. no permission).
     mutating func failToOpen(fileName: String, message: String) {
-        self = ImportFlow(library: library, guided: prefersGuided, checkIn: checkIn)
+        self = ImportFlow(library: library, checkIn: checkIn)
         self.fileName = fileName
         problem = message
     }
@@ -253,7 +246,7 @@ struct ImportFlow: Sendable {
 
     /// Forgets the file: back to the first step.
     mutating func reset() {
-        self = ImportFlow(library: library, guided: prefersGuided, checkIn: checkIn)
+        self = ImportFlow(library: library, checkIn: checkIn)
     }
 
     /// Whether a file has been read.
@@ -308,7 +301,6 @@ struct ImportFlow: Sendable {
 
     /// The steps, in order: those along the top, then Done.
     var steps: [ImportStep] {
-        if isGuided { return [.file, .preview, .done] }
         if session?.profile.layout == .trades { return [.file, .format, .columns, .types, .accounts, .preview, .done] }
         if session?.profile.layout == .statement {
             // Accounts only for a proposed opening or closing; Income answers a sale's.
@@ -328,9 +320,6 @@ struct ImportFlow: Sendable {
         switch step {
         case .done: return self.step == .done
         case .file: return self.step != .done
-        case .preview where isGuided:
-            // "Import with profile…" needs a profile; the full flow is the fallback.
-            return hasFile && source != .proposed && !needsStatementAccount && self.step != .done
         default: return hasFile && !needsStatementAccount && self.step != .done
         }
     }
@@ -395,12 +384,6 @@ struct ImportFlow: Sendable {
     /// which Accounts answers; Income answers a sale's.
     static func proposesAccountChange(_ preview: ImportPreview?) -> Bool {
         preview?.accountChanges.contains { $0.statementRow == nil } ?? false
-    }
-
-    /// Switches between "Import with profile…" (iPhone) and every step.
-    mutating func setGuided(_ guided: Bool) {
-        prefersGuided = guided
-        if !steps.contains(step) { step = .file }
     }
 
     /// Moves to Done, after the import was applied.

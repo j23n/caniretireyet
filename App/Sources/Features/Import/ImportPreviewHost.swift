@@ -7,7 +7,6 @@ import SwiftUI
 /// runs against the in-memory preview library.
 struct ImportPreviewHost: View {
     let step: ImportStep
-    var guided = false
     var file: ImportPreviewData.File = .sheet
 
     @Environment(LibraryStore.self) private var library
@@ -16,10 +15,10 @@ struct ImportPreviewHost: View {
     var body: some View {
         Group {
             if let model {
-                ImportStepContent(model: model, isCompact: guided, chooseFile: {}, openFiles: { _ in })
+                ImportStepContent(model: model, isCompact: false, chooseFile: {}, openFiles: { _ in })
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(Palette.page)
-                    .importBars(model: model, isCompact: guided)
+                    .importBars(model: model, isCompact: false)
             } else {
                 ProgressView()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -28,8 +27,7 @@ struct ImportPreviewHost: View {
         .navigationTitle("Import")
         .task {
             let controller = ImportPreviewData.controller(library: library.library,
-                                                          step: step == .done ? .preview : step, guided: guided,
-                                                          file: file)
+                                                          step: step == .done ? .preview : step, file: file)
             if step == .done {
                 await controller.runImport(in: library)
             }

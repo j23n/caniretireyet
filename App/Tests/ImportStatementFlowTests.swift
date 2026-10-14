@@ -712,17 +712,6 @@ struct ImportStatementFlowTests {
             == "Imported 2 months for 2 accounts")
     }
 
-    /// Several statements take every step, and one file opens as "Import
-    /// with profile…" again after them.
-    @Test func severalStatementsTakeEveryStepOnIPhone() {
-        var flow = ImportFlow(library: PreviewLibrary.library, guided: true)
-        flow.open(files: Self.twoStatements)
-        #expect(!flow.isGuided)
-        #expect(flow.steps == [.file, .classify, .preview, .done])
-        flow.reset()
-        #expect(flow.isGuided)
-    }
-
     @Test func previewChartsTheFilesBalanceAgainstTheAccountsValues() throws {
         let charts = try #require(flow().statementCharts)
         #expect(!charts.money.counted.isEmpty)
