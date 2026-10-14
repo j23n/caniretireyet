@@ -570,8 +570,7 @@ struct PreviewBuilder {
         var changes: [AccountChangeProposal] = []
         for (id, accountRecords) in byAccount.sorted(by: { $0.key < $1.key }) {
             let account = library.accounts[id] ?? newAccounts.first { $0.account.id == id }?.account
-            guard let account else { continue }
-            let first = accountRecords.map(\.key.date).min()!
+            guard let account, let first = accountRecords.map(\.key.date).min() else { continue }
             if library.accounts[id] != nil, first < account.opened {
                 changes.append(AccountChangeProposal(account: id, change: .openEarlier(on: first)))
             }

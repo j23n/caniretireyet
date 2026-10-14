@@ -90,35 +90,6 @@ struct IncomeFoundRow: Identifiable, Hashable, Sendable {
     var id: String { title }
 }
 
-/// What a bank statement's lines add up to: what came in, tax, what was
-/// paid back, one-offs, what went out, and what was moved between your
-/// accounts.
-struct StatementSums: Hashable, Sendable {
-    var cameIn: Decimal = 0
-    /// Tax paid, less refunds.
-    var tax: Decimal = 0
-    /// Money in that is spending: refunds, a share of a bill.
-    var paidBack: Decimal = 0
-    var oneOffs: Decimal = 0
-    /// Money out before what was paid back.
-    var wentOut: Decimal = 0
-    /// Transfers in and out.
-    var moved: Decimal = 0
-    /// Lines left out, in and out.
-    var leftOut: Decimal = 0
-    /// Interest that came in; interest that went out is in `wentOut`.
-    var interest: Decimal = 0
-    /// Money out for purchases you keep, a positive sum.
-    var bought: Decimal = 0
-    /// Money in from sales of your accounts.
-    var sold: Decimal = 0
-
-    /// What was spent: went out less paid back, at least 0.
-    var spent: Decimal { max(wentOut - paidBack, 0) }
-    /// What came in after tax.
-    var afterTax: Decimal { cameIn - tax }
-}
-
 /// The Income step of the bank statements open: the lines asked about,
 /// what was moved between your accounts, income by sender, and the summary.
 extension ImportFlow {
@@ -286,33 +257,5 @@ extension ImportFlow {
             title: years + " · " + Wording.count(statementAccountsOpen.count, "account"),
             cameIn: rate.moneyInOut.moneyIn + rate.pensionContributions, tax: rate.tax, afterTax: rate.income,
             spent: rate.spent, saved: rate.saved, rate: rate.rate)
-    }
-
-    /// What the statements' lines add up to.
-    var statementSums: StatementSums {
-        var sums = StatementSums()
-        for line in allStatementLines.map(\.line) {
-            let amount = line.amount
-            switch line.asset {
-            case .purchase?:
-                sums.bought -= amount
-                continue
-            case .sale?:
-                sums.sold += amount
-                continue
-            case .moved?, nil: break
-            }
-            switch line.statementClass {
-            case .transfer: sums.moved += amount
-            case .ignore: sums.leftOut += amount
-            case .interest where amount > 0: sums.interest += amount
-            case .income where amount > 0: sums.cameIn += amount
-            case .oneOff where amount > 0: sums.oneOffs += amount
-            case .tax: sums.tax -= amount
-            case .spending where amount > 0: sums.paidBack += amount
-            default: sums.wentOut -= amount
-            }
-        }
-        return sums
     }
 }

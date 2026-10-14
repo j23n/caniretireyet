@@ -2,12 +2,6 @@ import Foundation
 import Importer
 import Model
 
-/// A note or problem about a bank statement's lines or days.
-struct StatementNote: Hashable, Sendable {
-    var text: String
-    var isProblem: Bool
-}
-
 /// What a rule makes the lines with its words: a class, or money moved to
 /// or from an account.
 enum StatementRuleTarget: Hashable, Sendable {
@@ -203,30 +197,6 @@ extension ImportFlow {
     /// first line is given.
     var needsOpeningBalance: Bool {
         (preview?.issues ?? []).contains(where: \.asksForOpeningBalance)
-    }
-
-    /// Why the balance before the file's first line is needed, when it is.
-    var openingBalanceProblem: String? {
-        (preview?.issues ?? []).first(where: \.asksForOpeningBalance).map { issueText($0) }
-    }
-
-    /// What the statement's import says about its lines and days, e.g. "1
-    /// line comes after 2026-03-31…": problems first, then notes. The days
-    /// the file covers are shown on their own (``statementPeriod``).
-    var statementNotes: [StatementNote] {
-        let issues = (preview?.issues ?? []).filter { issue in
-            switch issue.kind {
-            case .needsOpeningBalance, .linesOutsidePeriod, .statementThroughAfterToday, .moneyInOutFrom,
-                 .linesAfterLastValue, .runningBalanceBreaks, .laterMoneyInOut, .noMoneyInOut, .unknownAccount:
-                true
-            case .missingField(let field):
-                field == .account
-            default:
-                false
-            }
-        }
-        return issues.filter { !$0.isNote }.map { StatementNote(text: issueText($0), isProblem: true) }
-            + issues.filter(\.isNote).map { StatementNote(text: issueText($0), isProblem: false) }
     }
 
     /// The day the balance before the file's first line is on: the day

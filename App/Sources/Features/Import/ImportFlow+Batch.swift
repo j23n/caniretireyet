@@ -49,11 +49,6 @@ extension ImportFlow {
         return StatementBatch.gaps(in: batchPreviews, batch: batch)
     }
 
-    /// The File step's sentences under the files (``betweenFilesNotes(locale:)``).
-    var batchNotes: [StatementNote] {
-        betweenFilesNotes().map { StatementNote(text: $0.text, isProblem: $0.isProblem) }
-    }
-
     /// What stops importing the batch, beyond the file on screen: days two
     /// files cover, and another file's guessed formats or missing balance.
     var batchBlockers: [String] {
@@ -71,18 +66,5 @@ extension ImportFlow {
             }
         }
         return reasons
-    }
-
-    /// "Imported 13 months for 2 accounts", for Done: the files' accounts
-    /// whose values or account the import changed in `library`, not one
-    /// whose file the library already had.
-    static func batchSummary(_ result: ImportResult, of fileAccounts: [AccountID],
-                             importedInto library: Library) -> String {
-        let accounts = Set(fileAccounts).filter { account in
-            result.changedAccounts.contains(account)
-                || result.library.valuations(for: account) != library.valuations(for: account)
-        }.count
-        let months = Wording.count(result.changedMonths.count, "month")
-        return "Imported \(months) for \(Wording.count(accounts, "account"))"
     }
 }

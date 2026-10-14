@@ -493,40 +493,6 @@ private struct ImportIncomeSummaryColumns: View {
     }
 }
 
-// MARK: - The balance before the first line
-
-/// The balance before a statement's first line, typed in, for a file
-/// without a balance column that doesn't follow on from the library's
-/// values. Review shows it.
-struct ImportOpeningBalanceField: View {
-    let model: ImportController
-
-    @State private var openingText = ""
-
-    var body: some View {
-        LabeledContent("Balance before the first line") {
-            HStack(spacing: Metrics.s) {
-                TextField("Balance", text: $openingText)
-                    .multilineTextAlignment(.trailing)
-                    .onSubmit(apply)
-                Button("Use", action: apply)
-                    .disabled(AmountInput.parse(openingText).value == model.flow.statementOpeningBalance)
-            }
-        }
-        .onAppear {
-            openingText = model.flow.statementOpeningBalance.map { AmountInput.text(for: $0) } ?? ""
-        }
-    }
-
-    private func apply() {
-        switch AmountInput.parse(openingText) {
-        case .empty: model.flow.setStatementOpeningBalance(nil)
-        case .value(let value): model.flow.setStatementOpeningBalance(value)
-        case .unreadable: break
-        }
-    }
-}
-
 #Preview("Income") {
     NavigationStack {
         ImportPreviewHost(step: .classify, file: .statement)

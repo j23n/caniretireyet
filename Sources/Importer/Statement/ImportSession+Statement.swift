@@ -81,15 +81,9 @@ extension ImportSession {
 
     // MARK: - Remembered answers
 
-    /// The profile's remembered answer for a line (``ImportProfile/answers``):
-    /// the same date and amount, and text with the same words, ignoring
-    /// case, accents and punctuation.
-    public func statementAnswer(date: CalendarDate, amount: Decimal, text: String) -> StatementAnswer? {
-        guard !profile.answers.isEmpty else { return nil }
-        return statementAnswer(date: date, amount: amount, words: TextTools.words(text))
-    }
-
-    /// The remembered answer for a line whose text has `words`.
+    /// The profile's remembered answer for a line (``ImportProfile/answers``)
+    /// whose text has `words`: the same date and amount, and text with the
+    /// same words, ignoring case, accents and punctuation.
     func statementAnswer(date: CalendarDate, amount: Decimal, words: [String]) -> StatementAnswer? {
         guard !profile.answers.isEmpty else { return nil }
         return profile.answers.last { answer in

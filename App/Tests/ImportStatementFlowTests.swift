@@ -134,7 +134,7 @@ struct ImportStatementFlowTests {
         #expect(text.contains("in "))
         #expect(text.contains("out "))
         flow.setStatementFrom("2026-09-03")
-        #expect(flow.statementNotes.contains { $0.isProblem })
+        #expect(flow.statementPeriod?.from == "2026-09-03")
     }
 
     @Test func aCheckInsStatementsCoverThroughItsDate() throws {
@@ -160,26 +160,9 @@ struct ImportStatementFlowTests {
         flow.open(Data(Self.csv.utf8), fileName: "settembre.csv")
         flow.setConstants { $0.account = "conto-fineco" }
         #expect(flow.needsOpeningBalance)
-        #expect(flow.statementNotes.contains { $0.isProblem })
-        let problem = try #require(flow.openingBalanceProblem)
-        #expect(problem.hasPrefix("Conto Fineco's balances can't be worked out"))
-        #expect(!problem.contains("conto-fineco"))
-        #expect(flow.mappingIssues.contains(problem))
-        #expect(!flow.previewIssues.contains(problem))
         #expect(flow.blockers.contains("Give the balance before the file's first line."))
         flow.setStatementOpeningBalance(Decimal(string: "4515.2"))
         #expect(!flow.needsOpeningBalance)
-        #expect(flow.statementOpeningBalance == Decimal(string: "4515.2"))
-        #expect(flow.openingBalanceProblem == nil)
-        #expect(flow.statementNotes.contains { $0.text.contains("not the day before the file") })
-    }
-
-    @Test func anOpeningBalanceThatDisagreesWithTheValueBeforeIsSaidSo() {
-        var flow = flow()
-        flow.setStatementOpeningBalance(4000)
-        let notes = flow.statementNotes.map(\.text)
-        #expect(notes.contains { $0.contains("isn't the balance before the file's first line") })
-        #expect(!notes.contains { $0.contains("not the day before the file") })
     }
 
     @Test func incomeIsListedBySender() throws {
@@ -193,15 +176,6 @@ struct ImportStatementFlowTests {
                                                                                             show: .income))
         #expect(flow.statementQuestions.isEmpty)
         #expect(flow.questionsHeader == "Answered · 0 lines")
-    }
-
-    @Test func theSumsSayWhatCameInAndWhatWasSpent() {
-        let sums = flow().statementSums
-        #expect(sums.cameIn == 3400)
-        #expect(sums.wentOut == Decimal(string: "1310.4"))
-        #expect(sums.paidBack == 0)
-        #expect(sums.spent == Decimal(string: "1310.4"))
-        #expect(sums.moved == -500)
     }
 
     /// A question stays listed once it's answered, with its answer, and
@@ -222,7 +196,6 @@ struct ImportStatementFlowTests {
         #expect(flow.questionsHeader == "Answered · 1 line")
         #expect(flow.answerChoice(answered) == .statementClass(.oneOff))
         #expect(flow.why(answered) == "chosen for this line")
-        #expect(flow.statementSums.oneOffs == 5000)
         // An answered question isn't a sender's income too.
         flow.setStatementClass(.income, for: answered)
         #expect(flow.incomeGroups.map(\.sender) == ["Stipendio"])
@@ -244,8 +217,6 @@ struct ImportStatementFlowTests {
         #expect(flow.answerDetail(bought) == StatementAnswerDetail(text: "to a new account, Car", opensSheet: true,
                                                                    isProblem: false))
         #expect(flow.whatItIs(bought) == "Moved to Car")
-        #expect(flow.statementSums.bought == 18000)
-        #expect(flow.statementSums.spent == Decimal(string: "1310.4"))
         #expect(flow.preview?.newAccounts.map(\.account.name) == ["Car"])
         #expect(flow.steps == [.file, .classify, .preview, .done])
         // An answered question isn't one of the moves found for you.
@@ -269,16 +240,12 @@ struct ImportStatementFlowTests {
         let moved = try #require(flow.statementQuestions.first)
         #expect(flow.answerDetail(moved)?.text == "to Tax pot")
         #expect(flow.whatItIs(moved) == "Moved to Tax pot")
-        #expect(flow.statementSums.moved == -6500)
         #expect(flow.preview?.records.contains { $0.imported.key.account == "tasse" } == true)
     }
 
     @Test func taxIsTakenOffWhatCameIn() throws {
         var flow = flow(adding: "\n16/09/2026;-800,00;Pagamento F24 Agenzia delle Entrate")
         #expect(try line(flow, "Pagamento F24").statementClass == .tax)
-        #expect(flow.statementSums.tax == 800)
-        #expect(flow.statementSums.afterTax == 2600)
-        #expect(flow.statementSums.spent == Decimal(string: "1310.4"))
         let tax = try #require(flow.allStatementLines.first { $0.line.text.hasPrefix("Pagamento F24") })
         #expect(flow.answerDetail(tax) == nil)
         flow.setStatementClass(.tax, for: tax)
@@ -294,7 +261,6 @@ struct ImportStatementFlowTests {
         let sold = try #require(flow.statementQuestions.first)
         #expect(flow.answerDetail(sold)?.text == "the sale of Home")
         #expect(flow.whatItIs(sold) == "Sold: Home")
-        #expect(flow.statementSums.sold == 250_000)
         #expect(flow.preview?.accountChanges.map(\.account) == ["casa"])
         // The Income step answered it: no Accounts step.
         #expect(flow.steps == [.file, .classify, .preview, .done])
@@ -691,25 +657,6 @@ struct ImportStatementFlowTests {
         flow.setBatchAccount("conto-fineco", forFile: 1)
         #expect(flow.batchGaps.map(\.isOverlap) == [true])
         #expect(flow.blockers.contains("Two files cover the same days of an account: leave one out."))
-        #expect(flow.batchNotes.contains { note in
-            note.isProblem && note.text.hasPrefix("settembre.csv and settembre-copia.csv both cover")
-        })
-    }
-
-    /// Done counts the months and the files' accounts the import changed.
-    @Test func doneCountsTheAccountsTheImportChanged() throws {
-        var result = try #require(flow().planned)
-        result.changedMonths = ["2026-08", "2026-09"]
-        result.changedAccounts = ["casa"]
-        let accounts: [AccountID] = ["conto-deposito", "conto-fineco"]
-        #expect(ImportFlow.batchSummary(result, of: accounts, importedInto: PreviewLibrary.library)
-            == "Imported 2 months for 0 accounts")
-        result.library.upsert(Valuation(account: "conto-fineco", date: "2026-09-30", balance: 1))
-        #expect(ImportFlow.batchSummary(result, of: accounts, importedInto: PreviewLibrary.library)
-            == "Imported 2 months for 1 account")
-        result.changedAccounts = ["conto-deposito"]
-        #expect(ImportFlow.batchSummary(result, of: accounts, importedInto: PreviewLibrary.library)
-            == "Imported 2 months for 2 accounts")
     }
 
     @Test func previewChartsTheFilesBalanceAgainstTheAccountsValues() throws {
