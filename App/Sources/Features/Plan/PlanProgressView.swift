@@ -177,7 +177,19 @@ struct PlanProgressView: View {
                 if !tiles.isEmpty {
                     EqualColumns(spacing: Metrics.s) {
                         ForEach(tiles) { tile in
-                            PlanFigureTile(title: tile.title, value: tile.value)
+                            FigureTile {
+                                Text(tile.title)
+                                    .font(.subheadline)
+                                    .foregroundStyle(Palette.secondaryInk)
+                                    .privacySensitiveInFeedback()
+                                Text(tile.value)
+                                    .font(.title3.weight(.bold))
+                                    .foregroundStyle(Palette.ink)
+                                    .minimumScaleFactor(0.8)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                    .privacySensitiveInFeedback()
+                            }
+                            .accessibilityElement(children: .combine)
                         }
                     }
                 }
@@ -217,12 +229,28 @@ struct PlanProgressView: View {
     private func tileRow(_ tiles: [Tile], month: MonthReport?) -> some View {
         HStack(alignment: .top, spacing: Metrics.s) {
             ForEach(tiles) { tile in
-                PlanStatTile(title: tile.title, value: AmountSentence(tile.value))
+                statTile(tile.title, AmountSentence(tile.value))
             }
             if let month {
-                PlanStatTile(title: month.title, value: month.figures)
+                statTile(month.title, month.figures)
             }
         }
+    }
+
+    /// A figure with its title above it, beside the answer's words; its
+    /// amounts hide with the eye.
+    private func statTile(_ title: String, _ value: AmountSentence) -> some View {
+        FigureTile(surface: .raised, fills: false) {
+            Text(title)
+                .font(.caption)
+                .foregroundStyle(Palette.secondaryInk)
+                .privacySensitiveInFeedback()
+            AmountSentenceText(value)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Palette.ink)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .accessibilityElement(children: .combine)
     }
 
     /// The answer's title beside its figures: 22 points on the Mac.
@@ -503,61 +531,6 @@ struct PlanProgressView: View {
                 }
             }
         }
-    }
-}
-
-/// A figure with its title above it, beside Progress's headline on the Mac.
-struct PlanStatTile: View {
-    let title: String
-    /// The figure: its amounts hide with the eye.
-    let value: AmountSentence
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(title)
-                .font(.caption)
-                .foregroundStyle(Palette.secondaryInk)
-                .privacySensitiveInFeedback()
-            AmountSentenceText(value)
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(Palette.ink)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .padding(.horizontal, Metrics.m)
-        .padding(.vertical, Metrics.s)
-        .frame(minWidth: 110, alignment: .leading)
-        .background(Palette.card, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .strokeBorder(Palette.border, lineWidth: 1)
-        }
-        .accessibilityElement(children: .combine)
-    }
-}
-
-/// A figure in Progress's answer card on iPhone: its title, then the figure, large.
-struct PlanFigureTile: View {
-    let title: String
-    let value: String
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(title)
-                .font(.subheadline)
-                .foregroundStyle(Palette.secondaryInk)
-                .privacySensitiveInFeedback()
-            Text(value)
-                .font(.title3.weight(.bold))
-                .foregroundStyle(Palette.ink)
-                .minimumScaleFactor(0.8)
-                .fixedSize(horizontal: false, vertical: true)
-                .privacySensitiveInFeedback()
-        }
-        .padding(.horizontal, Metrics.m)
-        .padding(.vertical, 10)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(Palette.page, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .accessibilityElement(children: .combine)
     }
 }
 

@@ -90,7 +90,7 @@ struct PlanMoneyTile: View {
     @Environment(\.locale) private var locale
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
+        FigureTile {
             Text(tile.title)
                 .font(.subheadline)
                 .foregroundStyle(Palette.secondaryInk)
@@ -108,10 +108,6 @@ struct PlanMoneyTile: View {
                     .privacySensitiveInFeedback()
             }
         }
-        .padding(.horizontal, Metrics.m)
-        .padding(.vertical, 10)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(Palette.page, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         .accessibilityElement(children: .combine)
     }
 

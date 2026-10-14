@@ -66,7 +66,7 @@ struct OverviewHeader: View {
     /// the two under it; a tap anywhere but the ⓘ and *Calculate* opens
     /// the plan.
     private func answerTile(_ words: OverviewAnswerText, dims: Bool) -> some View {
-        OverviewTile {
+        FigureTile(surface: .raised) {
             titleRow(words)
             answerRow(words, dims: dims)
                 .padding(.top, Metrics.m)
@@ -83,6 +83,7 @@ struct OverviewHeader: View {
                     .padding(.top, Metrics.s)
             }
         }
+        .font(.subheadline)
         .onTapGesture {
             navigation.showPlan()
         }
@@ -279,7 +280,7 @@ struct OverviewHeader: View {
     /// Net worth today, with its changes ("▲ 4.210 € in September", "▲ 6,2%
     /// this year"), as the hero number has them.
     private var netWorthTile: some View {
-        OverviewTile {
+        FigureTile(surface: .raised) {
             Text("Net worth")
                 .foregroundStyle(Palette.secondaryInk)
             AmountText(netWorth.total, tabular: false, animatesChanges: true)
@@ -311,6 +312,7 @@ struct OverviewHeader: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
+        .font(.subheadline)
         .accessibilityElement(children: .combine)
     }
 
@@ -322,7 +324,7 @@ struct OverviewHeader: View {
         Button {
             navigation.showPlan(at: PlanRoute(part: .progress))
         } label: {
-            OverviewTile {
+            FigureTile(surface: .raised) {
                 HStack(alignment: .firstTextBaseline, spacing: Metrics.xs) {
                     Text("On track?")
                         .foregroundStyle(Palette.secondaryInk)
@@ -368,6 +370,7 @@ struct OverviewHeader: View {
                         .accessibilityLabel(OverviewOnTrack.spokenCoastLine(coast))
                 }
             }
+            .font(.subheadline)
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .combine)
@@ -412,27 +415,6 @@ struct OverviewHeader: View {
     private var dimsAnswer: Bool {
         headline.recordedOn == nil
             && (isStale || plans.isRunning(plan.id, .base) || plans.isRunning(plan.id, .checkIn))
-    }
-}
-
-/// One of the header's tiles: a card with 12 points of padding, filling
-/// the height its row gives it.
-private struct OverviewTile<Content: View>: View {
-    @ViewBuilder var content: Content
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            content
-        }
-        .font(.subheadline)
-        .padding(Metrics.m)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(Palette.card, in: RoundedRectangle(cornerRadius: Metrics.cardRadius, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: Metrics.cardRadius, style: .continuous)
-                .strokeBorder(Palette.border, lineWidth: 1)
-        }
-        .contentShape(RoundedRectangle(cornerRadius: Metrics.cardRadius, style: .continuous))
     }
 }
 
