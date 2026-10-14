@@ -77,11 +77,10 @@ extension Valuator {
     /// `through` (both inclusive), converted to the base currency at the
     /// latest FX rate on or before each valuation's date.
     ///
-    /// A valuation counts when its account is known, its kind records money
-    /// in and out (``Model/AccountKind/recordsMoneyInOut``), it has both
-    /// amounts, neither negative, and the account has a valuation before it.
-    /// Its one-off counts with it, when it isn't negative, and so does its
-    /// tax, except on a tax pot, whose tax is what moved into it.
+    /// A valuation counts when its account is known and has a valuation
+    /// before it, and by the rule for money in and out
+    /// (``Model/Valuation/moneyInOut(on:)``): its kind records them, it has
+    /// both, neither negative; with its one-off and its tax.
     /// Each value covers the days since that valuation, which is what
     /// ``MoneyInOutSummary/moneyOutPerYear`` scales by; an account's first
     /// value covers no known period. `accounts` limits the sum to those
@@ -98,15 +97,15 @@ extension Valuator {
             var days = 0
             let values = valuations(for: account.id)
             for (index, valuation) in values.enumerated() where valuation.date >= from && valuation.date <= through {
-                guard index > 0, let moneyIn = valuation.moneyIn, let moneyOut = valuation.moneyOut,
-                      moneyIn >= 0, moneyOut >= 0
-                else { continue }
-                guard let inBase = fx.convert(moneyIn, from: account.currency, to: baseCurrency, on: valuation.date),
-                      let outBase = fx.convert(moneyOut, from: account.currency, to: baseCurrency, on: valuation.date),
-                      let oneOffBase = fx.convert(max(valuation.oneOff ?? 0, 0), from: account.currency,
-                                                  to: baseCurrency, on: valuation.date),
-                      let taxBase = fx.convert(account.kind == .taxPot ? 0 : valuation.tax ?? 0,
-                                               from: account.currency, to: baseCurrency, on: valuation.date)
+                guard index > 0, let counted = valuation.moneyInOut(on: account.kind).counted else { continue }
+                guard let inBase = fx.convert(counted.moneyIn, from: account.currency, to: baseCurrency,
+                                              on: valuation.date),
+                      let outBase = fx.convert(counted.moneyOut, from: account.currency, to: baseCurrency,
+                                               on: valuation.date),
+                      let oneOffBase = fx.convert(counted.oneOff, from: account.currency, to: baseCurrency,
+                                                  on: valuation.date),
+                      let taxBase = fx.convert(counted.tax, from: account.currency, to: baseCurrency,
+                                               on: valuation.date)
                 else {
                     unconverted.insert(account.id)
                     continue

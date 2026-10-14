@@ -2,6 +2,7 @@ import ArgumentParser
 import Foundation
 import Model
 import Storage
+import Tracker
 
 /// `retire validate`: loads every file and reports what's wrong, per file.
 struct ValidateCommand: RetireSubcommand {
@@ -42,10 +43,9 @@ struct ValidateCommand: RetireSubcommand {
         }
         var issues = loaded.report.issues
         if folder.containsLibrary {
-            issues += LibraryChecks(library: loaded.library).issues()
+            issues += loaded.library.problems()
         }
-        // By path, then errors before warnings, keeping the order found (the sort is stable).
-        issues.sort { ($0.path, $0.severity == .error ? 0 : 1) < ($1.path, $1.severity == .error ? 0 : 1) }
+        issues = issues.sortedByPath()
         let report = Report(folder: folder, library: loaded.library, load: loaded.report, migration: migration,
                             issues: issues)
 
@@ -60,7 +60,7 @@ struct ValidateCommand: RetireSubcommand {
         var load: LoadReport
         /// The upgrade from an older format, if one ran.
         var migration: MigrationReport?
-        var issues: [LoadIssue]
+        var issues: [LibraryIssue]
 
         var errors: Int { issues.filter { $0.severity == .error }.count }
         var warnings: Int { issues.filter { $0.severity == .warning }.count }

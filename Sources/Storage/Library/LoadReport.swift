@@ -14,7 +14,7 @@ public struct LoadResult: Sendable {
 /// What loading a library folder found.
 public struct LoadReport: Hashable, Sendable {
     /// Problems in individual files, sorted by path.
-    public var issues: [LoadIssue]
+    public var issues: [LibraryIssue]
     /// The `schemaVersion` in `library.json`, if it could be read.
     public var schemaVersion: Int?
     /// The number of data files read.
@@ -26,7 +26,7 @@ public struct LoadReport: Hashable, Sendable {
     /// `false` when there's no `library.json` at all.
     public var settingsUnreadable: Bool
 
-    public init(issues: [LoadIssue] = [], schemaVersion: Int? = nil, filesRead: Int = 0,
+    public init(issues: [LibraryIssue] = [], schemaVersion: Int? = nil, filesRead: Int = 0,
                 settingsUnreadable: Bool = false) {
         self.issues = issues
         self.schemaVersion = schemaVersion
@@ -74,39 +74,13 @@ public struct LoadReport: Hashable, Sendable {
     }
 
     /// Issues where a file or record couldn't be loaded.
-    public var errors: [LoadIssue] { issues.filter { $0.severity == .error } }
+    public var errors: [LibraryIssue] { issues.filter { $0.severity == .error } }
 
     /// Issues where everything was loaded but something looks wrong.
-    public var warnings: [LoadIssue] { issues.filter { $0.severity == .warning } }
+    public var warnings: [LibraryIssue] { issues.filter { $0.severity == .warning } }
 
     /// The issues for one file.
-    public func issues(for path: String) -> [LoadIssue] {
+    public func issues(for path: String) -> [LibraryIssue] {
         issues.filter { $0.path == path }
     }
-}
-
-/// A problem in one file, found while loading.
-public struct LoadIssue: Hashable, Sendable, CustomStringConvertible {
-    /// How much of the file was affected.
-    public enum Severity: String, Hashable, Sendable {
-        /// The file, or some records in it, couldn't be loaded.
-        case error
-        /// Everything was loaded, but something should be fixed.
-        case warning
-    }
-
-    /// The file's path relative to the library folder.
-    public var path: String
-    /// What is wrong, and where in the file, in plain words.
-    public var message: String
-    public var severity: Severity
-
-    public init(path: String, message: String, severity: Severity) {
-        self.path = path
-        self.message = message
-        self.severity = severity
-    }
-
-    /// `path: message`
-    public var description: String { "\(path): \(message)" }
 }

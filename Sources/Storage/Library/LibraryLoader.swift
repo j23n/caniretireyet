@@ -8,7 +8,9 @@ extension LibraryFolder {
     /// in the report, with the file's path and what is wrong, and the rest
     /// of the library loads. A file that can't be read at all is left out;
     /// in history and headline files, only the records that can't be read
-    /// are left out. Files that aren't library data files are ignored.
+    /// are left out. Files that aren't library data files are ignored. The
+    /// report holds what each file shows on its own; checks across files
+    /// are `Library.problems()`, in Tracker.
     ///
     /// A library written by a newer app version loads read-only (see
     /// ``LoadReport/isReadOnly``), and so does one whose `library.json`
@@ -30,13 +32,8 @@ extension LibraryFolder {
                 }
             }
         }
-        loader.checkReferences(in: library)
-        // By path, then errors before warnings, then in the order found (the sort is stable).
-        let issues = loader.issues.sorted {
-            ($0.path, $0.severity == .error ? 0 : 1) < ($1.path, $1.severity == .error ? 0 : 1)
-        }
-        let report = LoadReport(issues: issues, schemaVersion: loader.schemaVersion, filesRead: loader.filesRead,
-                                settingsUnreadable: loader.settingsUnreadable)
+        let report = LoadReport(issues: loader.issues.sortedByPath(), schemaVersion: loader.schemaVersion,
+                                filesRead: loader.filesRead, settingsUnreadable: loader.settingsUnreadable)
         return LoadResult(library: library, report: report)
     }
 
@@ -59,7 +56,7 @@ extension LibraryFolder {
 struct LibraryLoader {
     /// Today's date, for records dated implausibly far ahead.
     let today = CalendarDate.today()
-    var issues: [LoadIssue] = []
+    var issues: [LibraryIssue] = []
     var filesRead = 0
     var schemaVersion: Int?
     /// Whether `library.json` exists but couldn't be used (``LoadReport/settingsUnreadable``).
@@ -324,153 +321,14 @@ struct LibraryLoader {
         return json.withMember("id", to: .string(id))
     }
 
-    // MARK: References between files
-
-    /// Warns about records that refer to accounts, instruments or plans
-    /// that don't exist, and about trades that can't be applied as they are
-    /// (see ``checkTrades(in:)``).
-    mutating func checkReferences(in library: Library) {
-        for (month, file) in library.months {
-            let path = LibraryFile.month(month).path
-            let accounts = Set(file.valuations.map(\.account) + file.trades.map(\.account))
-                .filter { library.accounts[$0] == nil }
-            let instruments = Set(file.valuations.flatMap { $0.positions.map(\.instrument) }
-                + file.prices.map(\.instrument) + file.trades.compactMap(\.instrument))
-                .filter { library.instruments[$0] == nil }
-            if !accounts.isEmpty {
-                warn(path, "Refers to accounts that don't exist: \(accounts.sorted().map(\.rawValue).joined(separator: ", ")).")
-            }
-            if !instruments.isEmpty {
-                warn(path, "Refers to instruments that don't exist: "
-                    + "\(instruments.sorted().map(\.rawValue).joined(separator: ", ")).")
-            }
-        }
-        for account in library.accounts.values {
-            if let successor = account.successor, library.accounts[successor] == nil {
-                warn(LibraryFile.account(account.id).path, "The successor \"\(successor)\" doesn't exist.")
-            }
-        }
-        if let plan = library.settings.mainPlan, library.plans[plan] == nil {
-            warn(LibraryFile.settings.path, "The main plan \"\(plan)\" doesn't exist.")
-        }
-        checkTrades(in: library)
-        checkMoneyInOut(in: library)
-    }
-
-    /// Warns about money in and out (`moneyIn`, `moneyOut`) that summaries
-    /// leave out: on an account whose kind doesn't record it, only one of the
-    /// two, or negative; about interest on an account whose kind doesn't
-    /// record it; about tax (`tax`) summaries leave out: on a tax pot, on
-    /// another kind that doesn't record money in and out, or without both
-    /// amounts; and about a one-off (`oneOff`) summaries leave out: on such
-    /// an account, without both amounts, or negative. Every value is still
-    /// loaded.
-    mutating func checkMoneyInOut(in library: Library) {
-        for valuation in library.allValuations where valuation.interest != nil {
-            guard let account = library.accounts[valuation.account], !account.kind.recordsInterest else { continue }
-            warn(LibraryFile.month(valuation.date.yearMonth).path, "The valuation of \(account.id) on "
-                + "\(valuation.date) records interest, but only savings accounts do; it isn't used.")
-        }
-        for valuation in library.allValuations where valuation.hasMoneyInOut {
-            let path = LibraryFile.month(valuation.date.yearMonth).path
-            if let account = library.accounts[valuation.account], !account.kind.recordsMoneyInOut {
-                warn(path, "The valuation of \(account.id) on \(valuation.date) records money in or out, but only "
-                    + "cash and savings accounts and tax pots do; it isn't counted.")
-            } else if (valuation.moneyIn == nil) != (valuation.moneyOut == nil) {
-                warn(path, "The valuation of \(valuation.account) on \(valuation.date) records only money "
-                    + "\(valuation.moneyIn == nil ? "out" : "in"); record both, or neither. It isn't counted.")
-            } else if (valuation.moneyIn ?? 0) < 0 || (valuation.moneyOut ?? 0) < 0 {
-                warn(path, "The valuation of \(valuation.account) on \(valuation.date) has negative money in or out; "
-                    + "both are amounts without a sign. It isn't counted.")
-            }
-        }
-        for valuation in library.allValuations where valuation.tax != nil {
-            let whose = "The valuation of \(valuation.account) on \(valuation.date)"
-            let path = LibraryFile.month(valuation.date.yearMonth).path
-            if let account = library.accounts[valuation.account], account.kind == .taxPot {
-                warn(path, "\(whose) records tax, but a tax pot's tax is what moved into it; it isn't counted.")
-            } else if let account = library.accounts[valuation.account], !account.kind.recordsMoneyInOut {
-                warn(path, "\(whose) records tax, but only cash and savings accounts do; it isn't counted.")
-            } else if valuation.moneyIn == nil || valuation.moneyOut == nil {
-                warn(path, "\(whose) records tax without both money in and out; it isn't counted.")
-            }
-        }
-        for valuation in library.allValuations {
-            guard let oneOff = valuation.oneOff else { continue }
-            let path = LibraryFile.month(valuation.date.yearMonth).path
-            let whose = "The valuation of \(valuation.account) on \(valuation.date)"
-            if let account = library.accounts[valuation.account], !account.kind.recordsMoneyInOut {
-                warn(path, "\(whose) records a one-off, but only cash and savings accounts do; it isn't counted.")
-            } else if valuation.moneyIn == nil || valuation.moneyOut == nil {
-                warn(path, "\(whose) records a one-off without both money in and out; it isn't counted.")
-            } else if oneOff < 0 {
-                warn(path, "\(whose) has a negative one-off, an amount without a sign; it isn't counted.")
-            }
-        }
-    }
-
-    /// Warns about trades that can't be applied as they are (docs/TRADES.md,
-    /// "Checks"), in the file of each trade:
-    ///
-    /// - what a record is missing or gets wrong on its own (``Trade/problems``);
-    /// - trades of an account whose holdings don't come from trades, which
-    ///   are left out of its values;
-    /// - a sell or transfer out of more than the account holds then;
-    /// - a trade dated before the account opened or after it closed;
-    /// - a valuation of a trades account with a balance, which isn't used.
-    ///
-    /// Every trade is still loaded; nothing is dropped.
-    mutating func checkTrades(in library: Library) {
-        func path(_ date: CalendarDate) -> String { LibraryFile.month(date.yearMonth).path }
-        func describe(_ trade: Trade) -> String {
-            let what = trade.instrument.map { " of \($0)" } ?? ""
-            return "The \(trade.type.rawValue)\(what) in \(trade.account) on \(trade.date) (\(trade.id))"
-        }
-
-        let trades = library.allTrades
-        for trade in trades {
-            for problem in trade.problems {
-                warn(path(trade.date), "\(describe(trade)): \(problem.message)")
-            }
-        }
-        for (accountID, accountTrades) in Dictionary(grouping: trades, by: \.account).sorted(by: { $0.key < $1.key }) {
-            guard let account = library.accounts[accountID] else { continue }
-            guard account.recordsTrades else {
-                for file in Set(accountTrades.map { path($0.date) }).sorted() {
-                    warn(file, "\(account.id) records \(account.valuationMode.rawValue), not trades, so its trades "
-                        + "here are left out of its values. Set \"valuation\": \"trades\" on the account to use them.")
-                }
-                continue
-            }
-            var held = HeldQuantities()
-            for trade in accountTrades.inProcessingOrder() {
-                if let short = held.apply(trade), let instrument = trade.instrument {
-                    let before = max(0, held[instrument] + (trade.quantity ?? 0))
-                    warn(path(trade.date), "\(describe(trade)) takes away \(short.fileString) more than the account "
-                        + "held then (\(before.fileString)). Is a buy or an opening missing, or the date wrong?")
-                }
-                if trade.date < account.opened {
-                    warn(path(trade.date), "\(describe(trade)) is dated before the account opened (\(account.opened)).")
-                } else if let closed = account.closed, trade.date > closed {
-                    warn(path(trade.date), "\(describe(trade)) is dated after the account closed (\(closed)).")
-                }
-            }
-        }
-        for valuation in library.allValuations where valuation.balance != nil {
-            guard let account = library.accounts[valuation.account], account.recordsTrades else { continue }
-            warn(path(valuation.date), "The valuation of \(account.id) on \(valuation.date) has a balance, but the "
-                + "account's holdings come from its trades: record its cash instead. The balance isn't used.")
-        }
-    }
-
     // MARK: Issues
 
     mutating func error(_ path: String, _ message: String) {
-        issues.append(LoadIssue(path: path, message: message, severity: .error))
+        issues.append(LibraryIssue(path: path, message: message, severity: .error))
     }
 
     mutating func warn(_ path: String, _ message: String) {
-        issues.append(LoadIssue(path: path, message: message, severity: .warning))
+        issues.append(LibraryIssue(path: path, message: message, severity: .warning))
     }
 
     static func ignoredMessage(for folder: String) -> String {

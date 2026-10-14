@@ -83,8 +83,23 @@ final class LibraryStore {
     private(set) var lastSyncedAt: Date?
     /// The last thing that went wrong reading or writing the folder, for a banner.
     private(set) var lastError: String?
-    /// Problems in individual files, by path (docs/schema/README.md, "Reading hand-edited files").
-    private(set) var loadIssues: [LoadIssue] = []
+    /// Problems reading individual files, by path (docs/schema/README.md,
+    /// "Reading hand-edited files"). A reload replaces the issues of the
+    /// files it read.
+    private(set) var loadIssues: [LibraryIssue] = []
+    /// The problems across files (`Library.problems()`), worked out once
+    /// per ``revision``.
+    @ObservationIgnored private var problemsCache: (revision: Int, problems: [LibraryIssue])?
+    /// What's wrong with the library's files: ``loadIssues`` and the
+    /// checks across files (`Library.problems()`), worked out again for
+    /// each revision of ``library``, so they follow every edit and reload.
+    var issues: [LibraryIssue] {
+        let revision = self.revision
+        if let cache = problemsCache, cache.revision == revision { return (loadIssues + cache.problems).sortedByPath() }
+        let problems = library.problems()
+        problemsCache = (revision, problems)
+        return (loadIssues + problems).sortedByPath()
+    }
     /// Sync conflicts merged since launch, newest first.
     private(set) var mergedConflicts: [ConflictResolution] = []
     /// Sync conflicts that couldn't be merged.

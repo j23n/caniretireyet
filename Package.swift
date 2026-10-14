@@ -27,6 +27,8 @@ let testResources: [String: [Resource]] = [
 /// trades with Tracker's `TradeLedger`; `Importer` itself doesn't use it.
 let testDependencies: [String: [Target.Dependency]] = [
     "ImporterTests": ["Tracker"],
+    // Checks that a reload keeps the problems (`Library.problems()`) of the files it didn't read.
+    "CloudSyncTests": ["Tracker"],
 ]
 
 let package = Package(
