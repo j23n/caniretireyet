@@ -15,6 +15,7 @@ struct PriceServiceTests {
             "symbols=USD": PriceResponses.frankfurterUSDSeptember,
             "symbols=CHF": FrankfurterResponses.septemberCHF,
             "simple/price": PriceResponses.coinGeckoBitcoinUSD,
+            "chart/BTC-USD": PriceResponses.yahooBitcoinSeptember,
             "price/XAU": PriceResponses.goldAPIGold,
             "chart/VWCE.DE": PriceResponses.yahooVWCESeptember,
             "prc_hicp_minr": PriceResponses.eurostatHICPItaly,
@@ -131,21 +132,18 @@ struct PriceServiceTests {
     @Test func oneFailureDoesntStopTheRest() async throws {
         let client = MockHTTPClient()
         await client.on("chart/VWCE.DE", HTTPResponse(statusCode: 500, text: "Internal Server Error"))
-        await client.on("simple/price", HTTPResponse(statusCode: 429, headers: ["Retry-After": "120"],
-                                                     text: CoinGeckoResponses.rateLimited))
+        await client.on("chart/BTC-USD", json: PriceResponses.yahooBitcoinSeptember)
         await client.on("symbols=USD", json: PriceResponses.frankfurterUSDSeptember)
         await client.on("price/XAU", json: PriceResponses.goldAPIGold)
         await client.on("prc_hicp_minr", json: PriceResponses.eurostatHICPItaly)
 
         let result = await Self.service(client).fetch(for: try Fixtures.exampleLibrary(), on: Self.checkIn)
         #expect(!result.isComplete)
-        #expect(result.prices.map(\.instrument) == ["gold"])
+        #expect(result.prices.map(\.instrument) == ["btc", "gold"])
         #expect(result.fx.count == 1)
-        #expect(result.failures.map(\.item) == [.instrument("btc"), .instrument("vwce")])
+        #expect(result.failures.map(\.item) == [.instrument("vwce")])
         #expect(result.entry(for: .instrument("vwce"))?.failureReason
             == "Yahoo Finance answered with HTTP 500: Internal Server Error.")
-        #expect(result.entry(for: .instrument("btc"))?.failureReason
-            == "CoinGecko is limiting requests. Try again in 120 seconds.")
     }
 
     /// Yahoo never answers and times out after 200 ms; everything else
@@ -180,14 +178,14 @@ struct PriceServiceTests {
     @Test func withoutAnFXRateTheGoldPriceCantBeConverted() async throws {
         let client = MockHTTPClient()
         await client.on("frankfurter", HTTPResponse(statusCode: 503, text: "Service Unavailable"))
-        await client.on("simple/price", json: PriceResponses.coinGeckoBitcoinUSD)
+        await client.on("chart/BTC-USD", json: PriceResponses.yahooBitcoinSeptember)
         await client.on("price/XAU", json: PriceResponses.goldAPIGold)
         await client.on("chart/VWCE.DE", json: PriceResponses.yahooVWCESeptember)
         await client.on("prc_hicp_minr", json: PriceResponses.eurostatHICPItaly)
 
         let result = await Self.service(client).fetch(for: try Fixtures.exampleLibrary(), on: Self.checkIn)
         #expect(result.fx.isEmpty)
-        // btc is priced in USD, as CoinGecko quotes it: no conversion needed.
+        // btc is priced in USD, as Yahoo Finance quotes it: no conversion needed.
         #expect(result.prices.map(\.instrument) == ["btc", "vwce"])
         #expect(result.failures.map(\.item) == [.instrument("gold"), .fx(base: .eur, quote: .usd)])
         #expect(result.entry(for: .instrument("gold"))?.failureReason

@@ -30,7 +30,7 @@
       "properties": {
         "provider": { "$comment": "Open enum.", "enum": ["yahoo", "gold-api", "eodhd", "twelvedata"] },
         "symbol": {
-          "description": "The provider's identifier: a Yahoo ticker (VWCE.DE), a coin's pair on Yahoo (BTC-EUR), or a metal code for gold-api (XAU).",
+          "description": "The provider's identifier: a Yahoo ticker (VWCE.DE), a Yahoo crypto pair (BTC-EUR), or a metal code for gold-api (XAU). A source whose provider the app doesn't fetch from (coingecko, which earlier versions fetched crypto from, eodhd, twelvedata) is kept, and the instrument's prices are typed in.",
           "type": "string"
         }
       }

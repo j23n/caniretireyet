@@ -7,7 +7,7 @@
   ],
   "month": "2026-06",
   "prices": [
-    { "currency": "USD", "date": "2026-06-30", "instrument": "btc", "price": "104200", "source": "coingecko" },
+    { "currency": "USD", "date": "2026-06-30", "instrument": "btc", "price": "104200", "source": "yahoo" },
     { "currency": "EUR", "date": "2026-06-30", "instrument": "gold", "price": "99.1", "source": "gold-api" },
     { "currency": "EUR", "date": "2026-06-30", "instrument": "vwce", "price": "134.15", "source": "yahoo" }
   ],
