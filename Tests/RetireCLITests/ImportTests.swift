@@ -441,13 +441,13 @@ struct ImportTests {
         #expect(dates.contains("2026-10-29"))
         #expect(!dates.contains("2026-10-31"))
 
-        // A line before --from is one more message than without it.
-        func messages(_ extra: [String]) async throws -> Int {
+        // A line before --from is one more issue than without it.
+        func issues(_ extra: [String]) async throws -> Int {
             let json = try parseJSON(await runCLI(arguments + extra + ["--json"]).output)
-            return ((json["issues"] as? [Any])?.count ?? 0) + ((json["notes"] as? [Any])?.count ?? 0)
+            return (json["issues"] as? [Any])?.count ?? 0
         }
-        let plain = try await messages([])
-        let late = try await messages(["--from", "2026-10-02"])
+        let plain = try await issues([])
+        let late = try await issues(["--from", "2026-10-02"])
         #expect(late == plain + 1)
         for bad in [["--through", "29/10/2026"], ["--from", "2026-10-20", "--through", "2026-10-10"],
                     ["--through", "2027-05-31"]] {
