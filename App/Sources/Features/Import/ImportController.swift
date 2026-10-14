@@ -84,7 +84,9 @@ final class ImportController {
         let previews = flow.isBatch ? flow.batchPreviews.map(\.preview) : [preview]
         do {
             var result: ImportResult?
+            var before = Library()
             let backup = try await store.commit(backingUpAs: Backup.importLabel) { library in
+                before = library
                 let applied = previews.count == 1 ? preview.applyFollowingFlows(to: library)
                     : StatementBatch.apply(previews, to: library) { $0.applyFollowingFlows(to: $1) }
                 result = applied
@@ -93,7 +95,8 @@ final class ImportController {
             guard let result else { return }
             var receipt = ImportReceipt(fileName: flow.displayName ?? "the file", result: result)
             if flow.isBatch {
-                receipt.batchSummary = ImportFlow.batchSummary(result, of: flow.batchFiles.compactMap(\.account))
+                receipt.batchSummary = ImportFlow.batchSummary(result, of: flow.batchFiles.compactMap(\.account),
+                                                               importedInto: before)
             }
             receipt.backup = backup
             self.receipt = receipt

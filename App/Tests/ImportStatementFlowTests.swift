@@ -325,6 +325,9 @@ struct ImportStatementFlowTests {
         // A change to one file's lines keeps the pair.
         flow.setStatementClass(.spending, forRow: try line(flow, "Affitto").row)
         #expect(try line(flow, "Giroconto").source == .paired("conto-deposito"))
+        // The example library has both accounts' September values: overwritten, they change.
+        #expect(flow.planned?.hasChanges == false)
+        flow.setConflictPolicy(.overwrite)
         #expect(flow.planned?.hasChanges == true)
 
         // A file nothing recognizes waits for its account.
@@ -393,9 +396,16 @@ struct ImportStatementFlowTests {
     @Test func doneCountsTheAccountsTheImportChanged() throws {
         var result = try #require(flow().planned)
         result.changedMonths = ["2026-08", "2026-09"]
-        result.changedAccounts = ["conto-fineco", "casa"]
-        #expect(ImportFlow.batchSummary(result, of: ["conto-deposito", "conto-fineco"])
+        result.changedAccounts = ["casa"]
+        let accounts: [AccountID] = ["conto-deposito", "conto-fineco"]
+        #expect(ImportFlow.batchSummary(result, of: accounts, importedInto: PreviewLibrary.library)
+            == "Imported 2 months for 0 accounts")
+        result.library.upsert(Valuation(account: "conto-fineco", date: "2026-09-30", balance: 1))
+        #expect(ImportFlow.batchSummary(result, of: accounts, importedInto: PreviewLibrary.library)
             == "Imported 2 months for 1 account")
+        result.changedAccounts = ["conto-deposito"]
+        #expect(ImportFlow.batchSummary(result, of: accounts, importedInto: PreviewLibrary.library)
+            == "Imported 2 months for 2 accounts")
     }
 
     /// Several statements take every step, and one file opens as "Import

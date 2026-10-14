@@ -123,9 +123,14 @@ extension ImportFlow {
     }
 
     /// "Imported 13 months for 2 accounts", for Done: the files' accounts
-    /// the import changed, not one whose file the library already had.
-    static func batchSummary(_ result: ImportResult, of fileAccounts: [AccountID]) -> String {
-        let accounts = Set(fileAccounts).intersection(result.changedAccounts).count
+    /// whose values or account the import changed in `library`, not one
+    /// whose file the library already had.
+    static func batchSummary(_ result: ImportResult, of fileAccounts: [AccountID],
+                             importedInto library: Library) -> String {
+        let accounts = Set(fileAccounts).filter { account in
+            result.changedAccounts.contains(account)
+                || result.library.valuations(for: account) != library.valuations(for: account)
+        }.count
         let months = Wording.count(result.changedMonths.count, "month")
         return "Imported \(months) for \(Wording.count(accounts, "account"))"
     }
