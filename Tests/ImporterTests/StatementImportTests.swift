@@ -514,6 +514,9 @@ struct StatementImportTests {
         let preview = session.preview(against: library, today: Self.today)
         #expect(preview.issues.filter { !$0.isNote }.isEmpty, "\(preview.issues)")
         #expect(try Self.line(preview, row: 11).source == .rule("Addebito carta di credito"))
+        // Its remembered answer: the expenses paid back on 3 March are income, not a refund.
+        #expect(try Self.line(preview, row: 9).statementClass == .income)
+        #expect(try Self.line(preview, row: 9).source == .chosen)
         #expect(preview.records.map(\.imported.key) == [.valuation("conto-fineco", "2026-02-28"),
                                                         .valuation("conto-fineco", "2026-03-31")])
     }

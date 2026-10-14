@@ -117,7 +117,7 @@ extension PreviewBuilder {
     // MARK: - Classifying
 
     /// Each line's class and why: an answer that moves money to or from an
-    /// account, chosen for the line, a rule, a trade of another account
+    /// account, chosen for the line, remembered for it, a rule, a trade of another account
     /// moving the same amount, a line of another account's statement
     /// imported with it moving it the other way, another account named in
     /// the text, the usual words; for money in, a sender paid before or a
@@ -126,7 +126,8 @@ extension PreviewBuilder {
         let names = accountNames(excluding: account)
         let answered = answeredAssets(read, account: account)
         let open = read.indices.filter { index in
-            session.statementLineClasses[read[index].row] == nil && session.statementRule(for: read[index].text) == nil
+            session.statementLineClasses[read[index].row] == nil && remembered(read[index]) == nil
+                && session.statementRule(for: read[index].text) == nil
                 && answered[read[index].row] == nil && session.statementPairs[read[index].row] == nil
         }
         let trades = matchTrades(read, lines: open, excluding: account.id)
@@ -143,6 +144,8 @@ extension PreviewBuilder {
                 }
             } else if let statementClass = session.statementLineClasses[line.row] {
                 chosen = (statementClass, .chosen)
+            } else if let answer = remembered(line) {
+                chosen = (answer.statementClass, .chosen)
             } else if let rule {
                 chosen = (rule.statementClass, .rule(rule.match))
             } else if let trade = trades[index] {
@@ -171,6 +174,12 @@ extension PreviewBuilder {
         Self.markPurchaseQuestions(&lines, history: history)
         Self.markPassThroughs(&lines)
         return lines
+    }
+
+    /// The profile's remembered answer for `line`, chosen for it in an
+    /// earlier file (``ImportProfile/answers``).
+    private func remembered(_ line: ReadLine) -> StatementAnswer? {
+        session.statementAnswer(date: line.date, amount: line.amount, text: line.text)
     }
 
     /// Marks the lines that need an answer, or would without the class or
@@ -399,7 +408,7 @@ extension PreviewBuilder {
     /// comes first: money moved to or from the rule's account.
     private func ruleMove(for line: ReadLine) -> StatementAsset? {
         guard session.statementLineClasses[line.row] == nil, session.statementAssets[line.row] == nil,
-              let rule = session.statementRule(for: line.text), rule.statementClass == .transfer
+              remembered(line) == nil, let rule = session.statementRule(for: line.text), rule.statementClass == .transfer
         else { return nil }
         return rule.account.map(StatementAsset.moved)
     }
