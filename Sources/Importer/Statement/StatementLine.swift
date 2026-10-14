@@ -65,6 +65,10 @@ public struct StatementLine: Hashable, Sendable, Identifiable {
     /// tax, or moved to or from an account? Until it's answered it counts
     /// as spending.
     public var needsAnswer = false
+    /// Whether the line needs an answer, or would without the class or
+    /// the answer chosen for it alone: a question that stays a question
+    /// once it's answered.
+    public var wasAsked = false
     /// The line's answer as money moved to or from an account, a purchase
     /// you keep or a sale (``ImportSession/setStatementAsset(_:forRow:)``,
     /// or a rule with an account), when the import takes it: the line is

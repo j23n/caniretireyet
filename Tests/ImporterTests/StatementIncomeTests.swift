@@ -80,6 +80,26 @@ struct StatementIncomeTests {
         #expect(advance.source == .recurring)
     }
 
+    /// An answered question stays a question: the line was asked.
+    @Test func anAnsweredLineWasAsked() throws {
+        let csv = Self.csv + "\n30/03/2026;15.000,00;Bonifico SEPA da ACME GmbH rif TFR"
+        var session = try ImportSession(data: Data(csv.utf8))
+        session.proposeMapping(layout: .statement)
+        session.profile.constants.account = "conto"
+        let before = session.preview(against: Self.library(), today: Self.today)
+        let asked = try Self.line(before, "Bonifico SEPA da ACME GmbH rif TFR")
+        #expect(asked.needsAnswer)
+        #expect(asked.wasAsked)
+        session.setStatementClass(.oneOff, forRow: asked.row)
+        let preview = session.preview(against: Self.library(), today: Self.today)
+        let answered = try Self.line(preview, "Bonifico SEPA da ACME GmbH rif TFR")
+        #expect(!answered.needsAnswer)
+        #expect(answered.wasAsked)
+        #expect(answered.statementClass == .oneOff)
+        #expect(preview.statementLines.filter(\.wasAsked).map(\.row)
+            == before.statementLines.filter(\.needsAnswer).map(\.row))
+    }
+
     @Test func aRegularPayersLargerLineNeedsAnAnswerWhateverItsSize() throws {
         let csv = Self.csv + "\n10/01/2026;500,00;Bonifico da Affitti Bianchi rif 0126"
             + "\n10/02/2026;500,00;Bonifico da Affitti Bianchi rif 0226"
