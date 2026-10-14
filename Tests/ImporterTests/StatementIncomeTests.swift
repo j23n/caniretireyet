@@ -56,6 +56,14 @@ struct StatementIncomeTests {
         #expect(StatementWords.sender(of: "Bonifico a vostro favore disposto da: Mario Rossi") == "Mario Rossi")
     }
 
+    /// A payment processor writes the merchant after a `*`.
+    @Test func aProcessorsLineIsItsMerchants() {
+        #expect(StatementWords.sender(of: "PayPal Europe *Kleinanzeigen Fahrrad") == "Kleinanzeigen")
+        #expect(StatementWords.sender(of: "SUMUP *BarCentrale 0412") == "BarCentrale")
+        #expect(StatementWords.sender(of: "PayPal *") == "PayPal")
+        #expect(StatementWords.sender(of: "Libreria *Rossi") == "Libreria Rossi")
+    }
+
     @Test func aPensionAndARefundAreKnownByTheirWords() {
         #expect(StatementWords.suggestion(for: "Accredito pensione INPS", amount: 1200) == .income)
         #expect(StatementWords.suggestion(for: "Rimborso Amazon", amount: 30) == .spending)

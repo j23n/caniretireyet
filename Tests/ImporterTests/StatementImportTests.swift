@@ -187,6 +187,9 @@ struct StatementImportTests {
         #expect(session.statementRule(for: "Accredito stipendio ACME")?.statementClass == .transfer)
         session.setStatementRule(.spending, for: "Accredito Stipendio")
         #expect(session.profile.rules.filter { $0.match.lowercased().hasPrefix("accredito") }.count == 2)
+        #expect(session.statementRule(matching: "ACCREDITO, stipendio")?.statementClass == .spending)
+        #expect(session.statementRule(matching: "Accredito stipendio ACME") == nil)
+        #expect(session.statementRule(matching: " – ") == nil)
         session.setStatementRule(nil, for: "accredito stipendio")
         #expect(session.statementRule(for: "Accredito stipendio ACME")?.statementClass == .income)
     }

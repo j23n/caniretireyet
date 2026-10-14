@@ -131,6 +131,17 @@ public struct StatementBatch: Sendable {
         pairTransfers(in: library, today: today)
     }
 
+    /// Edits the session of every file, given with its ID (a rule for every
+    /// statement, a sender's lines in several files), then pairs the
+    /// transfers again once.
+    public mutating func editSessions(library: Library, today: CalendarDate = .today(),
+                                      _ edit: (Int, inout ImportSession) -> Void) {
+        for index in files.indices {
+            edit(files[index].id, &files[index].session)
+        }
+        pairTransfers(in: library, today: today)
+    }
+
     /// Finds the account of each file without one, the first way that
     /// names exactly one: the profile's account, then an account the
     /// file's opening balance follows on from, then one its name or title

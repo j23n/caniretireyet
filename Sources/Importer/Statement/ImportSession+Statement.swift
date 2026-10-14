@@ -24,6 +24,15 @@ extension ImportSession {
             .max { $0.phrase.count < $1.phrase.count }?.rule
     }
 
+    /// The profile's rule for `phrase` itself, the one
+    /// ``setStatementRule(_:for:)`` with it replaces: the same words,
+    /// ignoring case, accents and punctuation.
+    public func statementRule(matching phrase: String) -> StatementRule? {
+        let words = TextTools.words(phrase)
+        guard !words.isEmpty else { return nil }
+        return profile.rules.first { TextTools.words($0.match) == words }
+    }
+
     /// Makes every line whose text has `phrase` a `statementClass`, in the
     /// profile's rules, replacing a rule for the same phrase; `nil` removes it.
     public mutating func setStatementRule(_ statementClass: StatementClass?, for phrase: String) {

@@ -137,6 +137,23 @@ struct StatementBatchTests {
         #expect(result.added == 2)
     }
 
+    /// A rule made for every file classifies each file's lines, and a line
+    /// a rule classifies isn't paired.
+    @Test func everyFileIsEditedAtOnce() throws {
+        var batch = Self.batch([("fineco-gennaio.csv", Self.current), ("export.csv", Self.savings)])
+        var edited: [Int] = []
+        batch.editSessions(library: Self.library(), today: Self.today) { id, session in
+            edited.append(id)
+            session.setStatementRule(.spending, for: "Bonifico")
+        }
+        #expect(edited == [0, 1])
+        #expect(batch.files.map { $0.session.profile.rules.map(\.match) } == [["Bonifico"], ["Bonifico"]])
+        let out = try #require(Self.lines(batch, 0).first { $0.amount == -1000 })
+        #expect(out.source == .rule("Bonifico"))
+        let incoming = try #require(Self.lines(batch, 1).first { $0.amount == 1000 })
+        #expect(incoming.source == .rule("Bonifico"))
+    }
+
     @Test func aChosenAccountPairsAgain() throws {
         var batch = Self.batch([("export.csv", Self.current), ("export (2).csv", Self.savings)])
         #expect(batch.files[0].account == nil)
