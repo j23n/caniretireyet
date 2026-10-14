@@ -552,12 +552,12 @@ struct PlanYearCardView: View {
     // and the latest at its right edge with amounts hidden.
     let library = PreviewLibrary.library
     let asOf = PreviewLibrary.latestCheckIn
-    let model = PlanProgressModel(plan: "base", document: library.plans["base"], library: library,
-                                  valuator: PreviewLibrary.valuator, asOf: asOf,
-                                  text: PlanMilestoneText(currency: library.settings.baseCurrency))
-    let cards = model.timeline.cards
-    let scale = model.timeline.scale(fitting: PlanStripWindow(wholeCards: Array(cards.indices)),
-                                     inset: Double(PlanYearCardView.pad))
+    let progress = PlanProgress(plan: "base", document: library.plans["base"], library: library,
+                                valuator: PreviewLibrary.valuator, asOf: asOf)
+    let timeline = PlanProgressTimeline(progress, text: PlanMilestoneText(currency: library.settings.baseCurrency))
+    let cards = timeline.cards
+    let scale = timeline.scale(fitting: PlanStripWindow(wholeCards: Array(cards.indices)),
+                               inset: Double(PlanYearCardView.pad))
     let height = PlanYearCardView.height(textScale: 1)
     let width = PlanYearCardView.width(pointsPerMonth: 21)
     let shape = RoundedRectangle(cornerRadius: 14, style: .continuous)

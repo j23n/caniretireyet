@@ -25,7 +25,7 @@ struct PlanMilestones {
     ///   - results: the plan's results shown, for what retiring today needs
     ///     and the median future; without them, nothing is ahead.
     ///   - reached: those reached, as Progress works them out once
-    ///     (``PlanProgressModel``); none where only what's ahead shows (the
+    ///     (the Planner's `PlanProgress`); none where only what's ahead shows (the
     ///     Plan screen, the widget).
     init(plan: PlanDocument, library: Library, valuator: Valuator, asOf: CalendarDate, results: PlanResults?,
          reached: [ReachedMilestone] = []) {

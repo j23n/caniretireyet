@@ -1,5 +1,6 @@
 import Charts
 import Model
+import Planner
 import SwiftUI
 
 /// Trends' *Time to retirement* (UI.md, "Trends"): the earliest retirement

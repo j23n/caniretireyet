@@ -584,11 +584,3 @@ enum PlanStoreError: Error, Equatable, Sendable, LocalizedError {
         }
     }
 }
-
-extension Baseline {
-    /// Whether it's the automatic baseline of `year` ("Start of 2026"),
-    /// which the year's first check-in saves.
-    func isYearly(of year: Int) -> Bool {
-        kind == .yearly && created.year == year
-    }
-}

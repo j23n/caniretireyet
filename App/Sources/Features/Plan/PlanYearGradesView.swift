@@ -1,4 +1,5 @@
 import Model
+import Planner
 import SwiftUI
 
 /// Trends' *Year by year* (UI.md, "Trends"): a row per calendar year, newest
@@ -7,7 +8,7 @@ import SwiftUI
 /// a table with the amounts each word compares under it; on iPhone the
 /// words alone. A row opens its year on Progress.
 struct PlanYearGradesTable: View {
-    let years: [PlanYearGrade]
+    let years: [PlanProgressYear]
     var isWide = false
     let onShowYear: (Int) -> Void
 
@@ -50,7 +51,7 @@ struct PlanYearGradesTable: View {
             .foregroundStyle(Palette.secondaryInk)
     }
 
-    private func row(_ grade: PlanYearGrade) -> some View {
+    private func row(_ grade: PlanProgressYear) -> some View {
         PlanYearColumns(yearWidth: yearWidth) {
             VStack(alignment: .leading, spacing: 1) {
                 Text(String(grade.year))
@@ -64,11 +65,11 @@ struct PlanYearGradesTable: View {
             }
             .foregroundStyle(Palette.ink)
             .privacySensitiveInFeedback()
-            if grade.hasBaseline {
+            if grade.baseline != nil {
                 cell(grade.saved?.words, amounts: savedAmounts(grade))
                 cell(grade.spent?.words, amounts: spentAmounts(grade))
             } else {
-                Text(PlanYearGrade.noPlan)
+                Text(PlanProgressYear.noPlan)
                     .font(PlanProgressFont.text)
                     .foregroundStyle(Palette.secondaryInk)
                     .fixedSize(horizontal: false, vertical: true)
@@ -82,7 +83,7 @@ struct PlanYearGradesTable: View {
     /// compares under it, which hide with the eye.
     private func cell(_ words: String?, amounts: AmountSentence?) -> some View {
         VStack(alignment: .leading, spacing: 1) {
-            Text(words ?? PlanYearGrade.ungraded)
+            Text(words ?? PlanProgressYear.ungraded)
                 .font(PlanProgressFont.text)
                 .foregroundStyle(words == nil ? Palette.secondaryInk : Palette.ink)
                 .fixedSize(horizontal: false, vertical: true)
@@ -101,25 +102,26 @@ struct PlanYearGradesTable: View {
     }
 
     /// "20.486 € · planned 13.463 €", "… by now" for the year still going.
-    private func savedAmounts(_ grade: PlanYearGrade) -> AmountSentence {
+    private func savedAmounts(_ grade: PlanProgressYear) -> AmountSentence {
         guard let planned = grade.plannedSaving else { return amount(grade.putIn) }
         let byNow = grade.isSoFar ? " by now" : ""
         return "\(amount(grade.putIn)) · planned \(amount(planned))\(byNow)"
     }
 
     /// "31.600 € a year · planned 36.000 €"; `nil` without money in and out recorded.
-    private func spentAmounts(_ grade: PlanYearGrade) -> AmountSentence? {
+    private func spentAmounts(_ grade: PlanProgressYear) -> AmountSentence? {
         guard let spent = grade.spentPerYear else { return nil }
         guard let planned = grade.plannedSpending else { return "\(amount(spent)) a year" }
         return "\(amount(spent)) a year · planned \(amount(planned))"
     }
 
     /// "+12.400 € · +9%": what markets added, and its share of what you had going in.
-    private func marketAmounts(_ grade: PlanYearGrade) -> AmountSentence? {
+    private func marketAmounts(_ grade: PlanProgressYear) -> AmountSentence? {
         guard grade.marketYear != nil else { return nil }
-        let added = AmountSentence.amount(AmountFormat.signedAmount(grade.markets, currency: library.baseCurrency,
+        let markets = grade.change.market
+        let added = AmountSentence.amount(AmountFormat.signedAmount(markets, currency: library.baseCurrency,
                                                                     locale: locale))
-        let share = AmountFormat.percent(grade.markets / grade.start, digits: 0, signed: true, locale: locale)
+        let share = AmountFormat.percent(markets / grade.change.start, digits: 0, signed: true, locale: locale)
         return "\(added) · \(share)"
     }
 }

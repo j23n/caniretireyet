@@ -282,7 +282,9 @@ extension PlanResults {
         var answer = headline
         let rate = exchangeRate(into: currency, valuator: valuator)
         answer.sustainableSpending = rate.flatMap { rate in
-            headline.sustainableSpending.map { rate == 1 ? $0 : Decimal(wholeNumber: $0.doubleValue * rate, rounding: .down) }
+            headline.sustainableSpending.map {
+                rate == 1 ? $0 : Decimal(wholeNumber: $0.doubleValue * rate, rounding: .down)
+            }
         }
         return answer
     }
