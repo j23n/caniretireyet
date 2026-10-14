@@ -14,7 +14,7 @@ extension Migration {
     ///    (``Model/Account/asksForFlow``): that flow is worked out from the
     ///    account's records, so a missing one means "computed". A savings
     ///    value without `interest` whose flow wasn't its change gets the
-    ///    difference as its interest, so its new money stays; a note names
+    ///    difference as its interest, so what it saved stays; a note names
     ///    each other balance whose flows weren't its change;
     /// 4. prices instruments priced from CoinGecko from Yahoo Finance, as
     ///    the coin's pair in the instrument's currency (`BTC-EUR`), when the
@@ -25,7 +25,7 @@ extension Migration {
         dropBothReturns(in: &files)
         let flowNotes = dropComputedFlows(in: &files)
         return flowNotes + priceCryptoFromYahoo(in: &files)
-    }, from: 4, summary: "New money is stored only where it was typed: other values work it out from what's "
+    }, from: 4, summary: "What you saved is stored only on accounts that ask for it: other values work it out from what's "
         + "recorded. Crypto is priced from Yahoo Finance, not CoinGecko.")
 
     // MARK: - Renamed values
@@ -90,7 +90,7 @@ extension Migration {
     /// Drops the `flow` of every valuation whose account doesn't ask for one.
     /// A savings value without `interest` whose flow wasn't its change (one
     /// typed before values recorded interest) gets the difference as its
-    /// `interest`, so its new money stays the same. Returns a note for
+    /// `interest`, so what it saved stays the same. Returns a note for
     /// each other balance whose values' flows differed from what's now
     /// worked out from its balances.
     private static func dropComputedFlows(in files: inout [String: JSONValue]) -> [String] {
@@ -145,7 +145,7 @@ extension Migration {
                 replace(entry, with: .object(members), in: &files)
             }
             if differed > 0 {
-                notes.append("\(account.name): the new money of \(Wording.count(differed, "value")) wasn't the change in "
+                notes.append("\(account.name): what \(Wording.count(differed, "value")) saved wasn't the change in "
                     + "balance; it's now worked out from the balances.")
             }
         }

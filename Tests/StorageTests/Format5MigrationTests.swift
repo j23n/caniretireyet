@@ -97,7 +97,7 @@ struct Format5MigrationTests {
         #expect(byAccount["pension"]?["flow"] == "150")
         let january = try #require(files["history/2026/2026-01.json"]?["valuations"]?.arrayValue)
         #expect(january.allSatisfy { $0["flow"] == nil })
-        #expect(notes == ["Car: the new money of 1 value wasn't the change in balance; it's now worked out from the "
+        #expect(notes == ["Car: what 1 value saved wasn't the change in balance; it's now worked out from the "
             + "balances."])
     }
 
