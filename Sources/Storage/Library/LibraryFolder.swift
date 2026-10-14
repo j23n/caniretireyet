@@ -62,32 +62,16 @@ public struct LibraryFolder: Sendable {
     /// isn't valid JSON or doesn't hold the settings throws
     /// ``StorageError/unreadableFile(path:message:)``, since the settings in
     /// memory are then only defaults. A folder without `library.json` (a new
-    /// library) can be written.
+    /// library) can be written. It reads `library.json` once, as loading
+    /// does (``LoadReport/readOnlyReason``).
     public func checkWritable(schemaVersion: Int? = nil) throws {
-        try checkSchemaVersions(schemaVersion)
-        try checkSettingsReadable()
+        try settingsReport().checkWritable(schemaVersion: schemaVersion)
     }
 
-    /// Throws unless the schema version in memory (if given) and on disk
-    /// are the current one.
-    func checkSchemaVersions(_ schemaVersion: Int?) throws {
-        let current = LibrarySettings.currentSchemaVersion
-        for version in [schemaVersion, schemaVersionOnDisk()].compactMap({ $0 }) {
-            if version > current { throw StorageError.libraryIsNewer(version: version, supported: current) }
-            if version < current { throw StorageError.libraryNeedsMigration(version: version, current: current) }
-        }
-    }
-
-    /// Throws when `library.json` exists but can't be loaded as it is
-    /// (``LoadReport/settingsUnreadable``).
-    func checkSettingsReadable() throws {
-        let settings = url(for: LibraryFile.settings)
-        guard files.fileExists(at: settings) else { return }
-        guard let data = try? files.readData(at: settings),
-              !LibraryLoader.decode(.settings, from: data).hasErrors
-        else {
-            throw StorageError.unreadableSettings
-        }
+    /// What loading `library.json` alone finds.
+    func settingsReport() -> LoadReport {
+        var scratch = Library()
+        return reload(.settings, into: &scratch)
     }
 
     /// Checks that `path` is a plain relative path inside the folder.

@@ -348,12 +348,9 @@ extension LibraryFolder {
     /// format version.
     private func checkRestorable(_ backup: Backup) throws -> String {
         let folder = try manifestFolder(of: backup)
-        if backup.files.contains(LibraryFile.settings.path) {
-            // Restoring a copy of library.json is how an unreadable one is fixed.
-            try checkSchemaVersions(nil)
-        } else {
-            try checkWritable()
-        }
+        // Restoring a copy of library.json is how an unreadable one is fixed.
+        try settingsReport().checkWritable(
+            schemaVersion: nil, allowingUnreadableSettings: backup.files.contains(LibraryFile.settings.path))
         let current = LibrarySettings.currentSchemaVersion
         if let version = backup.schemaVersion, version != current {
             throw StorageError.backupFromOtherVersion(name: backup.name, version: version, current: current)

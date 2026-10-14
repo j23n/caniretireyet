@@ -34,28 +34,33 @@ public struct LoadReport: Hashable, Sendable {
         self.settingsUnreadable = settingsUnreadable
     }
 
-    /// Whether the library was written by a newer app version. It is then
-    /// open read-only: every save throws ``StorageError/libraryIsNewer(version:supported:)``.
-    public var isNewerSchema: Bool {
-        schemaVersion.map { $0 > LibrarySettings.currentSchemaVersion } ?? false
-    }
-
-    /// Whether the library is open read-only: it was written by a newer app
-    /// version (``isNewerSchema``), or its `library.json` can't be used
-    /// (``settingsUnreadable``). Every save then throws.
-    public var isReadOnly: Bool {
-        isNewerSchema || settingsUnreadable
-    }
-
-    /// Why the library is open read-only, or `nil` when it isn't.
+    /// Why the library is open read-only, or `nil` when it isn't: it was
+    /// written by a newer app version, or its `library.json` can't be used
+    /// (``settingsUnreadable``). Every save then throws
+    /// (``checkWritable(schemaVersion:allowingUnreadableSettings:)``).
     public var readOnlyReason: ReadOnlyReason? {
-        if isNewerSchema { return .newerSchema }
+        if let schemaVersion, schemaVersion > LibrarySettings.currentSchemaVersion { return .newerSchema }
         return settingsUnreadable ? .unreadableSettings : nil
+    }
+
+    /// Throws unless this app version may write to the library this report
+    /// read: the schema version in memory (if given) and on disk must be
+    /// the current one, and a `library.json` on disk must be usable, unless
+    /// `allowingUnreadableSettings` (restoring a copy of it is how it's
+    /// fixed). A folder without `library.json` (a new library) can be
+    /// written.
+    func checkWritable(schemaVersion inMemory: Int?, allowingUnreadableSettings: Bool = false) throws {
+        let current = LibrarySettings.currentSchemaVersion
+        for version in [inMemory, schemaVersion].compactMap({ $0 }) {
+            if version > current { throw StorageError.libraryIsNewer(version: version, supported: current) }
+            if version < current { throw StorageError.libraryNeedsMigration(version: version, current: current) }
+        }
+        if settingsUnreadable, !allowingUnreadableSettings { throw StorageError.unreadableSettings }
     }
 
     /// Why a library is open read-only, for the words that tell you what to do.
     public enum ReadOnlyReason: Hashable, Sendable {
-        /// A newer app version wrote it (``LoadReport/isNewerSchema``): update the app.
+        /// A newer app version wrote it: update the app.
         case newerSchema
         /// Its `library.json` exists but can't be used
         /// (``LoadReport/settingsUnreadable``): fix the file or restore it

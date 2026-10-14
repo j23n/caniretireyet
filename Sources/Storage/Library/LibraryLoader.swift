@@ -13,7 +13,7 @@ extension LibraryFolder {
     /// are `Library.problems()`, in Tracker.
     ///
     /// A library written by a newer app version loads read-only (see
-    /// ``LoadReport/isReadOnly``), and so does one whose `library.json`
+    /// ``LoadReport/readOnlyReason``), and so does one whose `library.json`
     /// exists but can't be used (``LoadReport/settingsUnreadable``): its
     /// settings are the defaults in memory, which must not be saved over
     /// the file. Throws only if the folder doesn't exist or can't be listed.

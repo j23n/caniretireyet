@@ -69,16 +69,18 @@ struct ValidateCommand: RetireSubcommand {
         var versionText: String {
             let current = LibrarySettings.currentSchemaVersion
             guard let version = load.schemaVersion else { return "unknown (library.json can't be read)" }
-            if load.isNewerSchema { return "\(version), newer than this version understands (\(current))" }
+            if load.readOnlyReason == .newerSchema { return "\(version), newer than this version understands (\(current))" }
             if load.needsMigration { return "\(version), older than this version's \(current): upgrade before saving" }
             return "\(version) (current)"
         }
 
         /// Whether the library is read-only, and what to do about it.
         var readOnlyText: String {
-            if load.isNewerSchema { return "yes: update the app to make changes" }
-            if load.settingsUnreadable { return "yes: library.json can't be read; fix it or restore it from backups/" }
-            return "no"
+            switch load.readOnlyReason {
+            case .newerSchema: "yes: update the app to make changes"
+            case .unreadableSettings: "yes: library.json can't be read; fix it or restore it from backups/"
+            case nil: "no"
+            }
         }
 
         var contentsText: String {
@@ -129,7 +131,7 @@ struct ValidateCommand: RetireSubcommand {
 
         var json: JSON {
             JSON(library: folder.root.path, schemaVersion: load.schemaVersion,
-                 currentSchemaVersion: LibrarySettings.currentSchemaVersion, readOnly: load.isReadOnly,
+                 currentSchemaVersion: LibrarySettings.currentSchemaVersion, readOnly: load.readOnlyReason != nil,
                  needsMigration: load.needsMigration,
                  migration: migration.map {
                      JSON.Migration(fromVersion: $0.fromVersion, toVersion: $0.toVersion, backup: $0.backup.path,
