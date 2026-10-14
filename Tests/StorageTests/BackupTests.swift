@@ -122,6 +122,34 @@ struct BackupTests {
         #expect(october?.valuations.map(\.account) == ["tfr"])
     }
 
+    /// The app saves the profiles of the statements it imports in the same
+    /// change (UI.md, "Import", Review): undoing the import takes them back.
+    @Test func profilesSavedWithAnImportAreUndoneWithIt() throws {
+        let folder = try TemporaryFolder.exampleLibrary()
+        let before = try folder.library.load().library
+        var after = before
+        after.upsert(Valuation(account: "conto-fineco", date: "2026-10-31", balance: 4800, source: .import))
+        var updated = try #require(after.importProfiles["fineco-movimenti"])
+        updated.rules.append(StatementRule(match: "Studio Verdi", statementClass: .income))
+        after.importProfiles[updated.id] = updated
+        var new = updated
+        new.id = "banca-esempio-conto-deposito"
+        new.name = "Banca Esempio, Conto deposito"
+        after.importProfiles[new.id] = new
+        let paths = after.files(changedFrom: before).map(\.path)
+        #expect(paths.contains("imports/fineco-movimenti.json"))
+        #expect(paths.contains("imports/banca-esempio-conto-deposito.json"))
+        let taken = try folder.library.backup(paths: paths, label: "import")
+        try folder.library.save(after, previous: before)
+        let backup = try folder.library.recordResult(of: taken)
+        #expect(try folder.library.load().library.importProfiles.count == before.importProfiles.count + 1)
+
+        let report = try folder.library.undo(backup)
+        #expect(report.isComplete)
+        #expect(report.deleted.contains("imports/banca-esempio-conto-deposito.json"))
+        #expect(try folder.library.load().library.importProfiles == before.importProfiles)
+    }
+
     @Test func aBackupWithoutAResultIsRestoredAsItWas() throws {
         let folder = try TemporaryFolder.exampleLibrary()
         let (recorded, _, _) = try importInto(folder)
