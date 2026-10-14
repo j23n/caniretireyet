@@ -99,6 +99,8 @@ The home screen. Top to bottom:
 │ │ │  58%  │  At 54 · March 2042        │ │
 │ │ │ ready │  in 9 of 10 futures        │ │
 │ │ ╰───────╯  ◷ 30 Sep                  │ │
+│ │            2 years sooner            │ │
+│ │            than a year ago, at 56    │ │
 │ ╰──────────────────────────────────────╯ │
 │ ╭──────────────────╮╭──────────────────╮ │
 │ │ Net worth        ││ On track?      › │ │
@@ -108,6 +110,16 @@ The home screen. Top to bottom:
 │ │ ▲ 6,2% this year ││ Past the coast   │ │
 │ │                  ││ point: 63 …      │ │
 │ ╰──────────────────╯╰──────────────────╯ │
+│ ┌ Your way there ──────────────────────┐ │
+│ │ ⚑──⚑──⚑──●──○──○──────────────── 54  │ │
+│ │ ⚑ Next · 80% there                   │ │
+│ │   5 years of spending · typically …  │ │
+│ │ ⚑ Last reached · August              │ │
+│ │ Since you started · October 2021     │ │
+│ │ You could retire at 54, not 58       │ │
+│ │ From 21% to 58% ready, 7 milestones… │ │
+│ │ [All Milestones]       [Your Year]   │ │
+│ └──────────────────────────────────────┘ │
 │                                          │
 │ 3Y ▾                            Future ◯ │
 │ ▬ Cash  ▬ Equity  ▬ Real estate  ▬ Debts │
@@ -125,6 +137,7 @@ The home screen. Top to bottom:
 │ │ Markets    │▇▇▇▇▇▇▇▇▇      +2.950 €  │ │
 │ │ Saved      │▇▇▇▇▇          +1.500 €  │ │
 │ │ Other     ▇│                 −240 €  │ │
+│ │ You saved about 2½ weeks of the life…│ │
 │ └──────────────────────────────────────┘ │
 │ ┌ This year ───────────────────────────┐ │
 │ │ ▲ +18.240 € since 31 Dec 2025        │ │
@@ -176,6 +189,7 @@ The screen leads with the app's question, *Can I retire yet?*, when the main pla
   - **The ⓘ** explains the whole answer, in this order: the earliest age and month and the confidence ("At 54, in March 2042, in 9 of 10 futures"), the readiness ("58% of what you'd need to retire today") and what it compares, "Calculated before your latest changes" when the results are out of date, and "Estimates, not financial or tax advice." The disclaimer has no line of its own on the Overview.
   - **Headline:** the time to go at the ring's right, in title type (largeTitle when there's no ring), "In 15 years": the widgets' countdown (`RetirementCountdown.headlineText`), in whole years from two years on, rounded to the nearest, so 15 years and 6 months reads "In 16 years"; "In 18 months" below two years; "In under a month". "Yes" when you could retire today, "Not yet" when no age works out. An answer recorded at a check-in counts to the birthday its earliest age is reached on, never before the check-in, as the widgets do; without a birth date it has no time to go, nor does an earliest month that has passed: the headline is then "At 54". VoiceOver reads the headline and the ring as one: "Not yet. In about 15 years, at 54, in March 2042, in 9 of 10 futures. 58% of what you'd need to retire today."; "Yes. You could retire today, in at least 9 of 10 futures. …"; "Not yet. No age works in 9 of 10 futures yet. …".
   - **When and how sure:** two lines under the headline, the first in ink and the second in grey: "At 54 · March 2042" over "in 9 of 10 futures" (just the month when the headline is "At 54"); "Today" over "in at least 9 of 10 futures" with "Yes"; "No age works" over "in 9 of 10 futures yet".
+  - **A year on:** under those two lines, how the age moved against the answer recorded at the check-in a year ago, when it moved: "2 years sooner" (in green) over "than a year ago, at 56" in grey; "A year later" in ink. Not shown with "Yes", or without an answer from a year ago. VoiceOver reads it after the answer.
   - **Readiness ring:** how close your plan assets are to what retiring today needs ([PLANNER.md](PLANNER.md#assets-needed-to-retire-today)), a ring 144 points across with a 12-point line at the tile's leading edge, filling clockwise from the top in the accent over a gridline track. Inside it, the percentage in a 32-point bold figure over "ready". The number follows the *Readiness* widget's rules (Glance's `ReadinessFigure`): rounded down below 100%, "58%+" when it's a lower bound, "<5%" with an empty ring when retiring today would need more than 20 times your plan assets. It comes from the same simulation as the chance of retiring today, so it reaches 100% exactly when the answer turns to "Yes". Past 100% the ring laps itself: a full ring with the part past 100% drawn over it in a deeper blue, so 130% is a full ring and 30% more; it stops drawing at 200%, and the label still gives the real number. (The widget's ring is full at 100%.) The ring and its percentage keep their size at every text size; at the largest text sizes the answer's words go under the ring.
   - An answer recorded before readiness existed has only the old "of the way to financial independence", a rule of thumb that ignored the years before the pensions and taxes and so disagreed with the chance of retiring today: it has no ring, and "Calculate the plan to see how close you are to retiring today." goes under the answer's words instead.
   - **Out of date:** the ring, the answer's words and the coast point line dim (*Calculate* doesn't), as the Plan screen dims out-of-date results; the standing and net worth don't.
@@ -185,6 +199,9 @@ The screen leads with the app's question, *Can I retire yet?*, when the main pla
   - **Hidden amounts:** amounts hide as they do everywhere else (`AmountText`, `DeltaText`): the *Net worth* tile's amount is a placeholder, with this year's change in per cent, and *On track?* reads "▬▬▬ ahead"; VoiceOver reads the standing without the amount. The headline and the ring have no amounts.
   - The answer's tile opens the plan on a tap anywhere but the ⓘ and *Calculate*; the chevron is its button for VoiceOver and the keyboard.
   - **Before there's an answer** the answer is a card below the chart, with one next step. Without a main plan: "Make a plan to see when you could retire." with *Create a plan*, which creates "Base case" from the latest check-in, makes it the main plan and opens it, as the Plan screen's *Create your first plan* does (when there are plans but none is the main one: "Choose a main plan to see when you could retire." with *Open Plan*, where *Set as Main Plan* chooses it; when the main plan's file couldn't be read: "Your main plan's file couldn't be read, so it has no answer." with *Show Details*, which opens Sync). Why *Create a plan* failed shows under it until the plans change. With a main plan not yet calculated: "Calculate Base case to see when you could retire. Each check-in then records its answer." with *Calculate*; while it runs, "Working out Base case… 34%"; a plan that can't run says why, with *Try Again* and *Open Plan*.
+- **Saving as time.** *What moved* and *This year* end with what was saved said as time of the life the main plan spends for, its retirement spending a year (`SavingAsTime`, in Glance): "You saved about 2½ weeks of the life you plan. Markets added about 7 more." (or "Markets took about a week."). Days below a week, then weeks, months and years, in halves below 3¾ and whole above, all "about". Markets get a sentence only when they moved at least a day. Nothing without a main plan with spending, or when nothing was saved. The amount isn't said, so it shows while amounts are hidden; in a feedback screenshot it hides as a sentence does.
+- **Keep your goal in view.** Under the answer, once, after the first answer, while none of the yearly notes is on: "Retiring is years away. A few times a year, a short note can show how far you've come. Never amounts, never about markets." with the four yearly notes ticked (*Your year*, *Birthday*, *Records anniversary*, *Plan check-up*), *Turn On* and *Not Now*, and "Shown once. Settings › Notifications changes them later." *Turn On* asks for permission and turns on the ones ticked. Either button puts the card away for good. See [Notifications](#notifications).
+- **Your way there.** Under the answer (and the offer): the main plan's milestones ([Milestones](#milestones)) on one line from your first record to the age you could retire at, the ones reached as flags, the next as a dot with its progress, the ones after it as rings. Under it, the next milestone with how far there ("⚑ Next · 80% there", its name and when it's typical, or "Ahead, when typical"), the last one reached and its month, and *Since you started*: the month of the first answer, "You could retire at 54, not 58" ("…, as when you started" when it didn't move), and "From 21% to 58% ready, 7 milestones passed". *All Milestones* opens the plan's Progress, *Your Year* opens [Your year](#your-year). The ages, months and line hide in a feedback screenshot; amounts are amounts.
 - **Needs attention.** Only shown when something needs you: stale accounts (not one that holds nothing: see [Accounts](#accounts)), accounts with problems in their trades, prices that couldn't be fetched, sync conflicts that were merged, and plan warnings. An account whose trades have problems (more sold than held, an opening without a cost, a statement that differs from the trades: the notes its page shows) gets one item that opens it: "Directa: 2 problems with trades · More sold than held · VWCE differs from the statement. Open the account to fix them." Prices and exchange rates missing on past month ends get an item each, which opens *Fill In Past Prices*: "Past exchange rates for US$ are missing · US brokerage isn't fully counted in your net worth for Jun 2018 – Dec 2021. Fill in past prices to fetch them."
 - **Allocation.** Horizontal bars with values and percentages; a donut would be harder to read. The dimension can be switched between asset class, account group, currency, institution, and liquid vs locked.
   - *Asset class* splits holdings by their instrument's mix and balances by the account's mix, and shows debts as their own bar.
@@ -228,11 +245,34 @@ Once a month: import the month's files, look at what they did, save. Nothing is 
 - **After saving.** The confirmation shows as soon as the prices are written. The main plan then runs to record this month's answer (only for the latest check-in: see [Adding history](#adding-history)), and the answer card shows its progress ([Calculating](#calculating)) in the meantime, the same as on the Plan screen, without a Cancel button. Then it ends with the answer:
 
   > Saved · Net worth 312.480 € (▲ 4.210)
-  > Can I retire yet? Not yet: earliest at **54**, unchanged since August.
+  > Can I retire yet? Not yet. You could retire at **54**, a year sooner than in August.
   > 58% of what you'd need to retire today
 
+  The answer is always a whole sentence, never a bare age: "Not yet. You could retire at **54**, in March 2042." with no answer before, ", as in August." when it didn't move, ", 2 years later than in February."; "Yes. You could retire today, in 9 of 10 simulated futures."
+
   This is the monthly moment the app is built around, and the one time a plan runs without a button: recording the month's answer is what the check-in is for. *Done* can close the confirmation while it runs; the answer is still recorded.
+- **The ending.** Under the answer, a look at the way there, with charts:
+  - *The age you could retire at* (last 12 check-ins): how it moved in a year, "2 years sooner than a year ago" ("The same as in March 2026" against the first answer when there's none a year back), over a step line of the age at each check-in. Only from the second answer.
+  - *This month* (the last 12 months): what was saved as time ("You saved about 2½ weeks of the life you plan. Markets added about 7 more.", see [Overview](#overview)); when markets moved net worth by 5% or more, a word of perspective, "Markets took 8%. Months like this are part of the 9 in 10 futures your plan already counts." (`MarketPerspective`); and the last 12 months' saving and markets as pairs of bars, this month's in full colour and the others lighter, with no amount axis.
+  - "⚑ Next: 5 years of spending, 80% there."
+- **Notes.** Saving schedules the notes again ([Notifications](#notifications)): the month's note is answered, and the next one counts from this check-in.
 - ⌘S saves on the Mac and iPad.
+
+## Your year
+
+A year of the main plan looked back on, as a sheet with *Done*: last year in January (the note on 3 January opens it), else this year so far. It opens from *Your way there* and from the *Your year* note. Top to bottom:
+
+- **"Your 2026"**, "January to December" or "January to September", and "12 check-ins".
+- **The ring:** readiness at the year's last check-in, with where it started ("58% ready, from 41%"), and the answer: "You could retire at 54, 2 years sooner than a year ago." Your last Monday's month and how far away it is: "Your last Monday: about 15 years away, in March 2042".
+- **Tiles:** *You saved* and *Markets* for the year, each an amount with its time of the life you plan under it ("8 months of the life you plan", "added about 2 months"), and the milestones passed.
+- **The age you could retire at:** the step line through the year's check-ins.
+- **Your money through the year:** plan assets at each month end against what January's plan expected (its median and 25–75% band, as Progress draws a year), with a flag where a milestone was passed, and a line under it: "…, above what January expected all year", "…, around what January expected".
+- **Reached:** the milestones passed this year, each with its month.
+- **Month by month:** saving and markets for each month as bars ([Check-in](#check-in)'s chart).
+- **The year ahead:** the next milestone and when it's typical, and the countdown.
+- *Open 2026 on Progress* opens the year on the plan's Progress.
+
+Without an answer from a check-in: "Your year shows once the main plan has an answer from a check-in." Amounts hide as everywhere; ages, months and charts hide in a feedback screenshot.
 
 ## Accounts
 
@@ -994,9 +1034,33 @@ On iPhone, a CSV opened from Files that isn't a bank statement goes straight to 
 | Library | Location (iCloud Drive or this device), Show in Files/Finder, for a library on this device *Move to iCloud Drive* (refused when iCloud Drive already has one) and *Use the iCloud Drive Library* (opens that one; this one stays on the device), sync status, merged conflicts, backups (each with *Restore…*: after a confirmation that says how many files go back and to which day, the files as they are now are copied to a `restore` backup, then the backup's files are put back as they were, over any later changes, and the files it didn't have are deleted; a backup with a copy of an unreadable `library.json` can be restored while the library is read-only, which fixes it), the file format docs, and *Export as CSV…*: a sheet that writes the library as CSV files ([schema/README.md](schema/README.md#csv-export)), zipped as *Can I Retire Yet CSV 2026-09-30.zip*, with *Share…* and on the Mac *Save…* |
 | You | Name, birth date, base currency, country (it picks the default inflation index), and **Inflation**: *Automatic: Italy* (the tax residence's index, else the base currency's; `inflationIndex` left out) or a choice of the euro area and every country with an index: an HICP, or the United States' and the United Kingdom's CPI |
 | Prices | Price source per instrument kind: *Yahoo Finance (unofficial)* (so named wherever a price source is chosen or shown with an instrument; the footer says it has no official interface for apps and may stop working), CoinGecko with *Powered by CoinGecko* linking to coingecko.com (its attribution), gold-api.com, ECB via Frankfurter, and for inflation *Eurostat HICP, BLS (US), ONS (UK)*; API keys (stored in the Keychain), fetch on check-in |
-| Check-in reminder | Day of the month and time. This device only, so you aren't reminded twice. |
+| Notifications | A screen of its own, with its summary ("Monthly and yearly", "Monthly", "Yearly", "Off"): see [Notifications](#notifications). |
 | Privacy | Hide amounts, hide amounts when the app opens, and (iPhone and iPad) cover the app in the app switcher: the whole screen is covered while the app isn't active. The footer says only that. A Face ID lock is planned (M3), not built. |
 | About | The version and the library's format, and under them: "Results are estimates from a simplified model with the returns, taxes and pensions you enter. Plans take your income and pensions after tax, and tax your investments at the rates you set. They aren't financial, tax or legal advice: check important decisions with a professional." |
+
+## Notifications
+
+Notes that remind you of your goal and the way there, never of the app: a few a month at most, local notifications on this device only (so you aren't told twice), worked out by `NotePlanner` (Glance) from the widgets' snapshot. They're scheduled again at launch, after a check-in or a new answer, and when the settings change. A note never shows an amount: ages, years, months and percentages only, and a milestone that is a round amount is named by what it is.
+
+**Settings › Notifications.**
+
+| Section | Contents |
+| --- | --- |
+| Each month | *Monthly note*, its *Day* (*Last day of the month*, the default, or day 1 to 28) and *Time* (19:00). "When your check-in is due: where you stood at the last one, what's next, and the files to import." |
+| Once a year | *Your year* ("Early January, your year in review"), *Birthday* ("How far your last Monday is"), *Records anniversary* ("How far you've come since you started"), *Plan check-up* ("A year after your plan last changed") |
+
+The footer: "Notes show ages, years and percentages, never amounts. On this device only, so you aren't told twice." Turning a note on asks for permission first; when notifications aren't allowed, nothing turns on and the screen says "Notifications are off for this app. Turn them on in the system settings to get notes." Onboarding turns on the monthly note and *Your year*; the Overview offers the yearly ones once ([Overview](#overview), *Keep your goal in view*).
+
+**The notes.**
+
+- **Monthly** (on the chosen day and time): "September check-in", "At your August check-in you could retire at 54 and were 58% ready. 5 years of spending is 80% there. Import September's files to see where you stand." The milestone sentence only when the next one is 80% there or more. Touched and held, it shows a picture: the age at the last 12 check-ins as a step line, how ready you are as a bar, and the next milestone when it's close. *Import Files* and *Open Overview* are its actions; tapping it opens the check-in. Without an answer yet: "Import September's files, then calculate your plan to see when you could retire."
+- **Catching up:** with 2 or 3 months owed, the monthly note asks for them together ("Catch up by importing August's, September's and October's files together."); from 4 months owed, one note a quarter, "The months since then import together, whenever it suits you." Never a growing pile of nags.
+- **Your year** (3 January, 10:00): "Your 2026", "You could retire at 54, 2 years sooner than a year ago. You saved about 8 months of the life you plan and passed 3 milestones. See your year." It opens [Your year](#your-year). Before December's check-in: "Import December's files, then see how your 2026 went."
+- **Birthday** (10:00, with a birth date): "42 today", "Your last Monday is about 15 years away: you could retire at 54, in March 2042, in 9 of 10 futures."
+- **Records anniversary** (the first record's day, 10:00): "Five years of records", "Since October 2021 the age you could retire at went from 58 to 54, and you went from 21% to 58% of what retiring today needs."
+- **Plan check-up** (a year after the main plan last changed, then each year, 10:00): "Base case, a year on", "Your plan last changed in October 2025. Do its pay, spending and retirement age still fit your life? A few minutes keeps the answer honest." It opens the plan.
+
+At most one note a day: the monthly note keeps its day, and a yearly note that falls on it moves to the next free day. Notes are planned for the next 12 months.
 
 ## Design system
 
@@ -1100,7 +1164,7 @@ If nothing moves for 20 seconds, the screen says why it may be stuck and what to
 1. Welcome: what the app does, in three lines with icons: a check-in each month, plans that answer "can I retire yet, and if not, when?" (the Overview shows the main plan's answer), and plain files you own, with no account to create and no server.
 2. Where to keep your data (iCloud Drive is recommended).
 3. Birth date, base currency and country, starting from the device's currency and region (nothing else is assumed: without a region the country is *Not set*). The birth date starts unset, with an *Add Birth Date* button: none is made up (the picker's suggestion is saved only once a date is picked or *Use This Date* is tapped, and *Remove Birth Date* unsets it), and without one the library is still created and the plan asks for it on its *You* card.
-4. Your money and your plan, optional: take-home pay and spending a month, in the base currency (outside the euro, "Without spending, there's no first plan yet."; a negative amount says "Pay and spending can't be negative." and keeps *Create library* off); the age to retire at, "As early as possible, until you choose an age." until *Add Age* shows a stepper (30 to 85, as in the plan, starting at 60, or next year's age for someone 60 or older), which *Retire As Early As Possible* takes away again, with "Plans need your birth date to use it." while there's no birth date; and "Remind me to check in each month", on by default (the reminder in Settings, on this device). *Create library* also creates the main plan, "Base case": it retires at the age chosen, else as early as possible, spends what was entered, 0 included (else the default of a new plan), and with pay above 0 entered has one work phase from the start of this year until retirement paying it; a negative amount is left out. A library that already has plans (synced from another device, also one whose plan file didn't load) keeps them, and one opened from iCloud Drive in another currency gets no starter plan. Nor does one without spending entered when the default can't be converted into the base currency: a new library has no exchange rates, so outside the euro a starter plan needs spending.
+4. Your money and your plan, optional: take-home pay and spending a month, in the base currency (outside the euro, "Without spending, there's no first plan yet."; a negative amount says "Pay and spending can't be negative." and keeps *Create library* off); the age to retire at, "As early as possible, until you choose an age." until *Add Age* shows a stepper (30 to 85, as in the plan, starting at 60, or next year's age for someone 60 or older), which *Retire As Early As Possible* takes away again, with "Plans need your birth date to use it." while there's no birth date; and "Remind me to check in each month", on by default: the monthly note and *Your year*, on this device ([Notifications](#notifications)). *Create library* also creates the main plan, "Base case": it retires at the age chosen, else as early as possible, spends what was entered, 0 included (else the default of a new plan), and with pay above 0 entered has one work phase from the start of this year until retirement paying it; a negative amount is left out. A library that already has plans (synced from another device, also one whose plan file didn't load) keeps them, and one opened from iCloud Drive in another currency gets no starter plan. Nor does one without spending entered when the default can't be converted into the base currency: a new library has no exchange rates, so outside the euro a starter plan needs spending.
 5. Your accounts, once the library exists (no *Back*: the library is created): what accounts are for, the open accounts so far, *Add an Account* and *Import a Spreadsheet*. Both push their screen on the tour's own stack, on every device: the new account's *Cancel* and *Add*, and the import's *Close* and *Done*, come back here. *Skip* goes on without accounts; once there are some, it reads *Continue*.
 6. Before you start, last: the whole disclaimer (Settings' About text: results are estimates, not financial, tax or legal advice), and what to do next: the first check-in, from the Overview, after which the plan answers, once the birth date is set (without one, it asks for it on the plan's *You* card; without a plan, it says to create one). *Start* opens the Overview. Without a tax rate on investments the plan assumes none, and the Plan screen says so.
 
@@ -1114,8 +1178,8 @@ The glance: how am I doing, without opening the app. On the home screen of the i
 
 | Widget | Sizes | What it shows |
 | --- | --- | --- |
-| **Time to retire** | small, medium; lock screen inline and rectangular | "Retire in 15 y 6 m", at 54 · April 2042, in 9 of 10 futures. The small one sits on the app icon's dusk; the medium one adds the earliest age at each check-in of the year as a step line, and "55 → 54 in June". On the lock screen: "Retire in 15y 6m" |
-| **Net worth** | small, medium, large; lock screen rectangular and circular | the total today, as on the Overview, the change at the latest check-in ("▲ +4.210 € in September", "31 Jul – 15 Sep"), and the year's month ends as a line in ink. The medium one adds this year's change and "Earliest retirement 54 · in 15 y 6 m"; the large one is everything at once, with "Can I retire yet?" and the readiness bar. On the lock screen, the changes in per cent |
+| **Time to retire** | small, medium; lock screen inline and rectangular | "Retire in 15 y 6 m", at 54 · April 2042, in 9 of 10 futures. The small one sits on the app icon's dusk; the medium one adds the earliest age at each check-in of the year as a step line, and "55 → 54 in June". On the lock screen: "Retire in 15y 6m", or "At 54 · 2042" over the futures |
+| **Net worth** | small, medium, large; lock screen rectangular and circular | the total today, as on the Overview, the change at the latest check-in ("▲ +4.210 € in September", "31 Jul – 15 Sep"), and the year's month ends as a line in ink. The medium one adds this year's change and "Earliest retirement 54 · in 15 y 6 m"; the large one is everything at once, with "Can I retire yet?", "Not yet · retire at 54" and the readiness bar. On the lock screen, the changes in per cent |
 | **Since last check-in** | medium | the change split into markets, new money and other, as bars from a shared zero, as on the Overview |
 | **Can I retire yet?** | small; lock screen circular | the readiness as a ring: "58% of what retiring today would need", rounded down as in the app, so it reads 100% only once retiring today works |
 | **Check-in** | small; lock screen circular | the days to the next check-in, with how much of the month has gone; once it's due, the month and "Start check-in" |

@@ -191,7 +191,7 @@ The iPhone uses a tab bar and the Mac uses a sidebar. The iPad gets the sidebar 
   - *Trends*: how you've actually been doing over the whole history, from your own records: the savings rate, money in and out, what you put in against what markets added, how the earliest age moved, and each year graded in words against what its baseline planned.
 
   What-ifs are a sheet on iPhone and the inspector on the Mac. Plans can be duplicated as what-if scenarios. The screens are designed in [UI.md](UI.md).
-- **Settings.** Library location, price sources, a monthly reminder, app lock, and a description of the file format.
+- **Settings.** Library location, price sources, notifications (a monthly note and a few yearly ones), app lock, and a description of the file format.
 
 On the Mac there are also tables of values and trades, and "Show library in Finder".
 
