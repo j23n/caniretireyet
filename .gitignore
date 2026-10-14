@@ -4,6 +4,10 @@
 # Swift Package Manager
 .build/
 .swiftpm/
+# Two tools write it with different contents: swift build pins the package's own dependencies,
+# Xcode adds the app's (FeedbackKit, pinned in project.yml). Tracked, it shows as modified after
+# every build in the other tool.
+Package.resolved
 
 # Xcode (the project is generated from project.yml by XcodeGen)
 *.xcodeproj/
