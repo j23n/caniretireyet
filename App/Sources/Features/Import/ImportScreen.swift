@@ -104,7 +104,7 @@ struct ImportScreen: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Palette.page)
             .safeAreaInset(edge: .top, spacing: 0) {
-                if showsStepStrip {
+                if showsStepStrip, model.flow.showsImportBars {
                     ImportStepBar(model: model, kindBeforeFiles: kindBeforeFiles)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, Metrics.s)
@@ -112,8 +112,13 @@ struct ImportScreen: View {
                 }
             }
             .safeAreaInset(edge: .bottom, spacing: 0) {
-                ImportBottomBar(model: model, isCompact: isCompact, cancel: cancel)
+                if model.flow.step == .preview, model.flow.layout == .statement {
+                    ImportReviewBottomBar(model: model, isCompact: isCompact)
+                } else if model.flow.showsImportBars {
+                    ImportBottomBar(model: model, isCompact: isCompact, cancel: cancel)
+                }
             }
+            .environment(\.importClose, closeAction)
             .modifier(ImportTitle(flow: model.flow, isCompact: isCompact))
             .toolbar { toolbar }
             .fileImporter(isPresented: $isChoosingFile, allowedContentTypes: ImportFileReader.contentTypes,
@@ -205,6 +210,14 @@ struct ImportScreen: View {
         ImportStepContent(model: model, isCompact: isCompact, chooseFile: { isChoosingFile = true },
                           openFiles: { urls in Task { await add(urls) } },
                           kindBeforeFiles: $kindBeforeFiles)
+    }
+
+    /// Closes the screen when it has an import of its own; `nil` for the page.
+    private var closeAction: (@MainActor () -> Void)? {
+        guard isSheet else { return nil }
+        if let close { return { close() } }
+        let navigation = navigation
+        return { navigation.sheet = nil }
     }
 
     private var isShowingError: Binding<Bool> {

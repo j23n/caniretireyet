@@ -10,9 +10,9 @@ It also imports a broker's transactions as trades (see [Broker transactions](#br
 2. **Detect.** The importer guesses the encoding, the delimiter, the header row, and the number and date formats. Every guess can be overridden.
 3. **Map.** Say what each column is (see [Layouts](#layouts) and [Targets](#targets)). For a broker's transactions, also say what the file's words for its transactions are ([Types](#types)).
 4. **Match.** Link names in the file to existing accounts and instruments, or create new ones.
-5. **Preview.** Every parsed value is shown, problems are highlighted, and a summary lists what will be added, updated or left alone. Nothing is written yet.
+5. **Preview.** Every parsed value is shown, problems are highlighted, and a summary lists what will be added, updated or left alone. Nothing is written yet. Bank statements are reviewed all together ([UI.md](UI.md#import-mac-first), "Review").
 6. **Import.** Records are written to the monthly history files. The affected files are backed up first, so the import can be undone.
-7. **Save the mapping** as an import profile for next time.
+7. **Save the mapping** as an import profile for next time. Bank statements save theirs with the import ([Remembering banks and senders](#remembering-banks-and-senders)).
 
 ## Files
 
@@ -344,7 +344,7 @@ Money in that is spending is paid back, and any line that went out is money out,
 
 Each line gets the class of the first of these that says one:
 
-1. **Chosen for the line** (`ImportSession.setStatementClass(_:forRow:)`), for this file only; an answer that moves its money to or from an account is a transfer ([Moved to or from an account](#moved-to-or-from-an-account)).
+1. **Chosen for the line** (`ImportSession.setStatementClass(_:forRow:)`), for this file only; an answer that moves its money to or from an account is a transfer ([Moved to or from an account](#moved-to-or-from-an-account)). Else **remembered for the line** in the profile's `answers`: the same date and amount, and a text with the same words ([Remembering banks and senders](#remembering-banks-and-senders)).
 2. **A rule** in the profile's `rules`: a phrase the line's text has as whole words, ignoring case, accents and punctuation. The longest phrase wins. A rule with an `account` makes its lines money moved to or from that account. `--class "Giroconto=transfer"` adds a rule (`--move "<words>=<account>"` one with an account), and saving the profile keeps the rules, so a correction made once holds for the next statement.
 3. **A trade of another account** that moves the same amount within 4 days: a transfer. It's a deposit (a deposit of 500 is −500 on the statement), a withdrawal, or a buy, sale, fee or tax [paid from outside its account](TRADES.md#paid-from-outside-the-account). Each trade matches one line and each line one trade, the pairs nearest in date first.
 4. **A line of another account's statement** imported with it ([Several statements at once](#several-statements-at-once)) that moves the same amount the other way within 4 days: a transfer.
@@ -397,12 +397,26 @@ A line that needs an answer stays one once it's answered (`StatementLine.wasAske
 
 Rules live in each file's profile. A rule made for every statement is made in each file's (`StatementBatch.editSessions(library:today:_:)`, which edits every file and pairs the transfers once), and `ImportSession.statementRule(matching:)` finds a profile's rule for a phrase itself, the one a new rule with the phrase replaces.
 
+### Remembering banks and senders
+
+Importing statements can save how each file was read, so the next statement of each bank imports without questions (`StatementBatch.rememberedProfiles(in:today:)`; in the app, *Remember these banks and senders* on Review, on by default). The profiles are written with the import and backed up with it, so undoing the import removes them too.
+
+- **A file read with a saved statement profile** updates that profile, under its ID and name. When several files are read with it, the file of the profile's own account does, else the first.
+- **Every other file** gets a new profile, one per account, named after the account's bank and the account (`Fineco, Conto corrente`, ID `fineco-conto-corrente`), or after the file without its extension when the account has no bank.
+- **Rules:** every profile gets the rules of every file: its own first, then the others' for words it has no rule for, so a sender answered on one account's statement is known on every bank's. A rule that moves money to or from the profile's own account is left out of it.
+- **Answers:** a class chosen for a single line is remembered in its file's profile (`answers`, `ImportSession.statementAnswers(adding:)`): its date, amount, text and class. A later statement with the same line, such as an export of the last 90 days that covers last month again, classifies it the same way and asks nothing. A new class for the line replaces the one remembered. Answers that move money to or from an account, a purchase or a sale aren't remembered.
+
+Without it, a class chosen for a line stays the file's, and only *Save as profile*, `--save-profile` or a rule keeps anything.
+
 ### Profiles
 
 The example library's `imports/fineco-movimenti.json` reads an Italian bank's movements into `conto-fineco`:
 
 ```json
 {
+  "answers": [
+    { "amount": "35", "class": "income", "date": "2026-03-03", "match": "Rimborso spese" }
+  ],
   "columns": [
     { "field": "date", "header": "Data operazione" },
     { "field": "ignore", "header": "Data valuta" },
@@ -424,7 +438,7 @@ The example library's `imports/fineco-movimenti.json` reads an Italian bank's mo
 }
 ```
 
-The fields are those of any profile ([import-profile.schema.json](schema/import-profile.schema.json)), with `rules`.
+The fields are those of any profile ([import-profile.schema.json](schema/import-profile.schema.json)), with `rules` and `answers`.
 
 ### The sample statements
 

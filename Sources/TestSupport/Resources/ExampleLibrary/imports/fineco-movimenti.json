@@ -1,4 +1,7 @@
 {
+  "answers": [
+    { "amount": "35", "class": "income", "date": "2026-03-03", "match": "Rimborso spese" }
+  ],
   "columns": [
     { "field": "date", "header": "Data operazione" },
     { "field": "ignore", "header": "Data valuta" },

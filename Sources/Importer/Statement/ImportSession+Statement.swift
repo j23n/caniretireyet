@@ -63,6 +63,39 @@ extension ImportSession {
         if statementClass != nil { statementAssets[row] = nil }
     }
 
+    // MARK: - Remembered answers
+
+    /// The profile's remembered answer for a line (``ImportProfile/answers``):
+    /// the same date and amount, and text with the same words, ignoring
+    /// case, accents and punctuation.
+    public func statementAnswer(date: CalendarDate, amount: Decimal, text: String) -> StatementAnswer? {
+        guard !profile.answers.isEmpty else { return nil }
+        let words = TextTools.words(text)
+        return profile.answers.last { answer in
+            answer.date == date && answer.amount == amount && TextTools.words(answer.match) == words
+        }
+    }
+
+    /// The profile's answers with the classes chosen for single lines of
+    /// `lines` added, to remember: a line's new class replaces the answer
+    /// it had. Oldest first.
+    public func statementAnswers(adding lines: [StatementLine]) -> [StatementAnswer] {
+        var answers = profile.answers
+        for line in lines {
+            guard let statementClass = statementLineClasses[line.row], !TextTools.trim(line.text).isEmpty else {
+                continue
+            }
+            let words = TextTools.words(line.text)
+            answers.removeAll { answer in
+                answer.date == line.date && answer.amount == line.amount && TextTools.words(answer.match) == words
+            }
+            answers.append(StatementAnswer(date: line.date, amount: line.amount, match: line.text,
+                                           statementClass: statementClass))
+        }
+        return answers.enumerated().sorted { ($0.element.date, $0.offset) < ($1.element.date, $1.offset) }
+            .map(\.element)
+    }
+
     // MARK: - Before it has an account
 
     /// What the file says as a statement before it's an account's: its

@@ -4,9 +4,10 @@ import Model
 import Prices
 import SwiftUI
 
-/// Step 6, Done: what the import did, Undo import (which puts the backup
-/// back), and Save as profile, so the next file of the same shape imports
-/// in one step. When the import's positions are valued on dates without a
+/// Step 6, Done. Bank statements get a page of their own
+/// (``ImportStatementDone``). Any other file: what the import did, Undo
+/// import (which puts the backup back), and Save as profile, so the next
+/// file of the same shape imports in one step. When the import's positions are valued on dates without a
 /// price ("12 past values have no price for XAU"), it offers *Fill In Past
 /// Prices…*. When it created instruments without a price source, it offers
 /// *Find Price Sources…*.
@@ -24,27 +25,13 @@ struct ImportDoneStep: View {
     @State private var findsPriceSources = false
 
     var body: some View {
-        Form {
-            // Done comes only after an import, which leaves its receipt.
-            if let receipt = model.receipt {
-                summarySection(receipt)
-                let unpriced = unpricedInstruments(receipt)
-                if !unpriced.isEmpty {
-                    priceSourcesSection(unpriced)
-                }
-                if !pastPriceOffers.isEmpty {
-                    pastPricesSection
-                }
-                if receipt.hasChanges {
-                    undoSection(receipt)
-                }
-                // Several statements are each read with their own profile, or a proposed one.
-                if !model.flow.isBatch {
-                    profileSection(receipt)
-                }
+        Group {
+            if model.flow.layout == .statement, let receipt = model.receipt {
+                ImportStatementDone(model: model, receipt: receipt) { isConfirmingUndo = true }
+            } else {
+                form
             }
         }
-        .formStyle(.grouped)
         .onAppear {
             suggestProfile()
             updatePastPriceOffers()
@@ -62,9 +49,34 @@ struct ImportDoneStep: View {
                 Task { await model.undoImport(in: library) }
             }
         } message: {
-            Text("What it changed goes back to how it was before, and the files it created are deleted. Edits made "
-                + "since the import stay. A copy of the files as they are now is kept in backups.")
+            Text(model.flow.layout == .statement
+                 ? "What it changed goes back to how it was before, and you're back on Review with the files as "
+                    + "they were. Edits made since the import stay."
+                 : "What it changed goes back to how it was before, and the files it created are deleted. Edits "
+                    + "made since the import stay. A copy of the files as they are now is kept in backups.")
         }
+    }
+
+    /// Any other file: what the import did, its offers, Undo and Save as profile.
+    private var form: some View {
+        Form {
+            // Done comes only after an import, which leaves its receipt.
+            if let receipt = model.receipt {
+                summarySection(receipt)
+                let unpriced = unpricedInstruments(receipt)
+                if !unpriced.isEmpty {
+                    priceSourcesSection(unpriced)
+                }
+                if !pastPriceOffers.isEmpty {
+                    pastPricesSection
+                }
+                if receipt.hasChanges {
+                    undoSection(receipt)
+                }
+                profileSection(receipt)
+            }
+        }
+        .formStyle(.grouped)
     }
 
     // MARK: Summary
@@ -78,7 +90,7 @@ struct ImportDoneStep: View {
                 StatusBanner(.info, "The import was undone",
                              message: "The library's files are back to how they were before it.")
             } else if receipt.hasChanges {
-                StatusBanner(.success, receipt.batchSummary ?? "Imported \(receipt.fileName)", personal: .title)
+                StatusBanner(.success, receipt.summary ?? "Imported \(receipt.fileName)", personal: .title)
             } else if receipt.kept > 0 {
                 StatusBanner(.info, "Nothing changed", message: "Every record that differs was a conflict, and the "
                     + "library's values were kept.")

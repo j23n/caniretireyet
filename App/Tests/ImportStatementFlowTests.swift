@@ -646,7 +646,7 @@ struct ImportStatementFlowTests {
         #expect(charts.file.last == .init(date: "2026-09-30", balance: Decimal(string: "6104.8") ?? 0))
         #expect(charts.before.map(\.date) == ["2026-09-30"])
         #expect(!charts.agrees(try #require(charts.before.first)))
-        #expect(charts.balanceCaption.hasSuffix("0 of 1 agree."))
+        #expect(charts.balanceTitle == "Conto Fineco, balance")
     }
 
     @Test func moneyInAndOutEndsWithTheMonthWhenTheLibraryGoesOn() throws {
@@ -683,13 +683,10 @@ struct ImportStatementFlowTests {
                          .init(date: "2026-09-30", balance: 1250)])
     }
 
-    @Test func theCaptionCountsTheValuesThatAgree() throws {
-        var charts = try #require(flow().statementCharts)
-        let agreeing = ImportStatementCharts.Balance(date: "2026-09-12", balance: Decimal(string: "6715.2") ?? 0)
-        #expect(charts.agrees(agreeing))
-        charts.before = [agreeing]
-        #expect(charts.balanceCaption.hasSuffix(": it agrees."))
-        charts.before = [agreeing, .init(date: "2026-09-30", balance: Decimal(string: "6104.8") ?? 0)]
-        #expect(charts.balanceCaption.hasSuffix(": all 2 agree."))
+    @Test func aValueAgreesWhenTheFileHasItsBalanceThatDay() throws {
+        let charts = try #require(flow().statementCharts)
+        #expect(charts.agrees(.init(date: "2026-09-12", balance: Decimal(string: "6715.2") ?? 0)))
+        #expect(charts.agrees(.init(date: "2026-09-30", balance: Decimal(string: "6104.8") ?? 0)))
+        #expect(!charts.agrees(.init(date: "2026-09-30", balance: 6000)))
     }
 }

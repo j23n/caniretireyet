@@ -3,29 +3,31 @@ import Importer
 import Model
 import SwiftUI
 
-/// Step 5, Preview: nothing is written yet. What's in the way, the counts
-/// (new, updated, identical, conflicting, skipped) and what importing
-/// would do, a bank statement's charts, the conflict policy (keep,
-/// overwrite, or decide one by one), notes, the file as a grid with
-/// unreadable cells highlighted, and the list of those cells.
+/// Step 5, Preview: nothing is written yet. Bank statements get their
+/// Review (``ImportStatementReview``). Any other file: what's in the way,
+/// the counts (new, updated, identical, conflicting, skipped) and what
+/// importing would do, the conflict policy (keep, overwrite, or decide one
+/// by one), notes, the file as a grid with unreadable cells highlighted,
+/// and the list of those cells.
 struct ImportPreviewStep: View {
     let model: ImportController
 
     @State private var onlyProblems = false
 
     var body: some View {
+        if model.flow.layout == .statement {
+            ImportStatementReview(model: model)
+        } else {
+            table
+        }
+    }
+
+    /// Any other file: the counts, the choices and the file as a grid.
+    private var table: some View {
         let flow = model.flow
-        ScrollView {
+        return ScrollView {
             VStack(alignment: .leading, spacing: Metrics.l) {
                 LibraryStatusBanners()
-                if flow.isBatch {
-                    Card("Statement", systemImage: "doc.on.doc") {
-                        ImportBatchFilePicker(model: model)
-                        Text("One statement at a time, as it adds to the ones before it. Import imports them all.")
-                            .font(.footnote)
-                            .foregroundStyle(Palette.secondaryInk)
-                    }
-                }
                 let batchBlockers = flow.batchBlockers
                 ForEach(flow.blockers, id: \.self) { blocker in
                     // Another file's reasons name it.
@@ -39,24 +41,8 @@ struct ImportPreviewStep: View {
                     }
                 }
                 ImportSummaryCard(flow: flow)
-                if let charts = flow.statementCharts {
-                    ImportStatementChartsCard(charts: charts)
-                }
                 if flow.isGuided {
                     ImportGuidedProposals(model: model)
-                }
-                // Kept once a balance is given, so a mistyped one can be corrected here too.
-                if flow.openingBalanceProblem != nil || flow.statementOpeningBalance != nil {
-                    let problem = flow.openingBalanceProblem
-                    Card("Balance before the first line",
-                         systemImage: problem == nil ? "banknote" : "exclamationmark.triangle") {
-                        Text(problem ?? "The balance the account had before the file's first line, which its values "
-                            + "are worked out from.")
-                            .font(.footnote)
-                            .foregroundStyle(Palette.secondaryInk)
-                            .privacySensitiveInFeedback(problem != nil)
-                        ImportOpeningBalanceField(model: model)
-                    }
                 }
                 ForEach(flow.previewIssues, id: \.self) { issue in
                     StatusBanner(.warning, issue, personal: .title)
@@ -390,7 +376,7 @@ private struct ImportGridCell: View {
 }
 
 /// Every cell that can't be read: row, column, what it says and why.
-private struct ImportCellErrorsCard: View {
+struct ImportCellErrorsCard: View {
     let errors: [ImportCellError]
     /// A bank statement's format and columns are in How It's Read… on the File step.
     var isStatement = false

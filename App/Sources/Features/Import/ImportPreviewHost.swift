@@ -19,12 +19,7 @@ struct ImportPreviewHost: View {
                 ImportStepContent(model: model, isCompact: guided, chooseFile: {}, openFiles: { _ in })
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(Palette.page)
-                    .safeAreaInset(edge: .top, spacing: 0) {
-                        ImportStepBar(model: model)
-                    }
-                    .safeAreaInset(edge: .bottom, spacing: 0) {
-                        ImportBottomBar(model: model)
-                    }
+                    .importBars(model: model, isCompact: guided)
             } else {
                 ProgressView()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)

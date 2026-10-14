@@ -112,6 +112,24 @@
           }
         }
       }
+    },
+    "answers": {
+      "description": "Statement layout: classes chosen for single lines, remembered so a later statement with the same line asks nothing again. A line has one when its date and amount are the same and its text has the same words, ignoring case, accents and punctuation. A class chosen for the line in the file wins over it, and it wins over the rules (IMPORT.md, Remembering banks and senders).",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["date", "amount", "match", "class"],
+        "properties": {
+          "date": { "$ref": "common.schema.json#/$defs/date" },
+          "amount": { "description": "The line's amount: money in positive, money out negative.", "$ref": "common.schema.json#/$defs/decimal" },
+          "match": { "description": "The line's text, as the file writes it.", "type": "string", "minLength": 1 },
+          "class": {
+            "description": "As a rule's class.",
+            "$comment": "Open enum.",
+            "enum": ["income", "spending", "oneOff", "tax", "transfer", "interest", "ignore"]
+          }
+        }
+      }
     }
   },
   "examples": [
