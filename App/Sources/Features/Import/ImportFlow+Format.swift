@@ -382,3 +382,153 @@ extension ImportFlow {
         return text
     }
 }
+
+/// *How It's Read*'s three pickers (UI.md, "Import"): the dates, the
+/// numbers and what splits the columns, each shown by an example. The
+/// first choice of each is what the file was read with (`nil`); a guess
+/// still to confirm offers its readings, and choosing one confirms it.
+extension ImportFlow {
+    /// The guess about the dates still to confirm, if any.
+    var dateAmbiguity: ImportAmbiguity? { ambiguities.first { $0.kind == .dateFormat } }
+
+    /// The guess about the numbers still to confirm, if any.
+    var numberAmbiguity: ImportAmbiguity? { ambiguities.first { $0.kind == .numberFormat } }
+
+    /// The guess about the delimiter still to confirm, if any.
+    var delimiterAmbiguity: ImportAmbiguity? { ambiguities.first { $0.kind == .delimiter } }
+
+    // MARK: Dates
+
+    /// The pattern the dates are read with now.
+    var datePatternInUse: String? {
+        guard let session else { return nil }
+        return dateColumn.flatMap { session.effectiveFormat(forColumn: $0).date?.pattern } ?? detectedDatePattern
+    }
+
+    /// The patterns *Dates* offers after the one in use: the chosen one,
+    /// then the ones the importer knows, without the one in use unless
+    /// it's a guess to confirm.
+    var datePatternChoices: [String] {
+        var patterns = ImportChoices.datePatterns
+        if let chosen = datePattern, !patterns.contains(chosen) { patterns.insert(chosen, at: 0) }
+        if dateAmbiguity == nil, let inUse = datePatternInUse {
+            patterns.removeAll { $0 == inUse && $0 != datePattern }
+        }
+        return patterns
+    }
+
+    /// Reads the dates with `pattern`, or as detected (`nil`). A reading of
+    /// the guess to confirm confirms it.
+    mutating func useDatePattern(_ pattern: String?) {
+        if let pattern, let ambiguity = dateAmbiguity,
+           let option = ambiguity.options.firstIndex(where: { $0.date?.pattern == pattern }) {
+            choose(option, for: ambiguity)
+        } else {
+            setDatePattern(pattern)
+        }
+    }
+
+    // MARK: Numbers
+
+    /// The separators chosen for the whole file; `nil`: detected per column.
+    var numberStyle: ImportNumberFormat? {
+        guard decimal != nil || thousands != nil else { return nil }
+        return ImportNumberFormat(decimal: decimal, thousands: thousands)
+    }
+
+    /// The separators most number columns were detected with.
+    var detectedNumberStyle: ImportNumberFormat {
+        let number = session?.detection.defaults.number
+        return ImportNumberFormat(decimal: number?.decimal, thousands: number?.thousands)
+    }
+
+    /// The separators *Numbers* offers after the detected ones: the chosen
+    /// ones, then the usual ones, without the detected ones unless they're
+    /// a guess to confirm.
+    var numberStyleChoices: [ImportNumberFormat] {
+        var styles = ImportChoices.numberStyles
+        if let chosen = numberStyle, !styles.contains(chosen) { styles.insert(chosen, at: 0) }
+        if numberAmbiguity == nil {
+            let detected = detectedNumberStyle
+            styles.removeAll { $0 == detected && $0 != numberStyle }
+        }
+        return styles
+    }
+
+    /// Reads every number column with these separators, or as detected
+    /// (`nil`). A reading of the guess to confirm confirms it.
+    mutating func useNumberStyle(_ style: ImportNumberFormat?) {
+        if let style, let ambiguity = numberAmbiguity, let option = ambiguity.options.firstIndex(where: {
+            $0.number?.decimal == style.decimal && $0.number?.thousands == style.thousands
+        }) {
+            choose(option, for: ambiguity)
+            return
+        }
+        editNumberDefaults { number in
+            number.decimal = style?.decimal
+            number.thousands = style?.thousands
+        }
+    }
+
+    // MARK: Columns split by
+
+    /// The delimiters *Columns split by* offers after the one in use.
+    var delimiterChoices: [String] {
+        var delimiters = ImportChoices.delimiters
+        if let chosen = delimiter, !delimiters.contains(chosen) { delimiters.insert(chosen, at: 0) }
+        if delimiterAmbiguity == nil, let inUse = delimiterInUse {
+            delimiters.removeAll { $0 == inUse && $0 != delimiter }
+        }
+        return delimiters
+    }
+
+    /// Splits the columns at `delimiter`, or as detected (`nil`). A
+    /// reading of the guess to confirm confirms it.
+    mutating func useDelimiter(_ delimiter: String?) {
+        if let delimiter, let ambiguity = delimiterAmbiguity,
+           let option = ambiguity.delimiters.firstIndex(of: delimiter) {
+            choose(option, for: ambiguity)
+        } else {
+            setDelimiter(delimiter)
+        }
+    }
+}
+
+extension ImportChoices {
+    /// The separators *Numbers* offers: `1.234,56`, `1,234.56`, `1 234,56`,
+    /// `1'234.56`, `1234,56` and `1234.56`.
+    static let numberStyles: [ImportNumberFormat] = [
+        ImportNumberFormat(decimal: ",", thousands: "."), ImportNumberFormat(decimal: ".", thousands: ","),
+        ImportNumberFormat(decimal: ",", thousands: " "), ImportNumberFormat(decimal: ".", thousands: "'"),
+        ImportNumberFormat(decimal: ",", thousands: ""), ImportNumberFormat(decimal: ".", thousands: ""),
+    ]
+
+    /// How a number looks with these separators, e.g. `1.234,56`.
+    static func numberExample(_ style: ImportNumberFormat) -> String {
+        NumberParser(format: style).example
+    }
+
+    /// 31 December 2025 in `pattern`, e.g. `31.12.2025` for `dd.MM.yyyy`,
+    /// which keeps the day and the month apart in every pattern.
+    static func dateExample(of pattern: String) -> String {
+        if pattern == ImportDateFormat.excelSerialPattern { return "Excel serial numbers (46022)" }
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(identifier: "UTC")
+        formatter.dateFormat = pattern
+        let date = Date(timeIntervalSince1970: 1_767_139_200) // 2025-12-31T00:00:00Z
+        return formatter.string(from: date)
+    }
+
+    /// "Semicolon", "Comma", "Tab", "Bar", "Space", or the character in quotes.
+    static func delimiterWord(_ delimiter: String) -> String {
+        switch delimiter {
+        case "\t": "Tab"
+        case ",": "Comma"
+        case ";": "Semicolon"
+        case "|": "Bar"
+        case " ": "Space"
+        default: "“\(delimiter)”"
+        }
+    }
+}

@@ -3,8 +3,9 @@ import Importer
 import Model
 
 /// Several bank statements opened at once (IMPORT.md, "Several statements
-/// at once"; UI.md, "Import"): what the File step lists for each file, the
-/// file picker of Income and Preview, and what stops the import.
+/// at once"; UI.md, "Import"): the files in the order they're imported,
+/// the file picker of Income and Review, and what stops the import. The
+/// Files step's rows are ``ImportFileRow``s (`ImportFlow+Files`).
 extension ImportFlow {
     /// Whether several statements are open.
     var isBatch: Bool { batch != nil }
@@ -35,34 +36,6 @@ extension ImportFlow {
         file.name + " · " + (file.account.map(accountName) ?? "No account yet")
     }
 
-    /// What's in the file: "204 lines · Jan – Dec 2025 · balance column".
-    func batchFileDetail(_ file: StatementBatch.File) -> String {
-        var parts: [String] = []
-        if let preview = batchPreview(of: file) {
-            parts.append(Wording.count(preview.statementLines.count, "line"))
-            if let period = preview.statementPeriod {
-                parts.append("\(AmountFormat.mediumDate(period.from)) – \(AmountFormat.mediumDate(period.through))")
-            }
-        } else {
-            parts.append(Wording.count(file.session.table.rows.count, "row"))
-        }
-        let hasBalance = file.session.profile.columns.contains { $0.field == .balance }
-        parts.append(hasBalance ? "balance column" : "no balance column")
-        return parts.joined(separator: " · ")
-    }
-
-    /// How the file's account was found, e.g. "Follows on from its value
-    /// of 31 Dec 2025"; `nil` while it has none.
-    func batchAccountSourceText(_ file: StatementBatch.File) -> String? {
-        switch file.accountSource {
-        case .profile?: "Remembered from its saved profile"
-        case .balance(let date)?: "Its balance follows on from the value of \(AmountFormat.mediumDate(date))"
-        case .named?: "Named in the file"
-        case .chosen?: "Chosen"
-        case nil: nil
-        }
-    }
-
     /// How many lines of the files are transfers paired with a line of
     /// another file, counted once per pair.
     var batchPairedTransfers: Int {
@@ -76,31 +49,9 @@ extension ImportFlow {
         return StatementBatch.gaps(in: batchPreviews, batch: batch)
     }
 
-    /// The File step's sentences under the files: the transfers paired,
-    /// and the gaps and overlaps between an account's files.
+    /// The File step's sentences under the files (``betweenFilesNotes(locale:)``).
     var batchNotes: [StatementNote] {
-        var notes: [StatementNote] = []
-        let paired = batchPairedTransfers
-        if paired > 0 {
-            notes.append(StatementNote(text: "\(Wording.count(paired, "transfer")) between these accounts found "
-                + "in both files and paired: neither spent nor came in.", isProblem: false))
-        }
-        let gaps = batchGaps
-        for gap in gaps {
-            let before = batch?.files.first { $0.id == gap.before }?.name ?? ""
-            let after = batch?.files.first { $0.id == gap.after }?.name ?? ""
-            let days = "\(AmountFormat.mediumDate(gap.from)) – \(AmountFormat.mediumDate(gap.through))"
-            let text = gap.isOverlap
-                ? "\(before) and \(after) both cover \(days) of \(accountName(gap.account)): leave one out, or "
-                    + "its lines count twice."
-                : "No file covers \(days) of \(accountName(gap.account)), between \(before) and \(after): the "
-                    + "next value's money in and out leave those days out."
-            notes.append(StatementNote(text: text, isProblem: true))
-        }
-        if gaps.isEmpty, batchPreviews.count > 1, batchFileWithoutAccount == nil {
-            notes.append(StatementNote(text: "No gaps or overlaps between an account's files.", isProblem: false))
-        }
-        return notes
+        betweenFilesNotes().map { StatementNote(text: $0.text, isProblem: $0.isProblem) }
     }
 
     /// What stops importing the batch, beyond the file on screen: days two
