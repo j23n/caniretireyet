@@ -32,13 +32,14 @@ final class NoteStore {
         #endif
     }
 
-    /// Turns `settings` on, asking for permission first when any note is
-    /// on, and schedules them. When notes aren't allowed, nothing changes
-    /// and it returns `false`, so Settings doesn't show notes that never come.
+    /// Turns `settings` on, asking for permission first when they turn a
+    /// note on, and schedules them. When notes aren't allowed, nothing
+    /// changes and it returns `false`, so Settings doesn't show notes that
+    /// never come. Turning notes off or changing their time never asks.
     @discardableResult
     func apply(_ settings: NoteSettings) async -> Bool {
         #if canImport(UserNotifications)
-        if settings.isAnyOn && schedules {
+        if settings.turnsOnNote(from: preferences.notes) && schedules {
             guard await NoteScheduler.requestAuthorization() else { return false }
         }
         #endif

@@ -48,6 +48,13 @@ public struct NoteSettings: Hashable, Sendable, Codable {
         monthly || yourYear || birthday || recordsAnniversary || planCheckUp
     }
 
+    /// Whether these settings turn on a note that `old` has off: only then
+    /// is permission asked for.
+    public func turnsOnNote(from old: NoteSettings) -> Bool {
+        (monthly && !old.monthly) || (yourYear && !old.yourYear) || (birthday && !old.birthday)
+            || (recordsAnniversary && !old.recordsAnniversary) || (planCheckUp && !old.planCheckUp)
+    }
+
     /// The monthly note's day in `month`: its ``day``, or the month's last
     /// when that's ``lastDay`` or past the month's end.
     public func date(in month: YearMonth) -> CalendarDate {
