@@ -250,10 +250,16 @@ extension ImportFlow {
     /// (``startedAccounts(before:)``); not those sold by another line.
     func saleChoices(for line: BatchStatementLine) -> [Account] {
         guard line.amount > 0, let statement = library.accounts[line.account] else { return [] }
-        let sold = Set(allStatementLines.compactMap { other -> AccountID? in
-            guard other.id != line.id, case .sale(let id)? = statementAnswer(other) else { return nil }
-            return id
-        })
+        // Read from the answers, not the lines: each row of All Lines asks.
+        let sessions: [(file: Int?, session: ImportSession)] = batch.map { batch in
+            batch.files.map { (Optional($0.id), $0.session) }
+        } ?? (session.map { [(nil, $0)] } ?? [])
+        var sold = Set<AccountID>()
+        for (file, session) in sessions {
+            for (row, answer) in session.statementAssets where file != line.file || row != line.row {
+                if case .sale(let id) = answer { sold.insert(id) }
+            }
+        }
         let started = startedAccounts(before: line).filter { $0.currency == statement.currency }
         return (library.accounts.values.filter { library.canSellFromStatement($0, of: statement, on: line.date) }
             + started)

@@ -133,9 +133,10 @@ extension ImportFlow {
     /// from it.
     func linesMatching(rule phrase: String) -> Int? {
         var count = 0
+        let all = allStatementLines
         for file in batch?.files.map({ Optional($0.id) }) ?? [nil] {
             guard let session = statementSession(ofFile: file) else { continue }
-            let lines = allStatementLines.filter { $0.file == file }.map(\.line)
+            let lines = all.filter { $0.file == file }.map(\.line)
             guard let rows = Self.rows(of: lines, matching: phrase, in: session) else { return nil }
             count += rows.count
         }
@@ -151,9 +152,9 @@ extension ImportFlow {
         guard let rule = alone.profile.rules.first else { return nil }
         var session = session
         session.setStatementRule(.ignore, for: phrase)
-        return Set(lines.filter { line in
-            line.source != .chosen && session.statementRule(for: line.text)?.match == rule.match
-        }.map(\.row))
+        let open = lines.filter { $0.source != .chosen }
+        let rules = session.statementRules(for: open.map(\.text))
+        return Set(zip(open, rules).filter { $1?.match == rule.match }.map(\.0.row))
     }
 
     /// The phrase to start a rule from: the line's sender, else its text
