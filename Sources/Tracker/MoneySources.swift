@@ -107,61 +107,33 @@ extension Valuator {
     /// (PROGRESS.md, "Trends"), in the base currency, in money of the time.
     ///
     /// The days between are cut at every check-in and period end, and each
-    /// stretch is split as ``change(from:to:in:)`` splits it. An account's
-    /// first value is the value at the end of the stretch its first record
-    /// falls in. Its recorded flow (a check-in fills in the whole amount)
-    /// stays put in only as far as negative new money, in the same stretch,
-    /// of accounts with a record before it offsets it, shared over the
-    /// stretch's first values in proportion to their positive flows; the
-    /// rest of the first value is started with. A first value without a
-    /// flow is all started with. Every other account's new money is put in,
-    /// and markets is the rest, so the parts add up to the total.
+    /// stretch's saved amounts are put in and its started with
+    /// (``SavedStretch``) is started with; markets is the rest, so the
+    /// parts add up to the total.
     public func moneySources(_ grain: PeriodGrain, through end: CalendarDate) -> MoneySources {
         let scope = NetWorthScope.planAssets
         guard let first = firstValuationDate(in: scope), first <= end else {
             return MoneySources(currency: baseCurrency, points: [])
         }
         let outputs = grain.periodEnds(from: first, through: end)
-        let cuts = Set(outputs + checkInDates(in: scope, through: end).filter { $0 >= first }).sorted()
-        var firstRecords: [AccountID: CalendarDate] = [:]
-        for account in accounts.values where scope.includes(account) {
-            firstRecords[account.id] = firstRecordDate(of: account.id)
-        }
+        let cuts = savedCuts(after: first.adding(days: -1), through: end, in: scope, adding: outputs)
 
         var points: [MoneySourcesPoint] = []
         var startedWith: Decimal = 0
         var putIn: Decimal = 0
         var isPriced = true
-        var from = first.adding(days: -1)
         var nextOutput = outputs.startIndex
-        for to in cuts {
-            let report = change(from: from, to: to, in: scope)
-            var offset: Decimal = 0
-            var firstValues: [(value: Decimal, flow: Decimal)] = []
-            for account in report.accounts {
-                if let record = firstRecords[account.account], record > from, record <= to {
-                    firstValues.append((value: account.change.end, flow: max(account.flow ?? 0, 0)))
-                } else {
-                    putIn += account.change.newMoney
-                    offset += max(-account.change.newMoney, 0)
-                }
-            }
-            let flows = firstValues.reduce(Decimal(0)) { $0 + $1.flow }
-            let share: Decimal = flows == 0 ? 0 : min(offset / flows, 1)
-            for firstValue in firstValues {
-                let kept = firstValue.flow * share
-                putIn += kept
-                startedWith += firstValue.value - kept
-            }
-            isPriced = isPriced && report.isPriced
-            if nextOutput < outputs.endIndex, outputs[nextOutput] == to {
-                let assets = total(on: to, in: scope)
-                points.append(MoneySourcesPoint(date: to, total: assets.total, startedWith: startedWith,
+        for stretch in savedStretches(between: cuts, in: scope) {
+            putIn += stretch.total
+            startedWith += stretch.totalStartedWith
+            isPriced = isPriced && stretch.report.isPriced
+            if nextOutput < outputs.endIndex, outputs[nextOutput] == stretch.to {
+                let assets = total(on: stretch.to, in: scope)
+                points.append(MoneySourcesPoint(date: stretch.to, total: assets.total, startedWith: startedWith,
                                                 putIn: putIn, isPriced: isPriced && assets.isPriced))
                 nextOutput += 1
                 isPriced = true
             }
-            from = to
         }
         return MoneySources(currency: baseCurrency, points: points)
     }

@@ -656,7 +656,9 @@ struct SavingPaceTests {
     }
 
     /// Accounts opened inside the months, with their first record after
-    /// their opening day, are new: they don't shorten the months.
+    /// their opening day, are new: they don't shorten the months. The
+    /// broker's first deposit, which no account tracked before paid for, is
+    /// what it started with, not saved (``SavedStretch``).
     @Test func anAccountOpenedInsideTheMonthsIsNew() throws {
         var library = self.library(flows: [Decimal](repeating: 1_000, count: 12))
         library.accounts["savings"] = Account(id: "savings", name: "Savings", kind: .savings, currency: .eur,
@@ -667,7 +669,7 @@ struct SavingPaceTests {
         library.upsert(Trade(account: "broker", date: "2026-09-10", id: "first", type: .deposit, amount: 1_000))
         let pace = try #require(Valuator(library: library).savingPace(asOf: "2026-09-30"))
         #expect(pace.months.count == 12)
-        #expect(pace.byAccount["broker"] == 1_000)
+        #expect(pace.byAccount["broker"] == nil)
     }
 
     /// 19,000 taken out of the current account at the check-in where the

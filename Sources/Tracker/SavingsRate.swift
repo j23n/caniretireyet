@@ -105,18 +105,15 @@ extension Valuator {
             .filter { $0.moneyIn > 0 }
             .max { $0.moneyIn < $1.moneyIn }
         let start = pay?.measuredFrom ?? measuredFrom
-        var contributions: Decimal = 0
-        for account in accounts.values.sorted(by: { $0.id < $1.id })
-        where SavingsRate.pensionKinds.contains(account.kind) && account.includedInNetWorth
-            && account.isOpen(onAnyDayFrom: start, through: through) {
-            let paid = change(of: account, from: start, to: through)
-            guard paid.change.newMoney > 0 else { continue }
-            contributions += paid.change.newMoney
-        }
         let saved = saved(after: start, through: through)
+        let contributions = saved.byAccount.keys.sorted().reduce(Decimal(0)) { total, id in
+            guard let account = accounts[id], SavingsRate.pensionKinds.contains(account.kind) else { return total }
+            return total + max(saved.byAccount[id] ?? 0, 0)
+        }
         let tax = taxSetAside(after: start, through: through)
         return SavingsRate(moneyInOut: money, from: start, through: through, pensionContributions: contributions,
-                           taxSetAside: tax.amount, savedByAccount: saved.byAccount, isPriced: saved.isPriced && tax.isPriced)
+                           taxSetAside: tax.amount, savedByAccount: saved.byAccount,
+                           isPriced: saved.isPriced && tax.isPriced)
     }
 
     /// What moved into tax pots outside net worth (``Model/AccountKind/taxPot``)
@@ -181,82 +178,19 @@ extension Valuator {
     }
 
     /// What each account in net worth saved after `from` through `through`
-    /// (PROGRESS.md, "Savings rate"): its new money as
-    /// ``change(from:to:in:)`` splits net worth's change, less the part of a
-    /// new account's first value that it already held. A check-in fills in
-    /// a new account's whole amount as its flow; as Trends' *put in*
-    /// counts it (``moneySources(_:through:)``), that flow stays saved only
-    /// as far as negative new money of accounts with a record before it, from
-    /// the check-in before to the one it's in, offsets it (money moved from
-    /// an account already tracked), shared over that stretch's first values
-    /// in proportion to their flows. A debt's first flow, negative, stays
-    /// only as far as money moved into the cash and savings accounts already
-    /// tracked, taken together, offsets it (a loan paid out into the current
-    /// account, ``moved(into:after:through:)``), so a debt you start
-    /// tracking isn't spent, and doesn't take a month's saving with it.
+    /// (PROGRESS.md, "Savings rate"): its saved amount over each stretch
+    /// between check-ins (``SavedStretch``), added up, so a new account's
+    /// first value counts only as far as money moved from the accounts
+    /// tracked before it pays for it.
     public func saved(after from: CalendarDate, through: CalendarDate)
         -> (byAccount: [AccountID: Decimal], isPriced: Bool) {
-        let report = change(from: from, to: through, in: .netWorth)
-        var saved: [AccountID: Decimal] = [:]
-        for account in report.accounts { saved[account.account] = account.change.newMoney }
-        let cuts = Set(checkInDates(in: .netWorth, through: through).filter { $0 > from } + [through]).sorted()
-        var firstValues: [CalendarDate: Set<AccountID>] = [:]
-        for account in report.accounts {
-            guard let record = firstRecordDate(of: account.account), record > from, record <= through,
-                  let end = cuts.first(where: { $0 >= record })
-            else { continue }
-            firstValues[end, default: []].insert(account.account)
+        var byAccount: [AccountID: Decimal] = [:]
+        var isPriced = true
+        for stretch in savedStretches(between: savedCuts(after: from, through: through, in: .netWorth),
+                                      in: .netWorth) {
+            byAccount.merge(stretch.saved, uniquingKeysWith: +)
+            isPriced = isPriced && stretch.report.isPriced
         }
-        for end in firstValues.keys.sorted() {
-            guard let firsts = firstValues[end] else { continue }
-            let start = cuts.last(where: { $0 < end }) ?? from
-            let stretch = change(from: start, to: end, in: .netWorth)
-            var takenOut: Decimal = 0
-            var moved: Decimal = 0
-            var assets: [(account: AccountID, flow: Decimal)] = []
-            var debts: [(account: AccountID, flow: Decimal)] = []
-            for account in stretch.accounts {
-                if firsts.contains(account.account) {
-                    let flow = account.flow ?? 0
-                    if flow > 0 { assets.append((account: account.account, flow: flow)) }
-                    if flow < 0 { debts.append((account: account.account, flow: flow)) }
-                } else {
-                    takenOut += max(-account.change.newMoney, 0)
-                    moved += self.moved(into: account, after: start, through: end) ?? 0
-                }
-            }
-            // Transfers between cash and savings accounts cancel out; what's left came from elsewhere.
-            let putIn = max(moved, 0)
-            // Each first flow stays saved in the share of them the other side offsets.
-            for (flows, offset) in [(assets, takenOut), (debts, putIn)] {
-                let total = flows.reduce(Decimal(0)) { $0 + abs($1.flow) }
-                let share: Decimal = total == 0 ? 0 : min(offset / total, 1)
-                for first in flows {
-                    saved[first.account, default: 0] -= first.flow * (1 - share)
-                }
-            }
-        }
-        return (saved, report.isPriced)
-    }
-
-    /// What moved into a cash or savings account from your other accounts
-    /// after `from` through `through` (negative: out of it), in the base
-    /// currency: the sum of its valuations' ``moved(_:previous:)``. Where
-    /// one of them doesn't record money in and out, the new money of
-    /// `change`, its change over those days, as nothing tells a transfer
-    /// apart. `nil` for other kinds.
-    func moved(into change: AccountChange, after from: CalendarDate, through: CalendarDate) -> Decimal? {
-        guard let account = accounts[change.account], account.kind.recordsMoneyInOut else { return nil }
-        var total: Decimal = 0
-        var previous: Valuation?
-        for valuation in valuations(for: account.id) {
-            defer { previous = valuation }
-            guard valuation.date > from, valuation.date <= through else { continue }
-            guard let moved = self.moved(valuation, previous: previous),
-                  let inBase = fx.convert(moved, from: account.currency, to: baseCurrency, on: valuation.date)
-            else { return change.change.newMoney }
-            total += inBase
-        }
-        return total
+        return (byAccount, isPriced)
     }
 }

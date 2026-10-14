@@ -173,7 +173,7 @@ extension Valuator {
         }.compactMap { latestRecordDate(of: $0.id, onOrBefore: ends[available]) }.min().map { max($0, ends[longest]) }
             ?? ends[available]
         let intervals = zip(checkIns, checkIns.dropFirst()).filter { $0.1 > ends[available] || $0.1 >= before }
-        let reports = intervals.map { change(from: $0.0, to: $0.1, in: .planAssets) }
+        let stretches = intervals.map { savedStretch(after: $0.0, through: $0.1, in: .planAssets) }
         let window = min(available, SavingPace.window)
 
         // In today's money only when the index covers every month, so the
@@ -185,10 +185,11 @@ extension Valuator {
         let hasRange = available > SavingPace.window
             && (index == nil || index?.value(on: ends[available]) != nil)
         var isComplete = true
-        // Each account's new money at each check-in where it had some,
-        // after money moved between plan assets cancels out.
+        // What each account saved at each check-in where it saved something
+        // (``SavedStretch``), after money moved between plan assets cancels out.
         var paid: [(account: AccountID, from: CalendarDate, to: CalendarDate, amount: Decimal, isMissing: Bool)] = []
-        for report in reports {
+        for stretch in stretches {
+            let report = stretch.report
             if report.to > ends[window],
                report.accounts.contains(where: { !$0.problems.allSatisfy(\.isNotTrackedYet) }) {
                 isComplete = false
@@ -199,11 +200,11 @@ extension Valuator {
             // spread over different days don't leave a month too high and
             // another too low. Only when the two are alike (the smaller at
             // least half the larger): a large withdrawal isn't a transfer.
-            let paidIn = report.accounts.reduce(Decimal(0)) { $0 + max($1.change.newMoney, 0) }
-            let takenOut = report.accounts.reduce(Decimal(0)) { $0 - min($1.change.newMoney, 0) }
+            let paidIn = stretch.saved.values.reduce(Decimal(0)) { $0 + max($1, 0) }
+            let takenOut = stretch.saved.values.reduce(Decimal(0)) { $0 - min($1, 0) }
             let moved = 2 * min(paidIn, takenOut) >= max(paidIn, takenOut) ? min(paidIn, takenOut) : 0
             for account in report.accounts {
-                var amount = account.change.newMoney
+                var amount = stretch.saved[account.account] ?? 0
                 if moved > 0, amount != 0 {
                     amount -= amount > 0 ? amount * moved / paidIn : amount * moved / takenOut
                 }
@@ -215,7 +216,7 @@ extension Valuator {
                 // check-in before, so it's spread from there, and so is an
                 // account closed since, whose closing date is known.
                 let closed = accounts[account.account]?.closed.map { $0 >= report.from && $0 < report.to } ?? false
-                let from = accounts[account.account]?.recordsTrades == true || closed ? report.from
+                let from = ledger(for: account.account) != nil || closed ? report.from
                     : latestRecordDate(of: account.account, onOrBefore: report.from) ?? report.from
                 guard from < report.to else { continue }
                 if let index { amount = index.convert(amount, from: report.to, to: asOf) ?? amount }
@@ -256,7 +257,7 @@ extension Valuator {
             // where they are.
             let firstRecord = firstRecordDate(of: account)
             let gaps = zip(payments, payments.dropFirst()).map { $0.0.to.days(to: $0.1.to) }.sorted()
-            let regular = payments.count >= 3 && accounts[account]?.recordsTrades != true
+            let regular = payments.count >= 3 && ledger(for: account) == nil
             let usualGap = regular ? gaps[(gaps.count - 1) / 2] : 0
             let furthest = usualGap * 3 / 2
             let usual = regular ? SavingPace.median(payments.map(\.amount)) : 0
@@ -291,7 +292,7 @@ extension Valuator {
                   regular ? last.amount <= 2 * usual
                       && (notValuedSince || usualGap * 2 > usualCheckIn * 3 && last.to.days(to: asOf) <= furthest)
                       : notValuedSince && last.from.days(to: last.to) * 2 > usualCheckIn * 3,
-                  accounts[account]?.recordsTrades != true, accounts[account]?.closed.map({ $0 > asOf }) ?? true,
+                  ledger(for: account) == nil, accounts[account]?.closed.map({ $0 > asOf }) ?? true,
                   index.map({ $0.value(on: last.to) != nil }) ?? true
             else { continue }
             let length = last.from.days(to: last.to)
