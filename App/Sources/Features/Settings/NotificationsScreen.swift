@@ -93,7 +93,7 @@ struct NotificationsScreen: View {
 
     /// What Settings shows next to *Notifications*: "Monthly and yearly",
     /// "Monthly", "Yearly" or "Off".
-    static func summary(_ settings: NoteSettings) -> String {
+    nonisolated static func summary(_ settings: NoteSettings) -> String {
         let yearly = settings.yourYear || settings.birthday || settings.recordsAnniversary || settings.planCheckUp
         switch (settings.monthly, yearly) {
         case (true, true): return "Monthly and yearly"
