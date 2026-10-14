@@ -172,7 +172,8 @@ struct ImportStatementsCommand: RetireSubcommand {
                 file.name == named || files[file.id] == named
             }
             guard let file = matches.first, matches.count == 1 else {
-                throw CLIError("--account: no file is “\(named)”.")
+                throw CLIError(matches.isEmpty ? "--account: no file is “\(named)”."
+                    : "--account: “\(named)” is \(matches.count) files; name one by its path.")
             }
             guard candidates.contains(account) else {
                 throw CLIError("--account: “\(account)” isn't an open cash or savings account of the library that "
@@ -192,6 +193,7 @@ struct ImportStatementsCommand: RetireSubcommand {
         for file in batch.files {
             lines += file.session.preview(against: library, today: today).statementLines.map { (file, $0) }
         }
+        var answered: [String: String] = [:]
         for (named, asset) in answers {
             let matches: [(file: StatementBatch.File, line: StatementLine)]
             if let colon = named.lastIndex(of: ":"), let row = Int(named[named.index(after: colon)...]) {
@@ -207,6 +209,12 @@ struct ImportStatementsCommand: RetireSubcommand {
                         + matches.map { "\($0.file.name):\($0.line.row)" }.joined(separator: ", ")
                         + "): name one as <file>:<row>.")
             }
+            let key = "\(match.file.id):\(match.line.row)"
+            if let earlier = answered[key] {
+                throw CLIError("“\(earlier)” and “\(named)” both answer \(match.file.name):\(match.line.row): "
+                    + "give it one answer.")
+            }
+            answered[key] = named
             batch.editSession(ofFile: match.file.id, library: library, today: today) {
                 $0.setStatementAsset(asset, forRow: match.line.row)
             }
@@ -214,7 +222,7 @@ struct ImportStatementsCommand: RetireSubcommand {
     }
 
     /// Accepts or rejects the closings by the flag; a statement's purchases
-    /// and sales stay accepted.
+    /// and sales, and earlier openings, stay accepted.
     func decide(_ preview: inout ImportPreview) {
         for index in preview.newAccounts.indices where preview.newAccounts[index].statementRow == nil {
             preview.newAccounts[index].isAccepted = false
@@ -222,8 +230,6 @@ struct ImportStatementsCommand: RetireSubcommand {
         for index in preview.accountChanges.indices where preview.accountChanges[index].statementRow == nil {
             if case .close = preview.accountChanges[index].change {
                 preview.accountChanges[index].isAccepted = acceptClosings
-            } else {
-                preview.accountChanges[index].isAccepted = false
             }
         }
     }
@@ -315,6 +321,7 @@ struct ImportStatementsReport: CommandReport {
             lines += section("  Formats to confirm", report.ambiguityLines())
             lines += section("  Problems", report.problems.map { "  \($0)" })
             lines += section("  Notes", report.noteLines())
+            lines += section("  " + report.newAccountsTitle, report.newAccountLines())
             lines += section("  Account changes", report.accountChangeLines())
             lines += section("  Preview: \(preview.summary)", report.previewLines())
             lines += section("  " + report.conflictsTitle, report.conflictLines())
