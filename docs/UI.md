@@ -1021,7 +1021,7 @@ When an answer looks wrong ("I need 2 million to withdraw 20,000 a year?"), *Exp
 
 A window with steps along the top, as described in [IMPORT.md](IMPORT.md):
 
-1. **File.** A drop zone, or the result of dragging a file onto the app.
+1. **File.** A drop zone, "Drop one export here, or several bank statements", with *Choose Files…*, which takes several files at once; or the result of dragging a file onto the app.
 2. **Format.** The detected settings, each a picker with a live sample: encoding, delimiter, header row, decimal and thousands separators, date format, and whether empty cells are skipped.
 3. **Columns.** A table: the column header, sample values, *Imports as* (Balance of…, Quantity of…, Price of…, Ignore), and a per-column format override. The layout: a row per date, per record, per trade, or a bank statement.
 4. **Accounts.** Names in the file matched to accounts (existing, new, or ignored), plus proposed closings, which are off until you turn them on.

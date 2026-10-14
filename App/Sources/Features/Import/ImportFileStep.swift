@@ -261,7 +261,7 @@ struct ImportChoiceRow: View {
     }
 }
 
-/// Where to drop a file, with a button to choose one.
+/// Where to drop one file or several, with a button to choose them.
 private struct ImportDropZone: View {
     let fileName: String?
     let isTargeted: Bool
@@ -273,12 +273,12 @@ private struct ImportDropZone: View {
                 .font(.system(size: 34, weight: .light))
                 .foregroundStyle(Palette.accent)
                 .accessibilityHidden(true)
-            Text(fileName ?? "Drop a spreadsheet export here")
+            Text(fileName ?? "Drop one export here, or several bank statements")
                 .font(.headline)
                 .foregroundStyle(Palette.ink)
                 .multilineTextAlignment(.center)
                 .privacySensitiveInFeedback(fileName != nil)
-            Button(fileName == nil ? "Choose File…" : "Choose Another File…", action: chooseFile)
+            Button(fileName == nil ? "Choose Files…" : "Choose Other Files…", action: chooseFile)
                 .buttonStyle(.bordered)
         }
         .frame(maxWidth: .infinity)
