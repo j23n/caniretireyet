@@ -289,16 +289,30 @@ public struct StatementBatch: Sendable {
     /// caller's way of applying one file's preview, by default
     /// ``ImportPreview/apply(to:)``), so a month's file follows on from the
     /// month before's. `decide` edits each preview before it's applied:
-    /// the decisions a caller takes on proposals and conflicts.
+    /// the decisions a caller takes on proposals and conflicts. A sale in
+    /// one file of what a purchase in another starts is recorded by the
+    /// purchase's file (``salesAcrossFiles(_:library:)``), whichever comes
+    /// first.
     public func previews(against library: Library, today: CalendarDate = .today(),
                          decide: (Int, inout ImportPreview) -> Void = { _, _ in },
                          apply: (ImportPreview, Library) -> ImportResult = { $0.apply(to: $1) })
         -> [(file: Int, preview: ImportPreview)] {
+        let order = order(against: library, today: today)
+        let first = previews(order, against: library, today: today, sales: [:], decide: decide, apply: apply)
+        let sales = salesAcrossFiles(first, library: library)
+        guard !sales.isEmpty else { return first }
+        return previews(order, against: library, today: today, sales: sales, decide: decide, apply: apply)
+    }
+
+    private func previews(_ order: [Int], against library: Library, today: CalendarDate,
+                          sales: [Int: StatementBatchSales], decide: (Int, inout ImportPreview) -> Void,
+                          apply: (ImportPreview, Library) -> ImportResult) -> [(file: Int, preview: ImportPreview)] {
         var current = library
         var previews: [(file: Int, preview: ImportPreview)] = []
-        for id in order(against: library, today: today) {
+        for id in order {
             guard let file = files.first(where: { $0.id == id }) else { continue }
-            var preview = file.session.preview(against: current, today: today)
+            var preview = file.session.preview(against: current, today: today,
+                                               batchSales: sales[id] ?? StatementBatchSales())
             decide(id, &preview)
             previews.append((id, preview))
             current = apply(preview, current).library

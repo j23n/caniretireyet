@@ -231,4 +231,96 @@ struct StatementBatchTests {
         #expect(savings.addsUp)
         #expect(savings.closingBalance == Decimal(string: "11002.5"))
     }
+
+    // MARK: Sales across files
+
+    /// A purchase in one account's statement and its sale in another's, in
+    /// one value, whichever file is read first: the purchase's file
+    /// records both, and importing them again finds the same values.
+    @Test(arguments: [false, true])
+    func aSaleInAnotherFileSellsThePurchase(boughtFromSavings: Bool) throws {
+        let current = """
+            Data;Importo;Descrizione
+            05/01/2026;-900,00;Affitto gennaio
+            20/01/2026;\(boughtFromSavings ? "3.000,00;Bonifico da Mario Verdi" : "-4.000,00;Bonifico a Autosalone Neri")
+            27/01/2026;3.000,00;Stipendio ACME
+            """
+        let savings = """
+            Data;Importo;Descrizione;Saldo
+            16/01/2026;1.000,00;Bonifico da Mario Rossi;11.000,00
+            \(boughtFromSavings ? "18/01/2026;-4.000,00;Bonifico a Autosalone Neri;7.000,00"
+                                 : "25/01/2026;3.000,00;Bonifico da Mario Verdi;14.000,00")
+            31/01/2026;2,50;Interessi;\(boughtFromSavings ? "7.002,50" : "14.002,50")
+            """
+        var batch = Self.batch([("fineco-gennaio.csv", current), ("export.csv", savings)])
+        let library = Self.library()
+        let purchaseFile = boughtFromSavings ? 1 : 0
+        let saleFile = 1 - purchaseFile
+        let purchaseRow = try #require(Self.lines(batch, purchaseFile).first { $0.text.hasPrefix("Bonifico a Auto") }).row
+        let saleRow = try #require(Self.lines(batch, saleFile).first { $0.text.hasPrefix("Bonifico da Mario V") }).row
+        batch.editSession(ofFile: purchaseFile, library: library, today: Self.today) {
+            $0.setStatementAsset(.purchase(name: "Auto", kind: .belongings), forRow: purchaseRow)
+        }
+        batch.editSession(ofFile: saleFile, library: library, today: Self.today) {
+            $0.setStatementAsset(.sale("auto"), forRow: saleRow)
+        }
+        let previews = batch.previews(against: library, today: Self.today)
+        let bought = try #require(previews.first { $0.file == purchaseFile }?.preview)
+        let sold = try #require(previews.first { $0.file == saleFile }?.preview)
+        let sale = try #require(sold.statementLines.first { $0.row == saleRow })
+        #expect(sale.asset == .sale("auto"))
+        #expect(sale.statementClass == .transfer)
+        #expect(!sold.records.contains { $0.imported.key.account == "auto" })
+        let value = try #require(bought.records.first {
+            $0.id == .valuation(ValuationKey(account: "auto", date: "2026-01-31"))
+        }).imported
+        #expect(value.balance == 0)
+        #expect(value.flow == 1000)
+        #expect(bought.accountChanges == [AccountChangeProposal(account: "auto", change: .close(on: "2026-02-01"),
+                                                                statementRow: purchaseRow)])
+        #expect(!previews.contains { $0.preview.issues.contains { !$0.isNote } })
+
+        let imported = StatementBatch.apply(previews.map(\.preview), to: library).library
+        #expect(imported.accounts["auto"]?.closed == "2026-02-01")
+        let again = batch.previews(against: imported, today: Self.today)
+        #expect(again.allSatisfy { $0.preview.records.allSatisfy { $0.status == .identical } })
+        #expect(again.allSatisfy { $0.preview.accountChanges.isEmpty && $0.preview.newAccounts.isEmpty })
+        #expect(!again.contains { $0.preview.issues.contains { !$0.isNote } })
+    }
+
+    /// A sale in a later value of another file is recorded at that value.
+    @Test func aSaleInALaterValueOfAnotherFile() throws {
+        let current = """
+            Data;Importo;Descrizione
+            05/01/2026;-900,00;Affitto gennaio
+            20/01/2026;-4.000,00;Bonifico a Autosalone Neri
+            27/01/2026;3.000,00;Stipendio ACME
+            """
+        let savings = """
+            Data;Importo;Descrizione;Saldo
+            16/01/2026;1.000,00;Bonifico da Mario Rossi;11.000,00
+            10/02/2026;3.000,00;Bonifico da Mario Verdi;14.000,00
+            28/02/2026;2,50;Interessi;14.002,50
+            """
+        var batch = Self.batch([("fineco-gennaio.csv", current), ("export.csv", savings)])
+        let library = Self.library()
+        let purchaseRow = try #require(Self.lines(batch, 0).first { $0.text.hasPrefix("Bonifico a Auto") }).row
+        let saleRow = try #require(Self.lines(batch, 1).first { $0.text.hasPrefix("Bonifico da Mario V") }).row
+        batch.editSession(ofFile: 0, library: library, today: Self.today) {
+            $0.setStatementAsset(.purchase(name: "Auto", kind: .belongings), forRow: purchaseRow)
+        }
+        batch.editSession(ofFile: 1, library: library, today: Self.today) {
+            $0.setStatementAsset(.sale("auto"), forRow: saleRow)
+        }
+        let previews = batch.previews(against: library, today: Self.today)
+        let bought = try #require(previews.first { $0.file == 0 }?.preview)
+        func value(_ date: CalendarDate) -> ImportedRecord? {
+            bought.records.first { $0.id == .valuation(ValuationKey(account: "auto", date: date)) }?.imported
+        }
+        #expect(value("2026-01-31")?.balance == 4000)
+        #expect(value("2026-02-28")?.balance == 0)
+        #expect(value("2026-02-28")?.flow == -3000)
+        #expect(bought.accountChanges.map(\.change) == [.close(on: "2026-03-01")])
+        #expect(!previews.contains { $0.preview.issues.contains { !$0.isNote } })
+    }
 }

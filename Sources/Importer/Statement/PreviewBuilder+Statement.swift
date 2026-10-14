@@ -401,7 +401,9 @@ extension PreviewBuilder {
                 guard StatementAsset.purchaseKinds.contains(kind) else { continue }
             case .sale(let id):
                 guard !sold.contains(id) else { continue }
-                if let other = library.accounts[id] {
+                if batchSales.recordedElsewhere.contains(line.row) {
+                    // The purchase's file records it.
+                } else if let other = library.accounts[id] {
                     guard library.canSellFromStatement(other, of: account, on: line.date) else { continue }
                 } else {
                     guard purchases.contains(where: { $0.date <= line.date }) else { continue }
@@ -482,6 +484,12 @@ extension PreviewBuilder {
                 lines[index].assetAccount = other
                 continue
             }
+            if batchSales.recordedElsewhere.contains(row), case .sale(let sold)? = answered[row] {
+                // A sale of what another file's purchase starts: that file records it.
+                lines[index].asset = answered[row]
+                lines[index].assetAccount = sold
+                continue
+            }
             // A sale found from an earlier import counts in the same value, or it's another sale.
             let soldElsewhere = answered[row].map { asset in
                 guard case .sale(let sold) = asset, let closed = library.accounts[sold]?.closed else { return false }
@@ -546,6 +554,9 @@ extension PreviewBuilder {
                 accumulator.cells = bought.cells + cells
             }
             records[record.key] = accumulator
+            if case .purchase = asset, let sale = batchSales.ofPurchases[row] {
+                recordSale(sale, of: id, bought: cut, row: row, cells: cells, in: &records)
+            }
             lines[index].asset = asset
             lines[index].assetAccount = id
         }
@@ -559,6 +570,26 @@ extension PreviewBuilder {
             records.merge(movedRecords(other, moves: otherMoves)) { $1 }
         }
         return records
+    }
+
+    /// Records the sale, in another file of the batch, of what this file's
+    /// purchase on `row` starts as `id`, bought at the value `bought`: worth
+    /// 0 at the later of the two values, with the amount as its flow out,
+    /// and closed the day after (proposed, accepted, unless the sale closed
+    /// it already). Sold within the purchase's value, it's worth 0 there,
+    /// with what the two moved as its flow.
+    private mutating func recordSale(_ sale: StatementSaleElsewhere, of id: AccountID, bought: CalendarDate, row: Int,
+                                     cells: [ImportCellRef], in records: inout [ImportRecordKey: Accumulator]) {
+        let soldOn = max(sale.cut, bought)
+        let key = ImportRecordKey.valuation(ValuationKey(account: id, date: soldOn))
+        var record = records[key]?.record ?? ImportedRecord(key: key)
+        record.balance = 0
+        record.flow = (record.flow ?? 0) - sale.amount
+        records[key] = Accumulator(record: record, cells: records[key]?.cells ?? cells)
+        if library.accounts[id]?.closed != soldOn.adding(days: 1) {
+            statementCloses.append(AccountChangeProposal(account: id, change: .close(on: soldOn.adding(days: 1)),
+                                                         statementRow: row))
+        }
     }
 
     /// Money a statement's line moved into another account (negative: taken out),
