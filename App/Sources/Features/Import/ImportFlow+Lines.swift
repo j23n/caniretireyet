@@ -219,15 +219,13 @@ extension ImportFlow {
     }
 
     /// Why an answered line isn't recorded: the account can't take the
-    /// move, it counts in no value whose money in and out the file covers
-    /// (a sale: it's in no value of the file), or the answer doesn't fit it.
+    /// move, or a move counts in no value whose money in and out the file
+    /// covers; else the answer doesn't fit it. A purchase or a sale needs
+    /// no value of the file.
     func statementAssetLeftOutReason(_ line: BatchStatementLine) -> String {
-        let answer = statementAnswer(line)
-        if case .moved(let id)? = answer, line.line.period != nil {
-            return "\(accountName(id)) can't take money moved from this statement"
-        }
-        let value = if case .sale? = answer { line.line.valueDate } else { line.line.period }
-        return value == nil ? "the file doesn't cover the value it counts in" : "the answer doesn't fit this line"
+        guard case .moved(let id)? = statementAnswer(line) else { return "the answer doesn't fit this line" }
+        return line.line.period == nil ? "the file doesn't cover the value it counts in"
+            : "\(accountName(id)) can't take money moved from this statement"
     }
 
     // MARK: Moved to or from
@@ -270,8 +268,7 @@ extension ImportFlow {
 
     /// The new accounts the purchases of the statements open start, that a
     /// line can sell: the accepted ones of a purchase on or before its day,
-    /// in any file (the purchase's file records a sale in another,
-    /// IMPORT.md, "Several statements at once").
+    /// in any file (IMPORT.md, "Several statements at once").
     func startedAccounts(before line: BatchStatementLine) -> [Account] {
         let previews = batch != nil ? batchPreviews.map(\.preview) : (preview.map { [$0] } ?? [])
         return previews.flatMap { preview in

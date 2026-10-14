@@ -537,7 +537,7 @@ struct ImportTests {
         #expect(run.status == 0, "\(run.all)")
         #expect(run.output.contains("purchase: auto"))
         #expect(run.output.contains("sale: casa"))
-        #expect(run.output.contains("Close casa on 2026-11-01, sold in row 8 (closed with --apply)"))
+        #expect(run.output.contains("Close casa on 2026-10-23, sold in row 8 (closed with --apply)"))
         #expect(run.output.contains("New accounts (created with --apply)"))
         #expect(run.output.contains("bought in row 7"))
         #expect(!run.output.contains("needs an answer"))
@@ -553,7 +553,7 @@ struct ImportTests {
         let written = try library.load()
         #expect(written.accounts["auto"]?.kind == .belongings)
         #expect(written.valuations(for: "auto").map(\.balance) == [0, 18000])
-        #expect(written.accounts["casa"]?.closed == "2026-11-01")
+        #expect(written.accounts["casa"]?.closed == "2026-10-23")
         #expect(written.valuations(for: "casa").last?.balance == 0)
 
         let many = await runCLI(arguments + ["--purchase", "Bonifico=belongings:Auto"])

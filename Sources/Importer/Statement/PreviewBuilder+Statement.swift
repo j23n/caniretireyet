@@ -411,9 +411,7 @@ extension PreviewBuilder {
                 guard StatementAsset.purchaseKinds.contains(kind) else { continue }
             case .sale(let id):
                 guard !sold.contains(id) else { continue }
-                if batchSales.recordedElsewhere.contains(line.row) {
-                    // The purchase's file records it.
-                } else if let other = library.accounts[id] {
+                if let other = library.accounts[id] {
                     guard library.canSellFromStatement(other, of: account, on: line.date) else { continue }
                 } else {
                     guard purchases.contains(where: { $0.date <= line.date }) else { continue }
@@ -434,26 +432,25 @@ extension PreviewBuilder {
         return rule.account.map(StatementAsset.moved)
     }
 
-    /// The other side of the answers that move money, at the file's value
-    /// the line counts in (``StatementLine/period``). Money moved to or
-    /// from an account is a transfer, and a cash or savings account's or a
+    /// The other side of the answers that move money. Money moved to or
+    /// from an account is a transfer, at the file's value the line counts
+    /// in (``StatementLine/period``), and a cash or savings account's or a
     /// tax pot's values follow from it (``movedRecords(_:moves:)``), unless
-    /// its own statement is imported with
-    /// this one. A purchase starts a new account (proposed, accepted),
-    /// opened and worth 0 on the line's day (the day before, when that's
-    /// the value's), then worth the line's amount, with the amount as its
-    /// flow: its first value is 0, so the amount is new money moved from
-    /// the account, not what it already held. A sale values the account
-    /// sold at 0, with the amount as its flow out, and closes it the day
-    /// after (proposed, accepted, unless this sale closed it already); the
-    /// account sold can be one a purchase on or before the sale's day in
-    /// the file starts, and bought and sold within one value, it's worth 0
-    /// at the value with what the two moved as its flow.
-    /// Answers it can't take are issues: one that doesn't fit leaves the
-    /// line classified as if it had none (a rule's move, a transfer, as the
-    /// rule says), and a line that counts in no value has no money in and
-    /// out to move; a sale is recorded at the value its line is in all the
-    /// same (``StatementLine/valueDate``), whatever that value counts.
+    /// its own statement is imported with this one. A purchase or a sale is
+    /// recorded on the line's own day, whatever the file's values cover: a
+    /// purchase starts a new account (proposed, accepted), opened and worth
+    /// 0 the day before, then worth the line's amount, with the amount as
+    /// its flow, so the amount is new money moved from the account, not
+    /// what it already held; a sale
+    /// values the account sold at 0 that day, with the amount as its flow
+    /// out, and closes it the day after (proposed, accepted, unless this
+    /// sale closed it already). The account sold can be one a purchase on
+    /// or before the sale's day in the file starts; bought and sold on one
+    /// day, it's worth 0 with what the two moved as its flow. Answers it
+    /// can't take are issues: one that doesn't fit leaves the line
+    /// classified as if it had none (a rule's move, a transfer, as the rule
+    /// says), and a move on a line that counts in no value has no money in
+    /// and out to move.
     private mutating func statementAssetRecords(_ lines: inout [StatementLine], read: [ReadLine],
                                                 account: Account)
         -> [ImportRecordKey: Accumulator] {
@@ -464,16 +461,10 @@ extension PreviewBuilder {
         var moves: [AccountID: [StatementMove]] = [:]
         // The accounts this file's purchases start, by the purchase's day.
         var started: [AccountID: CalendarDate] = [:]
-        // Sales come after the purchases, so a sale of an account a purchase starts finds its ID, and
-        // bought and sold within one value, the sale's 0 is the account's value in any order of rows.
+        // Sales come after the purchases, so a sale of an account a purchase starts finds its ID.
         let rows = Set(session.statementAssets.keys).union(answered.keys).sorted()
-        let known = Set(library.accounts.keys)
         let sells = { (row: Int) -> Bool in
             if case .sale? = answered[row] { true } else { false }
-        }
-        let sellsStarted = { (row: Int) -> Bool in
-            guard case .sale(let id)? = answered[row] else { return false }
-            return !known.contains(id)
         }
         for row in rows.filter({ !sells($0) }) + rows.filter(sells) {
             guard let index = lines.firstIndex(where: { $0.row == row }) else { continue }
@@ -495,33 +486,21 @@ extension PreviewBuilder {
                 lines[index].assetAccount = other
                 continue
             }
-            if batchSales.recordedElsewhere.contains(row), case .sale(let sold)? = answered[row] {
-                // A sale of what another file's purchase starts: that file records it.
-                lines[index].asset = answered[row]
-                lines[index].assetAccount = sold
-                continue
-            }
-            // A sale is worth 0 at the value its line is in, even one whose money in and out the file
-            // doesn't cover: the account's flow out is what was sold, whatever the statement's value counts.
-            let cut = sells(row) ? line.valueDate : line.period
-            // A sale found from an earlier import counts in the same value, or it's another sale.
-            let soldElsewhere = answered[row].map { asset in
-                guard case .sale(let sold) = asset, let closed = library.accounts[sold]?.closed else { return false }
-                return closed != cut?.adding(days: 1)
+            // A sale found from an earlier import, or another sale; or a sale of an account no purchase in
+            // the file started, or one started after the sale.
+            let unrecorded = answered[row].map { asset in
+                guard case .sale(let sold) = asset else { return false }
+                if let closed = library.accounts[sold]?.closed { return closed != line.date.adding(days: 1) }
+                guard library.accounts[sold] == nil else { return false }
+                return started[sold].map { $0 > line.date } ?? true
             } ?? false
-            // A sale of an account no purchase in the file started, or one started after the sale.
-            let notStarted = sellsStarted(row) && answered[row].map { asset in
-                guard case .sale(let sold) = asset, let bought = started[sold] else { return true }
-                return bought > line.date
-            } ?? false
-            guard let asset = answered[row], let cut, !soldElsewhere, !notStarted else {
+            guard let asset = answered[row], !unrecorded else {
                 if case .moved(let other)? = session.statementAssets[row] {
                     issues.append(ImportIssue(kind: .statementMoveLeftOut(row: row, account: other)))
                     continue
                 }
                 var account: AccountID?
-                if case .sale(let id)? = session.statementAssets[row],
-                   answered[row] == nil || soldElsewhere || notStarted,
+                if case .sale(let id)? = session.statementAssets[row], answered[row] == nil || unrecorded,
                    session.statementAssets[row]?.fits(line.amount) == true { account = id }
                 issues.append(ImportIssue(kind: .statementAssetLeftOut(row: row, account: account)))
                 continue
@@ -531,7 +510,7 @@ extension PreviewBuilder {
             switch asset {
             case .moved: continue
             case .purchase(let name, let kind):
-                let opened = min(line.date, cut.adding(days: -1))
+                let opened = line.date.adding(days: -1)
                 let existing = library.accounts.values.sorted { $0.id < $1.id }.first { existing in
                     existing.name == name && existing.kind == kind && existing.opened == opened
                         && existing.currency == account.currency && !found.contains(existing.id)
@@ -552,25 +531,22 @@ extension PreviewBuilder {
                 records[start.key] = Accumulator(record: start, cells: cells)
             case .sale(let sold):
                 id = sold
-                if library.accounts[sold]?.closed != cut.adding(days: 1) {
+                if library.accounts[sold]?.closed != line.date.adding(days: 1) {
                     statementCloses.append(AccountChangeProposal(account: sold,
-                                                                 change: .close(on: cut.adding(days: 1)),
+                                                                 change: .close(on: line.date.adding(days: 1)),
                                                                  statementRow: row))
                 }
             }
-            var record = ImportedRecord(key: .valuation(ValuationKey(account: id, date: cut)))
+            var record = ImportedRecord(key: .valuation(ValuationKey(account: id, date: line.date)))
             record.balance = line.amount < 0 ? amount : 0
             record.flow = amount
             var accumulator = Accumulator(record: record, cells: cells)
             if let bought = records[record.key] {
-                // Bought and sold within one value.
+                // Bought and sold on one day.
                 accumulator.record.flow = (bought.record.flow ?? 0) + amount
                 accumulator.cells = bought.cells + cells
             }
             records[record.key] = accumulator
-            if case .purchase = asset, let sale = batchSales.ofPurchases[row] {
-                recordSale(sale, of: id, bought: cut, row: row, cells: cells, in: &records)
-            }
             lines[index].asset = asset
             lines[index].assetAccount = id
         }
@@ -584,26 +560,6 @@ extension PreviewBuilder {
             records.merge(movedRecords(other, moves: otherMoves)) { $1 }
         }
         return records
-    }
-
-    /// Records the sale, in another file of the batch, of what this file's
-    /// purchase on `row` starts as `id`, bought at the value `bought`: worth
-    /// 0 at the later of the two values, with the amount as its flow out,
-    /// and closed the day after (proposed, accepted, unless the sale closed
-    /// it already). Sold within the purchase's value, it's worth 0 there,
-    /// with what the two moved as its flow.
-    private mutating func recordSale(_ sale: StatementSaleElsewhere, of id: AccountID, bought: CalendarDate, row: Int,
-                                     cells: [ImportCellRef], in records: inout [ImportRecordKey: Accumulator]) {
-        let soldOn = max(sale.cut, bought)
-        let key = ImportRecordKey.valuation(ValuationKey(account: id, date: soldOn))
-        var record = records[key]?.record ?? ImportedRecord(key: key)
-        record.balance = 0
-        record.flow = (record.flow ?? 0) - sale.amount
-        records[key] = Accumulator(record: record, cells: records[key]?.cells ?? cells)
-        if library.accounts[id]?.closed != soldOn.adding(days: 1) {
-            statementCloses.append(AccountChangeProposal(account: id, change: .close(on: soldOn.adding(days: 1)),
-                                                         statementRow: row))
-        }
     }
 
     /// Money a statement's line moved into another account (negative: taken out),
@@ -733,7 +689,6 @@ extension PreviewBuilder {
             let balance = balances.balance(on: cut, opening: opening)
             defer { previous = (cut, balance) }
             guard let balance else { continue }
-            for index in inPeriod { lines[index].valueDate = cut }
             var record = ImportedRecord(key: .valuation(ValuationKey(account: account.id, date: cut)))
             record.balance = balance
             var cells = inPeriod.flatMap { read[$0].cells }
