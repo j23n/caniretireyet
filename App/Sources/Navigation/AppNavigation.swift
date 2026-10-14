@@ -35,12 +35,15 @@ enum AppSheet: Hashable, Sendable, Identifiable {
     /// An import, optionally of a file dropped on the window (⌘⇧I). On the
     /// Mac and iPad the import is a sidebar page instead.
     case importFile(URL?)
+    /// *Your year*: the year in review (UI.md, "Your year").
+    case yourYear
 
     var id: String {
         switch self {
         case .settings: "settings"
         case .newAccount: "newAccount"
         case .importFile(let url): "import \(url?.absoluteString ?? "")"
+        case .yourYear: "yourYear"
         }
     }
 }
@@ -179,6 +182,12 @@ final class AppNavigation {
     func showSettings() {
         showsSyncInSheet = false
         sheet = .settings
+    }
+
+    /// Shows *Your year*, the year in review.
+    func showYourYear() {
+        showsSyncInSheet = false
+        sheet = .yourYear
     }
 
     func newAccount() {

@@ -58,12 +58,22 @@ struct OverviewScreen: View {
         // what to do.
         let headline = answer?.answer
         let netWorth = NetWorthGlance(valuator: valuator, asOf: today)
+        // What the plan spends a year in retirement, to say savings as time.
+        let spending = mainPlan.flatMap {
+            MilestoneLadder(plan: $0, library: library.library, on: planStart).spending
+        }
         return ScrollView {
             VStack(alignment: .leading, spacing: Metrics.xl) {
                 if let headline, let mainPlan {
                     OverviewHeader(headline: headline, plan: mainPlan, netWorth: netWorth, today: today)
                 } else {
                     OverviewHeroView(hero: netWorth)
+                }
+                if headline != nil {
+                    NotesOfferCard()
+                }
+                if let headline, let mainPlan {
+                    JourneyCard(plan: mainPlan, answer: headline, results: results, today: today)
                 }
                 if library.latestCheckIn == nil {
                     FirstCheckInCard()
@@ -73,12 +83,14 @@ struct OverviewScreen: View {
                     planName: mainPlan?.name, range: $range, showsFuture: $navigation.showsFuture)
                 VStack(alignment: .leading, spacing: Metrics.l) {
                     if let report = valuator.changeSinceLastCheckIn(asOf: today) {
-                        OverviewChangeCard(report: report, split: valuator.savedSplit(of: report))
+                        OverviewChangeCard(report: report, split: valuator.savedSplit(of: report),
+                                           yearlySpending: spending)
                     }
                     if let report = valuator.changeThisYear(asOf: today) {
                         OverviewYearCard(
                             report: report, split: valuator.savedSplit(of: report),
-                            savings: valuator.savingsRate(from: report.from.adding(days: 1), through: today))
+                            savings: valuator.savingsRate(from: report.from.adding(days: 1), through: today),
+                            yearlySpending: spending)
                     }
                     if headline == nil {
                         OverviewAnswerCard()

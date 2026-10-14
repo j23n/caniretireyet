@@ -11,6 +11,7 @@ struct RootView: View {
     @Environment(PlanStore.self) private var plans
     @Environment(AppPreferences.self) private var preferences
     @Environment(WidgetStore.self) private var widgets
+    @Environment(NoteStore.self) private var notes
     @Environment(\.scenePhase) private var scenePhase
     #if os(iOS)
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
@@ -42,6 +43,13 @@ struct RootView: View {
                 try? await Task.sleep(for: .seconds(1))
                 guard !Task.isCancelled else { return }
                 await widgets.refresh()
+                // The notes read the same snapshot (UI.md, "Notifications").
+                await notes.reschedule()
+            }
+            .onChange(of: notes.pendingLink, initial: true) { _, link in
+                guard let link else { return }
+                notes.pendingLink = nil
+                open(link)
             }
             .onOpenURL { url in
                 if let link = GlanceLink(url: url) {
@@ -52,14 +60,15 @@ struct RootView: View {
             }
     }
 
-    /// A widget was tapped: its net worth opens the Overview, its answer the
-    /// main plan, its check-in the check-in.
+    /// A widget or a note was tapped: net worth opens the Overview, the
+    /// answer the main plan, the check-in the check-in, *Your year* its sheet.
     private func open(_ link: GlanceLink) {
         adoptLaunchLayout()
         switch link {
         case .overview: navigation.showOverview()
         case .plan: navigation.showPlan()
         case .checkIn: navigation.startCheckIn()
+        case .yourYear: navigation.showYourYear()
         }
     }
 
@@ -196,6 +205,15 @@ private struct AppSheetView: View {
         case .newAccount:
             NavigationStack {
                 NewAccountScreen()
+            }
+        case .yourYear:
+            NavigationStack {
+                YourYearScreen()
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("Done") { dismiss() }
+                        }
+                    }
             }
         case .importFile(let file):
             NavigationStack {

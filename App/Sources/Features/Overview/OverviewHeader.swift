@@ -218,12 +218,38 @@ struct OverviewHeader: View {
                 Text(verbatim: words.futuresLine)
                     .foregroundStyle(Palette.secondaryInk)
             }
+            if let move = yearMove {
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(verbatim: move.lead)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(move.isSooner ? Palette.positive : Palette.ink)
+                    Text(verbatim: move.detail)
+                        .font(.subheadline)
+                        .foregroundStyle(Palette.secondaryInk)
+                }
+                .padding(.top, Metrics.xs)
+            }
         }
         .fixedSize(horizontal: false, vertical: true)
         .privacySensitiveInFeedback()
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(Text(verbatim: words.spoken))
+        .accessibilityLabel(Text(verbatim: [words.spoken, yearMove.map { "\($0.lead) \($0.detail)." }]
+            .compactMap(\.self).joined(separator: " ")))
         .accessibilityAddTraits(.isHeader)
+    }
+
+    /// How the age you could retire at moved in a year (UI.md, "Can I retire
+    /// yet?"): "2 years sooner" over "than a year ago, at 56", against the
+    /// answer recorded at the check-in a year ago; `nil` when it didn't
+    /// move, or there's no answer from then.
+    private var yearMove: (lead: String, detail: String, isSooner: Bool)? {
+        guard let age = headline.earliestAge, !headline.canRetireNow,
+              let then = library.library.headlines(for: plan.id).last(where: { $0.date <= today.adding(years: -1) }),
+              let before = then.earliestAge, before != age
+        else { return nil }
+        let years = abs(age - before)
+        let count = years == 1 ? "A year" : "\(years) years"
+        return (count + (age < before ? " sooner" : " later"), "than a year ago, at \(before)", age < before)
     }
 
     /// The ring, with the percentage and "ready" inside it; it keeps its
