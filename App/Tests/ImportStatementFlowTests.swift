@@ -133,8 +133,12 @@ struct ImportStatementFlowTests {
         let text = flow.describe(value.incoming, locale: Locale(identifier: "en_US"))
         #expect(text.contains("in "))
         #expect(text.contains("out "))
+        // The rent on 2 September is before the first day given.
         flow.setStatementFrom("2026-09-03")
-        #expect(flow.statementPeriod?.from == "2026-09-03")
+        #expect(flow.statementPeriod == nil)
+        #expect(flow.preview?.issues.contains {
+            $0.kind == .linesOutsidePeriod(count: 1, from: "2026-09-03", through: "2026-09-26")
+        } == true)
     }
 
     @Test func aCheckInsStatementsCoverThroughItsDate() throws {
