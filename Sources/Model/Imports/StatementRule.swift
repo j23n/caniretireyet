@@ -2,9 +2,7 @@
 /// "Bank statements").
 public struct StatementClass: OpenEnum {
     public let rawValue: String
-    /// Wraps a raw string. `paidBack`, a class of earlier files that counted
-    /// the same as spending, reads as `spending`.
-    public init(rawValue: String) { self.rawValue = rawValue == "paidBack" ? "spending" : rawValue }
+    public init(rawValue: String) { self.rawValue = rawValue }
 
     /// Income from outside your tracked accounts: pay, a pension, rent,
     /// a client's payment. Money in.

@@ -94,8 +94,13 @@ The app writes every file the same way, so the same data always gives the same b
 
 ## Versioning
 
-- `schemaVersion` in `library.json` is 4. Adding optional fields doesn't change it; anything else is a new version, with a migration in the app.
+- `schemaVersion` in `library.json` is 5. Adding optional fields doesn't change it; anything else is a new version, with a migration in the app.
 - Versions 1 to 3 were the formats of test versions (version 2 added trades, version 3 dropped the tax systems from plans, [PLANNER.md](../PLANNER.md#the-model-in-brief), version 4 made each account kind record its money one way, [ACCOUNTS.md](../ACCOUNTS.md)). This app has no migration from them: such a library doesn't open, and the error says why.
+- Version 4 is the oldest this app upgrades. The upgrade to version 5:
+  1. renames account kind `vehicle` to `belongings`, and the statement class `paidBack` to `spending` in import profiles' `rules` and `answers`;
+  2. writes a return given by both `real` and `medianReal` with `medianReal` alone, in plans and in the plans that baselines keep: the two keys are exclusive now;
+  3. drops a valuation's `flow` on every account that doesn't ask for one (anything but a pension fund, TFR, property or other account recorded as a balance), since that flow is worked out from the account's records. A savings value without `interest` whose flow wasn't its change in balance, as one typed before values recorded interest, gets the difference as its `interest`, so its new money stays the same. An account whose dropped flows weren't its change in balance is named in the upgrade's report;
+  4. prices instruments priced from CoinGecko from Yahoo Finance, as the coin's pair in the instrument's currency (`BTC-EUR`), the coin's ticker taken from the instrument's `unit`, its `ticker`, or a CoinGecko symbol written as a ticker (`ETH`). Otherwise the instrument loses its `priceSource`, and the upgrade's report names it.
 - Before migrating, the app copies the library into `backups/<yyyy-MM-dd>-v<old>/`. A migration works on the raw JSON of every file, and nothing is written unless every step succeeds.
 - An app older than the library opens it read-only: it loads, and every save is refused. A library older than the app is migrated before the app saves anything to it.
 

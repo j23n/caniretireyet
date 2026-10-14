@@ -91,7 +91,7 @@ struct ValidateTests {
         let run = await retire(["validate", "--library", library.path, "--json"])
         #expect(run.status == 1)
         let json = try parseJSON(run.output)
-        #expect(json["schemaVersion"] as? Int == 4)
+        #expect(json["schemaVersion"] as? Int == 5)
         #expect(json["readOnly"] as? Bool == false)
         #expect(json["errors"] as? Int == 1)
         #expect(json["warnings"] as? Int == 5)

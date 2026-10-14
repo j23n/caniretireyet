@@ -44,9 +44,9 @@
         }
       ],
       "valuations": [
-        { "account": "conto-deposito", "balance": "17365.55", "date": "2026-09-30", "flow": "500", "interest": "35.05", "moneyIn": "0", "moneyOut": "0" },
-        { "account": "conto-fineco", "balance": "4210.55", "date": "2026-09-30", "flow": "-310.2", "moneyIn": "3400", "moneyOut": "2560.2" },
-        { "account": "directa", "cash": "312.1", "date": "2026-09-30", "flow": "11.3" },
+        { "account": "conto-deposito", "balance": "17365.55", "date": "2026-09-30", "interest": "35.05", "moneyIn": "0", "moneyOut": "0" },
+        { "account": "conto-fineco", "balance": "4210.55", "date": "2026-09-30", "moneyIn": "3400", "moneyOut": "2560.2" },
+        { "account": "directa", "cash": "312.1", "date": "2026-09-30" },
         { "account": "fondo-pensione", "balance": "18450.12", "date": "2026-09-30", "flow": "1325", "note": "from Q3 statement" },
         { "account": "gold-coins", "cash": "0", "date": "2026-09-30" }
       ]
@@ -74,7 +74,7 @@
           "items": { "$ref": "#/$defs/position" }
         },
         "flow": {
-          "description": "The net money added (+) or taken out (−) since the account's previous valuation, in the account's currency. Absent means unknown. The sum of all flows over a period is what you saved. The check-in works it out from what's typed, by the kind of account (ACCOUNTS.md): the whole change for cash accounts, debts and belongings, the change minus the interest for savings; an account that records trades gets it from its trades and cash, and it's written for the record. Pension funds, TFR, property and other accounts ask for it.",
+          "description": "The net money added (+) or taken out (−) since the account's previous valuation, in the account's currency. The sum of all flows over a period is what you saved. Stored only for the kinds that ask for it, pension funds, TFR, property and other accounts recorded as a balance, where absent means unknown. Every other account's flow is worked out from its records, and isn't written (ACCOUNTS.md): the whole change for cash accounts, debts and belongings, the change minus the interest for savings; an account that records trades gets it from its trades and cash.",
           "$ref": "common.schema.json#/$defs/decimal"
         },
         "moneyIn": {

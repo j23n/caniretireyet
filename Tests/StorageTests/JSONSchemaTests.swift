@@ -170,7 +170,7 @@ import TestSupport
                 "inflation": "0.02",
                 "returns": {
                   "bonds": { "real": "0.017", "volatility": "0.06" },
-                  "equity": { "incomeYield": "0.02", "medianReal": "0.05", "real": "0.063334", "volatility": "0.17" }
+                  "equity": { "incomeYield": "0.02", "medianReal": "0.05", "volatility": "0.17" }
                 }
               },
               "contributions": [
@@ -250,7 +250,7 @@ import TestSupport
         try checkRoundTrip(LibrarySettings.self, """
             {
               "baseCurrency": "EUR", "inflationIndex": "hicp-ea", "mainPlan": "base",
-              "person": { "birthDate": "1988-04-12", "name": "Alex Example" }, "schemaVersion": 4, "taxResidence": "IT"
+              "person": { "birthDate": "1988-04-12", "name": "Alex Example" }, "schemaVersion": 5, "taxResidence": "IT"
             }
             """, against: "library.schema.json")
     }

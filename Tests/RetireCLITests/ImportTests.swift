@@ -541,8 +541,8 @@ struct ImportTests {
 
     @Test func aLibraryFromANewerAppIsNotWritten() async throws {
         let library = try TemporaryFolder.exampleLibrary()
-        let settings = try library.text("library.json").replacingOccurrences(of: #""schemaVersion": 4"#,
-                                                                              with: #""schemaVersion": 5"#)
+        let settings = try library.text("library.json").replacingOccurrences(of: #""schemaVersion": 5"#,
+                                                                              with: #""schemaVersion": 6"#)
         try library.write("library.json", settings)
         let before = try library.snapshot()
         let run = await runCLI(["import", try sheet(), "--library", library.path, "--apply"])

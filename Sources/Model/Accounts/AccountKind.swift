@@ -2,8 +2,7 @@
 /// mix and flows.
 public struct AccountKind: OpenEnum {
     public let rawValue: String
-    /// `vehicle`, the name `belongings` had before, reads as `belongings`.
-    public init(rawValue: String) { self.rawValue = rawValue == "vehicle" ? "belongings" : rawValue }
+    public init(rawValue: String) { self.rawValue = rawValue }
 
     /// A current account.
     public static let cash: AccountKind = "cash"
@@ -15,7 +14,7 @@ public struct AccountKind: OpenEnum {
     public static let tfr: AccountKind = "tfr"
     public static let property: AccountKind = "property"
     /// Things you own that lose value and might sell: a car, a bike, a
-    /// boat, electronics. Written as `vehicle` before.
+    /// boat, electronics.
     public static let belongings: AccountKind = "belongings"
     public static let loan: AccountKind = "loan"
     public static let mortgage: AccountKind = "mortgage"

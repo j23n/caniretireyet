@@ -8,7 +8,7 @@
     "id": { "description": "The same as the file name.", "$ref": "common.schema.json#/$defs/slug" },
     "name": { "description": "Display name; change it whenever you like.", "type": "string" },
     "kind": {
-      "description": "What kind of account it is. The kind decides what the account records (ACCOUNTS.md): cash and savings accounts a balance with money in and out, savings also its interest; loan, mortgage and creditCard are debts, recorded as negative balances; brokerage, crypto and metals accounts record trades; the others a balance. belongings are things you own that lose value and might sell (a car, a bike, a boat); vehicle is their name before, and reads as belongings. A taxPot is money set aside for a tax bill paid later: a balance with money in and out (out is the tax paid from it, in a refund) that counts in neither net worth nor plans by default, and what moves into it from your other accounts is tax (PROGRESS.md, \"Savings rate\"). It also sets the default of assetClasses, and how a check-in works out a value's flow.",
+      "description": "What kind of account it is. The kind decides what the account records (ACCOUNTS.md): cash and savings accounts a balance with money in and out, savings also its interest; loan, mortgage and creditCard are debts, recorded as negative balances; brokerage, crypto and metals accounts record trades; the others a balance. belongings are things you own that lose value and might sell (a car, a bike, a boat). A taxPot is money set aside for a tax bill paid later: a balance with money in and out (out is the tax paid from it, in a refund) that counts in neither net worth nor plans by default, and what moves into it from your other accounts is tax (PROGRESS.md, \"Savings rate\"). It also sets the default of assetClasses, and how a value's flow is worked out (history-month.schema.json, flow).",
       "$comment": "Open enum.",
       "enum": [
         "cash",
@@ -20,7 +20,6 @@
         "tfr",
         "property",
         "belongings",
-        "vehicle",
         "loan",
         "mortgage",
         "creditCard",

@@ -104,8 +104,8 @@ for each year from the start to the end age:
   "assumptions": {
     "inflation": "0.02",
     "returns": {
-      "equity": { "medianReal": "0.05", "real": "0.063334", "volatility": "0.17", "incomeYield": "0.02" },
-      "crypto": { "medianReal": "0", "real": "0.16629", "volatility": "0.7" }
+      "equity": { "medianReal": "0.05", "volatility": "0.17", "incomeYield": "0.02" },
+      "crypto": { "medianReal": "0", "volatility": "0.7" }
     }
   },
   "simulation": { "runs": 2000, "seed": 1, "confidence": "0.9" }
@@ -131,11 +131,10 @@ The plan starts from the check-in it names, valued by the tracker in the base cu
 ## Returns
 
 - **Assumptions per asset class.** Each asset class has an expected **real** return, net of fund costs, and a volatility. A correlation matrix links them. The defaults are editable; examples are equity–bonds 0.1 and equity–crypto 0.4.
-- **Mean and median.** Each year's return is log-normal, so a volatile class's typical year is well below its average one. The return can be given either way: as its mean (`real`, the arithmetic average) or as its median (`medianReal`, the typical year). With gross mean A = 1 + mean, gross median g = 1 + median and volatility σ, g = A² / √(A² + σ²), so A = √((g² + √(g⁴ + 4g²σ²)) / 2). A portfolio rebalanced every year compounds at about its median, which is why it matters: a class with a mean of 0% at 70% volatility has a median of −18% a year, and rebalancing back into it every year drags the whole portfolio down. A return given by its median is written with `real` too, the mean it implies to 6 decimals; when the two disagree (edited by hand), `real` wins, with a warning (`planner.meanAndMedian`).
+- **Mean and median.** Each year's return is log-normal, so a volatile class's typical year is well below its average one. The return can be given either way: as its mean (`real`, the arithmetic average) or as its median (`medianReal`, the typical year). With gross mean A = 1 + mean, gross median g = 1 + median and volatility σ, g = A² / √(A² + σ²), so A = √((g² + √(g⁴ + 4g²σ²)) / 2). A portfolio rebalanced every year compounds at about its median, which is why it matters: a class with a mean of 0% at 70% volatility has a median of −18% a year, and rebalancing back into it every year drags the whole portfolio down. A return is written with the key it was given by, never both: a plan that gives both doesn't open.
 - **The defaults** are given by their median, the typical year, with the mean it implies: equity 5.0% at 17% volatility (a mean of 6.3%), bonds 1.5% at 6% (1.7%), cash 0.5% at 1% (0.5%), gold 1.0% at 15% (2.1%), crypto 0% at 70% (16.6%). No income yields: by default investment income counts as growth, taxed when sold.
 - **Where they come from.** Long-run world history, from one source: the real returns compounded since 1900 in the Dimson–Marsh–Staunton *Global Investment Returns Yearbook* (UBS, 2025 and 2026 editions), each rounded down to the half percent: world equities 5.2% a year, world bonds 1.7%, bills 0.5% (for cash), the real price of gold 1.3%. A return compounded over many years is the median of the yearly returns, so these are medians. Crypto has no long history, so its median stays 0%.
 - **Placeholders to review, not forecasts.** History is one draw and needn't repeat: US equities alone compounded 6.6% a year, the countries that did worst much less, and forward-looking estimates from large asset managers are often lower, 3–5% real for equities. Change them under *Assumptions* in the app, or in the plan file.
-- **Plans that carry an old default.** Earlier versions wrote a class's whole default into the plan when one of its numbers was edited. A plan whose return and volatility for a class equal an earlier default exactly (`PlanAssumptions.previousDefaultReturns`) most likely didn't choose it: the app's assumptions editor says so on that class, with *Use Default*. The example library's `base` plan writes out the earlier defaults, so its numbers stay comparable.
 - **Income yield** (`incomeYield`): the share of the value a class pays out as income each year (equity dividends, bond interest), taxed every year at the investment rate. It's part of the return, not extra.
 - **A warning** (`planner.lowMedianReturn`) names a class the portfolio holds whose median is below −2% a year.
 - **Monte Carlo** draws correlated log-normal returns for all classes every year (through the Cholesky factor of the correlations). **The deterministic run** uses each class's median return every year.

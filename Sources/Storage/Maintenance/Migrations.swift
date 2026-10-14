@@ -39,7 +39,7 @@ public struct Migration: Sendable {
     /// The steps this app knows, in order. Format version 4 is the oldest
     /// this app upgrades; earlier versions were test versions' and can't be
     /// upgraded (``StorageError/missingMigration(from:)``).
-    public static let all: [Migration] = []
+    public static let all: [Migration] = [format5]
 }
 
 /// What a migration did.

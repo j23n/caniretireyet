@@ -12,7 +12,12 @@ public struct LibrarySettings: Codable, Hashable, Sendable, KnownKeysProviding {
     ///   brokerage, crypto and metals accounts record trades, cash and
     ///   savings values record money in and out, and savings values can
     ///   record their `interest`.
-    public static let currentSchemaVersion = 4
+    /// - 5: a valuation stores `flow` only where its account asks for one
+    ///   (``Account/asksForFlow``); account kind `vehicle` is `belongings`
+    ///   and statement class `paidBack` is `spending`; a return gives
+    ///   `real` or `medianReal`, not both; crypto is priced from Yahoo
+    ///   Finance. Storage's migration upgrades version 4.
+    public static let currentSchemaVersion = 5
 
     /// The library's schema version. Adding optional fields doesn't change it.
     public var schemaVersion: Int

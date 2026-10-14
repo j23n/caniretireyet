@@ -300,10 +300,10 @@
       }
     },
     "returnAssumption": {
-      "description": "A log-normal yearly real return, given by its mean (real) or its median (medianReal), with its volatility. With gross mean A, gross median g and volatility σ, g = A² / √(A² + σ²). A return given by its median is written with real too, the mean it implies to 6 decimals; when the two disagree, real wins (warning planner.meanAndMedian).",
+      "description": "A log-normal yearly real return, given by its mean (real) or its median (medianReal), not both, with its volatility. With gross mean A, gross median g and volatility σ, g = A² / √(A² + σ²).",
       "type": "object",
       "required": ["volatility"],
-      "anyOf": [{ "required": ["real"] }, { "required": ["medianReal"] }],
+      "oneOf": [{ "required": ["real"] }, { "required": ["medianReal"] }],
       "properties": {
         "real": { "description": "The arithmetic mean, as a fraction.", "$ref": "common.schema.json#/$defs/decimal" },
         "medianReal": {

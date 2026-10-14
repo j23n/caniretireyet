@@ -216,12 +216,4 @@ struct StatementTaxTests {
         #expect(february.moneyOut == 3200)
         #expect(february.tax == nil)
     }
-
-    @Test func paidBackReadsAsSpending() throws {
-        #expect(StatementClass("paidBack") == .spending)
-        let json = Data(#"{"match":"Rimborso","class":"paidBack"}"#.utf8)
-        let rule = try JSONDecoder().decode(StatementRule.self, from: json)
-        #expect(rule.statementClass == .spending)
-        #expect(rule.account == nil)
-    }
 }

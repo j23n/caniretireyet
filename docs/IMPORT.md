@@ -340,7 +340,7 @@ The account is the profile's `constants.account` (`--account` on the command lin
 | `interest` | A savings account's `interest`; a current account's money in. |
 | `ignore` | Neither. It still counts in the balance. |
 
-Money in that is spending is paid back, and any line that went out is money out, whatever its class. A period with more paid back than spent has no money out, and the rest counts as moved between your accounts. A file's `paidBack`, a class of earlier versions, reads as `spending`, which it counted the same as.
+Money in that is spending is paid back, and any line that went out is money out, whatever its class. A period with more paid back than spent has no money out, and the rest counts as moved between your accounts.
 
 Each line gets the class of the first of these that says one:
 
