@@ -1,12 +1,11 @@
 import Foundation
 import Model
-import Prices
+@testable import Prices
 import Testing
 import TestSupport
 
 /// Smoke tests against the real APIs. They run only with
-/// `LIVE_PRICE_TESTS=1 swift test --filter LivePriceTests`, and read an
-/// optional CoinGecko demo key from `COINGECKO_API_KEY`. The history tests
+/// `LIVE_PRICE_TESTS=1 swift test --filter LivePriceTests`. The history tests
 /// check each ranged request, that gold futures track the spot price, that a
 /// monthly Yahoo bar closes at the month's last daily close, and a fill of
 /// the example library's gold.
@@ -14,29 +13,20 @@ import TestSupport
 struct LivePriceTests {
     private let today = CalendarDate.today(in: TimeZone(identifier: "Europe/Rome")!)
 
-    private var credentials: StaticCredentials {
-        StaticCredentials([.coingecko: ProcessInfo.processInfo.environment["COINGECKO_API_KEY"] ?? ""])
-    }
-
     @Test func eachProviderAnswers() async throws {
-        let usd = try await FrankfurterProvider().rate(base: .eur, quote: .usd, onOrBefore: today)
-        #expect(usd.rate > 0.5 && usd.rate < 2)
+        let usd = try await FrankfurterProvider()
+            .rates(base: .eur, quote: .usd, from: today.adding(days: -14), through: today).rate(onOrBefore: today)
+        #expect(usd.map { $0.rate > 0.5 && $0.rate < 2 } == true)
 
-        let request = { (symbol: String, currency: CurrencyCode) in
-            QuoteRequest(symbol: symbol, date: today, currency: currency, today: today)
-        }
-        let coinGecko = CoinGeckoProvider(credentials: credentials)
-        let btc = try await coinGecko.quote(for: request("bitcoin", .eur))
-        #expect(btc.price > 1000)
-        // A ticker from the built-in table, and one CoinGecko's search resolves.
-        let eth = try await coinGecko.quote(for: request("ETH", .eur))
-        #expect(eth.resolvedSymbol == "ethereum" && eth.price > 100)
-        let pepe = try await coinGecko.quote(for: request("PEPE", .usd))
-        #expect(pepe.resolvedSymbol != nil && pepe.price > 0)
-        let gold = try await GoldAPIProvider().quote(for: request("XAU", .usd))
-        #expect(gold.unit == .troyOunce && gold.price > 500)
-        let vwce = try await YahooChartProvider().quote(for: request("VWCE.DE", .eur))
-        #expect(vwce.currency == .eur && vwce.price > 10)
+        let week = HistoryRange(from: today.adding(days: -7), through: today, today: today)
+        // Crypto from Yahoo Finance's pairs.
+        let btc = try await YahooChartProvider().history(symbol: "BTC-EUR", range: week).quote(onOrBefore: today)
+        #expect(btc.map { $0.currency == .eur && $0.price > 1000 } == true)
+        let gold = try await GoldAPIProvider().routes(symbol: "XAU", today: today)[0].fetch(week)
+            .quote(onOrBefore: today)
+        #expect(gold.map { $0.unit == .troyOunce && $0.price > 500 } == true)
+        let vwce = try await YahooChartProvider().history(symbol: "VWCE.DE", range: week).quote(onOrBefore: today)
+        #expect(vwce.map { $0.currency == .eur && $0.price > 10 } == true)
 
         // Italy's HICP, the euro area's and Switzerland's, all with 2015 = 100.
         for index: IndexID in [.hicpIT, .hicpEA, "hicp-ch"] {
@@ -60,8 +50,8 @@ struct LivePriceTests {
     }
 
     @Test func theServiceFetchesTheExampleLibrary() async throws {
-        let service = PriceService.standard(credentials: credentials)
-        let result = await service.fetch(for: try Fixtures.exampleLibrary(), on: today)
+        let service = PriceService.standard()
+        let result = await service.fetch(for: try PriceServiceTests.exampleLibrary(), on: today)
         for failure in result.failures {
             Issue.record("\(failure.item): \(failure.failureReason ?? "")")
         }
@@ -87,15 +77,7 @@ struct LivePriceTests {
         #expect(rates.rate(onOrBefore: lastMonthEnd) != nil)
         print("Frankfurter: \(rates.rates.count) rates over two years, \(rates.isWeekly ? "weekly" : "daily")")
 
-        // CoinGecko: its free year, and nothing asked before it.
-        let coinGecko = CoinGeckoProvider(credentials: credentials)
-        let btc = try await coinGecko.history(
-            symbol: "bitcoin", currency: .eur,
-            range: HistoryRange(from: today.adding(days: -200), through: today, today: today))
-        #expect(btc.quotes.count > 150)
-        #expect(btc.quote(onOrBefore: lastMonthEnd).map { $0.price > 1000 } == true)
-
-        // Yahoo Finance's crypto pairs, for older dates.
+        // Yahoo Finance's crypto pairs, a value every calendar day.
         let old = HistoryRange(from: today.adding(years: -3), through: today.adding(years: -2), today: today)
         let btcEUR = try await YahooChartProvider().history(symbol: "BTC-EUR", range: old)
         #expect(btcEUR.quotes.count > 300)
@@ -103,8 +85,7 @@ struct LivePriceTests {
     }
 
     @Test func goldFuturesTrackSpotAndMonthlyBarsCloseTheMonth() async throws {
-        let spot = try await GoldAPIProvider()
-            .quote(for: QuoteRequest(symbol: "XAU", date: today, currency: .usd, today: today))
+        let spot = try await GoldAPIProvider().spot("XAU", today: today)
         let yahoo = YahooChartProvider()
         let daily = try await yahoo.history(
             symbol: "GC=F", range: HistoryRange(from: today.adding(days: -45), through: today, today: today))
@@ -127,12 +108,13 @@ struct LivePriceTests {
     @Test func theExampleLibrarysGoldIsFilledIn() async throws {
         var library = try Fixtures.exampleLibrary()
         for month in library.months.keys { library.months[month]?.prices.removeAll { $0.instrument == "gold" } }
-        let service = PriceService.standard(credentials: credentials)
+        let service = PriceService.standard()
         let needs = service.pastPriceNeeds(for: library)
-        let fill = await service.fillPastPrices(needs, in: library)
+        let fill = await service.fetch(needs, in: library)
         let gold = try #require(fill.result(for: .instrument("gold")))
         #expect(gold.status == .filled, "\(gold.reason ?? "")")
-        #expect(gold.sources.map(\.origin.symbol) == ["GC=F"])
+        // Futures for the past; today's spot price for the last few days.
+        #expect(gold.sources.first?.origin.symbol == "GC=F")
         // Plausible euros per gram.
         for price in fill.prices {
             print("gold \(price.date): \(price.price) EUR/g")

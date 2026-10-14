@@ -56,9 +56,12 @@ enum CheckInPreviewData {
 
     /// A price list as a fetch would return it: VWCE and the dollar rate
     /// fetched, bitcoin rate-limited, gold with its own price source.
-    static var prices: CheckInPrices {
+    static var prices: FetchedPrices {
         let fetchedAt = Date()
-        return CheckInPrices(
+        func origin(_ source: DataSource, _ service: String, _ symbol: String) -> QuoteOrigin {
+            QuoteOrigin(source: source, service: service, symbol: symbol)
+        }
+        return FetchedPrices(
             date: date,
             prices: [
                 PriceRecord(instrument: "vwce", date: date, price: PreviewLibrary.d("139.8"), currency: .eur,
@@ -67,15 +70,20 @@ enum CheckInPreviewData {
                             source: .goldAPI),
             ],
             fx: [FXRecord(base: .eur, quote: .usd, date: date, rate: PreviewLibrary.d("1.1412"), source: .ecb)],
-            entries: [
-                PriceListEntry(item: .instrument("btc"), source: .coingecko, symbol: "bitcoin",
-                               outcome: .failed(.rateLimited(service: "CoinGecko", retryAfter: .seconds(60)))),
-                PriceListEntry(item: .instrument("gold"), source: .goldAPI, symbol: "XAU",
-                               outcome: .fetched(FetchDetails(observedOn: date, fetchedAt: fetchedAt))),
-                PriceListEntry(item: .instrument("vwce"), source: .yahoo, symbol: "VWCE.DE",
-                               outcome: .fetched(FetchDetails(observedOn: "2026-10-30", fetchedAt: fetchedAt))),
-                PriceListEntry(item: .fx(base: .eur, quote: .usd), source: .ecb, symbol: "EUR/USD",
-                               outcome: .fetched(FetchDetails(observedOn: "2026-10-30", fetchedAt: fetchedAt))),
+            results: [
+                PriceResult(item: .instrument("btc"), needed: [date],
+                            origin: origin(.yahoo, "Yahoo Finance", "BTC-USD"),
+                            reason: PriceFetchError.rateLimited(service: "Yahoo Finance",
+                                                               retryAfter: .seconds(60)).description),
+                PriceResult(item: .instrument("gold"), needed: [date], filled: [date],
+                            origin: origin(.goldAPI, "gold-api.com", "XAU"),
+                            observedOn: [date: date], asOf: date, fetchedAt: fetchedAt),
+                PriceResult(item: .instrument("vwce"), needed: [date], filled: [date],
+                            origin: origin(.yahoo, "Yahoo Finance", "VWCE.DE"),
+                            observedOn: [date: "2026-10-30"], asOf: "2026-10-30", fetchedAt: fetchedAt),
+                PriceResult(item: .fx(base: .eur, quote: .usd), needed: [date], filled: [date],
+                            origin: origin(.ecb, "Frankfurter (ECB)", "EUR/USD"),
+                            observedOn: [date: "2026-10-30"], asOf: "2026-10-30", fetchedAt: fetchedAt),
             ])
     }
 

@@ -49,20 +49,14 @@ final class AppModel {
     }
 
     /// The real app: the library in iCloud Drive or on this device, prices
-    /// from the network with API keys from the Keychain, each plan's latest
-    /// results in the app's caches, and the widgets' snapshot in the App
-    /// Group's container.
+    /// from the network, each plan's latest results in the app's caches, and
+    /// the widgets' snapshot in the App Group's container.
     static func live() -> AppModel {
         let preferences = AppPreferences()
-        #if canImport(Security)
-        let credentials: any CredentialsProvider = KeychainCredentials()
-        #else
-        let credentials: any CredentialsProvider = StaticCredentials()
-        #endif
         return AppModel(
             preferences: preferences,
             library: LibraryStore(locator: LibraryLocator(), preferences: preferences),
-            prices: PriceStore(service: .standard(credentials: credentials)),
+            prices: PriceStore(service: .standard()),
             planEngine: PlannerPlanEngine(),
             planResults: PlanResultsArchive.standard(),
             widgetSnapshotURL: AppGroup.snapshotURL)

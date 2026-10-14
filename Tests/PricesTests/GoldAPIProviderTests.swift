@@ -9,8 +9,7 @@ struct GoldAPIProviderTests {
 
     @Test func goldIsQuotedInUSDPerTroyOunce() async throws {
         let client = MockHTTPClient(["price/XAU": PriceResponses.goldAPIGold])
-        let quote = try await GoldAPIProvider(client: client)
-            .quote(for: QuoteRequest(symbol: "XAU", date: today, currency: .eur, today: today))
+        let quote = try await GoldAPIProvider(client: client).spot("XAU", today: today)
         #expect(quote.price == d("3488.45"))
         #expect(quote.currency == .usd)
         #expect(quote.unit == .troyOunce)
@@ -20,29 +19,22 @@ struct GoldAPIProviderTests {
 
     @Test func silverWithoutACurrencyFieldIsUSD() async throws {
         let client = MockHTTPClient(["price/XAG": GoldAPIResponses.silver])
-        let quote = try await GoldAPIProvider(client: client)
-            .quote(for: QuoteRequest(symbol: "xag", date: today, currency: .eur, today: today))
+        let quote = try await GoldAPIProvider(client: client).spot("xag", today: today)
         #expect(quote == Quote(price: d("41.28"), currency: .usd, unit: .troyOunce, observedOn: today))
     }
 
+    /// The spot route covers the last three days, so a recent check-in uses
+    /// today's spot price; it counts for any date it's asked for.
     @Test func aRecentCheckInUsesTodaysSpotPrice() async throws {
         let client = MockHTTPClient(["price/XAU": PriceResponses.goldAPIGold])
-        let quote = try await GoldAPIProvider(client: client)
-            .quote(for: QuoteRequest(symbol: "XAU", date: "2026-09-27", currency: .eur, today: today))
-        #expect(quote.observedOn == today)
-    }
-
-    @Test func anOlderCheckInCantUseTheSpotPrice() async throws {
-        let client = MockHTTPClient(["price/XAU": PriceResponses.goldAPIGold])
-        let provider = GoldAPIProvider(client: client)
-        do {
-            _ = try await provider.quote(for: QuoteRequest(symbol: "XAU", date: "2026-06-30", currency: .eur,
-                                                           today: today))
-            Issue.record("Expected an error")
-        } catch let error as PriceFetchError {
-            #expect(error.description == "gold-api.com only has today's spot price, not one for 2026-06-30.")
-        }
-        #expect(await client.requestCount == 0)
+        let spot = try #require(GoldAPIProvider(client: client).routes(symbol: "XAU", today: today).first)
+        #expect(spot.name == "gold-api.com · XAU")
+        #expect(spot.covers("2026-09-27"))
+        #expect(!spot.covers("2026-09-26"))
+        #expect(spot.limitReason == "gold-api.com only has today's price.")
+        let history = try await spot.fetch(HistoryRange(from: "2026-09-20", through: "2026-09-27", today: today))
+        #expect(history.origin == QuoteOrigin(source: .goldAPI, service: "gold-api.com", symbol: "XAU"))
+        #expect(history.quote(onOrBefore: "2026-09-27")?.observedOn == today)
     }
 
     @Test func anUnknownSymbolIsReported() async throws {
@@ -50,8 +42,7 @@ struct GoldAPIProviderTests {
         await client.on("price/XYZ", HTTPResponse(statusCode: 404, text: GoldAPIResponses.unknownSymbol))
         await #expect(throws: PriceFetchError.unknownSymbol(service: "gold-api.com", symbol: "XYZ",
                                                             message: "Symbol not found")) {
-            _ = try await GoldAPIProvider(client: client)
-                .quote(for: QuoteRequest(symbol: "XYZ", date: today, currency: .eur, today: today))
+            _ = try await GoldAPIProvider(client: client).spot("XYZ", today: today)
         }
     }
 }

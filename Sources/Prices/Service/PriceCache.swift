@@ -1,34 +1,18 @@
 import Model
 
-/// An in-memory cache of fetched quotes, FX rates and index values, keyed by
-/// provider, symbol and check-in date, so re-opening a check-in doesn't fetch
-/// again.
+/// An in-memory cache of the answers to price, FX rate and index requests,
+/// keyed by what was asked (the route or series and its dates), so
+/// re-opening a check-in doesn't fetch again.
 ///
 /// Concurrent requests for the same key share one fetch. Failures aren't
 /// kept, so the next request tries again. Nothing is written to disk.
 public actor PriceCache {
-    /// What a cached value is for.
-    public struct Key: Hashable, Sendable {
-        /// The provider, e.g. `yahoo` or `ecb`.
-        public var provider: String
-        /// The symbol as the provider knows it, e.g. `VWCE.DE` or `EUR/USD`.
-        public var symbol: String
-        /// The check-in date.
-        public var date: CalendarDate
-
-        public init(provider: String, symbol: String, date: CalendarDate) {
-            self.provider = provider
-            self.symbol = symbol
-            self.date = date
-        }
-    }
-
-    private var entries: [Key: Task<any Sendable, any Error>] = [:]
+    private var entries: [String: Task<any Sendable, any Error>] = [:]
 
     public init() {}
 
     /// Whether a value for `key` is cached or being fetched.
-    public func contains(_ key: Key) -> Bool {
+    public func contains(_ key: String) -> Bool {
         entries[key] != nil
     }
 
@@ -37,17 +21,9 @@ public actor PriceCache {
         entries.removeAll()
     }
 
-    /// Starts `fetch` for `key` unless a value is cached or being fetched,
-    /// e.g. one of several values a single request fetches. ``value(for:fetch:)``
-    /// then waits for it; a failure isn't kept.
-    func start<T: Sendable>(_ key: Key, fetch: @escaping @Sendable () async throws -> T) {
-        guard entries[key] == nil else { return }
-        entries[key] = Task { try await fetch() }
-    }
-
     /// The cached value for `key`, or the result of `fetch`, which is cached
     /// if it succeeds.
-    func value<T: Sendable>(for key: Key, fetch: @escaping @Sendable () async throws -> T) async throws -> T {
+    func value<T: Sendable>(for key: String, fetch: @escaping @Sendable () async throws -> T) async throws -> T {
         let task: Task<any Sendable, any Error>
         if let existing = entries[key] {
             task = existing
