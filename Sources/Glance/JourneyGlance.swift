@@ -88,7 +88,7 @@ public struct JourneyPoint: Hashable, Sendable, Codable {
 
     /// Readiness in whole percent: 58.
     public var readinessPercent: Int? {
-        readiness.map { Int(($0 * 100 + 1e-9).rounded(.down)) }
+        readiness.map { Int((Readiness.shown($0) * 100).rounded()) }
     }
 }
 

@@ -5,7 +5,8 @@ import Model
 /// out again whenever the snapshot or the settings change:
 ///
 /// - **Monthly:** on the chosen day and time, the answer and the ask to
-///   check in. After a month or two without a check-in it says where you
+///   check in for the month a check-in then is for (the month before, on
+///   a day early in the month). After a month or two without a check-in it says where you
 ///   were at the last one and asks to catch up; after three, it comes
 ///   every third month.
 /// - **Yearly:** *Your year* on 3 January, your birthday, the anniversary
@@ -35,7 +36,9 @@ public enum NotePlanner {
             for offset in 0..<months {
                 let month = now.date.yearMonth.adding(months: offset)
                 let time = NoteTime(date: settings.date(in: month), hour: settings.hour, minute: settings.minute)
-                guard time > now, let note = words.monthly(for: month, at: time) else { continue }
+                guard time > now, let note = words.monthly(for: checkInMonth(on: time.date), at: time) else {
+                    continue
+                }
                 notes.append(note)
             }
         }
@@ -54,6 +57,14 @@ public enum NotePlanner {
             notes.append(note)
         }
         return notes.sorted { $0.time < $1.time }
+    }
+
+    /// The month a check-in on `date` is for, as the check-in's rules date
+    /// it (`CheckInDates`, ``CheckInGlance``): its own in the month's last
+    /// days, else the month before. A note on the 5th asks for the month
+    /// that just ended.
+    static func checkInMonth(on date: CalendarDate) -> YearMonth {
+        date.days(to: date.endOfMonth) < CheckInGlance.earlyCheckInDays ? date.yearMonth : date.yearMonth.previous
     }
 
     /// The first `date`'s anniversary at `hour` after `now`, a year or more
@@ -144,8 +155,8 @@ private struct Words {
             clauses.append("No retirement age works yet \(GlanceText.inFutures(answer.confidence))")
         }
         var sentence = clauses.joined(separator: ", ")
-        if let readiness = answer.readiness.map(Readiness.shown) {
-            sentence += ", and you're \(Int((readiness * 100).rounded()))% ready"
+        if let figure = answer.readinessFigure.text(percent: { "\(Int(($0 * 100).rounded()))%" }) {
+            sentence += ", and you're \(figure == "<5%" ? "under 5%" : figure) ready"
         }
         return sentence + "."
     }

@@ -48,6 +48,22 @@ struct NotePlannerMonthlyTests {
         #expect(first.showsChart)
     }
 
+    @Test func aNoteEarlyInTheMonthAsksForTheMonthBefore() throws {
+        var settings = NoteSettings.standard
+        settings.day = 5
+        let notes = NotePlanner.notes(for: snapshot(checkIns: year, answer: answer(age: 54, readiness: 0.58)),
+                                      settings: settings, now: NoteTime(date: "2026-10-01", hour: 9, minute: 0),
+                                      locale: english)
+            .filter { $0.kind != .yourYear && $0.kind != .birthday && $0.kind != .recordsAnniversary }
+        // After September's check-in nothing is due on 5 October.
+        let first = try #require(notes.first)
+        #expect(first.time.date == "2026-11-05")
+        #expect(first.kind == .monthly)
+        #expect(first.title == "October check-in")
+        #expect(first.body.hasSuffix("Import October's files to see where you stand."))
+        #expect(notes.dropFirst().first?.title == "November check-in")
+    }
+
     @Test func anAnswerThatDidNotMoveSaysSo() throws {
         let still = [JourneyPoint(date: "2026-01-31", earliestAge: 54, readiness: 0.5),
                      JourneyPoint(date: "2026-09-30", earliestAge: 54, readiness: 0.58)]
@@ -96,6 +112,17 @@ struct NotePlannerMonthlyTests {
         #expect(notes.first?.title == "November check-in")
     }
 
+    @Test func onlyTurningANoteOnAsksForPermission() {
+        var fewer = NoteSettings.standard
+        fewer.monthly = false
+        #expect(!fewer.turnsOnNote(from: .standard))
+        #expect(fewer.turnsOnNote(from: .off))
+        var later = NoteSettings.standard
+        later.hour = 21
+        #expect(!later.turnsOnNote(from: .standard))
+        #expect(!NoteSettings.off.turnsOnNote(from: .standard))
+    }
+
     @Test func theChosenDayAndTimeHold() throws {
         var settings = NoteSettings.standard
         settings.day = 15
@@ -103,7 +130,9 @@ struct NotePlannerMonthlyTests {
         settings.minute = 30
         let notes = NotePlanner.notes(for: snapshot(checkIns: year, answer: answer(age: 54, readiness: 0.58)),
                                       settings: settings, now: now, locale: english)
-        #expect(notes.first?.time == NoteTime(date: "2026-10-15", hour: 8, minute: 30))
+        // A check-in on 15 October is still September's, which is done.
+        #expect(notes.first?.time == NoteTime(date: "2026-11-15", hour: 8, minute: 30))
+        #expect(notes.first?.title == "October check-in")
         #expect(settings.date(in: "2027-02") == "2027-02-15")
         settings.day = 31
         #expect(settings.date(in: "2027-02") == "2027-02-28")
