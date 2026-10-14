@@ -68,31 +68,6 @@ struct QuantityTradesTests {
         #expect(!again.apply(to: result.library).hasChanges)
     }
 
-    /// The trades are the ones Tracker's conversion makes for the same values held as snapshots.
-    @Test func theTradesAreTheConversions() throws {
-        let imported = try Samples.session("positions.csv").preview(against: tradesLibrary())
-        var snapshots = smallLibrary()
-        snapshots.instruments["swda"] = imported.newInstruments.first?.instrument
-        for record in imported.records {
-            if case .price = record.imported.key, case .price(let price) = record.incoming { snapshots.upsert(price) }
-        }
-        snapshots.upsert(Valuation(account: "directa", date: "2026-01-31", positions: [
-            Position(instrument: "swda", quantity: 50, costBasis: 4500),
-            Position(instrument: "vwce", quantity: 368, costBasis: 40200),
-        ]))
-        snapshots.upsert(Valuation(account: "directa", date: "2026-02-28", positions: [
-            Position(instrument: "swda", quantity: 50, costBasis: 4500),
-            Position(instrument: "vwce", quantity: 378, costBasis: 41500),
-        ]))
-        let conversion = try #require(snapshots.conversionToTrades(of: "directa"))
-        let converted = conversion.trades.map { trade in
-            var trade = trade
-            trade.source = .import
-            return trade
-        }
-        #expect(imported.records.compactMap(\.imported.trade) == converted)
-    }
-
     @Test func changesFromTheHoldingsOfAnAccountWithCash() throws {
         var library = Library(
             accounts: [Account(id: "broker", name: "Broker", kind: .brokerage, currency: .eur, opened: "2026-01-01")],

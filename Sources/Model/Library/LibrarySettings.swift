@@ -6,17 +6,12 @@ public struct LibrarySettings: Codable, Hashable, Sendable, KnownKeysProviding {
     /// The schema version this app writes. An app that finds a newer version
     /// opens the library read-only.
     ///
-    /// - 1 and 2: test versions' formats, which this app can't upgrade
+    /// - 1 to 3: test versions' formats, which this app can't upgrade
     ///   (Storage, `StorageError.missingMigration(from:)`).
-    /// - 3: the first that libraries kept. Accounts can record trades
-    ///   (`"valuation": "trades"`, `trades` in the history files), plans take
-    ///   income and pensions after tax and two tax rates set by hand
-    ///   (PLANNER.md), and accounts say from what age plans can draw on them
-    ///   (`availableFromAge`).
-    /// - 4: each account kind records its money one way (docs/ACCOUNTS.md).
-    ///   Accounts lose `moneyInOut`, brokerage, crypto and metals accounts
-    ///   record trades (no more `holdings`), and savings values can record
-    ///   their `interest`. Storage's migration upgrades version 3.
+    /// - 4: each account kind records its money one way (docs/ACCOUNTS.md):
+    ///   brokerage, crypto and metals accounts record trades, cash and
+    ///   savings values record money in and out, and savings values can
+    ///   record their `interest`.
     public static let currentSchemaVersion = 4
 
     /// The library's schema version. Adding optional fields doesn't change it.

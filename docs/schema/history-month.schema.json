@@ -54,7 +54,7 @@
   ],
   "$defs": {
     "valuation": {
-      "description": "What an account was worth on a date: a balance, or positions plus optional cash. Values carry forward until the account's next valuation. One with neither is worth zero; one with both counts its balance. An account that records trades records only cash: positions listed in its valuation are a check against its trades (TRADES.md), and a balance isn't used. Positions with no trades behind them are only in values recorded before format version 4.",
+      "description": "What an account was worth on a date: a balance, or positions plus optional cash. Values carry forward until the account's next valuation. One with neither is worth zero; one with both counts its balance. An account that records trades records only cash: positions listed in its valuation are a check against its trades (TRADES.md), and a balance isn't used.",
       "type": "object",
       "required": ["account", "date"],
       "properties": {

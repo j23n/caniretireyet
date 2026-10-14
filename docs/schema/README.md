@@ -95,13 +95,7 @@ The app writes every file the same way, so the same data always gives the same b
 ## Versioning
 
 - `schemaVersion` in `library.json` is 4. Adding optional fields doesn't change it; anything else is a new version, with a migration in the app.
-- Versions 1 and 2 were the formats of test versions, before any library was kept (version 2 added trades, version 3 dropped the tax systems from plans, [PLANNER.md](../PLANNER.md#the-model-in-brief)). This app has no migration from them: such a library doesn't open, and the error says why.
-- Version 4 made each account kind record its money one way ([ACCOUNTS.md](../ACCOUNTS.md)). The upgrade from version 3, in this order:
-  1. drops `moneyInOut` from every account: cash and savings accounts record money in and out at every value after their first;
-  2. drops `valuation` from an account recorded as snapshots (`holdings`, written or by default) that has no values, so it records what its kind does now;
-  3. sets an account recorded as snapshots whose values hold only balances to `"valuation": "balance"`;
-  4. turns a brokerage, crypto or metals account recorded as a balance into kind `other`, without a `valuation` key, and gives each of its values after the first that has no `flow` the whole change since the value before, rounded to cents, so its new money stays what version 3 counted;
-  5. converts the accounts recorded as snapshots that are left, those whose values hold positions, to trades ([TRADES.md](../TRADES.md#converting-an-account)): an opening, a buy or a sale per change in quantity, and a deposit or withdrawal for the money each value added or took out, so their values and new money stay the same. What the conversion had to estimate is in the upgrade's report, which `retire validate` prints.
+- Versions 1 to 3 were the formats of test versions (version 2 added trades, version 3 dropped the tax systems from plans, [PLANNER.md](../PLANNER.md#the-model-in-brief), version 4 made each account kind record its money one way, [ACCOUNTS.md](../ACCOUNTS.md)). This app has no migration from them: such a library doesn't open, and the error says why.
 - Before migrating, the app copies the library into `backups/<yyyy-MM-dd>-v<old>/`. A migration works on the raw JSON of every file, and nothing is written unless every step succeeds.
 - An app older than the library opens it read-only: it loads, and every save is refused. A library older than the app is migrated before the app saves anything to it.
 
@@ -116,7 +110,6 @@ The app writes every file the same way, so the same data always gives the same b
 - Records dated before 1900, or more than a year after today, are loaded and pointed out: usually a mistyped year, or a placeholder such as `9999-12-31`.
 - JSON files whose names aren't IDs (`My Account.json`) are pointed out, and so are records that refer to accounts, instruments or plans that don't exist.
 - A valuation's `moneyIn` or `moneyOut` is loaded and pointed out, and left out of the money in and out summaries, when its account's kind isn't cash or savings, when it has only one of the two, or when either is negative ([PROGRESS.md](../PROGRESS.md#money-in-and-out)). A valuation's `interest` is pointed out, and not used, when its account isn't a savings account.
-- An account recorded as snapshots (`"valuation": "holdings"`) in a version-4 library is loaded and pointed out: its values still count, but nothing records it that way any more.
 
 ## CSV export
 

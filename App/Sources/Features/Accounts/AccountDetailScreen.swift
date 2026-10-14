@@ -1264,8 +1264,6 @@ private struct AccountInfoRows: View {
         switch account.valuationMode {
         case .trades: "Trade history"
         case .balance: "A balance"
-        // Written before format version 4; the load check points it out.
-        case .holdings: "Snapshots of positions (not used)"
         default: account.valuationMode.rawValue
         }
     }

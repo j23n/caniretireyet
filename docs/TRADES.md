@@ -14,7 +14,7 @@ An account opts in with `"valuation": "trades"` (`ValuationMode.trades`; `Accoun
 
 - **Holdings** come from its trades, never from its valuations.
 - **Its valuations** record only `cash`, plus `flow`, `note` and `source`. Positions listed in one (copied from a broker statement, say) are a [reconciliation check](#reconciliation), not its holdings. A `balance` isn't used (the app says so).
-- `balance` and `holdings` accounts are unchanged. `AccountKind.defaultValuationMode` stays as it is; the app offers trades for new investment accounts.
+- Brokerage, crypto and metals accounts record trades by default (`AccountKind.defaultValuationMode`); the other kinds record a balance.
 - Trades of an account that doesn't record trades are left out of its values, and pointed out.
 
 ## Trades in the files
@@ -173,21 +173,6 @@ The app doesn't type or edit trades: a wrong one is fixed in its file and import
 
 To preview it, remove it from a copy of the library. `Library.upsert(_:)` and `removeTradeRecord(_:)` (Model) write the record alone.
 
-## Converting an account
-
-An account recorded as snapshots converts to trades; nothing converts back. The upgrade to format version 4 converts every such account whose values hold positions ([ACCOUNTS.md](ACCOUNTS.md#migration)). A pure function returns the records the conversion writes (`AccountConversion`: the account, its valuations, the trades to add, the months it touches, and notes on what was estimated), so the upgrade can report what it estimated and apply it (`apply(to:)`, or `convertToTrades(_:)`).
-
-**Snapshots → trades** (`Library.conversionToTrades(of:)`):
-
-- an `opening` per position at the account's first valuation: cost = its `costBasis`, else its value on that date (noted);
-- then, for each later valuation, a `buy` or `sell` per change in quantity on that date, at that date's price. A buy's `amount` is what the cost basis says was paid (the check-in's "paid"); otherwise the price is an estimate (noted), as it always is for a sale;
-- an account that has never held cash (`Library.hasHeldCash(_:)`: valuations with positions and no cash, like coins or a wallet) and has no balances gets its buys and sales **paid from outside the account** (`"settlement": "external"`, noted), so its cash stays at zero and what they cost or brought in is recorded new money rather than a residual;
-- valuations keep their `cash` (zero when they had none), `flow`, `note` and `source`, and lose their `positions`. A balance becomes cash, less the market value of what the trades hold then (noted);
-- the money added or taken out by each valuation's date becomes a `deposit` (positive) or a `withdrawal` (negative) on that date: its cash minus the cash the trades give, i.e. the valuation before's cash (zero for the first) plus the cash effects of the trades since. That's the first valuation's cash, then the new money each check-in counted besides the buys and sales, also where its `flow` is unknown. So the cash is what the trades give, and no valuation has a [residual](#flows). A valuation whose trades since the one before include one whose cash effect can't be worked out (a buy or sale without a price, noted) gets the new money its check-in recorded instead (its `flow`, less the deposits and withdrawals already in the period), so only that trade's amount is left as its residual and adding the amount clears it; without a recorded `flow` it gets none;
-- trades get readable IDs (`opening-vwce`, `buy-vwce`, `sell-vwce`, `deposit`, `withdrawal`), one per instrument (or deposit or withdrawal) and date.
-
-Values and flows stay the same: the deposits and withdrawals are the residuals the valuations would otherwise have, at the same dates, so each valuation's flow and the change split are what the check-in counted as new money (paid from outside, the trades' amounts are that flow themselves, and the cash stays at zero).
-
 ## Checks
 
 Invalid trades are never dropped: they're applied as far as they can be, and pointed out.
@@ -204,7 +189,7 @@ In Tracker (`Valuator.tradeIssues(for:)`, `TradeIssue`), and in `retire validate
 
 ## Schema
 
-Trades came with schema version 2, a test version's format, and are part of version 3, the first that libraries kept ([schema/README.md](schema/README.md#versioning)). An app that doesn't know trades would value a trades account without its holdings, so it opens such a library read-only. In version 4, brokerage, crypto and metals accounts record trades by default, and the upgrade converts every account recorded as snapshots whose values hold positions to trades ([ACCOUNTS.md](ACCOUNTS.md#migration)).
+Trades are part of every format version this app opens ([schema/README.md](schema/README.md#versioning)). An app that doesn't know trades would value a trades account without its holdings, so it opens such a library read-only. Brokerage, crypto and metals accounts record trades by default.
 
 ## Not supported
 

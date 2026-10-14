@@ -17,13 +17,13 @@ func foreignAccountLibrary() -> Library {
         settings: LibrarySettings(baseCurrency: .eur),
         accounts: [
             Account(id: "brokerage", name: "Brokerage", kind: .brokerage, currency: .usd, opened: "2018-06-01",
-                    valuation: .holdings),
+                    valuation: .balance),
             Account(id: "us-broker", name: "US broker", kind: .brokerage, currency: .usd, opened: "2025-09-01",
-                    valuation: .holdings),
+                    valuation: .balance),
             Account(id: "usd-trades", name: "USD trades", kind: .brokerage, currency: .usd, opened: "2024-01-01",
                     valuation: .trades),
             Account(id: "emptied", name: "Emptied", kind: .brokerage, currency: .eur, opened: "2024-01-01",
-                    valuation: .holdings),
+                    valuation: .balance),
             Account(id: "bank", name: "Bank", kind: .cash, currency: .eur, opened: "2025-01-01"),
         ],
         instruments: [

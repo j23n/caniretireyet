@@ -40,12 +40,12 @@
     "institution": { "description": "The bank or broker.", "type": "string" },
     "country": { "description": "The institution's country.", "$ref": "common.schema.json#/$defs/country" },
     "valuation": {
-      "description": "How values are recorded. balance: one amount. trades: holdings, purchase cost and cash come from the account's trades (TRADES.md), and its valuations record only cash. Default: trades for brokerage, crypto and metals, balance for the other kinds. holdings (positions, quantity × price, at each value) was written before format version 4; the upgrade to version 4 converts such accounts to trades.",
+      "description": "How values are recorded. balance: one amount. trades: holdings, purchase cost and cash come from the account's trades (TRADES.md), and its valuations record only cash. Default: trades for brokerage, crypto and metals, balance for the other kinds.",
       "$comment": "Open enum.",
       "enum": ["balance", "trades"]
     },
     "assetClasses": {
-      "description": "The asset mix of values recorded as a single balance, for the breakdowns and the planner: a balance account's, or the balances in a holdings account's imported history (positions follow their instruments). Default: cash for cash and savings, realEstate for property; otherwise such a value counts as other.",
+      "description": "The asset mix of values recorded as a single balance, for the breakdowns and the planner: a balance account's, or the balances in an investment account's imported history (positions follow their instruments). Default: cash for cash and savings, realEstate for property; otherwise such a value counts as other.",
       "$ref": "common.schema.json#/$defs/assetMix"
     },
     "availableFromAge": {

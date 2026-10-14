@@ -4,17 +4,10 @@ import Model
 /// One step that upgrades a library from schema version ``version`` to
 /// `version + 1`.
 ///
-/// A step usually works on the library's JSON files as raw JSON, because
-/// files in an old schema may not decode with today's model. It can change,
-/// add and remove files; the migration then sets `schemaVersion` in
-/// `library.json`, writes the changed files and deletes the removed ones.
-///
-/// Several steps can upgrade from the same version: they run in the order
-/// they're passed, and each one after the first finds the files as the
-/// steps before it left them, with `schemaVersion` already `version + 1`.
-/// So a later step can work on the decoded library
-/// (``library(from:summary:apply:)``), when it needs what other modules
-/// know about it.
+/// A step works on the library's JSON files as raw JSON, because files in an
+/// old schema may not decode with today's model. It can change, add and
+/// remove files; the migration then sets `schemaVersion` in `library.json`,
+/// writes the changed files and deletes the removed ones.
 public struct Migration: Sendable {
     /// The schema version this step upgrades from.
     public var version: Int
@@ -22,8 +15,8 @@ public struct Migration: Sendable {
     public var summary: String
     /// Changes the library's JSON files, keyed by path relative to the
     /// library folder (`accounts/directa.json`), and returns what it had to
-    /// estimate or point out, in plain words (``MigrationReport/notes``).
-    /// Files that aren't valid JSON aren't included.
+    /// point out, in plain words (``MigrationReport/notes``). Files that
+    /// aren't valid JSON aren't included.
     public var apply: @Sendable (inout [String: JSONValue]) throws -> [String]
 
     /// A step that changes the library's JSON files and has nothing to point out.
@@ -43,15 +36,10 @@ public struct Migration: Sendable {
         self.apply = apply
     }
 
-    /// The steps this app knows, in order. Format version 3 is the first any
-    /// library kept; versions 1 and 2 were test versions' and can't be
+    /// The steps this app knows, in order. Format version 4 is the oldest
+    /// this app upgrades; earlier versions were test versions' and can't be
     /// upgraded (``StorageError/missingMigration(from:)``).
-    ///
-    /// The step to version 4 (``accountKinds``) leaves the accounts recorded
-    /// as snapshots whose values hold positions to a step the app and the
-    /// command line add after it, which converts them to trades with
-    /// Tracker's conversion.
-    public static let all: [Migration] = [accountKinds]
+    public static let all: [Migration] = []
 }
 
 /// What a migration did.
@@ -64,8 +52,8 @@ public struct MigrationReport: Hashable, Sendable {
     public var backup: Backup
     /// The summaries of the steps applied, in order.
     public var steps: [String]
-    /// What the steps had to estimate or point out, in plain words, in the
-    /// order of the steps.
+    /// What the steps had to point out, in plain words, in the order of the
+    /// steps.
     public var notes: [String] = []
     /// Files the steps changed or added, rewritten in canonical form.
     public var written: [String]
@@ -137,14 +125,14 @@ extension LibraryFolder {
                                notes: notes, written: written, deleted: deleted, skipped: skipped)
     }
 
-    /// Loads the library (``load()``), upgrading it first with `steps` when
-    /// it uses an older schema version (``migrate(to:steps:date:)``, after a
-    /// backup), so it can be saved; a library with a newer one loads
-    /// read-only. Returns the migration, if one ran.
-    public func loadMigrating(steps: [Migration] = Migration.all)
-        throws -> (result: LoadResult, migration: MigrationReport?) {
+    /// Loads the library (``load()``), upgrading it first with every step
+    /// this app knows (``Migration/all``) when it uses an older schema
+    /// version (``migrate(to:steps:date:)``, after a backup), so it can be
+    /// saved; a library with a newer one loads read-only. Returns the
+    /// migration, if one ran.
+    public func loadMigrating() throws -> (result: LoadResult, migration: MigrationReport?) {
         let result = try load()
-        guard result.report.needsMigration, let migration = try migrate(steps: steps) else { return (result, nil) }
+        guard result.report.needsMigration, let migration = try migrate() else { return (result, nil) }
         return (try load(), migration)
     }
 }

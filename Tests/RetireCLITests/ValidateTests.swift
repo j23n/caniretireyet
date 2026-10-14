@@ -3,35 +3,6 @@ import Testing
 import TestSupport
 
 struct ValidateTests {
-    /// A library in format version 3 is upgraded first, and the upgrade's
-    /// steps and what the conversion estimated are printed.
-    @Test func aVersion3LibraryIsUpgradedFirst() async throws {
-        let library = try TemporaryFolder.version3Library()
-        let run = await retire(["validate", "--library", library.path])
-        #expect(run.status == 0, "\(run.all)")
-        #expect(run.output.contains("  Format version  4 (current)\n"))
-        #expect(run.output.contains("Upgraded the library from format version 3 to 4; the files as they were are in "
-            + "backups/"))
-        #expect(run.output.contains("  - Each kind of account records its money one way"))
-        #expect(run.output.contains("  - Accounts recorded as snapshots of positions now record trades"))
-        #expect(run.output.contains("Estimated while upgrading:\n  - Broker: 2026-01-31: The opening of 10 vwce"))
-        #expect(run.output.contains("No problems found."))
-
-        let json = try parseJSON(await retire(["validate", "--library", library.path, "--json"]).output)
-        #expect(json["migration"] == nil)
-    }
-
-    @Test func aVersion3LibrarysUpgradeAsJSON() async throws {
-        let library = try TemporaryFolder.version3Library()
-        let run = await retire(["validate", "--library", library.path, "--json"])
-        let json = try parseJSON(run.output)
-        let migration = try #require(json["migration"] as? [String: Any])
-        #expect(migration["fromVersion"] as? Int == 3)
-        #expect(migration["toVersion"] as? Int == 4)
-        #expect((migration["steps"] as? [String])?.count == 2)
-        #expect((migration["notes"] as? [String])?.first?.hasPrefix("Broker: 2026-01-31: ") == true)
-    }
-
     /// A library with a broken file, and references between files that don't hold.
     private func brokenLibrary() throws -> TemporaryFolder {
         let library = try TemporaryFolder.exampleLibrary()

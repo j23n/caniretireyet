@@ -305,7 +305,7 @@ Accounts added in the app open on the day they're added, unless you set an earli
 
 ## Trade history
 
-A brokerage, crypto or metals account records its **trades** ([TRADES.md](TRADES.md)): its holdings, average cost, cash, realised gains and income follow from them. Its trades come from the broker's exports ([IMPORT.md](IMPORT.md#broker-transactions)); the app doesn't type or edit one. New accounts of those kinds record trades, and the upgrade to format version 4 converts existing ones ([TRADES.md](TRADES.md#converting-an-account)); nothing converts an account back.
+A brokerage, crypto or metals account records its **trades** ([TRADES.md](TRADES.md)): its holdings, average cost, cash, realised gains and income follow from them. Its trades come from the broker's exports ([IMPORT.md](IMPORT.md#broker-transactions)); the app doesn't type or edit one. New accounts of those kinds record trades; nothing switches an account back to a balance.
 
 **Account detail** of an account that records trades, top to bottom:
 

@@ -48,8 +48,7 @@ extension Valuator {
     ///   since `previous`, plus the valuation's residual (its cash minus
     ///   the cash the trades give); see ``TradeFlow``.
     /// - A brokerage, crypto or metals account that doesn't record trades
-    ///   (one written before format version 4, which the upgrade converts):
-    ///   the whole change.
+    ///   (its file says `"valuation": "balance"`): the whole change.
     ///
     /// Without a previous valuation, the whole amount is new money. `nil`
     /// also when the account is unknown or a needed price or rate is missing.

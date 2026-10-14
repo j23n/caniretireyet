@@ -398,29 +398,24 @@ struct SavingPaceTests {
     @Test func aMissingPriceMakesItIncomplete() throws {
         var library = self.library(flows: [Decimal](repeating: 1_000, count: 12))
         library.accounts["broker"] = Account(id: "broker", name: "Broker", kind: .brokerage, currency: .eur,
-                                             opened: "2026-08-31", valuation: .holdings)
-        library.upsert(Valuation(account: "broker", date: "2026-08-31", cash: 0,
-                                 positions: [Position(instrument: "unpriced", quantity: 1)], flow: 0))
-        library.upsert(Valuation(account: "broker", date: "2026-09-30", cash: 0,
-                                 positions: [Position(instrument: "unpriced", quantity: 1)], flow: 0))
+                                             opened: "2026-08-31")
+        library.upsert(Trade(account: "broker", date: "2026-08-31", id: "opening-unpriced", type: .opening,
+                             instrument: "unpriced", quantity: 1, cost: 100))
+        library.upsert(Valuation(account: "broker", date: "2026-08-31", cash: 0))
+        library.upsert(Valuation(account: "broker", date: "2026-09-30", cash: 0))
         let pace = try #require(Valuator(library: library).savingPace(asOf: "2026-09-30"))
         #expect(!pace.isComplete)
         #expect(pace.perYear == 12_000)
     }
 
-    /// An account opened inside the months, with something in it at its
-    /// first record: what it held then isn't new money, the months before
-    /// it aren't missing anything, and a pension fund's first value isn't
-    /// taken from the plan. Opened before its first record, with no
-    /// check-in between, it isn't missing any month either.
+    /// A pension fund opened inside the months, with something in it at
+    /// its first record: what it held then isn't new money or taken from
+    /// the plan, and the months before it aren't missing anything. Opened
+    /// before its first record, with no check-in between, it isn't missing
+    /// any month either.
     @Test(arguments: ["2026-03-31", "2026-03-15"] as [CalendarDate])
     func anAccountWhoseRecordsStartInsideTheMonths(opened: CalendarDate) throws {
         var library = self.library(flows: [Decimal](repeating: 1_000, count: 12))
-        library.accounts["wallet"] = Account(id: "wallet", name: "Wallet", kind: .crypto, currency: .eur,
-                                             opened: opened, valuation: .holdings)
-        library.upsert(PriceRecord(instrument: "btc", date: "2026-03-31", price: 90_000, currency: .eur))
-        library.upsert(Valuation(account: "wallet", date: "2026-03-31", cash: 0,
-                                 positions: [Position(instrument: "btc", quantity: d("0.4"))]))
         library.settings = LibrarySettings(person: Person(birthDate: "1988-04-12"), mainPlan: "base")
         library.plans["base"] = PlanDocument(
             id: "base", name: "Base", retirement: PlanRetirement(age: .age(55)),

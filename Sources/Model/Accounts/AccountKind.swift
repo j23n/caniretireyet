@@ -114,11 +114,6 @@ public struct ValuationMode: OpenEnum {
 
     /// One amount in the account's currency.
     public static let balance: ValuationMode = "balance"
-    /// Positions (quantity × price) plus optional cash, at each valuation.
-    /// Written before format version 4, whose upgrade converts such accounts
-    /// to trades, so it isn't in ``knownValues``; it still decodes, and its
-    /// values still count.
-    public static let holdings: ValuationMode = "holdings"
     /// Holdings worked out from the account's trades (buys, sells, …),
     /// valued at quantity × price, plus cash. Its valuations record only
     /// cash; positions listed in one are a reconciliation check

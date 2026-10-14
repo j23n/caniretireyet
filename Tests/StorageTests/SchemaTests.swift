@@ -260,14 +260,15 @@ struct MigrationTests {
         try folder.library.checkWritable()
     }
 
-    /// Versions 1 and 2 were test versions' formats: this app has no steps
+    /// Versions 1 to 3 were test versions' formats: this app has no steps
     /// from them, so such a library doesn't open, and nothing is written.
-    @Test func aTestVersionsLibraryDoesntOpen() throws {
+    @Test(arguments: [2, 3])
+    func aTestVersionsLibraryDoesntOpen(version: Int) throws {
         let folder = try TemporaryFolder.exampleLibrary()
         let settings = try folder.text("library.json").replacingOccurrences(of: #""schemaVersion": 4"#,
-                                                                           with: #""schemaVersion": 2"#)
+                                                                           with: "\"schemaVersion\": \(version)")
         try folder.write("library.json", settings)
-        #expect(throws: StorageError.missingMigration(from: 2)) { try folder.library.loadMigrating() }
+        #expect(throws: StorageError.missingMigration(from: version)) { try folder.library.loadMigrating() }
         #expect(try folder.text("library.json") == settings)
         #expect(!folder.exists("backups"))
     }

@@ -59,33 +59,4 @@ struct DefaultFlowTests {
         #expect(valuator.defaultFlow(for: Valuation(account: "nope", date: "2026-10-31", balance: 1), previous: nil)
             == nil)
     }
-
-    /// An investment account's positions recorded before format version 4,
-    /// in an account that doesn't record trades: the whole change, prices
-    /// converted and rounded to cents.
-    @Test func positionsWithoutTradesAreTheWholeChange() throws {
-        var library = Library(accounts: [
-            Account(id: "broker", name: "Broker", kind: .brokerage, currency: .eur, opened: "2025-01-01",
-                    valuation: .holdings),
-        ])
-        library.upsert(PriceRecord(instrument: "etf", date: "2025-01-31", price: 100, currency: .usd))
-        library.upsert(PriceRecord(instrument: "etf", date: "2025-02-28", price: 110, currency: .usd))
-        library.upsert(FXRecord(base: .eur, quote: .usd, date: "2025-01-31", rate: d("1.25")))
-        library.upsert(FXRecord(base: .eur, quote: .usd, date: "2025-02-28", rate: d("1.15")))
-        let january = Valuation(account: "broker", date: "2025-01-31", cash: 100,
-                                positions: [Position(instrument: "etf", quantity: 10)])
-        library.upsert(january)
-        let valuator = Valuator(library: library)
-        // 100 + 10 × 100 ÷ 1.25 = 900; 50 + 15 × 110 ÷ 1.15 = 1,484.7826…
-        let february = Valuation(account: "broker", date: "2025-02-28", cash: 50,
-                                 positions: [Position(instrument: "etf", quantity: 15)])
-        #expect(valuator.defaultFlow(for: february, previous: january) == d("584.78"))
-        // A position without a price: unknown.
-        let unpriced = Valuation(account: "broker", date: "2025-02-28", cash: 50,
-                                 positions: [Position(instrument: "new", quantity: 1)])
-        #expect(valuator.defaultFlow(for: unpriced, previous: january) == nil)
-        // From a balance: the whole change too.
-        let balance = Valuation(account: "broker", date: "2025-01-31", balance: 1000)
-        #expect(valuator.defaultFlow(for: february, previous: balance) == d("484.78"))
-    }
 }

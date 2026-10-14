@@ -76,7 +76,7 @@ Buys, sells and the rest of a broker's transactions aren't a target: they're rea
 
 ### Quantities in a trades account
 
-An account that records trades (brokerage, crypto and metals accounts do: [TRADES.md](TRADES.md)) gets its holdings from its trades, so a sheet of quantities imported into it becomes trades, as converting an account does ([TRADES.md](TRADES.md#converting-an-account)):
+An account that records trades (brokerage, crypto and metals accounts do: [TRADES.md](TRADES.md)) gets its holdings from its trades, so a sheet of quantities imported into it becomes trades:
 
 - **An opening** per position on the account's first date in the file, when nothing was held before it. Its cost is the file's purchase cost, else the position's value on the date (the latest price on or before it, in the account's currency, at the latest FX rate on or before it, direct or inverted).
 - **Then a buy or a sale** for each change from what's held, on the row's date, at the latest price on or before it. A buy's amount is what the purchase cost says was paid: all of it when nothing was held, else its rise since the file's last row of the instrument.
