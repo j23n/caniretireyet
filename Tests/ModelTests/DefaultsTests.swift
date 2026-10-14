@@ -35,6 +35,17 @@ struct AccountDefaultsTests {
         #expect(home.includedInNetWorth && !home.includedInPlan)
     }
 
+    /// A tax pot's money is owed, so it counts in neither unless its file says so.
+    @Test func aTaxPotIsLeftOutByDefault() {
+        var pot = account(.taxPot)
+        #expect(!pot.includedInNetWorth && !pot.includedInPlan)
+        pot.includeIn = IncludeIn(netWorth: true)
+        #expect(pot.includedInNetWorth && !pot.includedInPlan)
+        #expect(pot.effectiveAssetClasses == .single(.cash))
+        #expect(AccountKind.taxPot.defaultFlow == .wholeChange)
+        #expect(!AccountKind.taxPot.recordsMoneyInOut)
+    }
+
     @Test func openBetweenOpenedAndClosedInclusive() {
         var bank = account(.cash)
         bank.closed = "2025-11-15"

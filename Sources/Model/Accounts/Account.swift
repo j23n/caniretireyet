@@ -88,14 +88,16 @@ extension Account {
         assetClasses ?? kind.defaultAssetClasses
     }
 
-    /// Whether the account counts toward net worth (default true).
+    /// Whether the account counts toward net worth (default true, false
+    /// for a tax pot: ``AccountKind/isIncludedByDefault``).
     public var includedInNetWorth: Bool {
-        includeIn?.netWorth ?? true
+        includeIn?.netWorth ?? kind.isIncludedByDefault
     }
 
-    /// Whether the planner includes the account (default true).
+    /// Whether the planner includes the account (default true, false for
+    /// a tax pot: ``AccountKind/isIncludedByDefault``).
     public var includedInPlan: Bool {
-        includeIn?.plan ?? true
+        includeIn?.plan ?? kind.isIncludedByDefault
     }
 
     /// Whether the account has been closed.

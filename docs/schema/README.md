@@ -68,7 +68,7 @@ The value of an account on a date **D**:
 
 An account that records trades (`"valuation": "trades"`) holds what its trades leave on D, with its cash: the `cash` of its latest valuation on or before D, plus the cash effect of every trade after it, none for a trade paid from outside the account ([TRADES.md](../TRADES.md)). Steps 2 to 4 are the same.
 
-**Net worth** on D is the sum over the accounts included in net worth (`includeIn.netWorth`, default true); **plan assets** over those included in plans.
+**Net worth** on D is the sum over the accounts included in net worth (`includeIn.netWorth`, default true, false for a `taxPot`); **plan assets** over those included in plans (`includeIn.plan`, with the same defaults).
 
 **Change since the last check-in.** Each account's change is split into **market**, **new money** and **other**:
 

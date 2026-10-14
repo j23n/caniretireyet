@@ -20,11 +20,16 @@ public struct AccountKind: OpenEnum {
     public static let loan: AccountKind = "loan"
     public static let mortgage: AccountKind = "mortgage"
     public static let creditCard: AccountKind = "creditCard"
+    /// Money set aside for a tax bill paid later, such as once a year. It's
+    /// owed, so by default it counts in neither net worth nor plans, and
+    /// what's put into it is tax, not saving or spending (PROGRESS.md,
+    /// "Savings rate").
+    public static let taxPot: AccountKind = "taxPot"
     public static let other: AccountKind = "other"
 
     public static let knownValues: [AccountKind] = [
         .cash, .savings, .brokerage, .crypto, .metals, .pensionFund, .tfr,
-        .property, .belongings, .loan, .mortgage, .creditCard, .other,
+        .property, .belongings, .loan, .mortgage, .creditCard, .taxPot, .other,
     ]
 }
 
@@ -39,11 +44,11 @@ extension AccountKind {
     }
 
     /// The asset mix assumed for a balance account without `assetClasses`:
-    /// cash and savings accounts are cash, property is real estate. Other
+    /// cash, savings and tax pots are cash, property is real estate. Other
     /// kinds have no default.
     public var defaultAssetClasses: AssetMix? {
         switch self {
-        case .cash, .savings: .single(.cash)
+        case .cash, .savings, .taxPot: .single(.cash)
         case .property: .single(.realEstate)
         default: nil
         }
@@ -52,6 +57,13 @@ extension AccountKind {
     /// Debts, recorded as negative balances.
     public var isLiability: Bool {
         self == .loan || self == .mortgage || self == .creditCard
+    }
+
+    /// Whether an account of this kind counts in net worth and plans when
+    /// its `includeIn` doesn't say: every kind but a tax pot, whose money
+    /// is owed.
+    public var isIncludedByDefault: Bool {
+        self != .taxPot
     }
 
     /// Whether valuations of this kind record money in and out (`moneyIn`,
@@ -85,7 +97,7 @@ extension AccountKind {
     /// so their loss of value is spent, a little each year.
     public var defaultFlow: FlowDefault {
         switch self {
-        case .cash, .creditCard, .loan, .mortgage, .belongings: .wholeChange
+        case .cash, .creditCard, .loan, .mortgage, .belongings, .taxPot: .wholeChange
         case .savings: .changeLessInterest
         case .brokerage, .crypto, .metals: .trades
         default: .ask
