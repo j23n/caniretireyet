@@ -54,7 +54,8 @@ struct LibraryProblemsTests {
         library.upsert(Trade(account: "conto-fineco", date: "2026-09-15", id: "dep12345", type: .deposit, amount: 5))
 
         let problems = library.problems()
-        #expect(problems.filter { $0.message.contains("instruments that don't exist: btc") }.count == 12)
+        // The twelve month files with btc's prices or positions, and an import profile.
+        #expect(problems.filter { $0.message.contains("instruments that don't exist: btc") }.count == 13)
         #expect(problems.contains { $0.path == september && $0.message.hasPrefix("conto-fineco: ") })
         #expect(problems.allSatisfy { $0.severity == .warning })
     }
