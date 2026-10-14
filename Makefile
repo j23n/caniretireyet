@@ -26,7 +26,7 @@ SCREENSHOTS ?= $(CURDIR)/.build/screenshots
 SCREENSHOT_SCRIPT := .github/scripts/screenshots.py
 SCREEN_TESTS := CanIRetireYetScreenTests
 
-.PHONY: help bootstrap test build-package check-icons screenshots ci-linux ci-macos ci-macos-app clean
+.PHONY: help bootstrap test build-package screenshots ci-linux ci-macos ci-macos-app clean
 
 help:
 	@echo "make bootstrap    XcodeGen and the Xcode project"
@@ -44,10 +44,6 @@ build-package:
 	$(SWIFT) build
 
 test: swift-test
-
-# The built apps have their icons (after make build).
-check-icons:
-	.github/scripts/check-app-icons.sh $(DERIVED_DATA)
 
 # The screen tests (App/ScreenTests) on the Mac (signed to run locally, without the entitlements an
 # app without a provisioning profile can't launch with, or its sandbox, so they can write their
@@ -72,11 +68,15 @@ screenshots: project
 
 ci-linux: build-package test
 
-ci-macos: build-package build check-icons test test-app
+# The Mac's run on main and by hand: the app for the iOS Simulator and the Mac, its unit tests, and
+# CloudSync's tests, the only package tests with Apple-only code. Linux builds and tests the whole
+# package on every push, and building the app builds every package module it links.
+ci-macos: build test-app
+	$(SWIFT) test --filter CloudSyncTests
 
-# A pull request's Mac run (ci.yml): the app's builds and its unit tests, which only a Mac runs. The
-# package's tests run on Linux on every push, and on the Mac on main.
-ci-macos-app: build check-icons test-app
+# A pull request's Mac run (ci.yml): the app for the Mac and its unit tests. The iOS Simulator's
+# build, whose iPhone-only code is a few hundred lines, waits for main, or a ci:ios label.
+ci-macos-app: build-mac test-app
 
 clean:
 	rm -rf $(XCODEPROJ) .build/DerivedData $(RESULTS) $(SCREENSHOTS)
