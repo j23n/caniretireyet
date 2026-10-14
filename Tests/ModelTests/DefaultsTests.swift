@@ -43,7 +43,7 @@ struct AccountDefaultsTests {
         #expect(pot.includedInNetWorth && !pot.includedInPlan)
         #expect(pot.effectiveAssetClasses == .single(.cash))
         #expect(AccountKind.taxPot.defaultFlow == .wholeChange)
-        #expect(!AccountKind.taxPot.recordsMoneyInOut)
+        #expect(AccountKind.taxPot.recordsMoneyInOut)
     }
 
     @Test func openBetweenOpenedAndClosedInclusive() {

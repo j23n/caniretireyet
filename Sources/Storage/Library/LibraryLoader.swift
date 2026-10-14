@@ -398,7 +398,9 @@ struct LibraryLoader {
     /// Warns about money in and out (`moneyIn`, `moneyOut`) that summaries
     /// leave out: on an account whose kind doesn't record it, only one of the
     /// two, or negative; about interest on an account whose kind doesn't
-    /// record it; and about a one-off (`oneOff`) summaries leave out: on such
+    /// record it; about tax (`tax`) summaries leave out: on a tax pot, on
+    /// another kind that doesn't record money in and out, or without both
+    /// amounts; and about a one-off (`oneOff`) summaries leave out: on such
     /// an account, without both amounts, or negative. Every value is still
     /// loaded.
     mutating func checkMoneyInOut(in library: Library) {
@@ -411,13 +413,24 @@ struct LibraryLoader {
             let path = LibraryFile.month(valuation.date.yearMonth).path
             if let account = library.accounts[valuation.account], !account.kind.recordsMoneyInOut {
                 warn(path, "The valuation of \(account.id) on \(valuation.date) records money in or out, but only "
-                    + "cash and savings accounts do; it isn't counted.")
+                    + "cash and savings accounts and tax pots do; it isn't counted.")
             } else if (valuation.moneyIn == nil) != (valuation.moneyOut == nil) {
                 warn(path, "The valuation of \(valuation.account) on \(valuation.date) records only money "
                     + "\(valuation.moneyIn == nil ? "out" : "in"); record both, or neither. It isn't counted.")
             } else if (valuation.moneyIn ?? 0) < 0 || (valuation.moneyOut ?? 0) < 0 {
                 warn(path, "The valuation of \(valuation.account) on \(valuation.date) has negative money in or out; "
                     + "both are amounts without a sign. It isn't counted.")
+            }
+        }
+        for valuation in library.allValuations where valuation.tax != nil {
+            let whose = "The valuation of \(valuation.account) on \(valuation.date)"
+            let path = LibraryFile.month(valuation.date.yearMonth).path
+            if let account = library.accounts[valuation.account], account.kind == .taxPot {
+                warn(path, "\(whose) records tax, but a tax pot's tax is what moved into it; it isn't counted.")
+            } else if let account = library.accounts[valuation.account], !account.kind.recordsMoneyInOut {
+                warn(path, "\(whose) records tax, but only cash and savings accounts do; it isn't counted.")
+            } else if valuation.moneyIn == nil || valuation.moneyOut == nil {
+                warn(path, "\(whose) records tax without both money in and out; it isn't counted.")
             }
         }
         for valuation in library.allValuations {

@@ -22,8 +22,9 @@ public struct AccountKind: OpenEnum {
     public static let creditCard: AccountKind = "creditCard"
     /// Money set aside for a tax bill paid later, such as once a year. It's
     /// owed, so by default it counts in neither net worth nor plans, and
-    /// what's put into it is tax, not saving or spending (PROGRESS.md,
-    /// "Savings rate").
+    /// what moves into it from your other accounts is tax, not saving or
+    /// spending (PROGRESS.md, "Savings rate"). Its money out is the tax paid
+    /// from it, and its money in a refund.
     public static let taxPot: AccountKind = "taxPot"
     public static let other: AccountKind = "other"
 
@@ -68,9 +69,10 @@ extension AccountKind {
 
     /// Whether valuations of this kind record money in and out (`moneyIn`,
     /// `moneyOut`) at every value after the account's first: cash and
-    /// savings accounts.
+    /// savings accounts, and tax pots, whose money out is tax paid and
+    /// money in a refund of it.
     public var recordsMoneyInOut: Bool {
-        self == .cash || self == .savings
+        self == .cash || self == .savings || self == .taxPot
     }
 
     /// Whether valuations of this kind can record the interest earned
