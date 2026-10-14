@@ -53,9 +53,11 @@ struct PlanProgressView: View {
     var body: some View {
         let progress = session.progress
         let timeline = PlanProgressTimeline(progress, text: milestoneText)
-        let milestones = session.plan.map {
-            PlanMilestones(plan: $0, library: library.library, valuator: library.valuator, asOf: library.asOfDate,
-                           results: session.shownResults, reached: progress.reached)
+        let derived = session.derived(locale: locale)
+        let milestones = derived.milestones.map { milestones in
+            var milestones = milestones
+            milestones.reached = progress.reached
+            return milestones
         }
         ScrollView {
             VStack(alignment: .leading, spacing: Metrics.l) {
@@ -69,7 +71,7 @@ struct PlanProgressView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                         VStack(alignment: .leading, spacing: Metrics.l) {
                             milestonesCard(milestones)
-                            footer
+                            footer(derived.chapters)
                         }
                         .frame(width: Self.sideWidth)
                         .padding(.trailing, gutter)
@@ -78,7 +80,7 @@ struct PlanProgressView: View {
                     yearByYear(timeline)
                     milestonesCard(milestones)
                         .padding(.horizontal, gutter)
-                    footer
+                    footer(derived.chapters)
                         .padding(.horizontal, gutter)
                 }
                 moreCharts
@@ -359,10 +361,10 @@ struct PlanProgressView: View {
 
     /// The next chapter of the plan, and *Save Baseline…*; *Add a Past
     /// Baseline…* quietly under it.
-    private var footer: some View {
+    private func footer(_ chapters: PlanChaptersModel?) -> some View {
         let shape = RoundedRectangle(cornerRadius: Metrics.cardRadius, style: .continuous)
         return VStack(alignment: .leading, spacing: Metrics.s) {
-            if let model = session.chapters, model.chapters.chapters.count > 1 {
+            if let model = chapters, model.chapters.chapters.count > 1 {
                 let next = model.chapters.chapters[1]
                 Text("Next in your plan")
                     .font(PlanProgressFont.caption)

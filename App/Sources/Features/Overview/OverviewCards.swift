@@ -290,7 +290,7 @@ struct OverviewAttentionCard: View {
                 id: "plan.error", systemImage: "exclamationmark.triangle",
                 title: "\(library.mainPlan?.name ?? "Your plan") couldn't run", detail: error, target: .plan))
         }
-        if let main = library.settings.mainPlan, let bridge = plans.results[main]?.details.focus.bridges.first,
+        if let main = library.settings.mainPlan, let bridge = plans.results(of: main)?.details.focus.bridges.first,
            bridge.share >= 0.05 {
             let futures = Int(wholeNumber: bridge.share * 100)
             let age = bridge.accessibleFromAge.map { " at \($0)" } ?? ""

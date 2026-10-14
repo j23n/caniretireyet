@@ -91,11 +91,10 @@ struct PlanTrendsView: View {
     }
 
     /// Worked out once for each state of the library, the grain and the
-    /// span, from the progress Progress shows too (the session's
-    /// `PlanProgressCache`), not each time the page draws.
+    /// span, from the progress Progress shows too (``PlanSession/trends(grain:lastYears:)``),
+    /// not each time the page draws.
     private var trendsModel: PlanTrends {
-        session.progressCache.trends(for: session.progressKey, grain: grain, lastYears: range.years,
-                                     library: library.library, valuator: library.valuator)
+        session.trends(grain: grain, lastYears: range.years)
     }
 
     // MARK: Savings rate, Money in and out

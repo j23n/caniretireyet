@@ -27,7 +27,6 @@ struct PlanTimelineView: View {
     /// Export Calculations…
     var onExport: (() -> Void)?
 
-    @Environment(LibraryStore.self) private var library
     @Environment(AppNavigation.self) private var navigation
     @Environment(\.locale) private var locale
     @State private var editing: PlanEditTarget?
@@ -49,10 +48,7 @@ struct PlanTimelineView: View {
         @Bindable var session = session
         // Without the progress: only the progress card follows every update.
         let state = session.state
-        let milestones = session.plan.map {
-            PlanMilestones(plan: $0, library: library.library, valuator: library.valuator, asOf: library.asOfDate,
-                           results: state.results)
-        }
+        let derived = session.derived(locale: locale)
         ScrollView {
             VStack(alignment: .leading, spacing: Metrics.l) {
                 VStack(alignment: .leading, spacing: Metrics.m) {
@@ -62,12 +58,12 @@ struct PlanTimelineView: View {
                     } else {
                         PlanOutOfDateBanner(state: state) { session.perform($0) }
                     }
-                    headline(state)
+                    headline(state, position: derived.position)
                     PlanResultWarnings(session: session)
                 }
                 .padding(.horizontal, gutter)
                 if session.plan != nil {
-                    chapters($session.editablePlan, state: state, milestones: milestones)
+                    chapters($session.editablePlan, state: state, derived: derived)
                     PlanAssumptionsFooter(onShowAll: { showsAssumptions = true }, onExport: onExport)
                         .padding(.horizontal, gutter)
                     moreCharts(state.results)
@@ -98,10 +94,10 @@ struct PlanTimelineView: View {
     // MARK: The answer
 
     @ViewBuilder
-    private func headline(_ state: PlanResultsState) -> some View {
+    private func headline(_ state: PlanResultsState, position: PlanBaselineComparison.Position?) -> some View {
         if let results = state.results {
             PlanTimelineHeadline(session: session, results: results, isWide: isWide, stacksPill: besideWhatIf,
-                                 progress: progress, onShowProgress: onShowProgress, onWhatIf: onWhatIf)
+                                 progress: position, onShowProgress: onShowProgress, onWhatIf: onWhatIf)
                 .opacity(state.isRunning ? 0.5 : 1)
                 .accessibilityElement(children: .contain)
                 .accessibilityIdentifier("plan.answer")
@@ -113,24 +109,15 @@ struct PlanTimelineView: View {
         }
     }
 
-    /// Where the latest check-in stands against its year's baseline.
-    private var progress: PlanBaselineComparison.Position? {
-        PlanProgressYear.latestPosition(for: session.planID, library: library.library, valuator: library.valuator,
-                                        asOf: library.asOfDate)
-    }
-
     // MARK: The chapters
 
     @ViewBuilder
-    private func chapters(_ plan: Binding<PlanDocument>, state: PlanResultsState,
-                          milestones: PlanMilestones?) -> some View {
+    private func chapters(_ plan: Binding<PlanDocument>, state: PlanResultsState, derived: PlanDerived)
+        -> some View {
         let issues = session.inputIssues
         PlanUnplacedIssues(issues: issues)
             .padding(.horizontal, gutter)
-        if let model = session.chapters, let birthDate = library.settings.person?.birthDate {
-            let timeline = PlanTimeline(model: model, results: state.results, valuator: library.valuator,
-                                        birthDate: birthDate, currency: session.currency,
-                                        milestones: milestones?.ahead ?? [], locale: locale)
+        if let model = derived.chapters, let timeline = derived.timeline {
             if model.chapters.chapters.isEmpty {
                 PlanNoChapters(plan: plan)
                     .padding(.horizontal, gutter)
@@ -150,9 +137,8 @@ struct PlanTimelineView: View {
                     .opacity(state.dimsResults ? 0.7 : 1)
                 PlanChapterDetails(
                     model: model, index: selected,
-                    story: PlanChapterStory(chapterAt: selected, in: model, results: state.results,
-                                            valuator: library.valuator, words: words),
-                    barMaximum: barMaximum(model, results: state.results), plan: plan, words: words,
+                    story: PlanChapterStory(chapterAt: selected, in: model, results: state.results, words: words),
+                    barMaximum: derived.barMaximum, plan: plan, words: words,
                     issues: issues, isWide: isRoomy, showsSteps: !isWide, canEdit: session.canEdit,
                     editing: $editing,
                     milestones: timeline.cards.indices.contains(selected) ? timeline.cards[selected].milestones : [],
@@ -169,14 +155,6 @@ struct PlanTimelineView: View {
             PlanChaptersNeedBirthDate()
                 .padding(.horizontal, gutter)
         }
-    }
-
-    /// The largest month among the chapters, so their bars compare.
-    private func barMaximum(_ model: PlanChaptersModel, results: PlanResults?) -> Double {
-        model.chapters.chapters.indices
-            .compactMap { PlanChapterStory.bar(model.chapters.chapters[$0], model: model, results: results,
-                                               valuator: library.valuator, words: words)?.total }
-            .max() ?? 0
     }
 
     /// Opens a setting's sheet: spending's, an item's, or the target mix's.
@@ -233,7 +211,6 @@ struct PlanTimelineView: View {
                     }
                 }
                 .padding(.top, Metrics.s)
-                .environment(\.baseCurrency, results.currency)
             } label: {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("More charts")
