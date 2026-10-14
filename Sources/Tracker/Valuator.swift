@@ -14,10 +14,12 @@ import Model
 /// zero. Build one valuator per library snapshot and query it for many
 /// dates; lookups are binary searches.
 ///
-/// An account whose holdings come from its trades (``Model/ValuationMode/trades``)
-/// is valued from a ``snapshot(of:on:)``: the positions its trades leave
-/// (``TradeLedger``) and its cash by the cash rule (``tradeCash(of:on:)``),
-/// as if that were its latest valuation (docs/TRADES.md).
+/// Each account's records are an ``AccountHistory``, which decides once
+/// where its holdings come from. An account whose holdings come from its
+/// trades (``Model/ValuationMode/trades``) is valued from a
+/// ``snapshot(of:on:)``: the positions its trades leave (``TradeLedger``)
+/// and its cash by the cash rule (``tradeCash(of:on:)``), as if that were
+/// its latest valuation (docs/TRADES.md).
 public struct Valuator: Sendable {
     public let baseCurrency: CurrencyCode
     public let accounts: [AccountID: Account]
@@ -26,9 +28,10 @@ public struct Valuator: Sendable {
     public let instruments: [InstrumentID: Instrument]
     public let prices: PriceTable
     public let fx: FXTable
-    private let valuationsByAccount: [AccountID: [Valuation]]
-    /// One ledger per account that records trades, with or without trades.
-    let ledgers: [AccountID: TradeLedger]
+    /// Every account's records, and those of valuations of unknown
+    /// accounts; an account that records trades has a ledger, with or
+    /// without trades.
+    private let histories: [AccountID: AccountHistory]
     /// Trades of accounts that don't record trades (or don't exist): left out.
     let ignoredTrades: [Trade]
 
@@ -40,42 +43,51 @@ public struct Valuator: Sendable {
         instruments = library.instruments
         var byKey: [ValuationKey: Valuation] = [:]
         for valuation in library.months.values.flatMap(\.valuations) { byKey[valuation.key] = valuation }
-        valuationsByAccount = Dictionary(grouping: byKey.values, by: \.account).mapValues { $0.sortedByKey() }
+        let valuationsByAccount = Dictionary(grouping: byKey.values, by: \.account).mapValues { $0.sortedByKey() }
         prices = PriceTable(library: library)
         let fx = FXTable(library: library)
         self.fx = fx
         var tradesByKey: [TradeKey: Trade] = [:]
         for trade in library.months.values.flatMap(\.trades) { tradesByKey[trade.key] = trade }
         let tradesByAccount = Dictionary(grouping: tradesByKey.values, by: \.account)
-        var ledgers: [AccountID: TradeLedger] = [:]
-        for account in library.accounts.values where account.recordsTrades {
-            ledgers[account.id] = TradeLedger(account: account, trades: tradesByAccount[account.id] ?? [],
-                                              instruments: library.instruments, fx: fx)
+        var histories: [AccountID: AccountHistory] = [:]
+        for id in Set(valuationsByAccount.keys).union(library.accounts.keys) {
+            let ledger = library.accounts[id].flatMap { account in
+                account.recordsTrades
+                    ? TradeLedger(account: account, trades: tradesByAccount[id] ?? [],
+                                  instruments: library.instruments, fx: fx)
+                    : nil
+            }
+            histories[id] = AccountHistory(account: id, valuations: valuationsByAccount[id] ?? [], ledger: ledger)
         }
-        self.ledgers = ledgers
-        ignoredTrades = tradesByKey.values.filter { ledgers[$0.account] == nil }.sortedByKey()
+        self.histories = histories
+        ignoredTrades = tradesByKey.values.filter { histories[$0.account]?.ledger == nil }.sortedByKey()
+    }
+
+    /// An account's records; empty for an account without any.
+    func history(of account: AccountID) -> AccountHistory {
+        histories[account] ?? AccountHistory(account: account, valuations: [], ledger: nil)
+    }
+
+    /// The ledgers of the accounts that record trades, by account.
+    var ledgers: [AccountID: TradeLedger] {
+        histories.compactMapValues(\.ledger)
     }
 
     /// An account's valuations, sorted by date.
     public func valuations(for account: AccountID) -> [Valuation] {
-        valuationsByAccount[account] ?? []
+        history(of: account).valuations
     }
 
     /// The account's latest valuation dated on or before `date`.
     public func latestValuation(for account: AccountID, onOrBefore date: CalendarDate) -> Valuation? {
-        guard let valuations = valuationsByAccount[account],
-              let index = valuations.lastIndex(onOrBefore: date, date: \.date)
-        else { return nil }
-        return valuations[index]
+        history(of: account).latestValuation(onOrBefore: date)
     }
 
     /// The account's latest valuation dated strictly before `date`: the one a
     /// valuation on `date` follows.
     public func previousValuation(for account: AccountID, before date: CalendarDate) -> Valuation? {
-        guard let valuations = valuationsByAccount[account],
-              let index = valuations.lastIndex(onOrBefore: date.adding(days: -1), date: \.date)
-        else { return nil }
-        return valuations[index]
+        history(of: account).latestValuation(onOrBefore: date.adding(days: -1))
     }
 
     /// `valuation` valued on `date` as if it were its account's latest one,
@@ -116,32 +128,29 @@ public struct Valuator: Sendable {
         guard let valuation = carried(account, on: date) else {
             return result(.noValuation, [.noValuation(account: account.id)])
         }
-        return value(of: account, valuation: valuation, on: date, cashIsDerived: account.recordsTrades, in: target)
+        return value(of: account, valuation: valuation, on: date, in: target)
     }
 
-    /// What `account` holds at the end of `date`: its latest valuation on
-    /// or before the date, or for a trades account its ``tradeSnapshot(of:on:)``.
+    /// What `account` holds at the end of `date`, before it's held
+    /// (``AccountHistory/record(on:)``): its latest valuation on or before
+    /// the date, or for a trades account the date of its latest record.
     func carried(_ account: Account, on date: CalendarDate) -> Valuation? {
-        account.recordsTrades ? tradeSnapshot(of: account, on: date) : latestValuation(for: account.id, onOrBefore: date)
+        history(of: account.id).record(on: date)
     }
 
     /// Values one valuation of `account` on `date`, whatever the account's
-    /// status. For a trades account, the valuation's positions are those its
-    /// trades leave on the valuation's date (see ``tradeSnapshot(for:in:)``),
-    /// and its cash comes from the cash rule when it has none, or when
-    /// `cashIsDerived` (a snapshot). A balance is estimated on `date` from
-    /// the account's depreciation, as `Account.estimated(_:from:on:)` says.
-    /// Amounts are converted to `currency` (the base currency when `nil`).
+    /// status, as its account holds it (``AccountHistory/held(_:)``): for a
+    /// trades account, the positions its trades leave on the valuation's
+    /// date, and its cash by the cash rule when it has none. A balance is
+    /// estimated on `date` from the account's depreciation, as
+    /// `Account.estimated(_:from:on:)` says. Amounts are converted to
+    /// `currency` (the base currency when `nil`).
     func value(of account: Account, valuation original: Valuation, on date: CalendarDate,
-               cashIsDerived: Bool = false, in currency: CurrencyCode? = nil) -> AccountValue {
+               in currency: CurrencyCode? = nil) -> AccountValue {
         let target = currency ?? baseCurrency
-        var valuation = original
-        var problems: [ValuationProblem] = []
-        if account.recordsTrades {
-            valuation = tradeSnapshot(for: original, in: account)
-            // A trade whose cash effect needs a missing FX rate leaves derived cash incomplete.
-            problems = tradeCashProblems(of: account, for: original, derived: cashIsDerived || original.cash == nil)
-        }
+        let valuation = history(of: account.id).held(original)
+        // A trade whose cash effect needs a missing FX rate leaves derived cash incomplete.
+        var problems = original.cash == nil ? tradeCashProblems(of: account, on: original.date) : []
         var components: [ValueComponent] = []
 
         func add(_ kind: ValueComponent.Kind, amount: Decimal?, currency: CurrencyCode?, quantity: Decimal? = nil,

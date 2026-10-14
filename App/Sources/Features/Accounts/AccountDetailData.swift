@@ -244,21 +244,8 @@ struct AccountDetailData: Hashable, Sendable {
                 }
             }
         }
-        if account.recordsTrades {
-            // Deposits, withdrawals, transfers and residuals, on their own dates.
-            var byDate: [CalendarDate: Decimal] = [:]
-            for flow in valuator.tradeFlows(of: account.id, after: nil, through: date) {
-                if let amount = flow.amount { byDate[flow.date, default: 0] += amount }
-            }
-            flows = byDate.filter { $0.value != 0 }.sorted { $0.key < $1.key }
-                .map { AccountFlowTick(date: $0.key, amount: $0.value) }
-        } else {
-            flows = all.indices.compactMap { index in
-                let valuation = all[index]
-                guard let flow = valuator.flow(of: valuation, previous: index > 0 ? all[index - 1] : nil), flow != 0
-                else { return nil }
-                return AccountFlowTick(date: valuation.date, amount: flow)
-            }
+        flows = valuator.flowsByDate(of: account.id, through: date).map {
+            AccountFlowTick(date: $0.date, amount: $0.amount)
         }
         if account.recordsTrades {
             let rows = valuator.holdings(of: account.id, on: date).map { holding in

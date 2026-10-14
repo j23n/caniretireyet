@@ -197,7 +197,7 @@ extension Valuator {
         if let flow {
             parts.newMoney = flow
             parts.market = end - start - flow
-        } else if endValuation?.isBalance ?? false, !account.recordsTrades,
+        } else if endValuation?.isBalance ?? false,
                   let filled = filledFlows(of: account, after: from, through: endDate, in: target,
                                            problems: &problems) {
             parts.newMoney = filled.newMoney
@@ -260,7 +260,7 @@ extension Valuator {
     func recordedFlows(of account: Account, after from: CalendarDate, through: CalendarDate,
                        in currency: CurrencyCode? = nil, problems: inout [ValuationProblem]) -> Decimal? {
         let target = currency ?? baseCurrency
-        if account.recordsTrades {
+        if history(of: account.id).ledger != nil {
             return convertedTradeFlows(of: account, after: from, through: through, to: target, problems: &problems)?
                 .reduce(0) { $0 + $1.amount }
         }
