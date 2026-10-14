@@ -59,7 +59,7 @@ public struct LibraryDownloadProgress: Hashable, Sendable {
     /// How much of that is downloaded, if known.
     public var downloadedBytes: Int64?
     /// Files whose download failed, by path. They're reported, not waited
-    /// for silently; asking again (`LibraryDownloading.requestAgain()`) clears them.
+    /// for silently; asking again (`UbiquitousLibraryDownloader.requestAgain()`) clears them.
     public var failures: [LibraryDownloadFailure]
     /// Whether every file, `library.json` included, is on this device: the
     /// library can be read without waiting for the network.

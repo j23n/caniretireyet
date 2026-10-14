@@ -124,8 +124,6 @@ final class LibraryStore {
 
     private let locator: LibraryLocator
     private let preferences: AppPreferences?
-    /// Makes what downloads a library in iCloud Drive before it's read.
-    private let makeDownloader: @MainActor (LibraryLocation) -> (any LibraryDownloading)?
     @ObservationIgnored private var sync: LibrarySync?
     @ObservationIgnored private var watcher: (any LibraryWatching)?
     @ObservationIgnored private var watchTask: Task<Void, Never>?
@@ -146,7 +144,7 @@ final class LibraryStore {
     /// overtook (Try Again, another `open`) drops its results.
     @ObservationIgnored private var openingAttempt = 0
     /// The current attempt's download from iCloud Drive, while it runs.
-    @ObservationIgnored private var downloader: (any LibraryDownloading)?
+    @ObservationIgnored private var downloader: UbiquitousLibraryDownloader?
     @ObservationIgnored private var openingStall: StallDetector
     @ObservationIgnored private var stallCheck: Task<Void, Never>?
 
@@ -156,17 +154,11 @@ final class LibraryStore {
 
     /// A store that finds its library with `locator` and remembers the
     /// choice in `preferences`. Opening counts as stalled after
-    /// `openingStallTime` without progress. `makeDownloader` makes what
-    /// downloads a library in iCloud Drive before it's read (tests pass
-    /// their own).
+    /// `openingStallTime` without progress.
     init(locator: LibraryLocator = LibraryLocator(), preferences: AppPreferences? = nil,
-         openingStallTime: Duration = LibraryStore.openingStallTime,
-         makeDownloader: @escaping @MainActor (LibraryLocation) -> (any LibraryDownloading)? = {
-             $0.makeDownloader()
-         }) {
+         openingStallTime: Duration = LibraryStore.openingStallTime) {
         self.locator = locator
         self.preferences = preferences
-        self.makeDownloader = makeDownloader
         openingStall = StallDetector(threshold: openingStallTime)
     }
 
@@ -650,7 +642,7 @@ final class LibraryStore {
     /// meanwhile. A download that can't be followed (its stream ends early)
     /// goes on to reading, which downloads what's missing itself.
     private func download(_ location: LibraryLocation, attempt: Int) async -> Bool {
-        guard let downloader = makeDownloader(location) else { return true }
+        guard let downloader = location.makeDownloader() else { return true }
         self.downloader = downloader
         var latest: LibraryDownloadProgress?
         for await progress in downloader.start() {

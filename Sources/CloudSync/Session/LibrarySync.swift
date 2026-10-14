@@ -41,7 +41,7 @@ public struct ReloadResult: Sendable {
 /// versions to ``save(_:previous:)``.
 public actor LibrarySync {
     public nonisolated let location: LibraryLocation
-    public nonisolated let folder: LibraryFolder
+    private let folder: LibraryFolder
     private let versions: any FileVersionProviding
     /// The last upgrade ``load()`` ran, until it's taken
     /// (``takeMigration()``), so the app can show it once.
