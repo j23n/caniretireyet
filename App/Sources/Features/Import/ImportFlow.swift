@@ -291,6 +291,8 @@ struct ImportFlow: Sendable {
     /// the import is open (a sync from the other device, a profile saved).
     /// After importing, the preview is left as it was.
     mutating func setLibrary(_ library: Library) {
+        // Making every preview again is slow; the same library changes none of them.
+        guard library != self.library else { return }
         let profilesChanged = library.importProfiles != self.library.importProfiles
         self.library = library
         guard step != .done else { return }

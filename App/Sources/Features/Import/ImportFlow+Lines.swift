@@ -250,10 +250,16 @@ extension ImportFlow {
     /// (``startedAccounts(before:)``); not those sold by another line.
     func saleChoices(for line: BatchStatementLine) -> [Account] {
         guard line.amount > 0, let statement = library.accounts[line.account] else { return [] }
-        let sold = Set(allStatementLines.compactMap { other -> AccountID? in
-            guard other.id != line.id, case .sale(let id)? = statementAnswer(other) else { return nil }
-            return id
-        })
+        // Read from the answers, not the lines: each row of All Lines asks.
+        let sessions: [(file: Int?, session: ImportSession)] = batch.map { batch in
+            batch.files.map { (Optional($0.id), $0.session) }
+        } ?? (session.map { [(nil, $0)] } ?? [])
+        var sold = Set<AccountID>()
+        for (file, session) in sessions {
+            for (row, answer) in session.statementAssets where file != line.file || row != line.row {
+                if case .sale(let id) = answer { sold.insert(id) }
+            }
+        }
         let started = startedAccounts(before: line).filter { $0.currency == statement.currency }
         return (library.accounts.values.filter { library.canSellFromStatement($0, of: statement, on: line.date) }
             + started)
@@ -263,16 +269,10 @@ extension ImportFlow {
 
     /// The new accounts the purchases of the statements open start, that a
     /// line can sell: the accepted ones of a purchase on or before its day,
-    /// in its own file or one imported before it.
+    /// in any file (the purchase's file records a sale in another,
+    /// IMPORT.md, "Several statements at once").
     func startedAccounts(before line: BatchStatementLine) -> [Account] {
-        let previews: [ImportPreview]
-        if batch != nil {
-            let files = batchPreviews.map(\.file)
-            guard let file = line.file, let index = files.firstIndex(of: file) else { return [] }
-            previews = batchPreviews[...index].map(\.preview)
-        } else {
-            previews = preview.map { [$0] } ?? []
-        }
+        let previews = batch != nil ? batchPreviews.map(\.preview) : (preview.map { [$0] } ?? [])
         return previews.flatMap { preview in
             preview.newAccounts.filter { proposal in
                 guard proposal.isAccepted, let row = proposal.statementRow,

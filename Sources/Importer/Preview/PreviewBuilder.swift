@@ -6,7 +6,13 @@ extension ImportSession {
     /// resulting records with `library`. Nothing is written. A date before
     /// 1900 or more than a week after `today` is a cell problem.
     public func preview(against library: Library, today: CalendarDate = .today()) -> ImportPreview {
+        preview(against: library, today: today, batchSales: StatementBatchSales())
+    }
+
+    /// The preview of one file of a batch, with the sales across its files.
+    func preview(against library: Library, today: CalendarDate, batchSales: StatementBatchSales) -> ImportPreview {
         var builder = PreviewBuilder(session: self, library: library, today: today)
+        builder.batchSales = batchSales
         return builder.build()
     }
 }
@@ -81,6 +87,8 @@ struct PreviewBuilder {
     var statementLines: [StatementLine] = []
     /// Statement layout: the accounts the file's sales close.
     var statementCloses: [AccountChangeProposal] = []
+    /// Statement layout, in a batch: the sales across its files.
+    var batchSales = StatementBatchSales()
 
     var table: ImportTable { session.table }
     var profile: ImportProfile { session.profile }

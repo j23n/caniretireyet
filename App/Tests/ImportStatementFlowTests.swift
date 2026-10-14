@@ -351,6 +351,41 @@ struct ImportStatementFlowTests {
         #expect(planned.library.accounts["car"]?.closed == "2026-10-01")
     }
 
+    /// Another account's statement can sell what a purchase starts, even
+    /// when its file is read before the purchase's.
+    @Test func aSaleCanSellWhatAnotherAccountsPurchaseStarts() throws {
+        var library = Library(accounts: [
+            Account(id: "conto", name: "Conto corrente", kind: .cash, currency: .eur, opened: "2020-01-01"),
+            Account(id: "risparmio", name: "Risparmio", kind: .savings, currency: .eur, opened: "2020-01-01"),
+        ])
+        library.upsert(Valuation(account: "conto", date: "2026-07-31", balance: 5000))
+        library.upsert(Valuation(account: "risparmio", date: "2026-07-31", balance: 30000))
+        let current = """
+            Data;Importo;Descrizione
+            10/08/2026;3.400,00;Stipendio agosto
+            25/08/2026;15.000,00;Bonifico da Mario Verdi
+            """
+        let savings = """
+            Data;Importo;Descrizione
+            18/08/2026;-18.000,00;Bonifico a Autosalone Neri
+            """
+        var flow = ImportFlow(library: library)
+        flow.open(statements: [(name: "conto.csv", data: Data(current.utf8)),
+                               (name: "risparmio.csv", data: Data(savings.utf8))])
+        flow.setBatchAccount("conto", forFile: 0)
+        flow.setBatchAccount("risparmio", forFile: 1)
+        let car = try #require(flow.allStatementLines.first { $0.line.text.hasPrefix("Bonifico a Autosalone") })
+        flow.setStatementAsset(.purchase(name: "Car", kind: .belongings), for: car)
+        let sale = try #require(flow.allStatementLines.first { $0.line.text.hasPrefix("Bonifico da Mario") })
+        #expect(flow.saleChoices(for: sale).map(\.id) == ["car"])
+        flow.setStatementAsset(.sale("car"), for: sale)
+        let sold = try #require(flow.allStatementLines.first { $0.id == sale.id })
+        #expect(flow.answerDetail(sold)?.text == "the sale of Car")
+        let planned = try #require(flow.planned)
+        #expect(planned.library.accounts["car"]?.closed == "2026-09-01")
+        #expect(planned.library.valuations(for: "car").last?.balance == 0)
+    }
+
     /// Importing the file again with the same answer finds the same sale:
     /// the account it closed is still offered.
     @Test func aSaleImportedBeforeIsOfferedAgain() throws {

@@ -151,7 +151,11 @@ public enum StatementWords {
 
     /// The class a line's text suggests, if any.
     public static func suggestion(for text: String, amount: Decimal) -> StatementClass? {
-        let words = TextTools.words(text)
+        suggestion(for: TextTools.words(text), amount: amount)
+    }
+
+    /// The class a text's words (``TextTools/words(_:)``) suggest, if any.
+    static func suggestion(for words: [String], amount: Decimal) -> StatementClass? {
         guard !words.isEmpty else { return nil }
         if TextTools.contains(words, anyOf: transfer) { return .transfer }
         if TextTools.contains(words, anyOf: tax) { return .tax }

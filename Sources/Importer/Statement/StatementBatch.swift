@@ -45,6 +45,9 @@ public struct StatementBatch: Sendable {
     public private(set) var unreadable: [UnreadableFile] = []
     /// How many files were given, read or not: the next file's ID.
     private var given = 0
+    /// Each file's first day, from the previews ``pairTransfers(in:today:)``
+    /// makes after every change to the files, for ``order(against:today:)``.
+    private var firstDates: [Int: CalendarDate?] = [:]
 
     /// Reads each file as a statement: with the first saved statement
     /// profile (by name) that reads every column, else with a proposed
@@ -234,18 +237,25 @@ public struct StatementBatch: Sendable {
             files[index].session.statementBatchAccounts = accounts.subtracting(files[index].account.map { [$0] } ?? [])
         }
         var open: [(file: Int, account: AccountID, line: StatementLine)] = []
+        firstDates = [:]
         for index in files.indices {
             guard let account = files[index].account else { continue }
-            for line in files[index].session.preview(against: library, today: today).statementLines
-            where line.amount != 0 && Self.canPair(line.source) {
+            let preview = files[index].session.preview(against: library, today: today)
+            firstDates[files[index].id] = .some(preview.firstDate)
+            for line in preview.statementLines where line.amount != 0 && Self.canPair(line.source) {
                 open.append((index, account, line))
             }
         }
+        let incomingByAmount = Dictionary(grouping: open.indices.filter { open[$0].line.amount > 0 }) {
+            open[$0].line.amount
+        }
         var pairs: [(out: Int, in: Int, days: Int)] = []
         for (outIndex, out) in open.enumerated() where out.line.amount < 0 {
-            for (inIndex, incoming) in open.enumerated()
-            where incoming.account != out.account && incoming.line.amount == -out.line.amount
-                && library.accounts[incoming.account]?.currency == library.accounts[out.account]?.currency {
+            for inIndex in incomingByAmount[-out.line.amount] ?? [] {
+                let incoming = open[inIndex]
+                guard incoming.account != out.account,
+                      library.accounts[incoming.account]?.currency == library.accounts[out.account]?.currency
+                else { continue }
                 let days = abs(out.line.date.days(to: incoming.line.date))
                 if days <= PreviewBuilder.transferDays { pairs.append((outIndex, inIndex, days)) }
             }
@@ -275,7 +285,9 @@ public struct StatementBatch: Sendable {
     /// applied: by account, then by their first line's day.
     public func order(against library: Library, today: CalendarDate = .today()) -> [Int] {
         files.filter { $0.account != nil }
-            .map { file in (file: file, first: file.session.preview(against: library, today: today).firstDate) }
+            .map { file in
+                (file: file, first: firstDates[file.id] ?? file.session.preview(against: library, today: today).firstDate)
+            }
             .sorted { lhs, rhs in
                 let left = (lhs.file.account?.rawValue ?? "", lhs.first ?? PreviewBuilder.earliestDate, lhs.file.id)
                 let right = (rhs.file.account?.rawValue ?? "", rhs.first ?? PreviewBuilder.earliestDate, rhs.file.id)
@@ -289,16 +301,30 @@ public struct StatementBatch: Sendable {
     /// caller's way of applying one file's preview, by default
     /// ``ImportPreview/apply(to:)``), so a month's file follows on from the
     /// month before's. `decide` edits each preview before it's applied:
-    /// the decisions a caller takes on proposals and conflicts.
+    /// the decisions a caller takes on proposals and conflicts. A sale in
+    /// one file of what a purchase in another starts is recorded by the
+    /// purchase's file (``salesAcrossFiles(_:library:)``), whichever comes
+    /// first.
     public func previews(against library: Library, today: CalendarDate = .today(),
                          decide: (Int, inout ImportPreview) -> Void = { _, _ in },
                          apply: (ImportPreview, Library) -> ImportResult = { $0.apply(to: $1) })
         -> [(file: Int, preview: ImportPreview)] {
+        let order = order(against: library, today: today)
+        let first = previews(order, against: library, today: today, sales: [:], decide: decide, apply: apply)
+        let sales = salesAcrossFiles(first, library: library)
+        guard !sales.isEmpty else { return first }
+        return previews(order, against: library, today: today, sales: sales, decide: decide, apply: apply)
+    }
+
+    private func previews(_ order: [Int], against library: Library, today: CalendarDate,
+                          sales: [Int: StatementBatchSales], decide: (Int, inout ImportPreview) -> Void,
+                          apply: (ImportPreview, Library) -> ImportResult) -> [(file: Int, preview: ImportPreview)] {
         var current = library
         var previews: [(file: Int, preview: ImportPreview)] = []
-        for id in order(against: library, today: today) {
+        for id in order {
             guard let file = files.first(where: { $0.id == id }) else { continue }
-            var preview = file.session.preview(against: current, today: today)
+            var preview = file.session.preview(against: current, today: today,
+                                               batchSales: sales[id] ?? StatementBatchSales())
             decide(id, &preview)
             previews.append((id, preview))
             current = apply(preview, current).library

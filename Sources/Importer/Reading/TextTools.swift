@@ -63,11 +63,17 @@ enum TextTools {
     /// words separated by spaces) as consecutive whole words.
     static func contains(_ words: [String], anyOf phrases: [String]) -> Bool {
         phrases.contains { phrase in
-            let parts = phrase.split(separator: " ").map(String.init)
-            guard !parts.isEmpty, parts.count <= words.count else { return false }
-            return (0...(words.count - parts.count)).contains { start in
-                Array(words[start..<(start + parts.count)]) == parts
-            }
+            phrase.contains(" ") ? contains(words, phrase: phrase.split(separator: " ").map(String.init))
+                : words.contains(phrase)
+        }
+    }
+
+    /// Whether `words` contains `phrase`'s words (folded) as consecutive
+    /// whole words.
+    static func contains(_ words: [String], phrase: [String]) -> Bool {
+        guard let first = phrase.first, phrase.count <= words.count else { return false }
+        return (0...(words.count - phrase.count)).contains { start in
+            words[start] == first && phrase.indices.allSatisfy { words[start + $0] == phrase[$0] }
         }
     }
 
