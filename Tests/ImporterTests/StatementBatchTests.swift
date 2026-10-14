@@ -75,6 +75,36 @@ struct StatementBatchTests {
         #expect(batch.files.first?.accountSource == .balance("2026-03-31"))
     }
 
+    /// A saved profile's account is the file's, while a statement can be
+    /// of it. A closed account's file waits for a choice.
+    @Test func aSavedProfileNamesItsAccount() throws {
+        var session = try ImportSession(data: Data(Self.current.utf8))
+        session.proposeMapping(layout: .statement)
+        session.profile.constants.account = "conto"
+        var library = Self.library()
+        library.importProfiles["fineco"] = session.makeProfile(id: "fineco", name: "Fineco", library: library)
+        let batch = Self.batch([("export.csv", Self.current)], library: library)
+        #expect(batch.files.first?.account == "conto")
+        #expect(batch.files.first?.accountSource == .profile)
+
+        library.accounts["conto"]?.closed = "2026-01-31"
+        let closed = Self.batch([("export.csv", Self.current)], library: library)
+        #expect(closed.files.first?.account == nil)
+        #expect(closed.files.first?.accountSource == nil)
+        #expect(closed.previews(against: library, today: Self.today).isEmpty)
+    }
+
+    /// Accounts in different currencies don't pair: a transfer between
+    /// them moves different amounts.
+    @Test func aTransferPairsOnlyInOneCurrency() throws {
+        var library = Self.library()
+        library.accounts["risparmio"]?.currency = .usd
+        let batch = Self.batch([("fineco-gennaio.csv", Self.current), ("export.csv", Self.savings)],
+                               library: library)
+        let lines = batch.files[0].session.preview(against: library, today: Self.today).statementLines
+        #expect(lines.first { $0.amount == -1000 }?.source == .sign)
+    }
+
     @Test func aTransferBetweenTheFilesIsPaired() throws {
         let batch = Self.batch([("fineco-gennaio.csv", Self.current), ("export.csv", Self.savings)])
         let out = try #require(Self.lines(batch, 0).first { $0.amount == -1000 })
