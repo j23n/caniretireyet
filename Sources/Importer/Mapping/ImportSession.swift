@@ -45,6 +45,12 @@ public struct ImportSession: Sendable {
     /// month, covers part of a month. The last can't be after today.
     public var statementFrom: CalendarDate?
     public var statementThrough: CalendarDate?
+    /// Statement layout: the date of the check-in the file is imported
+    /// for. Unless ``statementThrough`` is given, the file is read as
+    /// covering through that date when its last line is in the same month
+    /// and not after it, so the account gets a value on the check-in's
+    /// date. Ignored when it's after today.
+    public var statementCheckIn: CalendarDate?
 
     /// Reads a file and proposes a mapping for it. Settings left `nil` are detected.
     public init(data: Data, settings: ImportFileSettings = ImportFileSettings()) throws(ImportError) {

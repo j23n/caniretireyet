@@ -536,7 +536,8 @@ extension PreviewBuilder {
     /// session gives them, from its first month's first day to its last
     /// month's last day, or today in the month that isn't over): one at
     /// each of the account's values in the span, one at the end of each
-    /// month without one, and one on the last day the session gives. Each has the balance, and
+    /// month without one, and one on the last day the session gives (or
+    /// the check-in's date, ``ImportSession/statementCheckIn``). Each has the balance, and
     /// when the file covers its whole period, from the value before it,
     /// money in and out (and interest) and the flow. Sets each line's
     /// ``StatementLine/period``.
@@ -544,9 +545,13 @@ extension PreviewBuilder {
                                           account: Account) -> [ImportRecordKey: Accumulator] {
         guard let firstDate = lines.first?.date, let lastDate = lines.last?.date else { return [:] }
         let start = session.statementFrom ?? firstDate.startOfMonth
-        let end = session.statementThrough ?? max(lastDate, min(lastDate.endOfMonth, today))
-        if let through = session.statementThrough, through > today {
-            issues.append(ImportIssue(kind: .statementThroughAfterToday(through)))
+        let checkIn = session.statementCheckIn.flatMap { date in
+            date >= lastDate && date <= today && date.yearMonth == lastDate.yearMonth ? date : nil
+        }
+        let through = session.statementThrough ?? checkIn
+        let end = through ?? max(lastDate, min(lastDate.endOfMonth, today))
+        if let given = session.statementThrough, given > today {
+            issues.append(ImportIssue(kind: .statementThroughAfterToday(given)))
             return [:]
         }
         let outside = lines.filter { $0.date < start || $0.date > end }.count
@@ -564,7 +569,7 @@ extension PreviewBuilder {
             month = month.next
         }
         // A file said to end on a day has a value on that day, which the next file follows on from.
-        if session.statementThrough != nil { cuts.insert(end) }
+        if through != nil { cuts.insert(end) }
         let balances = RunningBalances(lines)
         if balances.breaks > 0 { issues.append(ImportIssue(kind: .runningBalanceBreaks(count: balances.breaks))) }
         let fromFile = balances.opening

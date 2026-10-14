@@ -47,7 +47,10 @@ public struct StatementBatch: Sendable {
     /// profile (by name) that reads every column, else with a proposed
     /// mapping. Then finds each file's account (``recognizeAccounts(in:today:)``)
     /// and pairs the transfers between them (``pairTransfers(in:today:)``).
-    public init(files: [(name: String, data: Data)], library: Library, today: CalendarDate = .today()) {
+    /// `checkIn` is the date of the check-in the files are imported for
+    /// (``ImportSession/statementCheckIn``).
+    public init(files: [(name: String, data: Data)], library: Library, checkIn: CalendarDate? = nil,
+                today: CalendarDate = .today()) {
         let profiles = library.importProfiles.values.filter { $0.layout == .statement }
             .sorted { ($0.name, $0.id) < ($1.name, $1.id) }
         for (index, file) in files.enumerated() {
@@ -66,6 +69,7 @@ public struct StatementBatch: Sendable {
                     session = try ImportSession(data: file.data)
                     session.proposeMapping(layout: .statement)
                 }
+                session.statementCheckIn = checkIn
                 self.files.append(File(id: index, name: file.name, session: session))
             } catch {
                 unreadable.append(UnreadableFile(name: file.name, error: error))
