@@ -26,7 +26,7 @@ import UniformTypeIdentifiers
 /// with the file if there is one; the sidebar's file is taken from
 /// `navigation.pendingImport` once read. First launch pushes it on its own
 /// stack with `close`, on every device. A check-in opens it in a sheet with
-/// `close` on the statements it holds (UI.md, "Statements first").
+/// `close`, for the check-in's date (UI.md, "Check-in").
 struct ImportScreen: View {
     let file: URL?
     /// Closes the screen when it's pushed on another flow's stack (first
@@ -58,13 +58,13 @@ struct ImportScreen: View {
         self.close = close
     }
 
-    /// The statements a check-in holds (UI.md, "Statements first"), in
-    /// `statements`: edited in place, and its *Import* hands them back
-    /// (``ImportController/holdsImport``). *Close* calls `close`.
-    init(statements: ImportController, close: @escaping () -> Void) {
+    /// An import for the check-in on `date` (UI.md, "Check-in"): bank
+    /// statements are read through that date. It writes as any import
+    /// does; *Close* calls `close`.
+    init(checkIn date: CalendarDate, close: @escaping () -> Void) {
         file = nil
         self.close = close
-        _sheetModel = State(initialValue: statements)
+        _sheetModel = State(initialValue: ImportController(checkIn: date))
     }
 
     /// The import on screen: with tabs (iPhone) the screen is a sheet with
@@ -239,8 +239,7 @@ struct ImportScreen: View {
         guard !didStart else { return }
         didStart = true
         if !model.flow.hasFile, model.flow.step == .file {
-            // A check-in's statements show every step: their lines are answered on Income.
-            model.flow.setGuided(isCompact && model.flow.checkIn == nil)
+            model.flow.setGuided(isCompact)
         }
     }
 
@@ -560,7 +559,7 @@ struct ImportBottomBar: View {
         Button {
             Task { await model.runImport(in: library) }
         } label: {
-            Text(model.holdsImport == nil ? "Import" : "Back to Check-in")
+            Text("Import")
                 .fontWeight(.semibold)
                 .frame(maxWidth: isCompact ? .infinity : nil)
         }

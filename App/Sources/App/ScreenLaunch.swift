@@ -193,7 +193,7 @@ struct ScreenLaunch {
             let folder = FileManager.default.temporaryDirectory
                 .appendingPathComponent("screen-launch-\(UUID().uuidString)", isDirectory: true)
             model = AppModel(preferences: preferences, library: .needingSetup(in: folder, preferences: preferences),
-                             prices: PriceStore(service: nil), planEngine: PlannerPlanEngine(), draftURL: nil)
+                             prices: PriceStore(service: nil), planEngine: PlannerPlanEngine())
         }
         model.navigation.requestedOnboardingStep = step
         return model

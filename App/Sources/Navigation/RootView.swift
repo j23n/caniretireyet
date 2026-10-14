@@ -8,7 +8,6 @@ import SwiftUI
 struct RootView: View {
     @Environment(LibraryStore.self) private var library
     @Environment(AppNavigation.self) private var navigation
-    @Environment(CheckInStore.self) private var checkIn
     @Environment(PlanStore.self) private var plans
     @Environment(AppPreferences.self) private var preferences
     @Environment(WidgetStore.self) private var widgets
@@ -25,7 +24,6 @@ struct RootView: View {
                 }
             }
             .onChange(of: scenePhase) { _, phase in
-                if phase != .active { checkIn.persistNow() }
                 if phase == .active { Task { await library.refreshFromDisk() } }
             }
             .onChange(of: library.phase) { _, phase in

@@ -228,7 +228,7 @@ final class AppNavigation {
     /// Opens *Sync & backups* (tab layout): pushed over an import, whose
     /// file, mapping and preview live only in its sheet, so it's as it was
     /// when you go back; else in Settings. The full-screen check-in closes
-    /// first, as the sidebar leaves the Check-in page; its draft stays.
+    /// first, as the sidebar leaves the Check-in page; it stays open.
     private func showSyncInSheet() {
         guard !isCheckInPresented else {
             finishCheckIn { $0.showSyncInSheet() }

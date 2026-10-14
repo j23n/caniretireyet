@@ -117,7 +117,7 @@ struct SidebarRoot: View {
                 Circle()
                     .fill(Palette.accent)
                     .frame(width: 8, height: 8)
-                    .accessibilityLabel(status.hasDraft ? "In progress" : "Due")
+                    .accessibilityLabel(status.isOpen ? "In progress" : "Due")
             }
         }
     }

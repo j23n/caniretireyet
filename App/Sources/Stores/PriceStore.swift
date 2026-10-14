@@ -32,15 +32,13 @@ final class PriceStore {
     }
 
     /// Fetches the prices, FX rates and index values a check-in on `date`
-    /// needs, and also for `instruments` the library doesn't hold on
-    /// `date`, e.g. positions added in a check-in. Never throws: failures
-    /// are entries in the result. With `refresh`, cached values are fetched
+    /// needs for what the library holds then. Never throws: failures are
+    /// entries in the result. With `refresh`, cached values are fetched
     /// again.
-    func fetch(for library: Library, on date: CalendarDate, including instruments: [InstrumentID],
-               refresh: Bool = false) async -> CheckInPrices {
+    func fetch(for library: Library, on date: CalendarDate, refresh: Bool = false) async -> CheckInPrices {
         guard let service else { return CheckInPrices(date: date) }
         // The plans' currencies and the library's indices come with the needs.
-        return await service.fetch(service.needs(for: library, on: date, including: instruments), refresh: refresh)
+        return await service.fetch(service.needs(for: library, on: date), refresh: refresh)
     }
 
     /// Fetches one instrument's price on `date` and the rate of its currency

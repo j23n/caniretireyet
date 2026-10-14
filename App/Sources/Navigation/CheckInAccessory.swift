@@ -2,7 +2,7 @@ import SwiftUI
 
 /// The check-in's state in one line, and the way into it (UI.md,
 /// "Navigation"): "October check-in · due in 3 days", "Last check-in 30 Sep
-/// · next 31 Oct", or "Continue check-in · 7 of 9 reviewed". Tapping it
+/// · next 31 Oct", or "Continue check-in · 31 Oct". Tapping it
 /// opens the check-in.
 ///
 /// It sits in the iPhone tab bar's bottom accessory, which provides the
@@ -18,7 +18,7 @@ struct CheckInAccessory: View {
             navigation.startCheckIn()
         } label: {
             HStack(spacing: Metrics.s) {
-                Image(systemName: status.hasDraft ? "pencil.circle" : status.isDue ? "calendar.badge.clock" : "calendar")
+                Image(systemName: status.isOpen ? "pencil.circle" : status.isDue ? "calendar.badge.clock" : "calendar")
                     .foregroundStyle(status.isActive ? Palette.accent : Palette.secondaryInk)
                     .accessibilityHidden(true)
                 Text(status.summary(locale: locale))

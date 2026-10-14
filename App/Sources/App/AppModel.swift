@@ -24,14 +24,13 @@ final class AppModel {
     #endif
 
     init(preferences: AppPreferences, library: LibraryStore, prices: PriceStore, planEngine: any PlanEngine,
-         planResults: PlanResultsArchive? = nil, draftURL: URL?, widgetSnapshotURL: URL? = nil) {
+         planResults: PlanResultsArchive? = nil, widgetSnapshotURL: URL? = nil) {
         self.preferences = preferences
         navigation = AppNavigation()
         self.library = library
         self.prices = prices
         plans = PlanStore(library: library, engine: planEngine, archive: planResults)
-        checkIn = CheckInStore(library: library, prices: prices, plans: plans, preferences: preferences,
-                               draftURL: draftURL)
+        checkIn = CheckInStore(library: library, prices: prices, plans: plans, preferences: preferences)
         widgets = WidgetStore(library: library, plans: plans, snapshotURL: widgetSnapshotURL)
         #if FEEDBACK
         feedback = .caniretireyet(navigation: navigation)
@@ -66,7 +65,6 @@ final class AppModel {
             prices: PriceStore(service: .standard(credentials: credentials)),
             planEngine: PlannerPlanEngine(),
             planResults: PlanResultsArchive.standard(),
-            draftURL: CheckInStore.defaultDraftURL(),
             widgetSnapshotURL: AppGroup.snapshotURL)
     }
 
@@ -80,13 +78,12 @@ final class AppModel {
         let defaults = UserDefaults(suiteName: suite) ?? .standard
         return AppModel(
             preferences: AppPreferences(defaults: defaults), library: .inMemory(library),
-            prices: PriceStore(service: nil), planEngine: planEngine, planResults: planResults, draftURL: nil)
+            prices: PriceStore(service: nil), planEngine: planEngine, planResults: planResults)
     }
 
-    /// Launch work: find and load the library, restore an unfinished
-    /// check-in, and refresh the reminders scheduled on this device.
+    /// Launch work: find and load the library, and refresh the reminders
+    /// scheduled on this device.
     func start() async {
-        checkIn.restoreDraft()
         #if canImport(UserNotifications)
         if let reminder = preferences.reminder {
             Task { await ReminderScheduler.apply(reminder) }
