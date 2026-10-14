@@ -159,7 +159,7 @@ enum PlanEditing {
 
     static func newSpendingPhase(in plan: PlanDocument) -> SpendingPhase {
         let last = plan.spending.phases.map(\.fromAge).max()
-        return SpendingPhase(fromAge: last.map { $0 + 10 } ?? 75, factor: Decimal(string: "0.9")!)
+        return SpendingPhase(fromAge: last.map { $0 + 10 } ?? 75, factor: Decimal(sign: .plus, exponent: -1, significand: 9))
     }
 
     // MARK: Assumptions

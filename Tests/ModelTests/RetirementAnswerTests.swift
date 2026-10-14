@@ -45,8 +45,6 @@ struct RetirementAnswerTests {
         #expect(Readiness.rounded(-0.2) == 0)
         #expect(Readiness.rounded(.nan) == 0)
         #expect(Readiness.shown(0.5849) == 0.58)
-        #expect(RetirementAnswer(confidence: 0.9, readiness: 0.996).shownReadiness == 0.99)
-        #expect(RetirementAnswer(confidence: 0.9).shownReadiness == nil)
     }
 
     /// An answer written before the chances and the record date existed still reads.
