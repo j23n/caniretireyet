@@ -206,37 +206,4 @@ struct GlanceSnapshotTests {
         #expect(GlanceFile.snapshot(from: Data(older.utf8)) == nil)
         #expect(GlanceFile.snapshot(from: Data("not json".utf8)) == nil)
     }
-
-    @Test func aRecordedAnswerNeverRetiresBeforeItsCheckIn() throws {
-        let headline = Headline(date: "2026-09-30", confidence: d("0.9"), earliestAge: 38, engine: "0.1.0",
-                                planHash: "x", readiness: d("1.02"))
-        let answer = RetirementAnswer(recorded: headline, birthDate: "1988-04-12")
-        // Turned 38 on 12 April 2026, before the check-in.
-        #expect(answer.earliestDate == "2026-09-30")
-        #expect(answer.canRetireNow)
-        #expect(RetirementAnswer(recorded: headline, birthDate: nil).earliestDate == nil)
-        // The Overview works out the date the same way.
-        #expect(RetirementAnswer.earliestDate(age: 38, recordedOn: "2026-09-30", birthDate: "1988-04-12")
-            == "2026-09-30")
-        #expect(RetirementAnswer.earliestDate(age: 39, recordedOn: "2026-09-30", birthDate: "1988-04-12")
-            == "2027-04-12")
-    }
-
-    /// As the app shows it, and headlines record it: 99.6% reads 99%, never
-    /// 100% while retiring today falls short.
-    @Test func theReadinessIsShownRoundedDownBelowAHundredPercent() {
-        func shown(_ readiness: Double?) -> Double? {
-            RetirementAnswer(confidence: 0.9, readiness: readiness).shownReadiness
-        }
-        #expect(shown(0.996) == 0.99)
-        #expect(shown(0.5849) == 0.58)
-        // 0.58 is a little under that in binary, and stays 0.58.
-        #expect(shown(0.58) == 0.58)
-        #expect(shown(1 - 1e-13) == 0.99)
-        #expect(shown(0) == 0)
-        // From 100% on, as it is: retiring today works.
-        #expect(shown(1) == 1)
-        #expect(shown(1.296) == 1.296)
-        #expect(shown(nil) == nil)
-    }
 }

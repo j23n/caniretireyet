@@ -124,36 +124,3 @@ extension AllocationSlice: Codable {
         try c.encodeIfPresent(share, forKey: .share)
     }
 }
-
-extension RetirementAnswer: Codable {
-    enum CodingKeys: String, CodingKey {
-        case confidence, earliestAge, earliestDate, targetAge, sustainableSpending, readiness
-        case readinessIsLowerBound, needsMoreThanSearched, canRetireNow
-    }
-
-    public init(from decoder: any Decoder) throws {
-        let c = try decoder.container(keyedBy: CodingKeys.self)
-        confidence = try c.decode(Double.self, forKey: .confidence)
-        earliestAge = try c.decodeIfPresent(Int.self, forKey: .earliestAge)
-        earliestDate = try c.decodeIfPresent(CalendarDate.self, forKey: .earliestDate)
-        targetAge = try c.decodeIfPresent(Int.self, forKey: .targetAge)
-        sustainableSpending = try c.decodeDecimalIfPresent(forKey: .sustainableSpending)
-        readiness = try c.decodeIfPresent(Double.self, forKey: .readiness)
-        readinessIsLowerBound = try c.decode(Bool.self, forKey: .readinessIsLowerBound)
-        needsMoreThanSearched = try c.decode(Bool.self, forKey: .needsMoreThanSearched)
-        canRetireNow = try c.decode(Bool.self, forKey: .canRetireNow)
-    }
-
-    public func encode(to encoder: any Encoder) throws {
-        var c = encoder.container(keyedBy: CodingKeys.self)
-        try c.encode(confidence, forKey: .confidence)
-        try c.encodeIfPresent(earliestAge, forKey: .earliestAge)
-        try c.encodeIfPresent(earliestDate, forKey: .earliestDate)
-        try c.encodeIfPresent(targetAge, forKey: .targetAge)
-        try c.encodeDecimalIfPresent(sustainableSpending, forKey: .sustainableSpending)
-        try c.encodeIfPresent(readiness, forKey: .readiness)
-        try c.encode(readinessIsLowerBound, forKey: .readinessIsLowerBound)
-        try c.encode(needsMoreThanSearched, forKey: .needsMoreThanSearched)
-        try c.encode(canRetireNow, forKey: .canRetireNow)
-    }
-}

@@ -30,7 +30,7 @@ struct PlanMilestones {
     init(plan: PlanDocument, library: Library, valuator: Valuator, asOf: CalendarDate, results: PlanResults?,
          reached: [ReachedMilestone] = []) {
         let recorded = Self.latestRecord(of: plan.id, library: library, asOf: asOf)
-        let readiness = results?.headline.readiness.map(Planner.recordedReadiness) ?? recorded?.readiness
+        let readiness = results?.headline.readiness.map(Readiness.rounded) ?? recorded?.readiness
         // What retiring today needs, in the base currency as the ladder's
         // amounts are, converted as the median future is below (none without
         // the rate); with a readiness, the ladder works it out from today's

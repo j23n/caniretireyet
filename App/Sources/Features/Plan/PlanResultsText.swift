@@ -56,13 +56,6 @@ enum PlanResultsText {
     /// The most times today's plan assets the planner looks for, as words: "20".
     static var searchedScale: String { String(Int(AssetsNeeded.maximumScale)) }
 
-    /// The readiness as a share to show: below 100% rounded down to a whole
-    /// percent, as headlines record it, so it never reads 100% while
-    /// retiring today falls short.
-    static func readinessShare(_ readiness: Double) -> Double {
-        guard readiness < 1 else { return readiness }
-        return min(0.99, max(0, Planner.recordedReadiness(readiness).doubleValue))
-    }
 
     /// "58% of what you'd need to retire today": today's plan assets
     /// against what retiring today with the plan's confidence needs
@@ -78,7 +71,7 @@ enum PlanResultsText {
         if readiness >= AssetsNeeded.maximumScale {
             return "\(searchedScale) times what you'd need to retire today, or more"
         }
-        let percent = AmountFormat.percent(readinessShare(readiness), digits: 0, locale: locale)
+        let percent = AmountFormat.percent(Readiness.shown(readiness), digits: 0, locale: locale)
         return headline.readinessIsLowerBound ? "\(percent) or more of what you'd need to retire today"
             : "\(percent) of what you'd need to retire today"
     }
@@ -142,7 +135,7 @@ enum PlanResultsText {
                                           value: .amount(whole(extra), unit: nil)))
             }
             if needed.outcome == .found, let readiness = needed.readiness {
-                rows.append(PlanFigureRow(label: "You have", value: .percent(readinessShare(readiness))))
+                rows.append(PlanFigureRow(label: "You have", value: .percent(Readiness.shown(readiness))))
             }
         }
         if let median = details.focus.medianAtRetirement {

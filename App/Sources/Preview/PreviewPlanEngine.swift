@@ -176,7 +176,7 @@ struct PreviewPlanEngine: PlanEngine {
                 bridges: [PlanBridgeFailure(name: "Fondo pensione", accessibleFromAge: 67, share: 0.03)]),
             headline: Headline(
                 date: today, confidence: Self.recorded(confidence), earliestAge: earliest, engine: version,
-                planHash: planHash, readiness: Planner.recordedReadiness(readiness),
+                planHash: planHash, readiness: Readiness.rounded(readiness),
                 successAtTarget: Self.recorded(atTarget)))
         return PlanResults(
             plan: plan.id, computedAt: Date(), mode: request.mode,

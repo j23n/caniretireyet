@@ -10,23 +10,16 @@ extension Planner {
         encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
         return FNV1a.hexHash((try? encoder.encode(plan)) ?? Data())
     }
-
-    /// A readiness (1 is 100%) as headlines record it: rounded down to whole
-    /// percent, allowing for the binary representation (0.58 stays 0.58), so
-    /// a recorded 1 means retiring today reaches the confidence level.
-    public static func recordedReadiness(_ readiness: Double) -> Decimal {
-        .roundedDown(readiness, scale: 2)
-    }
 }
 
 extension PlanResult {
     /// The answer as a headline's summary: success rates to 3 decimals,
-    /// readiness as headlines record it (``Planner/recordedReadiness(_:)``).
+    /// readiness rounded down to a whole percent (`Readiness.rounded`).
     public var headlineSummary: HeadlineSummary {
         HeadlineSummary(
             confidence: .rounded(answer.confidence, scale: 3), earliestAge: answer.earliestAge,
             successAtTarget: answer.successAtTarget.map { .rounded($0, scale: 3) },
-            readiness: answer.readiness.map(Planner.recordedReadiness))
+            readiness: answer.readiness.map(Readiness.rounded))
     }
 
     /// The headline to record for the check-in on `date` (default: the
