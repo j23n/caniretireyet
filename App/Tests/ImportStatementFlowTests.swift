@@ -348,7 +348,7 @@ struct ImportStatementFlowTests {
         let sold = try #require(flow.allStatementLines.first { $0.id == sale.id })
         #expect(flow.answerDetail(sold)?.text == "the sale of Car")
         let planned = try #require(flow.planned)
-        #expect(planned.library.accounts["car"]?.closed == "2026-10-01")
+        #expect(planned.library.accounts["car"]?.closed == "2026-09-23")
     }
 
     /// Another account's statement can sell what a purchase starts, even
@@ -382,7 +382,7 @@ struct ImportStatementFlowTests {
         let sold = try #require(flow.allStatementLines.first { $0.id == sale.id })
         #expect(flow.answerDetail(sold)?.text == "the sale of Car")
         let planned = try #require(flow.planned)
-        #expect(planned.library.accounts["car"]?.closed == "2026-09-01")
+        #expect(planned.library.accounts["car"]?.closed == "2026-08-26")
         #expect(planned.library.valuations(for: "car").last?.balance == 0)
     }
 
@@ -408,10 +408,12 @@ struct ImportStatementFlowTests {
         #expect(again.preview?.accountChanges.isEmpty == true)
     }
 
-    /// An answer the import can't record, here on the first statement of an
-    /// account without values, says why, and opens its sheet to change it.
+    /// An answer the import can't record, here money moved into a tax pot
+    /// on the first statement of an account without values, says why, and
+    /// opens its sheet to change it. A purchase there is recorded: it needs
+    /// no value of the file.
     @Test func anAnswerThatIsntRecordedSaysWhy() throws {
-        var library = PreviewLibrary.library
+        var library = Self.withTaxPot
         library.accounts["nuovo"] = Account(id: "nuovo", name: "Conto nuovo", kind: .cash, currency: .eur,
                                             opened: "2026-01-01")
         var flow = ImportFlow(library: library)
@@ -420,14 +422,17 @@ struct ImportStatementFlowTests {
         flow.setConstants { $0.account = "nuovo" }
         flow.setStatementOpeningBalance(25000)
         let question = try #require(flow.statementQuestions.first)
-        flow.setStatementAsset(.purchase(name: "Car", kind: .belongings), for: question)
+        flow.setStatementAsset(.moved("tasse"), for: question)
         let answered = try #require(flow.statementQuestions.first)
         #expect(answered.line.asset == nil)
         #expect(flow.answerDetail(answered) == StatementAnswerDetail(
             text: "not recorded: the file doesn't cover the value it counts in", opensSheet: true, isProblem: true))
-        #expect(flow.preview?.newAccounts.isEmpty == true)
-        flow.setStatementAsset(nil, for: answered)
-        #expect(flow.statementAnswer(answered) == nil)
+        flow.setStatementAsset(.purchase(name: "Car", kind: .belongings), for: answered)
+        let bought = try #require(flow.statementQuestions.first)
+        #expect(flow.answerDetail(bought)?.text == "to a new account, Car")
+        #expect(flow.preview?.newAccounts.map(\.account.id) == ["car"])
+        flow.setStatementAsset(nil, for: bought)
+        #expect(flow.statementAnswer(bought) == nil)
     }
 
     // MARK: Every statement on one page
