@@ -83,8 +83,16 @@ final class LibraryStore {
     private(set) var lastSyncedAt: Date?
     /// The last thing that went wrong reading or writing the folder, for a banner.
     private(set) var lastError: String?
-    /// Problems in individual files, by path (docs/schema/README.md, "Reading hand-edited files").
-    private(set) var loadIssues: [LoadIssue] = []
+    /// Problems reading individual files, by path (docs/schema/README.md,
+    /// "Reading hand-edited files"). A reload replaces the issues of the
+    /// files it read.
+    private(set) var loadIssues: [LibraryIssue] = []
+    /// What's wrong with the library's files: ``loadIssues`` and the
+    /// checks across files (`Library.problems()`), worked out again for
+    /// each revision of ``library``, so they follow every edit and reload.
+    var issues: [LibraryIssue] {
+        (loadIssues + problems.value(for: revision) { library.problems() }).sortedByPath()
+    }
     /// Sync conflicts merged since launch, newest first.
     private(set) var mergedConflicts: [ConflictResolution] = []
     /// Sync conflicts that couldn't be merged.
@@ -116,8 +124,6 @@ final class LibraryStore {
 
     private let locator: LibraryLocator
     private let preferences: AppPreferences?
-    /// Makes what downloads a library in iCloud Drive before it's read.
-    private let makeDownloader: @MainActor (LibraryLocation) -> (any LibraryDownloading)?
     @ObservationIgnored private var sync: LibrarySync?
     @ObservationIgnored private var watcher: (any LibraryWatching)?
     @ObservationIgnored private var watchTask: Task<Void, Never>?
@@ -133,11 +139,12 @@ final class LibraryStore {
     @ObservationIgnored private var diskSnapshot: FolderSnapshot?
     @ObservationIgnored private let valuators = Memo<Int, Valuator>()
     @ObservationIgnored private let firstMoneyInOuts = Memo<Int, CalendarDate?>()
+    @ObservationIgnored private let problems = Memo<Int, [LibraryIssue]>()
     /// Counts the attempts at opening a library. An attempt that a newer one
     /// overtook (Try Again, another `open`) drops its results.
     @ObservationIgnored private var openingAttempt = 0
     /// The current attempt's download from iCloud Drive, while it runs.
-    @ObservationIgnored private var downloader: (any LibraryDownloading)?
+    @ObservationIgnored private var downloader: UbiquitousLibraryDownloader?
     @ObservationIgnored private var openingStall: StallDetector
     @ObservationIgnored private var stallCheck: Task<Void, Never>?
 
@@ -147,17 +154,11 @@ final class LibraryStore {
 
     /// A store that finds its library with `locator` and remembers the
     /// choice in `preferences`. Opening counts as stalled after
-    /// `openingStallTime` without progress. `makeDownloader` makes what
-    /// downloads a library in iCloud Drive before it's read (tests pass
-    /// their own).
+    /// `openingStallTime` without progress.
     init(locator: LibraryLocator = LibraryLocator(), preferences: AppPreferences? = nil,
-         openingStallTime: Duration = LibraryStore.openingStallTime,
-         makeDownloader: @escaping @MainActor (LibraryLocation) -> (any LibraryDownloading)? = {
-             $0.makeDownloader()
-         }) {
+         openingStallTime: Duration = LibraryStore.openingStallTime) {
         self.locator = locator
         self.preferences = preferences
-        self.makeDownloader = makeDownloader
         openingStall = StallDetector(threshold: openingStallTime)
     }
 
@@ -641,7 +642,7 @@ final class LibraryStore {
     /// meanwhile. A download that can't be followed (its stream ends early)
     /// goes on to reading, which downloads what's missing itself.
     private func download(_ location: LibraryLocation, attempt: Int) async -> Bool {
-        guard let downloader = makeDownloader(location) else { return true }
+        guard let downloader = location.makeDownloader() else { return true }
         self.downloader = downloader
         var latest: LibraryDownloadProgress?
         for await progress in downloader.start() {

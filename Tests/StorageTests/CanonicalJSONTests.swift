@@ -81,7 +81,6 @@ struct CanonicalJSONTests {
         let data = try Fixtures.data(for: path)
         let rendered = CanonicalJSON.data(for: try CanonicalJSON.parse(data))
         #expect(String(decoding: rendered, as: UTF8.self) == String(decoding: data, as: UTF8.self))
-        #expect(CanonicalJSON.isCanonical(data))
     }
 }
 

@@ -18,7 +18,6 @@ struct SchemaGuardTests {
     @Test func aNewerLibraryLoadsReadOnly() throws {
         let folder = try newerLibrary()
         let result = try folder.library.load()
-        #expect(result.report.isReadOnly)
         #expect(result.report.readOnlyReason == .newerSchema)
         #expect(result.report.schemaVersion == 6)
         #expect(result.report.errors.isEmpty)
@@ -70,9 +69,7 @@ struct UnreadableSettingsTests {
         try folder.write("library.json", text)
         let result = try folder.library.load()
         #expect(result.report.settingsUnreadable)
-        #expect(result.report.isReadOnly)
         #expect(result.report.readOnlyReason == .unreadableSettings)
-        #expect(!result.report.isNewerSchema)
         #expect(!result.report.needsMigration)
         // One error, on library.json, saying what's wrong and that the library is read-only.
         let issues = result.report.errors
@@ -102,7 +99,6 @@ struct UnreadableSettingsTests {
         // Fixed by hand, the library is writable again.
         try folder.write("library.json", original)
         let fixed = try folder.library.load()
-        #expect(!fixed.report.isReadOnly)
         #expect(fixed.report.readOnlyReason == nil)
         try folder.library.checkWritable()
     }
@@ -115,7 +111,7 @@ struct UnreadableSettingsTests {
 
         #expect(throws: StorageError.self) { try folder.library.restore(backup: copyOfAnAccount) }
         try folder.library.restore(backup: backup)
-        #expect(!(try folder.library.load().report.isReadOnly))
+        #expect(try folder.library.load().report.readOnlyReason == nil)
     }
 
     /// A library.json that breaks while the library is open says so when
@@ -153,7 +149,6 @@ struct UnreadableSettingsTests {
         try FileManager.default.removeItem(at: folder.url.appendingPathComponent("library.json"))
         let result = try folder.library.load()
         #expect(!result.report.settingsUnreadable)
-        #expect(!result.report.isReadOnly)
         #expect(result.report.readOnlyReason == nil)
         try folder.library.checkWritable()
 
@@ -161,7 +156,7 @@ struct UnreadableSettingsTests {
         let empty = try TemporaryFolder()
         try empty.library.createLibrary(settings: LibrarySettings(baseCurrency: .chf))
         let created = try empty.library.load()
-        #expect(!created.report.isReadOnly)
+        #expect(created.report.readOnlyReason == nil)
         #expect(created.library.settings.baseCurrency == .chf)
     }
 
@@ -171,7 +166,7 @@ struct UnreadableSettingsTests {
         let folder = try TemporaryFolder.exampleLibrary()
         try folder.write("library.json", #"{ "baseCurrency": { "code": "CHF" }, "schemaVersion": 6 }"#)
         let report = try folder.library.load().report
-        #expect(report.isReadOnly && report.isNewerSchema && !report.settingsUnreadable)
+        #expect(!report.settingsUnreadable)
         #expect(report.readOnlyReason == .newerSchema)
         #expect(report.warnings.contains { $0.message.contains("newer version of the app") })
     }

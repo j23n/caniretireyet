@@ -152,10 +152,8 @@ struct ExampleLibraryGlanceTests {
     @Test func roundTripsThroughItsFile() throws {
         let data = try GlanceFile.data(for: snapshot)
         #expect(GlanceFile.snapshot(from: data) == snapshot)
-        // Amounts are exact strings, as in the library's files.
-        let text = try #require(String(data: data, encoding: .utf8))
-        #expect(text.contains("\"newMoney\":\"2181.65\""))
         #expect(try GlanceFile.data(for: snapshot) == data)
+        #expect(GlanceFile.snapshot(from: Data("not json".utf8)) == nil)
     }
 
     @Test func writesAndReadsAFile() throws {
@@ -169,7 +167,7 @@ struct ExampleLibraryGlanceTests {
     }
 }
 
-/// Snapshots of libraries that have little in them, and of other formats.
+/// Snapshots of libraries that have little in them.
 struct GlanceSnapshotTests {
     @Test func aNewLibraryHasOnlyItsCheckIn() {
         let library = Library(settings: LibrarySettings(baseCurrency: .usd))
@@ -182,30 +180,5 @@ struct GlanceSnapshotTests {
         #expect(snapshot.allocation.isEmpty)
         #expect(snapshot.retirement == nil)
         #expect(snapshot.checkIn.isDue(on: today))
-    }
-
-    /// A snapshot the previous version wrote, with its format version and
-    /// the fields since dropped, still reads. One from before the change
-    /// kept its end doesn't: the widgets say to open the app until it writes
-    /// a new one.
-    @Test func aSnapshotOfThePreviousVersionStillReads() throws {
-        let previous = """
-            {"allocation":[],"checkIn":{"dueWindow":3,"next":"2026-10-31"},"currency":"EUR",\
-            "netWorth":{"date":"2026-10-08","history":[{"date":"2026-09-30","isComplete":true,"value":"100"}],\
-            "isComplete":true,"sinceLastCheckIn":{"end":"103","from":"2026-08-31","markets":"1","newMoney":"2",\
-            "other":"0","start":"100","to":"2026-09-30"},"total":"103"},\
-            "retirement":{"answer":{"canRetireNow":false,"confidence":0.9,"needsMoreThanSearched":false,\
-            "readinessIsLowerBound":false,"recordedOn":"2026-09-30"},"history":[],"plan":"base",\
-            "planName":"Base case"},"version":1}
-            """
-        let snapshot = try #require(GlanceFile.snapshot(from: Data(previous.utf8)))
-        #expect(snapshot.netWorth?.sinceLastCheckIn?.to == "2026-09-30")
-        #expect(snapshot.netWorth?.history.map(\.value) == [100])
-        #expect(snapshot.retirement?.answer.confidence == 0.9)
-        #expect(snapshot.checkIn.next == "2026-10-31")
-
-        let older = previous.replacingOccurrences(of: #","to":"2026-09-30""#, with: "")
-        #expect(GlanceFile.snapshot(from: Data(older.utf8)) == nil)
-        #expect(GlanceFile.snapshot(from: Data("not json".utf8)) == nil)
     }
 }

@@ -15,7 +15,7 @@
 //   upgrade older ones after a backup. `backup(paths:label:)`,
 //   `recordResult(of:)` and `undo(_:)` make imports undoable without undoing
 //   later edits.
-// - `ConflictResolver` merges sync conflicts record by record using each
-//   record's key.
+// - `ConflictResolver` merges sync conflicts record by record with the same
+//   merge, newest version first.
 //
 // Storage uses Foundation only and builds on Linux.

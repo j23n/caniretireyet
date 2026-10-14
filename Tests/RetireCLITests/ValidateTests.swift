@@ -138,7 +138,7 @@ struct ValidateTests {
             """)
         try library.write("history/2026/2026-09.json", september)
         let run = await retire(["validate", "--library", library.path])
-        #expect(run.output.contains("warning The sell of vwce in directa on 2026-09-29 (toomuch1) takes away 87.5 "
+        #expect(run.output.contains("warning directa: The sell of vwce on 2026-09-29 (toomuch1): It takes away 87.5 "
             + "more than the account held then (412.5). Is a buy or an opening missing, or the date wrong?"),
                 "\(run.all)")
         #expect(run.output.contains("warning directa: The valuation on 2026-09-30 lists 411.5 vwce, but the trades "

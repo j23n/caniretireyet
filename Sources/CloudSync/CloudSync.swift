@@ -13,11 +13,11 @@
 //   `NSFileCoordinator`: coordinated reads, atomic writes and deletes, so the
 //   app cooperates with iCloud Drive. Files that aren't downloaded yet are
 //   listed, and reading one waits until it's downloaded.
-// - `LibraryDownloading` downloads a library in iCloud Drive before it's
-//   read, so reading never waits on the network file by file:
-//   `UbiquitousLibraryDownloader` asks iCloud for every missing file at once
-//   (an `NSMetadataQuery` lists them) and reports `LibraryDownloadProgress`
-//   until all are here. `LibraryDownloadTracker` (what to ask for, the
+// - `UbiquitousLibraryDownloader` downloads a library in iCloud Drive before
+//   it's read, so reading never waits on the network file by file: it asks
+//   iCloud for every missing file at once (`UbiquitousItemQuery`, the
+//   `NSMetadataQuery` the watcher runs too, lists them) and reports
+//   `LibraryDownloadProgress` until all are here. `LibraryDownloadTracker` (what to ask for, the
 //   progress) and `StallDetector` (nothing moved for a while) are plain
 //   values, tested on Linux.
 // - `LibraryLog` logs each step of finding, downloading and opening the
