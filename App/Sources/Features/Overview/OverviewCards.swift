@@ -283,7 +283,7 @@ struct OverviewAttentionCard: View {
             items.append(OverviewAttentionItem(
                 id: "checkin.prices", systemImage: "tag.slash",
                 title: failures.count == 1 ? "A price couldn't be fetched" : "\(failures.count) prices couldn't be fetched",
-                detail: "Type them in on the check-in's price list.", target: .checkIn))
+                detail: "Type them in under Instruments.", target: .checkIn))
         }
         if let main = library.settings.mainPlan, let error = plans.errors[main] {
             items.append(OverviewAttentionItem(

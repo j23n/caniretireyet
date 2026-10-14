@@ -1,5 +1,6 @@
 import Charts
 import Model
+import Planner
 import SwiftUI
 
 /// Trends' *Time to retirement* (UI.md, "Trends"): the earliest retirement
@@ -152,7 +153,7 @@ struct PlanAnswerHistoryChart: View {
                     .foregroundStyle(Palette.secondaryInk)
             }
             if let readiness = point.readiness?.doubleValue {
-                Text(AmountFormat.percent(PlanResultsText.readinessShare(readiness), digits: 0) + " of what retiring today needed")
+                Text(AmountFormat.percent(Readiness.shown(readiness), digits: 0) + " of what retiring today needed")
                     .font(.caption2)
                     .foregroundStyle(Palette.secondaryInk)
             }

@@ -48,6 +48,10 @@ final class PlanSession {
     /// it covers, so it stays put while edits renumber the chapters.
     var selectedChapterYear: Int?
 
+    /// Progress and Trends, worked out once for each state of the library
+    /// and the plan, which both pages read (``progress``).
+    @ObservationIgnored let progressCache = PlanProgressCache()
+
     @ObservationIgnored private var saveTask: Task<Void, Never>?
     @ObservationIgnored private var validateTask: Task<Void, Never>?
     @ObservationIgnored private var runTask: Task<Void, Never>?
@@ -72,6 +76,26 @@ final class PlanSession {
     }
 
     var canEdit: Bool { library.canEdit }
+
+    // MARK: Progress and Trends
+
+    /// What Progress and Trends are worked out from: the library as it is,
+    /// the plan as shown, through the latest check-in.
+    var progressKey: PlanProgressCache.Key {
+        PlanProgressCache.Key(revision: library.revision, plan: planID, document: plan, asOf: library.asOfDate)
+    }
+
+    /// The plan's years, answers and milestones reached (the Planner's
+    /// `PlanProgress`), which Progress and Trends both show.
+    var progress: PlanProgress {
+        progressCache.progress(for: progressKey, library: library.library, valuator: library.valuator)
+    }
+
+    /// The plan's latest answer: its results, unless a check-in recorded a
+    /// newer one, else its last recorded (``PlanStore/latestAnswer(of:)``).
+    var latestAnswer: LatestAnswer? {
+        plans.latestAnswer(of: planID)
+    }
 
     /// Replaces the plan with an edited copy; it's saved after a pause.
     func update(_ plan: PlanDocument) {
@@ -198,7 +222,8 @@ final class PlanSession {
             reasons = shown.reasons
         } else if let recorded = plans.recordedHeadlines(for: planID).last {
             let changed = plan.map { recorded.planHash != Planner.planHash($0) } ?? false
-            content = .recorded(PlanHeadline(recorded: recorded), planChanged: changed)
+            content = .recorded(RetirementAnswer(recorded: recorded, birthDate: library.settings.person?.birthDate),
+                                planChanged: changed)
         } else {
             content = .nothing
         }

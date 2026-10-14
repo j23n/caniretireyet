@@ -121,8 +121,9 @@ extension PlanChapterStory {
                     sentence += [.value("at \(model.retirementAge)"),
                                  .text(", in \(model.retirementYear),")]
                 }
-                let otherIncome = otherIncomePaid(at: chapter.years.lowerBound, retirementYear: model.retirementYear,
-                                                  plan: plan, birthYear: model.chapters.birthYear)
+                let otherIncome = PlanChapterMoney.otherIncomePaid(
+                    at: chapter.years.lowerBound, retirementYear: model.retirementYear, plan: plan,
+                    birthYear: model.chapters.birthYear)
                 let allFromSavings = chapter.kind == .bridge && otherIncome == 0
                 sentence += [.text(" and spend "), .value(words.monthly(plan.spending.retired)),
                              .text(allFromSavings ? " a month, all from your savings." : " a month.")]
@@ -236,32 +237,15 @@ extension PlanChapterStory {
     /// money you can draw running out before a locked account opens (in the
     /// bridge), and the age by which most of the chapter's failures happen.
     static func risks(_ chapter: PlanChapter, details: PlanResultDetails) -> [String] {
-        guard chapter.isRetired else { return [] }
         var sentences: [String] = []
-        if chapter.kind == .bridge {
-            let locked = details.focus.bridges.filter { bridge in
-                bridge.share > 0 && (bridge.accessibleFromAge.map { $0 > chapter.ages.lowerBound } ?? false)
-            }
-            if let bridge = locked.max(by: { $0.share < $1.share }), let age = bridge.accessibleFromAge {
-                let perHundred = Int(wholeNumber: bridge.share * 100)
-                let often = perHundred < 1 ? "fewer than 1 in 100 futures" : "\(perHundred) in 100 futures"
-                sentences.append("In \(often), the money you can draw runs out before \(bridge.name) opens at "
-                    + "\(age).")
-            }
+        if let bridge = PlanChapterMoney.lockedBridge(in: chapter, details: details),
+           let age = bridge.accessibleFromAge {
+            let perHundred = Int(wholeNumber: bridge.share * 100)
+            let often = perHundred < 1 ? "fewer than 1 in 100 futures" : "\(perHundred) in 100 futures"
+            sentences.append("In \(often), the money you can draw runs out before \(bridge.name) opens at \(age).")
         }
-        let failing = details.focus.failuresByAge.filter { chapter.ages.contains($0.age) && $0.count > 0 }
-        let total = failing.reduce(0) { $0 + $1.count }
-        if total > 0, chapter.ages.count > 4 {
-            var counted = 0
-            for failure in failing.sorted(by: { $0.age < $1.age }) {
-                counted += failure.count
-                if counted * 2 >= total {
-                    if failure.age < chapter.ages.upperBound {
-                        sentences.append("Most of the futures that run out here do so before \(failure.age + 1).")
-                    }
-                    break
-                }
-            }
+        if let age = PlanChapterMoney.mostFailuresBefore(in: chapter, details: details) {
+            sentences.append("Most of the futures that run out here do so before \(age).")
         }
         return sentences
     }
@@ -299,17 +283,18 @@ extension PlanChapterStory {
                        label: "\(words.monthly(spend)) a month, all from your savings")
         case .bridge, .pensions:
             let spend = plan.spending.retired * (chapter.spendingFactor ?? 1)
-            let paidPensions = pensionsPaid(at: chapter.years.lowerBound, plan: plan,
-                                            birthYear: model.chapters.birthYear)
-            let other = otherIncomePaid(at: chapter.years.lowerBound, retirementYear: model.retirementYear,
-                                        plan: plan, birthYear: model.chapters.birthYear)
+            let paidPensions = PlanChapterMoney.pensionsPaid(at: chapter.years.lowerBound, plan: plan,
+                                                             birthYear: model.chapters.birthYear)
+            let other = PlanChapterMoney.otherIncomePaid(at: chapter.years.lowerBound,
+                                                         retirementYear: model.retirementYear, plan: plan,
+                                                         birthYear: model.chapters.birthYear)
             // What pensions and other income pay, named by what's in it.
             let pensions = paidPensions + other
             let source = other == 0 ? "Pensions" : paidPensions == 0 ? "Other income" : "Income"
             let pays = other == 0 ? "pay" : "pays"
             if pensions == 0 {
                 let fromSavings = words.monthlyValue(spend)
-                let tax = monthlyTax(in: chapter, results: results, valuator: valuator)
+                let tax = PlanChapterMoney.monthlyTax(in: chapter, results: results, valuator: valuator)
                 guard let tax, tax >= 1 else {
                     return Bar(segments: [Bar.Segment(value: fromSavings, role: .fromSavings)],
                                leading: "\(words.monthly(spend)) from savings", trailing: "", trailingRole: nil,
@@ -339,43 +324,6 @@ extension PlanChapterStory {
                        label: "Of the \(words.monthly(spend)) you spend a month, \(source.lowercased()) \(pays) "
                            + "\(words.monthly(pensions)) and your savings \(words.monthly(spend - pensions))")
         }
-    }
-
-    /// What pensions pay a year, after tax, by the start of `year`'s end:
-    /// those whose age is reached by then.
-    static func pensionsPaid(at year: Int, plan: PlanDocument, birthYear: Int) -> Decimal {
-        plan.pensions.reduce(Decimal(0)) { total, pension in
-            guard let age = pension.fromAge, let perYear = pension.perYear, birthYear + age <= year else { return total }
-            return total + perYear
-        }
-    }
-
-    /// What other income pays a year, after tax, at the end of `year`:
-    /// what has started by then (from retirement, in the year work stops)
-    /// and not stopped.
-    static func otherIncomePaid(at year: Int, retirementYear: Int, plan: PlanDocument, birthYear: Int) -> Decimal {
-        plan.income.reduce(Decimal(0)) { total, income in
-            guard let from = income.from, let perYear = income.perYear else { return total }
-            let first = from.age.map { birthYear + $0 } ?? retirementYear
-            let stopped = income.untilAge.map { birthYear + $0 <= year } ?? false
-            return first <= year && !stopped ? total + perYear : total
-        }
-    }
-
-    /// The tax a month in the median run, in the chapter's first whole
-    /// year of retirement, in the base currency as the bar's other amounts
-    /// are (``PlanResults/exchangeRate(into:valuator:)``, as the chapters'
-    /// money); `nil` without results for it, or without the rate for
-    /// results calculated before the base currency changed.
-    static func monthlyTax(in chapter: PlanChapter, results: PlanResults?, valuator: Valuator) -> Double? {
-        guard let results, let rate = results.exchangeRate(into: valuator.baseCurrency, valuator: valuator) else {
-            return nil
-        }
-        let year = chapter.items.contains(.retirement) ? chapter.years.lowerBound + 1 : chapter.years.lowerBound
-        guard chapter.years.contains(year) else { return nil }
-        let taxes = results.taxes.filter { $0.year == year }
-        guard !taxes.isEmpty else { return nil }
-        return taxes.reduce(0) { $0 + $1.amount } / 12 * rate
     }
 
     // MARK: The target mix

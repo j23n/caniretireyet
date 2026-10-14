@@ -1,5 +1,6 @@
 import Glance
 import Model
+import Planner
 import SwiftUI
 import Tracker
 
@@ -23,9 +24,8 @@ struct PlanTrendsView: View {
 
     @Environment(LibraryStore.self) private var library
     @Environment(\.locale) private var locale
-    @AppStorage("overview.range") private var range: OverviewRange = .threeYears
-    @AppStorage(PlanTrendsModel.grainKey) private var storedGrain: PeriodGrain?
-    @State private var cache = PlanTrendsCache()
+    @AppStorage("overview.range") private var range: HistoryRange = .threeYears
+    @AppStorage(PlanTrends.grainKey) private var storedGrain: PeriodGrain?
 
     private var gutter: CGFloat { isWide ? Metrics.xl : Metrics.l }
 
@@ -91,15 +91,11 @@ struct PlanTrendsView: View {
     }
 
     /// Worked out once for each state of the library, the grain and the
-    /// span (``PlanTrendsModel``), not each time the page draws.
-    private var trendsModel: PlanTrendsModel {
-        let asOf = library.asOfDate
-        let key = PlanTrendsModel.Key(revision: library.revision, plan: session.planID, grain: grain, range: range,
-                                      asOf: asOf)
-        return cache.model(for: key) {
-            PlanTrendsModel(plan: session.planID, library: library.library, valuator: library.valuator, grain: grain,
-                            range: range, asOf: asOf)
-        }
+    /// span, from the progress Progress shows too (the session's
+    /// `PlanProgressCache`), not each time the page draws.
+    private var trendsModel: PlanTrends {
+        session.progressCache.trends(for: session.progressKey, grain: grain, lastYears: range.years,
+                                     library: library.library, valuator: library.valuator)
     }
 
     // MARK: Savings rate, Money in and out
@@ -221,7 +217,7 @@ struct PlanTrendsView: View {
 
     // MARK: Year by year
 
-    private func yearsCard(_ years: [PlanYearGrade]) -> some View {
+    private func yearsCard(_ years: [PlanProgressYear]) -> some View {
         Card {
             if years.isEmpty {
                 notYet("Year by year shows from your first check-in.")
@@ -256,8 +252,8 @@ struct PlanTrendsView: View {
 /// grain is remembered once chosen.
 struct PlanTrendsControls: View {
     @Environment(LibraryStore.self) private var library
-    @AppStorage("overview.range") private var range: OverviewRange = .threeYears
-    @AppStorage(PlanTrendsModel.grainKey) private var storedGrain: PeriodGrain?
+    @AppStorage("overview.range") private var range: HistoryRange = .threeYears
+    @AppStorage(PlanTrends.grainKey) private var storedGrain: PeriodGrain?
 
     var body: some View {
         HStack(spacing: Metrics.m) {

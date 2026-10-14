@@ -41,7 +41,7 @@ import Tracker
 ///
 ///     NetWorthChart(history: valuator.series(through: date).chartPoints)
 ///     NetWorthChart(history: history.points, stacked: history.stacked, projection: history.projection,
-///                   markers: history.markers)   // an OverviewHistory
+///                   markers: history.markers)   // an HistoryChartData
 struct NetWorthChart: View {
     var history: [ChartPoint]
     var stacked: [ChartSeries] = []
@@ -352,8 +352,8 @@ struct ChartPlaceholder: View {
         ChartMarker(date: end.adding(years: 22).dateValue, label: "BMW 60", systemImage: "building.columns"),
     ]
     // As the Overview has them: net worth, and plan assets with the future.
-    let netWorth = OverviewHistory(valuator: valuator, through: end, range: .all)
-    let planAssets = OverviewHistory(valuator: valuator, through: end, range: .all, projection: fan, markers: markers)
+    let netWorth = HistoryChartData(valuator: valuator, through: end, range: .all)
+    let planAssets = HistoryChartData(valuator: valuator, through: end, range: .all, projection: fan, markers: markers)
     // Made-up: a dollar account's rate is missing for the first five months, so equity is partly left out.
     let months = (0..<12).map { end.adding(months: $0 - 11).dateValue }
     let partialCash = months.enumerated().map { month, date in

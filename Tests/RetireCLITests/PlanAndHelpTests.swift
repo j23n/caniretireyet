@@ -195,7 +195,7 @@ struct PlanAndHelpTests {
         ])
         let neededJSON = try parseJSON(try JSONOutput.string(PlanReport(result: needing, fast: false).json))
         #expect(neededJSON["assetsNeededToday"] as? Double == 545_212)
-        #expect(neededJSON["readiness"] as? Double == 0.2729)
+        #expect(neededJSON["readiness"] as? Double == 0.27)
         #expect(neededJSON["assetsNeededOutcome"] as? String == "found")
         #expect(json["assetsNeededToday"] == nil && json["readiness"] == nil)
 

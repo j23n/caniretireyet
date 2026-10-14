@@ -64,7 +64,7 @@ struct CheckInAnswer: Hashable, Sendable {
 
     /// The answer for `headline`, compared with the answer recorded at the
     /// check-in before (`previous`), if any.
-    static func make(_ headline: PlanHeadline, previous: Headline?, locale: Locale = .current) -> CheckInAnswer {
+    static func make(_ headline: RetirementAnswer, previous: Headline?, locale: Locale = .current) -> CheckInAnswer {
         if headline.canRetireNow {
             return CheckInAnswer(
                 lead: "Yes: retiring now works in ", emphasis: GlanceText.futures(headline.confidence),

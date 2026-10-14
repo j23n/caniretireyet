@@ -1,4 +1,5 @@
 import Model
+import Planner
 import SwiftUI
 
 /// What if… (UI.md, "What if"): try a change before making it in the
@@ -109,7 +110,7 @@ struct PlanWhatIfPanel: View {
     }
 
     /// "Not yet. Stop at 63.", "Yes. You could stop today."
-    static func answerText(_ headline: PlanHeadline) -> String {
+    static func answerText(_ headline: RetirementAnswer) -> String {
         if headline.canRetireNow { return "Yes. You could stop today." }
         guard let age = headline.earliestAge else { return "Not yet. No age reaches your bar yet." }
         return "Not yet. Stop at \(age)."

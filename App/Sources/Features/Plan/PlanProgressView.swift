@@ -36,7 +36,6 @@ struct PlanProgressView: View {
     /// The baseline *Delete Baseline…* asks about.
     @State private var deletingBaseline: PlanBaselineEntry?
     @State private var confirmsBaselineDelete = false
-    @State private var cache = PlanProgressCache()
 
     private var gutter: CGFloat { isWide ? Metrics.xl : Metrics.l }
 
@@ -52,15 +51,15 @@ struct PlanProgressView: View {
     }
 
     var body: some View {
-        let progress = progressModel
-        let timeline = progress.timeline
+        let progress = session.progress
+        let timeline = PlanProgressTimeline(progress, text: milestoneText)
         let milestones = session.plan.map {
             PlanMilestones(plan: $0, library: library.library, valuator: library.valuator, asOf: library.asOfDate,
                            results: session.shownResults, reached: progress.reached)
         }
         ScrollView {
             VStack(alignment: .leading, spacing: Metrics.l) {
-                headline(timeline.cards.last?.year, history: progress.history)
+                headline(progress.latestYear, history: progress.history)
                     .padding(.horizontal, gutter)
                 if isWide {
                     HStack(alignment: .top, spacing: Metrics.l) {
@@ -127,18 +126,6 @@ struct PlanProgressView: View {
             } catch {
                 library.reportError("The baseline couldn't be deleted. \(LibraryStore.describe(error))")
             }
-        }
-    }
-
-    /// The answers, the milestones reached and the strip of years, worked out
-    /// once for each state of the library and the plan (``PlanProgressModel``).
-    private var progressModel: PlanProgressModel {
-        let asOf = library.asOfDate
-        let key = PlanProgressModel.Key(revision: library.revision, plan: session.planID, document: session.plan,
-                                        asOf: asOf, locale: locale.identifier)
-        return cache.model(for: key) {
-            PlanProgressModel(plan: session.planID, document: session.plan, library: library.library,
-                              valuator: library.valuator, asOf: asOf, text: milestoneText)
         }
     }
 
@@ -251,22 +238,15 @@ struct PlanProgressView: View {
     }
 
     /// "To go · 15½ years", "Since Jan 2024 · 3 years sooner". To go is
-    /// from the plan's results, else the answer recorded at the latest
-    /// check-in (its age, on your birthday).
+    /// from the plan's latest answer (``PlanSession/latestAnswer``): its
+    /// results, else the answer recorded at the latest check-in.
     private func tiles(_ answerHistory: PlanAnswerHistory) -> [Tile] {
         var tiles: [Tile] = []
-        if let headline = session.shownResults?.headline {
-            if headline.canRetireNow {
+        if let answer = session.latestAnswer?.answer {
+            if answer.canRetireNow {
                 tiles.append(Tile(title: "To go", value: "None: you could stop"))
-            } else if let date = headline.earliestDate {
+            } else if let date = answer.earliestDate {
                 let months = library.asOfDate.yearMonth.months(to: date.yearMonth)
-                if months > 0 { tiles.append(Tile(title: "To go", value: Self.duration(months: months))) }
-            }
-        } else if let recorded = answerHistory.points.last {
-            if let readiness = recorded.readiness, readiness >= 1 {
-                tiles.append(Tile(title: "To go", value: "None: you could stop"))
-            } else if let age = recorded.earliestAge, let birth = library.settings.person?.birthDate {
-                let months = library.asOfDate.yearMonth.months(to: birth.adding(years: age).yearMonth)
                 if months > 0 { tiles.append(Tile(title: "To go", value: Self.duration(months: months))) }
             }
         }

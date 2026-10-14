@@ -1,5 +1,6 @@
 import Foundation
 import Model
+import Planner
 #if canImport(os)
 import os
 #endif
@@ -26,7 +27,9 @@ actor PlanResultsArchive {
     struct Entry: Codable, Sendable {
         /// The format this version writes; files of another are dropped.
         /// 2: full results include the pace age (`agesWithout.pace`).
-        static let currentFormat = 2
+        /// 3: the answer is the package's `RetirementAnswer`, which stores
+        /// whether retiring today works.
+        static let currentFormat = 3
 
         var format: Int
         /// The plan as it was calculated.

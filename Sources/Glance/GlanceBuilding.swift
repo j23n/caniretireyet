@@ -8,9 +8,8 @@ extension GlanceSnapshot {
     /// - Parameters:
     ///   - asOf: the date net worth is reported on: today, as on the
     ///     Overview. The change is the last check-in's on or before it.
-    ///   - answer: the main plan's latest answer, from its latest results;
-    ///     `nil` takes the last answer recorded at a check-in, as the
-    ///     Overview does.
+    ///   - answer: the main plan's latest answer, as the Overview has it
+    ///     (the Planner's `LatestAnswer`); `nil` without one.
     ///   - checkIn: when the next check-in is due.
     public init(library: Library, valuator: Valuator, asOf: CalendarDate, answer: RetirementAnswer?,
                 checkIn: CheckInGlance) {
@@ -28,8 +27,7 @@ extension GlanceSnapshot {
         var retirement: RetirementGlance?
         if let main = library.settings.mainPlan, library.plans[main] != nil {
             let recorded = library.headlines(for: main)
-            let birthDate = library.settings.person?.birthDate
-            if let answer = answer ?? recorded.last.map({ RetirementAnswer(recorded: $0, birthDate: birthDate) }) {
+            if let answer {
                 retirement = RetirementGlance(
                     answer: answer,
                     history: recorded.filter { $0.date >= yearAgo && $0.date <= asOf }

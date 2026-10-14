@@ -36,7 +36,7 @@ final class WidgetStore {
     struct Inputs: Hashable {
         var isReady: Bool
         var revision: Int
-        var answer: PlanHeadline?
+        var answer: RetirementAnswer?
     }
 
     var inputs: Inputs {
@@ -44,14 +44,12 @@ final class WidgetStore {
     }
 
     /// The snapshot of the library as it is; `nil` until it's loaded. The
-    /// answer is the main plan's latest results, or else the last one
-    /// recorded at a check-in, as on the Overview. Its amounts are in the
-    /// base currency, as the snapshot's (``RetirementAnswer/init(_:valuator:)``).
+    /// answer is the main plan's latest (``PlanStore/mainAnswer``), as on
+    /// the Overview, with its amounts in the base currency, as the snapshot's.
     func snapshot(today: CalendarDate = .today()) -> GlanceSnapshot? {
         guard library.phase == .ready else { return nil }
         let checkIn = CheckInGlance(last: library.latestCheckIn, today: today)
-        let answer = library.settings.mainPlan.flatMap { plans.latestResults(of: $0) }
-            .map { RetirementAnswer($0, valuator: library.valuator) }
+        let answer = plans.mainHeadline
         // Net worth today, as the Overview has it.
         var snapshot = GlanceSnapshot(library: library.library, valuator: library.valuator, asOf: today,
                                       answer: answer, checkIn: checkIn)
@@ -86,27 +84,6 @@ final class WidgetStore {
         #if canImport(WidgetKit)
         WidgetCenter.shared.reloadAllTimelines()
         #endif
-    }
-}
-
-extension RetirementAnswer {
-    /// The answer of a plan's results. Their headline has the date of the
-    /// earliest age (the Planner's `PlanAnswer.earliestDate`). The widgets
-    /// show amounts in the base currency, so the spending of results
-    /// calculated before it changed is converted at the rate the app uses
-    /// for them (``PlanResults/exchangeRate(into:valuator:)``), and left
-    /// out without that rate, as the milestones and the chapters leave their
-    /// money out.
-    init(_ results: PlanResults, valuator: Valuator) {
-        let headline = results.headline
-        let spending = results.exchangeRate(into: valuator.baseCurrency, valuator: valuator).flatMap { rate in
-            headline.sustainableSpending.map { Decimal(wholeNumber: $0.doubleValue * rate, rounding: .down) }
-        }
-        self.init(confidence: headline.confidence, earliestAge: headline.earliestAge,
-                  earliestDate: headline.earliestDate, targetAge: headline.targetAge,
-                  sustainableSpending: spending, readiness: headline.readiness,
-                  readinessIsLowerBound: headline.readinessIsLowerBound,
-                  needsMoreThanSearched: headline.needsMoreThanSearched, canRetireNow: headline.canRetireNow)
     }
 }
 
