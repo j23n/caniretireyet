@@ -10,9 +10,14 @@ public struct LibraryLocator: Sendable {
     /// The folder a local library lives in. `nil` for
     /// `Application Support/<bundle id>/Library`.
     public var localFolder: URL?
+    /// Whether iCloud Drive is looked at. `false` keeps the library on this
+    /// device, as if iCloud Drive were off: a test profile never sees the
+    /// library in the app's iCloud container.
+    public var usesICloud: Bool
 
-    public init(localFolder: URL? = nil) {
+    public init(localFolder: URL? = nil, usesICloud: Bool = true) {
         self.localFolder = localFolder
+        self.usesICloud = usesICloud
     }
 
     /// The folder name of the library inside the iCloud container.
@@ -20,11 +25,11 @@ public struct LibraryLocator: Sendable {
     /// The folder name of a local library inside Application Support.
     public static let localFolderName = "Library"
 
-    /// Whether the user is signed in to iCloud with iCloud Drive on. A quick
-    /// check that doesn't touch the container.
+    /// Whether the user is signed in to iCloud with iCloud Drive on (and
+    /// ``usesICloud``). A quick check that doesn't touch the container.
     public var isICloudAvailable: Bool {
         #if canImport(Darwin)
-        FileManager.default.ubiquityIdentityToken != nil
+        usesICloud && FileManager.default.ubiquityIdentityToken != nil
         #else
         false
         #endif
@@ -37,7 +42,8 @@ public struct LibraryLocator: Sendable {
     public func iCloudLibraryURL() async -> URL? {
         #if canImport(Darwin)
         guard isICloudAvailable else {
-            LibraryLog.notice("iCloud Drive: not signed in, or iCloud Drive is off")
+            LibraryLog.notice(usesICloud
+                ? "iCloud Drive: not signed in, or iCloud Drive is off" : "iCloud Drive: not used for this profile")
             return nil
         }
         let started = ContinuousClock.now
