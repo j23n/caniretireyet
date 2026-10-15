@@ -48,6 +48,8 @@ struct OnboardingTests {
         tour.step = .later
         tour.answers.cash = 25_000
         tour.answers.investments = 5_000
+        tour.birthDate = Calendar.current.date(byAdding: .year, value: -1, to: tour.pickedBirthDate)
+        tour.currency = tour.currency == "USD" ? "EUR" : "USD"
         await tour.seeAnswer(library: model.library, plans: model.plans, navigation: model.navigation,
                              preferences: model.preferences)
         let second = try #require(tour.tourRecords)
@@ -58,6 +60,10 @@ struct OnboardingTests {
         #expect(Set(library.accounts.keys) == Set(second.estimates))
         #expect(Set(library.plans.keys) == Set(second.plan.map { [$0] } ?? []))
         #expect(library.settings.mainPlan == second.plan)
+        #expect(library.settings.baseCurrency == tour.currency)
+        #expect(library.settings.person?.birthDate == tour.birthCalendarDate)
+        #expect(library.accounts.values.allSatisfy { $0.currency == tour.currency })
+        #expect(Set(library.months.values.flatMap(\.valuations)) == second.values)
     }
 
     /// Once something else is in the library, such as an imported account,
