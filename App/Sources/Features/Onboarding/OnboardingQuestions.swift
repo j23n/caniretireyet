@@ -77,8 +77,10 @@ struct OnboardingYouStep: View {
             .onboardingCard()
             VStack(alignment: .leading, spacing: Metrics.xs) {
                 Toggle("Keep in iCloud Drive", isOn: $model.keepsInICloud)
-                    .disabled(!library.isICloudAvailable)
-                Text(library.isICloudAvailable
+                    .disabled(!library.isICloudAvailable || model.tourRecords != nil)
+                Text(model.tourRecords != nil
+                     ? "Your library is already created, so this can't change here."
+                     : library.isICloudAvailable
                      ? "Your iPhone and Mac use the same library. Turn this off to keep it on this device only."
                      : "iCloud Drive is off, so your library stays on this device. You can move it to iCloud Drive "
                         + "later in Settings.")

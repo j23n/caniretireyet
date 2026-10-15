@@ -65,14 +65,36 @@ extension LibraryStore {
     /// in one edit written as an import writes, with a backup, so values
     /// still come only from imports and the edit can be undone. Returns
     /// the estimates' IDs.
+    ///
+    /// After *Back* from the tour's answer, the same edit first deletes the
+    /// estimates and the plan the tour added before (`replacing`,
+    /// `replacingPlan`) and takes the tour's `settings` (base currency,
+    /// birth date, country).
     @discardableResult
-    func addStartingEstimates(_ answers: StarterAnswers, plan: PlanDocument?, on date: CalendarDate) async throws
-        -> [AccountID] {
+    func addStartingEstimates(_ answers: StarterAnswers, plan: PlanDocument?, on date: CalendarDate,
+                              replacing estimates: [AccountID] = [], replacingPlan: PlanID? = nil,
+                              settings: LibrarySettings? = nil) async throws -> [AccountID] {
         let taken = unloadedFiles.compactMap { file -> AccountID? in
             if case .account(let id) = file { id } else { nil }
         }
         var added: [AccountID] = []
         _ = try await commit(backingUpAs: Self.startingEstimatesBackupLabel) { library in
+            for id in estimates {
+                library.accounts[id] = nil
+                for valuation in library.valuations(for: id) {
+                    library.removeValuation(valuation.key)
+                }
+                library.removeReferences(to: id)
+            }
+            if let id = replacingPlan {
+                library.plans[id] = nil
+                if library.settings.mainPlan == id { library.settings.mainPlan = nil }
+            }
+            if let settings {
+                library.settings.baseCurrency = settings.baseCurrency
+                library.settings.person = settings.person
+                library.settings.taxResidence = settings.taxResidence
+            }
             added = StarterSetup.addEstimates(answers, to: &library, on: date, taken: taken)
             if let plan {
                 library.plans[plan.id] = plan

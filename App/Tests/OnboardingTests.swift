@@ -19,11 +19,80 @@ struct OnboardingTests {
         #expect(OnboardingStep.notes.next == nil)
     }
 
-    @Test func backNeverGoesToBeforeTheLibraryWasCreated() {
+    @Test func eachStepFollowsTheOneBefore() {
         #expect(OnboardingStep.welcome.previous == nil)
         #expect(OnboardingStep.you.previous == .welcome)
-        #expect(OnboardingStep.answer.previous == nil)
+        #expect(OnboardingStep.answer.previous == .later)
         #expect(OnboardingStep.files.previous == .answer)
+    }
+
+    /// *Back* from the answer goes to the questions while the library holds
+    /// just what the tour added, and *See My Answer* then replaces it.
+    @MainActor
+    @Test func backFromTheAnswerReplacesWhatTheTourAdded() async throws {
+        let model = AppModel.preview(Library(settings: LibrarySettings()), defaults: "onboarding-back-tests")
+        let tour = model.onboarding
+        tour.currency = model.library.library.settings.baseCurrency
+        tour.birthDate = tour.pickedBirthDate
+        tour.answers.cash = 10_000
+        tour.answers.spendingPerMonth = 2_000
+        tour.step = .later
+        await tour.seeAnswer(library: model.library, plans: model.plans, navigation: model.navigation,
+                             preferences: model.preferences)
+        #expect(tour.step == .answer)
+        let first = try #require(tour.tourRecords)
+        #expect(first.estimates.count == 1)
+        #expect(tour.previousStep(in: model.library.library, answerIsRunning: false) == .later)
+        #expect(tour.previousStep(in: model.library.library, answerIsRunning: true) == nil)
+
+        tour.step = .later
+        tour.answers.cash = 25_000
+        tour.answers.investments = 5_000
+        tour.birthDate = Calendar.current.date(byAdding: .year, value: -1, to: tour.pickedBirthDate)
+        tour.currency = tour.currency == "USD" ? "EUR" : "USD"
+        await tour.seeAnswer(library: model.library, plans: model.plans, navigation: model.navigation,
+                             preferences: model.preferences)
+        let second = try #require(tour.tourRecords)
+        let library = model.library.library
+        #expect(!tour.openedExistingLibrary)
+        #expect(second.plan == first.plan)
+        #expect(second.estimates.count == 2)
+        #expect(Set(library.accounts.keys) == Set(second.estimates))
+        #expect(Set(library.plans.keys) == Set(second.plan.map { [$0] } ?? []))
+        #expect(library.settings.mainPlan == second.plan)
+        #expect(library.settings.baseCurrency == tour.currency)
+        #expect(library.settings.person?.birthDate == tour.birthCalendarDate)
+        #expect(library.accounts.values.allSatisfy { $0.currency == tour.currency })
+        #expect(Set(library.months.values.flatMap(\.valuations)) == second.values)
+    }
+
+    /// Once something else is in the library, such as an imported account,
+    /// the answer has no *Back*.
+    @MainActor
+    @Test func anImportEndsBackFromTheAnswer() async throws {
+        let model = AppModel.preview(Library(settings: LibrarySettings()), defaults: "onboarding-import-tests")
+        let tour = model.onboarding
+        tour.currency = model.library.library.settings.baseCurrency
+        tour.birthDate = tour.pickedBirthDate
+        tour.answers.cash = 10_000
+        tour.answers.spendingPerMonth = 2_000
+        tour.step = .later
+        await tour.seeAnswer(library: model.library, plans: model.plans, navigation: model.navigation,
+                             preferences: model.preferences)
+        let records = try #require(tour.tourRecords)
+        #expect(tour.previousStep(in: model.library.library, answerIsRunning: false) == .later)
+
+        var newAccount = model.library.library
+        newAccount.accounts["bank"] = Account(id: "bank", name: "Bank", kind: .cash, currency: tour.currency,
+                                              opened: "2026-01-01")
+        #expect(tour.previousStep(in: newAccount, answerIsRunning: false) == nil)
+
+        // The starter spreadsheet's columns match the estimates by name, so
+        // its values land in them.
+        var intoEstimate = model.library.library
+        let estimate = try #require(records.estimates.first)
+        intoEstimate.upsert(Valuation(account: estimate, date: "2026-11-30", balance: 12_000, source: .manual))
+        #expect(tour.previousStep(in: intoEstimate, answerIsRunning: false) == nil)
     }
 
     @Test func everyStepAfterTheWelcomeIsNumbered() {
