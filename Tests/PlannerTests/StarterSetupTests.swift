@@ -106,6 +106,8 @@ struct StarterSetupTests {
         #expect(StarterSetup.roundedToTwoFigures(d("1234")) == 1200)
         #expect(StarterSetup.roundedToTwoFigures(d("1250")) == 1300)
         #expect(StarterSetup.roundedToTwoFigures(d("98765")) == 99000)
+        #expect(StarterSetup.roundedToTwoFigures(d("49.5")) == 50)
+        #expect(StarterSetup.roundedToTwoFigures(d("12345678901234567890123")) == d("12000000000000000000000"))
     }
 
     @Test func theLastMondayIsOnOrBeforeTheDay() {
@@ -175,7 +177,7 @@ struct StarterSetupTests {
             library.upsert(Valuation(account: AccountID(id), date: "2026-11-30", balance: d("1")))
         }
         let home = try #require(library.openStartingEstimates.first)
-        #expect(library.accountsReplacing(home).count == 2)
+        #expect(library.accountsReplacing(home).map(\.id) == ["home"])
         #expect(library.replacement(of: home) == .close(on: "2026-11-29", successor: "home"))
     }
 

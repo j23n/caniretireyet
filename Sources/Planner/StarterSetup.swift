@@ -181,9 +181,17 @@ public enum StarterSetup {
     /// round amounts in sentences ("you save about 1.400 € a month").
     public static func roundedToTwoFigures(_ amount: Decimal) -> Decimal {
         let value = amount.doubleValue
-        guard value >= 100, value.isFinite else { return Decimal(Int(value.rounded())) }
-        let step = pow(10, (log10(value).rounded(.down) - 1))
-        return Decimal(Int((value / step).rounded() * step))
+        guard value >= 100, value.isFinite else { return rounded(amount) }
+        let step = Decimal(sign: .plus, exponent: Int(log10(value).rounded(.down)) - 1, significand: 1)
+        return rounded(amount / step) * step
+    }
+
+    /// `amount` to a whole number, halves away from zero.
+    private static func rounded(_ amount: Decimal) -> Decimal {
+        var amount = amount
+        var result = Decimal()
+        NSDecimalRound(&result, &amount, 0, .plain)
+        return result
     }
 }
 
@@ -197,12 +205,13 @@ extension Account {
     /// The kinds of real accounts that replace this starting estimate:
     /// current and savings accounts replace cash and savings; investment
     /// accounts the investments; pension funds and TFR the pension; the
-    /// home and its mortgage the home.
+    /// home's value the home. A mortgage doesn't: the estimate is the
+    /// home's equity, and the mortgage is a debt beside the home's value.
     public var kindsReplacingEstimate: Set<AccountKind> {
         switch kind {
         case .savings, .cash: [.cash, .savings]
         case .pensionFund, .tfr: [.pensionFund, .tfr]
-        case .property: [.property, .mortgage]
+        case .property: [.property]
         default: [.brokerage, .crypto, .metals, .other]
         }
     }
