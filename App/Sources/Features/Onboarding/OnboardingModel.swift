@@ -19,9 +19,10 @@ final class OnboardingModel {
     }
 
     /// What *See My Answer* added to the library it created: the starting
-    /// estimates and the first plan.
+    /// estimates, their values and the first plan.
     struct TourRecords: Hashable, Sendable {
         var estimates: [AccountID]
+        var values: Set<Valuation>
         var plan: PlanID?
     }
 
@@ -121,11 +122,16 @@ final class OnboardingModel {
         return !answerIsRunning && holdsOnlyTourRecords(library) ? previous : nil
     }
 
-    /// Whether `library` holds just ``tourRecords``: no other accounts or
-    /// plans, and nothing an import adds (instruments, import profiles).
+    /// Whether `library` holds just ``tourRecords``: no other accounts,
+    /// values or plans, and nothing else an import adds (trades,
+    /// instruments, import profiles). An import into an estimate, such as
+    /// the starter spreadsheet's *Home*, changes its values.
     func holdsOnlyTourRecords(_ library: Library) -> Bool {
         guard let records = tourRecords else { return false }
+        let months = library.months.values
         return Set(library.accounts.keys) == Set(records.estimates)
+            && Set(months.flatMap(\.valuations)) == records.values
+            && months.allSatisfy(\.trades.isEmpty)
             && Set(library.plans.keys) == Set(records.plan.map { [$0] } ?? [])
             && library.instruments.isEmpty && library.importProfiles.isEmpty
     }
@@ -259,7 +265,8 @@ final class OnboardingModel {
             let estimates = try await library.addStartingEstimates(
                 answers, plan: plan, on: today, replacing: replacing?.estimates ?? [],
                 replacingPlan: replacing?.plan, settings: replacing == nil ? nil : settings)
-            tourRecords = TourRecords(estimates: estimates, plan: plan?.id)
+            let values = library.library.months.values.flatMap(\.valuations)
+            tourRecords = TourRecords(estimates: estimates, values: Set(values), plan: plan?.id)
         } catch {
             Self.logger.error(
                 "Couldn't save the starting estimates: \(LibraryStore.describe(error), privacy: .public)")

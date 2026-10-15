@@ -73,10 +73,20 @@ struct OnboardingTests {
         tour.step = .later
         await tour.seeAnswer(library: model.library, plans: model.plans, navigation: model.navigation,
                              preferences: model.preferences)
-        var imported = model.library.library
-        imported.accounts["bank"] = Account(id: "bank", name: "Bank", kind: .cash, currency: tour.currency,
-                                            opened: "2026-01-01")
-        #expect(tour.previousStep(in: imported, answerIsRunning: false) == nil)
+        let records = try #require(tour.tourRecords)
+        #expect(tour.previousStep(in: model.library.library, answerIsRunning: false) == .later)
+
+        var newAccount = model.library.library
+        newAccount.accounts["bank"] = Account(id: "bank", name: "Bank", kind: .cash, currency: tour.currency,
+                                              opened: "2026-01-01")
+        #expect(tour.previousStep(in: newAccount, answerIsRunning: false) == nil)
+
+        // The starter spreadsheet's columns match the estimates by name, so
+        // its values land in them.
+        var intoEstimate = model.library.library
+        let estimate = try #require(records.estimates.first)
+        intoEstimate.upsert(Valuation(account: estimate, date: "2026-11-30", balance: 12_000, source: .manual))
+        #expect(tour.previousStep(in: intoEstimate, answerIsRunning: false) == nil)
     }
 
     @Test func everyStepAfterTheWelcomeIsNumbered() {
