@@ -35,7 +35,7 @@ enum OnboardingStep: String, CaseIterable, Sendable {
 
     /// The step before this one; `nil` for the welcome. *Back* goes there,
     /// from the answer only while the library holds just what the tour
-    /// added (`OnboardingModel.previousStep(in:)`).
+    /// added (`OnboardingModel.previousStep(in:answerIsRunning:)`).
     var previous: OnboardingStep? {
         let steps = Self.allCases
         guard let index = steps.firstIndex(of: self), index > 0 else { return nil }
