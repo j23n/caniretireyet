@@ -6,7 +6,7 @@ import Tracker
 /// reads the library (PLANNER.md, "The portfolio"): the money you can draw now,
 /// which the plan's target mix applies to, and every account the plan
 /// counts. The editors show it next to the target mix
-/// (``Planner/startingMix(plan:library:today:)``).
+/// (``Planner/startingMix(plan:library:valuator:today:)``).
 public struct StartingMix: Hashable, Sendable {
     /// The day the plan starts from.
     public var date: CalendarDate

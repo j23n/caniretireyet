@@ -36,7 +36,7 @@ extension Library {
     }
 }
 
-/// The checks of ``Model/Library/problems()``, collecting warnings.
+/// The checks of ``Model/Library/problems(valuator:)``, collecting warnings.
 private struct LibraryChecks {
     let library: Library
     let valuator: Valuator
