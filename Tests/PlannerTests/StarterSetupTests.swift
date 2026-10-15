@@ -108,6 +108,13 @@ struct StarterSetupTests {
         #expect(StarterSetup.roundedToTwoFigures(d("98765")) == 99000)
     }
 
+    @Test func theLastMondayIsOnOrBeforeTheDay() {
+        #expect(StarterSetup.lastMonday(onOrBefore: "2050-06-27") == "2050-06-27")
+        #expect(StarterSetup.lastMonday(onOrBefore: "2050-07-03") == "2050-06-27")
+        #expect(StarterSetup.lastMonday(onOrBefore: "1970-01-01") == "1969-12-29")
+        #expect(StarterSetup.lastMonday(onOrBefore: "1969-12-28") == "1969-12-22")
+    }
+
     @Test func savingMoreSpendsLessWhileWorking() {
         let plan = Sample.plan(retire: .earliest, endAge: 90, working: "30000", retired: "30000")
         let more = StarterSetup.savingMore(plan, perMonth: 300)
