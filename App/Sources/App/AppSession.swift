@@ -134,29 +134,41 @@ enum TestProfileError: LocalizedError, Equatable {
 }
 
 /// The strip over the window while a test profile is open, so it's never
-/// taken for the real library, with *Leave* to go back to it.
+/// taken for the real library, with *Leave* to go back to it. On iPhone and
+/// iPad it sits above the content, so navigation bars and their toolbars
+/// start below it; on the Mac it's an inset under the window's toolbar.
 struct TestProfileBanner: ViewModifier {
     @Environment(AppSession.self) private var session: AppSession?
 
     func body(content: Content) -> some View {
-        content.safeAreaInset(edge: .top, spacing: 0) {
-            if let session, let profile = session.profiles?.active {
-                HStack(spacing: Metrics.s) {
-                    Image(systemName: "person.crop.circle.badge.questionmark")
-                    Text("Test profile “\(profile.name)”")
-                        .font(.footnote.weight(.semibold))
-                    Spacer(minLength: Metrics.s)
-                    Button("Leave") {
-                        Task { await session.switchTo(nil) }
-                    }
+        #if os(iOS)
+        VStack(spacing: 0) {
+            strip
+            content
+        }
+        #else
+        content.safeAreaInset(edge: .top, spacing: 0) { strip }
+        #endif
+    }
+
+    @ViewBuilder
+    private var strip: some View {
+        if let session, let profile = session.profiles?.active {
+            HStack(spacing: Metrics.s) {
+                Image(systemName: "person.crop.circle.badge.questionmark")
+                Text("Test profile “\(profile.name)”")
                     .font(.footnote.weight(.semibold))
-                    .disabled(session.isSwitching)
+                Spacer(minLength: Metrics.s)
+                Button("Leave") {
+                    Task { await session.switchTo(nil) }
                 }
-                .padding(.horizontal, Metrics.l)
-                .padding(.vertical, Metrics.xs)
-                .foregroundStyle(Palette.ink)
-                .background(Palette.warning.opacity(0.35))
+                .font(.footnote.weight(.semibold))
+                .disabled(session.isSwitching)
             }
+            .padding(.horizontal, Metrics.l)
+            .padding(.vertical, Metrics.xs)
+            .foregroundStyle(Palette.ink)
+            .background(Palette.warning.opacity(0.35))
         }
     }
 }
