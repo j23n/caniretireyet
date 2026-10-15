@@ -46,6 +46,14 @@ final class AppPreferences {
         didSet { defaults.set(notesOffered, forKey: Keys.notesOffered) }
     }
 
+    /// The day first launch's tour created the library on this device: the
+    /// Overview shows its *Getting started* list from then until it's done
+    /// or hidden, which clear it (UI.md, "Overview", "Getting started");
+    /// `nil` otherwise, as for a library opened from elsewhere.
+    var gettingStartedSince: CalendarDate? {
+        didSet { defaults.set(gettingStartedSince?.description, forKey: Keys.gettingStartedSince) }
+    }
+
     /// The account groups (and *Closed*) that are collapsed on this device,
     /// in the sidebar and in the Accounts list alike
     /// (``SidebarAccountFolder/key``: a group's raw value, or `"closed"`).
@@ -112,6 +120,7 @@ final class AppPreferences {
             recordsAnniversary: defaults.bool(forKey: Keys.notesRecordsAnniversary),
             planCheckUp: defaults.bool(forKey: Keys.notesPlanCheckUp))
         notesOffered = defaults.bool(forKey: Keys.notesOffered)
+        gettingStartedSince = defaults.string(forKey: Keys.gettingStartedSince).flatMap { CalendarDate($0) }
         hideAmountsOnLaunch = defaults.bool(forKey: Keys.hideAmountsOnLaunch)
         hideInAppSwitcher = defaults.bool(forKey: Keys.hideInAppSwitcher)
         hidesAmounts = defaults.bool(forKey: Keys.hideAmountsOnLaunch)
@@ -123,6 +132,7 @@ final class AppPreferences {
 
     private enum Keys {
         static let libraryLocation = "libraryLocation"
+        static let gettingStartedSince = "gettingStarted.since"
         static let stalenessThreshold = "stalenessThreshold"
         static let fetchPricesOnCheckIn = "fetchPricesOnCheckIn"
         static let reminderEnabled = "checkInReminder.enabled"

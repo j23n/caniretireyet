@@ -7,10 +7,12 @@ import SwiftUI
 /// Step 6, Done. Bank statements get a page of their own
 /// (``ImportStatementDone``). Any other file: what the import did, Undo
 /// import (which puts the backup back), and Save as profile, so the next
-/// file of the same shape imports in one step. When the import's positions are valued on dates without a
-/// price ("12 past values have no price for XAU"), it offers *Fill In Past
-/// Prices…*. When it created instruments without a price source, it offers
-/// *Find Price Sources…*.
+/// file of the same shape imports in one step; the starting estimates it
+/// can replace, and the answer (``ImportAnswerFollowUp``). When the
+/// import's positions are valued on dates without a price ("12 past
+/// values have no price for XAU"), it offers *Fill In Past Prices…*. When
+/// it created instruments without a price source, it offers *Find Price
+/// Sources…*.
 struct ImportDoneStep: View {
     let model: ImportController
 
@@ -63,6 +65,7 @@ struct ImportDoneStep: View {
             // Done comes only after an import, which leaves its receipt.
             if let receipt = model.receipt {
                 summarySection(receipt)
+                ImportAnswerFollowUp(model: model, receipt: receipt, style: .section)
                 let unpriced = unpricedInstruments(receipt)
                 if !unpriced.isEmpty {
                     priceSourcesSection(unpriced)
@@ -153,7 +156,7 @@ struct ImportDoneStep: View {
         } header: {
             Text("Price sources")
         } footer: {
-            Text("These new instruments have no price source, so their prices are typed in at each check-in. "
+            Text("These new instruments have no price source, so their prices are typed in on Instruments. "
                 + "Find Price Sources searches Yahoo Finance by each one's ISIN, ticker or name, and only those "
                 + "leave this device.")
         }
@@ -210,6 +213,10 @@ struct ImportDoneStep: View {
             return "Undone, except for what changed after the import, which was left in place."
         }
         if receipt.isUndone { return "Undone: the \(files) it wrote were put back." }
+        if receipt.replacedEstimates {
+            return "Not offered once your round amounts were replaced, which undoing the import would leave "
+                + "behind. Both edits have backups in Sync & backups."
+        }
         if let backup = receipt.backup {
             return "The import wrote \(files). They were copied to \(backup.path) first; undoing puts back what the "
                 + "import changed and leaves later edits alone."

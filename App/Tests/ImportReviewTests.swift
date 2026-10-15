@@ -1,6 +1,7 @@
 import Foundation
 import Importer
 import Model
+import Storage
 import Testing
 @testable import CanIRetireYet
 
@@ -58,6 +59,20 @@ struct ImportReviewTests {
         flow.setReviewResolution(usesFile: false, for: current.key)
         #expect(flow.reviewConflicts().map(\.usesFile) == [false, false])
         #expect(flow.reviewConflicts().last?.resolution == .keep)
+    }
+
+    /// Replacing starting estimates on Done is an edit of its own that
+    /// undoing the import would leave behind, so Undo import goes.
+    @Test func undoIsNoLongerOfferedOnceEstimatesWereReplaced() throws {
+        var flow = flow()
+        let current = try #require(flow.reviewConflicts().last)
+        flow.setReviewResolution(usesFile: true, for: current.key)
+        let planned = try #require(flow.planned)
+        var receipt = ImportReceipt(fileName: "fineco-settembre.csv", result: planned)
+        receipt.backup = Backup(name: "2026-10-15-120000-import", label: "import", created: Date(), files: [])
+        #expect(receipt.canUndo)
+        receipt.replacedEstimates = true
+        #expect(!receipt.canUndo)
     }
 
     @Test func accountsListEachAccountsMonthsBalanceAndChange() throws {
