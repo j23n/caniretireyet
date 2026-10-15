@@ -16,18 +16,18 @@ struct OnboardingFilesStep: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Metrics.l) {
-            OnboardingTitle("Make it real",
-                            detail: "Your answer is as good as its numbers. Swap the round ones for your statements, "
-                                + "now or at your first check-in.")
+            OnboardingTitle("Import your accounts",
+                            detail: "This answer uses the rough amounts you entered. Import your statements now or at "
+                                + "your first check-in to replace them.")
             VStack(alignment: .leading, spacing: Metrics.l) {
                 OnboardingRow(title: "Bank statements", systemImage: "building.columns",
-                              detail: "A CSV export from your bank's website, usually under your account's "
-                                + "transactions. Several at once is fine.")
+                              detail: "A CSV export from your bank's website, usually found with your account's "
+                                + "transactions. You can import several at once.")
                 OnboardingRow(title: "Broker exports", systemImage: "chart.line.uptrend.xyaxis",
-                              detail: "Your transactions, as CSV.")
+                              detail: "A CSV export of your transactions from your broker.")
                 OnboardingRow(title: "Home, pension, debts", systemImage: "house",
-                              detail: "Fill in the starter spreadsheet: one row per date, one column per account, the "
-                                + "home's value with its mortgage beside it. Then import it.") {
+                              detail: "Fill in the starter spreadsheet with one row per date and one column per "
+                                + "account. The mortgage has its own column next to the home. Then import it.") {
                     StarterSpreadsheetButton()
                         .padding(.top, Metrics.xs)
                 }
@@ -35,16 +35,16 @@ struct OnboardingFilesStep: View {
             .onboardingCard()
             #if os(iOS)
             Label(library.location?.kind == .iCloud
-                  ? "Importing is easiest on a Mac. Open Can I Retire Yet there: your library is already in iCloud "
+                  ? "Importing is easier on a Mac. Open Can I Retire Yet there; your library is already in iCloud "
                     + "Drive."
-                  : "Importing is easiest on a Mac, with your files at hand.",
+                  : "Importing is easier on a Mac, where your files usually are.",
                   systemImage: "macbook.and.iphone")
                 .font(.callout)
                 .foregroundStyle(Palette.secondaryInk)
                 .fixedSize(horizontal: false, vertical: true)
             #endif
             if !library.library.openStartingEstimates.isEmpty {
-                Text("After each import you can replace your round amounts with the accounts it brought in.")
+                Text("After each import, you can replace your rough amounts with the accounts it added.")
                     .font(.footnote)
                     .foregroundStyle(Palette.secondaryInk)
                     .fixedSize(horizontal: false, vertical: true)
@@ -66,13 +66,14 @@ struct OnboardingNotesStep: View {
     var body: some View {
         @Bindable var model = model
         VStack(alignment: .leading, spacing: Metrics.l) {
-            OnboardingTitle("Keep it in view", detail: "Once a month, a short note. Never amounts.")
+            OnboardingTitle("Reminders",
+                            detail: "The app can send you a short note once a month. Notes never show amounts.")
             if let note = monthlyNote {
                 notePreview(note)
             }
             VStack(alignment: .leading, spacing: Metrics.m) {
                 Toggle("Monthly note", isOn: $model.monthlyNote)
-                Toggle("Your year, each January", isOn: $model.yourYearNote)
+                Toggle("Your year, in January", isOn: $model.yourYearNote)
             }
             .onboardingCard()
             widgetHint

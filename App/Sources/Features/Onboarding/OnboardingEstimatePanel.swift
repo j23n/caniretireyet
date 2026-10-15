@@ -16,7 +16,7 @@ struct OnboardingEstimatePanel: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Metrics.m) {
-            Text("Quick estimate · updates as you type")
+            Text("Estimate")
                 .font(.footnote.weight(.semibold))
                 .foregroundStyle(Palette.secondaryInk)
             if let estimate = model.estimate, model.estimateRequest() != nil {
@@ -44,7 +44,8 @@ struct OnboardingEstimatePanel: View {
                     .foregroundStyle(Palette.secondaryInk)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            Text("Each change runs a few hundred futures. The full answer comes when you finish.")
+            Text("The estimate updates as you type and uses a few hundred simulated futures. Your answer at the end "
+                 + "uses thousands.")
                 .font(.footnote)
                 .foregroundStyle(Palette.secondaryInk)
                 .fixedSize(horizontal: false, vertical: true)
@@ -63,9 +64,9 @@ struct OnboardingEstimatePanel: View {
 
     /// What the estimate still needs.
     private var waitingText: String {
-        if model.birthDate == nil { return "Your birth date, on the step before, lets it say an age." }
-        if !model.answers.hasStartingAmounts { return "Type what you have today to see an estimate." }
-        return "Working it out…"
+        if model.birthDate == nil { return "Add your birth date on the first step to see an age." }
+        if !model.answers.hasStartingAmounts { return "Enter what you have today to see an estimate." }
+        return "Calculating…"
     }
 
     /// "You could retire at 57", "You could retire today", or "No age works

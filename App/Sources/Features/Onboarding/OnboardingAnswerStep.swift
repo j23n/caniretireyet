@@ -24,8 +24,9 @@ struct OnboardingAnswerStep: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Metrics.l) {
             if model.openedExistingLibrary {
-                OnboardingTitle("Your library is here",
-                                detail: "It was already in iCloud Drive, so it opened with its own accounts and plans.")
+                OnboardingTitle("Your library is already set up",
+                                detail: "It was already in iCloud Drive, so it opened with its existing accounts and "
+                                    + "plans.")
             }
             if let headline = shownHeadline {
                 reveal(headline)
@@ -56,7 +57,7 @@ struct OnboardingAnswerStep: View {
     private func running(_ plan: PlanID) -> some View {
         VStack(alignment: .leading, spacing: Metrics.l) {
             OnboardingCalendarPage(date: nil)
-            Text("Playing out thousands of futures…")
+            Text("Calculating thousands of simulated futures…")
                 .font(.title2.bold())
                 .foregroundStyle(Palette.ink)
             if let progress = plans.progress(of: plan, .checkIn) {
@@ -77,7 +78,7 @@ struct OnboardingAnswerStep: View {
             OnboardingTitle("Your plan couldn't be calculated", detail: error)
             Button("Try Again") { model.retryAnswer(library: library, plans: plans) }
                 .buttonStyle(.bordered)
-            Text("You can carry on: the Overview has your plan, with *Calculate*.")
+            Text("You can continue and calculate your plan later with *Calculate* on the Overview.")
                 .font(.footnote)
                 .foregroundStyle(Palette.secondaryInk)
         }
@@ -90,12 +91,13 @@ struct OnboardingAnswerStep: View {
     private var missing: some View {
         if library.mainPlan == nil {
             OnboardingTitle("Your library is ready",
-                            detail: "Without spending, there's no plan to answer from yet. Create one on the Plan "
-                                + "screen: it asks what you spend.")
+                            detail: "There's no plan yet because no spending was entered. You can create one on the "
+                                + "Plan screen.")
         } else if library.settings.person?.birthDate == nil {
             VStack(alignment: .leading, spacing: Metrics.m) {
-                OnboardingTitle("Your answer is an age",
-                                detail: "Add your birth date to see it. It stays on your devices.")
+                OnboardingTitle("Add your birth date",
+                                detail: "The answer is an age, so the app needs your birth date. It stays on your "
+                                    + "devices.")
                 DatePicker("Born", selection: $birthDate, in: ...Date(), displayedComponents: .date)
                     .personalControl()
                     .onboardingCard()
@@ -105,8 +107,8 @@ struct OnboardingAnswerStep: View {
             }
         } else {
             OnboardingTitle("Your library is ready",
-                            detail: "Your answer comes once there's something to stand on: import your statements "
-                                + "next, or add round amounts as estimates by importing the starter spreadsheet.")
+                            detail: "The answer needs your amounts. Import your statements next, or fill in the "
+                                + "starter spreadsheet and import it.")
         }
     }
 
@@ -135,7 +137,7 @@ struct OnboardingAnswerStep: View {
         let today = library.asOfDate
         let results = library.mainPlan.flatMap { plans.results(of: $0.id) }
         return VStack(alignment: .leading, spacing: Metrics.l) {
-            Text("Played out thousands of futures")
+            Text("Your first answer")
                 .font(.footnote.weight(.semibold))
                 .textCase(.uppercase)
                 .foregroundStyle(Palette.secondaryInk)
@@ -208,7 +210,7 @@ struct OnboardingAnswerStep: View {
         }
     }
 
-    /// "Save 340 € more a month · about 2 years sooner": what the plan can
+    /// "Save 340 € more a month" over "about 2 years sooner": what the plan can
     /// do, worked out already. The What if on the Plan screen tries more.
     private func leverRow(_ lever: OnboardingModel.Lever) -> some View {
         let words = OnboardingText.lever(perMonth: lever.perMonth, years: lever.yearsSooner,
@@ -223,7 +225,7 @@ struct OnboardingAnswerStep: View {
                     .foregroundStyle(Palette.ink)
                 Text(words.effect)
                     .foregroundStyle(Palette.positive)
-                Text("Try more on your plan's What if.")
+                Text("You can try other changes in your plan's What if.")
                     .font(.footnote)
                     .foregroundStyle(Palette.secondaryInk)
             }
@@ -264,16 +266,16 @@ struct OnboardingSketchChip: View {
                     .presentationCompactAdaptation(.popover)
             }
             if showsDisclaimer {
-                Text("From round numbers. Estimates, not advice.")
+                Text("An estimate from rough amounts, not advice.")
                     .font(.footnote)
                     .foregroundStyle(Palette.secondaryInk)
             }
         }
     }
 
-    static let explanation = "This answer stands on the round amounts you gave at first launch, kept as accounts "
-        + "named \"(estimate)\". Import your statements and the starter spreadsheet: after each import you can "
-        + "replace the estimates with your real accounts, and the answer is calculated again."
+    static let explanation = "This answer is based on the rough amounts you entered at first launch, which are "
+        + "kept as accounts named \"(estimate)\". After you import your statements or the starter spreadsheet, you "
+        + "can replace the estimates with your real accounts, and the answer is calculated again."
 }
 
 /// A calendar page: the weekday over the day and the month, for the last
@@ -310,7 +312,7 @@ struct OnboardingCalendarPage: View {
         .privacySensitiveInFeedback()
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text(date.map { "Your last Monday at work: \(AmountFormat.longDate($0, locale: locale))" }
-            ?? "A calendar page, blank until your answer"))
+            ?? "A blank calendar page. It shows a date once you have an answer."))
     }
 
     private var weekday: String {

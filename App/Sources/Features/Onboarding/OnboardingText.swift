@@ -26,8 +26,8 @@ enum OnboardingText {
 
     // MARK: Money
 
-    /// Under pay and spending, as you type: "So you save about 1.400 € a
-    /// month, a third of your pay.", "So you spend all you take home.", or
+    /// Under pay and spending, as you type: "You save about 1.400 € a
+    /// month, a third of your pay.", "You spend all you take home.", or
     /// "You spend about 300 € a month more than you take home."; `nil`
     /// without both.
     static func savingLine(_ answers: StarterAnswers, currency: CurrencyCode,
@@ -35,9 +35,9 @@ enum OnboardingText {
         guard let saving = answers.saving else { return nil }
         let about = StarterSetup.roundedToTwoFigures(abs(saving.perMonth))
         let amount = AmountFormat.amount(about, currency: currency, locale: locale)
-        if about == 0 { return "So you spend all you take home." }
+        if about == 0 { return "You spend all you take home." }
         if saving.perMonth < 0 { return "You spend about \(amount: amount) a month more than you take home." }
-        return "So you save about \(amount: amount) a month, \(share(saving.share, locale: locale)) of your pay."
+        return "You save about \(amount: amount) a month, \(share(saving.share, locale: locale)) of your pay."
     }
 
     /// "half", "a third", "a quarter", "a fifth", "two thirds", "three
@@ -55,17 +55,18 @@ enum OnboardingText {
     /// Under the state pension: where its amount comes from, and what
     /// leaving it empty does.
     static func statePensionNote(country: CountryCode?) -> String {
-        "\(CountryDefaults.statePensionSource(for: country).capitalizedFirst) has this. Leave it empty to plan "
-            + "without it, which is more cautious."
+        "You can find this amount in \(CountryDefaults.statePensionSource(for: country)). Leave it empty to "
+            + "plan without a state pension, which is more cautious."
     }
 
     /// Under the tax rate: prefilled for the country, or what leaving it
     /// empty does.
     static func taxNote(country: CountryCode?, isDefault: Bool, locale: Locale = .current) -> String {
         if isDefault, let country {
-            return "Prefilled for \(CountryChoices.name(of: country, locale: locale)). Change it any time in the plan."
+            return "Prefilled for \(CountryChoices.name(of: country, locale: locale)). You can change it later in "
+                + "the plan."
         }
-        return "Leave it empty to plan without tax on investments; the plan says so. Change it any time."
+        return "Leave it empty to plan without tax on investments. You can change it later in the plan."
     }
 
     // MARK: The answer
@@ -105,8 +106,8 @@ enum OnboardingText {
 
     /// Under the fan: what its lines are, and what the answer is.
     static func fanLine(confidence: Double) -> String {
-        "Each band holds possible futures of your money, played out thousands of times. The answer is the "
-            + "earliest age that works in \(GlanceText.futures(confidence))."
+        "Each band shows how your money could develop across thousands of simulated futures. The answer is "
+            + "the earliest age that works in \(GlanceText.futures(confidence))."
     }
 
     /// The lever: "Save 340 € more a month" over "about 2 years sooner".

@@ -175,7 +175,7 @@ struct OnboardingScreen: View {
             .keyboardShortcut(.defaultAction)
             .disabled(model.isCreating || !model.canContinue)
         case .answer:
-            Button("Make It Real") { advance() }
+            Button("Continue") { advance() }
                 .buttonStyle(.borderedProminent)
                 .keyboardShortcut(.defaultAction)
         case .files:
