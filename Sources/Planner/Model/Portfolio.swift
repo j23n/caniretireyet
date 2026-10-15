@@ -65,10 +65,11 @@ struct Portfolio: Sendable {
 extension Portfolio {
     /// Values the included accounts on `date` and groups them by when they
     /// can be drawn at `currentAge`. `extraClasses` (e.g. the target mixes')
-    /// are added to the classes held.
-    static func build(library: Library, date: CalendarDate, plan: PlanDocument, currentAge: Int,
-                      extraClasses: Set<AssetClass>, issues: inout [PlanIssue]) -> Portfolio {
-        let valuator = Valuator(library: library)
+    /// are added to the classes held. `valuator` is the library's, when the
+    /// caller has one; without it, one is built.
+    static func build(library: Library, valuator: Valuator? = nil, date: CalendarDate, plan: PlanDocument,
+                      currentAge: Int, extraClasses: Set<AssetClass>, issues: inout [PlanIssue]) -> Portfolio {
+        let valuator = valuator ?? Valuator(library: library)
         let excluded = Set(plan.portfolio.exclude)
         let gainShare = plan.portfolio.unrealizedGainShare.map { min(1, max(0, $0.doubleValue)) }
         for id in plan.portfolio.exclude where library.accounts[id] == nil {
