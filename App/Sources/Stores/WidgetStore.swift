@@ -25,9 +25,6 @@ final class WidgetStore {
     @ObservationIgnored private let plans: PlanStore
     /// The snapshot last written.
     @ObservationIgnored private var written: GlanceSnapshot?
-    /// The main plan's progress, worked out once for each state of the
-    /// library, for the milestones the journey reached.
-    @ObservationIgnored private let progressMemo = PlanProgressMemo()
 
     init(library: LibraryStore, plans: PlanStore, snapshotURL: URL?) {
         self.library = library
@@ -67,8 +64,8 @@ final class WidgetStore {
         var reached: [CalendarDate] = []
         var spending: Decimal?
         if let main = library.settings.mainPlan, let plan = library.library.plans[main] {
-            reached = progressMemo.progress(of: main, plan: plan, library: library).reached.map(\.date)
-            spending = MilestoneLadder(plan: plan, library: library.library, on: library.asOfDate).spending
+            reached = plans.planProgress(of: main, document: plan).reached.map(\.date)
+            spending = MilestoneLadder.spending(of: plan)
         }
         return JourneyGlance(library: library.library, valuator: library.valuator, asOf: today, reached: reached,
                              yearlySpending: spending)
