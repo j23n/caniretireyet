@@ -113,9 +113,9 @@ struct ImportReviewAccount: Identifiable, Hashable, Sendable {
 
 /// A statement whose balance before its first line Review asks for.
 struct ImportReviewOpeningBalance: Identifiable, Hashable, Sendable {
-    /// The batch's file, or `nil` for the one file.
-    var file: Int?
-    var id: Int { file ?? -1 }
+    /// The batch's file.
+    var file: Int
+    var id: Int { file }
     var fileName: String
     var accountName: String
     /// Whether it's still needed: the file's balances can't be worked out yet.
@@ -143,7 +143,7 @@ extension ImportFlow {
         let what = counts.months == 0 ? "Nothing changes yet"
             : "\(Wording.count(counts.months, "month")) for \(Wording.count(counts.accounts, "account"))"
         var range = ""
-        if !compact, let period = reviewPeriod {
+        if !compact, let period = statementsPeriod {
             let from = GlanceText.shortMonthAndYear(period.from, locale: locale)
             let through = GlanceText.shortMonthAndYear(period.through, locale: locale)
             range = from == through ? ", \(from)" : ", \(from) to \(through)"
@@ -183,7 +183,7 @@ extension ImportFlow {
     /// Every value of the statements that differs from the library's, in
     /// the order the files are imported.
     func reviewConflicts(locale: Locale = .current) -> [ImportReviewConflict] {
-        let previews = reviewPreviews.map(\.preview)
+        let previews = self.previews.map(\.preview)
         let records = previews.flatMap(\.records)
         return previews.flatMap(\.conflicts).map { record in
             let account = record.imported.key.account
@@ -208,7 +208,7 @@ extension ImportFlow {
     /// conflict and those decided with it. The others keep what they were.
     mutating func setReviewResolution(usesFile: Bool, for key: ImportRecordKey) {
         let rows = reviewConflicts()
-        let keys = reviewPreviews.lazy.map(\.preview).first { preview in
+        let keys = previews.lazy.map(\.preview).first { preview in
             preview.conflicts.contains { $0.id == key }
         }?.conflicts(decidedWith: key) ?? [key]
         editDecisions { decisions in
@@ -234,7 +234,7 @@ extension ImportFlow {
     // MARK: Accounts
 
     /// The last day the statements cover: the day Accounts' balances are on.
-    var reviewDay: CalendarDate? { reviewPeriod?.through }
+    var reviewDay: CalendarDate? { statementsPeriod?.through }
 
     /// "Balance, 30 Sep", with the year when it isn't this one.
     func reviewBalanceHeader(today: CalendarDate = .today(), locale: Locale = .current) -> String {
@@ -258,7 +258,6 @@ extension ImportFlow {
     /// files, then the accounts without a file by name.
     var reviewAccounts: [ImportReviewAccount] {
         guard let planned, let day = reviewDay else { return [] }
-        let previews = reviewPreviews
         let fileAccounts = previews.compactMap { statementAccount(ofFile: $0.file) }
         var order: [AccountID] = []
         for account in fileAccounts where !order.contains(account) { order.append(account) }
@@ -297,16 +296,9 @@ extension ImportFlow {
     /// for: those that need it, and those it was given for, so a mistyped
     /// one can be corrected.
     var reviewOpeningBalances: [ImportReviewOpeningBalance] {
-        guard layout == .statement else { return [] }
-        guard let batch else {
-            guard needsOpeningBalance || statementOpeningBalance != nil else { return [] }
-            return [ImportReviewOpeningBalance(file: nil, fileName: fileName ?? "The file",
-                                               accountName: constants.account.map(accountName) ?? "the account",
-                                               isNeeded: needsOpeningBalance, balance: statementOpeningBalance)]
-        }
-        return batchFiles.compactMap { file in
+        batchFiles.compactMap { file in
             let isNeeded = batchPreview(of: file)?.issues.contains(where: \.asksForOpeningBalance) ?? false
-            let balance = batch.files.first { $0.id == file.id }?.session.statementOpeningBalance
+            let balance = file.session.statementOpeningBalance
             guard isNeeded || balance != nil else { return nil }
             return ImportReviewOpeningBalance(file: file.id, fileName: file.name,
                                               accountName: file.account.map(accountName) ?? "its account",
@@ -314,17 +306,10 @@ extension ImportFlow {
         }
     }
 
-    /// Gives the balance before the first line of the batch's file `id`
-    /// (`nil`: the one file, or the file on screen), or takes it away.
-    mutating func setStatementOpeningBalance(_ balance: Decimal?, forFile id: Int?) {
-        guard let id, isBatch, id != batchFile else {
-            setStatementOpeningBalance(balance)
-            return
-        }
-        let shown = batchFile
-        showBatchFile(id)
-        setStatementOpeningBalance(balance)
-        if let shown { showBatchFile(shown) }
+    /// Gives the balance before the first line of the batch's file `id`,
+    /// or takes it away.
+    mutating func setStatementOpeningBalance(_ balance: Decimal?, forFile id: Int) {
+        editSession(ofFile: id) { $0.statementOpeningBalance = balance }
     }
 
     // MARK: Done

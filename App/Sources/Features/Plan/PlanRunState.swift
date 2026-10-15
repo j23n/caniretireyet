@@ -15,7 +15,7 @@ struct PlanResultsState: Hashable, Sendable {
         case results(PlanResults)
         /// No results yet: the answer recorded at the last check-in, dated.
         /// `planChanged` when the plan was edited since it was recorded.
-        case recorded(PlanHeadline, planChanged: Bool)
+        case recorded(RetirementAnswer, planChanged: Bool)
         /// Nothing calculated or recorded yet.
         case nothing
     }
@@ -120,7 +120,7 @@ enum PlanRunText {
     }
 
     /// "Recorded at the check-in on 30 Sep 2026".
-    static func recorded(_ headline: PlanHeadline, planChanged: Bool, locale: Locale = .current) -> String? {
+    static func recorded(_ headline: RetirementAnswer, planChanged: Bool, locale: Locale = .current) -> String? {
         guard let date = headline.recordedOn else { return nil }
         let base = "Recorded at the check-in on \(AmountFormat.mediumDate(date, locale: locale))"
         return planChanged ? base + ", before the plan's latest changes" : base

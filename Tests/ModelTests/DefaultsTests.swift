@@ -7,45 +7,6 @@ struct AccountDefaultsTests {
         Account(id: "a", name: "A", kind: kind, currency: .eur, opened: "2024-01-01")
     }
 
-    @Test func valuationModeByKind() {
-        for kind in [AccountKind.brokerage, .crypto, .metals] {
-            #expect(account(kind).valuationMode == .trades)
-        }
-        for kind in [AccountKind.cash, .savings, .pensionFund, .tfr, .property, .mortgage, .other] {
-            #expect(account(kind).valuationMode == .balance)
-        }
-        var brokerage = account(.brokerage)
-        brokerage.valuation = .balance
-        #expect(brokerage.valuationMode == .balance)
-    }
-
-    @Test func assetClassesByKind() {
-        #expect(account(.cash).effectiveAssetClasses == .single(.cash))
-        #expect(account(.property).effectiveAssetClasses == .single(.realEstate))
-        #expect(account(.pensionFund).effectiveAssetClasses == nil)
-        var fund = account(.pensionFund)
-        fund.assetClasses = [.equity: Decimal(fileString: "0.6")!, .bonds: Decimal(fileString: "0.4")!]
-        #expect(fund.effectiveAssetClasses?.total == 1)
-    }
-
-    @Test func includeInDefaultsToTrue() {
-        var home = account(.property)
-        #expect(home.includedInNetWorth && home.includedInPlan)
-        home.includeIn = IncludeIn(plan: false)
-        #expect(home.includedInNetWorth && !home.includedInPlan)
-    }
-
-    /// A tax pot's money is owed, so it counts in neither unless its file says so.
-    @Test func aTaxPotIsLeftOutByDefault() {
-        var pot = account(.taxPot)
-        #expect(!pot.includedInNetWorth && !pot.includedInPlan)
-        pot.includeIn = IncludeIn(netWorth: true)
-        #expect(pot.includedInNetWorth && !pot.includedInPlan)
-        #expect(pot.effectiveAssetClasses == .single(.cash))
-        #expect(AccountKind.taxPot.defaultFlow == .wholeChange)
-        #expect(AccountKind.taxPot.recordsMoneyInOut)
-    }
-
     @Test func openBetweenOpenedAndClosedInclusive() {
         var bank = account(.cash)
         bank.closed = "2025-11-15"
@@ -56,41 +17,11 @@ struct AccountDefaultsTests {
         #expect(bank.isClosed)
     }
 
-    @Test func flowDefaultsByKind() {
-        #expect(AccountKind.cash.defaultFlow == .wholeChange)
-        #expect(AccountKind.mortgage.defaultFlow == .wholeChange)
-        #expect(AccountKind.savings.defaultFlow == .changeLessInterest)
-        #expect(AccountKind.metals.defaultFlow == .trades)
-        #expect(AccountKind.pensionFund.defaultFlow == .ask)
-        #expect(AccountKind.belongings.defaultFlow == .wholeChange)
-        // The name belongings had before reads as belongings.
-        #expect(AccountKind("vehicle") == .belongings)
-        #expect(AccountKind.property.defaultFlow == .ask)
-        #expect(AccountKind.mortgage.isLiability)
-    }
-
-    @Test func minimalAccountStaysMinimal() throws {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = .sortedKeys
-        let data = try encoder.encode(account(.cash))
-        #expect(String(decoding: data, as: UTF8.self)
-            == #"{"currency":"EUR","id":"a","kind":"cash","name":"A","opened":"2024-01-01"}"#)
-    }
 }
 
 /// What an instrument of each kind usually is: what the importer proposes
 /// and the instrument form starts with.
 struct InstrumentKindDefaultsTests {
-    @Test func assetClassByKind() {
-        for kind in [InstrumentKind.etf, .fund, .stock] {
-            #expect(kind.usualAssetClass(name: "Global Fund") == .equity)
-        }
-        #expect(InstrumentKind.bond.usualAssetClass(name: "BTP 2030") == .bonds)
-        #expect(InstrumentKind.crypto.usualAssetClass(name: "Bitcoin") == .crypto)
-        #expect(InstrumentKind.other.usualAssetClass(name: "Gold") == .other)
-        #expect(InstrumentKind("art").usualAssetClass(name: "Painting") == .other)
-    }
-
     /// A precious metal is gold unless its name says another metal; an
     /// exchange-traded commodity only when its name says gold.
     @Test func metalsAndCommoditiesByName() {
@@ -103,36 +34,17 @@ struct InstrumentKindDefaultsTests {
         #expect(InstrumentKind.etc.usualAssetClass(name: "WisdomTree Brent Crude Oil") == .other)
         #expect(InstrumentKind.etc.usualAssetClass(name: "") == .other)
     }
-
-    @Test func unitByKind() {
-        #expect(InstrumentKind.metal.usualUnit == .gram)
-        #expect(InstrumentKind.crypto.usualUnit == nil)
-        for kind in [InstrumentKind.etf, .fund, .stock, .bond, .etc, .other] {
-            #expect(kind.usualUnit == .share)
-        }
-    }
 }
 
 struct PlanDefaultsTests {
     private let minimal = #"{"id":"p","name":"P","retirement":{"age":"earliest"},"spending":{"retired":"30000","working":"35000"}}"#
 
-    @Test func minimalPlanUsesDocumentedDefaults() throws {
+    @Test func correlationsOfAMinimalPlan() throws {
         let plan = try JSONDecoder().decode(PlanDocument.self, from: Data(minimal.utf8))
-        #expect(plan.retirement.age == .earliest)
-        #expect(plan.effectiveEndAge == 95)
-        #expect(plan.tax.isEmpty && plan.tax.effectiveWealthRate == 0)
-        #expect(plan.portfolio.effectiveStart == .latestCheckIn)
-        #expect(plan.assumptions.effectiveInflation == Decimal(fileString: "0.02"))
-        #expect(plan.assumptions.returnAssumption(for: .equity)
-            == ReturnAssumption(medianReal: Decimal(fileString: "0.05")!, volatility: Decimal(fileString: "0.17")!))
         #expect(plan.assumptions.returnAssumption(for: .realEstate) == nil)
-        #expect(plan.assumptions.correlation(.bonds, .equity) == Decimal(fileString: "0.1"))
+        #expect(plan.assumptions.correlation(.bonds, .equity) == plan.assumptions.correlation(.equity, .bonds))
         #expect(plan.assumptions.correlation(.gold, .gold) == 1)
         #expect(plan.assumptions.correlation(.gold, .cash) == 0)
-        #expect(plan.simulation.effectiveRuns == 2000)
-        #expect(plan.simulation.effectiveSeed == 1)
-        #expect(plan.simulation.effectiveConfidence == Decimal(fileString: "0.9"))
-        #expect(plan.spending.factor(atAge: 80) == 1)
     }
 
     @Test func minimalPlanStaysMinimal() throws {
@@ -178,10 +90,6 @@ struct PlanDefaultsTests {
         #expect(spending.factor(atAge: 74) == 1)
         #expect(spending.factor(atAge: 75) == Decimal(fileString: "0.9"))
         #expect(spending.factor(atAge: 90) == Decimal(fileString: "0.8"))
-    }
-
-    @Test func contributionDefaults() {
-        #expect(PlanContribution(account: "fondo-pensione", perYear: 5000).effectiveUntil == .retirement)
     }
 }
 

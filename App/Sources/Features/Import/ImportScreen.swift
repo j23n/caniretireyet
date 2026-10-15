@@ -18,15 +18,14 @@ import UniformTypeIdentifiers
 ///   other pages.
 /// - **iPhone:** a sheet. The navigation bar has *Cancel* (or *Back* to the
 ///   step before), "Step 1 of 3" and *Next*, under it the step's large
-///   title; Review imports with a button at the bottom. One file that
-///   isn't a bank statement starts as "Import with profile…": the file and
-///   a saved profile, the preview, Done.
+///   title; Review imports with a button at the bottom. The steps are the
+///   Mac's.
 ///
 /// ⌘⇧I, the sidebar's Import… and dropping a CSV on the window create it,
 /// with the file if there is one; the sidebar's file is taken from
 /// `navigation.pendingImport` once read. First launch pushes it on its own
 /// stack with `close`, on every device. A check-in opens it in a sheet with
-/// `close` on the statements it holds (UI.md, "Statements first").
+/// `close`, for the check-in's date (UI.md, "Check-in").
 struct ImportScreen: View {
     let file: URL?
     /// Closes the screen when it's pushed on another flow's stack (first
@@ -37,14 +36,11 @@ struct ImportScreen: View {
 
     @Environment(LibraryStore.self) private var library
     @Environment(AppNavigation.self) private var navigation
-    #if os(iOS)
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
-    #endif
+    @Environment(\.pageLayout) private var layout
     /// The import of the iPhone's sheet, or of a screen with `close`; the
     /// Mac and iPad page use ``ImportController/page``.
     @State private var sheetModel = ImportController()
     @State private var isChoosingFile = false
-    @State private var didStart = false
     /// What the files are before any is read: the Files step's switch, and
     /// the steps along the top until a file says.
     @State private var kindBeforeFiles: ImportFilesKind = .statements
@@ -58,13 +54,13 @@ struct ImportScreen: View {
         self.close = close
     }
 
-    /// The statements a check-in holds (UI.md, "Statements first"), in
-    /// `statements`: edited in place, and its *Import* hands them back
-    /// (``ImportController/holdsImport``). *Close* calls `close`.
-    init(statements: ImportController, close: @escaping () -> Void) {
+    /// An import for the check-in on `date` (UI.md, "Check-in"): bank
+    /// statements are read through that date. It writes as any import
+    /// does; *Close* calls `close`.
+    init(checkIn date: CalendarDate, close: @escaping () -> Void) {
         file = nil
         self.close = close
-        _sheetModel = State(initialValue: statements)
+        _sheetModel = State(initialValue: ImportController(checkIn: date))
     }
 
     /// The import on screen: with tabs (iPhone) the screen is a sheet with
@@ -77,13 +73,7 @@ struct ImportScreen: View {
     /// Whether the screen has an import of its own, which *Cancel* closes.
     private var isSheet: Bool { close != nil || navigation.layout == .tabs }
 
-    private var isCompact: Bool {
-        #if os(iOS)
-        return horizontalSizeClass == .compact
-        #else
-        return false
-        #endif
-    }
+    private var isCompact: Bool { !layout.isWide }
 
     /// Whether the steps are a capsule in a strip above the page rather
     /// than in the toolbar: a Mac sheet has no toolbar to hold them.
@@ -109,13 +99,13 @@ struct ImportScreen: View {
             }
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 if model.flow.step == .preview, model.flow.layout == .statement {
-                    ImportReviewBottomBar(model: model, isCompact: isCompact)
+                    ImportReviewBottomBar(model: model)
                 } else if model.flow.showsImportBars {
-                    ImportBottomBar(model: model, isCompact: isCompact, cancel: cancel)
+                    ImportBottomBar(model: model, cancel: cancel)
                 }
             }
             .environment(\.importClose, closeAction)
-            .modifier(ImportTitle(flow: model.flow, isCompact: isCompact))
+            .modifier(ImportTitle(flow: model.flow))
             .toolbar { toolbar }
             .fileImporter(isPresented: $isChoosingFile, allowedContentTypes: ImportFileReader.contentTypes,
                           allowsMultipleSelection: true) { result in
@@ -203,7 +193,7 @@ struct ImportScreen: View {
     }
 
     private var stepContent: some View {
-        ImportStepContent(model: model, isCompact: isCompact, chooseFile: { isChoosingFile = true },
+        ImportStepContent(model: model, chooseFile: { isChoosingFile = true },
                           openFiles: { urls in Task { await add(urls) } },
                           kindBeforeFiles: $kindBeforeFiles)
     }
@@ -232,16 +222,9 @@ struct ImportScreen: View {
         }
     }
 
-    /// First appearance: the preview compares with this library, and on
-    /// iPhone a new import starts as "Import with profile…".
+    /// First appearance: the preview compares with this library.
     private func start() {
         model.libraryChanged(library.library)
-        guard !didStart else { return }
-        didStart = true
-        if !model.flow.hasFile, model.flow.step == .file {
-            // A check-in's statements show every step: their lines are answered on Income.
-            model.flow.setGuided(isCompact && model.flow.checkIn == nil)
-        }
     }
 
     /// Reads the file the screen was created with, once, then takes it from the navigation.
@@ -318,7 +301,8 @@ struct ImportScreen: View {
 /// iPad "Import", with what's open as the Mac window's subtitle.
 private struct ImportTitle: ViewModifier {
     let flow: ImportFlow
-    let isCompact: Bool
+    @Environment(\.pageLayout) private var layout
+    private var isCompact: Bool { !layout.isWide }
 
     @ViewBuilder
     func body(content: Content) -> some View {
@@ -343,7 +327,6 @@ private struct ImportTitle: ViewModifier {
 /// The current step's page.
 struct ImportStepContent: View {
     let model: ImportController
-    let isCompact: Bool
     /// Shows the file importer, which adds files.
     let chooseFile: () -> Void
     /// Adds the files dropped on the Files step.
@@ -354,12 +337,12 @@ struct ImportStepContent: View {
     var body: some View {
         switch model.flow.step {
         case .file:
-            ImportFileStep(model: model, isCompact: isCompact, chooseFile: chooseFile, addFiles: openFiles,
+            ImportFileStep(model: model, chooseFile: chooseFile, addFiles: openFiles,
                            kindBeforeFiles: kindBeforeFiles)
         case .format:
             ImportFormatStep(model: model)
         case .columns:
-            ImportColumnsStep(model: model, isCompact: isCompact)
+            ImportColumnsStep(model: model)
         case .types:
             ImportTypesStep(model: model)
         case .classify:
@@ -479,7 +462,8 @@ private struct ImportStepLabel: View {
 /// across the width; the navigation bar has the rest. None on Done.
 struct ImportBottomBar: View {
     let model: ImportController
-    var isCompact = false
+    @Environment(\.pageLayout) private var layout
+    private var isCompact: Bool { !layout.isWide }
     /// *Cancel*: closes a sheet, starts the page over.
     var cancel: (() -> Void)?
 
@@ -560,7 +544,7 @@ struct ImportBottomBar: View {
         Button {
             Task { await model.runImport(in: library) }
         } label: {
-            Text(model.holdsImport == nil ? "Import" : "Back to Check-in")
+            Text("Import")
                 .fontWeight(.semibold)
                 .frame(maxWidth: isCompact ? .infinity : nil)
         }

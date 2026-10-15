@@ -9,8 +9,8 @@ import Tracker
 /// - Rows: kind icon, name, institution, a 12-month sparkline, the value,
 ///   and a "Stale" badge when the latest value is too old (not for an
 ///   account that holds nothing: ``AccountStaleness``).
-/// - Swipe (or right-click): *Update value* (a one-account valuation) and
-///   *Close*. Closed accounts sit in a "Closed (n)" section at the bottom.
+/// - Swipe: *Close*; right-click also *Edit Account…*. Closed accounts sit
+///   in a "Closed (n)" section at the bottom.
 /// - Tapping a section's header collapses or expands it, chevron turning.
 ///   The groups start expanded and *Closed* collapsed; the device remembers
 ///   which are collapsed, shared with the sidebar's groups
@@ -30,7 +30,6 @@ struct AccountsScreen: View {
     @Environment(\.locale) private var locale
     @State private var query = ""
     @State private var action: AccountAction?
-    @State private var tradeTarget: TradeEditorTarget?
     @State private var errorMessage = ""
     @State private var showsError = false
 
@@ -82,7 +81,6 @@ struct AccountsScreen: View {
         .sheet(item: $action) { action in
             AccountActionSheet(action: action)
         }
-        .tradeEditorSheet($tradeTarget)
         .alert("Couldn't change the account", isPresented: $showsError) {
             Button("OK", role: .cancel) {}
         } message: {
@@ -110,21 +108,6 @@ struct AccountsScreen: View {
             AccountListRow(item: item, widestValue: widestValue)
         }
         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-            if item.account.recordsTrades {
-                Button {
-                    tradeTarget = TradeEditorTarget(account: id)
-                } label: {
-                    Label("Add trade", systemImage: "plus.circle")
-                }
-                .tint(Palette.accent)
-            } else {
-                Button {
-                    action = AccountAction(.updateValue, id)
-                } label: {
-                    Label("Update value", systemImage: "square.and.pencil")
-                }
-                .tint(Palette.accent)
-            }
             Button {
                 action = AccountAction(.close, id)
             } label: {
@@ -133,18 +116,6 @@ struct AccountsScreen: View {
             .tint(Palette.mutedInk)
         }
         .contextMenu {
-            if item.account.recordsTrades {
-                Button {
-                    tradeTarget = TradeEditorTarget(account: id)
-                } label: {
-                    Label("Add Trade…", systemImage: "plus.circle")
-                }
-            }
-            Button {
-                action = AccountAction(.updateValue, id)
-            } label: {
-                Label(item.account.recordsTrades ? "Update Cash…" : "Update Value…", systemImage: "square.and.pencil")
-            }
             Button {
                 action = AccountAction(.edit, id)
             } label: {
@@ -362,17 +333,14 @@ struct AccountStaleBadge: View {
 /// What a row's swipe action or context menu asked for.
 struct AccountAction: Identifiable, Hashable {
     enum Kind: Hashable {
-        /// A one-account valuation; on an earlier ``AccountAction/date``, to
-        /// fill in history (*Add Past Value…*).
-        case updateValue
         case close
         case edit
     }
 
     var kind: Kind
     var account: AccountID
-    /// The date the sheet starts on: a past value's, or for ``Kind/close``
-    /// the day an empty account emptied.
+    /// The date the sheet starts on: for ``Kind/close`` the day an empty
+    /// account emptied.
     var date: CalendarDate?
 
     init(_ kind: Kind, _ account: AccountID, date: CalendarDate? = nil) {
@@ -391,17 +359,12 @@ struct AccountActionSheet: View {
     var body: some View {
         NavigationStack {
             switch action.kind {
-            case .updateValue:
-                UpdateValueSheet(accountID: action.account, date: action.date)
             case .close:
                 CloseAccountSheet(accountID: action.account, date: action.date)
             case .edit:
                 EditAccountSheet(accountID: action.account)
             }
         }
-        #if os(iOS)
-        .presentationDetents(action.kind == .updateValue ? [.medium, .large] : [.large])
-        #endif
         #if os(macOS)
         .frame(minWidth: 460, idealWidth: 520, minHeight: 420, idealHeight: 560)
         #endif

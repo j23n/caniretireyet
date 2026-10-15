@@ -1,5 +1,6 @@
 import Model
 import SwiftUI
+import Tracker
 
 // A chart's callout, where the finger or the pointer reads it (UI.md,
 // "History chart"): the date first, in caption 2 and secondary ink, then the

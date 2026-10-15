@@ -132,10 +132,9 @@ public struct PriceProvider: OpenEnum {
     public init(rawValue: String) { self.rawValue = rawValue }
 
     public static let yahoo: PriceProvider = "yahoo"
-    public static let coingecko: PriceProvider = "coingecko"
     public static let goldAPI: PriceProvider = "gold-api"
     public static let eodhd: PriceProvider = "eodhd"
     public static let twelveData: PriceProvider = "twelvedata"
 
-    public static let knownValues: [PriceProvider] = [.yahoo, .coingecko, .goldAPI, .eodhd, .twelveData]
+    public static let knownValues: [PriceProvider] = [.yahoo, .goldAPI, .eodhd, .twelveData]
 }

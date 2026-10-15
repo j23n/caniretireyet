@@ -48,12 +48,6 @@ enum PlanIssueText {
             if let id = issue.account, let account = library.accounts[id] {
                 return "\(account.name) counts as cash: it has no mix of investments set."
             }
-        case "planner.meanAndMedian":
-            if let option = issue.option, let assumption = plan?.assumptions.returns[AssetClass(option)] {
-                return "\(assetClassName(option))'s return has both an average (mean) and a typical (median) value in "
-                    + "the plan file: the plan uses the average, \(AmountFormat.percent(assumption.real, digits: 1)). "
-                    + "Enter one of them under Assumptions."
-            }
         default:
             break
         }

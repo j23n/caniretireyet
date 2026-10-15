@@ -71,18 +71,7 @@ struct PlanTimeline {
 
         /// The fan on `date`, each percentile between the fan's points.
         func fan(on date: Date) -> FanPoint? {
-            guard let first = fan.first, let last = fan.last else { return nil }
-            func point(_ value: (KeyPath<FanPoint, Double>) -> Double) -> FanPoint {
-                FanPoint(date: date, p10: value(\.p10), p25: value(\.p25), p50: value(\.p50), p75: value(\.p75),
-                         p90: value(\.p90))
-            }
-            if date <= first.date { return point { first[keyPath: $0] } }
-            for (from, to) in zip(fan, fan.dropFirst()) where date <= to.date {
-                let span = to.date.timeIntervalSince(from.date)
-                let t = span > 0 ? date.timeIntervalSince(from.date) / span : 1
-                return point { from[keyPath: $0] + (to[keyPath: $0] - from[keyPath: $0]) * t }
-            }
-            return point { last[keyPath: $0] }
+            fan.point(on: date)
         }
 
         /// The year a point on the card stands for: its start counts as the
@@ -102,35 +91,26 @@ struct PlanTimeline {
 
     let cards: [Card]
 
-    /// - Parameters:
-    ///   - valuator: converts results calculated before the base currency
-    ///     changed into `currency` (``PlanResults/portfolio(in:valuator:)``).
-    ///   - milestones: the milestones ahead, each marked on the card it falls in.
-    init(model: PlanChaptersModel, results: PlanResults?, valuator: Valuator, birthDate: CalendarDate,
-         currency: CurrencyCode, milestones: [ProjectedMilestone] = [], locale: Locale = .current) {
+    /// - Parameter milestones: the milestones ahead, each marked on the card it falls in.
+    init(model: PlanChaptersModel, results: PlanResults?, birthDate: CalendarDate, currency: CurrencyCode,
+         milestones: [ProjectedMilestone] = [], locale: Locale = .current) {
         let words = PlanWords(currency: currency, locale: locale)
-        // In the currency the strip is labelled in, as the milestones on it are;
-        // without the rate the cards have no money, as before the first results.
-        let points = results?.portfolio(in: currency, valuator: valuator) ?? []
-        let slack: TimeInterval = 2 * 86_400
+        let points = results?.portfolio ?? []
         let all = model.chapters.chapters
         cards = all.indices.map { index in
             let chapter = all[index]
             let dates = model.dates(ofChapterAt: index)
-            let fan = points.filter { $0.date >= dates.lowerBound - slack && $0.date <= dates.upperBound + slack }
-            // Ages on round numbers, kept clear of the edges' labels.
-            let edge: TimeInterval = 120 * 86_400
-            let ticks = chapter.ages.filter { $0 % 5 == 0 }.compactMap { age -> Tick? in
-                let date = Self.birthday(birthDate, age: age)
-                return date > dates.lowerBound + edge && date < dates.upperBound - edge ? Tick(age: age, date: date) : nil
-            }
             return Card(
                 index: index, style: model.style(of: chapter), title: model.title(of: chapter),
-                span: model.span(ofChapterAt: index), start: dates.lowerBound, end: dates.upperBound, fan: fan,
+                span: model.span(ofChapterAt: index), start: dates.lowerBound, end: dates.upperBound,
+                fan: model.fan(ofChapterAt: index, in: points),
                 startLabel: index == 0 ? "Now" : "\(chapter.ages.lowerBound)",
-                endLabel: index == all.count - 1 ? "\(chapter.ages.upperBound)" : nil, ticks: ticks,
-                events: Self.events(in: chapter, plan: model.plan, birthDate: birthDate, dates: dates, words: words,
-                                    model: model),
+                endLabel: index == all.count - 1 ? "\(chapter.ages.upperBound)" : nil,
+                ticks: model.ageTicks(inChapterAt: index, birthDate: birthDate)
+                    .map { Tick(age: $0.age, date: $0.date) },
+                events: model.events(inChapterAt: index, birthDate: birthDate).compactMap {
+                    Self.event($0, plan: model.plan, words: words, model: model)
+                },
                 milestones: milestones.filter {
                     $0.date.dateValue > dates.lowerBound && $0.date.dateValue <= dates.upperBound
                 },
@@ -141,7 +121,7 @@ struct PlanTimeline {
     /// The money scale fitted to the money between the screen's edges
     /// (UI.md, "Plan"): the median and the middle half of futures, so the
     /// outer band may run off the top or the bottom. `nil` before the plan
-    /// has results, or without the rate to show them in.
+    /// has results.
     func scale(fitting window: PlanStripWindow) -> PlanStripScale? {
         PlanStripScale(values: window.values(of: cards) { card, plot in
             let bands = [\FanPoint.p25, \.p50, \.p75]
@@ -151,72 +131,40 @@ struct PlanTimeline {
         })
     }
 
-    /// What happens on a date in `chapter`: events, a pension or other income
-    /// starting after its first year, a later phase of spending, a one-off
-    /// saving. Dates fall inside the chapter's.
-    static func events(in chapter: PlanChapter, plan: PlanDocument, birthDate: CalendarDate,
-                       dates: ClosedRange<Date>, words: PlanWords, model: PlanChaptersModel) -> [Event] {
-        let birthYear = birthDate.year
-        func inside(_ date: Date) -> Date { min(max(date, dates.lowerBound), dates.upperBound) }
-        var events: [Event] = []
-        for item in chapter.items {
-            switch item {
-            case .event(let index) where plan.events.indices.contains(index):
-                let event = plan.events[index]
-                let date: Date
-                let when: String
-                switch event.timing {
-                case .year(let year):
-                    date = midYear(year)
-                    when = "in \(year)"
-                case .age(let age):
-                    date = birthday(birthDate, age: age)
-                    when = "at \(age)"
-                }
-                let likely = event.effectiveProbability < 1 ? "\(words.percent(event.effectiveProbability)) likely" : when
-                events.append(Event(id: "event-\(index)", date: inside(date), kind: event.amount < 0 ? .expense : .windfall,
-                                    title: "\(event.name), \(words.amount(abs(event.amount)))", detail: likely))
-            case .pension(let index) where plan.pensions.indices.contains(index):
-                let pension = plan.pensions[index]
-                guard let age = pension.fromAge, birthYear + age > chapter.years.lowerBound else { continue }
-                let name = plan.pensionName(index)
-                events.append(Event(id: "pension-\(index)", date: inside(birthday(birthDate, age: age)), kind: .pension,
-                                    title: AmountSentence(name), detail: "from \(age)"))
-            case .income(let index) where plan.income.indices.contains(index):
-                let income = plan.income[index]
-                guard let age = income.from?.age, birthYear + age > chapter.years.lowerBound else { continue }
-                let name = plan.incomeName(index)
-                events.append(Event(id: "income-\(index)", date: inside(birthday(birthDate, age: age)), kind: .pension,
-                                    title: AmountSentence(name), detail: "from \(age)"))
-            case .spendingPhase(let index) where plan.spending.phases.indices.contains(index):
-                let phase = plan.spending.phases[index]
-                guard birthYear + phase.fromAge > chapter.years.lowerBound else { continue }
-                events.append(Event(id: "spending-\(index)", date: inside(birthday(birthDate, age: phase.fromAge)),
-                                    kind: .spending, title: "You spend \(words.percent(phase.factor))",
-                                    detail: "from \(phase.fromAge)"))
-            case .contribution(let index) where plan.contributions.indices.contains(index):
-                let contribution = plan.contributions[index]
-                guard contribution.isOneOff, let amount = contribution.amount else { continue }
-                let year = contribution.year ?? chapter.years.lowerBound
-                events.append(Event(id: "saving-\(index)", date: inside(midYear(year)), kind: .saving,
-                                    title: "Into \(model.accountName(contribution.account)), \(words.amount(amount))",
-                                    detail: "in \(year)"))
-            default:
-                continue
+    /// An event on a chapter's card in words: "New car, 25.000 €" "in
+    /// 2031", "Pension" "from 67".
+    static func event(_ event: PlanChapterEvent, plan: PlanDocument, words: PlanWords,
+                      model: PlanChaptersModel) -> Event? {
+        switch event.kind {
+        case .event(let index):
+            guard plan.events.indices.contains(index) else { return nil }
+            let planned = plan.events[index]
+            let when = switch planned.timing {
+            case .year(let year): "in \(year)"
+            case .age(let age): "at \(age)"
             }
+            let likely = planned.effectiveProbability < 1
+                ? "\(words.percent(planned.effectiveProbability)) likely" : when
+            return Event(id: event.id, date: event.date, kind: planned.amount < 0 ? .expense : .windfall,
+                         title: "\(planned.name), \(words.amount(abs(planned.amount)))", detail: likely)
+        case let .pension(index, age):
+            return Event(id: event.id, date: event.date, kind: .pension,
+                         title: AmountSentence(plan.pensionName(index)), detail: "from \(age)")
+        case let .income(index, age):
+            return Event(id: event.id, date: event.date, kind: .pension,
+                         title: AmountSentence(plan.incomeName(index)), detail: "from \(age)")
+        case .spendingPhase(let index):
+            guard plan.spending.phases.indices.contains(index) else { return nil }
+            let phase = plan.spending.phases[index]
+            return Event(id: event.id, date: event.date, kind: .spending,
+                         title: "You spend \(words.percent(phase.factor))", detail: "from \(phase.fromAge)")
+        case let .saving(index, year):
+            guard plan.contributions.indices.contains(index), let amount = plan.contributions[index].amount
+            else { return nil }
+            let account = model.accountName(plan.contributions[index].account)
+            return Event(id: event.id, date: event.date, kind: .saving,
+                         title: "Into \(account), \(words.amount(amount))", detail: "in \(year)")
         }
-        return events.sorted { $0.date < $1.date }
-    }
-
-    /// The birthday at `age`, at noon.
-    static func birthday(_ birthDate: CalendarDate, age: Int) -> Date {
-        let day = CalendarDate(year: birthDate.year + age, month: birthDate.month, day: min(birthDate.day, 28))
-        return day?.dateValue ?? midYear(birthDate.year + age)
-    }
-
-    /// 1 July of `year`, at noon.
-    static func midYear(_ year: Int) -> Date {
-        CalendarDate(year: year, month: 7, day: 1)?.dateValue ?? Date(timeIntervalSinceReferenceDate: 0)
     }
 }
 
@@ -229,6 +177,20 @@ struct PlanWords: Hashable, Sendable {
     /// "3.000 €".
     func amount(_ value: Decimal) -> AmountSentence {
         .amount(AmountFormat.amount(value, currency: currency, locale: locale))
+    }
+
+    /// Without its sign, for words that say which way it went: "3.000 €".
+    func unsigned(_ value: Decimal) -> AmountSentence {
+        amount(abs(value))
+    }
+
+    /// "you saved 13.200 € and markets added 22.200 €.", "you took out 900 €
+    /// and markets took 4.000 €.": what came from you and from markets.
+    func savedAndMarkets(saved: Decimal, markets: Decimal) -> AmountSentence {
+        let you: AmountSentence = saved >= 0 ? "you saved \(unsigned(saved))" : "you took out \(unsigned(saved))"
+        let them: AmountSentence = markets >= 0 ? "markets added \(unsigned(markets))"
+            : "markets took \(unsigned(markets))"
+        return "\(you) and \(them)."
     }
 
     /// With its sign: "+150.000 €" for a windfall, "−25.000 €" for an expense.
@@ -261,7 +223,7 @@ struct PlanWords: Hashable, Sendable {
 /// The plan's answer and the strip's words (UI.md, "Plan").
 enum PlanTimelineText {
     /// "Not yet. Stop at 54, in March 2042.", "Yes. You could stop working today."
-    static func headline(_ headline: PlanHeadline, locale: Locale = .current) -> String {
+    static func headline(_ headline: RetirementAnswer, locale: Locale = .current) -> String {
         if headline.canRetireNow { return "Yes. You could stop working today." }
         guard let age = headline.earliestAge else { return "Not yet. No age reaches your bar yet." }
         guard let date = headline.earliestDate else { return "Not yet. Stop at \(age)." }

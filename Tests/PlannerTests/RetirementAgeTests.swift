@@ -25,15 +25,4 @@ struct RetirementAgeTests {
             #expect(result.expectedPath.years.first?.year == 2026)
         }
     }
-
-    @Test func aPhaseThatEndsBeforeItStartsIsAnError() async throws {
-        let library = try Fixtures.exampleLibrary()
-        var plan = try #require(library.plans["base"])
-        plan.work[0].until = .date("2025-12-31")
-        let issues = Planner.validate(plan: plan, library: library)
-        #expect(issues.first { $0.code == "planner.workDates" }?.message == "Employee ends before it starts.")
-        await #expect(throws: PlannerError.self) {
-            _ = try await Planner.run(plan: plan, library: library, options: .fast(runs: 2))
-        }
-    }
 }

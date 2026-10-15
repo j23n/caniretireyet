@@ -44,7 +44,7 @@ extension Valuator {
 
     /// How one account changed from `from` to `to`, in `currency` (the
     /// base currency by default); `nil` if it's unknown. In
-    /// ``ValueCurrency/account`` its recorded flows count as they are, and
+    /// ``ValueCurrency/account`` what it recorded as saved counts as it is, and
     /// only positions priced in another currency are converted, at each
     /// date's rate.
     public func change(of account: AccountID, from: CalendarDate, to: CalendarDate,

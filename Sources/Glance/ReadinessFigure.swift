@@ -1,4 +1,5 @@
 import Foundation
+import Model
 
 /// How close plan assets are to what retiring today needs (PLANNER.md,
 /// "Assets needed to retire today") as a number and a ring: "58%", "58%+",
@@ -21,14 +22,10 @@ public struct ReadinessFigure: Hashable, Sendable {
     /// The most a lapping ring draws: two full laps.
     public static let maximumLaps = 2.0
 
-    /// ``readiness`` as the app shows it: below 1 rounded down to a whole
-    /// percent, as headlines record it (allowing for the binary
-    /// representation: 0.58 stays 0.58), so it never reads 100% while
-    /// retiring today falls short; from 1 on, as it is.
+    /// ``readiness`` as every screen shows it, rounded down to a whole
+    /// percent as headlines record it (``Readiness/shown(_:)``).
     public var shown: Double? {
-        guard let readiness else { return nil }
-        guard readiness < 1 else { return readiness }
-        return min(0.99, max(0, (readiness * 100 + 1e-9).rounded(.down) / 100))
+        readiness.map(Readiness.shown)
     }
 
     /// The number beside or in the ring, with `percent`'s words for a share

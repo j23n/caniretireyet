@@ -147,10 +147,10 @@ struct PreviewPlanEngine: PlanEngine {
         // What retiring today needs: decades of spending before the pensions, after tax.
         let readiness = successNow >= confidence ? max(1, start.total.doubleValue / (spending * 30))
             : min(0.99, start.total.doubleValue / (spending * 34))
-        let headline = PlanHeadline(
+        let headline = RetirementAnswer(
             confidence: confidence, earliestAge: earliest, earliestDate: earliestDate, targetAge: target,
             successAtTarget: atTarget, successToday: successNow, sustainableSpending: Self.rounded(spending * 1.07 - 900),
-            readiness: readiness)
+            readiness: readiness, canRetireNow: successNow >= confidence)
         let accounts = library.accounts.values.filter { $0.includedInPlan && $0.isOpen(on: today) }.map(\.id).sorted()
 
         // What the Planner adds, for the age the charts are for (the fan
@@ -176,7 +176,7 @@ struct PreviewPlanEngine: PlanEngine {
                 bridges: [PlanBridgeFailure(name: "Fondo pensione", accessibleFromAge: 67, share: 0.03)]),
             headline: Headline(
                 date: today, confidence: Self.recorded(confidence), earliestAge: earliest, engine: version,
-                planHash: planHash, readiness: Planner.recordedReadiness(readiness),
+                planHash: planHash, readiness: Readiness.rounded(readiness),
                 successAtTarget: Self.recorded(atTarget)))
         return PlanResults(
             plan: plan.id, computedAt: Date(), mode: request.mode,

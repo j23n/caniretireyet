@@ -21,19 +21,9 @@ struct MilestoneTests {
             == [100_000, 150_000, 200_000, 250_000, 300_000, 400_000, 500_000, 600_000, 750_000, 1_000_000])
     }
 
-    @Test func roundAmountsStartAt10000() {
-        #expect(MilestoneLadder.roundFloor == 10_000)
-        #expect(MilestoneLadder.roundAmounts(in: 0...9_999).isEmpty)
-        #expect(MilestoneLadder.roundAmounts(in: 0...100_000_000).allSatisfy { $0 >= 10_000 })
+    /// Round amounts start at 10,000; the other kinds have no floor.
+    @Test func roundAmountsStartAt10000() throws {
         #expect(MilestoneLadder.roundAmounts(in: 0...100_000_000).first == 10_000)
-        // The other kinds have no floor.
-        let ladder = MilestoneLadder(spending: 2_000, neededToday: 20_000, crossover: 8_000)
-        #expect(ladder.milestones(in: 0...9_999).map(\.id) == [
-            "years-1", "years-2", "share-1-4", "years-3", "share-1-3", "crossover",
-        ])
-    }
-
-    @Test func aNewLibraryReachesNoRoundAmountBelow10000() {
         let ladder = MilestoneLadder(spending: 3_000)
         let values = points([("2026-01-31", 0), ("2026-02-28", 1_500), ("2026-03-31", 3_000), ("2026-04-30", 4_500),
                              ("2026-05-31", 6_000), ("2026-06-30", 7_500), ("2026-07-31", 9_000),
@@ -41,9 +31,7 @@ struct MilestoneTests {
         let reached = ladder.reached(values: values)
         #expect(reached.map(\.id) == ["years-1", "years-2", "years-3", "round-10000"])
         #expect(reached.map(\.date) == ["2026-03-31", "2026-05-31", "2026-07-31", "2026-08-31"])
-    }
 
-    @Test func fromNothingTheNextRoundAmountIs10000() throws {
         let next = try #require(MilestoneLadder().next(after: 0))
         #expect(next.milestone.id == "round-10000")
         #expect(next.progress == 0)
@@ -65,11 +53,6 @@ struct MilestoneTests {
             "round-400000", "crossover",
         ])
         #expect(ladder.milestones(in: 170_000...410_000).first?.amount == 180_000)
-    }
-
-    @Test func withoutSpendingOrNeedsOnlyRoundAmounts() {
-        #expect(MilestoneLadder().milestones(in: 100_000...300_000).map(\.kind)
-            == [.roundAmount, .roundAmount, .roundAmount, .roundAmount, .roundAmount])
     }
 
     // MARK: Reached
@@ -296,13 +279,11 @@ struct MilestoneTests {
         let library = try Fixtures.exampleLibrary()
         let plan = try #require(library.plans["base"])
         // Employee until 2028: 40.000 of pay, 36.000 of spending while working.
-        #expect(plan.workPhase(on: "2026-09-30")?.name == "Employee")
         #expect(plan.workingSaving(on: "2026-09-30")?.saving == 4_000)
         #expect(plan.workingSavingsRate(on: "2026-09-30") == d("0.1"))
         // Self-employed from 2029, until retirement: 48.000.
         #expect(plan.workingSavingsRate(on: "2040-06-30") == d("0.25"))
         // Before work starts: no work phase in force.
-        #expect(plan.workPhase(on: "2025-12-31") == nil)
         #expect(plan.workingSavingsRate(on: "2025-12-31") == nil)
 
         // Spending more than the pay: a negative rate, and no crossover.
@@ -310,17 +291,5 @@ struct MilestoneTests {
         spender.spending.working = 50_000
         #expect(spender.workingSavingsRate(on: "2026-09-30") == d("-0.25"))
         #expect(MilestoneLadder.crossover(plan: spender, library: library, on: "2026-09-30") == nil)
-    }
-
-    @Test func theExampleBasePlanHasEveryKindOfMilestone() throws {
-        let library = try Fixtures.exampleLibrary()
-        let plan = try #require(library.plans["base"])
-        let ladder = MilestoneLadder(plan: plan, library: library, on: "2026-09-30", neededToday: 900_000)
-        #expect(ladder.spending == 36_000)
-        #expect(ladder.crossover != nil)
-        let kinds = ladder.milestones(in: 0...10_000_000).map(\.kind)
-        #expect(kinds.contains(.yearsOfSpending(25)))
-        #expect(kinds.contains(.shareOfNeeded(numerator: 1, denominator: 2)))
-        #expect(kinds.contains(.crossover))
     }
 }

@@ -36,24 +36,10 @@ public struct ImportResult: Hashable, Sendable {
     /// their trade's account doesn't record trades, or they're trades made
     /// from quantities whose account keeps the library's.
     public var skipped = 0
-    /// The library's valuations after the ones the import added or changed
-    /// whose automatic flow was worked out again (``followedFlows(_:)``),
-    /// sorted by date, then account.
-    public var recomputedFlows: [ValuationKey] = []
 
     /// Whether the import changed anything.
     public var hasChanges: Bool {
         !changedMonths.isEmpty || !changedAccounts.isEmpty || !createdInstruments.isEmpty
-    }
-
-    /// Records the valuations after inserted or changed ones whose flows
-    /// the caller worked out again in ``library``, with Tracker's rule
-    /// (`Library.followFlows(from:)`), as saving a value in the app does
-    /// (UI.md, "New money after an inserted value"). Their months are
-    /// written, backed up and undone with the import.
-    public mutating func followedFlows(_ recomputed: [Valuation]) {
-        recomputedFlows = recomputed.map(\.key).sorted()
-        changedMonths = Set(changedMonths + recomputed.map(\.date.yearMonth)).sorted()
     }
 }
 
@@ -125,12 +111,9 @@ extension ImportPreview {
     /// trade of an account that doesn't record trades (a switch that was
     /// rejected) is left out. The other accepted
     /// account changes come last (opening earlier moves `Account.opened`).
-    /// Applying the same file twice changes nothing.
-    ///
-    /// The flows of the library's valuations after the ones the import adds
-    /// or changes are left as they are: working them out again takes
-    /// Tracker, so the caller does it and records it with
-    /// ``ImportResult/followedFlows(_:)``.
+    /// Applying the same file twice changes nothing. A valuation keeps what
+    /// it saved only when its account asks for it (``Model/Account/asksForSaved``):
+    /// every other account's is worked out from its records.
     public func apply(to library: Library) -> ImportResult {
         var library = library
         var result = ImportResult(library: library)
@@ -194,10 +177,11 @@ extension ImportPreview {
             // The account's kind decides the balance's sign again: a proposed
             // account's kind may have been edited since the preview.
             var imported = record.imported
-            if let account = imported.key.account, let kind = library.accounts[account]?.kind {
-                imported.signBalance(isLiability: kind.isLiability,
+            if let id = imported.key.account, let account = library.accounts[id] {
+                imported.signBalance(isLiability: account.kind.isLiability,
                                      columnWritesDebtsNegative: imported.balanceColumn.map(negativeDebtColumns.contains)
                                          ?? false)
+                if !account.asksForSaved { imported.saved = nil }
             }
             let existing = library.record(for: imported.key)
             let keepsLibrary = record.isFromQuantities && imported.key.account.map(keepingTrades.contains) == true
@@ -268,5 +252,42 @@ extension ImportPreview {
         result.closedAccounts.sort()
         result.tradesAccounts.sort()
         return result
+    }
+}
+
+extension ImportPreview {
+    /// Applies `previews` to `library` one after another, as one result:
+    /// a batch's statements in the order they're imported
+    /// (``StatementBatch/previews(against:today:decide:)``), or one file's
+    /// preview.
+    public static func apply(_ previews: [ImportPreview], to library: Library) -> ImportResult {
+        var result = ImportResult(library: library)
+        for preview in previews {
+            result.merge(preview.apply(to: result.library))
+        }
+        return result
+    }
+}
+
+extension ImportResult {
+    /// Adds what `next`, applied after this result, changed: its library
+    /// becomes this one's.
+    public mutating func merge(_ next: ImportResult) {
+        library = next.library
+        changedMonths = Set(changedMonths + next.changedMonths).sorted()
+        changedAccounts = Set(changedAccounts + next.changedAccounts).sorted()
+        createdAccounts = Set(createdAccounts + next.createdAccounts).sorted()
+        closedAccounts = Set(closedAccounts + next.closedAccounts).sorted()
+        createdInstruments = Set(createdInstruments + next.createdInstruments).sorted()
+        tradesAccounts = Set(tradesAccounts + next.tradesAccounts).sorted()
+        added += next.added
+        tradesWritten += next.tradesWritten
+        updated += next.updated
+        overwritten += next.overwritten
+        kept += next.kept
+        undecided += next.undecided
+        removed += next.removed
+        identical += next.identical
+        skipped += next.skipped
     }
 }

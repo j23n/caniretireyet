@@ -7,14 +7,13 @@ import Model
 /// "Import"). A line's row is its place in its own file, so rows of two
 /// files can be the same.
 struct BatchStatementLine: Identifiable, Hashable, Sendable {
-    /// The batch's file, by ``StatementBatch/File/id``; `nil` for a file
-    /// open on its own.
-    var file: Int?
+    /// The batch's file, by ``StatementBatch/File/id``.
+    var file: Int
     /// The account the file is a statement of.
     var account: AccountID
     var line: StatementLine
 
-    var id: String { "\(file ?? -1)-\(line.row)" }
+    var id: String { "\(file)-\(line.row)" }
     var row: Int { line.row }
     var date: CalendarDate { line.date }
     var amount: Decimal { line.amount }
@@ -105,11 +104,8 @@ extension ImportFlow {
     /// Every line of the statements open, file by file in the order
     /// they're imported, each in date order.
     var allStatementLines: [BatchStatementLine] {
-        guard let batch else {
-            guard let account = constants.account else { return [] }
-            return statementLines.map { BatchStatementLine(file: nil, account: account, line: $0) }
-        }
-        return batchPreviews.flatMap { entry -> [BatchStatementLine] in
+        guard let batch else { return [] }
+        return previews.flatMap { entry -> [BatchStatementLine] in
             guard let account = batch.files.first(where: { $0.id == entry.file })?.account else { return [] }
             return entry.preview.statementLines.map { BatchStatementLine(file: entry.file, account: account, line: $0) }
         }
@@ -117,18 +113,17 @@ extension ImportFlow {
 
     /// The accounts of the statements open, by name.
     var statementAccountsOpen: [Account] {
-        let ids: [AccountID] = batch.map { $0.files.compactMap(\.account) } ?? (constants.account.map { [$0] } ?? [])
+        let ids = batch?.files.compactMap(\.account) ?? []
         return Set(ids).compactMap { library.accounts[$0] }
             .sorted { ($0.name.lowercased(), $0.id) < ($1.name.lowercased(), $1.id) }
     }
 
-    /// How many statements are open: the batch's files, or the one file.
-    var statementFileCount: Int { batch?.files.count ?? (hasFile ? 1 : 0) }
+    /// How many statements are open.
+    var statementFileCount: Int { batch?.files.count ?? 0 }
 
-    /// The session of a line's file.
-    func statementSession(ofFile file: Int?) -> ImportSession? {
-        guard let batch, let file else { return session }
-        return batch.files.first { $0.id == file }?.session
+    /// The session of the batch's file `file`.
+    func statementSession(ofFile file: Int) -> ImportSession? {
+        batch?.files.first { $0.id == file }?.session
     }
 
     /// The currency of a line's account.
@@ -138,23 +133,16 @@ extension ImportFlow {
 
     // MARK: Changing a line
 
-    /// Changes the session of a line's file, then makes the previews again.
-    mutating func editStatement(ofFile file: Int?, _ edit: (inout ImportSession) -> Void) {
-        editBatchSessions { id, session in
-            if id == file { edit(&session) }
-        }
-    }
-
     /// Gives one line a class, in its own file only; `nil` goes back to the
     /// class its rule, a trade, an account's name, the words or its sign give.
     mutating func setStatementClass(_ statementClass: StatementClass?, for line: BatchStatementLine) {
-        editStatement(ofFile: line.file) { $0.setStatementClass(statementClass, forRow: line.row) }
+        editSession(ofFile: line.file) { $0.setStatementClass(statementClass, forRow: line.row) }
     }
 
     /// Answers one line as money moved to or from an account, a purchase
     /// you keep or a sale, in its own file; `nil` takes the answer back.
     mutating func setStatementAsset(_ asset: StatementAsset?, for line: BatchStatementLine) {
-        editStatement(ofFile: line.file) { $0.setStatementAsset(asset, forRow: line.row) }
+        editSession(ofFile: line.file) { $0.setStatementAsset(asset, forRow: line.row) }
     }
 
     /// The line's answer as money moved to or from an account, a purchase
@@ -218,14 +206,18 @@ extension ImportFlow {
                                      opensSheet: false, isProblem: false)
     }
 
-    /// Why an answered line isn't recorded: the account can't take the
-    /// move, or a move counts in no value whose money in and out the file
-    /// covers; else the answer doesn't fit it. A purchase or a sale needs
-    /// no value of the file.
+    /// Why an answered line isn't recorded, as the importer says
+    /// (``Importer/StatementLine/assetLeftOut``).
     func statementAssetLeftOutReason(_ line: BatchStatementLine) -> String {
-        guard case .moved(let id)? = statementAnswer(line) else { return "the answer doesn't fit this line" }
-        return line.line.period == nil ? "the file doesn't cover the value it counts in"
-            : "\(accountName(id)) can't take money moved from this statement"
+        switch line.line.assetLeftOut {
+        case .accountCantTakeMoves:
+            if case .moved(let id)? = statementAnswer(line) {
+                return "\(accountName(id)) can't take money moved from this statement"
+            }
+            return "the answer doesn't fit this line"
+        case .notCovered: return "the file doesn't cover the value it counts in"
+        case .doesntFit, nil: return "the answer doesn't fit this line"
+        }
     }
 
     // MARK: Moved to or from
@@ -250,12 +242,9 @@ extension ImportFlow {
     func saleChoices(for line: BatchStatementLine) -> [Account] {
         guard line.amount > 0, let statement = library.accounts[line.account] else { return [] }
         // Read from the answers, not the lines: each row of All Lines asks.
-        let sessions: [(file: Int?, session: ImportSession)] = batch.map { batch in
-            batch.files.map { (Optional($0.id), $0.session) }
-        } ?? (session.map { [(nil, $0)] } ?? [])
         var sold = Set<AccountID>()
-        for (file, session) in sessions {
-            for (row, answer) in session.statementAssets where file != line.file || row != line.row {
+        for file in batch?.files ?? [] {
+            for (row, answer) in file.session.statementAssets where file.id != line.file || row != line.row {
                 if case .sale(let id) = answer { sold.insert(id) }
             }
         }
@@ -270,8 +259,7 @@ extension ImportFlow {
     /// line can sell: the accepted ones of a purchase on or before its day,
     /// in any file (IMPORT.md, "Several statements at once").
     func startedAccounts(before line: BatchStatementLine) -> [Account] {
-        let previews = batch != nil ? batchPreviews.map(\.preview) : (preview.map { [$0] } ?? [])
-        return previews.flatMap { preview in
+        previews.map(\.preview).flatMap { preview in
             preview.newAccounts.filter { proposal in
                 guard proposal.isAccepted, let row = proposal.statementRow,
                       let bought = preview.statementLines.first(where: { $0.row == row }) else { return false }
@@ -299,7 +287,7 @@ extension ImportFlow {
             let text = Self.senderKey(line.line.text + " " + line.line.sender)
             return words.allSatisfy { text.contains($0) }
         }
-        .sorted { ($0.date, $0.row, $0.file ?? -1) > ($1.date, $1.row, $1.file ?? -1) }
+        .sorted { ($0.date, $0.row, $0.file) > ($1.date, $1.row, $1.file) }
     }
 
     /// The lines `filter` shows by month, the newest month first.

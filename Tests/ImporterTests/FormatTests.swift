@@ -64,12 +64,6 @@ struct NumberParserTests {
     @Test func unwrapsExcelTextFormulas() {
         #expect(read("=\"0012\"", ".") == d("12"))
     }
-
-    @Test func describesItsFormat() {
-        #expect(NumberParser(format: ImportNumberFormat(decimal: ",", thousands: ".")).example == "1.234,56")
-        #expect(NumberParser(format: ImportNumberFormat(decimal: ".", thousands: "")).example == "1234.56")
-        #expect(NumberParser().parse("abc") == .failure(.notANumber(format: "1234.56")))
-    }
 }
 
 struct DateParserTests {
@@ -167,7 +161,6 @@ struct FormatDetectionTests {
         #expect(ambiguity.column == 1)
         #expect(ambiguity.options.map(\.date?.pattern) == ["dd/MM/yyyy", "MM/dd/yyyy"])
         #expect(ambiguity.examples == ["01/02/2026", "01/03/2026"])
-        #expect(ambiguity.description == "Dates in “Data” could be dd/MM/yyyy or MM/dd/yyyy (e.g. “01/02/2026”).")
         // Same day and month reads the same both ways: nothing to ask.
         #expect(try detect("Data;A\n01/01/2026;1\n02/02/2026;2\n").ambiguities.isEmpty)
     }

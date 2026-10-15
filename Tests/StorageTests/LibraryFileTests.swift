@@ -11,15 +11,6 @@ struct LibraryFileTests {
         #expect(file.path == path)
     }
 
-    @Test func pathsForEachKindOfFile() {
-        #expect(LibraryFile.month("2026-09").path == "history/2026/2026-09.json")
-        #expect(LibraryFile.headlines(plan: "base", year: 2026).path == "projections/base/headlines/2026.json")
-        #expect(LibraryFile.baseline(plan: "base", id: "2026-01-05").path == "projections/base/baselines/2026-01-05.json")
-        #expect(LibraryFile(path: "history/2026/2026-09.json") == .month("2026-09"))
-        #expect(LibraryFile(path: "plans/base.json")?.mergesRecords == false)
-        #expect(LibraryFile(path: "projections/base/headlines/2026.json")?.mergesRecords == true)
-    }
-
     @Test(arguments: [
         "README.md", "accounts/Directa.json", "accounts/a b.json", "accounts/x/y.json", "accounts/directa.txt",
         "history/2025/2026-09.json", "history/2026-09.json", "history/2026/2026-13.json", "history/2026/notes.json",

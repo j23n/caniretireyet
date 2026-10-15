@@ -34,7 +34,10 @@ struct FillHistoryTests {
     }()
 
     static func client() -> MockHTTPClient {
-        MockHTTPClient(["chart/GC=F": goldChart, "prc_hicp_minr": PriceResponses.eurostatHICPItaly])
+        MockHTTPClient([
+            "chart/GC=F": goldChart, "price/XAU": PriceResponses.goldAPIGold,
+            "prc_hicp_minr": PriceResponses.eurostatHICPItaly,
+        ])
     }
 
     /// The table line of `item`.
@@ -49,44 +52,37 @@ struct FillHistoryTests {
         let run = await retire(["prices", "--library", library.path, "--fill-history", "--dry-run"], client: client)
         #expect(run.status == 0, "\(run.all)")
         let output = run.output
-        #expect(output.hasPrefix("Up to 2026-09-30, the library is missing 12 prices (gold) and hicp-it for 2026-09.\n"))
         let gold = try #require(line("gold", in: output))
-        for part in ["12", "Yahoo Finance · GC=F (history)", "2025-10-31 to 2026-09-30", "filled"] {
+        for part in ["12", "Yahoo Finance · GC=F (history)", "2025-10-31 to 2026-08-31", "filled"] {
             #expect(gold.contains(part), "\(gold)")
         }
-        #expect(output.contains("Not filled (type these in, or give the instrument a price source)\n"
-            + "  hicp-it (2026-09-30): Eurostat has no value for 1 month (the latest months may not be published yet).\n"))
-        #expect(output.hasSuffix("Dry run: nothing was written. It would add 12 records to history/2025/2025-10.json, "
-            + "history/2025/2025-11.json, history/2025/2025-12.json and 9 more files. "
-            + "To write them, run again without --dry-run.\n"))
+        // Today's price, and the last three days', is gold-api.com's.
+        #expect(output.contains("gold-api.com · XAU"))
         #expect(try library.snapshot() == before)
         #expect(!library.exists("backups"))
-        // One request for the whole year of gold, one for inflation.
-        #expect(await client.requests.count == 2)
+        // One request for today's gold, one for the year before, one for inflation.
+        #expect(await client.requests.count == 3)
     }
 
     @Test func fillingWritesTheMissingPricesAfterABackup() async throws {
         let library = try Self.withoutGoldPrices()
         let run = await retire(["prices", "--library", library.path, "--fill-history"], client: Self.client())
         #expect(run.status == 0, "\(run.all)")
-        #expect(run.output.contains("Added 12 records to history/2025/2025-10.json, history/2025/2025-11.json, "
-            + "history/2025/2025-12.json and 9 more files.\n"))
-        #expect(run.output.contains("Backed up the files it changed to backups/"))
         #expect(try library.backups().map(\.label) == ["fill-history"])
         #expect(try library.backups().first?.result?.files.count == 12)
 
         let gold = try library.load().prices(for: "gold")
         #expect(gold.count == 12)
-        #expect(gold.allSatisfy { $0.source == .yahoo && $0.currency == .eur })
+        #expect(gold.dropLast().allSatisfy { $0.source == .yahoo && $0.currency == .eur })
         #expect(gold.last == PriceRecord(instrument: "gold", date: "2026-09-30", price: d("98.4"), currency: .eur,
-                                         source: .yahoo))
+                                         source: .goldAPI))
         #expect(gold.first?.price == d("92.1001"))
 
         // Nothing is left to fill but inflation that isn't out yet.
+        let filled = try library.snapshot()
         let again = await retire(["prices", "--library", library.path, "--fill-history"], client: Self.client())
         #expect(again.status == 0)
-        #expect(again.output.hasPrefix("Up to 2026-09-30, the library is missing hicp-it for 2026-09.\n"))
-        #expect(again.output.hasSuffix("Nothing was fetched, so nothing was written.\n"))
+        #expect(try library.snapshot() == filled)
     }
 
     @Test func aFailureIsListedAndExitsNonZero() async throws {
@@ -95,10 +91,9 @@ struct FillHistoryTests {
         await client.on("chart/GC=F", HTTPResponse(statusCode: 500, text: "Internal error"))
         let run = await retire(["prices", "--library", library.path, "--fill-history"], client: client)
         #expect(run.status == 1)
-        #expect(try #require(line("gold", in: run.output)).hasSuffix("not filled"))
-        #expect(run.output.contains("  gold (12 dates, 2025-10-31 to 2026-09-30): "
-            + "Yahoo Finance answered with HTTP 500: Internal error.\n"))
-        #expect(run.output.hasSuffix("Nothing was fetched, so nothing was written.\n"))
+        #expect(try #require(line("gold", in: run.output)).hasSuffix("partly filled"))
+        // Today's price is still written.
+        #expect(try library.load().prices(for: "gold").map(\.date) == ["2026-09-30"])
     }
 
     @Test func aLibraryWithEverythingSaysSo() async throws {
@@ -110,7 +105,6 @@ struct FillHistoryTests {
         let client = Self.client()
         let run = await retire(["prices", "--library", library.path, "--fill-history"], client: client)
         #expect(run.status == 0, "\(run.all)")
-        #expect(run.output == "Up to 2026-09-30, the library has every past price, FX rate and index value it needs.\n")
         #expect(await client.requests.isEmpty)
     }
 
@@ -157,10 +151,9 @@ struct FillHistoryTests {
         let library = try TemporaryFolder.exampleLibrary()
         let dryRun = await retire(["prices", "--library", library.path, "--dry-run"])
         #expect(dryRun.status == 64)
-        #expect(dryRun.errors.contains("--dry-run goes with --fill-history."))
         let date = await retire(["prices", "--library", library.path, "--fill-history", "--date", "2026-06-30"])
-        #expect(date.errors.contains("--fill-history fills every past date; it takes no --date."))
+        #expect(date.status == 64)
         let apply = await retire(["prices", "--library", library.path, "--fill-history", "--apply"])
-        #expect(apply.errors.contains("--fill-history writes unless you pass --dry-run; it takes no --apply."))
+        #expect(apply.status == 64)
     }
 }

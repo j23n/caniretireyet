@@ -3,6 +3,7 @@ import Foundation
 import Model
 import Testing
 import TestSupport
+import Tracker
 
 /// A bank statement's money in (IMPORT.md, "Classes"): income marked once
 /// per sender, a sender who pays every month, money paid back, a large
@@ -54,6 +55,14 @@ struct StatementIncomeTests {
             == "Müller Anna")
         #expect(StatementWords.sender(of: "SEPA 0126 EUR").isEmpty)
         #expect(StatementWords.sender(of: "Bonifico a vostro favore disposto da: Mario Rossi") == "Mario Rossi")
+    }
+
+    /// A sender's key is the words the importer matches, so case, accents
+    /// and punctuation don't make two senders.
+    @Test func aSendersKeyIsItsFoldedWords() {
+        #expect(StatementWords.key("Müller, Anna") == "muller anna")
+        #expect(StatementWords.key("MÜLLER ANNA") == StatementWords.key("Müller  Anna"))
+        #expect(StatementWords.key("Bar-Centrale") == "bar centrale")
     }
 
     /// A payment processor writes the merchant after a `*`.
@@ -172,7 +181,8 @@ struct StatementIncomeTests {
         let library = preview.apply(to: Self.library()).library
         let written = try #require(library.valuations(for: "conto").first { $0.date == "2026-03-31" })
         #expect(written.oneOff == 18000)
-        #expect(written.moved == 0)
+        let valuator = Valuator(library: library)
+        #expect(valuator.moved(written, previous: valuator.previousValuation(for: "conto", before: written.date)) == 0)
         // Paid back after all: the one-off the library has goes.
         session.setStatementClass(.spending, forRow: row)
         let again = session.preview(against: library, today: Self.today).apply(to: library).library

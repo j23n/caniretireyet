@@ -17,13 +17,13 @@ import Tracker
 ///   own below it, pointing up for money added and down for money taken
 ///   out, so they never stretch the scale; their amounts are in the callout.
 /// - Time ticks fit the chart's width (``TimeTicks``).
-/// - Drag across it to read a month: the value and the new money recorded
+/// - Drag across it to read a month: the value and what was saved
 ///   since the point before. The callout stays inside the chart.
 struct AccountHistoryChart: View {
     /// In ``currency``; incomplete points are left out as gaps.
     var points: [ChartPoint]
-    var flows: [AccountFlowTick]
-    /// The currency of the points and the flows: the account's.
+    var savedTicks: [AccountSavedTick]
+    /// The currency of the points and the saved amounts: the account's.
     var currency: CurrencyCode
     var height: CGFloat = 200
 
@@ -55,15 +55,15 @@ struct AccountHistoryChart: View {
         }
     }
 
-    /// Flows within the chart's dates.
-    private var shownFlows: [AccountFlowTick] {
+    /// Saved amounts within the chart's dates.
+    private var shownSavedTicks: [AccountSavedTick] {
         guard let first = points.first?.date, let last = points.last?.date else { return [] }
-        return flows.filter { $0.date.dateValue >= first && $0.date.dateValue <= last }
+        return savedTicks.filter { $0.date.dateValue >= first && $0.date.dateValue <= last }
     }
 
     /// Zero and the values that could be worked out, with a lane for the ticks.
     private var scale: AmountScale {
-        AmountScale(values: points.filter(\.isComplete).map(\.value), reservesLane: !shownFlows.isEmpty)
+        AmountScale(values: points.filter(\.isComplete).map(\.value), reservesLane: !shownSavedTicks.isEmpty)
     }
 
     /// The whole history, gaps included.
@@ -74,10 +74,10 @@ struct AccountHistoryChart: View {
 
     private func laneTicks(_ scale: AmountScale) -> [LaneTick] {
         guard let up = scale.laneTick(up: true), let down = scale.laneTick(up: false) else { return [] }
-        return shownFlows.map { flow in
-            let range = flow.amount >= 0 ? up : down
-            return LaneTick(id: flow.date, date: flow.date.dateValue, low: range.lowerBound, high: range.upperBound,
-                            isUp: flow.amount >= 0)
+        return shownSavedTicks.map { tick in
+            let range = tick.amount >= 0 ? up : down
+            return LaneTick(id: tick.date, date: tick.date.dateValue, low: range.lowerBound, high: range.upperBound,
+                            isUp: tick.amount >= 0)
         }
     }
 
@@ -154,10 +154,10 @@ struct AccountHistoryChart: View {
         selectedPoint.flatMap { $0.isComplete ? $0 : nil }
     }
 
-    /// The new money recorded after the point before `point`, up to `point`.
-    private func flow(upTo point: ChartPoint) -> Decimal? {
+    /// What was saved after the point before `point`, up to `point`.
+    private func saved(upTo point: ChartPoint) -> Decimal? {
         let before = points.last(where: { $0.date < point.date })?.date ?? .distantPast
-        let amounts = flows.filter { $0.date.dateValue > before && $0.date.dateValue <= point.date }.map(\.amount)
+        let amounts = savedTicks.filter { $0.date.dateValue > before && $0.date.dateValue <= point.date }.map(\.amount)
         return amounts.isEmpty ? nil : amounts.reduce(0, +)
     }
 
@@ -174,11 +174,11 @@ struct AccountHistoryChart: View {
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(Palette.secondaryInk)
             }
-            if let flow = flow(upTo: point) {
+            if let saved = self.saved(upTo: point) {
                 HStack(spacing: 4) {
-                    Text("New money")
+                    Text("Saved")
                         .foregroundStyle(Palette.secondaryInk)
-                    DeltaText(flow, currency: currency, precision: .automatic, showsArrow: false)
+                    DeltaText(saved, currency: currency, precision: .automatic, showsArrow: false)
                 }
                 .font(.caption2)
             }
@@ -201,9 +201,9 @@ struct AccountHistoryChart: View {
         if missing > 0 {
             text += " \(missing == 1 ? "1 date" : "\(missing) dates") can't be valued and \(missing == 1 ? "is" : "are") left out."
         }
-        let ticks = shownFlows
+        let ticks = shownSavedTicks
         if !ticks.isEmpty {
-            text += " New money was recorded on \(ticks.count) \(ticks.count == 1 ? "date" : "dates")"
+            text += " Saved on \(ticks.count) \(ticks.count == 1 ? "date" : "dates")"
             if !hidesAmounts {
                 let total = ticks.reduce(Decimal(0)) { $0 + $1.amount }
                 text += ", \(AmountFormat.signedAmount(total, currency: currency)) in all"
@@ -223,7 +223,7 @@ struct AccountHistoryChart: View {
     let detail = AccountDetailData(account: library.accounts["directa"]!, library: library, valuator: valuator,
                                    today: PreviewLibrary.latestCheckIn, stalenessThreshold: 45)
     Card("Directa") {
-        AccountHistoryChart(points: detail.history, flows: detail.flows, currency: detail.currency)
+        AccountHistoryChart(points: detail.history, savedTicks: detail.savedTicks, currency: detail.currency)
     }
     .padding()
     .background(Palette.page)
@@ -242,13 +242,13 @@ struct AccountHistoryChart: View {
     ScrollView {
         VStack(spacing: Metrics.l) {
             Card("US brokerage (US$)") {
-                AccountHistoryChart(points: detail.history, flows: detail.flows, currency: detail.currency)
+                AccountHistoryChart(points: detail.history, savedTicks: detail.savedTicks, currency: detail.currency)
             }
             Card("A stretch that can't be valued") {
-                AccountHistoryChart(points: gappy, flows: detail.flows, currency: detail.currency)
+                AccountHistoryChart(points: gappy, savedTicks: detail.savedTicks, currency: detail.currency)
             }
             Card("Always zero") {
-                AccountHistoryChart(points: empty, flows: [], currency: detail.currency)
+                AccountHistoryChart(points: empty, savedTicks: [], currency: detail.currency)
             }
         }
         .padding()

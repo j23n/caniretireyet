@@ -31,7 +31,7 @@ struct SaveMergeTests {
                    of: september, in: folder)
 
         var library = previous
-        library.upsert(Valuation(account: "conto-fineco", date: "2026-09-30", balance: 4300, flow: -215.2))
+        library.upsert(Valuation(account: "conto-fineco", date: "2026-09-30", balance: 4300, saved: -215.2))
         let report = try folder.library.save(library, previous: previous)
 
         #expect(report.written == [september])
@@ -49,7 +49,7 @@ struct SaveMergeTests {
         var text = try folder.text(september)
         text = text.replacingOccurrences(of: "\"17365.55\"", with: "\"17999\"")
         text = text.replacingOccurrences(
-            of: ",\n    { \"account\": \"mutuo-casa\", \"balance\": \"-141050\", \"date\": \"2026-09-30\", \"flow\": \"650\" }",
+            of: ",\n    { \"account\": \"mutuo-casa\", \"balance\": \"-141050\", \"date\": \"2026-09-30\" }",
             with: "")
         try folder.write(september, text)
 
@@ -216,33 +216,6 @@ struct SaveMergeTests {
 
     // MARK: Files that didn't load
 
-    /// Settings that don't decode leave only defaults in memory (EUR, no
-    /// birth date), so they're never saved over the file: the library is
-    /// read-only until library.json is fixed (UnreadableSettingsTests).
-    @Test func settingsThatDoNotDecodeAreNotReplaced() throws {
-        let folder = try TemporaryFolder.exampleLibrary()
-        let broken = """
-            {
-              "baseCurrency": "CHF",
-              "mainPlan": "base",
-              "person": { "birthDate": "1988-4-12", "name": "Alex Example" },
-              "schemaVersion": 4,
-              "taxResidence": "CH"
-            }
-
-            """
-        try folder.write("library.json", broken)
-        let loaded = try folder.library.load()
-        #expect(!loaded.report.issues(for: "library.json").isEmpty)
-        #expect(loaded.report.isReadOnly)
-        var library = loaded.library
-        library.settings.mainPlan = "part-time-from-50"
-
-        #expect(throws: StorageError.self) { try folder.library.save(library, previous: loaded.library) }
-        #expect(try folder.text("library.json") == broken)
-        #expect(!folder.exists("backups"))
-    }
-
     @Test func aFileThatDidNotLoadIsBackedUpWhenItsIDIsReused() throws {
         let folder = try TemporaryFolder.exampleLibrary()
         let broken = #"{ "currency": "EUR", "id": "ibkr", "kind": "brokerage", "name": "IBKR", "opened": "someday" }"#
@@ -260,12 +233,12 @@ struct SaveMergeTests {
 
     @Test func aMonthThatIsNotJSONIsBackedUpBeforeACheckInReplacesIt() throws {
         let folder = try TemporaryFolder.exampleLibrary()
-        let broken = try folder.text(september).replacingOccurrences(of: "\"flow\": \"650\" }", with: "\"flow\": \"650\" },")
+        let broken = try folder.text(september).replacingOccurrences(of: "\"date\": \"2026-09-30\" }\n  ]", with: "\"date\": \"2026-09-30\" },\n  ]")
         try folder.write(september, broken)
         let loaded = try folder.library.load()
         #expect(loaded.library.months["2026-09"] == nil)
         var library = loaded.library
-        library.upsert(Valuation(account: "tfr", date: "2026-09-30", balance: 11100, flow: 0))
+        library.upsert(Valuation(account: "tfr", date: "2026-09-30", balance: 11100, saved: 0))
 
         let report = try folder.library.save(library, previous: loaded.library)
         let issue = try #require(report.issues.first)

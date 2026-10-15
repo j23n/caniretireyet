@@ -26,8 +26,8 @@ import SwiftUI
 ///   line. Side by side and as tall as each other; stacked at the largest
 ///   text sizes.
 struct OverviewHeader: View {
-    /// The main plan's answer (``PlanStore/mainHeadline``).
-    let headline: PlanHeadline
+    /// The main plan's latest answer (``PlanStore/mainAnswer``).
+    let headline: RetirementAnswer
     let plan: PlanDocument
     let netWorth: NetWorthGlance
     /// The day the Overview reports on.
@@ -36,6 +36,7 @@ struct OverviewHeader: View {
     @Environment(LibraryStore.self) private var library
     @Environment(PlanStore.self) private var plans
     @Environment(AppNavigation.self) private var navigation
+    @Environment(\.pageLayout) private var layout
     @Environment(\.locale) private var locale
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.redactionReasons) private var redactionReasons
@@ -50,7 +51,8 @@ struct OverviewHeader: View {
     private static let ringLineWidth: CGFloat = 12
 
     var body: some View {
-        let words = OverviewAnswerText(headline: headline, earliestDate: earliestDate, today: today, locale: locale)
+        let words = OverviewAnswerText(headline: headline, earliestDate: headline.earliestDate, today: today,
+                                       locale: locale)
         let dims = dimsAnswer
         VStack(alignment: .leading, spacing: tileSpacing) {
             answerTile(words, dims: dims)
@@ -64,7 +66,7 @@ struct OverviewHeader: View {
     /// the two under it; a tap anywhere but the ⓘ and *Calculate* opens
     /// the plan.
     private func answerTile(_ words: OverviewAnswerText, dims: Bool) -> some View {
-        OverviewTile {
+        FigureTile(surface: .raised) {
             titleRow(words)
             answerRow(words, dims: dims)
                 .padding(.top, Metrics.m)
@@ -81,6 +83,7 @@ struct OverviewHeader: View {
                     .padding(.top, Metrics.s)
             }
         }
+        .font(.subheadline)
         .onTapGesture {
             navigation.showPlan()
         }
@@ -277,7 +280,7 @@ struct OverviewHeader: View {
     /// Net worth today, with its changes ("▲ 4.210 € in September", "▲ 6,2%
     /// this year"), as the hero number has them.
     private var netWorthTile: some View {
-        OverviewTile {
+        FigureTile(surface: .raised) {
             Text("Net worth")
                 .foregroundStyle(Palette.secondaryInk)
             AmountText(netWorth.total, tabular: false, animatesChanges: true)
@@ -309,6 +312,7 @@ struct OverviewHeader: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
+        .font(.subheadline)
         .accessibilityElement(children: .combine)
     }
 
@@ -318,9 +322,9 @@ struct OverviewHeader: View {
     /// VoiceOver reads the standing without the amount.
     private func onTrackTile(_ onTrack: OverviewOnTrack, dims: Bool) -> some View {
         Button {
-            navigation.showPlanProgress()
+            navigation.showPlan(at: PlanRoute(part: .progress))
         } label: {
-            OverviewTile {
+            FigureTile(surface: .raised) {
                 HStack(alignment: .firstTextBaseline, spacing: Metrics.xs) {
                     Text("On track?")
                         .foregroundStyle(Palette.secondaryInk)
@@ -366,6 +370,7 @@ struct OverviewHeader: View {
                         .accessibilityLabel(OverviewOnTrack.spokenCoastLine(coast))
                 }
             }
+            .font(.subheadline)
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .combine)
@@ -394,7 +399,7 @@ struct OverviewHeader: View {
     // MARK: State
 
     /// The Mac and iPad.
-    private var isWide: Bool { navigation.layout == .sidebar }
+    private var isWide: Bool { layout.isWide }
 
     /// Between the tiles: 12 points on iPhone, 16 on the Mac and iPad.
     private var tileSpacing: CGFloat { isWide ? Metrics.l : Metrics.m }
@@ -411,44 +416,12 @@ struct OverviewHeader: View {
         headline.recordedOn == nil
             && (isStale || plans.isRunning(plan.id, .base) || plans.isRunning(plan.id, .checkIn))
     }
-
-    /// When the earliest age is reached; for an answer recorded at a
-    /// check-in, as the widgets have it (Glance's
-    /// `RetirementAnswer.earliestDate`); `nil` without a birth date.
-    private var earliestDate: CalendarDate? {
-        if let date = headline.earliestDate { return date }
-        guard let recorded = headline.recordedOn, let age = headline.earliestAge,
-              let birthDate = library.settings.person?.birthDate
-        else { return nil }
-        return RetirementAnswer.earliestDate(age: age, recordedOn: recorded, birthDate: birthDate)
-    }
-}
-
-/// One of the header's tiles: a card with 12 points of padding, filling
-/// the height its row gives it.
-private struct OverviewTile<Content: View>: View {
-    @ViewBuilder var content: Content
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            content
-        }
-        .font(.subheadline)
-        .padding(Metrics.m)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(Palette.card, in: RoundedRectangle(cornerRadius: Metrics.cardRadius, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: Metrics.cardRadius, style: .continuous)
-                .strokeBorder(Palette.border, lineWidth: 1)
-        }
-        .contentShape(RoundedRectangle(cornerRadius: Metrics.cardRadius, style: .continuous))
-    }
 }
 
 /// The header with a made-up answer for the example library's main plan,
 /// on the day of its latest check-in.
 private struct OverviewHeaderPreview: View {
-    var headline: PlanHeadline
+    var headline: RetirementAnswer
     @Environment(LibraryStore.self) private var library
 
     var body: some View {
@@ -465,37 +438,37 @@ private struct OverviewHeaderPreview: View {
 }
 
 #Preview("Not yet") {
-    OverviewHeaderPreview(headline: PlanHeadline(confidence: 0.9, earliestAge: 54, earliestDate: "2042-03-12",
+    OverviewHeaderPreview(headline: RetirementAnswer(confidence: 0.9, earliestAge: 54, earliestDate: "2042-03-12",
                                                  readiness: 0.5849))
         .previewEnvironment()
 }
 
 #Preview("Yes, lapping") {
-    OverviewHeaderPreview(headline: PlanHeadline(confidence: 0.9, earliestAge: 38, earliestDate: "2026-09-30",
-                                                 successToday: 0.93, readiness: 1.3))
+    OverviewHeaderPreview(headline: RetirementAnswer(confidence: 0.9, earliestAge: 38, earliestDate: "2026-09-30",
+                                                 successToday: 0.93, readiness: 1.3, canRetireNow: true))
         .previewEnvironment()
 }
 
 #Preview("Within two years") {
-    OverviewHeaderPreview(headline: PlanHeadline(confidence: 0.9, earliestAge: 40, earliestDate: "2028-03-31",
+    OverviewHeaderPreview(headline: RetirementAnswer(confidence: 0.9, earliestAge: 40, earliestDate: "2028-03-31",
                                                  readiness: 0.88))
         .previewEnvironment()
 }
 
 #Preview("No age, more than searched") {
-    OverviewHeaderPreview(headline: PlanHeadline(confidence: 0.9, needsMoreThanSearched: true))
+    OverviewHeaderPreview(headline: RetirementAnswer(confidence: 0.9, needsMoreThanSearched: true))
         .previewEnvironment()
 }
 
 #Preview("Hidden amounts") {
-    OverviewHeaderPreview(headline: PlanHeadline(confidence: 0.9, earliestAge: 54, earliestDate: "2042-03-12",
+    OverviewHeaderPreview(headline: RetirementAnswer(confidence: 0.9, earliestAge: 54, earliestDate: "2042-03-12",
                                                  readiness: 0.58, readinessIsLowerBound: true))
         .redacted(reason: .privacy)
         .previewEnvironment()
 }
 
 #Preview("Large text") {
-    OverviewHeaderPreview(headline: PlanHeadline(confidence: 0.9, earliestAge: 54, earliestDate: "2042-03-12",
+    OverviewHeaderPreview(headline: RetirementAnswer(confidence: 0.9, earliestAge: 54, earliestDate: "2042-03-12",
                                                  readiness: 0.5849))
         .dynamicTypeSize(.accessibility2)
         .previewEnvironment()

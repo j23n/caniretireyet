@@ -59,7 +59,6 @@ struct TextDecodingTests {
         #expect(throws: ImportError.binaryFile(.archive)) { try TextDecoding.decode(xlsx) }
         #expect(throws: ImportError.binaryFile(.archive)) { try TextDecoding.decode(xlsx, encoding: .utf8) }
         #expect(throws: ImportError.binaryFile(.archive)) { try ImportSession(data: xlsx) }
-        #expect(ImportError.binaryFile(.archive).description.contains("Export it as CSV"))
         let pdf = Data("%PDF-1.7\n%\u{E2}\u{E3}".utf8)
         #expect(throws: ImportError.binaryFile(.pdf)) { try ImportTable(data: pdf) }
         // An old .xls, or anything else with NUL bytes outside UTF-16.

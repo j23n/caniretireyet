@@ -1,5 +1,6 @@
 import Glance
 import Model
+import Planner
 import SwiftUI
 import Tracker
 
@@ -22,7 +23,7 @@ struct OverviewScreen: View {
     @Environment(AppNavigation.self) private var navigation
 
     // `overview.scope` and `overview.stacked`, stored by earlier versions, are no longer read.
-    @AppStorage("overview.range") private var range: OverviewRange = .threeYears
+    @AppStorage("overview.range") private var range: HistoryRange = .threeYears
     @AppStorage("overview.allocation") private var allocation: BreakdownDimension = .assetClass
 
     init() {}
@@ -48,11 +49,14 @@ struct OverviewScreen: View {
         let today = CalendarDate.today()
         let planStart = library.asOfDate
         let mainPlan = library.mainPlan
-        let results = mainPlan.flatMap { plans.results[$0.id] }
+        // The main plan's latest answer, and the results it comes from, which
+        // the projection draws (`LatestAnswer`).
+        let answer = mainPlan == nil ? nil : plans.mainAnswer
+        let results = answer?.results
         // With an answer, it leads, with net worth in a tile beside where you
         // stand; without one, net worth leads and the answer's card below says
         // what to do.
-        let headline = mainPlan == nil ? nil : plans.mainHeadline
+        let headline = answer?.answer
         let netWorth = NetWorthGlance(valuator: valuator, asOf: today)
         return ScrollView {
             VStack(alignment: .leading, spacing: Metrics.xl) {
@@ -191,7 +195,7 @@ private struct OverviewEmptyState: View {
 /// explanation, and the notes on missing or old prices.
 ///
 /// The past is net worth, through today. With *Future* on it's plan assets,
-/// still by asset class (``OverviewHistory``), through the latest check-in,
+/// still by asset class (``HistoryChartData``), through the latest check-in,
 /// where the projection starts: the projection is of what the plan counts,
 /// so the past's total meets it there. The projection reaches as far as the
 /// chosen horizon (``FutureHorizon``, remembered on the device).
@@ -208,7 +212,7 @@ private struct OverviewHistorySection: View {
     let results: PlanResults?
     let planID: PlanID?
     let planName: String?
-    @Binding var range: OverviewRange
+    @Binding var range: HistoryRange
     @Binding var showsFuture: Bool
     @Environment(AppPreferences.self) private var preferences
     @Environment(PlanStore.self) private var plans
@@ -217,16 +221,14 @@ private struct OverviewHistorySection: View {
     @State private var fillsPastPrices = false
 
     var body: some View {
-        // In the base currency, as the history is; a plan in another
-        // currency is converted at its start date's rate.
-        let projection = results?.portfolio(in: valuator.baseCurrency, valuator: valuator) ?? []
+        let projection = results?.portfolio ?? []
         let canShowFuture = planID != nil
         let future = showsFuture && !projection.isEmpty
         let now = planStart.dateValue
         let retirement = results?.retirementDate
         let planEnd = projection.last?.date ?? now
         let horizon = preferences.futureHorizon.effective(start: now, retirement: retirement)
-        let history = OverviewHistory(
+        let history = HistoryChartData(
             valuator: valuator, through: future ? planStart : today, range: range,
             projection: future ? projection : [], markers: future ? (results?.markers ?? []) : [],
             horizon: future ? horizon.end(start: now, retirement: retirement, planEnd: planEnd) : nil)
@@ -275,7 +277,7 @@ private struct OverviewHistorySection: View {
     /// it waits for *Try Again*, so a plan that can't run isn't retried on
     /// every visit.
     private func calculateForFuture() async {
-        guard showsFuture, let planID, plans.results[planID] == nil, !isCalculating(planID),
+        guard showsFuture, let planID, results == nil, !isCalculating(planID),
               plans.errors[planID] == nil else { return }
         await plans.run(planID)
     }

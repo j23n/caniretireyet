@@ -95,11 +95,12 @@ struct SyncScreen: View {
             }
 
             Section("Files with problems") {
-                if library.loadIssues.isEmpty {
+                let issues = library.issues
+                if issues.isEmpty {
                     Text("Every file was read without problems.")
                         .foregroundStyle(Palette.secondaryInk)
                 }
-                ForEach(Array(library.loadIssues.enumerated()), id: \.offset) { _, issue in
+                ForEach(Array(issues.enumerated()), id: \.offset) { _, issue in
                     Label {
                         VStack(alignment: .leading) {
                             Text(issue.path).font(.callout.monospaced())

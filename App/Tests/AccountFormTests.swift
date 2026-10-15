@@ -21,50 +21,20 @@ struct AccountFormTests {
     func aNewAccountOfAKindThatHoldsPositionsRecordsTrades(_ kind: AccountKind) {
         let form = newAccount(kind)
         #expect(form.valuationMode == .trades)
-        #expect(form.recordsTrades && form.holdsPositions)
+        #expect(form.recordsTrades)
         let account = form.account(id: "new-account", locale: locale)
         #expect(account.recordsTrades)
         // The kind's default: nothing to write.
         #expect(account.valuation == nil)
     }
 
-    @Test(arguments: [AccountKind.cash, .savings, .pensionFund, .property, .mortgage])
-    func otherNewAccountsRecordABalance(_ kind: AccountKind) {
-        let form = newAccount(kind)
-        #expect(form.valuationMode == .balance)
-        #expect(!form.holdsPositions)
-    }
-
-    @Test func aNewBrokeragesPositionsBecomeOpeningTrades() throws {
-        let account = newAccount(.brokerage).account(id: "new-account", locale: locale)
-        var opening = AccountOpeningForm()
-        opening.cash = "250"
-        opening.addPosition("vwce")
-        opening[position: 0].quantity = "10"
-        opening[position: 0].cost = "1000"
-        #expect(opening.problems(holdsPositions: true, locale: locale).isEmpty)
-
-        let trades = opening.openingTrades(for: account, locale: locale)
-        #expect(trades.count == 1)
-        #expect(trades.first?.type == .opening)
-        #expect(trades.first?.quantity == 10)
-        #expect(trades.first?.cost == 1_000)
-
-        let valuation = try #require(opening.valuation(for: account, in: PreviewLibrary.library, locale: locale))
-        #expect(valuation.cash == 250)
-        #expect(valuation.positions.isEmpty)
-        #expect(valuation.balance == nil)
-    }
-
-    /// An edited account keeps its own mode, also one written before
-    /// format version 4.
+    /// An edited account keeps its own mode when its kind changes.
     @Test func anEditedAccountKeepsItsMode() {
-        var account = Account(id: "old", name: "Old", kind: .brokerage, currency: .eur, opened: "2020-01-01")
-        account.valuation = .holdings
+        let account = Account(id: "old", name: "Old", kind: .brokerage, currency: .eur, opened: "2020-01-01")
         var form = AccountForm(editing: account)
-        #expect(form.valuationMode == .holdings)
+        #expect(form.valuationMode == .trades)
         form.setKind(.cash)
-        #expect(form.valuationMode == .holdings)
+        #expect(form.valuationMode == .trades)
     }
 
     /// Belongings ask for their loss of value a year, in per cent.

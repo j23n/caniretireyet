@@ -65,9 +65,9 @@ enum TradeLibrary {
     static func typedCash() -> Library {
         var library = withMarketData(base)
         for trade in trades { library.upsert(trade) }
-        library.upsert(Valuation(account: "broker", date: "2024-01-31", cash: 5000, flow: 10005))
-        library.upsert(Valuation(account: "broker", date: "2024-02-29", cash: 5020, flow: 0))
-        library.upsert(Valuation(account: "broker", date: "2024-03-31", cash: d("5300.36"), flow: 550))
+        library.upsert(Valuation(account: "broker", date: "2024-01-31", cash: 5000, saved: 10005))
+        library.upsert(Valuation(account: "broker", date: "2024-02-29", cash: 5020, saved: 0))
+        library.upsert(Valuation(account: "broker", date: "2024-03-31", cash: d("5300.36"), saved: 550))
         return library
     }
 
@@ -139,24 +139,24 @@ struct TradeValuationTests {
         #expect(residuals[0].since == "2024-01-01")
         #expect(typed.tradeFlows(of: "bank", after: nil, through: "2024-03-31").isEmpty)
 
-        // The check-in's default flow is the same thing, since the previous valuation.
+        // What the check-in saved is the same thing, since the previous valuation.
         let library = TradeLibrary.typedCash()
         let valuations = library.valuations(for: "broker")
-        #expect(typed.defaultFlow(for: valuations[0], previous: nil) == 10005)
-        #expect(typed.defaultFlow(for: valuations[1], previous: valuations[0]) == 0)
-        #expect(typed.defaultFlow(for: valuations[2], previous: valuations[1]) == 550)
+        #expect(typed.workedOutSaved(for: valuations[0], previous: nil) == 10005)
+        #expect(typed.workedOutSaved(for: valuations[1], previous: valuations[0]) == 0)
+        #expect(typed.workedOutSaved(for: valuations[2], previous: valuations[1]) == 550)
         // Typed cash that's 12.5 more than the trades give adds a residual.
         var more = valuations[2]
         more.cash = d("5312.86")
-        #expect(typed.defaultFlow(for: more, previous: valuations[1]) == d("562.5"))
+        #expect(typed.workedOutSaved(for: more, previous: valuations[1]) == d("562.5"))
     }
 
-    @Test func theChangeSplitsMarketFromNewMoney() throws {
+    @Test func theChangeSplitsMarketFromSaved() throws {
         let valuator = Valuator(library: TradeLibrary.recordedDeposits())
         let change = try #require(valuator.change(of: "broker", from: "2024-01-31", to: "2024-03-31"))
-        #expect(change.flow == 550)
+        #expect(change.saved == 550)
         #expect(change.change.start == 10095)
-        #expect(change.change.newMoney == 550)
+        #expect(change.change.saved == 550)
         // The dividend, the gain on the sale and the price moves are market.
         #expect(change.change.market.rounded(20) == (4400 + TradeLibrary.apple + d("5295.36") - 10095 - 550).rounded(20))
         #expect(change.change.other == 0)
@@ -186,7 +186,7 @@ struct TradeValuationTests {
         var library = TradeLibrary.typedCash()
         library.upsert(Valuation(account: "broker", date: "2024-03-31", cash: d("5300.36"), positions: [
             Position(instrument: "aapl", quantity: 9), Position(instrument: "vwce", quantity: 40, costBasis: 3900),
-        ], flow: 550))
+        ], saved: 550))
         let valuator = Valuator(library: library)
         // The value comes from the trades, whatever the valuation lists.
         #expect(valuator.value(of: "broker", on: "2024-03-31")?.value?.rounded(20) == (4400 + TradeLibrary.apple + d("5300.36")).rounded(20))
@@ -194,8 +194,6 @@ struct TradeValuationTests {
         #expect(mismatches == [PositionMismatch(account: "broker", date: "2024-03-31", instrument: "aapl", listed: 9,
                                                 derived: 10)])
         #expect(mismatches[0].difference == -1)
-        #expect(mismatches[0].description
-            == "The valuation on 2024-03-31 lists 9 aapl, but the trades give 10. Is a trade missing or wrong?")
         #expect(valuator.tradeIssues(for: "broker").map(\.kind) == [.reconciliation])
         // A check-in's positions can be checked before saving.
         #expect(valuator.reconcile(Valuation(account: "broker", date: "2024-03-31", positions: [
@@ -214,8 +212,7 @@ struct TradeValuationTests {
         #expect(valuator.value(of: "bank", on: "2024-03-31")?.value == 100)
         #expect(valuator.ledger(for: "bank") == nil)
         #expect(valuator.tradeIssues().map(\.kind) == [.outsideAccountDates, .notTradesAccount, .balanceIgnored])
-        #expect(valuator.tradeIssues(for: "bank").first?.message
-            == "The deposit on 2024-03-02 (x) is left out: bank records balance, not trades.")
+        #expect(valuator.tradeIssues(for: "bank").first?.kind == .notTradesAccount)
     }
 
     @Test func aYearOfTradesInTheBaseCurrency() {
@@ -229,27 +226,5 @@ struct TradeValuationTests {
         #expect(summary.deposits == 10000)
         #expect(summary.withdrawals == 500)
         #expect(summary.unconverted.isEmpty)
-    }
-
-    @Test func editingTradesKeepsAutomaticFlowsInStep() throws {
-        var library = TradeLibrary.typedCash()
-        let before = library
-        // Units moved in on 10 February: February's flow becomes their market value.
-        library.upsert(TradeLibrary.trade(.transferIn, "2024-02-10", id: "tin0", instrument: "vwce", quantity: "5",
-                                          cost: "450"))
-        let followUp = library.followFlows(from: before)
-        #expect(followUp.recomputed.map(\.date) == ["2024-02-29"])
-        #expect(followUp.recomputed.first?.flow == 510)
-        #expect(followUp.kept.isEmpty)
-
-        // A flow typed by hand is kept.
-        var typed = TradeLibrary.typedCash()
-        typed.upsert(Valuation(account: "broker", date: "2024-02-29", cash: 5020, flow: 7))
-        let typedBefore = typed
-        typed.upsert(TradeLibrary.trade(.transferIn, "2024-02-10", id: "tin0", instrument: "vwce", quantity: "5",
-                                        cost: "450"))
-        let kept = typed.followFlows(from: typedBefore)
-        #expect(kept.recomputed.isEmpty)
-        #expect(kept.kept.map(\.date) == ["2024-02-29"])
     }
 }

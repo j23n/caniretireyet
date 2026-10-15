@@ -61,12 +61,10 @@ struct InstrumentForm: Hashable, Sendable {
         unit = kind.usualUnit?.rawValue ?? (ticker.isEmpty ? "BTC" : ticker.uppercased())
         assetMix = AccountsAssetMixForm(.single(assetClass))
         switch kind {
-        case .crypto:
-            provider = .coingecko
         case .metal:
             provider = .goldAPI
             if symbol.isEmpty, assetClass == .gold { symbol = "XAU" }
-        case .bond, .etf, .stock:
+        case .bond, .crypto, .etf, .stock:
             provider = .yahoo
         default:
             provider = nil
@@ -103,28 +101,31 @@ struct InstrumentForm: Hashable, Sendable {
             priceSource: provider.flatMap { trimmedSymbol.isEmpty ? nil : PriceSource(provider: $0, symbol: trimmedSymbol) })
     }
 
-    /// A symbol to suggest for the price source: the ticker for Yahoo, the
-    /// name for CoinGecko, `XAU` for gold.
+    /// A symbol to suggest for the price source: the ticker for Yahoo, and
+    /// for crypto the coin's ticker (or unit) in the instrument's currency
+    /// (`BTC-EUR`), `XAU` for gold.
     var suggestedSymbol: String {
         guard let provider else { return "" }
         switch provider {
+        case .yahoo where kind == .crypto:
+            let coin = (ticker.isEmpty ? unit : ticker).trimmingCharacters(in: .whitespaces).uppercased()
+            return coin.isEmpty ? "" : "\(coin)-\(currency)"
         case .yahoo, .eodhd, .twelveData: return ticker.trimmingCharacters(in: .whitespaces)
-        case .coingecko: return trimmedName.isEmpty ? "" : Slug.make(from: trimmedName)
         case .goldAPI: return "XAU"
         default: return ""
         }
     }
 
     /// The symbol field's placeholder: the suggested symbol, or an example
-    /// for the price source ("Yahoo ticker, e.g. VWCE.DE", "e.g. ETH or
-    /// ethereum", "XAU or XAG").
+    /// for the price source ("Yahoo ticker, e.g. VWCE.DE", "e.g. BTC-EUR",
+    /// "XAU or XAG").
     var symbolPrompt: String {
         let suggested = suggestedSymbol
         guard suggested.isEmpty else { return suggested }
         guard let provider else { return "" }
         switch provider {
+        case .yahoo where kind == .crypto: return "e.g. BTC-EUR"
         case .yahoo: return "Yahoo ticker, e.g. VWCE.DE"
-        case .coingecko: return "e.g. ETH or ethereum"
         case .goldAPI: return "XAU or XAG"
         default: return "e.g. VWCE.DE"
         }
@@ -135,8 +136,9 @@ struct InstrumentForm: Hashable, Sendable {
     var symbolHint: String? {
         guard let provider else { return nil }
         switch provider {
+        case .yahoo where kind == .crypto:
+            return "The symbol is the coin's ticker and the currency, as Yahoo Finance lists the pair, e.g. BTC-EUR."
         case .yahoo: return "The symbol is the Yahoo Finance ticker with its exchange, e.g. VWCE.DE (Xetra)."
-        case .coingecko: return "The symbol is the coin's ticker or its CoinGecko ID, e.g. ETH or ethereum."
         case .goldAPI: return "XAU is gold, XAG silver."
         default: return nil
         }
@@ -214,7 +216,6 @@ struct InstrumentForm: Hashable, Sendable {
     static func name(of provider: PriceProvider) -> String {
         switch provider {
         case .yahoo: "Yahoo Finance (unofficial)"
-        case .coingecko: "CoinGecko"
         case .goldAPI: "gold-api.com"
         case .eodhd: "EODHD"
         case .twelveData: "Twelve Data"
@@ -233,19 +234,16 @@ struct InstrumentForm: Hashable, Sendable {
     }
 
     /// The outcome of a *Test price fetch*, as a sentence.
-    static func describe(_ entry: PriceListEntry, canFetch: Bool, locale: Locale = .current) -> String {
-        switch entry.outcome {
-        case .fetched(let details):
-            guard let quote = details.quote else { return "Fetched a price." }
-            var text = "Fetched " + QuantityFormat.unitPrice(quote.price, currency: quote.currency, locale: locale)
-            if let unit = quote.unit { text += " per \(name(of: unit))" }
-            text += " for \(AmountFormat.shortDate(quote.observedOn, locale: locale))."
-            return text
-        case .manual:
+    static func describe(_ result: PriceResult, canFetch: Bool, locale: Locale = .current) -> String {
+        if result.status == .manual {
             return canFetch ? "There's no price source: prices are typed in by hand at each check-in."
                 : "Fetching is off here (previews). In the app this fetches today's price."
-        case .failed(let error):
-            return error.description
         }
+        if let reason = result.failureReason { return reason }
+        guard let date = result.needed.last, let quote = result.quotes[date] else { return "Fetched a price." }
+        var text = "Fetched " + QuantityFormat.unitPrice(quote.price, currency: quote.currency, locale: locale)
+        if let unit = quote.unit { text += " per \(name(of: unit))" }
+        text += " for \(AmountFormat.shortDate(quote.observedOn, locale: locale))."
+        return text
     }
 }

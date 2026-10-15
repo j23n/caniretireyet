@@ -105,7 +105,6 @@ struct ImportDoneStep: View {
                      receipt.kept)
             countRow("Already in the library", receipt.identical)
             countRow("Left out", receipt.skipped)
-            countRow("Later new money worked out again", receipt.recomputedFlows)
             countRow("Of them, trades", receipt.trades)
             namesRow("New accounts", receipt.createdAccounts)
             namesRow("New instruments", receipt.createdInstruments)
@@ -175,7 +174,7 @@ struct ImportDoneStep: View {
             Text("Past prices")
         } footer: {
             Text("These values are counted at an older price, or none, because the file has no price for their "
-                + "dates. Fill In Past Prices fetches them from Yahoo Finance, CoinGecko and the ECB, and replaces "
+                + "dates. Fill In Past Prices fetches them from Yahoo Finance and the ECB, and replaces "
                 + "nothing already saved.")
         }
     }

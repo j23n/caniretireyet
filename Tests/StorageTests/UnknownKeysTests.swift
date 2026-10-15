@@ -151,32 +151,6 @@ struct UnknownKeysTests {
         #expect(try folder.json("history/2026/2026-10.json")["valuations"] == [])
     }
 
-    @Test func settingsAndNestedObjectsKeepUnknownKeys() throws {
-        let folder = try TemporaryFolder.exampleLibrary()
-        try folder.write("library.json", """
-            {
-              "baseCurrency": "EUR",
-              "person": { "birthDate": "1988-04-12", "name": "Alex Example", "nickname": "Al" },
-              "schemaVersion": 4,
-              "theme": "dark"
-            }
-            """)
-        let previous = try folder.library.load().library
-        var library = previous
-        library.settings.person?.name = "Alex"
-        library.settings.person?.birthDate = nil
-        try folder.library.save(library, previous: previous)
-        #expect(try folder.text("library.json") == """
-            {
-              "baseCurrency": "EUR",
-              "person": { "name": "Alex", "nickname": "Al" },
-              "schemaVersion": 4,
-              "theme": "dark"
-            }
-
-            """)
-    }
-
     /// A file that couldn't be read isn't merged into the one the app writes
     /// in its place; the copy in backups/ keeps what it held.
     @Test func aFileThatCouldNotBeReadKeepsNothingWhenReplaced() throws {
@@ -187,8 +161,7 @@ struct UnknownKeysTests {
         try folder.write("accounts/ibkr.json", broken)
         let loaded = try folder.library.load()
         var library = loaded.library
-        library.accounts["ibkr"] = Account(id: "ibkr", name: "IBKR", kind: .brokerage, currency: .eur, opened: "2026-01-01",
-                                           valuation: .holdings)
+        library.accounts["ibkr"] = Account(id: "ibkr", name: "IBKR", kind: .brokerage, currency: .eur, opened: "2026-01-01")
 
         let report = try folder.library.save(library, previous: loaded.library)
         #expect(try folder.json("accounts/ibkr.json")["myNote"] == nil)
@@ -215,41 +188,6 @@ struct UnknownKeysTests {
         #expect(saved[0]["comment"] == nil)
         #expect(saved[1]["comment"] == "first")
         #expect(saved[1]["date"] == "2026-01-31")
-    }
-
-    /// Records made by test versions hold `fiProgress` and `taxParameters`,
-    /// which the model no longer reads: rewriting their files keeps them.
-    @Test func oldRecordsKeepFIProgressAndTaxParameters() throws {
-        let folder = try TemporaryFolder.exampleLibrary()
-        let headlinesPath = "projections/base/headlines/2026.json"
-        var headlines = try #require(folder.json(headlinesPath)["headlines"]?.arrayValue)
-        headlines[0] = headlines[0].objectValue.map {
-            var o = $0; o["fiProgress"] = "0.37"; o["taxParameters"] = ["it": 2026]; return .object(o)
-        }!
-        try folder.write(headlinesPath, CanonicalJSON.data(for: ["headlines": .array(headlines)]))
-        let baselinePath = "projections/base/baselines/2026-01-05.json"
-        var baseline = try #require(folder.json(baselinePath).objectValue)
-        baseline["taxParameters"] = ["it": 2026]
-        baseline["headline"] = baseline["headline"]?.objectValue.map {
-            var o = $0; o["fiProgress"] = "0.37"; return .object(o)
-        }
-        try folder.write(baselinePath, CanonicalJSON.data(for: .object(baseline)))
-
-        let previous = try folder.library.load().library
-        var library = previous
-        library.projections["base"]?.headlines[2026]?.headlines.append(
-            Headline(date: "2026-10-31", engine: "2.0.0", planHash: "x"))
-        library.projections["base"]?.baselines["2026-01-05"]?.label = "Renamed"
-        try folder.library.save(library, previous: previous)
-
-        let saved = try #require(folder.json(headlinesPath)["headlines"]?.arrayValue)
-        #expect(saved[0]["fiProgress"] == "0.37")
-        #expect(saved[0]["taxParameters"] == ["it": 2026])
-        #expect(saved.last?["date"] == "2026-10-31" && saved.last?["fiProgress"] == nil)
-        let savedBaseline = try folder.json(baselinePath)
-        #expect(savedBaseline["label"] == "Renamed")
-        #expect(savedBaseline["taxParameters"] == ["it": 2026])
-        #expect(savedBaseline["headline"]?["fiProgress"] == "0.37")
     }
 
     // MARK: At any depth

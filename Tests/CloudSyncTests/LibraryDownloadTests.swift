@@ -205,14 +205,13 @@ struct LibraryDownloadTests {
         #expect(scanned["library.json"] == true)
     }
 
+    #if canImport(Darwin)
     @MainActor
     @Test func thereIsNothingToDownloadOutsideICloud() throws {
         let folder = try TemporaryFolder()
         #expect(LibraryLocation(kind: .local, url: folder.url).makeDownloader() == nil)
-        #if !canImport(Darwin)
-        #expect(LibraryLocation(kind: .iCloud, url: folder.url).makeDownloader() == nil)
-        #endif
     }
+    #endif
 
     @MainActor
     @Test func aPlaceholderOfLibraryJSONCountsAsALibrary() async throws {

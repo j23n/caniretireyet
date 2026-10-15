@@ -31,6 +31,41 @@ struct Card<Header: View, Content: View>: View {
     }
 }
 
+/// A figure's tile: a title over a figure on a small surface. Inside a
+/// card it's in the page's colour (`.inset`); on the page it's a card of
+/// its own (`.raised`).
+///
+///     FigureTile { Text("To go"); Text(amount) }
+///     FigureTile(surface: .raised) { … }
+struct FigureTile<Content: View>: View {
+    enum Surface { case inset, raised }
+
+    var surface: Surface = .inset
+    /// Whether it fills the width and height its row gives it; else it's
+    /// as wide as its content, at least 110 points.
+    var fills = true
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: surface == .raised ? Metrics.cardRadius : Metrics.tileRadius,
+                                     style: .continuous)
+        VStack(alignment: .leading, spacing: 2) {
+            content
+        }
+        .padding(.horizontal, Metrics.m)
+        .padding(.vertical, 10)
+        .frame(minWidth: fills ? nil : 110, maxWidth: fills ? .infinity : nil, maxHeight: fills ? .infinity : nil,
+               alignment: .topLeading)
+        .background(surface == .raised ? Palette.card : Palette.page, in: shape)
+        .overlay {
+            if surface == .raised {
+                shape.strokeBorder(Palette.border, lineWidth: 1)
+            }
+        }
+        .contentShape(shape)
+    }
+}
+
 extension Card where Header == SectionHeader<EmptyView> {
     /// A card with a title.
     init(_ title: String, systemImage: String? = nil, @ViewBuilder content: () -> Content) {
@@ -90,7 +125,7 @@ extension SectionHeader where Accessory == EmptyView {
     ScrollView {
         VStack(spacing: Metrics.l) {
             Card("Since last check-in", systemImage: "arrow.left.arrow.right") {
-                Text("Markets, new money and other.")
+                Text("Markets, saved and other.")
             }
             Card {
                 Text("A card without a title.")

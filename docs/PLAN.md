@@ -22,7 +22,7 @@ All data lives in a folder of plain JSON files in iCloud Drive. The apps on your
 
 - **Files are the source of truth.** The data outlives the app. You can read it, back it up, put it in git, or edit it by hand.
 - **Offline-first and private.** There is no server, no analytics and no third-party SDKs. Only instrument symbols ever leave the device, when prices are fetched, and an instrument's ISIN, ticker or name when you search for its symbol. (Debug builds can also send feedback you write, with a screenshot whose amounts, names, dates and notes are hidden, to the developer's private GitHub inbox; release builds can't: [App/README.md](../App/README.md#feedback).)
-- **The monthly check-in should take under five minutes.** Values are pre-filled, prices are fetched for you, and you only change what moved.
+- **The monthly check-in should take under five minutes.** You import the month's files, prices are fetched for you, and nothing is typed in.
 - **History is never lost.** Closing an account removes it from today's totals and from check-ins, but not from the charts.
 - **Plans start from real data.** The planner's starting portfolio is your latest check-in, not a number you type in.
 - **Honest numbers.** Results show ranges and a confidence level, and every assumption is visible and editable. They are estimates, not tax advice.
@@ -37,16 +37,16 @@ All data lives in a folder of plain JSON files in iCloud Drive. The apps on your
 - Holdings: ETFs and stocks, crypto, and precious metals are recorded as quantity × price. Cash, pension funds, TFR, property and debts are recorded as a balance.
 - Multiple currencies, with one base currency for the library (the euro in the example library), which plans run in. Every check-in stores the prices and FX rates it used.
 - Monthly check-in:
-  - pre-filled from the previous check-in;
+  - the month's files imported: bank statements, broker exports, spreadsheets;
   - prices and FX rates fetched automatically where possible;
-  - every value editable.
+  - a read-only look at what changed, then save.
 - Overview:
   - net worth over time;
   - breakdowns by category, asset class, currency and institution;
-  - the change since the last check-in, split into market movement and new money;
+  - the change since the last check-in, split into market movement and saved;
   - accounts that haven't been updated recently.
 - Import from any spreadsheet or CSV export: you map the columns, the importer handles the file's date and number formats, and the mapping can be saved and reused ([IMPORT.md](IMPORT.md)).
-- Money in and out of each account (the *flow*), recorded at every check-in with sensible defaults. Savings and returns can then be measured later ([PROGRESS.md](PROGRESS.md)).
+- What was saved into each account, recorded from the imported files or worked out from its records. Savings and returns can then be measured later ([PROGRESS.md](PROGRESS.md)).
 - Sync between iPhone and Mac through iCloud Drive.
 
 **Planner**
@@ -78,7 +78,7 @@ These are listed as M3 and M4 in §6: explaining the gap to a baseline, the RW/I
 
 ### Non-goals
 
-- Connecting to banks or brokers (PSD2 and similar). Manual monthly check-ins are a deliberate design choice, not a gap.
+- Connecting to banks or brokers (PSD2 and similar). Monthly check-ins from files you download are a deliberate design choice, not a gap.
 - Budgeting or categorising expenses.
 - Investment advice or tax filing.
 - Android, Windows or web versions.
@@ -90,7 +90,7 @@ These are listed as M3 and M4 in §6: explaining the gap to a baseline, the RW/I
 | Platform | One SwiftUI app target for iPhone, iPad and Mac. Minimum iOS 26 and macOS 26. | One codebase with a native feel on both platforms and first-class iCloud Drive APIs. A personal app doesn't need to support old OS versions. |
 | Source of truth | A folder of small JSON files, called "the library". | Human-readable, diffable and easy to back up. The data is tiny (thousands of records), so no database is needed. |
 | Sync | iCloud Drive, in the app's own iCloud container. It shows up as a "Can I Retire Yet" folder in Files and Finder. | No server, it works offline, and the files stay visible and editable. |
-| History model | Point-in-time valuations (balances and quantities) by default. An investment account can opt in to trades (`"valuation": "trades"`): its holdings, average cost, cash and realised gains are worked out from buys, sells, deposits and the like, and its check-ins record only cash ([TRADES.md](TRADES.md)). | Valuations match the monthly workflow, and closing an account never touches its history. Trades give an exact purchase cost (*costo medio ponderato*), realised gains, dividends and exact flows for a broker account, which the tax on sales needs. Both styles work for a trades account: record every deposit, or type the cash at each check-in. |
+| History model | Point-in-time valuations (balances and quantities) by default. An investment account can opt in to trades (`"valuation": "trades"`): its holdings, average cost, cash and realised gains are worked out from buys, sells, deposits and the like, and its imports record the trades and the cash a broker statement shows ([TRADES.md](TRADES.md)). | Valuations match the monthly workflow, and closing an account never touches its history. Trades give an exact purchase cost (*costo medio ponderato*), realised gains, dividends and exact flows for a broker account, which the tax on sales needs. Both styles work for a trades account: record every deposit, or import the cash from statements. |
 | Money | `Decimal` for every recorded amount, stored as strings in JSON. | No floating-point rounding errors in the tracker. |
 | Currencies | Each account has its own currency; the base currency is EUR. Each check-in stores the prices and FX rates it used. | Past net worth can always be recomputed, even if a price source goes away. |
 | Planner | Yearly steps in today's money, in the base currency, deterministic plus Monte Carlo, with a seeded random-number generator. | This approach is standard and easy to explain. It is also fast enough to recompute live while you drag a slider. |
@@ -158,7 +158,7 @@ Only `CloudSync` and the app need Apple frameworks.
 
 How the app treats the files when two copies differ. History and headline files merge **record by record**, matched by their keys: account + date (valuations), account + date + trade ID (trades), instrument + date (prices), currency pair + date (FX rates), index + date (inflation values), and check-in date (headlines). Other files are taken whole.
 
-- **Sync conflicts.** When two devices change the same file before it syncs, iCloud keeps both versions, and the app merges them. History and headline files: every record from every version, and where versions disagree about a record, the most recently modified version wins. Other files: the most recently modified version wins. Versions modified at the same moment are ordered by their contents, so both devices resolve a conflict the same way; within one version, the later of two records with the same key counts, as when loading. Everything else in a merged history or headline file (its unknown keys, for example) comes from the newest version, and the result is written in the canonical layout. A version that isn't valid JSON is left out. Before the merge replaces the file and iCloud's other versions are removed, each version that differs from the result is copied to its own `backups/<timestamp>-conflict/`, so nothing a merge drops is lost; merges are listed on the Sync screen. (A three-way merge against the last-synced copy, which would also merge deletions, is for later.)
+- **Sync conflicts.** When two devices change the same file before it syncs, iCloud keeps both versions, and the app merges them. History and headline files: every record from every version, and where versions disagree about a record, the most recently modified version wins; this is the record-by-record merge a save uses, with no common version. Other files: the most recently modified version wins. Versions modified at the same moment are ordered by their contents, so both devices resolve a conflict the same way; each version is read as loading reads it, so within one version the later of two records with the same key counts. What the app doesn't know in a merged history or headline file (unknown keys, records it can't read) is kept from each version, the newest first, and the result is written in the canonical layout; when the newest version already holds every record, it's kept as it is. A version that isn't valid JSON is left out. Before the merge replaces the file and iCloud's other versions are removed, each version that differs from the result is copied to its own `backups/<timestamp>-conflict/`, so nothing a merge drops is lost; merges are listed on the Sync screen. (A three-way merge against the last-synced copy, which would also merge deletions, is for later.)
 - **Saving over a file changed on disk.** The app writes only the files an edit changed, and each write compares the file on disk with the version the app last read, so a change it hasn't seen yet (the other device's, or one made in a text editor) is never lost. History and headline files: a three-way merge record by record, with the version the app read as the common base. A record changed only on disk keeps the disk's version; one changed only in the app gets the app's; one changed on both sides gets the app's version, unless the app deleted it, when the changed record is kept. Records added on disk, keys the app doesn't know, and records it can't read are kept; when records changed on both sides, the file is first copied to `backups/<timestamp>-conflict/`. Other files: the app's version is written, after the file on disk is copied to `backups/<timestamp>-conflict/`; a file the app deletes is kept instead. Reading, merging and writing a file is one coordinated operation, so a version iCloud Drive delivers meanwhile is merged as well; the Sync screen lists what happened, and the app reloads the merged file.
 - **Unreadable files.** A file that couldn't be read when the library loaded is copied to `backups/<timestamp>-unreadable/` before the app replaces or deletes it; unless it's a history or headline file, the app's version doesn't keep its unknown keys, which the copy has. `library.json` is never replaced: the settings the app would write are only defaults ([schema/README.md](schema/README.md#reading-hand-edited-files)).
 - **Backups.** `backups/<yyyy-MM-dd-HHmmss>-<label>/` (in the device's local time), with the label `import`, `undo-import` (the files as they were before an undo), `fill-history` (*Fill In Past Prices*), `delete-account`, `delete-baseline`, `prices` or `settings` (the CLI), `restore` (the files as they were before a backup was restored over them), `conflict` or `unreadable`, and `backups/<yyyy-MM-dd>-v<old>/` for a migration; a second backup with the same name gets `-2`, `-3`, …. Each mirrors the library's layout, with a `backup.json` ([backup.schema.json](schema/backup.schema.json)). After an edit that backs up the files it changes (all of these but `undo-import`, `restore`, `conflict`, `unreadable` and a migration), the files as the edit wrote them are copied to the backup's `result/`.
@@ -172,7 +172,7 @@ The iPhone uses a tab bar and the Mac uses a sidebar. The iPad gets the sidebar 
   - the main plan's answer to *Can I retire yet?*, first when there is one: the time to go as a headline, with a ring for how close you are to retiring today;
   - net worth today, in a tile under the answer when there is one;
   - a chart over time, stacked by category;
-  - the change since the last check-in, split into market and new money;
+  - the change since the last check-in, split into market and saved;
   - the change this year, split the same way, with the savings rate when money in and out are recorded;
   - breakdowns;
   - accounts that haven't been updated recently;
@@ -182,41 +182,40 @@ The iPhone uses a tab bar and the Mac uses a sidebar. The iPad gets the sidebar 
 - **Accounts.** A grouped list, with closed accounts in a collapsed section. The account detail shows a value chart, the list of valuations, and actions to edit, close or reopen.
 - **Check-in.** The main action. The steps are:
   1. Choose the date (default: today).
-  2. Review prices and FX rates. They're fetched for you and can be edited.
-  3. Update the accounts, pre-filled with last time's values. "Unchanged" is one tap.
-  4. Review the new total and the changes.
-  5. Save.
+  2. Import the month's files. Each import is written with its own backup.
+  3. Look at the new total, the changes, and the accounts no file covered. Prices and FX rates are fetched for you; nothing is typed in.
+  4. Save.
 - **Plan.** Three parts:
   - *Plan*: the answer, then your life as a strip of chapters (working, retired before the pensions, with them), each with the money running through it and where it stands at its end, and the chosen chapter in words, with its settings, where the plan changes; the charts behind the answer fold away;
   - *Progress*: whether you're on track, then year by year your money against what January expected and how the answer moved, and your actual numbers against baselines.
-  - *Trends*: how you've actually been doing over the whole history, from your own records: the savings rate, money in and out, what you put in against what markets added, how the earliest age moved, and each year graded in words against what its baseline planned.
+  - *Trends*: how you've actually been doing over the whole history, from your own records: the savings rate, money in and out, what you saved against what markets added, how the earliest age moved, and each year graded in words against what its baseline planned.
 
   What-ifs are a sheet on iPhone and the inspector on the Mac. Plans can be duplicated as what-if scenarios. The screens are designed in [UI.md](UI.md).
 - **Settings.** Library location, price sources, a monthly reminder, app lock, and a description of the file format.
 
-On the Mac there are also tables for editing many valuations at once, keyboard navigation through the check-in, and "Show library in Finder".
+On the Mac there are also tables of values and trades, and "Show library in Finder".
 
 ### Prices and FX
 
 - Every price can be typed in by hand. Automatic fetching is opt-in per instrument.
 - **FX:** ECB reference rates through Frankfurter, which is free and needs no key.
-- **Crypto:** CoinGecko, or an exchange's public ticker. The symbol is the coin's CoinGecko ID or its ticker (`ETH`), which is resolved to an ID through a built-in table of well-known coins or CoinGecko's search. An optional demo API key, kept in the Keychain, raises its rate limit. CoinGecko's free API only has the last 365 days; older prices come from Yahoo Finance's crypto pairs (below).
+- **Crypto:** Yahoo Finance's crypto pairs, `<TICKER>-<CURRENCY>` (`BTC-EUR`, `ETH-USD`), with a value for every calendar day. No key is needed. An instrument whose price source names a provider the app doesn't fetch from (`coingecko`, which earlier versions used for crypto, `eodhd`, `twelvedata`) keeps it in its file and has its prices typed in until it's given another source.
 - **Gold and silver:** a free spot-price API (gold-api.com, USD per troy ounce, converted to the instrument's currency and unit), or the market price of a physical-gold ETC as a proxy. gold-api.com only has today's spot price, so past prices come from the metal's front-month futures on Yahoo Finance: `GC=F` for gold (`XAU`), `SI=F` for silver, `PL=F` for platinum and `PA=F` for palladium, all in USD per troy ounce and converted the same way. Futures trade within about 1% of spot, so these are an approximation; the price list says so ("Yahoo Finance · GC=F (history)"), and the instrument keeps `gold-api` as its price source.
 - **ETFs on European exchanges:** there's no reliable free official API. We'll start with Yahoo Finance's public chart endpoint. It's unofficial and can break, so providers are pluggable, and a paid one with your own key (EODHD, Twelve Data) can be added.
 - **Finding a symbol.** Nobody should have to know that VWCE trades as `VWCE.DE` on XETRA. Yahoo Finance's search endpoint (`v1/finance/search?q=<ISIN, ticker or name>&quotesCount=10&newsCount=0`, `Prices.YahooSymbolSearch`) lists an instrument's listings: symbol, name, exchange, kind and, when it says, currency. The instrument editor's *Find…*, the import's *Find Price Sources…* for the instruments it created ([UI.md](UI.md#import-mac-first)) and `retire instruments find <instrument> [--set <symbol>]` search by the ISIN, else the ticker, else the name, and suggest the first listing in the instrument's currency (`SymbolCandidate.preferred(among:currency:)`), which you confirm.
 - **Inflation:** a consumer-price index, fetched with the FX rates for the months the library is missing: the library's (`inflationIndex` in `library.json`, by default the index of the tax residence, else of the base currency; [library.schema.json](schema/library.schema.json)). Each index has a provider (`InflationIndexProvider`): Eurostat's HICP (`prc_hicp_minr`, all items, 2015 = 100) covers every EU country, Iceland, Norway, Switzerland, the candidate countries and the euro area (`hicp-de`, `hicp-ch`, `hicp-ea`, …); the BLS public API (version 1, no key, at most ten years a request, asked for with a POST that carries the years, since a GET answers with the last three whatever it asks for) has the United States' CPI-U (`cpi-us`: series `CUUR0000SA0`, all items, not seasonally adjusted, 1982–84 = 100); the ONS time-series download has the United Kingdom's CPI (`cpi-gb`: series D7BT of MM23, all items, 2015 = 100), the whole series as CSV, of which the monthly rows are read. Other indices are added as providers.
 - **Dates:** each value is the latest on or before the check-in date and is recorded on that date. The price list shows the day it's from, e.g. Friday's close for a Sunday check-in.
 - Fetched prices are cached on the device. Only the prices used in a check-in are written to the library.
-- **Rate limits.** Free APIs allow only a few calls a minute, so at most four instruments are fetched at once (`PriceService.maxConcurrentFetches`), and a check-in's CoinGecko coins are priced in one `simple/price?ids=bitcoin,ethereum,…` call, in every currency asked for.
+- **Rate limits.** Free APIs allow only a few calls a minute, so at most four instruments are fetched at once (`PriceService.maxConcurrentFetches`), and instruments with the same price source share one request.
+- **One pipeline.** A check-in, *Update Prices*, *Test price fetch* and filling in the past all work out a `PriceNeeds` (each instrument, currency and index month with the dates it needs a value on), fetch it with `PriceService.fetch(_:in:refresh:progress:)`, and save the records with `FetchedPrices.merge(into:policy:)`. One rule decides what a fetched record does to one the library has for the same day: it's added when there's none; a value typed in by hand stays unless you choose to replace it; otherwise the policy says whether a fetched or imported value is replaced (a check-in, *Update Prices*) or kept (filling in the past, `retire prices --apply` without `--overwrite`).
 - **Past prices.** An import, or history added by hand, can leave years of positions without a price for their dates: gold bought long ago stays at its purchase price in every month since. *Fill In Past Prices* (the Instruments screen, the import's last step, a note under a chart, `retire prices --fill-history`) finds every date the library values a position on without a price for that day (each valuation, and the month ends it's carried over to in months without one of its own), the FX rates those dates need, and the missing inflation months, and fetches them in as few requests as possible:
-  - **One history per instrument.** Each provider says where its past prices come from, best first, and each source is asked once for the whole range of dates it covers:
+  - **One history per instrument.** Each provider says where its prices come from, best first, and each source is asked once for the whole range of dates it covers (a check-in is a range of one date):
 
     | Provider | History | Reaches back |
     | --- | --- | --- |
     | Yahoo Finance | the chart endpoint with `period1`/`period2`: daily closes, or monthly ones for more than five years of month ends | the listing |
-    | CoinGecko | `coins/{id}/market_chart/range` | 365 days (free API) |
-    | ↳ then | Yahoo Finance `<TICKER>-<CUR>` (e.g. `ETH-EUR`), then `<TICKER>-USD` converted with ECB rates; the ticker of a coin given by its ID comes from the built-in table or CoinGecko's search | the pair's listing |
-    | gold-api.com | Yahoo Finance futures: `GC=F`, `SI=F`, `PL=F`, `PA=F` | about 2000 |
+    | gold-api.com | today's spot price, for the last three days | today |
+    | ↳ then | Yahoo Finance futures: `GC=F`, `SI=F`, `PL=F`, `PA=F` | about 2000 |
     | Frankfurter (ECB) | the time series `/v1/<from>..<to>`, which may thin a long range out to weekly rates | 1999 |
     | Eurostat | the series for the missing months | 1996 |
     | BLS | the series for the missing months' years, ten years a request | 1913 |
@@ -226,7 +225,7 @@ On the Mac there are also tables for editing many valuations at once, keyboard n
   - **Values on or before each date.** Each date takes the latest value on or before it: up to 7 days back in a daily series (weekends and holidays; two weeks for weekly rates), or the month's close in a monthly one. The price list and results show the day it's from.
   - **Then one request per currency** for the FX rates missing and those that convert a price into its instrument's currency; a rate the library has for the day is used as it is. **One request per index.**
   - **Nothing is replaced.** Only dates without a record are filled: a price typed in, read from a file (an import) or fetched before stays. The records are written in one edit, into each date's month file, after a `fill-history` backup, with the source that answered (`yahoo` for gold from `GC=F`).
-  - **What's left** is listed per instrument with the dates still missing and why (no price source, CoinGecko's year and no Yahoo pair, no listing yet), with *Set Price…* for a date and *Choose a Price Source*.
+  - **What's left** is listed per instrument with the dates still missing and why (no price source, a symbol Yahoo Finance doesn't know, no listing yet), with *Set Price…* for a date and *Choose a Price Source*.
   - A check-in on a past date uses the same sources for the instruments whose provider has no price for that date.
 
 ### Importing
@@ -275,9 +274,9 @@ The importer works with any spreadsheet or export instead of a fixed layout. Det
 ### M1: Tracker MVP
 
 - Accounts and instruments: create, edit, close and reopen.
-- The check-in flow, with pre-filled values, fetched prices and FX rates, and manual overrides.
-- The Overview: net-worth history, breakdowns, and the change since the last check-in split into market and new money. Plus the account detail screen.
-- Flows recorded at each check-in, with defaults per kind of account.
+- The check-in flow: the month's files imported, prices and FX rates fetched.
+- The Overview: net-worth history, breakdowns, and the change since the last check-in split into market and saved. Plus the account detail screen.
+- What was saved, recorded with each value or worked out per kind of account.
 - Live sync: a check-in on the iPhone appears on the Mac, and edits made directly to files are picked up.
 - The importer: the engine, the mapping and preview flow in the app, saved profiles, and `retire import`.
 

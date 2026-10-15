@@ -13,12 +13,10 @@ import Tracker
 
 /// How a trade type reads and looks.
 enum TradeTypeDisplay {
-    /// The types the Add Trade sheet's segmented control offers.
-    static let primary: [TradeType] = [.buy, .sell, .dividend]
-
-    /// The types under *More*, in the order they're listed.
-    static let more: [TradeType] = [
-        .interest, .fee, .tax, .deposit, .withdrawal, .transferIn, .transferOut, .split, .opening,
+    /// The types in the order the filter lists them.
+    static let order: [TradeType] = [
+        .buy, .sell, .dividend, .interest, .fee, .tax, .deposit, .withdrawal, .transferIn, .transferOut, .split,
+        .opening,
     ]
 
     /// "Buy", "Transfer in", …; the raw value for a type this version doesn't know.
@@ -58,30 +56,11 @@ enum TradeTypeDisplay {
         default: "questionmark.circle"
         }
     }
-
-    /// What the type does, in one line, for the *More* menu and the sheet.
-    static func explanation(_ type: TradeType) -> String {
-        switch type {
-        case .buy: "Units bought with the account's cash, or paid from outside it."
-        case .sell: "Units sold for cash, kept in the account or paid out."
-        case .dividend: "A dividend or distribution paid in cash."
-        case .interest: "Interest paid on the account's cash."
-        case .fee: "A fee charged on its own, e.g. a custody fee."
-        case .tax: "A tax charged on its own, e.g. imposta di bollo."
-        case .deposit: "Money paid into the account."
-        case .withdrawal: "Money taken out of the account."
-        case .transferIn: "Units moved in from another account or broker, with what they cost."
-        case .transferOut: "Units moved out to another account or broker."
-        case .split: "A split or reverse split: the quantity is multiplied by the ratio."
-        case .opening: "A holding on the day the account's history starts, with what it cost."
-        default: "A type this version of the app doesn't know: only its amount counts."
-        }
-    }
 }
 
 // MARK: - Words for trades
 
-/// The words a trade reads as: in lists, issues and the editor.
+/// The words a trade reads as: in lists and issues.
 enum TradeWording {
     /// The short name of an instrument: its ticker, a crypto's unit, else its name.
     static func instrumentLabel(_ id: InstrumentID, in library: Library) -> String {
@@ -113,14 +92,6 @@ enum TradeWording {
     static func price(of trade: Trade, in library: Library, locale: Locale = .current) -> String? {
         guard let price = trade.price, trade.quantity != nil, trade.type != .split else { return nil }
         return QuantityFormat.unitPrice(price, currency: priceCurrency(of: trade, in: library), locale: locale)
-    }
-
-    /// The whole trade on one line: "Buy 10 VWCE at 134,75 €", "Deposit".
-    /// The quantity hides with the eye.
-    static func summary(of trade: Trade, in library: Library, locale: Locale = .current) -> AmountSentence {
-        let title = title(of: trade, in: library, locale: locale)
-        guard let price = price(of: trade, in: library, locale: locale) else { return title }
-        return "\(title) at \(price)"
     }
 
     /// The line under a trade's title in the list: "at 101.437,76 € · 1 Oct
@@ -270,7 +241,7 @@ struct TradeList: Hashable, Sendable {
             .map { TradeFilterOption(value: $0, name: library.instruments[$0]?.name ?? $0.rawValue) }
             .sorted { ($0.name.lowercased(), $0.value) < ($1.name.lowercased(), $1.value) }
         let present = Set(trades.map(\.type))
-        let order = TradeTypeDisplay.primary + TradeTypeDisplay.more
+        let order = TradeTypeDisplay.order
         types = (order.filter(present.contains) + present.filter { !order.contains($0) }.sorted())
             .map { TradeFilterOption(value: $0, name: TradeTypeDisplay.name($0)) }
         totalCount = entries.count
@@ -386,18 +357,14 @@ struct TradeIncomeYear: Hashable, Sendable, Identifiable {
 
 /// What a banner about a trades account's issue offers to do.
 enum TradeIssueAction: Hashable, Sendable {
-    /// Open a trade in the editor.
-    case editTrade(TradeKey)
-    /// Open the editor on a new trade.
-    case addTrade(TradeEditorTarget)
-    /// Open a value (a valuation) in the valuation editor.
-    case editValuation(ValuationKey)
     /// Open the account's form (its opening and closing dates).
     case editAccount
 }
 
 /// Something wrong with an account's trades, in plain words, with the fix
-/// (UI.md: calm, and nothing scolds).
+/// (UI.md: calm, and nothing scolds). Trades come from imported files, so
+/// the fix for a wrong trade is in the file: correct it and import it
+/// again, or delete the trade.
 struct TradeIssueNote: Hashable, Sendable, Identifiable {
     var id: String
     var isError: Bool
@@ -442,7 +409,6 @@ struct TradeIssueNote: Hashable, Sendable, Identifiable {
         let id = "\(issue.kind.rawValue).\(issue.trade?.description ?? issue.date.description)"
         let what = trade.map { TradeWording.phrase($0, in: library, locale: locale) } ?? "a trade"
         let day = AmountFormat.mediumDate(issue.date, locale: locale)
-        let edit: TradeIssueAction? = issue.trade.map(TradeIssueAction.editTrade)
         let isError = issue.severity == .error
         switch issue.kind {
         case .invalidTrade:
@@ -450,70 +416,59 @@ struct TradeIssueNote: Hashable, Sendable, Identifiable {
             let problems = trade.problems.map(\.message)
             let message = problems.isEmpty ? "Its amount can't be worked out." : problems.joined(separator: " ")
             return TradeIssueNote(id: "invalidTrade.\(trade.key)", isError: isError,
-                                  title: what.capitalizedFirst + " needs a look", message: message,
-                                  actionTitle: "Edit Trade…", action: edit)
+                                  title: what.capitalizedFirst + " needs a look", message: message)
         case .oversold:
             return TradeIssueNote(
                 id: id, isError: isError, title: "More sold than held",
                 message: what.capitalizedFirst + " takes away more than the account held then. Is a buy or "
-                    + "an opening missing, or is the date wrong?",
-                actionTitle: "Edit Trade…", action: edit)
+                    + "an opening missing, or is the date wrong?")
         case .unknownCost:
             return TradeIssueNote(
                 id: id, isError: isError, title: "Purchase cost unknown",
                 message: what.capitalizedFirst + " has no cost, so the purchase cost and gains of "
                     + (trade?.instrument.map { TradeWording.instrumentLabel($0, in: library) } ?? "the instrument")
-                    + " aren't known. Add its cost (valore di carico) from the statement.",
-                actionTitle: "Edit Trade…", action: edit)
+                    + " aren't known. Add its cost (valore di carico) to the file and import it again.")
         case .missingFX:
             let from = trade.map { TradeWording.priceCurrency(of: $0, in: library).rawValue } ?? "the price's"
             let to = library.accounts[issue.account]?.currency.rawValue ?? "the account's"
             return TradeIssueNote(
                 id: id, isError: isError, title: "No \(from)→\(to) rate",
                 message: "There's no rate on or before \(day) to convert the price of \(what), so the cash it moved "
-                    + "is unknown. Type the amount the broker charged, or add the rate at a check-in.",
-                actionTitle: "Edit Trade…", action: edit)
+                    + "is unknown. Add the rate on the Instruments screen, or the amount the broker charged to the file.")
         case .splitNotHeld:
             return TradeIssueNote(
                 id: id, isError: isError, title: "A split of what isn't held",
                 message: what.capitalizedFirst + " changes nothing: the account doesn't hold it then. Is "
-                    + "the date right?",
-                actionTitle: "Edit Trade…", action: edit)
+                    + "the date right?")
         case .outsideAccountDates:
             return TradeIssueNote(
                 id: id, isError: isError, title: "Outside the account's dates",
                 message: what.capitalizedFirst + " is dated outside the days the account is open, so it "
-                    + "counts only from its opening date. Change the trade's date, or the account's dates.",
-                actionTitle: "Edit Trade…", action: edit)
+                    + "counts only from its opening date. Change the account's dates, or the trade's in the file.",
+                actionTitle: "Edit Account…", action: .editAccount)
         case .balanceIgnored:
             return TradeIssueNote(
                 id: id, isError: isError, title: "A balance that isn't used",
-                message: "The value on \(day) records a balance, but this account's holdings come from its trades. "
-                    + "Record its cash instead; the balance isn't counted.",
-                actionTitle: "Edit Value…",
-                action: .editValuation(ValuationKey(account: issue.account, date: issue.date)))
+                message: "The value on \(day) records a balance, but this account's holdings come from its trades, "
+                    + "so the balance isn't counted. Delete the value if it's wrong.")
         default:
-            return TradeIssueNote(id: id, isError: isError, title: "Something to check", message: issue.message,
-                                  actionTitle: issue.trade == nil ? nil : "Edit Trade…", action: edit)
+            return TradeIssueNote(id: id, isError: isError, title: "Something to check", message: issue.message)
         }
     }
 
-    /// "The statement on 30 Jun shows 12 VWCE; your trades give 10. Add the
-    /// missing trade." with *Add Trade…* on the statement's date.
+    /// "The statement on 30 Jun shows 12 VWCE; your trades give 10. Import
+    /// the missing trade."
     static func note(for mismatch: PositionMismatch, library: Library, locale: Locale = .current) -> TradeIssueNote {
         let label = TradeWording.instrumentLabel(mismatch.instrument, in: library)
         let listed = QuantityFormat.quantity(mismatch.listed, locale: locale)
         let derived = QuantityFormat.quantity(mismatch.derived, locale: locale)
         let fix = mismatch.difference > 0
-            ? "Add the missing trade, e.g. a buy or a transfer in."
-            : "Add the missing sale or transfer out, or check the statement."
-        let target = TradeEditorTarget(account: mismatch.account, date: mismatch.date,
-                                       type: mismatch.difference > 0 ? .buy : .sell, instrument: mismatch.instrument)
+            ? "Import the missing trade, e.g. a buy or a transfer in."
+            : "Import the missing sale or transfer out, or check the statement."
         return TradeIssueNote(
             id: "reconciliation.\(mismatch.date).\(mismatch.instrument)", isError: false,
             title: "\(label) differs from the statement",
             message: "The statement on \(AmountFormat.shortDate(mismatch.date, locale: locale)) shows \(listed) "
-                + "\(label); your trades give \(derived). \(fix)",
-            actionTitle: "Add Trade…", action: .addTrade(target))
+                + "\(label); your trades give \(derived). \(fix)")
     }
 }

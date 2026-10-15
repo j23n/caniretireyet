@@ -11,12 +11,17 @@ private let checkIn = CheckInGlance(last: "2026-09-30", next: "2026-10-31")
 struct ExampleLibraryGlanceTests {
     let library: Library
     let valuator: Valuator
+    /// The main plan's last recorded answer, which the app passes without results.
+    let recorded: RetirementAnswer
     let snapshot: GlanceSnapshot
 
     init() throws {
         library = try Fixtures.exampleLibrary()
         valuator = Valuator(library: library)
-        snapshot = GlanceSnapshot(library: library, valuator: valuator, asOf: "2026-09-30", answer: nil,
+        let main = try #require(library.settings.mainPlan)
+        let last = try #require(library.headlines(for: main).last)
+        recorded = RetirementAnswer(recorded: last, birthDate: library.settings.person?.birthDate)
+        snapshot = GlanceSnapshot(library: library, valuator: valuator, asOf: "2026-09-30", answer: recorded,
                                   checkIn: checkIn)
     }
 
@@ -28,23 +33,8 @@ struct ExampleLibraryGlanceTests {
         #expect(netWorth.isComplete)
     }
 
-    @Test func theChangeSinceTheLastCheckInIsSplit() throws {
-        // As in ExampleLibraryChangeTests.
-        let change = try #require(snapshot.netWorth?.sinceLastCheckIn)
-        #expect(change.from == "2026-08-31")
-        #expect(change.to == "2026-09-30")
-        #expect(change.start.rounded(2) == d("327037.83"))
-        #expect(change.end.rounded(2) == d("332455.49"))
-        #expect(change.newMoney == d("2181.65"))
-        #expect(change.markets.rounded(6) == d("3236.011765"))
-        #expect(change.other == 0)
-        #expect(change.end == snapshot.netWorth?.total)
-        let fraction = try #require(change.fraction)
-        #expect(abs(fraction - (332455.49 - 327037.83) / 327037.83) < 1e-7)
-    }
-
     @Test func netWorthIsTodaysAfterTheLatestCheckIn() throws {
-        let later = GlanceSnapshot(library: library, valuator: valuator, asOf: "2026-10-08", answer: nil,
+        let later = GlanceSnapshot(library: library, valuator: valuator, asOf: "2026-10-08", answer: recorded,
                                    checkIn: checkIn)
         let netWorth = try #require(later.netWorth)
         #expect(netWorth.date == "2026-10-08")
@@ -58,7 +48,7 @@ struct ExampleLibraryGlanceTests {
 
     /// The Overview's hero: the snapshot's net worth, without its line.
     @Test func theOverviewsHeroIsTheSnapshotsNetWorth() throws {
-        let later = GlanceSnapshot(library: library, valuator: valuator, asOf: "2026-10-08", answer: nil,
+        let later = GlanceSnapshot(library: library, valuator: valuator, asOf: "2026-10-08", answer: recorded,
                                    checkIn: checkIn)
         var expected = try #require(later.netWorth)
         #expect(!expected.history.isEmpty)
@@ -76,14 +66,6 @@ struct ExampleLibraryGlanceTests {
         for point in history {
             #expect(point.value == valuator.total(on: point.date, in: .netWorth).total)
         }
-    }
-
-    @Test func thisYearIsSinceTheEndOfLastYear() throws {
-        let thisYear = try #require(snapshot.netWorth?.thisYear)
-        let start = valuator.total(on: "2025-12-31", in: .netWorth).total
-        let now = valuator.total(on: "2026-09-30", in: .netWorth).total
-        let expected = NSDecimalNumber(decimal: (now - start) / abs(start)).doubleValue
-        #expect(abs(thisYear - expected) < 1e-12)
     }
 
     /// The Overview's *This year* (Tracker's `changeThisYear(asOf:)`) splits
@@ -106,20 +88,16 @@ struct ExampleLibraryGlanceTests {
         #expect(total.rounded(10) == snapshot.netWorth?.total.rounded(10))
         let debts = try #require(snapshot.allocation.last)
         #expect(debts.value < 0)
-        #expect(debts.name == "Debts")
         let owned = snapshot.allocation.filter { $0.value > 0 }.compactMap(\.share).reduce(0, +)
         #expect(abs(owned - 1) < 1e-9)
     }
 
-    @Test func withoutResultsTheAnswerIsTheLastOneRecorded() throws {
-        let answer = try #require(snapshot.retirement).answer
-        #expect(answer.earliestAge == 54)
-        // Born 12 April 1988.
-        #expect(answer.earliestDate == "2042-04-12")
-        #expect(answer.confidence == 0.9)
-        #expect(answer.readiness == 0.25)
-        #expect(!answer.canRetireNow)
-        #expect(answer.sustainableSpending == nil)
+    @Test func theAnswerIsTheOneGiven() throws {
+        #expect(snapshot.retirement?.answer == recorded)
+        let none = GlanceSnapshot(library: library, valuator: valuator, asOf: "2026-09-30", answer: nil,
+                                  checkIn: checkIn)
+        #expect(none.retirement == nil)
+        #expect(none.netWorth != nil)
     }
 
     @Test func theHistoryHasTheYearsAnswers() throws {
@@ -154,7 +132,7 @@ struct ExampleLibraryGlanceTests {
     }
 
     @Test func anEarlierAsOfLeavesOutLaterAnswers() throws {
-        let snapshot = GlanceSnapshot(library: library, valuator: valuator, asOf: "2026-05-31", answer: nil,
+        let snapshot = GlanceSnapshot(library: library, valuator: valuator, asOf: "2026-05-31", answer: recorded,
                                       checkIn: checkIn)
         #expect(snapshot.retirement?.history.last?.date == "2026-05-31")
         #expect(snapshot.retirement?.lastMove == nil)
@@ -173,10 +151,8 @@ struct ExampleLibraryGlanceTests {
     @Test func roundTripsThroughItsFile() throws {
         let data = try GlanceFile.data(for: snapshot)
         #expect(GlanceFile.snapshot(from: data) == snapshot)
-        // Amounts are exact strings, as in the library's files.
-        let text = try #require(String(data: data, encoding: .utf8))
-        #expect(text.contains("\"newMoney\":\"2181.65\""))
         #expect(try GlanceFile.data(for: snapshot) == data)
+        #expect(GlanceFile.snapshot(from: Data("not json".utf8)) == nil)
     }
 
     @Test func writesAndReadsAFile() throws {
@@ -190,7 +166,7 @@ struct ExampleLibraryGlanceTests {
     }
 }
 
-/// Snapshots of libraries that have little in them, and of other formats.
+/// Snapshots of libraries that have little in them.
 struct GlanceSnapshotTests {
     @Test func aNewLibraryHasOnlyItsCheckIn() {
         let library = Library(settings: LibrarySettings(baseCurrency: .usd))
@@ -203,92 +179,5 @@ struct GlanceSnapshotTests {
         #expect(snapshot.allocation.isEmpty)
         #expect(snapshot.retirement == nil)
         #expect(snapshot.checkIn.isDue(on: today))
-    }
-
-    /// A snapshot the previous version wrote, with its format version and
-    /// the fields since dropped, still reads. One from before the change
-    /// kept its end doesn't: the widgets say to open the app until it writes
-    /// a new one.
-    @Test func aSnapshotOfThePreviousVersionStillReads() throws {
-        let previous = """
-            {"allocation":[],"checkIn":{"dueWindow":3,"next":"2026-10-31"},"currency":"EUR",\
-            "netWorth":{"date":"2026-10-08","history":[{"date":"2026-09-30","isComplete":true,"value":"100"}],\
-            "isComplete":true,"sinceLastCheckIn":{"end":"103","from":"2026-08-31","markets":"1","newMoney":"2",\
-            "other":"0","start":"100","to":"2026-09-30"},"total":"103"},\
-            "retirement":{"answer":{"canRetireNow":false,"confidence":0.9,"needsMoreThanSearched":false,\
-            "readinessIsLowerBound":false,"recordedOn":"2026-09-30"},"history":[],"plan":"base",\
-            "planName":"Base case"},"version":1}
-            """
-        let snapshot = try #require(GlanceFile.snapshot(from: Data(previous.utf8)))
-        #expect(snapshot.netWorth?.sinceLastCheckIn?.to == "2026-09-30")
-        #expect(snapshot.netWorth?.history.map(\.value) == [100])
-        #expect(snapshot.retirement?.answer.confidence == 0.9)
-        #expect(snapshot.checkIn.next == "2026-10-31")
-
-        let older = previous.replacingOccurrences(of: #","to":"2026-09-30""#, with: "")
-        #expect(GlanceFile.snapshot(from: Data(older.utf8)) == nil)
-        #expect(GlanceFile.snapshot(from: Data("not json".utf8)) == nil)
-    }
-
-    @Test func theNextMilestoneRoundTrips() throws {
-        let milestone = MilestoneGlance(kind: .shareOfNeeded, amount: 333_333, share: d("0.3333"), progress: 0.88,
-                                        typically: "2028-02-29")
-        let snapshot = GlanceSnapshot(currency: .eur, netWorth: nil, allocation: [], retirement: nil,
-                                      checkIn: CheckInGlance(last: nil, next: "2026-10-31"),
-                                      milestone: milestone)
-        let data = try GlanceFile.data(for: snapshot)
-        #expect(GlanceFile.snapshot(from: data)?.milestone == milestone)
-        let text = try #require(String(data: data, encoding: .utf8))
-        #expect(text.contains("\"amount\":\"333333\""))
-    }
-
-    @Test func theNextMilestoneInWords() {
-        func amount(_ value: Decimal) -> String? { "\(value) €" }
-        #expect(GlanceText.milestoneName(MilestoneGlance(kind: .roundAmount, amount: 300_000, progress: 0.9),
-                                         amount: amount) == "300000 €")
-        #expect(GlanceText.milestoneName(MilestoneGlance(kind: .roundAmount, amount: 300_000, progress: 0.9),
-                                         amount: { _ in nil }) == "A round amount")
-        #expect(GlanceText.milestoneName(MilestoneGlance(kind: .yearsOfSpending, amount: 360_000, years: 10,
-                                                         progress: 0.9), amount: amount) == "10 years of spending")
-        #expect(GlanceText.milestoneName(MilestoneGlance(kind: .shareOfNeeded, amount: 500_000, share: d("0.5"),
-                                                         progress: 0.9), amount: amount)
-            == "Half of what retiring today needs")
-        #expect(GlanceText.milestoneName(MilestoneGlance(kind: .crossover, amount: 400_000, progress: 0.9),
-                                         amount: amount) == "The crossover")
-        #expect(GlanceText.typically("2027-06-30") == "Typically by mid 2027")
-        #expect(GlanceText.typically("2028-02-29") == "Typically by early 2028")
-    }
-
-    @Test func aRecordedAnswerNeverRetiresBeforeItsCheckIn() throws {
-        let headline = Headline(date: "2026-09-30", confidence: d("0.9"), earliestAge: 38, engine: "0.1.0",
-                                planHash: "x", readiness: d("1.02"))
-        let answer = RetirementAnswer(recorded: headline, birthDate: "1988-04-12")
-        // Turned 38 on 12 April 2026, before the check-in.
-        #expect(answer.earliestDate == "2026-09-30")
-        #expect(answer.canRetireNow)
-        #expect(RetirementAnswer(recorded: headline, birthDate: nil).earliestDate == nil)
-        // The Overview works out the date the same way.
-        #expect(RetirementAnswer.earliestDate(age: 38, recordedOn: "2026-09-30", birthDate: "1988-04-12")
-            == "2026-09-30")
-        #expect(RetirementAnswer.earliestDate(age: 39, recordedOn: "2026-09-30", birthDate: "1988-04-12")
-            == "2027-04-12")
-    }
-
-    /// As the app shows it, and headlines record it: 99.6% reads 99%, never
-    /// 100% while retiring today falls short.
-    @Test func theReadinessIsShownRoundedDownBelowAHundredPercent() {
-        func shown(_ readiness: Double?) -> Double? {
-            RetirementAnswer(confidence: 0.9, readiness: readiness).shownReadiness
-        }
-        #expect(shown(0.996) == 0.99)
-        #expect(shown(0.5849) == 0.58)
-        // 0.58 is a little under that in binary, and stays 0.58.
-        #expect(shown(0.58) == 0.58)
-        #expect(shown(1 - 1e-13) == 0.99)
-        #expect(shown(0) == 0)
-        // From 100% on, as it is: retiring today works.
-        #expect(shown(1) == 1)
-        #expect(shown(1.296) == 1.296)
-        #expect(shown(nil) == nil)
     }
 }

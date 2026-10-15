@@ -1,66 +1,54 @@
 import Foundation
 import Model
 
-/// Fetches the prices, FX rates and inflation-index values a check-in needs.
+/// Fetches prices, FX rates and inflation-index values: what a check-in
+/// needs on its date, and what filling in the past needs on every date the
+/// library is missing a value on. Both are a ``PriceNeeds`` fetched by
+/// ``fetch(_:in:refresh:progress:)``, in as few requests as possible:
 ///
-/// Given a library and a check-in date, it works out what's needed
-/// (``CheckInPriceNeeds``), fetches everything concurrently, and returns
-/// records for the check-in's price list (``CheckInPrices``):
-///
-/// - **Prices** are dated the check-in date, in the instrument's currency and
-///   per its unit. Quotes in another currency or unit (gold-api's USD per
-///   troy ounce) are converted with ECB rates and kept to six significant
-///   digits.
+/// - **Prices** are dated the day they're needed on, in the instrument's
+///   currency and per its unit. Quotes in another currency or unit
+///   (gold-api's USD per troy ounce) are converted with ECB rates and kept
+///   to six significant digits.
 /// - **FX rates** are fetched against the library's base currency, as the
-///   latest ECB rate on or before the date, and dated the check-in date.
+///   latest ECB rate on or before each date, and dated that day.
 /// - **Index values** are the months the library is missing of each index it
 ///   uses (`Library.inflationIndices`: its own, and one for each plan's
 ///   currency), each dated the last day of its month.
 ///
-/// A failure affects only its own entry and is reported with a readable
-/// reason; ``fetch(for:on:refresh:)`` never throws. Results are cached by
-/// provider, symbol and date, so re-opening a check-in doesn't fetch again.
-/// Only symbols, currencies and dates are sent, never amounts.
+/// A failure affects only its own item and is reported with a readable
+/// reason; fetching never throws. Each request's answer is cached, so
+/// re-opening a check-in doesn't fetch again. Only symbols, currencies and
+/// dates are sent, never amounts.
 ///
 /// Free APIs allow only a few calls a minute, so at most
-/// ``maxConcurrentFetches`` instruments are fetched at once, across every
-/// fetch of the service and its copies, filling in past prices included,
-/// and CoinGecko, which prices several coins per call, is asked once for all
-/// of a fetch's coins.
-///
-/// For a date its provider has no price for (gold-api.com only has today's;
-/// CoinGecko's free API only the last year), an instrument's price comes
-/// from the provider's history routes instead: gold from Yahoo Finance's
-/// `GC=F`, an old bitcoin price from `BTC-EUR`. The price list names the
-/// stand-in ("Yahoo Finance · GC=F (history)") and the record its source.
-///
-/// ``fillPastPrices(_:in:progress:)`` fills in every past date a library
-/// is missing a price, rate or index value for, a range per instrument at a
-/// time (PastPrices.swift).
+/// ``maxConcurrentFetches`` instruments, currencies and indices are fetched
+/// at once, across every fetch of the service and its copies.
 public struct PriceService: Sendable {
     /// Instrument providers by the `priceSource.provider` they handle.
     public let instrumentProviders: [PriceProvider: any InstrumentPriceProvider]
     public let fxProvider: FrankfurterProvider
-    /// Makes the provider of an index, or `nil` for none: the standard
-    /// service's are ``standardIndexProvider(for:client:policy:)``.
+    /// Makes the provider of an index, or `nil` for none.
     let makeIndexProvider: @Sendable (IndexID) -> (any InflationIndexProvider)?
     public let cache: PriceCache
     let today: @Sendable () -> CalendarDate
-    /// Shared by every instrument fetch and every step of filling in past
-    /// prices (see ``maxConcurrentFetches``).
+    /// Shared by every fetch (see ``maxConcurrentFetches``).
     let limit: FetchLimit
 
     /// The default for ``maxConcurrentFetches``.
     public static let defaultMaxConcurrentFetches = 4
 
-    /// The most instruments whose prices are fetched at once; when filling
-    /// in past prices, the most histories, indices and currencies.
+    /// The most instruments, currencies and indices fetched at once.
     public var maxConcurrentFetches: Int { limit.limit }
 
+    /// How many days before the first date wanted a range of FX rates starts:
+    /// a long range may come back with a rate a week.
+    static let rateLookbackDays = 14
+
     /// A service with the given providers; `makeIndexProvider` makes the
-    /// provider of an index. `today` decides whether a check-in is in the
-    /// past (by default the device's current date). `maxConcurrentFetches`
-    /// caps the instruments fetched at once.
+    /// provider of an index. `today` is what the providers count as today
+    /// (by default the device's current date). `maxConcurrentFetches` caps
+    /// the requests sent at once.
     public init(
         instrumentProviders: [any InstrumentPriceProvider], fxProvider: FrankfurterProvider,
         makeIndexProvider: @escaping @Sendable (IndexID) -> (any InflationIndexProvider)?,
@@ -81,335 +69,59 @@ public struct PriceService: Sendable {
         makeIndexProvider(index)
     }
 
-    /// The standard provider of `index`: Eurostat for the HICP of every
-    /// country that has one and of the euro area (`hicp-de`, `hicp-ea`, …),
-    /// the BLS for `cpi-us` and the ONS for `cpi-gb`; `nil` for any other
-    /// index.
-    public static func standardIndexProvider(
-        for index: IndexID, client: any HTTPClient = URLSessionHTTPClient(), policy: RequestPolicy = .standard
-    ) -> (any InflationIndexProvider)? {
-        if let eurostat = EurostatIndexProvider(index: index, client: client, policy: policy) { return eurostat }
-        if let bls = BLSIndexProvider(index: index, client: client, policy: policy) { return bls }
-        if let ons = ONSIndexProvider(index: index, client: client, policy: policy) { return ons }
-        return nil
-    }
-
     /// The indices `library` uses (`Library.inflationIndices`: its own, and
     /// one for each plan's currency) that this service can fetch, sorted.
     public func indices(for library: Library) -> [IndexID] {
         library.inflationIndices.filter { indexProvider(for: $0) != nil }
     }
 
-    /// The instrument price sources ``standard(client:credentials:policy:today:maxConcurrentFetches:)``
-    /// can fetch from, in the order a picker offers them: Yahoo Finance,
-    /// CoinGecko and gold-api.com. Other `PriceProvider` values a file may
-    /// name (EODHD, Twelve Data) have no provider here, so their fetches fail.
-    public static let standardInstrumentProviders: [PriceProvider] = [.yahoo, .coingecko, .goldAPI]
+    /// The instrument price sources ``standard(client:policy:today:maxConcurrentFetches:)``
+    /// fetches from, in the order a picker offers them: Yahoo Finance (also
+    /// for crypto, as `BTC-EUR`) and gold-api.com. An instrument whose
+    /// source names another provider has its prices typed in
+    /// (``PriceNeeds/isFetched(_:)``).
+    public static let standardInstrumentProviders: [PriceProvider] = [.yahoo, .goldAPI]
 
-    /// The standard providers: Yahoo Finance, CoinGecko and gold-api.com for
+    /// The standard providers: Yahoo Finance and gold-api.com for
     /// instruments (``standardInstrumentProviders``), Frankfurter for ECB
     /// rates, and for inflation indices Eurostat for the HICP of every
     /// country that has one and of the euro area (`hicp-de`, `hicp-ea`, …),
-    /// the BLS for `cpi-us` and the ONS for `cpi-gb`
-    /// (``standardIndexProvider(for:client:policy:)``).
+    /// the BLS for `cpi-us` and the ONS for `cpi-gb`.
     public static func standard(
-        client: any HTTPClient = URLSessionHTTPClient(), credentials: any CredentialsProvider = StaticCredentials(),
-        policy: RequestPolicy = .standard,
+        client: any HTTPClient = URLSessionHTTPClient(), policy: RequestPolicy = .standard,
         today: @escaping @Sendable () -> CalendarDate = { CalendarDate.today() },
         maxConcurrentFetches: Int = PriceService.defaultMaxConcurrentFetches
     ) -> PriceService {
         PriceService(
             instrumentProviders: [
                 YahooChartProvider(client: client, policy: policy),
-                CoinGeckoProvider(client: client, credentials: credentials, policy: policy),
                 GoldAPIProvider(client: client, policy: policy),
             ],
             fxProvider: FrankfurterProvider(client: client, policy: policy),
-            makeIndexProvider: { PriceService.standardIndexProvider(for: $0, client: client, policy: policy) },
+            makeIndexProvider: { index -> (any InflationIndexProvider)? in
+                if let eurostat = EurostatIndexProvider(index: index, client: client, policy: policy) { return eurostat }
+                if let bls = BLSIndexProvider(index: index, client: client, policy: policy) { return bls }
+                if let ons = ONSIndexProvider(index: index, client: client, policy: policy) { return ons }
+                return nil
+            },
             today: today, maxConcurrentFetches: maxConcurrentFetches)
     }
 
     /// What a check-in on `date` needs, with the library's indices this
-    /// service provides (``indices(for:)``), and also `instruments` the
-    /// library doesn't hold on `date`, e.g. positions added in a check-in.
-    public func needs(for library: Library, on date: CalendarDate,
-                      including instruments: [InstrumentID] = []) -> CheckInPriceNeeds {
-        CheckInPriceNeeds(library: library, date: date, indices: indices(for: library), including: instruments)
+    /// service provides (``indices(for:)``).
+    public func needs(for library: Library, on date: CalendarDate) -> PriceNeeds {
+        PriceNeeds(library: library, checkInOn: date, indices: indices(for: library))
+    }
+
+    /// What filling in the past would fetch for `library` up to today, with
+    /// the library's indices this service provides (``indices(for:)``).
+    public func pastPriceNeeds(for library: Library) -> PriceNeeds {
+        PriceNeeds(library: library, through: today(), indices: indices(for: library))
     }
 
     /// Fetches what a check-in on `date` needs. With `refresh`, the cache is
     /// cleared first.
-    public func fetch(for library: Library, on date: CalendarDate, refresh: Bool = false) async -> CheckInPrices {
-        await fetch(needs(for: library, on: date), refresh: refresh)
-    }
-
-    /// Fetches `needs`, e.g. after adding an instrument the check-in now holds.
-    public func fetch(_ needs: CheckInPriceNeeds, refresh: Bool = false) async -> CheckInPrices {
-        if refresh { await cache.removeAll() }
-        let today = self.today()
-        await startBatch(needs, today: today)
-
-        var entries: [PriceListEntry] = []
-        var prices: [PriceRecord] = []
-        var fx: [FXKey: FXRecord] = [:]
-        var indices: [IndexRecord] = []
-
-        await withTaskGroup(of: Part.self) { group in
-            for currency in needs.currencies {
-                group.addTask { await self.fxPart(quote: currency, needs: needs) }
-            }
-            for instrument in needs.instruments {
-                group.addTask { await self.instrumentPart(instrument, needs: needs, today: today) }
-            }
-            for need in needs.indices where !need.months.isEmpty {
-                group.addTask { await self.indexPart(need, date: needs.date) }
-            }
-            for await part in group {
-                switch part {
-                case .instrument(let entry, let price, let rates):
-                    entries.append(entry)
-                    if let price { prices.append(price) }
-                    for rate in rates { fx[rate.key] = rate }
-                case .fx(let entry, let rate):
-                    entries.append(entry)
-                    if let rate { fx[rate.key] = rate }
-                case .index(let entry, let records):
-                    entries.append(entry)
-                    indices += records
-                }
-            }
-        }
-
-        entries += needs.manualInstruments.map { PriceListEntry(item: .instrument($0), outcome: .manual) }
-        entries += needs.unknownInstruments.map {
-            PriceListEntry(item: .instrument($0), outcome: .failed(.unknownInstrument($0)))
-        }
-        return CheckInPrices(
-            date: needs.date, prices: prices.sortedByKey(), fx: fx.values.sortedByKey(),
-            indices: indices.sortedByKey(), entries: entries.sorted { $0.item < $1.item })
-    }
-
-    // MARK: - Parts
-
-    private enum Part: Sendable {
-        case instrument(PriceListEntry, PriceRecord?, [FXRecord])
-        case fx(PriceListEntry, FXRecord?)
-        case index(PriceListEntry, [IndexRecord])
-    }
-
-    private struct CachedQuote: Sendable {
-        let quote: Quote
-        let fetchedAt: Date
-    }
-
-    private struct CachedRate: Sendable {
-        let observation: FXObservation
-        let fetchedAt: Date
-    }
-
-    private struct CachedIndex: Sendable {
-        let records: [IndexRecord]
-        let fetchedAt: Date
-    }
-
-    private func instrumentPart(_ instrument: Instrument, needs: CheckInPriceNeeds, today: CalendarDate) async -> Part {
-        let item = PriceListEntry.Item.instrument(instrument.id)
-        guard let priceSource = instrument.priceSource else {
-            return .instrument(PriceListEntry(item: item, outcome: .manual), nil, [])
-        }
-        guard let provider = instrumentProviders[priceSource.provider] else {
-            let entry = PriceListEntry(item: item, symbol: priceSource.symbol,
-                                       outcome: .failed(.unsupportedProvider(priceSource.provider)))
-            return .instrument(entry, nil, [])
-        }
-        let request = QuoteRequest(symbol: priceSource.symbol, date: needs.date, currency: instrument.currency,
-                                   today: today)
-        func entry(_ outcome: PriceListEntry.Outcome, origin: QuoteOrigin? = nil) -> PriceListEntry {
-            PriceListEntry(item: item, source: origin?.source ?? provider.source,
-                           symbol: origin?.symbol ?? priceSource.symbol, outcome: outcome, note: origin?.note)
-        }
-        do {
-            let key = PriceCache.Key(provider: provider.provider.rawValue, symbol: provider.cacheSymbol(for: request),
-                                     date: needs.date)
-            let limit = self.limit
-            let cached = try await cache.value(for: key) {
-                try await limit.run {
-                    CachedQuote(quote: try await Self.quoteOrHistory(provider, request), fetchedAt: Date())
-                }
-            }
-            let (price, rates) = try await convert(cached.quote, for: instrument, needs: needs)
-            let record = PriceRecord(instrument: instrument.id, date: needs.date, price: price,
-                                     currency: instrument.currency, source: cached.quote.origin?.source ?? provider.source)
-            let details = FetchDetails(observedOn: cached.quote.observedOn, fetchedAt: cached.fetchedAt,
-                                       quote: cached.quote)
-            return .instrument(entry(.fetched(details), origin: cached.quote.origin), record, rates)
-        } catch {
-            return .instrument(entry(.failed(Self.fetchError(error, service: provider.name))), nil, [])
-        }
-    }
-
-    /// The provider's quote for the request, or, when the provider says it
-    /// has none for that date (``InstrumentPriceProvider/triesHistory(after:for:)``:
-    /// gold-api.com on a past date, CoinGecko beyond its free year), the
-    /// latest value on or before the date from its history routes, which
-    /// names its origin. If no route has one, the provider's own error is
-    /// thrown, unless a route failed in a way worth retrying (offline, a
-    /// timeout, a rate limit), whose error is thrown instead.
-    static func quoteOrHistory(_ provider: any InstrumentPriceProvider, _ request: QuoteRequest) async throws -> Quote {
-        do {
-            return try await provider.quote(for: request)
-        } catch {
-            return try await history(after: error, provider, request)
-        }
-    }
-
-    /// After the provider's quote for the request failed with `error`: the
-    /// latest value on or before the date from its history routes, when
-    /// the error means it has none for that date (see ``quoteOrHistory(_:_:)``);
-    /// else `error` again.
-    static func history(after error: any Error, _ provider: any InstrumentPriceProvider,
-                        _ request: QuoteRequest) async throws -> Quote {
-        let failure = fetchError(error, service: provider.name)
-        guard provider.triesHistory(after: failure, for: request) else { throw error }
-        let range = HistoryRange(from: request.date.adding(days: -PriceHistory.dailyTolerance),
-                                 through: request.date, today: request.today)
-        var transient: PriceFetchError?
-        for route in provider.historyRoutes(symbol: request.symbol, currency: request.currency,
-                                            today: request.today) where route.covers(request.date) {
-            do {
-                let history = try await route.fetch(range)
-                if var quote = history.quote(onOrBefore: request.date) {
-                    quote.origin = history.origin
-                    return quote
-                }
-            } catch {
-                let routeFailure = fetchError(error, service: route.name)
-                if routeFailure.isTransient, transient == nil { transient = routeFailure }
-            }
-        }
-        throw transient ?? error
-    }
-
-    /// CoinGecko prices several coins per call: asks it once for all of
-    /// `needs`' coins that aren't cached yet, and caches each one's quote
-    /// from that answer, so their parts find them there instead of asking
-    /// one by one. A quote the answer fails with tries the history routes,
-    /// as in ``quoteOrHistory(_:_:)``. A single coin is left to its part.
-    private func startBatch(_ needs: CheckInPriceNeeds, today: CalendarDate) async {
-        guard let provider = instrumentProviders[.coingecko] as? CoinGeckoProvider else { return }
-        var keys: Set<PriceCache.Key> = []
-        var fresh: [(key: PriceCache.Key, request: QuoteRequest)] = []
-        for instrument in needs.instruments {
-            guard let priceSource = instrument.priceSource, priceSource.provider == .coingecko else { continue }
-            let request = QuoteRequest(symbol: priceSource.symbol, date: needs.date, currency: instrument.currency,
-                                       today: today)
-            let key = PriceCache.Key(provider: provider.provider.rawValue, symbol: provider.cacheSymbol(for: request),
-                                     date: needs.date)
-            if keys.insert(key).inserted, await !cache.contains(key) { fresh.append((key, request)) }
-        }
-        guard fresh.count > 1 else { return }
-        let requests = fresh.map { $0.request }
-        let limit = self.limit
-        let batch = Task { await limit.run { await provider.quotes(for: requests) } }
-        for (index, item) in fresh.enumerated() {
-            await cache.start(item.key) {
-                let quote: Quote
-                switch await batch.value[index] {
-                case .success(let answered):
-                    quote = answered
-                case .failure(let error):
-                    quote = try await limit.run { try await Self.history(after: error, provider, item.request) }
-                }
-                return CachedQuote(quote: quote, fetchedAt: Date())
-            }
-        }
-    }
-
-    /// The quote as a price in the instrument's currency and per its unit
-    /// (``PriceConversion/price(of:for:base:rate:)``), and the FX rates
-    /// used to convert it, fetched for the check-in's date.
-    private func convert(
-        _ quote: Quote, for instrument: Instrument, needs: CheckInPriceNeeds
-    ) async throws -> (Decimal, [FXRecord]) {
-        // The unit first: a price that can't be converted fetches no rates.
-        _ = try PriceConversion.price(quote.price, per: quote.unit ?? instrument.unit, to: instrument.unit)
-        var rates: [CurrencyCode: Decimal] = [:]
-        var used: [FXRecord] = []
-        if quote.currency != instrument.currency {
-            for currency in [quote.currency, instrument.currency] where currency != needs.baseCurrency {
-                do {
-                    let cached = try await rate(base: needs.baseCurrency, quote: currency, date: needs.date)
-                    rates[currency] = cached.observation.rate
-                    used.append(FXRecord(base: needs.baseCurrency, quote: currency, date: needs.date,
-                                         rate: cached.observation.rate, source: fxProvider.source))
-                } catch {
-                    let reason = Self.fetchError(error, service: fxProvider.name).description
-                    throw PriceFetchError.missingFX(from: quote.currency, to: instrument.currency, reason: reason)
-                }
-            }
-        }
-        let price = try PriceConversion.price(of: quote, for: instrument, base: needs.baseCurrency) { rates[$0] }
-        return (price, used)
-    }
-
-    private func fxPart(quote: CurrencyCode, needs: CheckInPriceNeeds) async -> Part {
-        let base = needs.baseCurrency
-        let item = PriceListEntry.Item.fx(base: base, quote: quote)
-        let symbol = "\(base)/\(quote)"
-        do {
-            let cached = try await rate(base: base, quote: quote, date: needs.date)
-            let record = FXRecord(base: base, quote: quote, date: needs.date, rate: cached.observation.rate,
-                                  source: fxProvider.source)
-            let details = FetchDetails(observedOn: cached.observation.observedOn, fetchedAt: cached.fetchedAt)
-            return .fx(PriceListEntry(item: item, source: fxProvider.source, symbol: symbol,
-                                      outcome: .fetched(details)), record)
-        } catch {
-            let failure = Self.fetchError(error, service: fxProvider.name)
-            return .fx(PriceListEntry(item: item, source: fxProvider.source, symbol: symbol,
-                                      outcome: .failed(failure)), nil)
-        }
-    }
-
-    private func rate(base: CurrencyCode, quote: CurrencyCode, date: CalendarDate) async throws -> CachedRate {
-        let provider = fxProvider
-        let key = PriceCache.Key(provider: provider.source.rawValue, symbol: "\(base)/\(quote)", date: date)
-        return try await cache.value(for: key) {
-            CachedRate(observation: try await provider.rate(base: base, quote: quote, onOrBefore: date),
-                       fetchedAt: Date())
-        }
-    }
-
-    private func indexPart(_ need: CheckInPriceNeeds.IndexMonths, date: CalendarDate) async -> Part {
-        let item = PriceListEntry.Item.index(need.index)
-        guard let provider = indexProvider(for: need.index), let first = need.months.first, let last = need.months.last
-        else {
-            let failure = PriceFetchError.noData(service: "Prices", detail: "no provider for the \(need.index) index")
-            return .index(PriceListEntry(item: item, outcome: .failed(failure)), [])
-        }
-        // Ask for a few months more than missing, so the answer says which
-        // month was published last even when none of the missing ones is.
-        let start = min(first, last.adding(months: -2))
-        do {
-            let key = PriceCache.Key(provider: provider.source.rawValue, symbol: "\(need.index) \(start)..\(last)",
-                                     date: date)
-            let cached = try await cache.value(for: key) {
-                CachedIndex(records: try await provider.values(from: start, through: last), fetchedAt: Date())
-            }
-            let records = need.values(among: cached.records)
-            let details = FetchDetails(observedOn: cached.records.map(\.date).max(), fetchedAt: cached.fetchedAt)
-            return .index(PriceListEntry(item: item, source: provider.source, outcome: .fetched(details)), records)
-        } catch {
-            let failure = Self.fetchError(error, service: provider.name)
-            return .index(PriceListEntry(item: item, source: provider.source, outcome: .failed(failure)), [])
-        }
-    }
-
-    /// Any error as a ``PriceFetchError``.
-    static func fetchError(_ error: any Error, service: String) -> PriceFetchError {
-        switch error {
-        case let error as PriceFetchError: error
-        case is CancellationError: .cancelled
-        default: .network(service: service, message: String(describing: error))
-        }
+    public func fetch(for library: Library, on date: CalendarDate, refresh: Bool = false) async -> FetchedPrices {
+        await fetch(needs(for: library, on: date), in: library, refresh: refresh)
     }
 }

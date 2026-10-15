@@ -346,32 +346,6 @@ struct ImportCommand: RetireSubcommand {
         return (line, .purchase(name: name, kind: kind))
     }
 
-    /// Answers the statement's lines that --purchase and --sale name, each
-    /// by its row or by words only one line's text has.
-    func answerAssets(_ session: inout ImportSession, library: Library, today: CalendarDate) throws {
-        let answers = purchases.compactMap { Self.assetAnswer($0, sale: false) }
-            + sales.compactMap { Self.assetAnswer($0, sale: true) }
-        guard !answers.isEmpty else { return }
-        let lines = session.preview(against: library, today: today).statementLines
-        // Without lines the report says why: the account, the layout or the file.
-        guard !lines.isEmpty else { return }
-        var answered: [Int: String] = [:]
-        for (named, asset) in answers {
-            let matches = Int(named).map { row in lines.filter { $0.row == row } } ?? lines.filter { $0.hasWords(named) }
-            guard matches.count == 1, let line = matches.first else {
-                let option = if case .sale = asset { "--sale" } else { "--purchase" }
-                throw CLIError(matches.isEmpty ? "\(option): no line of the statement is “\(named)”."
-                    : "\(option): “\(named)” is in \(matches.count) lines (rows "
-                        + matches.map { "\($0.row)" }.joined(separator: ", ") + "): name one by its row.")
-            }
-            if let earlier = answered[line.row] {
-                throw CLIError("“\(earlier)” and “\(named)” both answer row \(line.row): give it one answer.")
-            }
-            answered[line.row] = named
-            session.setStatementAsset(asset, forRow: line.row)
-        }
-    }
-
     /// `Giroconto=deposit` → the word and the type; `nil` unless the type is
     /// known (or `ignore`).
     static func typeMapping(_ text: String) -> (word: String, type: TradeType)? {
@@ -416,16 +390,35 @@ struct ImportCommand: RetireSubcommand {
             throw ValidationError("--through can't be after today, \(context.today).")
         }
         var session = try makeSession(data, library: loaded.library)
-        try answerAssets(&session, library: loaded.library, today: context.today)
-        var preview = session.preview(against: loaded.library, today: context.today)
-        decide(&preview)
+        // The flags accept or reject the proposals, so a dry run shows exactly what --apply would do.
+        let decisions = ImportDecisions(acceptsNewAccounts: acceptNewAccounts,
+                                        acceptsNewInstruments: acceptNewInstruments, acceptsClosings: acceptClosings,
+                                        acceptsTradesMode: acceptTradesMode)
+        var statementPreview: ImportPreview?
+        if session.profile.layout == .statement {
+            // A bank statement is imported as `retire import statements` imports its files: a batch, here of one.
+            var statements = StatementImport(
+                StatementBatch(sessions: [(fileURL.lastPathComponent, session)], library: loaded.library,
+                               today: context.today), paths: [fileURL.path])
+            if let account {
+                statements.batch.setAccount(AccountID(account), forFile: 0, library: loaded.library,
+                                            today: context.today)
+            }
+            try statements.answer(purchases: purchases, sales: sales, library: loaded.library, today: context.today)
+            session = statements.batch.files.first?.session ?? session
+            statementPreview = statements.batch.previews(against: loaded.library, today: context.today) { _, preview in
+                preview = decisions.applied(to: preview)
+            }.first?.preview
+        }
+        let preview = statementPreview
+            ?? decisions.applied(to: session.preview(against: loaded.library, today: context.today))
 
         var report = ImportReport(fileName: fileURL.lastPathComponent, profileID: profile, session: session,
                                   preview: preview, library: loaded.library, apply: apply, rows: rows)
         let blocked = apply && !preview.ambiguities.isEmpty && !acceptGuesses
 
         if apply, !blocked {
-            report.outcome = try write(preview.applyFollowingFlows(to: loaded.library), session: session,
+            report.outcome = try write(preview.apply(to: loaded.library), session: session,
                                        loaded: loaded, context: context)
         } else if saveProfile != nil {
             try loaded.checkWritable()
@@ -505,25 +498,6 @@ struct ImportCommand: RetireSubcommand {
         if let encoding { settings.encoding = TextEncodingName(encoding.lowercased()) }
         if let delimiter { settings.delimiter = delimiterCharacter(delimiter) }
         if let headerRow { settings.headerRow = headerRow }
-    }
-
-    /// Accepts or rejects the proposals by the flags, so a dry run shows
-    /// exactly what the same command with --apply would do. A statement's
-    /// purchases and sales stay accepted: --purchase and --sale asked for them.
-    func decide(_ preview: inout ImportPreview) {
-        for index in preview.newAccounts.indices where preview.newAccounts[index].statementRow == nil {
-            preview.newAccounts[index].isAccepted = acceptNewAccounts
-        }
-        for index in preview.newInstruments.indices { preview.newInstruments[index].isAccepted = acceptNewInstruments }
-        for index in preview.accountChanges.indices {
-            switch preview.accountChanges[index].change {
-            case .close:
-                guard preview.accountChanges[index].statementRow == nil else { continue }
-                preview.accountChanges[index].isAccepted = acceptClosings
-            case .recordTrades: preview.accountChanges[index].isAccepted = acceptTradesMode
-            case .openEarlier: break
-            }
-        }
     }
 
     private func profileName(_ library: Library) -> String {

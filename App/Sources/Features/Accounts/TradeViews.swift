@@ -337,13 +337,12 @@ struct TradeFilterMenu: View {
 
 #if os(macOS)
 /// The trades as a table on the Mac: date, type, instrument, quantity,
-/// price, amount and note. Double-click (or the context menu) edits one.
+/// price, amount and note. The context menu deletes one.
 /// It's as tall as its lines, so the account's page scrolls them with the
 /// rest (`PageTable`).
 struct TradesTable: View {
     let items: [TradeListItem]
     let currency: CurrencyCode
-    let edit: (TradeKey) -> Void
     let delete: (TradeKey) -> Void
 
     private enum Columns {
@@ -357,7 +356,7 @@ struct TradesTable: View {
     }
 
     var body: some View {
-        PageTable(items, open: edit) {
+        PageTable(items, open: { _ in }) {
             Text("Date").pageTableColumn(Columns.date)
             Text("Type").pageTableColumn(Columns.type)
             Text("Instrument").pageTableColumn(Columns.instrument)
@@ -389,7 +388,6 @@ struct TradesTable: View {
                 .privacySensitiveInFeedback()
                 .pageTableColumn(Columns.note)
         } menu: { item in
-            Button("Edit Trade…") { edit(item.id) }
             Button("Delete Trade…", role: .destructive) { delete(item.id) }
         }
     }

@@ -32,28 +32,27 @@ final class PriceStore {
     }
 
     /// Fetches the prices, FX rates and index values a check-in on `date`
-    /// needs, and also for `instruments` the library doesn't hold on
-    /// `date`, e.g. positions added in a check-in. Never throws: failures
-    /// are entries in the result. With `refresh`, cached values are fetched
-    /// again.
-    func fetch(for library: Library, on date: CalendarDate, including instruments: [InstrumentID],
-               refresh: Bool = false) async -> CheckInPrices {
-        guard let service else { return CheckInPrices(date: date) }
+    /// needs for what the library holds then. Never throws: failures are
+    /// results too. With `refresh`, cached values are fetched again.
+    func fetch(for library: Library, on date: CalendarDate, refresh: Bool = false) async -> FetchedPrices {
+        guard let service else { return FetchedPrices(date: date) }
         // The plans' currencies and the library's indices come with the needs.
-        return await service.fetch(service.needs(for: library, on: date, including: instruments), refresh: refresh)
+        return await service.fetch(for: library, on: date, refresh: refresh)
     }
 
     /// Fetches one instrument's price on `date` and the rate of its currency
     /// against `baseCurrency`, e.g. for *Test price fetch* when the result
-    /// may be saved. Without a price source, or in previews, the entry is
-    /// `.manual` and there are no records.
+    /// may be saved. Without a price source it fetches from, or in previews,
+    /// the result is `.manual` and there are no records.
     func quote(_ instrument: Instrument, baseCurrency: CurrencyCode,
-               on date: CalendarDate = .today()) async -> CheckInPrices {
-        let item = PriceListEntry.Item.instrument(instrument.id)
-        guard let service, instrument.priceSource != nil else {
-            return CheckInPrices(date: date, entries: [PriceListEntry(item: item, outcome: .manual)])
+               on date: CalendarDate = .today()) async -> FetchedPrices {
+        let needs = PriceNeeds(instrument: instrument, date: date, baseCurrency: baseCurrency)
+        guard let service, !needs.instruments.isEmpty else {
+            return FetchedPrices(date: date, results: [
+                PriceResult(item: .instrument(instrument.id), needed: [date], isManual: true),
+            ])
         }
-        return await service.fetch(CheckInPriceNeeds(instrument: instrument, date: date, baseCurrency: baseCurrency))
+        return await service.fetch(needs)
     }
 
     /// The Yahoo Finance listings for `query`, an ISIN, a ticker or a name,
@@ -69,19 +68,19 @@ final class PriceStore {
     /// it values a position on without a price for that day, the FX rates
     /// and index months it's missing, and the instruments whose prices are
     /// typed in. Works out the same without a service (previews).
-    func pastPriceNeeds(for library: Library) -> PastPriceNeeds {
-        service?.pastPriceNeeds(for: library) ?? PastPriceNeeds(library: library, today: .today())
+    func pastPriceNeeds(for library: Library) -> PriceNeeds {
+        service?.pastPriceNeeds(for: library) ?? PriceNeeds(library: library, through: .today())
     }
 
     /// Fetches what `needs` asks for, a range per instrument at a time
-    /// (`PriceService.fillPastPrices`), handing each step's progress to
-    /// `progress`. Never throws: what couldn't be fetched is in the results.
-    /// `nil` in previews, which fetch nothing. Save the records with
-    /// `LibraryStore.insertMissing(_:)`.
-    func fillPastPrices(_ needs: PastPriceNeeds, in library: Library,
-                        progress: @escaping @MainActor @Sendable (PastPriceProgress) -> Void) async -> PastPriceFill? {
+    /// (`PriceService.fetch(_:in:refresh:progress:)`), handing each step's
+    /// progress to `progress`. Never throws: what couldn't be fetched is in
+    /// the results. `nil` in previews, which fetch nothing. Save the records
+    /// with `LibraryStore.insertMissing(_:)`.
+    func fillPastPrices(_ needs: PriceNeeds, in library: Library,
+                        progress: @escaping @MainActor @Sendable (FetchProgress) -> Void) async -> FetchedPrices? {
         guard let service else { return nil }
-        return await service.fillPastPrices(needs, in: library) { event in
+        return await service.fetch(needs, in: library) { event in
             await progress(event)
         }
     }
@@ -90,10 +89,10 @@ final class PriceStore {
     /// session's cache, which is cleared once first, and hands each result
     /// to `received` as it arrives, e.g. one instrument at a time for
     /// *Update Prices*. Never throws; does nothing in previews.
-    func fetchEach(_ needs: [CheckInPriceNeeds], received: (CheckInPrices) -> Void) async {
+    func fetchEach(_ needs: [PriceNeeds], received: (FetchedPrices) -> Void) async {
         guard let service, !needs.isEmpty else { return }
         await service.cache.removeAll()
-        await withTaskGroup(of: CheckInPrices.self) { group in
+        await withTaskGroup(of: FetchedPrices.self) { group in
             for need in needs {
                 group.addTask { await service.fetch(need) }
             }

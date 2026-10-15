@@ -25,14 +25,14 @@ struct AgesWithoutTests {
     let options = PlannerOptions(maxRetirementAge: 75, solveSustainableSpending: false, solveAssetsNeeded: false)
 
     @Test func savingNothingCapsPayAtSpendingAndStopsContributions() {
-        let coast = Planner.plan(plan(), without: .saving)
+        let coast = Planner.coasting(plan())
         #expect(coast.work.map(\.netIncome) == [30_000])
         #expect(coast.work.map(\.realGrowth) == [nil])
         #expect(coast.contributions.isEmpty)
         // Pay already below spending stays as it is.
         var short = plan()
         short.work[0].netIncome = 25_000
-        #expect(Planner.plan(short, without: .saving).work.map(\.netIncome) == [25_000])
+        #expect(Planner.coasting(short).work.map(\.netIncome) == [25_000])
     }
 
     @Test func theCoastAgeIsTheEarliestAgeOfThePlanSavingNothing() async throws {
@@ -40,7 +40,7 @@ struct AgesWithoutTests {
         withCoast.solveCoastAge = true
         let result = try await Planner.run(plan: plan(), library: library, options: withCoast)
         let coast = try #require(result.answer.agesWithout.coast)
-        let scanned = try await Planner.run(plan: Planner.plan(plan(), without: .saving), library: library,
+        let scanned = try await Planner.run(plan: Planner.coasting(plan()), library: library,
                                             options: options)
         #expect(coast.earliestAge == scanned.answer.earliestAge)
         let earliest = try #require(result.answer.earliestAge)
@@ -68,13 +68,13 @@ struct AgesWithoutTests {
         let result = try await Planner.run(plan: plan(events: events), library: library, options: withWindfalls)
         let without = try #require(result.answer.agesWithout.withoutWindfall(2))
         #expect(result.answer.agesWithout.map(\.change) == [.windfall(index: 2)])
-        let scanned = try await Planner.run(plan: Planner.plan(plan(events: events), without: .windfall(index: 2)),
+        let scanned = try await Planner.run(plan: Planner.plan(plan(events: events), withoutWindfall: 2),
                                             library: library, options: options)
         #expect(without.earliestAge == scanned.answer.earliestAge)
         let earliest = try #require(result.answer.earliestAge)
         #expect(try #require(without.earliestAge) > earliest)
         // The windfall stays in the plan, never coming.
-        #expect(Planner.plan(plan(events: events), without: .windfall(index: 2)).events[2].probability == 0)
+        #expect(Planner.plan(plan(events: events), withoutWindfall: 2).events[2].probability == 0)
     }
 
     @Test func withoutAnEarliestAgeThereIsNoneWithoutSavingEither() async throws {
@@ -97,13 +97,13 @@ struct AgesWithoutTests {
         for date in ["2025-07-31", "2025-08-31", "2025-09-30", "2025-10-31", "2025-11-30",
                      "2025-12-31"] as [CalendarDate] {
             balance += monthly
-            library.upsert(Valuation(account: "broker", date: date, balance: balance, flow: monthly))
+            library.upsert(Valuation(account: "broker", date: date, balance: balance, saved: monthly))
         }
         return library
     }
 
     /// 12,000 a year: 3,000 into a pension fund that opens at 60, and the
-    /// rest as cash; the TFR's new money came from the plan.
+    /// rest as cash. The plan's yearly contributions give way to the pace.
     @Test func atThePaceEachWorkingYearSavesThePace() {
         let library = Sample.library(birth: "1986-01-01", on: "2025-12-31", [
             SampleAccount(id: "broker", balance: 150_000),
@@ -112,26 +112,24 @@ struct AgesWithoutTests {
         ])
         let pace = SavingPace(
             asOf: "2025-12-31", currency: .eur, months: [], usualMonth: 1_000, perYear: 12_000, range: nil,
-            byAccount: ["broker": 9_000, "pension": 3_000], leftOut: ["tfr"], carriedForward: [],
+            byAccount: ["broker": 9_000, "pension": 3_000], carriedForward: [],
             isInTodaysMoney: false, isComplete: true)
         var planned = plan()
         planned.contributions = [PlanContribution(account: "tfr", perYear: 1_000),
                                  PlanContribution(account: "broker", perYear: 2_000),
                                  PlanContribution(account: "pension", amount: 5_000, year: 2030)]
         let atPace = Planner.plan(planned, atPace: pace, library: library)
-        // Spending 30,000, the pace and the TFR's 1,000, from the start to retirement.
-        #expect(atPace.work == [WorkPhase(from: "2025-12-31", until: .retirement, netIncome: 43_000)])
-        #expect(atPace.contributions == [PlanContribution(account: "tfr", perYear: 1_000),
-                                         PlanContribution(account: "pension", amount: 5_000, year: 2030),
+        // Spending 30,000 and the pace, from the start to retirement.
+        #expect(atPace.work == [WorkPhase(from: "2025-12-31", until: .retirement, netIncome: 42_000)])
+        #expect(atPace.contributions == [PlanContribution(account: "pension", amount: 5_000, year: 2030),
                                          PlanContribution(account: "pension", perYear: 3_000)])
         #expect(atPace.events == planned.events && atPace.pensions == planned.pensions)
     }
 
     /// A pension fund's share of the pace counts an unusual lump sum as a
-    /// usual month (952, not 20,000); the 2,000 saved into an account the
-    /// plan excludes isn't the plan's; and the TFR's 1,000 is paid on top
-    /// only until it ends in 2030.
-    @Test func atThePaceTheShareInThePaceAndTheContributionsInForceCount() {
+    /// usual month (952, not 20,000), and the 2,000 saved into an account
+    /// the plan excludes isn't the plan's.
+    @Test func atThePaceTheShareInThePaceCounts() {
         let library = Sample.library(birth: "1986-01-01", on: "2025-12-31", [
             SampleAccount(id: "broker", balance: 150_000),
             SampleAccount(id: "pension", kind: .pensionFund, balance: 20_000, availableFromAge: 60),
@@ -141,18 +139,13 @@ struct AgesWithoutTests {
         let pace = SavingPace(
             asOf: "2025-12-31", currency: .eur, months: [], usualMonth: 1_000, perYear: 12_000, range: nil,
             byAccount: ["broker": 9_000, "pension": 20_000, "house": 2_000],
-            byAccountInPace: ["broker": 9_048, "pension": 952, "house": 2_000], leftOut: ["tfr"],
-            carriedForward: [], isInTodaysMoney: false, isComplete: true)
+            byAccountInPace: ["broker": 9_048, "pension": 952, "house": 2_000], carriedForward: [], isInTodaysMoney: false, isComplete: true)
         var planned = plan()
         planned.portfolio.exclude = ["house"]
         planned.contributions = [PlanContribution(account: "tfr", perYear: 1_000, until: .date("2030-12-31"))]
         let atPace = Planner.plan(planned, atPace: pace, library: library)
-        #expect(atPace.contributions == [PlanContribution(account: "tfr", perYear: 1_000, until: .date("2030-12-31")),
-                                         PlanContribution(account: "pension", perYear: 952)])
-        #expect(atPace.work == [
-            WorkPhase(from: "2025-12-31", until: .date("2030-12-31"), netIncome: 41_000),
-            WorkPhase(from: "2031-01-01", until: .retirement, netIncome: 40_000),
-        ])
+        #expect(atPace.contributions == [PlanContribution(account: "pension", perYear: 952)])
+        #expect(atPace.work == [WorkPhase(from: "2025-12-31", until: .retirement, netIncome: 40_000)])
     }
 
     /// Rent of 6,000 from 38 to 50 is paid on the pace's last day, at 39, so
@@ -161,7 +154,7 @@ struct AgesWithoutTests {
     @Test func atThePaceIncomePaidWhileWorkingIsNotCountedTwice() {
         let pace = SavingPace(
             asOf: "2025-12-31", currency: .eur, months: [], usualMonth: 1_000, perYear: 12_000, range: nil,
-            byAccount: ["broker": 12_000], leftOut: [], carriedForward: [], isInTodaysMoney: false,
+            byAccount: ["broker": 12_000], carriedForward: [], isInTodaysMoney: false,
             isComplete: true)
         var planned = plan()
         planned.contributions = []
@@ -182,11 +175,11 @@ struct AgesWithoutTests {
         let library = Sample.library(birth: "1986-11-15", on: "2025-12-31",
                                      [SampleAccount(id: "broker", balance: 150_000)])
         let months = (0..<12).reversed().map { back in
-            SavingPace.Month(end: SavingPace.monthEnd(back, before: "2025-12-31"), newMoney: 1_000, isUnusual: false)
+            SavingPace.Month(end: SavingPace.monthEnd(back, before: "2025-12-31"), saved: 1_000, isUnusual: false)
         }
         let pace = SavingPace(
             asOf: "2025-12-31", currency: .eur, months: months, usualMonth: 1_000, perYear: 12_000, range: nil,
-            byAccount: ["broker": 12_000], leftOut: [], carriedForward: [], isInTodaysMoney: false,
+            byAccount: ["broker": 12_000], carriedForward: [], isInTodaysMoney: false,
             isComplete: true)
         var planned = plan()
         planned.contributions = []
@@ -200,7 +193,7 @@ struct AgesWithoutTests {
     @Test func aPaceTakingOutMoreThanTheSpendingSpendsIt() {
         let pace = SavingPace(
             asOf: "2025-12-31", currency: .eur, months: [], usualMonth: -3_000, perYear: -36_000, range: nil,
-            byAccount: ["broker": -36_000], leftOut: [], carriedForward: [], isInTodaysMoney: false,
+            byAccount: ["broker": -36_000], carriedForward: [], isInTodaysMoney: false,
             isComplete: true)
         let atPace = Planner.plan(plan(), atPace: pace, library: library)
         #expect(atPace.work.map(\.netIncome) == [0])
@@ -242,12 +235,5 @@ struct AgesWithoutTests {
         #expect(result.answer.earliestAge != nil)
         #expect(result.answer.agesWithout.isEmpty)
         #expect(result.headline().paceAge == nil)
-    }
-
-    @Test func theBisectionCountsItsSteps() {
-        #expect(Planner.bisectionSteps(from: 40, to: 40) == 2)
-        #expect(Planner.bisectionSteps(from: 40, to: 41) == 2)
-        #expect(Planner.bisectionSteps(from: 40, to: 42) == 3)
-        #expect(Planner.bisectionSteps(from: 39, to: 75) == 8)
     }
 }

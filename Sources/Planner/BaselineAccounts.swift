@@ -5,7 +5,7 @@ extension Baseline {
     /// (PROGRESS.md, "Actual vs. a baseline"): those it counted at its start;
     /// those that replaced them (``Account/successor``, as when you switched
     /// banks), and theirs; and those opened since that plans count and its
-    /// plan doesn't leave out, which hold new money or money moved from the
+    /// plan doesn't leave out, which hold what was saved or money moved from the
     /// others. So moving money to another account, or saving into a new one,
     /// is no loss. Accounts open at its start that it didn't count stay out.
     public func comparedAccounts(among accounts: [AccountID: Account]) -> Set<AccountID> {

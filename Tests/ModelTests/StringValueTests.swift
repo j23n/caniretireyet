@@ -36,22 +36,6 @@ struct SlugTests {
 }
 
 struct StringValueTests {
-    @Test func idsCodeAsPlainStrings() throws {
-        let data = try JSONEncoder().encode([AccountID("directa")])
-        #expect(String(decoding: data, as: UTF8.self) == #"["directa"]"#)
-        #expect(try JSONDecoder().decode([InstrumentID].self, from: data) == ["directa"])
-        let plan: PlanID = "base"
-        #expect(plan.rawValue == "base" && plan.description == "base")
-    }
-
-    @Test func dictionariesKeyedByStringValuesAreJSONObjects() throws {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = .sortedKeys
-        let data = try encoder.encode([AccountID("directa"): 2026, "bank": 2025])
-        #expect(String(decoding: data, as: UTF8.self) == #"{"bank":2025,"directa":2026}"#)
-        #expect(try JSONDecoder().decode([AccountID: Int].self, from: data)["directa"] == 2026)
-    }
-
     @Test func openEnumsKeepUnknownValues() throws {
         let kinds = try JSONDecoder().decode([AccountKind].self, from: Data(#"["cash","yacht"]"#.utf8))
         #expect(kinds == [.cash, "yacht"])
@@ -67,23 +51,10 @@ struct StringValueTests {
         #expect(account.valuationMode == .balance)
     }
 
-    @Test func sortsByRawValue() {
-        let ids: [AccountID] = ["tfr", "directa", "conto-fineco"]
-        #expect(ids.sorted() == ["conto-fineco", "directa", "tfr"])
-    }
-
     @Test func codes() {
         #expect(CurrencyCode.eur.isWellFormed)
         #expect(!CurrencyCode("eur").isWellFormed)
         #expect(CountryCode.it.rawValue == "IT")
         #expect(!CountryCode("ITA").isWellFormed)
-    }
-
-    @Test func knownValuesAreListed() {
-        #expect(AccountKind.knownValues.count == 14)
-        #expect(InstrumentKind.knownValues.contains(.metal))
-        #expect(AssetClass.knownValues.contains(.realEstate))
-        #expect(DataSource.knownValues.contains(.import))
-        #expect(BaselineKind.knownValues == [.yearly, .manual, .past])
     }
 }

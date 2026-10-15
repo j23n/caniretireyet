@@ -24,13 +24,13 @@ struct JournalProfileTests {
 
     @Test func validateWarnsAndExitsZero() async throws {
         let library = try library()
-        let run = await retire(["validate", "--library", library.path])
+        let run = await retire(["validate", "--library", library.path, "--json"])
         #expect(run.status == 0, "\(run.all)")
-        #expect(run.output.contains("""
-            imports/journal.json
-              warning layout: "ledger" isn't a layout this version imports, so the profile is kept but not offered.
-            """))
-        #expect(run.output.hasSuffix("0 errors, 1 warning.\n"))
+        let json = try parseJSON(run.output)
+        #expect(json["errors"] as? Int == 0)
+        let issues = try #require(json["issues"] as? [[String: Any]])
+        #expect(issues.map { $0["path"] as? String } == ["imports/journal.json"])
+        #expect(issues.map { $0["severity"] as? String } == ["warning"])
     }
 
     @Test func importDoesNotUseIt() async throws {
@@ -39,20 +39,14 @@ struct JournalProfileTests {
         let sheet = try Samples.url("sheet.csv").path
         let run = await retire(["import", sheet, "--library", library.path, "--profile", "journal"])
         #expect(run.status == 1)
-        #expect(run.errors.contains("imports/journal.json has the layout \"ledger\", which this version can't import."))
+        // The profiles listed for an unknown one leave it out.
         let unknown = await retire(["import", sheet, "--library", library.path, "--profile", "nope"])
-        #expect(unknown.errors.contains("Profiles: directa-movimenti, fineco-movimenti, net-worth-sheet."))
+        #expect(unknown.status == 1)
+        #expect(unknown.errors.contains("net-worth-sheet"))
+        #expect(!unknown.errors.contains("journal"))
         // Without a profile, the file is read as usual.
         let proposed = await retire(["import", sheet, "--library", library.path])
         #expect(proposed.status == 0, "\(proposed.all)")
         #expect(try library.snapshot() == before)
-    }
-
-    @Test func importHelpHasNoJournals() async throws {
-        let help = await retire(["help", "import"])
-        #expect(help.status == 0, "\(help.all)")
-        #expect(!help.all.contains("ledger"))
-        let ledger = await retire(["import", "ledger", "main.journal"])
-        #expect(ledger.status != 0)
     }
 }

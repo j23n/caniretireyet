@@ -63,7 +63,7 @@ private enum GoldLibrary {
 }
 
 struct ExternalSettlementTests {
-    @Test func anExternalBuyLeavesTheCashAndAddsItsCostAsAFlow() throws {
+    @Test func anExternalBuyLeavesTheCashAndSavesItsCost() throws {
         let valuator = Valuator(library: GoldLibrary.external())
         let ledger = try #require(valuator.ledger(for: "coins"))
         let buy = ledger.entries[0]
@@ -133,27 +133,14 @@ struct ExternalSettlementTests {
         #expect(valuator.netWorth(on: "2024-01-31").total == d("31.1") * 62)
         #expect(valuator.breakdown(by: .assetClass, on: "2024-01-31").value(of: .assetClass(.gold)) == d("31.1") * 62)
 
-        // The change since the start: the cost is new money, the rest is the market.
+        // The change since the start: the cost is saved, the rest is the market.
         let change = try #require(valuator.change(of: "coins", from: "2024-01-01", to: "2024-01-31"))
-        #expect(change.change.newMoney == 1876)
+        #expect(change.change.saved == 1876)
         #expect(change.change.market == d("31.1") * 62 - 1876)
         #expect(change.problems.isEmpty)
         let spring = try #require(valuator.change(of: "coins", from: "2024-01-31", to: "2024-03-31"))
-        #expect(spring.change.newMoney == -680)
+        #expect(spring.change.saved == -680)
         #expect(spring.change.market == d("21.1") * 70 - d("31.1") * 62 + 680)
-    }
-
-    @Test func theCheckInStartsFromNoCashAndCountsTheCostAsNewMoney() throws {
-        let library = GoldLibrary.external()
-        var draft = CheckInDraft(date: "2024-01-31", library: library)
-        let row = try #require(draft["coins"])
-        #expect(row.isTrades)
-        #expect(row.cash == 0)
-        #expect(row.derived?.positions.map(\.quantity) == [d("31.1")])
-        #expect(draft["coins"]?.markUnchanged() == true)
-        let review = try #require(draft.review(in: library).row(for: "coins"))
-        #expect(review.defaultFlow == 1876)
-        #expect(review.valuation == Valuation(account: "coins", date: "2024-01-31", cash: 0, flow: 1876))
     }
 
     @Test func anExternalFeeIsACostOfTheAccountPaidFromElsewhere() throws {
@@ -165,11 +152,11 @@ struct ExternalSettlementTests {
         #expect(valuator.tradeFlows(of: "coins", after: "2024-01-31", through: "2024-02-29").map(\.amount) == [40])
         #expect(valuator.ledger(for: "coins")?.summary(for: 2024).fees == 50)
         let change = try #require(valuator.change(of: "coins", from: "2024-01-31", to: "2024-02-29"))
-        #expect(change.change.newMoney == 40)
+        #expect(change.change.saved == 40)
         #expect(change.change.market == d("31.1") * 3 - 40)
     }
 
-    @Test func anExternalBuyWithoutARateIsAnUnknownFlowNotUnknownCash() throws {
+    @Test func anExternalBuyWithoutARateIsUnknownSavedNotUnknownCash() throws {
         var library = GoldLibrary.external()
         library.upsert(Trade(account: "coins", date: "2024-02-15", id: "usd", type: .buy, instrument: "gold",
                              quantity: 1, price: 70, currency: .usd, settlement: .external))
@@ -206,165 +193,40 @@ struct ExternalSettlementTests {
         #expect(valuator.ledger(for: "broker")?.positions(on: "2024-03-31")
             == [Position(instrument: "vwce", quantity: 8, costBasis: 800)])
         #expect(valuator.ledger(for: "broker")?.summary(for: 2024).realizedGain == 50)
-        // The check-in counts the deposit and the purchase from outside as new money.
-        var draft = CheckInDraft(date: "2024-01-31", library: library)
-        #expect(draft["broker"]?.cash == 200)
-        #expect(draft["broker"]?.markUnchanged() == true)
-        #expect(draft.review(in: library).row(for: "broker")?.defaultFlow == 1500)
+        // The deposit and the purchase from outside count as saved.
         let january = Valuation(account: "broker", date: "2024-01-31", cash: 200)
-        #expect(valuator.defaultFlow(for: january, previous: nil) == 1500)
-    }
-
-    @Test func theDefaultIsOutsideForMetalsAndAccountsThatNeverHeldCash() throws {
-        var library = GoldLibrary.external()
-        #expect(!library.hasHeldCash("coins"))
-        #expect(library.defaultSettlement(for: .buy, in: "coins") == .external)
-        #expect(library.defaultSettlement(for: .sell, in: "coins") == .external)
-        #expect(library.defaultSettlement(for: .fee, in: "coins") == .external)
-        #expect(library.defaultSettlement(for: .dividend, in: "coins") == nil)
-        #expect(library.defaultSettlement(for: .buy, in: "nowhere") == nil)
-        // A brokerage account with nothing yet: its buys would take its cash below zero.
-        #expect(library.defaultSettlement(for: .buy, in: "broker") == .external)
-
-        library.upsert(Trade(account: "broker", date: "2024-01-02", id: "dep", type: .deposit, amount: 1000))
-        #expect(library.hasHeldCash("broker"))
-        #expect(library.defaultSettlement(for: .buy, in: "broker") == .account)
-
-        // A sale whose proceeds stayed is cash held; a metals account stays outside anyway.
-        library.upsert(Trade(account: "coins", date: "2024-03-20", id: "kept", type: .sell, instrument: "gold",
-                             quantity: 1, price: 70))
-        #expect(library.hasHeldCash("coins"))
-        #expect(library.defaultSettlement(for: .buy, in: "coins") == .external)
-
-        var typed = GoldLibrary.base
-        typed.upsert(Valuation(account: "broker", date: "2024-01-31", cash: 0))
-        #expect(!typed.hasHeldCash("broker"))
-        typed.upsert(Valuation(account: "broker", date: "2024-02-29", cash: 25))
-        #expect(typed.hasHeldCash("broker"))
-        #expect(typed.defaultSettlement(for: .sell, in: "broker") == .account)
+        #expect(valuator.workedOutSaved(for: january, previous: nil) == 1500)
     }
 }
 
-/// Converting a holdings account that never held cash to trades.
-struct ExternalConversionTests {
-    /// Made-up coins recorded as positions only, with the check-in's default flows.
-    private func coins() -> Library {
-        var library = GoldLibrary.withPrices(Library(
-            settings: LibrarySettings(baseCurrency: .eur),
-            accounts: [Account(id: "coins", name: "Gold coins", kind: .metals, currency: .eur, opened: "2024-01-01",
-                               valuation: .holdings)],
-            instruments: Array(GoldLibrary.base.instruments.values)))
-        let valuations = [
-            Valuation(account: "coins", date: "2024-01-31",
-                      positions: [Position(instrument: "gold", quantity: d("31.1"), costBasis: 1876)]),
-            // Bought 31.1 g for 2,030.
-            Valuation(account: "coins", date: "2024-02-29",
-                      positions: [Position(instrument: "gold", quantity: d("62.2"), costBasis: 3906)]),
-            // Sold 10 g.
-            Valuation(account: "coins", date: "2024-03-31",
-                      positions: [Position(instrument: "gold", quantity: d("52.2"), costBasis: d("3278.03"))]),
-        ]
-        let valuator = Valuator(library: library)
-        var previous: Valuation?
-        for var valuation in valuations {
-            if let previous {
-                valuation.flow = valuator.snapshotFlow(for: valuation, previous: previous)
-            }
-            library.upsert(valuation)
-            previous = valuation
-        }
-        return library
-    }
-
-    @Test func aCashlessHoldingsAccountBecomesTradesPaidFromOutside() throws {
-        let library = coins()
-        #expect(library.valuations(for: "coins").map(\.flow) == [nil, 2030, -700])
-        let conversion = try #require(library.conversionToTrades(of: "coins"))
-        #expect(conversion.trades == [
-            Trade(account: "coins", date: "2024-01-31", id: "opening-gold", type: .opening, instrument: "gold",
-                  quantity: d("31.1"), cost: 1876),
-            Trade(account: "coins", date: "2024-02-29", id: "buy-gold", type: .buy, instrument: "gold",
-                  quantity: d("31.1"), price: 65, currency: .eur, amount: -2030, settlement: .external),
-            Trade(account: "coins", date: "2024-03-31", id: "sell-gold", type: .sell, instrument: "gold", quantity: 10,
-                  price: 70, currency: .eur, settlement: .external),
-        ])
-        #expect(conversion.notes.map(\.kind) == [.settledOutside, .priceFromValuation])
-
-        var converted = library
-        converted.convertToTrades("coins")
-        let valuator = Valuator(library: converted)
-        let dates: [CalendarDate] = ["2024-01-31", "2024-02-15", "2024-02-29", "2024-03-15", "2024-03-31"]
-        // No cash, ever, and no residuals: the trades are the new money.
-        for date in dates {
-            #expect(valuator.tradeCash(of: "coins", on: date) == 0, "\(date)")
-        }
-        let flows = valuator.tradeFlows(of: "coins", after: nil, through: "2024-03-31")
-        #expect(flows.allSatisfy { $0.trade != nil })
-        #expect(valuator.tradeFlows(of: "coins", after: "2024-01-31", through: "2024-03-31").map(\.amount)
-            == [2030, -700])
-        let valuations = converted.valuations(for: "coins")
-        for (previous, valuation) in zip(valuations, valuations.dropFirst()) {
-            #expect(valuator.defaultFlow(for: valuation, previous: previous) == valuation.flow, "\(valuation.date)")
-        }
-        let before = Valuator(library: library)
-        for date in dates {
-            #expect(valuator.value(of: "coins", on: date)?.value == before.value(of: "coins", on: date)?.value,
-                    "\(date)")
-        }
-        #expect(valuator.tradeIssues(for: "coins").isEmpty)
-
-        // Without its valuations' cash anchoring it, the cash still stays at zero.
-        var unanchored = converted
-        for valuation in unanchored.valuations(for: "coins") { unanchored.removeValuation(valuation.key) }
-        #expect(Valuator(library: unanchored).tradeCash(of: "coins", on: "2024-03-31") == 0)
-
-    }
-
-    @Test func theExampleGoldCoinsConvertToABuyPaidFromOutside() throws {
-        let library = try exampleLibraryWithHoldings()
-        #expect(!library.hasHeldCash("gold-coins"))
-        let conversion = try #require(library.conversionToTrades(of: "gold-coins"))
-        let buy = try #require(conversion.trades.first { $0.type == .buy })
-        #expect(buy.settlement == .external)
-        #expect(buy.amount == d("-3026.03"))
-        var converted = library
-        converted.convertToTrades("gold-coins")
-        let valuator = Valuator(library: converted)
-        let original = Valuator(library: library)
-        for valuation in converted.valuations(for: "gold-coins") {
-            #expect(valuator.tradeCash(of: "gold-coins", on: valuation.date) == 0)
-            #expect(valuator.value(of: "gold-coins", on: valuation.date)?.value
-                == original.value(of: "gold-coins", on: valuation.date)?.value)
-        }
-        #expect(valuator.netWorth(on: "2026-09-30").total == original.netWorth(on: "2026-09-30").total)
-    }
-
+/// What a trades account saved at its first check-in.
+struct FirstCheckInSavedTests {
     /// An account made of trades only, with no valuation yet: "unchanged" at
-    /// a check-in counts as new money only what was bought since the
+    /// a check-in counts as saved only what was bought since the
     /// previous check-in, not every purchase since the first trade.
-    @Test func aFirstCheckInCountsOnlyTheFlowsSinceThePreviousCheckIn() throws {
+    @Test func aFirstCheckInCountsOnlyWhatWasSavedSinceThePreviousCheckIn() throws {
         var library = GoldLibrary.external()
         // An earlier check-in of another account, on 29 February.
         library.upsert(Valuation(account: "broker", date: "2024-02-29", cash: 100))
         let valuator = Valuator(library: library)
         // The coins' first valuation, on 31 March: only the March sale is in the period.
         let march = Valuation(account: "coins", date: "2024-03-31", cash: 0)
-        #expect(valuator.defaultFlow(for: march, previous: nil) == -680)
+        #expect(valuator.workedOutSaved(for: march, previous: nil) == -680)
 
         // With no earlier check-in at all, the whole history counts.
         let alone = Valuator(library: GoldLibrary.external())
-        #expect(alone.defaultFlow(for: march, previous: nil) == 1196)
+        #expect(alone.workedOutSaved(for: march, previous: nil) == 1196)
 
-        // A check-in where nothing was bought or sold: no new money.
+        // A check-in where nothing was bought or sold: nothing saved.
         library.upsert(Valuation(account: "broker", date: "2024-03-31", cash: 100))
         let april = Valuation(account: "coins", date: "2024-04-30", cash: 0)
-        #expect(Valuator(library: library).defaultFlow(for: april, previous: nil) == 0)
+        #expect(Valuator(library: library).workedOutSaved(for: april, previous: nil) == 0)
     }
 
-    /// The parts a check-in shows of a trades account's new money count
-    /// from the same start as the flow it saves: at the account's first
+    /// The parts a check-in shows of what a trades account saved count
+    /// from the same start as what it saves: at the account's first
     /// check-in, the library's previous check-in, not its first trade.
-    @Test func theFlowPartsCountFromTheSameStartAsTheFlow() throws {
+    @Test func theFlowPartsCountFromTheSameStartAsWhatItSaved() throws {
         var library = GoldLibrary.external()
         library.upsert(Trade(account: "broker", date: "2024-01-10", id: "dep1", type: .deposit, amount: 1_000))
         library.upsert(Trade(account: "broker", date: "2024-03-10", id: "dep2", type: .deposit, amount: 500))
@@ -379,7 +241,7 @@ struct ExternalConversionTests {
         let parts = valuator.tradeFlowParts(of: "broker", on: "2024-03-31", previous: nil)
         #expect(parts == TradeFlowParts(recorded: 710, paidOutside: 210))
         let march = Valuation(account: "broker", date: "2024-03-31")
-        #expect(valuator.defaultFlow(for: march, previous: nil) == parts.recorded)
+        #expect(valuator.workedOutSaved(for: march, previous: nil) == parts.recorded)
 
         // After a valuation of its own, from that one.
         let january = Valuation(account: "broker", date: "2024-01-31", cash: 1_000)

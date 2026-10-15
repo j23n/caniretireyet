@@ -81,15 +81,9 @@ extension ImportSession {
 
     // MARK: - Remembered answers
 
-    /// The profile's remembered answer for a line (``ImportProfile/answers``):
-    /// the same date and amount, and text with the same words, ignoring
-    /// case, accents and punctuation.
-    public func statementAnswer(date: CalendarDate, amount: Decimal, text: String) -> StatementAnswer? {
-        guard !profile.answers.isEmpty else { return nil }
-        return statementAnswer(date: date, amount: amount, words: TextTools.words(text))
-    }
-
-    /// The remembered answer for a line whose text has `words`.
+    /// The profile's remembered answer for a line (``ImportProfile/answers``)
+    /// whose text has `words`: the same date and amount, and text with the
+    /// same words, ignoring case, accents and punctuation.
     func statementAnswer(date: CalendarDate, amount: Decimal, words: [String]) -> StatementAnswer? {
         guard !profile.answers.isEmpty else { return nil }
         return profile.answers.last { answer in
@@ -134,11 +128,8 @@ extension ImportSession {
         let preview = trial.preview(against: library, today: today)
         let lines = preview.statementLines
         guard let first = lines.map(\.date).min(), let last = lines.map(\.date).max() else { return nil }
-        let period = preview.statementPeriod ?? (first.startOfMonth, last)
-        var breaks = 0
-        for issue in preview.issues {
-            if case .runningBalanceBreaks(let count) = issue.kind { breaks = count }
-        }
+        let period = preview.statementPeriod ?? StatementPeriod(from: first.startOfMonth, through: last)
+        let breaks = preview.runningBalanceBreaks
         let balances = lines.compactMap(\.balance)
         return StatementSummary(lines: lines.count, first: first, last: last, from: period.from,
                                 through: period.through, hasBalance: !balances.isEmpty, balanceBreaks: breaks,

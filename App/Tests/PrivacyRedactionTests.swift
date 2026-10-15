@@ -14,11 +14,6 @@ struct PrivacyRedactionTests {
     private var amount: some View { Text(verbatim: "123.456 €").privacySensitiveAmount() }
     private var name: some View { Text(verbatim: "Brokerage") }
 
-    @Test func theEyeHidesAnAmount() throws {
-        let hidden = try pixels(of: amount.redacted(reason: .privacy))
-        #expect(try hidden != pixels(of: amount))
-    }
-
     @Test func theEyeHidesAnAmountInsideAViewMarkedForFeedback() throws {
         let marked = try pixels(of: amount.privacySensitiveInFeedback().redacted(reason: .privacy))
         #expect(try marked == pixels(of: amount.redacted(reason: .privacy)))

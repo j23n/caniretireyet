@@ -208,7 +208,7 @@ struct InstrumentsScreen: View {
     /// Price…*; as swipe actions, with shorter titles and tinted.
     @ViewBuilder
     private func priceActions(for instrument: Instrument, swipe: Bool = false) -> some View {
-        if CheckInPriceNeeds.isFetched(instrument.priceSource) {
+        if PriceNeeds.isFetched(instrument.priceSource) {
             Button {
                 update(instrument.id)
             } label: {

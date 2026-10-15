@@ -79,8 +79,14 @@ public enum Planner {
 
         // The headline grid may be refined by up to 3 ages between two of its own.
         let refinement = options.ageScan == .headline ? min(3, max(0, maxAge - current + 1 - ages.count)) : 0
-        let changes: [AgeWithout.Change] = (options.solveCoastAge ? [.saving] : [])
-            + (options.solveWithoutWindfalls ? uncertainWindfalls(plan).map { .windfall(index: $0) } : [])
+        // Each change with the plan it makes (PLANNER.md, "Ages without").
+        var changes: [(change: AgeWithout.Change, plan: PlanDocument)] = []
+        if options.solveCoastAge { changes.append((AgeWithout.Change.saving, coasting(plan))) }
+        if options.solveWithoutWindfalls {
+            for index in uncertainWindfalls(plan) {
+                changes.append((AgeWithout.Change.windfall(index: index), Self.plan(plan, withoutWindfall: index)))
+            }
+        }
         let pace = options.solvePaceAge
             ? Valuator(library: library).savingPace(asOf: model.startDate, inflation: InflationIndex(library: library))
             : nil
@@ -97,7 +103,7 @@ public enum Planner {
         // The headline scan refines between the last grid age below the
         // confidence level and the first one at or above it.
         if options.ageScan == .headline,
-           let first = rates.keys.sorted().first(where: { rates[$0]! >= model.confidence }),
+           let first = rates.filter({ $0.value >= model.confidence }).keys.min(),
            let previous = rates.keys.sorted().last(where: { $0 < first }), first - previous > 1 {
             let between = Array((previous + 1)..<first)
             progress?.extend(to: ages.count + between.count, expected: ages.count + between.count)
@@ -107,8 +113,7 @@ public enum Planner {
             progress?.expect(ages.count)
         }
         try Task.checkCancellation()
-        let sortedAges = rates.keys.sorted()
-        let earliest = sortedAges.first { rates[$0]! >= model.confidence }
+        let earliest = rates.filter { $0.value >= model.confidence }.keys.min()
         let target = planAge ?? earliest
         let focus = options.focusAge.map(clamp) ?? target ?? maxAge
         progress?.begin(.simulating, total: model.runs)
@@ -122,7 +127,7 @@ public enum Planner {
         let years = model.frames.count
         let medianRun = Self.medianRun(outcomes)
         let (medianOutcome, medianYears) = simulator.detailedRun(medianRun, spending: spending)
-        let focusSchedule = engine.schedules[focus]!
+        let focusSchedule = engine.schedule(focus)
 
         try Task.checkCancellation()
         var sustainable: SustainableSpending?
@@ -146,12 +151,12 @@ public enum Planner {
             let lowest = earliest ?? maxAge
             progress?.begin(.agesWithout, total: changes.count * bisectionSteps(from: lowest, to: maxAge)
                 + (pace == nil ? 0 : bisectionSteps(from: current, to: maxAge)))
-            for change in changes {
+            for (change, changed) in changes {
                 try Task.checkCancellation()
                 var age: Int?
                 if earliest != nil {
-                    age = try await earliestAge(of: Self.plan(plan, without: change), library: library,
-                                                options: options, from: lowest, maxAge: maxAge, progress: progress)
+                    age = try await earliestAge(of: changed, library: library, options: options, from: lowest,
+                                                maxAge: maxAge, progress: progress)
                 }
                 agesWithout.append(AgeWithout(change: change, earliestAge: age))
             }
@@ -189,8 +194,8 @@ public enum Planner {
             successAtTarget: target.flatMap { rates[$0] }, sustainableSpending: sustainable,
             assetsNeeded: assetsNeeded, agesWithout: agesWithout)
 
-        let curve = sortedAges.map { age in
-            AgeSuccess(age: age, retirementDate: model.retirementDate(forAge: age), success: rates[age]!)
+        let curve = rates.sorted { $0.key < $1.key }.map { age, success in
+            AgeSuccess(age: age, retirementDate: model.retirementDate(forAge: age), success: success)
         }
 
         let result = PlanResult(
@@ -250,29 +255,27 @@ public enum Planner {
         return steps
     }
 
-    /// `plan` with one thing different (``AgeWithout/Change``): saving
-    /// nothing more, each work phase paying at most the spending while
-    /// working, without growth, and no contributions; or an uncertain
-    /// windfall that never comes (its probability 0, so the other events'
-    /// draws stay the same). The plan at the pace needs the pace, so
-    /// ``AgeWithout/Change/pace`` leaves it as it is: use
-    /// ``plan(_:atPace:library:)``.
-    public static func plan(_ plan: PlanDocument, without change: AgeWithout.Change) -> PlanDocument {
+    /// `plan` saving nothing more (``AgeWithout/Change/saving``): each work
+    /// phase paying at most the spending while working, without growth, and
+    /// no contributions.
+    static func coasting(_ plan: PlanDocument) -> PlanDocument {
         var plan = plan
-        switch change {
-        case .saving:
-            for index in plan.work.indices {
-                if let income = plan.work[index].netIncome {
-                    plan.work[index].netIncome = min(income, plan.spending.working)
-                }
-                plan.work[index].realGrowth = nil
+        for index in plan.work.indices {
+            if let income = plan.work[index].netIncome {
+                plan.work[index].netIncome = min(income, plan.spending.working)
             }
-            plan.contributions = []
-        case .windfall(let index):
-            if plan.events.indices.contains(index) { plan.events[index].probability = 0 }
-        case .pace:
-            break
+            plan.work[index].realGrowth = nil
         }
+        plan.contributions = []
+        return plan
+    }
+
+    /// `plan` with the uncertain windfall at `index` never coming
+    /// (``AgeWithout/Change/windfall(index:)``): its probability 0, so the
+    /// other events' draws stay the same.
+    static func plan(_ plan: PlanDocument, withoutWindfall index: Int) -> PlanDocument {
+        var plan = plan
+        if plan.events.indices.contains(index) { plan.events[index].probability = 0 }
         return plan
     }
 
@@ -283,22 +286,21 @@ public enum Planner {
     /// account that opens at a later age (`availableFromAge`), as a share of
     /// the pace (`SavingPace.byAccountInPace`), is paid into it as a yearly
     /// contribution, and the rest is saved where the plan saves cash; what
-    /// went into accounts the plan excludes isn't saved. An account the pace
-    /// leaves out keeps the plan's contributions, which the income pays on
-    /// top until they end; one-off contributions and events stay, as the
-    /// pace leaves out unusual months. Other income and pensions paid at a
-    /// fixed age over the pace's months are already in it, so the income is
-    /// that much less; one starting or stopping later changes the saving. A
-    /// pace taking out more than the spending while working raises that
+    /// went into accounts the plan excludes isn't saved. The plan's yearly
+    /// contributions are replaced by the pace; one-off contributions and
+    /// events stay, as the pace leaves out unusual months. Other income and
+    /// pensions paid at a fixed age over the pace's months are already in
+    /// it, so the income is that much less; one starting or stopping later
+    /// changes the saving. A pace taking out more than the spending while
+    /// working raises that
     /// spending instead.
     public static func plan(_ plan: PlanDocument, atPace pace: SavingPace, library: Library) -> PlanDocument {
         var plan = plan
         let excluded = Set(plan.portfolio.exclude)
-        let kept = plan.contributions.filter { $0.isOneOff || pace.leftOut.contains($0.account) }
+        let kept = plan.contributions.filter(\.isOneOff)
         let locked = pace.byAccountInPace
             .filter { account, amount in
-                amount > 0 && !pace.leftOut.contains(account) && !excluded.contains(account)
-                    && library.accounts[account]?.availableFromAge != nil
+                amount > 0 && !excluded.contains(account) && library.accounts[account]?.availableFromAge != nil
             }
             .sorted { $0.key < $1.key }
             .map { PlanContribution(account: $0.key, perYear: $0.value.rounded(scale: 0)) }
@@ -307,25 +309,14 @@ public enum Planner {
         let saved = pace.perYear - excluded.reduce(Decimal(0)) { $0 + (pace.byAccountInPace[$1] ?? 0) }
         // Other income and pensions paid over the pace's months are in the
         // pace: the income earns that much less, and income that starts or
-        // stops later changes the saving. The kept contributions are paid on top
-        // until they end, which splits the phase.
+        // stops later changes the saving.
         let paid = paidInPace(plan, pace: pace, birthDate: library.settings.person?.birthDate)
-        let onTop = contributionsOnTop(kept, from: from)
-        let starts = [from] + onTop.keys.filter { $0 > from }.sorted()
-        let incomes = starts.map { start in
-            let top = onTop[start] ?? 0
-            return (plan.spending.working + saved - paid + top).rounded(scale: 0)
-        }
+        let income = (plan.spending.working + saved - paid).rounded(scale: 0)
         // Taking out more than the spending while working: no income, and
-        // that spending raised by the shortfall, so each part still saves
-        // the pace.
-        let raise = max(0, -(incomes.min() ?? 0))
+        // that spending raised by the shortfall, so it still saves the pace.
+        let raise = max(0, -income)
         plan.spending.working += raise
-        plan.work = starts.indices.map { index in
-            WorkPhase(from: starts[index],
-                      until: index + 1 < starts.count ? .date(starts[index + 1].adding(days: -1)) : .retirement,
-                      netIncome: incomes[index] + raise)
-        }
+        plan.work = [WorkPhase(from: from, until: .retirement, netIncome: income + raise)]
         plan.contributions = kept + locked
         return plan
     }
@@ -352,24 +343,9 @@ public enum Planner {
         }
     }
 
-    /// The yearly `contributions` paid from each day one starts or stops,
-    /// all starting on `from`.
-    private static func contributionsOnTop(_ contributions: [PlanContribution],
-                                           from: CalendarDate) -> [CalendarDate: Decimal] {
-        let spans = contributions.filter { !$0.isOneOff && $0.perYear > 0 }.map { contribution in
-            (until: contribution.effectiveUntil.date.map { $0.adding(days: 1) }, perYear: contribution.perYear)
-        }
-        var paid: [CalendarDate: Decimal] = [:]
-        for day in Set([from] + spans.compactMap(\.until)) {
-            paid[day] = spans.filter { span in span.until.map { day < $0 } ?? true }
-                .reduce(Decimal(0)) { $0 + $1.perYear }
-        }
-        return paid
-    }
-
     /// The indices of `plan`'s uncertain windfalls: events that bring money,
     /// likely but not certain.
-    public static func uncertainWindfalls(_ plan: PlanDocument) -> [Int] {
+    static func uncertainWindfalls(_ plan: PlanDocument) -> [Int] {
         plan.events.indices.filter { index in
             let event = plan.events[index]
             return event.amount > 0 && event.effectiveProbability > 0 && event.effectiveProbability < 1
@@ -447,7 +423,7 @@ public enum Planner {
         return FailureSummary(
             runs: outcomes.count, failed: failures.count, failureRate: Double(failures.count) / Double(runs),
             medianFailureAge: ages.isEmpty ? nil : ages[(ages.count - 1) / 2],
-            byAge: byAge.keys.sorted().map { AgeCount(age: $0, count: byAge[$0]!) },
+            byAge: byAge.sorted { $0.key < $1.key }.map { AgeCount(age: $0.key, count: $0.value) },
             bridges: bridges.values.map { bridge in
                 var bridge = bridge
                 bridge.share = Double(bridge.count) / Double(runs)

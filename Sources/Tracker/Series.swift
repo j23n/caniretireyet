@@ -97,16 +97,13 @@ extension Valuator {
     /// The date of an account's first valuation, or of its first trade when
     /// it records trades and that's earlier.
     public func firstRecordDate(of account: AccountID) -> CalendarDate? {
-        [valuations(for: account).first?.date, ledgers[account]?.firstDate].compactMap { $0 }.min()
+        history(of: account).firstRecordDate
     }
 
     /// The date of an account's latest valuation on or before `date`, or of
     /// its latest trade on or before it when it records trades and that's later.
     public func latestRecordDate(of account: AccountID, onOrBefore date: CalendarDate) -> CalendarDate? {
-        let trade = ledgers[account].flatMap { ledger in
-            ledger.entries.lastIndex(onOrBefore: date, date: \.date).map { ledger.entries[$0].date }
-        }
-        return [latestValuation(for: account, onOrBefore: date)?.date, trade].compactMap { $0 }.max()
+        history(of: account).latestRecordDate(onOrBefore: date)
     }
 
     /// The latest check-in (a date with any valuation in `scope`) on or before `date`.

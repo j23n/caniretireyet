@@ -13,7 +13,6 @@ import Tracker
 /// money against any baseline. The answer at each check-in is on Trends.
 struct PlanProgressView: View {
     let session: PlanSession
-    var isWide = false
     /// Asks for a label and saves a baseline (the screen owns the alert).
     let onSaveBaseline: () -> Void
     /// Shows the plan.
@@ -23,6 +22,7 @@ struct PlanProgressView: View {
     var openingYear: Binding<Int?> = .constant(nil)
 
     @Environment(LibraryStore.self) private var library
+    @Environment(\.pageLayout) private var layout
     @Environment(\.redactionReasons) private var redactionReasons
     @Environment(\.hidesPersonalData) private var hidesPersonalData
     @Environment(\.locale) private var locale
@@ -36,9 +36,10 @@ struct PlanProgressView: View {
     /// The baseline *Delete Baseline…* asks about.
     @State private var deletingBaseline: PlanBaselineEntry?
     @State private var confirmsBaselineDelete = false
-    @State private var cache = PlanProgressCache()
 
-    private var gutter: CGFloat { isWide ? Metrics.xl : Metrics.l }
+    private var isWide: Bool { layout.isWide }
+
+    private var gutter: CGFloat { layout.gutter }
 
     /// The column beside the strip on the Mac and iPad: the milestones and what's next.
     private static let sideWidth: CGFloat = 300
@@ -52,15 +53,17 @@ struct PlanProgressView: View {
     }
 
     var body: some View {
-        let progress = progressModel
-        let timeline = progress.timeline
-        let milestones = session.plan.map {
-            PlanMilestones(plan: $0, library: library.library, valuator: library.valuator, asOf: library.asOfDate,
-                           results: session.shownResults, reached: progress.reached)
+        let progress = session.progress
+        let timeline = PlanProgressTimeline(progress, text: milestoneText)
+        let derived = session.derived(locale: locale)
+        let milestones = derived.milestones.map { milestones in
+            var milestones = milestones
+            milestones.reached = progress.reached
+            return milestones
         }
         ScrollView {
             VStack(alignment: .leading, spacing: Metrics.l) {
-                headline(timeline.cards.last?.year, history: progress.history)
+                headline(progress.latestYear, history: progress.history)
                     .padding(.horizontal, gutter)
                 if isWide {
                     HStack(alignment: .top, spacing: Metrics.l) {
@@ -70,7 +73,7 @@ struct PlanProgressView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                         VStack(alignment: .leading, spacing: Metrics.l) {
                             milestonesCard(milestones)
-                            footer
+                            footer(derived.chapters)
                         }
                         .frame(width: Self.sideWidth)
                         .padding(.trailing, gutter)
@@ -79,7 +82,7 @@ struct PlanProgressView: View {
                     yearByYear(timeline)
                     milestonesCard(milestones)
                         .padding(.horizontal, gutter)
-                    footer
+                    footer(derived.chapters)
                         .padding(.horizontal, gutter)
                 }
                 moreCharts
@@ -107,7 +110,7 @@ struct PlanProgressView: View {
             Text(verbatim: PlanProgressYear.deletionNote(
                 of: entry, years: timeline.cards.map(\.year.year), baselines: baselines,
                 savingYear: library.settings.mainPlan == session.planID
-                    ? CheckInDraft.suggestedDate(today: .today(), lastCheckIn: library.latestCheckIn).year : nil,
+                    ? CheckInDates.suggested(today: .today(), lastCheckIn: library.latestCheckIn).year : nil,
                 locale: locale))
         }
     }
@@ -127,18 +130,6 @@ struct PlanProgressView: View {
             } catch {
                 library.reportError("The baseline couldn't be deleted. \(LibraryStore.describe(error))")
             }
-        }
-    }
-
-    /// The answers, the milestones reached and the strip of years, worked out
-    /// once for each state of the library and the plan (``PlanProgressModel``).
-    private var progressModel: PlanProgressModel {
-        let asOf = library.asOfDate
-        let key = PlanProgressModel.Key(revision: library.revision, plan: session.planID, document: session.plan,
-                                        asOf: asOf, locale: locale.identifier)
-        return cache.model(for: key) {
-            PlanProgressModel(plan: session.planID, document: session.plan, library: library.library,
-                              valuator: library.valuator, asOf: asOf, text: milestoneText)
         }
     }
 
@@ -186,7 +177,19 @@ struct PlanProgressView: View {
                 if !tiles.isEmpty {
                     EqualColumns(spacing: Metrics.s) {
                         ForEach(tiles) { tile in
-                            PlanFigureTile(title: tile.title, value: tile.value)
+                            FigureTile {
+                                Text(tile.title)
+                                    .font(.subheadline)
+                                    .foregroundStyle(Palette.secondaryInk)
+                                    .privacySensitiveInFeedback()
+                                Text(tile.value)
+                                    .font(.title3.weight(.bold))
+                                    .foregroundStyle(Palette.ink)
+                                    .minimumScaleFactor(0.8)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                    .privacySensitiveInFeedback()
+                            }
+                            .accessibilityElement(children: .combine)
                         }
                     }
                 }
@@ -226,12 +229,28 @@ struct PlanProgressView: View {
     private func tileRow(_ tiles: [Tile], month: MonthReport?) -> some View {
         HStack(alignment: .top, spacing: Metrics.s) {
             ForEach(tiles) { tile in
-                PlanStatTile(title: tile.title, value: AmountSentence(tile.value))
+                statTile(tile.title, AmountSentence(tile.value))
             }
             if let month {
-                PlanStatTile(title: month.title, value: month.figures)
+                statTile(month.title, month.figures)
             }
         }
+    }
+
+    /// A figure with its title above it, beside the answer's words; its
+    /// amounts hide with the eye.
+    private func statTile(_ title: String, _ value: AmountSentence) -> some View {
+        FigureTile(surface: .raised, fills: false) {
+            Text(title)
+                .font(.caption)
+                .foregroundStyle(Palette.secondaryInk)
+                .privacySensitiveInFeedback()
+            AmountSentenceText(value)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Palette.ink)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .accessibilityElement(children: .combine)
     }
 
     /// The answer's title beside its figures: 22 points on the Mac.
@@ -251,22 +270,15 @@ struct PlanProgressView: View {
     }
 
     /// "To go · 15½ years", "Since Jan 2024 · 3 years sooner". To go is
-    /// from the plan's results, else the answer recorded at the latest
-    /// check-in (its age, on your birthday).
+    /// from the plan's latest answer (``PlanSession/latestAnswer``): its
+    /// results, else the answer recorded at the latest check-in.
     private func tiles(_ answerHistory: PlanAnswerHistory) -> [Tile] {
         var tiles: [Tile] = []
-        if let headline = session.shownResults?.headline {
-            if headline.canRetireNow {
+        if let answer = session.latestAnswer?.answer {
+            if answer.canRetireNow {
                 tiles.append(Tile(title: "To go", value: "None: you could stop"))
-            } else if let date = headline.earliestDate {
+            } else if let date = answer.earliestDate {
                 let months = library.asOfDate.yearMonth.months(to: date.yearMonth)
-                if months > 0 { tiles.append(Tile(title: "To go", value: Self.duration(months: months))) }
-            }
-        } else if let recorded = answerHistory.points.last {
-            if let readiness = recorded.readiness, readiness >= 1 {
-                tiles.append(Tile(title: "To go", value: "None: you could stop"))
-            } else if let age = recorded.earliestAge, let birth = library.settings.person?.birthDate {
-                let months = library.asOfDate.yearMonth.months(to: birth.adding(years: age).yearMonth)
                 if months > 0 { tiles.append(Tile(title: "To go", value: Self.duration(months: months))) }
             }
         }
@@ -292,19 +304,13 @@ struct PlanProgressView: View {
         guard let report = library.valuator.changeSinceLastCheckIn(asOf: library.asOfDate, in: .planAssets) else {
             return nil
         }
-        let saved = report.total.newMoney
+        let saved = report.total.saved
         let markets = report.total.market
-        func amount(_ value: Decimal) -> AmountSentence {
-            .amount(AmountFormat.amount(abs(value), currency: report.currency, locale: locale))
-        }
-        let signedMarkets = AmountSentence.amount(
-            AmountFormat.signedAmount(markets, currency: report.currency, locale: locale))
-        let savedWords: AmountSentence = saved >= 0 ? "you saved \(amount(saved))" : "you took out \(amount(saved))"
-        let marketWords: AmountSentence = markets >= 0 ? "markets added \(amount(markets))"
-            : "markets took \(amount(markets))"
-        let figures: AmountSentence = "\(saved >= 0 ? "Saved" : "Took out") \(amount(saved)) · markets \(signedMarkets)"
+        let words = PlanWords(currency: report.currency, locale: locale)
+        let took = saved >= 0 ? "Saved" : "Took out"
+        let figures: AmountSentence = "\(took) \(words.amount(abs(saved))) · markets \(words.signedAmount(markets))"
         return MonthReport(title: AmountFormat.monthName(report.to, locale: locale), figures: figures,
-                           sentence: "\(savedWords) and \(marketWords).")
+                           sentence: words.savedAndMarkets(saved: saved, markets: markets))
     }
 
     /// "15½ years", "8 months".
@@ -347,10 +353,8 @@ struct PlanProgressView: View {
             // An inset at both ends, beside the milestones too: on the Mac
             // the strip opened with today's card a scroller's width (16
             // points) past its trailing edge without one.
-            PlanYearStrip(timeline: timeline, selection: selection, pointsPerMonth: isWide ? 26 : 21,
-                          inset: gutter, showsFooter: isWide,
-                          today: library.asOfDate)
-            PlanYearDetails(card: cards[selected], index: selected, count: cards.count, isWide: isWide,
+            PlanYearStrip(timeline: timeline, selection: selection, today: library.asOfDate)
+            PlanYearDetails(card: cards[selected], index: selected, count: cards.count,
                             onSelect: { selection.wrappedValue = $0 }, onAddPastBaseline: addPastBaseline)
                 .padding(.leading, gutter)
                 .padding(.trailing, isWide ? 0 : gutter)
@@ -379,10 +383,10 @@ struct PlanProgressView: View {
 
     /// The next chapter of the plan, and *Save Baseline…*; *Add a Past
     /// Baseline…* quietly under it.
-    private var footer: some View {
+    private func footer(_ chapters: PlanChaptersModel?) -> some View {
         let shape = RoundedRectangle(cornerRadius: Metrics.cardRadius, style: .continuous)
         return VStack(alignment: .leading, spacing: Metrics.s) {
-            if let model = session.chapters, model.chapters.chapters.count > 1 {
+            if let model = chapters, model.chapters.chapters.count > 1 {
                 let next = model.chapters.chapters[1]
                 Text("Next in your plan")
                     .font(PlanProgressFont.caption)
@@ -524,61 +528,6 @@ struct PlanProgressView: View {
     }
 }
 
-/// A figure with its title above it, beside Progress's headline on the Mac.
-struct PlanStatTile: View {
-    let title: String
-    /// The figure: its amounts hide with the eye.
-    let value: AmountSentence
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(title)
-                .font(.caption)
-                .foregroundStyle(Palette.secondaryInk)
-                .privacySensitiveInFeedback()
-            AmountSentenceText(value)
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(Palette.ink)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .padding(.horizontal, Metrics.m)
-        .padding(.vertical, Metrics.s)
-        .frame(minWidth: 110, alignment: .leading)
-        .background(Palette.card, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .strokeBorder(Palette.border, lineWidth: 1)
-        }
-        .accessibilityElement(children: .combine)
-    }
-}
-
-/// A figure in Progress's answer card on iPhone: its title, then the figure, large.
-struct PlanFigureTile: View {
-    let title: String
-    let value: String
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(title)
-                .font(.subheadline)
-                .foregroundStyle(Palette.secondaryInk)
-                .privacySensitiveInFeedback()
-            Text(value)
-                .font(.title3.weight(.bold))
-                .foregroundStyle(Palette.ink)
-                .minimumScaleFactor(0.8)
-                .fixedSize(horizontal: false, vertical: true)
-                .privacySensitiveInFeedback()
-        }
-        .padding(.horizontal, Metrics.m)
-        .padding(.vertical, 10)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(Palette.page, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .accessibilityElement(children: .combine)
-    }
-}
-
 /// Text in Progress's cards and the year's words: 15 points on iPhone and
 /// iPad, 13 on the Mac; captions 13 and 11.
 enum PlanProgressFont {
@@ -611,12 +560,14 @@ enum PlanProgressFont {
 #Preview("Progress") {
     PlanPreviewHost(model: AppModel.preview()) { session in
         PlanProgressView(session: session, onSaveBaseline: {}, onShowPlan: {})
+            .environment(\.pageLayout, PageLayout())
     }
 }
 
 #Preview("Progress · Mac") {
     PlanPreviewHost(model: AppModel.preview()) { session in
-        PlanProgressView(session: session, isWide: true, onSaveBaseline: {}, onShowPlan: {})
+        PlanProgressView(session: session, onSaveBaseline: {}, onShowPlan: {})
+            .environment(\.pageLayout, PageLayout(isWide: true))
             .frame(width: 1_100, height: 1_000)
     }
 }

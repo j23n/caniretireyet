@@ -41,9 +41,6 @@ struct ImportPreviewStep: View {
                     }
                 }
                 ImportSummaryCard(flow: flow)
-                if flow.isGuided {
-                    ImportGuidedProposals(model: model)
-                }
                 ForEach(flow.previewIssues, id: \.self) { issue in
                     StatusBanner(.warning, issue, personal: .title)
                 }
@@ -133,58 +130,6 @@ private struct ImportCountTile: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
-    }
-}
-
-/// "Import with profile…" has no Accounts step: new accounts, instruments
-/// and closings are accepted or rejected here.
-private struct ImportGuidedProposals: View {
-    let model: ImportController
-
-    var body: some View {
-        let preview = model.flow.preview
-        let accounts = preview?.newAccounts ?? []
-        let instruments = preview?.newInstruments ?? []
-        let changes = preview?.accountChanges ?? []
-        if !accounts.isEmpty || !instruments.isEmpty || !changes.isEmpty {
-            Card("New accounts and changes", systemImage: AppSymbol.accounts) {
-                ForEach(accounts, id: \.account.id) { proposal in
-                    Toggle(isOn: Binding(get: { proposal.isAccepted }, set: { accepted in
-                        model.flow.editNewAccount(proposal.account.id) { $0.isAccepted = accepted }
-                    })) {
-                        ImportProposalLabel(
-                            title: "Create “\(proposal.account.name)”",
-                            detail: "\(proposal.account.kind.displayName), \(proposal.account.currency.rawValue)")
-                    }
-                }
-                ForEach(instruments, id: \.instrument.id) { proposal in
-                    Toggle(isOn: Binding(get: { proposal.isAccepted }, set: { accepted in
-                        model.flow.editNewInstrument(proposal.instrument.id) { $0.isAccepted = accepted }
-                    })) {
-                        ImportProposalLabel(
-                            title: "Create “\(proposal.instrument.name)”",
-                            detail: "\(InstrumentForm.name(of: proposal.instrument.kind)), "
-                                + proposal.instrument.currency.rawValue)
-                    }
-                }
-                ImportAccountChangeToggles(model: model, changes: changes)
-            }
-        }
-    }
-}
-
-private struct ImportProposalLabel: View {
-    let title: String
-    let detail: String
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(title)
-                .privacySensitiveInFeedback()
-            Text(detail)
-                .font(.caption)
-                .foregroundStyle(Palette.secondaryInk)
-        }
     }
 }
 
@@ -429,13 +374,6 @@ struct ImportCellErrorsCard: View {
 #Preview("Preview") {
     NavigationStack {
         ImportPreviewHost(step: .preview)
-    }
-    .previewEnvironment()
-}
-
-#Preview("Preview · with profile") {
-    NavigationStack {
-        ImportPreviewHost(step: .preview, guided: true)
     }
     .previewEnvironment()
 }

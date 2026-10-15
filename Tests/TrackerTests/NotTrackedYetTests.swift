@@ -14,16 +14,15 @@ struct NotTrackedYetTests {
             settings: LibrarySettings(baseCurrency: .eur),
             accounts: [
                 Account(id: "bank", name: "Bank", kind: .cash, currency: .eur, opened: "2020-01-01"),
-                Account(id: "broker", name: "Broker", kind: .brokerage, currency: .eur, opened: "2024-01-01",
-                        valuation: .holdings),
+                Account(id: "broker", name: "Broker", kind: .brokerage, currency: .eur, opened: "2024-01-01"),
             ],
             instruments: [
                 Instrument(id: "etf", name: "ETF", kind: .etf, currency: .eur, unit: .share,
                            assetClasses: .single(.equity)),
             ])
         library.upsert(Valuation(account: "bank", date: "2025-06-30", balance: 1_000))
-        library.upsert(Valuation(account: "broker", date: "2024-03-31",
-                                 positions: [Position(instrument: "etf", quantity: 10)]))
+        library.upsert(Trade(account: "broker", date: "2024-03-31", id: "opening-etf", type: .opening,
+                             instrument: "etf", quantity: 10, cost: 1_000))
         library.upsert(PriceRecord(instrument: "etf", date: "2024-06-30", price: 100, currency: .eur))
         return Valuator(library: library)
     }()

@@ -14,12 +14,12 @@ import Tracker
 
 /// The change since the previous check-in (UI.md, "Since last check-in"),
 /// which the hero number above says ("▲ +5.730 € in September"): the
-/// totals before and after, and a bar each for markets, new money and
+/// totals before and after, and a bar each for markets, saved and
 /// other, from a shared zero line (``WaterfallChart``). Titled by the month
 /// it covers when the check-in before was the end of the month before.
 struct OverviewChangeCard: View {
     let report: ChangeReport
-    /// Its split with new money as what was saved (Tracker's
+    /// Its split with saved as the savings rate counts it (Tracker's
     /// `Valuator.savedSplit(of:)`).
     let split: ValueChange
     @Environment(\.locale) private var locale
@@ -54,7 +54,7 @@ struct OverviewChangeCard: View {
         var text = "Markets: prices, exchange rates and interest. Saved: what you added or took out; "
         text += "money moved between your own accounts cancels out."
         if change.other != 0 {
-            text += " Other: what new accounts already held, and changes in accounts without new money recorded."
+            text += " Other: what new accounts already held, and changes in accounts without what was saved recorded."
         }
         return text
     }
@@ -72,7 +72,7 @@ struct OverviewChangeCard: View {
 struct OverviewYearCard: View {
     /// Tracker's `Valuator.changeThisYear(asOf:)`.
     let report: ChangeReport
-    /// Its split with new money as what was saved (Tracker's
+    /// Its split with saved as the savings rate counts it (Tracker's
     /// `Valuator.savedSplit(of:)`).
     let split: ValueChange
     /// Tracker's `Valuator.savingsRate(from:through:)` over the values
@@ -283,14 +283,14 @@ struct OverviewAttentionCard: View {
             items.append(OverviewAttentionItem(
                 id: "checkin.prices", systemImage: "tag.slash",
                 title: failures.count == 1 ? "A price couldn't be fetched" : "\(failures.count) prices couldn't be fetched",
-                detail: "Type them in on the check-in's price list.", target: .checkIn))
+                detail: "Type them in under Instruments.", target: .instruments))
         }
         if let main = library.settings.mainPlan, let error = plans.errors[main] {
             items.append(OverviewAttentionItem(
                 id: "plan.error", systemImage: "exclamationmark.triangle",
                 title: "\(library.mainPlan?.name ?? "Your plan") couldn't run", detail: error, target: .plan))
         }
-        if let main = library.settings.mainPlan, let bridge = plans.results[main]?.details.focus.bridges.first,
+        if let main = library.settings.mainPlan, let bridge = plans.results(of: main)?.details.focus.bridges.first,
            bridge.share >= 0.05 {
             let futures = Int(wholeNumber: bridge.share * 100)
             let age = bridge.accessibleFromAge.map { " at \($0)" } ?? ""
@@ -319,9 +319,9 @@ struct OverviewAttentionCard: View {
                 OverviewAttentionRow(item: item)
             }
             .buttonStyle(.plain)
-        case .checkIn:
-            Button {
-                navigation.startCheckIn()
+        case .instruments:
+            NavigationLink {
+                InstrumentsScreen()
             } label: {
                 OverviewAttentionRow(item: item)
             }

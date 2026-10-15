@@ -2,12 +2,6 @@ import Foundation
 import Importer
 import Model
 
-/// A note or problem about a bank statement's lines or days.
-struct StatementNote: Hashable, Sendable {
-    var text: String
-    var isProblem: Bool
-}
-
 /// What a rule makes the lines with its words: a class, or money moved to
 /// or from an account.
 enum StatementRuleTarget: Hashable, Sendable {
@@ -134,7 +128,7 @@ extension ImportFlow {
     func linesMatching(rule phrase: String) -> Int? {
         var count = 0
         let all = allStatementLines
-        for file in batch?.files.map({ Optional($0.id) }) ?? [nil] {
+        for file in batch?.files.map(\.id) ?? [] {
             guard let session = statementSession(ofFile: file) else { continue }
             let lines = all.filter { $0.file == file }.map(\.line)
             guard let rows = Self.rows(of: lines, matching: phrase, in: session) else { return nil }
@@ -170,13 +164,8 @@ extension ImportFlow {
 
     // MARK: The days the file covers
 
-    /// The days the file is read as covering, from the preview's note.
-    var statementPeriod: (from: CalendarDate, through: CalendarDate)? {
-        for issue in preview?.issues ?? [] {
-            if case .statementPeriod(let from, let through) = issue.kind { return (from, through) }
-        }
-        return nil
-    }
+    /// The days the file is read as covering.
+    var statementPeriod: StatementPeriod? { preview?.statementPeriod }
 
     /// The first day the file covers, when it isn't its first month's first day.
     var statementFrom: CalendarDate? { session?.statementFrom }
@@ -192,41 +181,10 @@ extension ImportFlow {
         editSession { $0.statementThrough = date }
     }
 
-    /// The balance before the file's first line, when it's given.
-    var statementOpeningBalance: Decimal? { session?.statementOpeningBalance }
-
-    mutating func setStatementOpeningBalance(_ balance: Decimal?) {
-        editSession { $0.statementOpeningBalance = balance }
-    }
-
     /// Whether the file's balances are unknown until the balance before its
     /// first line is given.
     var needsOpeningBalance: Bool {
         (preview?.issues ?? []).contains(where: \.asksForOpeningBalance)
-    }
-
-    /// Why the balance before the file's first line is needed, when it is.
-    var openingBalanceProblem: String? {
-        (preview?.issues ?? []).first(where: \.asksForOpeningBalance).map { issueText($0) }
-    }
-
-    /// What the statement's import says about its lines and days, e.g. "1
-    /// line comes after 2026-03-31…": problems first, then notes. The days
-    /// the file covers are shown on their own (``statementPeriod``).
-    var statementNotes: [StatementNote] {
-        let issues = (preview?.issues ?? []).filter { issue in
-            switch issue.kind {
-            case .needsOpeningBalance, .linesOutsidePeriod, .statementThroughAfterToday, .moneyInOutFrom,
-                 .linesAfterLastValue, .runningBalanceBreaks, .laterMoneyInOut, .noMoneyInOut, .unknownAccount:
-                true
-            case .missingField(let field):
-                field == .account
-            default:
-                false
-            }
-        }
-        return issues.filter { !$0.isNote }.map { StatementNote(text: issueText($0), isProblem: true) }
-            + issues.filter(\.isNote).map { StatementNote(text: issueText($0), isProblem: false) }
     }
 
     /// The day the balance before the file's first line is on: the day

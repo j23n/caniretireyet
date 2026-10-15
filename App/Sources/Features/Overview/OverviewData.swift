@@ -4,16 +4,12 @@ import Model
 import Planner
 import Tracker
 
-// The Overview's numbers, computed from the library without SwiftUI so they
-// can be checked on Linux. The views in this folder only lay them out.
+// The Overview's words and what needs attention. Its numbers come from the
+// package: the history chart (Tracker's `HistoryChartData`), the answer
+// (the Planner's `LatestAnswer`) and *On track?* (the Planner's
+// `PlanOnTrack`). The views in this folder only lay them out.
 
-/// How far back the history chart reaches (UI.md, "Overview": 1Y, 3Y, 5Y, All).
-enum OverviewRange: String, CaseIterable, Hashable, Sendable {
-    case oneYear = "1Y"
-    case threeYears = "3Y"
-    case fiveYears = "5Y"
-    case all = "All"
-
+extension HistoryRange {
     /// The label on the picker.
     var title: String { rawValue }
 
@@ -24,16 +20,6 @@ enum OverviewRange: String, CaseIterable, Hashable, Sendable {
         case .threeYears: "3 years"
         case .fiveYears: "5 years"
         case .all: "All"
-        }
-    }
-
-    /// The years the range spans, or `nil` for all of the history.
-    var years: Int? {
-        switch self {
-        case .oneYear: 1
-        case .threeYears: 3
-        case .fiveYears: 5
-        case .all: nil
         }
     }
 }
@@ -65,76 +51,11 @@ extension BreakdownDimension {
 // The hero number and the *Net worth* tile, net worth today with the change
 // between the last two check-ins and since the end of last year, are
 // Glance's `NetWorthGlance`, as the widgets have it. *This year* splits that
-// change since the end of last year into markets, new money and other with
+// change since the end of last year into markets, saved and other with
 // Tracker's `Valuator.changeThisYear(asOf:)`, from the same 31 December
 // (tested in TrackerTests, and against the hero in GlanceTests). The answer's
 // headline counts the time to go with Glance's `RetirementCountdown`, and its
 // ring shows Glance's `ReadinessFigure` (GlanceTests).
-
-// MARK: - History
-
-/// The history chart's data for one range (UI.md, "History chart"): the
-/// totals stacked by asset class, debts below zero, and with *Future* on
-/// the plan's projection up to the chosen horizon (``FutureHorizon``).
-///
-/// The past is net worth. With a projection it's plan assets instead (the
-/// accounts the plan counts, e.g. without your home), still by asset class:
-/// the projection is of plan assets, so the past's total meets its start at
-/// today instead of dropping onto it.
-struct OverviewHistory: Hashable, Sendable {
-    /// What the past covers: net worth, or plan assets with a projection.
-    var scope: NetWorthScope
-    /// The total on each date: the callout's total, the relative axis's 1×,
-    /// and the line drawn when nothing can be stacked (every value zero).
-    var points: [ChartPoint]
-    /// The totals by asset class, in stacking order (bottom first), on the
-    /// same dates as `points` and with their completeness; groups with no
-    /// value in the range are left out.
-    var stacked: [ChartSeries]
-    var projection: [FanPoint]
-    var markers: [ChartMarker]
-    /// The history's values that use a price more than 31 days older than
-    /// their date, for a note under the chart; `nil` when there are none.
-    var oldPrices: OldPriceSummary?
-    /// What the history's partial totals (drawn dashed) are missing: prices,
-    /// rates, accounts without a value yet; `nil` when it's complete.
-    var missing: MissingValues?
-
-    /// - Parameters:
-    ///   - projection: the main plan's portfolio fan, starting at `end`.
-    ///     With one, the past covers plan assets (``scope``).
-    ///   - markers: retirement, pension starts and the like.
-    ///   - horizon: where the projection stops (``FutureHorizon``); all of
-    ///     it when `nil`.
-    ///
-    /// Markers outside what's shown are left out.
-    init(valuator: Valuator, through end: CalendarDate, range: OverviewRange, projection: [FanPoint] = [],
-         markers: [ChartMarker] = [], horizon: Date? = nil) {
-        let scope: NetWorthScope = projection.isEmpty ? .netWorth : .planAssets
-        self.scope = scope
-        let start = range.years.map { end.adding(years: -$0) }
-        let dates = valuator.dates(.monthEnds, in: scope, through: end).filter { date in start.map { date >= $0 } ?? true }
-        // One total per date makes the line, the stacked areas and the missing values.
-        let totals = dates.map { valuator.total(on: $0, in: scope) }
-        points = totals.map { total in
-            ChartPoint(date: total.date.dateValue, value: total.total.doubleValue, isComplete: total.isComplete)
-        }
-        let byAssetClass = StackedSeries(dimension: .assetClass,
-                                         breakdowns: totals.map { valuator.breakdown(of: $0, by: .assetClass) })
-        // A group that's zero on every date is left out.
-        stacked = byAssetClass.keys.compactMap { key in
-            let values = byAssetClass.series(for: key).chartPoints
-            guard values.contains(where: { $0.value != 0 }) else { return nil }
-            return ChartSeries(id: key.chartID, name: key.description, color: key.chartColor, points: values)
-        }
-        oldPrices = OldPriceSummary(valuator.oldPrices(in: scope, on: dates))
-        missing = points.hasIncompletePoints ? MissingValues(totals.flatMap(\.accounts)) : nil
-        self.projection = horizon.map { ProjectionWindow.clip(projection, at: $0) } ?? projection
-        let first = points.first?.date ?? end.dateValue
-        let last = self.projection.last?.date ?? end.dateValue
-        self.markers = markers.filter { $0.date >= first && $0.date <= last }
-    }
-}
 
 // MARK: - This year
 
@@ -175,7 +96,7 @@ enum OverviewYearText {
 /// The main plan's answer in the Overview's header (UI.md, "Can I retire
 /// yet?"): the headline, what its ⓘ says, and what VoiceOver reads.
 struct OverviewAnswerText {
-    var headline: PlanHeadline
+    var headline: RetirementAnswer
     /// When the earliest age is reached: the headline's date, or for an
     /// answer recorded at a check-in the birthday of that age; `nil`
     /// without a birth date.
@@ -274,20 +195,10 @@ struct OverviewAnswerText {
     }
 }
 
-extension PlanHeadline {
-    /// The readiness as the ring shows it, by the *Readiness* widget's rules.
-    var readinessFigure: ReadinessFigure {
-        ReadinessFigure(readiness: readiness, isLowerBound: readinessIsLowerBound,
-                        needsMoreThanSearched: needsMoreThanSearched)
-    }
-}
-
 // MARK: - On track?
 
-/// The Overview's *On track?* (UI.md, "On track?"): where the latest
-/// check-in stands against its year's baseline, as Progress's *Are you on
-/// track?* has it (``PlanProgressYear/latestPosition(for:library:valuator:asOf:)``),
-/// and the coast age while you're past the coast point.
+/// The Overview's *On track?* (UI.md, "On track?") in words: the Planner's
+/// `PlanOnTrack`, with its baseline named as Progress's years name it.
 struct OverviewOnTrack {
     /// Where the latest check-in stands; `nil` without a baseline to
     /// measure it against ("Not measured yet").
@@ -305,17 +216,13 @@ struct OverviewOnTrack {
     ///   age; without them, the one the latest check-in recorded.
     init(plan: PlanDocument, library: Library, valuator: Valuator, asOf: CalendarDate, results: PlanResults?,
          canRetireNow: Bool, locale: Locale = .current) {
-        if let latest = PlanProgressYear.latestBaseline(for: plan.id, library: library, valuator: valuator,
-                                                        asOf: asOf) {
-            position = PlanProgressYear.latestPosition(for: plan.id, library: library, valuator: valuator, asOf: asOf)
-            expectation = PlanProgressYear.expectation(latest.entry.baseline, year: latest.checkIn.year,
-                                                       locale: locale)
+        let onTrack = PlanOnTrack(plan: plan, library: library, valuator: valuator, asOf: asOf, results: results,
+                                  canRetireNow: canRetireNow)
+        position = onTrack.position
+        if let entry = onTrack.baseline, let checkIn = onTrack.checkIn {
+            expectation = PlanProgressYear.expectation(entry.baseline, year: checkIn.year, locale: locale)
         }
-        let recorded = PlanMilestones.latestRecord(of: plan.id, library: library, asOf: asOf)
-        let coast = PlanMilestones.currentCoastAge(results: results, recorded: recorded).age
-        if !canRetireNow, MilestoneLadder.isPastCoastPoint(coast, plan: plan) {
-            coastAge = coast
-        }
+        coastAge = onTrack.coastAge
     }
 
     /// "Past the coast point: 63 without saving".
@@ -337,8 +244,9 @@ struct OverviewAttentionItem: Hashable, Sendable, Identifiable {
     enum Target: Hashable, Sendable {
         case account(AccountID)
         case instrument(InstrumentID)
-        case checkIn
         case plan
+        /// Instruments, where prices and exchange rates are typed in.
+        case instruments
         /// *Fill In Past Prices* (Instruments), for past prices and rates.
         case fillPastPrices
     }
@@ -391,8 +299,8 @@ enum OverviewAttention {
                 id: "price.\(instrument)", systemImage: "tag.slash",
                 title: "No price for \(instrumentName(instrument))",
                 detail: "\(Wording.names(gap.accounts.map(accountName))) "
-                    + "\(gap.accounts.count == 1 ? "leaves" : "leave") it out of your net worth. Type in a price at "
-                    + "your next check-in.",
+                    + "\(gap.accounts.count == 1 ? "leaves" : "leave") it out of your net worth. Fetch or type in a "
+                    + "price under Instruments.",
                 target: .instrument(instrument)))
         }
         for gap in gaps {
@@ -401,17 +309,17 @@ enum OverviewAttention {
                 id: "fx.\(from)-\(to)", systemImage: "arrow.left.arrow.right",
                 title: "No \(from) to \(to) exchange rate",
                 detail: "\(Wording.names(gap.accounts.map(accountName))) "
-                    + "\(gap.accounts.count == 1 ? "isn't" : "aren't") fully counted. Type in a rate at your next "
-                    + "check-in.",
-                target: .checkIn))
+                    + "\(gap.accounts.count == 1 ? "isn't" : "aren't") fully counted. Fetch or type in a rate under "
+                    + "Instruments.",
+                target: .instruments))
         }
 
-        for (instrument, date) in outdatedPrices(library: library, valuator: valuator, asOf: today)
+        for (instrument, date) in valuator.outdatedPrices(in: library, asOf: today)
         where !missingPrices.contains(instrument) {
             items.append(OverviewAttentionItem(
                 id: "outdated.\(instrument)", systemImage: "tag",
                 title: "\(instrumentName(instrument)): last price \(AmountFormat.shortDate(date, locale: locale))",
-                detail: "Older than the account's latest value. Fetch or type in a price at your next check-in.",
+                detail: "Older than the account's latest value. Fetch or type in a price under Instruments.",
                 target: .instrument(instrument)))
         }
         items += pastGaps(library: library, valuator: valuator, asOf: today, locale: locale)
@@ -449,7 +357,7 @@ enum OverviewAttention {
     /// leave accounts out of the net-worth history, with *Fill In Past
     /// Prices*: an item per currency, and per instrument for one or two
     /// (more are one item, so they don't crowd the card). The latest
-    /// check-in's own gaps are the items above, typed in at the next check-in.
+    /// check-in's own gaps are the items above, typed in under Instruments.
     static func pastGaps(library: Library, valuator: Valuator, asOf: CalendarDate,
                          locale: Locale = .current) -> [OverviewAttentionItem] {
         let dates = valuator.dates(.monthEnds, in: .netWorth, through: asOf).filter { $0 < asOf }
@@ -495,25 +403,5 @@ enum OverviewAttention {
             }
         }
         return items
-    }
-
-    /// Instruments held in accounts open on `asOf` whose latest price is
-    /// older than the holding account's latest valuation: usually a price
-    /// that couldn't be fetched at that check-in. Sorted by instrument.
-    static func outdatedPrices(library: Library, valuator: Valuator,
-                               asOf: CalendarDate) -> [(InstrumentID, CalendarDate)] {
-        var oldest: [InstrumentID: CalendarDate] = [:]
-        for account in library.accounts.values where account.isOpen(on: asOf) && account.includedInNetWorth {
-            // What the account holds: its latest valuation, or a trades account's snapshot
-            // (dated its latest valuation or trade).
-            guard let valuation = valuator.snapshot(of: account.id, on: asOf), !valuation.isBalance else { continue }
-            for position in valuation.positions where position.quantity != 0 {
-                guard let price = valuator.prices.latest(for: position.instrument, onOrBefore: asOf),
-                      price.date < valuation.date
-                else { continue }
-                oldest[position.instrument] = min(oldest[position.instrument] ?? price.date, price.date)
-            }
-        }
-        return oldest.sorted { $0.key < $1.key }.map { ($0.key, $0.value) }
     }
 }

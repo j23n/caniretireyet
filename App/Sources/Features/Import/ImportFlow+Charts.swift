@@ -104,26 +104,9 @@ struct ImportStatementCharts {
 }
 
 extension ImportFlow {
-    /// The previews Review shows: every statement's of the batch, in the
-    /// order they're imported, each with its file's ID; or the one file's.
-    var reviewPreviews: [(file: Int?, preview: ImportPreview)] {
-        if isBatch { return batchPreviews.map { (file: Optional($0.file), preview: $0.preview) } }
-        return preview.map { [(file: nil, preview: $0)] } ?? []
-    }
-
-    /// The account a reviewed preview is a statement of: its file's, or
-    /// the one file's.
-    func statementAccount(ofFile file: Int?) -> AccountID? {
-        guard let file else { return constants.account }
-        return batch?.files.first { $0.id == file }?.account
-    }
-
-    /// The days the statements are read as covering: the first day of the
-    /// earliest and the last day of the latest.
-    var reviewPeriod: (from: CalendarDate, through: CalendarDate)? {
-        let periods = reviewPreviews.compactMap(\.preview.statementPeriod)
-        guard let from = periods.map(\.from).min(), let through = periods.map(\.through).max() else { return nil }
-        return (from, through)
+    /// The account the batch's file `file` is a statement of.
+    func statementAccount(ofFile file: Int) -> AccountID? {
+        batch?.files.first { $0.id == file }?.account
     }
 
     /// Bank statements' charts, once their accounts and the days they
@@ -134,7 +117,7 @@ extension ImportFlow {
     /// month's last day when that check-in is in a later month, otherwise
     /// at it, when that's after the import's last day.
     func makeStatementCharts() -> ImportStatementCharts? {
-        guard layout == .statement, let period = reviewPeriod, let after = planned?.library else { return nil }
+        guard layout == .statement, let period = statementsPeriod, let after = planned?.library else { return nil }
         let year = period.through.year
         let start = CalendarDate.firstDay(ofYear: year)
         let balances = reviewBalances(from: start)
@@ -154,11 +137,11 @@ extension ImportFlow {
     /// its files cover, in the order the files are imported.
     private func reviewBalances(from start: CalendarDate) -> [ImportReviewBalance] {
         var accounts: [AccountID] = []
-        for (file, _) in reviewPreviews {
+        for (file, _) in previews {
             if let account = statementAccount(ofFile: file), !accounts.contains(account) { accounts.append(account) }
         }
         return accounts.map { account in
-            let previews = reviewPreviews.filter { statementAccount(ofFile: $0.file) == account }.map(\.preview)
+            let previews = self.previews.filter { statementAccount(ofFile: $0.file) == account }.map(\.preview)
             let values = previews.flatMap(\.records).compactMap { record -> ImportStatementCharts.Balance? in
                 guard case .valuation(let key) = record.imported.key, key.account == account,
                       let balance = record.imported.balance else { return nil }
@@ -167,7 +150,7 @@ extension ImportFlow {
             let periods = previews.compactMap(\.statementPeriod)
             let lines = previews.flatMap { preview in
                 preview.statementLines.filter { line in
-                    preview.statementPeriod.map { line.date >= $0.from && line.date <= $0.through } ?? false
+                    preview.statementPeriod?.contains(line.date) ?? false
                 }
             }.map { (date: $0.date, amount: $0.amount) }
             let file = ImportStatementCharts.dayEnds(lines: lines, values: values)

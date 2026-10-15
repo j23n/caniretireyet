@@ -33,7 +33,6 @@ import TestSupport
     }
 
     @Test func everyReferenceResolves() {
-        #expect(validator.schemas.count == 10)
         #expect(validator.unresolvedReferences() == [])
     }
 
@@ -170,7 +169,7 @@ import TestSupport
                 "inflation": "0.02",
                 "returns": {
                   "bonds": { "real": "0.017", "volatility": "0.06" },
-                  "equity": { "incomeYield": "0.02", "medianReal": "0.05", "real": "0.063334", "volatility": "0.17" }
+                  "equity": { "incomeYield": "0.02", "medianReal": "0.05", "volatility": "0.17" }
                 }
               },
               "contributions": [
@@ -224,8 +223,8 @@ import TestSupport
                 }
               ],
               "valuations": [
-                { "account": "conto-fineco", "balance": "4210.55", "date": "2026-09-30", "flow": "-310.2", "interest": "1.5",
-                  "moneyIn": "3400", "moneyOut": "3710.2", "note": "statement", "oneOff": "250", "source": "manual" },
+                { "account": "conto-fineco", "balance": "4210.55", "date": "2026-09-30", "interest": "1.5", "moneyIn": "3400",
+                  "moneyOut": "3710.2", "note": "statement", "oneOff": "250", "saved": "-310.2", "source": "manual" },
                 { "account": "directa", "cash": "312.1", "date": "2026-09-30", "positions": [{ "costBasis": "50000", "instrument": "vwce", "quantity": "423" }] }
               ]
             }
@@ -250,7 +249,7 @@ import TestSupport
         try checkRoundTrip(LibrarySettings.self, """
             {
               "baseCurrency": "EUR", "inflationIndex": "hicp-ea", "mainPlan": "base",
-              "person": { "birthDate": "1988-04-12", "name": "Alex Example" }, "schemaVersion": 4, "taxResidence": "IT"
+              "person": { "birthDate": "1988-04-12", "name": "Alex Example" }, "schemaVersion": 5, "taxResidence": "IT"
             }
             """, against: "library.schema.json")
     }

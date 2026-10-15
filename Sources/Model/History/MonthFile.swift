@@ -3,7 +3,7 @@
 ///
 /// The valuation, price, FX and index lists are always written, even when
 /// empty; `trades` is left out when empty. Records are kept sorted by date,
-/// then by ID (see ``sortRecords()``).
+/// then by ID (see ``RecordFile/sortRecords()``).
 public struct MonthFile: Hashable, Sendable, KnownKeysProviding {
     public var month: YearMonth
     public var valuations: [Valuation]
@@ -26,26 +26,26 @@ public struct MonthFile: Hashable, Sendable, KnownKeysProviding {
         self.trades = trades
     }
 
-    /// Whether the file holds no records.
-    public var isEmpty: Bool {
-        valuations.isEmpty && prices.isEmpty && fx.isEmpty && indices.isEmpty && trades.isEmpty
-    }
-
     /// The dates of all records that don't belong in this month.
     public var misplacedDates: [CalendarDate] {
-        let dates = valuations.map(\.date) + prices.map(\.date) + fx.map(\.date) + indices.map(\.date)
-            + trades.map(\.date)
-        return dates.filter { !month.contains($0) }
+        recordDates.filter { !month.contains($0) }
+    }
+}
+
+extension MonthFile: RecordFile {
+    public static var recordLists: [any RecordListing<MonthFile>] {
+        [
+            RecordList("valuations", \MonthFile.valuations, key: ["date", "account"]),
+            RecordList("prices", \MonthFile.prices, key: ["date", "instrument"]),
+            RecordList("fx", \MonthFile.fx, key: ["date", "base", "quote"]),
+            RecordList("indices", \MonthFile.indices, key: ["date", "index"]),
+            RecordList("trades", \MonthFile.trades, key: ["date", "account", "id"]),
+        ]
     }
 
-    /// Sorts every list by key: by date, then by ID.
-    public mutating func sortRecords() {
-        valuations = valuations.sortedByKey()
-        prices = prices.sortedByKey()
-        fx = fx.sortedByKey()
-        indices = indices.sortedByKey()
-        trades = trades.sortedByKey()
-    }
+    /// The file with its records sorted; `nil` without records: a month
+    /// without records has no file.
+    public var written: MonthFile? { isEmpty ? nil : sorted }
 }
 
 extension MonthFile: Codable {

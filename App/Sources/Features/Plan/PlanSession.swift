@@ -2,6 +2,7 @@ import Foundation
 import Model
 import Observation
 import Planner
+import Tracker
 
 /// One plan on screen: its edits, runs, what-if and focus age. Created by
 /// `PlanScreen` for the plan it shows; the numbers themselves live in
@@ -25,8 +26,11 @@ import Planner
 ///   for retiring then, at once when they were calculated before, else
 ///   after *Calculate*.
 ///
-/// The what-if and the focus age are kept per plan in `PlanStore`, so
-/// switching plans and coming back finds them as they were.
+/// The what-if and the focus age are `PlanStore`'s, per plan, so switching
+/// plans and coming back finds them as they were. What the pages show
+/// that's worked out from the plan, the library and the results shown
+/// (``derived(locale:)``, ``progress``, ``trends(grain:lastYears:)``) is
+/// worked out once for each change of them, not each time a page draws.
 @Observable @MainActor
 final class PlanSession {
     let planID: PlanID
@@ -40,13 +44,13 @@ final class PlanSession {
     /// The last save that failed, e.g. a read-only library.
     private(set) var saveError: String?
 
-    /// The what-if changes on top of the plan.
-    private(set) var whatIf: PlanWhatIf
-    /// The retirement age the charts are for, when it isn't the plan's own.
-    private(set) var focusAge: Int?
     /// The chapter selected on the map and in the chapters list, by a year
     /// it covers, so it stays put while edits renumber the chapters.
     var selectedChapterYear: Int?
+
+    @ObservationIgnored private let progressMemo = Memo<ProgressKey, PlanProgress>()
+    @ObservationIgnored private let trendsMemo = Memo<TrendsKey, PlanTrends>()
+    @ObservationIgnored private let derivedMemo = Memo<DerivedKey, PlanDerived>()
 
     @ObservationIgnored private var saveTask: Task<Void, Never>?
     @ObservationIgnored private var validateTask: Task<Void, Never>?
@@ -60,8 +64,6 @@ final class PlanSession {
         self.planID = planID
         self.library = library
         self.plans = plans
-        whatIf = plans.whatIfs[planID] ?? PlanWhatIf()
-        focusAge = plans.focusAges[planID]
     }
 
     // MARK: The plan
@@ -72,6 +74,51 @@ final class PlanSession {
     }
 
     var canEdit: Bool { library.canEdit }
+
+    // MARK: Progress and Trends
+
+    /// What Progress and Trends are worked out from: the library as it is,
+    /// the plan as shown, through the latest check-in.
+    private struct ProgressKey: Equatable {
+        var revision: Int
+        var document: PlanDocument?
+        var asOf: CalendarDate
+    }
+
+    private struct TrendsKey: Equatable {
+        var progress: ProgressKey
+        var grain: PeriodGrain
+        var lastYears: Int?
+    }
+
+    private var progressKey: ProgressKey {
+        ProgressKey(revision: library.revision, document: plan, asOf: library.asOfDate)
+    }
+
+    /// The plan's years, answers and milestones reached (the Planner's
+    /// `PlanProgress`), which Progress and Trends both show.
+    var progress: PlanProgress {
+        progressMemo.value(for: progressKey) {
+            PlanProgress(plan: planID, document: plan, library: library.library, valuator: library.valuator,
+                         asOf: library.asOfDate)
+        }
+    }
+
+    /// Trends' page by `grain` over the last `lastYears` (all of them when
+    /// `nil`), from ``progress``.
+    func trends(grain: PeriodGrain, lastYears: Int?) -> PlanTrends {
+        let progress = self.progress
+        return trendsMemo.value(for: TrendsKey(progress: progressKey, grain: grain, lastYears: lastYears)) {
+            PlanTrends(progress: progress, valuator: library.valuator, grain: grain, lastYears: lastYears,
+                       asOf: library.asOfDate)
+        }
+    }
+
+    /// The plan's latest answer: its results, unless a check-in recorded a
+    /// newer one, else its last recorded (``PlanStore/latestAnswer(of:)``).
+    var latestAnswer: LatestAnswer? {
+        plans.latestAnswer(of: planID)
+    }
 
     /// Replaces the plan with an edited copy; it's saved after a pause.
     func update(_ plan: PlanDocument) {
@@ -131,7 +178,7 @@ final class PlanSession {
     /// (``PlanIssueText``).
     var inputIssues: PlanInputIssues {
         var issues = validationIssues
-        if let results = plans.results[planID], results.details.planHash == plan.map({ Planner.planHash($0) }) {
+        if let results = baseResults, results.details.planHash == plan.map({ Planner.planHash($0) }) {
             issues += results.details.issues
         }
         return PlanInputIssues(PlanIssueText.humanized(issues, plan: plan, library: library.library))
@@ -148,8 +195,15 @@ final class PlanSession {
 
     // MARK: What's shown
 
+    /// The what-if changes on top of the plan (``PlanStore/whatIf(of:)``).
+    var whatIf: PlanWhatIf { plans.whatIf(of: planID) }
+
+    /// The retirement age the charts are for, when it isn't the plan's own
+    /// (``PlanStore/focusAge(of:)``).
+    var focusAge: Int? { plans.focusAge(of: planID) }
+
     /// The plan's own results.
-    var baseResults: PlanResults? { plans.results[planID] }
+    var baseResults: PlanResults? { plans.results(of: planID) }
 
     /// Whether the plan's own results fit the plan and library as they are.
     var baseIsUpToDate: Bool {
@@ -164,15 +218,14 @@ final class PlanSession {
         let plan = plan
         let base = baseResults.map { ($0, plans.staleReasons(of: planID, .base, plan: plan)) }
         if !whatIf.isEmpty {
-            if let results = plans.whatIfResults[planID] {
-                return (results, plans.staleReasons(of: planID, .whatIf, plan: plan, whatIf: whatIf,
-                                                    focusAge: focusAge))
+            if let results = plans.results(of: planID, .whatIf) {
+                return (results, plans.staleReasons(of: planID, .whatIf, plan: plan))
             }
             return base.map { ($0.0, $0.1 + [.whatIf]) }
         }
         if let focusAge {
-            if let results = plans.focusResults[planID], results.details.focus.age == focusAge {
-                return (results, plans.staleReasons(of: planID, .focus, plan: plan, focusAge: focusAge))
+            if let results = plans.results(of: planID, .focus), results.details.focus.age == focusAge {
+                return (results, plans.staleReasons(of: planID, .focus, plan: plan))
             }
             return base.map { ($0.0, $0.0.details.focus.age == focusAge ? $0.1 : $0.1 + [.focusAge]) }
         }
@@ -198,7 +251,8 @@ final class PlanSession {
             reasons = shown.reasons
         } else if let recorded = plans.recordedHeadlines(for: planID).last {
             let changed = plan.map { recorded.planHash != Planner.planHash($0) } ?? false
-            content = .recorded(PlanHeadline(recorded: recorded), planChanged: changed)
+            content = .recorded(RetirementAnswer(recorded: recorded, birthDate: library.settings.person?.birthDate),
+                                planChanged: changed)
         } else {
             content = .nothing
         }
@@ -239,19 +293,17 @@ final class PlanSession {
         guard draft == nil, library.library.plans[planID] != nil else { return }
         scheduleValidation(after: .zero)
         if !baseIsUpToDate {
-            await plans.adoptCached(planID)
+            await plans.lookUp(planID)
         }
-        await adoptCachedDetails()
+        await lookUpDetails()
     }
 
     /// The what-if's or the focus age's results, when the engine kept them.
-    private func adoptCachedDetails() async {
-        let whatIf = whatIf
-        let focusAge = focusAge
+    private func lookUpDetails() async {
         if whatIfIsOutOfDate {
-            await plans.adoptCached(planID, modes: [.full, .fast], whatIf: whatIf, focusAge: focusAge)
+            await plans.lookUp(planID, .whatIf, modes: [.full, .fast])
         } else if whatIf.isEmpty, let focusAge, focusNeedsRun(focusAge) {
-            await plans.adoptCached(planID, focusAge: focusAge)
+            await plans.lookUp(planID, .focus)
         }
     }
 
@@ -263,7 +315,7 @@ final class PlanSession {
         lookupTask = Task { [weak self] in
             try? await Task.sleep(for: .milliseconds(150))
             guard !Task.isCancelled else { return }
-            await self?.adoptCachedDetails()
+            await self?.lookUpDetails()
         }
     }
 
@@ -271,8 +323,8 @@ final class PlanSession {
     /// plan's own results nor ones for that age fit.
     private func focusNeedsRun(_ age: Int) -> Bool {
         if baseResults?.details.focus.age == age, baseIsUpToDate { return false }
-        guard plans.focusResults[planID]?.details.focus.age == age else { return true }
-        return !plans.staleReasons(of: planID, .focus, plan: plan, focusAge: age).isEmpty
+        guard plans.results(of: planID, .focus)?.details.focus.age == age else { return true }
+        return !plans.staleReasons(of: planID, .focus, plan: plan).isEmpty
     }
 
     /// Calculate, Recalculate (⌘R): saves any pending edit, then runs what
@@ -294,9 +346,9 @@ final class PlanSession {
         if !whatIf.isEmpty {
             if whatIfIsOutOfDate { await runWhatIfNow() }
         } else if let focusAge, focusNeedsRun(focusAge) {
-            await adoptCachedDetails()
+            await lookUpDetails()
             guard !Task.isCancelled, focusNeedsRun(focusAge) else { return }
-            await plans.run(planID, focusAge: focusAge)
+            await plans.run(planID, .focus)
         }
     }
 
@@ -322,11 +374,11 @@ final class PlanSession {
         let whatIf = whatIf
         let focusAge = focusAge
         guard !whatIf.isEmpty else { return }
-        if await plans.adoptCached(planID, whatIf: whatIf, focusAge: focusAge) { return }
+        if await plans.lookUp(planID, .whatIf) { return }
         guard !Task.isCancelled else { return }
-        let quick = await plans.run(planID, mode: .fast, whatIf: whatIf, focusAge: focusAge)
+        let quick = await plans.run(planID, .whatIf, mode: .fast)
         guard quick != nil, !Task.isCancelled, self.whatIf == whatIf, self.focusAge == focusAge else { return }
-        await plans.run(planID, mode: .full, whatIf: whatIf, focusAge: focusAge)
+        await plans.run(planID, .whatIf, mode: .full)
     }
 
     /// Stops the runs this screen started; results stay as they were. A
@@ -337,18 +389,33 @@ final class PlanSession {
         plans.cancel(planID)
     }
 
-    // MARK: Chapters
+    // MARK: Derived
 
-    /// The plan's chapters as shown (UI.md, "The plan"), cut at the age the
-    /// charts are for, with where the money stands from the results shown;
-    /// `nil` without a plan or a birth date.
-    var chapters: PlanChaptersModel? {
-        guard let plan else { return nil }
-        return PlanChaptersModel(plan: plan, library: library.library, valuator: library.valuator,
-                                 results: shownResults, chosenAge: focusAge, whatIfAge: whatIf.retirementAge,
-                                 recordedAge: plans.recordedHeadlines(for: planID).last?.earliestAge,
-                                 today: library.asOfDate)
+    /// What ``derived(locale:)`` is worked out from.
+    private struct DerivedKey: Equatable {
+        var revision: Int
+        var document: PlanDocument?
+        var results: PlanResults?
+        var focusAge: Int?
+        var whatIfAge: Int?
+        var asOf: CalendarDate
+        var locale: Locale
     }
+
+    /// What the plan's pages show that's worked out from the plan as shown,
+    /// the library and the results shown, in `locale`'s words: worked out
+    /// once for each change of them.
+    func derived(locale: Locale) -> PlanDerived {
+        let key = DerivedKey(revision: library.revision, document: plan, results: shownResults, focusAge: focusAge,
+                             whatIfAge: whatIf.retirementAge, asOf: library.asOfDate, locale: locale)
+        return derivedMemo.value(for: key) {
+            PlanDerived(plan: key.document, library: library.library, valuator: library.valuator,
+                        results: key.results, chosenAge: key.focusAge, whatIfAge: key.whatIfAge,
+                        asOf: key.asOf, locale: locale)
+        }
+    }
+
+    // MARK: Chapters
 
     /// The index of the selected chapter in `chapters`.
     func selectedChapter(in chapters: PlanChaptersModel) -> Int? {
@@ -379,13 +446,7 @@ final class PlanSession {
     func selectFocus(_ age: Int?) {
         guard age != shownFocusAge || (age == nil && focusAge != nil) else { return }
         let own = whatIf.retirementAge ?? baseResults?.details.focus.age
-        if let age, age != own {
-            focusAge = age
-        } else {
-            focusAge = nil
-            plans.clearFocus(planID)
-        }
-        plans.focusAges[planID] = focusAge
+        plans.setFocusAge(age == own ? nil : age, for: planID)
         lookUpCachedDetails()
     }
 
@@ -398,8 +459,8 @@ final class PlanSession {
     /// headline next to the sliders is then from before the change.
     var whatIfIsOutOfDate: Bool {
         guard !whatIf.isEmpty else { return false }
-        guard plans.whatIfResults[planID] != nil else { return true }
-        return !plans.staleReasons(of: planID, .whatIf, plan: plan, whatIf: whatIf, focusAge: focusAge).isEmpty
+        guard plans.results(of: planID, .whatIf) != nil else { return true }
+        return !plans.staleReasons(of: planID, .whatIf, plan: plan).isEmpty
     }
 
     /// Whether the what-if's run is in progress.
@@ -416,11 +477,10 @@ final class PlanSession {
         guard let model = whatIfModel else { return }
         let changed = model.setting(slider, to: value)
         guard changed != whatIf else { return }
-        whatIf = changed
-        plans.whatIfs[planID] = changed
-        if whatIf.isEmpty {
+        if changed.isEmpty {
             reset()
         } else {
+            plans.setWhatIf(changed, for: planID)
             lookUpCachedDetails()
         }
     }
@@ -428,10 +488,7 @@ final class PlanSession {
     /// Throws the what-if away ("Reset").
     func reset() {
         runTask?.cancel()
-        whatIf = PlanWhatIf()
-        plans.whatIfs[planID] = nil
-        plans.clearWhatIf(planID)
-        plans.cancelWhatIf(planID)
+        plans.setWhatIf(PlanWhatIf(), for: planID)
         lookUpCachedDetails()
     }
 
@@ -441,16 +498,12 @@ final class PlanSession {
         guard let model = whatIfModel, !whatIf.isEmpty else { return }
         let kept = model.kept
         runTask?.cancel()
-        whatIf = PlanWhatIf()
-        focusAge = nil
-        plans.whatIfs[planID] = nil
-        plans.focusAges[planID] = nil
-        plans.clearWhatIf(planID)
-        plans.clearFocus(planID)
+        plans.setWhatIf(PlanWhatIf(), for: planID)
+        plans.setFocusAge(nil, for: planID)
         update(kept)
         saveNow()
         Task { [plans, planID] in
-            await plans.adoptCached(planID)
+            await plans.lookUp(planID)
         }
     }
 

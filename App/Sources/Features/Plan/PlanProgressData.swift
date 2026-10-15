@@ -4,172 +4,43 @@ import Model
 import Planner
 import Tracker
 
-// The Progress part of a plan (UI.md, "Progress"; PROGRESS.md): the answer
+// The words of Progress (UI.md, "Progress"; PROGRESS.md): the answer
 // recorded at each check-in, each year's progress, and your actual numbers
-// against a baseline.
+// against a baseline. The numbers are the Planner's `PlanProgress`.
 
-/// Trends' *Time to retirement*: the earliest retirement age at each check-in,
-/// with markers where the plan or the app's calculations
-/// changed, so a move caused by markets and savings can be told from one
-/// caused by editing the plan.
-struct PlanAnswerHistory: Hashable, Sendable {
-    /// Why the answer may have moved for reasons other than your money.
-    enum Change: String, Hashable, Sendable, CaseIterable {
-        /// The plan's inputs changed (`planHash`).
-        case plan
-        /// The app's calculations changed (`engine`).
-        case engine
-
-        var label: String {
-            switch self {
-            case .plan: "Plan changed"
-            case .engine: "Calculations updated"
-            }
-        }
-
-        var systemImage: String {
-            switch self {
-            case .plan: "pencil"
-            case .engine: "gearshape"
-            }
+extension PlanAnswerHistory.Change {
+    var label: String {
+        switch self {
+        case .plan: "Plan changed"
+        case .engine: "Calculations updated"
         }
     }
 
-    struct Marker: Hashable, Sendable, Identifiable {
-        var date: CalendarDate
-        var changes: [Change]
-
-        var id: CalendarDate { date }
-        var label: String { changes.map(\.label).joined(separator: " · ") }
-    }
-
-    /// The answers recorded at check-ins, oldest first.
-    var points: [Headline]
-    var markers: [Marker]
-
-    /// - Parameter headlines: a plan's, by date (``Library/headlines(for:)``).
-    init(_ headlines: [Headline]) {
-        points = headlines
-        var markers: [Marker] = []
-        for (previous, next) in zip(headlines, headlines.dropFirst()) {
-            var changes: [Change] = []
-            if previous.planHash != next.planHash { changes.append(.plan) }
-            if previous.engine != next.engine { changes.append(.engine) }
-            if !changes.isEmpty { markers.append(Marker(date: next.date, changes: changes)) }
+    var systemImage: String {
+        switch self {
+        case .plan: "pencil"
+        case .engine: "gearshape"
         }
-        self.markers = markers
-    }
-
-    /// The latest recorded earliest age.
-    var latestAge: Int? { points.last?.earliestAge }
-
-    /// How the earliest age moved since the first check-in that had one:
-    /// negative is earlier (good). `nil` with fewer than two.
-    var change: (years: Int, since: CalendarDate)? {
-        guard let latest = points.last, let latestAge = latest.earliestAge,
-              let first = points.first(where: { $0.earliestAge != nil }), first.date < latest.date,
-              let firstAge = first.earliestAge
-        else { return nil }
-        return (latestAge - firstAge, first.date)
-    }
-
-    /// The check-ins that recorded a pace age (``Headline/paceAge``).
-    var pacePoints: [Headline] { points.filter { $0.paceAge != nil } }
-
-    /// The range of ages to chart, the earliest, pace and coast ages, with a little room.
-    var ageRange: ClosedRange<Int> {
-        let ages = points.compactMap(\.earliestAge) + points.compactMap(\.paceAge) + points.compactMap(\.coastAge)
-        guard let low = ages.min(), let high = ages.max() else { return 50...60 }
-        return (low - 2)...(high + 2)
     }
 }
 
-/// "Actual vs baseline": a baseline's fan from its start date, your actual
-/// plan assets over it (the same accounts, in the base currency as the
-/// baseline is, and in money of the start date when an inflation index
-/// allows), and where you are within it.
-struct PlanBaselineComparison: Sendable {
-    /// Where the latest actual value falls in the baseline's projection.
-    struct Position: Hashable, Sendable {
-        var date: CalendarDate
-        var actual: Decimal
-        var median: Decimal
-        /// `actual − median`: positive is ahead.
-        var gap: Decimal { actual - median }
-        /// 0...100, between the 10th and 90th percentiles; `nil` outside them.
-        var percentile: Double?
-        var isBelowTenth: Bool
-        var isAboveNinetieth: Bool
+extension PlanAnswerHistory.Marker {
+    var label: String { changes.map(\.label).joined(separator: " · ") }
+}
 
-        /// Where you are among the baseline's futures: ahead above its 75th
-        /// percentile, behind below its 25th, else on plan; within 1% of its
-        /// median, on plan (``BaselineStanding``).
-        var standing: Standing {
-            Standing(percentile: percentile, isBelowTenth: isBelowTenth, isAboveNinetieth: isAboveNinetieth,
-                     isNearMedian: Standing.isNear(actual.doubleValue, median: median.doubleValue))
-        }
+extension PlanAnswerHistory {
+    /// "54 now: 4 years sooner since Jan 2026.", "54 now: no change since
+    /// Jan 2026.", "54 now."; `nil` without an earliest age.
+    func nowLine(locale: Locale) -> String? {
+        guard let latest = latestAge else { return nil }
+        guard let change else { return "\(latest) now." }
+        let since = GlanceText.shortMonthAndYear(change.since, locale: locale)
+        let move = change.years == 0 ? "no change" : PlanProgressText.move(years: change.years)
+        return "\(latest) now: \(move) since \(since)."
     }
+}
 
-    /// Whether you're ahead of, on or behind plan (PROGRESS.md, "On track";
-    /// its words and colors are in PlanStanding.swift).
-    typealias Standing = BaselineStanding
-
-    var baseline: Baseline
-    var fan: [FanPoint]
-    var actual: [ChartPoint]
-    /// The accounts `actual` counts (``Baseline/comparedAccounts(among:)``):
-    /// the baseline's, those that replaced them and those opened since.
-    var accounts: Set<AccountID>
-    /// Whether the actual line is in money of the start date (an inflation
-    /// index has values for its dates) or of each date.
-    var isInflationAdjusted: Bool
-    /// The index the actual line is adjusted with; `nil` when the library has none.
-    var inflation: PlanInflationIndex?
-    var position: Position?
-
-    /// With the library's valuator, so several comparisons share it.
-    ///
-    /// - Parameters:
-    ///   - asOf: the line runs through the latest check-in on or before it.
-    ///   - from: where the line starts instead of the baseline's start: a
-    ///     year's runs from the year's start, also before a baseline saved
-    ///     during it.
-    ///   - end: where the line ends instead: a year's at its end.
-    init(baseline: Baseline, library: Library, valuator: Valuator, asOf: CalendarDate, from: CalendarDate? = nil,
-         through end: CalendarDate? = nil) {
-        self.baseline = baseline
-        fan = Self.fan(for: baseline)
-        let accounts = baseline.comparedAccounts(among: library.accounts)
-        self.accounts = accounts
-        let start = baseline.start.date
-        // Each check-in, and the month ends between them without one, from
-        // the start through the latest check-in (where you stand is as of
-        // it), or from and through the days asked for.
-        let checkIns = valuator.checkInDates(in: .planAssets, through: asOf)
-        let first = from ?? start
-        let last = end ?? max(checkIns.last ?? start, start)
-        var days = DateGrid.checkInsAndMonthEnds(from: first, through: last, checkIns: checkIns)
-        // Also on the start, where the expectation starts: as the library
-        // values it now, which differs from the value the baseline started
-        // from when past values changed since.
-        if first <= start, start <= last, !days.contains(start) {
-            days.insert(start, at: days.firstIndex { $0 > start } ?? days.endIndex)
-        }
-        let values = days.map { date in
-            let total = valuator.total(on: date, including: { accounts.contains($0.id) })
-            return SeriesPoint(date: date, value: total.total, isComplete: total.isPriced)
-        }
-        let series = PlanActualSeries(values: values, library: library, valuator: valuator,
-                                      currency: library.settings.baseCurrency, inMoneyOf: start)
-        actual = series.points
-        isInflationAdjusted = series.isInflationAdjusted || series.points.isEmpty
-        inflation = series.inflation
-        // Where you stand: the latest value after the start (none before it).
-        position = series.latest.flatMap { latest in
-            latest.date > start ? Self.position(of: latest.value, on: latest.date, in: baseline) : nil
-        }
-    }
-
+extension PlanBaselineComparison {
     /// The line under the chart: which accounts, and in what money.
     func unitsNote(baseCurrency: CurrencyCode, locale: Locale = .current) -> String {
         let code = baseCurrency.rawValue
@@ -191,48 +62,10 @@ struct PlanBaselineComparison: Sendable {
         }
     }
 
-    /// The baseline's fan: its start value, each month end through its
-    /// first year-end, where the band widens fastest (with the square root
-    /// of time, ``Baseline/percentiles(on:)``), then each year-end after.
-    static func fan(for baseline: Baseline) -> [FanPoint] {
-        let knots = baseline.percentileKnots.map(\.date)
-        guard let start = knots.first else { return [] }
-        let firstYear = DateGrid.checkInsAndMonthEnds(from: start, through: knots.dropFirst().first ?? start,
-                                                      checkIns: [])
-        return (firstYear + Array(knots.dropFirst(2))).compactMap { day in
-            guard let bands = baseline.percentiles(on: day) else { return nil }
-            return FanPoint(date: day.dateValue, p10: bands[0], p25: bands[1], p50: bands[2], p75: bands[3],
-                            p90: bands[4])
-        }
-    }
-
-    static func position(of actual: Decimal, on date: CalendarDate, in baseline: Baseline) -> Position? {
-        guard let bands = baseline.percentiles(on: date) else { return nil }
-        let value = actual.doubleValue
-        return Position(date: date, actual: actual, median: Decimal(wholeNumber: bands[2]),
-                        percentile: Standing.percentile(of: value, in: bands), isBelowTenth: value < bands[0],
-                        isAboveNinetieth: value > bands[4])
-    }
-
-    /// "61st", "22nd", "13th".
-    static func ordinal(_ number: Int) -> String {
-        let suffix: String
-        switch (number % 10, number % 100) {
-        case (_, 11...13): suffix = "th"
-        case (1, _): suffix = "st"
-        case (2, _): suffix = "nd"
-        case (3, _): suffix = "rd"
-        default: suffix = "th"
-        }
-        return "\(number)\(suffix)"
-    }
-
-    /// "61st percentile of what you expected", or where you are outside the band.
+    /// The line under the baseline's chart: "61 in 100 of the futures you
+    /// expected are below you"; empty when that isn't known.
     static func percentileText(_ position: Position) -> String {
-        if position.isBelowTenth { return "Below the 10th percentile of what you expected" }
-        if position.isAboveNinetieth { return "Above the 90th percentile of what you expected" }
-        guard let percentile = position.percentile else { return "" }
-        return "\(ordinal(Int(wholeNumber: percentile))) percentile of what you expected"
+        position.futuresBelow.map { "\($0) of the futures you expected are below you" } ?? ""
     }
 
     /// The picker's label: "Start of 2026 (automatic)", "Before going part-time (saved 12 Mar)".
@@ -245,64 +78,11 @@ struct PlanBaselineComparison: Sendable {
         if baseline.kind == .yearly { return "\(name) (automatic)" }
         return "\(name) (saved \(AmountFormat.shortDate(baseline.created, locale: locale)))"
     }
-
-    /// A plan's baselines with their IDs, newest first.
-    static func baselines(for plan: PlanID, in library: Library) -> [PlanBaselineEntry] {
-        (library.projections[plan]?.baselines ?? [:])
-            .map { PlanBaselineEntry(id: $0.key, baseline: $0.value) }
-            .sorted { ($0.baseline.created, $0.id.rawValue) > ($1.baseline.created, $1.id.rawValue) }
-    }
-}
-
-/// A saved baseline and its ID (its file name).
-struct PlanBaselineEntry: Hashable, Sendable, Identifiable {
-    var id: BaselineID
-    var baseline: Baseline
 }
 
 // MARK: - Year by year
 
-/// One calendar year of progress (UI.md, "Progress"): how your plan assets
-/// moved from the end of the year before to its own end (this year's to the
-/// latest check-in), split into what you saved and what markets did; how
-/// the answer moved; and where its end stands against the year's automatic
-/// baseline.
-struct PlanProgressYear: Hashable, Sendable, Identifiable {
-    var year: Int
-    /// The day the year is measured from: the last day of the year before,
-    /// or in the first year the first record of a plan asset.
-    var from: CalendarDate
-    /// Its last day, or in the latest year the latest check-in.
-    var to: CalendarDate
-    /// How many check-ins it has.
-    var checkIns: Int
-    /// Its last check-in; `nil` without one.
-    var lastCheckIn: CalendarDate?
-    /// Whether it's the year of the latest check-in, still going.
-    var isLatest: Bool
-    /// Plan assets from `from` to `to`, in the base currency: the start,
-    /// what you saved (new money), what markets did, the rest, the end.
-    var change: ValueChange
-    /// Whether every price and rate was known (an account without a value
-    /// yet isn't missing one: ``NetWorth/isPriced``).
-    var isComplete: Bool
-    /// The answer going into the year (the last recorded before it, else
-    /// its first) and at its last check-in with one.
-    var answerFrom: Headline?
-    var answerTo: Headline?
-    /// The year's automatic baseline ("Start of 2026"), else the latest past
-    /// baseline that starts before the year ends (PROGRESS.md, "Past baselines").
-    var baseline: PlanBaselineEntry?
-    /// Where the year's end (its last check-in, else its last day) stands
-    /// against it; `nil` when the baseline starts there.
-    var position: PlanBaselineComparison.Position?
-    /// Why it stands there (PROGRESS.md, *Why*): what you saved against the
-    /// plan, markets against what was expected, inflation and the rest,
-    /// from the baseline's start, or the year's when it started before.
-    var explanation: GapExplanation?
-
-    var id: Int { year }
-
+extension PlanProgressYear {
     /// "2026 so far", "2025".
     var title: String { isLatest ? "\(year) so far" : "\(year)" }
 
@@ -331,64 +111,6 @@ struct PlanProgressYear: Hashable, Sendable, Identifiable {
         return words.capitalizedFirst
     }
 
-    /// How the earliest age moved in the year: negative is earlier (good);
-    /// `nil` unless both ends have one.
-    var ageChange: Int? {
-        guard let from = answerFrom?.earliestAge, let to = answerTo?.earliestAge else { return nil }
-        return to - from
-    }
-
-    /// The plan's progress in each calendar year from the first record of
-    /// a plan asset (a value, or a trade) through the latest check-in of
-    /// plan assets on or before `asOf`, oldest first. Between check-ins,
-    /// and in a year without one, what you held is valued at its prices
-    /// (PROGRESS.md, "Year by year").
-    ///
-    /// - Parameter history: the plan's answers (``PlanAnswerHistory``).
-    static func years(for plan: PlanID, library: Library, valuator: Valuator, history: PlanAnswerHistory,
-                      asOf: CalendarDate) -> [PlanProgressYear] {
-        let dates = valuator.checkInDates(in: .planAssets, through: asOf)
-        guard let latest = dates.last else { return [] }
-        let start = min(valuator.firstValuationDate(in: .planAssets) ?? latest, latest)
-        let baselines = PlanBaselineComparison.baselines(for: plan, in: library)
-        let byYear = Dictionary(grouping: dates, by: \.year)
-        return (start.year...latest.year).compactMap { year -> PlanProgressYear? in
-            let checkIns = byYear[year] ?? []
-            guard let measured = span(of: year, checkIns: checkIns, start: start, isLatest: year == latest.year)
-            else { return nil }
-            let from = measured.from
-            let last = measured.to
-            let report = valuator.change(from: from, to: last, in: .planAssets)
-            let inYear = history.points.filter { $0.date.year == year && $0.date <= last }
-            let before = history.points.last { $0.date.year < year }
-            let baseline = Self.baseline(for: year, in: baselines)
-            let comparison = baseline.map {
-                PlanBaselineComparison(baseline: $0.baseline, library: library, valuator: valuator, asOf: last,
-                                       from: from, through: last)
-            }
-            let explanation = baseline.flatMap { entry in
-                comparison.flatMap {
-                    Self.explanation(of: entry.baseline, comparison: $0, from: from, to: last, valuator: valuator)
-                }
-            }
-            return PlanProgressYear(
-                year: year, from: from, to: last, checkIns: checkIns.count, lastCheckIn: checkIns.last,
-                isLatest: year == latest.year,
-                change: report.total, isComplete: report.isPriced,
-                answerFrom: before ?? inYear.first, answerTo: inYear.last,
-                baseline: baseline, position: comparison?.position, explanation: explanation)
-        }
-    }
-}
-
-extension PlanProgressYear {
-    /// The baseline a year is measured against: its automatic baseline,
-    /// else the past baseline starting latest before it ends (PROGRESS.md,
-    /// "Past baselines").
-    static func baseline(for year: Int, in baselines: [PlanBaselineEntry]) -> PlanBaselineEntry? {
-        yearlyBaseline(for: year, in: baselines) ?? pastBaseline(for: year, in: baselines)
-    }
-
     /// What deleting `entry` changes, for its confirmation: which of `years`
     /// measured against it are then measured against another baseline
     /// (``baseline(for:in:)`` among those left) and which have none; whether
@@ -397,7 +119,7 @@ extension PlanProgressYear {
     /// - Parameter savingYear: the year a check-in would save an automatic
     ///   baseline for when it has none: for the main plan, the year of the
     ///   date a new check-in is suggested for (last year's in January's
-    ///   first days, ``CheckInDraft/suggestedDate(today:lastCheckIn:)``);
+    ///   first days, Tracker's `CheckInDates.suggested(today:lastCheckIn:)`);
     ///   `nil` for another plan (``PlanStore/checkInSaved(on:)``).
     static func deletionNote(of entry: PlanBaselineEntry, years: [Int], baselines: [PlanBaselineEntry],
                              savingYear: Int?, locale: Locale = .current) -> String {
@@ -440,115 +162,15 @@ extension PlanProgressYear {
         sentences.append("A copy is kept in Sync & backups.")
         return sentences.joined(separator: " ")
     }
-
-    /// The year's automatic baseline ("Start of 2026"), saved at its first check-in.
-    static func yearlyBaseline(for year: Int, in baselines: [PlanBaselineEntry]) -> PlanBaselineEntry? {
-        baselines.first { $0.baseline.isYearly(of: year) }
-    }
-
-    /// The past baseline a year without its own is measured against: the
-    /// one starting latest before the year ends.
-    static func pastBaseline(for year: Int, in baselines: [PlanBaselineEntry]) -> PlanBaselineEntry? {
-        baselines.filter { $0.baseline.kind == .past && $0.baseline.start.date.year <= year }
-            .max { $0.baseline.start.date < $1.baseline.start.date }
-    }
-
-    /// Why a year ends where it does against its baseline
-    /// (``GapExplanation``), from the baseline's start, or the year's when
-    /// it started before, to the year's end: in the baseline's money, the
-    /// same accounts as its line (money moved between them is neither saved
-    /// nor taken out). `nil` without the values for it.
-    static func explanation(of baseline: Baseline, comparison: PlanBaselineComparison, from: CalendarDate,
-                            to end: CalendarDate, valuator: Valuator) -> GapExplanation? {
-        let start = max(from, baseline.start.date)
-        guard start < end, let position = comparison.position, position.date == end,
-              let first = comparison.actual.first(where: { CalendarDate($0.date, in: .current) == start }),
-              let expectedStart = baseline.percentiles(on: start)?[2],
-              let planned = plannedSaving(in: baseline, from: start, to: end)
-        else { return nil }
-        let accounts = comparison.accounts
-        // As it happened.
-        let change = accounts
-            .compactMap { valuator.change(of: $0, from: start, to: end)?.change }
-            .reduce(ValueChange.zero, +)
-        let startAsItWas = valuator.total(on: start, including: { accounts.contains($0.id) }).total
-        let endAsItWas = valuator.total(on: end, including: { accounts.contains($0.id) }).total
-        // At its own start the baseline expected what it started from.
-        let expectedFirst = start == baseline.start.date ? baseline.start.value : Decimal(wholeNumber: expectedStart)
-        return GapExplanation(
-            actual: (start: Decimal(wholeNumber: first.value), end: position.actual),
-            expected: (start: expectedFirst, end: position.median),
-            plannedSaving: planned,
-            change: ValueChange(start: startAsItWas, market: change.market, newMoney: change.newMoney,
-                                other: endAsItWas - startAsItWas - change.newMoney - change.market,
-                                end: endAsItWas),
-            asItWas: comparison.isInflationAdjusted ? (start: startAsItWas, end: endAsItWas) : nil)
-    }
-
-    /// What `baseline` planned you'd save from `start` to `end`: each of its
-    /// years' saving spread evenly over the year (its first year from its
-    /// start); `nil` when a year it needs has none.
-    static func plannedSaving(in baseline: Baseline, from start: CalendarDate, to end: CalendarDate) -> Decimal? {
-        var total: Decimal = 0
-        for year in start.year...end.year {
-            guard let yearEnd = CalendarDate(year: year, month: 12, day: 31),
-                  let previousEnd = CalendarDate(year: year - 1, month: 12, day: 31) else { continue }
-            let stretch = max(previousEnd, baseline.start.date)
-            let overlapStart = max(stretch, start)
-            let overlapEnd = min(yearEnd, end)
-            guard overlapEnd > overlapStart else { continue }
-            guard let saving = baseline.year(year)?.savings else { return nil }
-            total += saving * Decimal(overlapStart.days(to: overlapEnd)) / Decimal(max(1, stretch.days(to: yearEnd)))
-        }
-        return total
-    }
-
-    /// Where a year is measured from and to: from the last day of the year
-    /// before (in the first year, the first record) to its own last day, or
-    /// in the latest year to the latest check-in, so the years meet on 31
-    /// December. `nil` for a year with nothing to measure.
-    static func span(of year: Int, checkIns: [CalendarDate], start: CalendarDate,
-                     isLatest: Bool) -> (from: CalendarDate, to: CalendarDate)? {
-        guard let yearEnd = CalendarDate(year: year, month: 12, day: 31),
-              let previousEnd = CalendarDate(year: year - 1, month: 12, day: 31) else { return nil }
-        let from = max(previousEnd, start)
-        let to = isLatest ? (checkIns.last ?? yearEnd) : yearEnd
-        guard from < to || (!checkIns.isEmpty && from == to) else { return nil }
-        return (from, to)
-    }
-
-    /// The latest check-in of plan assets on or before `asOf`, and the
-    /// baseline its year is measured against (``baseline(for:in:)``), as
-    /// Progress's latest year has them: what "Are you on track?", the plan's
-    /// pill and the Overview compare with. `nil` without either.
-    static func latestBaseline(for plan: PlanID, library: Library, valuator: Valuator,
-                               asOf: CalendarDate) -> (checkIn: CalendarDate, entry: PlanBaselineEntry)? {
-        guard let last = valuator.checkInDates(in: .planAssets, through: asOf).last,
-              let entry = Self.baseline(for: last.year, in: PlanBaselineComparison.baselines(for: plan, in: library))
-        else { return nil }
-        return (checkIn: last, entry: entry)
-    }
-
-    /// Where the latest check-in stands against its year's baseline
-    /// (``latestBaseline(for:library:valuator:asOf:)``); `nil` without one.
-    static func latestPosition(for plan: PlanID, library: Library, valuator: Valuator,
-                               asOf: CalendarDate) -> PlanBaselineComparison.Position? {
-        guard let latest = latestBaseline(for: plan, library: library, valuator: valuator, asOf: asOf) else {
-            return nil
-        }
-        // Where it stands needs only its own value, however long ago a past baseline starts.
-        return PlanBaselineComparison(baseline: latest.entry.baseline, library: library, valuator: valuator,
-                                      asOf: latest.checkIn, from: latest.checkIn).position
-    }
 }
 
 // MARK: - The years on a strip
 
 /// Progress as a strip of years (UI.md, "Progress"): a card per year with
-/// your money through it against what January expected, on a scale the
-/// cards on screen share, so December of one year meets January of the
-/// next; where the answer moved; and the year's story. Oldest first: the strip opens at
-/// today, on the right.
+/// your money through it against what January expected (the Planner's
+/// `PlanYearChart`), on a scale the cards on screen share, so December of
+/// one year meets January of the next; where the answer moved; and the
+/// year's story. Oldest first: the strip opens at today, on the right.
 struct PlanProgressTimeline {
     /// Something that happened at a check-in of the year: the answer moved,
     /// or the plan or the calculations changed; a milestone was reached; you
@@ -586,37 +208,28 @@ struct PlanProgressTimeline {
         }
     }
 
-    /// One year's card.
+    /// One year's card: its chart, and its notes and summary in words.
     struct Card: Identifiable {
-        let year: PlanProgressYear
-        /// Your money from the last point before the year through its end,
-        /// at each check-in and the end of each month without one: plan
-        /// assets in the base currency, as they were, as the milestones and
-        /// the year's change count them.
-        let actual: [ChartPoint]
-        /// What the year's baseline expected: its median from its start (or
-        /// the line's, when it started before) to the year's end, in the
-        /// line's money, with the accounts it doesn't compare at their value
-        /// (``PlanProgressTimeline/expected(by:days:totals:through:library:valuator:)``);
-        /// empty without one.
-        let expected: [ChartPoint]
+        let chart: PlanYearChart
         /// By date.
         let notes: [Note]
-        /// The milestones reached in it, at a check-in or a month end,
-        /// flagged on its line.
-        let milestones: [ReachedMilestone]
-        /// The days of ``actual`` that are check-ins; its other points are
-        /// valued from what you held and its prices.
-        let checkIns: Set<Date>
         /// The year in a line ("Two years sooner, and past 300.000 €."); `nil` for a quiet one.
         let summary: AmountSentence?
-        /// The money's currency: the base currency.
-        let currency: CurrencyCode
-        /// 1 January and 31 December of the year, at noon.
-        let start: Date
-        let end: Date
 
-        var id: Int { year.year }
+        var id: Int { chart.id }
+        var year: PlanProgressYear { chart.year }
+        var actual: [ChartPoint] { chart.actual }
+        var expected: [ChartPoint] { chart.expected }
+        var milestones: [ReachedMilestone] { chart.milestones }
+        var checkIns: Set<Date> { chart.checkIns }
+        var currency: CurrencyCode { chart.currency }
+        var start: Date { chart.start }
+        var end: Date { chart.end }
+        var gaps: [PlanYearChart.Gap] { chart.gaps }
+
+        func expected(on date: Date) -> Double? {
+            chart.expected(on: date)
+        }
 
         /// The notes a month at a time, in order.
         var noteRows: [NoteRow] {
@@ -630,118 +243,23 @@ struct PlanProgressTimeline {
             }
             return rows
         }
-
-        /// A stretch where your money is above (ahead) or below what January
-        /// expected: the two values at each date along it.
-        struct Gap: Hashable, Sendable {
-            struct Point: Hashable, Sendable {
-                var date: Date
-                var actual: Double
-                var expected: Double
-            }
-
-            var ahead: Bool
-            var points: [Point]
-        }
-
-        /// The stretches ahead of and behind what the baseline expected, from
-        /// its start, split where the lines cross.
-        var gaps: [Gap] {
-            guard !expected.isEmpty, actual.count >= 2 else { return [] }
-            var gaps: [Gap] = []
-            var current: Gap?
-            for (from, to) in zip(actual, actual.dropFirst()) {
-                guard let startExpected = expected(on: from.date), let endExpected = expected(on: to.date) else {
-                    continue
-                }
-                var pieces = [Gap.Point(date: from.date, actual: from.value, expected: startExpected)]
-                let before = from.value - startExpected
-                let after = to.value - endExpected
-                if before * after < 0 {
-                    let t = before / (before - after)
-                    let date = from.date.addingTimeInterval(to.date.timeIntervalSince(from.date) * t)
-                    let value = from.value + (to.value - from.value) * t
-                    pieces.append(Gap.Point(date: date, actual: value, expected: value))
-                }
-                pieces.append(Gap.Point(date: to.date, actual: to.value, expected: endExpected))
-                for (a, b) in zip(pieces, pieces.dropFirst()) {
-                    let ahead = (a.actual - a.expected) + (b.actual - b.expected) >= 0
-                    if current?.ahead != ahead {
-                        if let current { gaps.append(current) }
-                        current = Gap(ahead: ahead, points: [a])
-                    }
-                    current?.points.append(b)
-                }
-            }
-            if let current { gaps.append(current) }
-            return gaps
-        }
-
-        /// What the year's baseline expected on `date`, between its points;
-        /// `nil` without one, and before it started.
-        func expected(on date: Date) -> Double? {
-            guard let first = expected.first, date >= first.date else { return nil }
-            for (from, to) in zip(expected, expected.dropFirst()) where date <= to.date {
-                let span = to.date.timeIntervalSince(from.date)
-                let t = span > 0 ? date.timeIntervalSince(from.date) / span : 1
-                return from.value + (to.value - from.value) * t
-            }
-            return expected.last?.value
-        }
     }
 
     /// Oldest first.
     let cards: [Card]
 
-    /// - Parameters:
-    ///   - years: the years, oldest first (``PlanProgressYear/years(for:library:valuator:history:asOf:)``).
-    ///   - history: the plan's answers.
-    ///   - milestones: the milestones the plan's assets reached.
-    ///   - text: the milestones' and the notes' words, with their currency.
-    init(years: [PlanProgressYear], library: Library, valuator: Valuator, history: PlanAnswerHistory,
-         milestones: [ReachedMilestone] = [], text: PlanMilestoneText) {
+    /// - Parameter text: the milestones' and the notes' words, with their currency.
+    init(_ progress: PlanProgress, text: PlanMilestoneText) {
         let locale = text.locale
-        let dates = valuator.checkInDates(in: .planAssets)
-        let changes = zip(dates, dates.dropFirst()).map { before, after in
-            (from: before, to: after, change: valuator.change(from: before, to: after, in: .planAssets).total)
-        }
-        let checkInDays = Set(dates.map(\.dateValue))
-        cards = years.map { year in
-            let start = CalendarDate.firstDay(ofYear: year.year).dateValue
-            let end = CalendarDate.lastDay(ofYear: year.year).dateValue
-            // From the last day before the year (drawn at its left edge) through its end.
-            let grid = DateGrid.checkInsAndMonthEnds(from: year.from, through: year.to, checkIns: dates)
-            let firstOfYear = CalendarDate.firstDay(ofYear: year.year)
-            let lead = grid.last { $0 < firstOfYear } ?? firstOfYear
-            var days = grid.filter { $0 >= lead }
-            // Also on a baseline's own start during the year, where its expectation starts.
-            if let baselineStart = year.baseline?.baseline.start.date, lead <= baselineStart,
-               baselineStart <= year.to, !days.contains(baselineStart) {
-                days.insert(baselineStart, at: days.firstIndex { $0 > baselineStart } ?? days.endIndex)
-            }
-            // Your money as it was: plan assets in the base currency, as the
-            // milestones flagged on the line and the year's change count it.
-            let totals = days.map { valuator.total(on: $0, in: .planAssets) }
-            let actual = zip(days, totals).map { day, total in
-                ChartPoint(date: day.dateValue, value: total.total.doubleValue, isComplete: total.isPriced)
-            }
-            let expected = year.baseline.map { entry in
-                Self.expected(by: entry.baseline, days: days, totals: totals,
-                              through: CalendarDate.lastDay(ofYear: year.year),
-                              library: library, valuator: valuator)
-            } ?? []
-            let answerNotes = Self.answers(in: year, history: history, locale: locale)
-            let inYear = milestones.filter { $0.date.year == year.year && $0.date <= year.to }
-            let milestoneNotes = inYear.map { reached in
+        cards = progress.charts.map { chart in
+            let milestoneNotes = chart.milestones.map { reached in
                 Note(date: reached.date, month: GlanceText.shortMonth(reached.date, locale: locale),
                      text: text.reachedInRow(reached.milestone), isMilestone: true)
             }
-            let notable = Self.notable(in: year, changes: changes, text: text)
-            let notes = (answerNotes + milestoneNotes + notable).sorted { $0.date < $1.date }
-            return Card(year: year, actual: actual, expected: expected, notes: notes,
-                        milestones: inYear, checkIns: checkInDays.intersection(actual.map(\.date)),
-                        summary: PlanProgressText.summary(year, milestones: inYear, text: text),
-                        currency: library.settings.baseCurrency, start: start, end: end)
+            let notes = (chart.answerEvents.map { Self.note($0, text: text) } + milestoneNotes
+                + chart.notableEvents.map { Self.note($0, text: text) }).sorted { $0.date < $1.date }
+            return Card(chart: chart, notes: notes,
+                        summary: PlanProgressText.summary(chart.year, milestones: chart.milestones, text: text))
         }
     }
 
@@ -757,103 +275,29 @@ struct PlanProgressTimeline {
         })
     }
 
-    /// What `baseline` expected on each of `days` and on `end`, in the money
-    /// of a card's line (plan assets in the base currency, as they were):
-    /// its median turned from money of its start into money of the day
-    /// (where the inflation index has both), plus the plan assets it
-    /// doesn't compare (``Baseline/comparedAccounts(among:)``: an account
-    /// added since with an older history, one its plan left out) at their
-    /// value, so the space between the two lines is the gap it measures. A
-    /// day after the last of `days` takes the day before's; `totals` are
-    /// plan assets on `days`.
-    static func expected(by baseline: Baseline, days: [CalendarDate], totals: [NetWorth], through end: CalendarDate,
-                         library: Library, valuator: Valuator) -> [ChartPoint] {
-        let accounts = baseline.comparedAccounts(among: library.accounts)
-        let index = PlanMoney.baseCurrencyIndex(library: library)
-        var shifts: [(day: CalendarDate, factor: Double, others: Double)] = []
-        for (day, total) in zip(days, totals) {
-            // One unit of money of the day in money of the baseline's start.
-            let unit = (index?.convert(1, from: day, to: baseline.start.date) ?? 1).doubleValue
-            guard unit != 0 else { continue }
-            let compared = valuator.total(on: day, including: { accounts.contains($0.id) }).total
-            shifts.append((day: day, factor: 1 / unit, others: (total.total - compared).doubleValue))
+    /// An event's note: "55, a year sooner.", "Plan changed: 54 again.",
+    /// "You saved 9.000 €, more than usual.", "Markets fell 12.000 €, 6%.".
+    static func note(_ event: PlanYearEvent, text: PlanMilestoneText) -> Note {
+        let month = GlanceText.shortMonth(event.date, locale: text.locale)
+        let money = PlanWords(currency: text.currency, locale: text.locale)
+        let words: AmountSentence
+        switch event.kind {
+        case let .answerMoved(age, years, again, planChanged):
+            let cause = planChanged ? "Plan changed: " : ""
+            let line = again ? "\(cause)\(age) again." : "\(cause)\(age), \(PlanProgressText.move(years: years))."
+            words = AmountSentence(line)
+        case .changed(let changes):
+            words = AmountSentence("\(changes.map(\.label).joined(separator: " · ")).")
+        case .noAge:
+            words = "No age reached your bar."
+        case .savedMore(let saved):
+            words = "You saved \(money.unsigned(saved)), more than usual."
+        case let .markets(markets, share):
+            let percent = AmountFormat.percent(share.doubleValue, digits: 0, locale: text.locale)
+            words = markets < 0 ? "Markets fell \(money.unsigned(markets)), \(percent)."
+                : "Markets added \(money.unsigned(markets)), \(percent)."
         }
-        return Set(days + [end]).sorted().compactMap { day in
-            guard let bands = baseline.percentiles(on: day),
-                  let shift = shifts.last(where: { $0.day <= day }) ?? shifts.first
-            else { return nil }
-            return ChartPoint(date: day.dateValue, value: bands[2] * shift.factor + shift.others)
-        }
-    }
-
-    /// The answer's moves in `year`: a note for each move and each change
-    /// of the plan or the calculations.
-    static func answers(in year: PlanProgressYear, history: PlanAnswerHistory, locale: Locale) -> [Note] {
-        let points = history.points.filter { $0.date.year == year.year && $0.date <= year.to }
-        let markers = Dictionary(history.markers.map { ($0.date, $0) }, uniquingKeysWith: { first, _ in first })
-        var notes: [Note] = []
-        var previous = history.points.last { $0.date.year < year.year }?.earliestAge
-        // The answers the year has had, so one coming back reads "55 again.".
-        var seen = Set(previous.map { [$0] } ?? [])
-        for point in points {
-            let month = GlanceText.shortMonth(point.date, locale: locale)
-            let marker = markers[point.date]
-            if let age = point.earliestAge {
-                if let before = previous, before != age {
-                    let move = PlanProgressText.move(years: age - before)
-                    let cause = marker?.changes.contains(.plan) == true ? "Plan changed: " : ""
-                    let text = seen.contains(age) ? "\(cause)\(age) again." : "\(cause)\(age), \(move)."
-                    notes.append(Note(date: point.date, month: month, text: AmountSentence(text)))
-                } else if let marker {
-                    notes.append(Note(date: point.date, month: month, text: AmountSentence("\(marker.label).")))
-                }
-                previous = age
-                seen.insert(age)
-            } else if previous != nil {
-                notes.append(Note(date: point.date, month: month, text: "No age reached your bar."))
-                previous = nil
-            }
-        }
-        return notes
-    }
-
-    /// The year's notable check-ins (PROGRESS.md, "Milestones"): saving at
-    /// least twice the usual (the median of the 12 check-ins before) and at
-    /// least 1% of plan assets, and markets moving plan assets by 5% or more.
-    /// Saving a baseline isn't one: it's bookkeeping, not something that
-    /// happened to the money.
-    static func notable(in year: PlanProgressYear,
-                        changes: [(from: CalendarDate, to: CalendarDate, change: ValueChange)],
-                        text: PlanMilestoneText) -> [Note] {
-        var notes: [Note] = []
-        func amount(_ value: Decimal) -> AmountSentence {
-            .amount(AmountFormat.amount(abs(value), currency: text.currency, locale: text.locale))
-        }
-        for (index, step) in changes.enumerated() where step.to.year == year.year && step.to <= year.to {
-            let month = GlanceText.shortMonth(step.to, locale: text.locale)
-            let change = step.change
-            let usual = median(changes[max(0, index - 12)..<index].map(\.change.newMoney))
-            if let usual, usual > 0, change.newMoney >= 2 * usual, change.newMoney >= change.start / 100 {
-                notes.append(Note(date: step.to, month: month,
-                                  text: "You saved \(amount(change.newMoney)), more than usual."))
-            }
-            if change.start > 0, abs(change.market) >= change.start / 20 {
-                let percent = AmountFormat.percent((abs(change.market) / change.start).doubleValue, digits: 0,
-                                                   locale: text.locale)
-                let moved: AmountSentence = change.market < 0 ? "Markets fell \(amount(change.market)), \(percent)."
-                    : "Markets added \(amount(change.market)), \(percent)."
-                notes.append(Note(date: step.to, month: month, text: moved))
-            }
-        }
-        return notes
-    }
-
-    /// The middle value; `nil` when there are none.
-    static func median(_ values: [Decimal]) -> Decimal? {
-        let sorted = values.sorted()
-        guard !sorted.isEmpty else { return nil }
-        let middle = sorted.count / 2
-        return sorted.count % 2 == 1 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2
+        return Note(date: event.date, month: month, text: words)
     }
 }
 
@@ -861,11 +305,6 @@ struct PlanProgressTimeline {
 /// January, its story and January's note. Amounts hide with the eye
 /// (``AmountSentence``).
 enum PlanProgressText {
-    /// `value` without its sign: "18.400 €".
-    private static func amount(_ value: Decimal, currency: CurrencyCode, locale: Locale) -> AmountSentence {
-        .amount(AmountFormat.amount(abs(value), currency: currency, locale: locale))
-    }
-
     /// "+34.000 €", or "so far" for the year still going.
     static func change(_ year: PlanProgressYear, currency: CurrencyCode,
                        locale: Locale = .current) -> AmountSentence {
@@ -877,7 +316,7 @@ enum PlanProgressText {
     static func againstJanuary(_ year: PlanProgressYear, currency: CurrencyCode,
                                locale: Locale = .current) -> AmountSentence? {
         guard let position = year.position else { return nil }
-        let gap = Self.amount(position.gap, currency: currency, locale: locale)
+        let gap = PlanWords(currency: currency, locale: locale).unsigned(position.gap)
         let expectation = year.expectation(locale: locale)
         return position.gap >= 0 ? "\(gap) ahead of \(expectation)" : "\(gap) behind \(expectation)"
     }
@@ -886,20 +325,13 @@ enum PlanProgressText {
     /// 56 to 54, two years sooner."
     static func story(_ year: PlanProgressYear, currency: CurrencyCode,
                       locale: Locale = .current) -> AmountSentence {
-        func amount(_ value: Decimal) -> AmountSentence {
-            Self.amount(value, currency: currency, locale: locale)
-        }
         var sentences: [AmountSentence] = []
         if let note = pricesNote(year, locale: locale) {
             sentences.append(AmountSentence(note))
         }
         if year.from != year.to {
-            let saved = year.change.newMoney
-            let market = year.change.market
-            let savedText: AmountSentence = saved >= 0 ? "You saved \(amount(saved))" : "You took out \(amount(saved))"
-            let marketText: AmountSentence = market >= 0 ? "markets added \(amount(market))"
-                : "markets took \(amount(market))"
-            sentences.append("\(savedText) and \(marketText).")
+            sentences.append(PlanWords(currency: currency, locale: locale)
+                .savedAndMarkets(saved: year.change.saved, markets: year.change.market).capitalizedFirst)
         }
         if let from = year.answerFrom?.earliestAge, let to = year.answerTo?.earliestAge {
             if from == to {
@@ -933,9 +365,7 @@ enum PlanProgressText {
     /// in 68 of its 100 futures."
     static func january(_ year: PlanProgressYear, currency: CurrencyCode,
                         locale: Locale = .current) -> AmountSentence? {
-        func amount(_ value: Decimal) -> AmountSentence {
-            Self.amount(value, currency: currency, locale: locale)
-        }
+        let amount = PlanWords(currency: currency, locale: locale).unsigned
         guard let position = year.position, var text = expected(year, amount: amount, locale: locale)
         else { return nil }
         let december = CalendarDate.lastDay(ofYear: year.year)
@@ -946,16 +376,20 @@ enum PlanProgressText {
         text += ". "
         let side = position.gap >= 0 ? "ahead" : "behind"
         text += year.isLatest ? "You're \(amount(position.gap)) \(side)" : "You ended \(amount(position.gap)) \(side)"
-        if let percentile = position.percentile {
-            text += ", more than in \(Int(wholeNumber: percentile)) of its 100 futures."
-        } else if position.isAboveNinetieth {
-            text += ", above 9 in 10 of its futures."
-        } else if position.isBelowTenth {
-            text += ", below 9 in 10 of its futures."
-        } else {
-            text += "."
-        }
+        text += futuresClause(position)
         return text
+    }
+
+    /// How the money compares with the baseline's futures, ending a
+    /// sentence: ", more than in 68 of its 100 futures.", ", less than in 9
+    /// of its 10 futures."; "." when that isn't known.
+    private static func futuresClause(_ position: PlanBaselineComparison.Position) -> AmountSentence {
+        if let percentile = position.percentile {
+            return ", more than in \(Int(wholeNumber: percentile)) of its 100 futures."
+        }
+        if position.isAboveNinetieth { return ", more than in 9 of its 10 futures." }
+        if position.isBelowTenth { return ", less than in 9 of its 10 futures." }
+        return "."
     }
 
     /// The year in a line: how the answer moved, the milestone it passed, or
@@ -975,8 +409,7 @@ enum PlanProgressText {
         } else if milestones.contains(where: { if case .coastPoint = $0.milestone.kind { true } else { false } }) {
             parts.append("past the coast point")
         }
-        if year.from != year.to, parts.count < 2,
-           let markets = MarketYear(markets: year.change.market, start: year.change.start)?.yearWords {
+        if parts.count < 2, let markets = year.marketYear?.yearWords {
             parts.insert(AmountSentence(markets), at: 0)
         }
         guard let first = parts.first else { return nil }
@@ -1025,19 +458,21 @@ enum PlanProgressText {
             }
             return "A baseline is saved at the first check-in of each year. Save one now to measure against it."
         }
-        let gap = amount(position.gap, currency: currency, locale: locale)
+        let gap = PlanWords(currency: currency, locale: locale).unsigned(position.gap)
         let expectation = year.expectation(locale: locale)
-        var text: AmountSentence = position.gap >= 0 ? "You have \(gap) more than \(expectation) expected"
+        let text: AmountSentence = position.gap >= 0 ? "You have \(gap) more than \(expectation) expected"
             : "You have \(gap) less than \(expectation) expected"
-        if let percentile = position.percentile {
-            text += ", more than in \(Int(wholeNumber: percentile)) of its 100 futures."
-        } else if position.isAboveNinetieth {
-            text += ", more than in 9 of its 10 futures."
-        } else if position.isBelowTenth {
-            text += ", less than in 9 of its 10 futures."
-        } else {
-            text += "."
-        }
-        return text
+        return text + futuresClause(position)
+    }
+}
+
+extension PlanBaselineComparison.Position {
+    /// How many of the baseline's 100 futures are below your money: "61 in
+    /// 100", "Over 9 in 10", "Under 1 in 10"; `nil` when that isn't known.
+    var futuresBelow: String? {
+        if let percentile { return "\(Int(wholeNumber: percentile)) in 100" }
+        if isAboveNinetieth { return "Over 9 in 10" }
+        if isBelowTenth { return "Under 1 in 10" }
+        return nil
     }
 }

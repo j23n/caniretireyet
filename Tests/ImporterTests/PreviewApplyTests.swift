@@ -15,13 +15,13 @@ struct PreviewApplyTests {
             accounts: [
                 Account(id: "cash", name: "Cash", kind: .cash, currency: .eur, opened: "2020-01-01"),
                 Account(id: "broker", name: "Broker", kind: .brokerage, currency: .eur, opened: "2020-01-01",
-                        valuation: .holdings),
+                        valuation: .balance),
             ],
             instruments: [
                 Instrument(id: "etf", name: "ETF", kind: .etf, currency: .eur, unit: .share,
                            assetClasses: .single(.equity)),
             ])
-        library.upsert(Valuation(account: "cash", date: "2026-01-31", balance: 100, flow: 10, note: "kept"))
+        library.upsert(Valuation(account: "cash", date: "2026-01-31", balance: 100, saved: 10, note: "kept"))
         library.upsert(Valuation(account: "cash", date: "2026-02-28", balance: 200))
         library.upsert(Valuation(account: "broker", date: "2026-01-31", cash: 5,
                                  positions: [Position(instrument: "etf", quantity: 10)]))
@@ -55,7 +55,6 @@ struct PreviewApplyTests {
         #expect((summary.newRecords, summary.updatedRecords, summary.identicalRecords, summary.conflicts)
             == (2, 1, 1, 2))
         #expect(summary.undecidedConflicts == 2)
-        #expect(summary.description == "2 new, 1 updated, 1 identical, 2 conflicts (2 undecided)")
         let conflict = try #require(preview.record(.valuation("broker", "2026-02-28")))
         #expect(conflict.existing == .valuation(Valuation(account: "broker", date: "2026-02-28", cash: 5,
             positions: [Position(instrument: "etf", quantity: 10, costBasis: 900)])))
@@ -101,7 +100,7 @@ struct PreviewApplyTests {
         preview.resolveConflicts(.overwrite)
         let result = preview.apply(to: base)
         let january = try #require(result.library.valuations(for: "cash").first)
-        #expect(january.flow == 10)
+        #expect(january.saved == 10)
         #expect(january.note == "kept")
         #expect(result.library.valuations(for: "broker")[1].cash == 5)
         #expect(result.library.valuations(for: "cash").last?.source == .import)
@@ -212,18 +211,6 @@ struct PreviewApplyTests {
         base.accounts["cash"]?.closed = "2026-01-15"
         preview = try makeSession(file).preview(against: base)
         #expect(preview.issues.contains(ImportIssue(kind: .valuesAfterClosed("cash", closed: "2026-01-15"))))
-    }
-
-    @Test func followedFlowsAreWrittenWithTheImport() throws {
-        let base = library()
-        let file = "Date;Cash\n2026-01-15;150\n"
-        var result = try makeSession(file).preview(against: base).apply(to: base)
-        #expect(result.changedMonths == ["2026-01"])
-        // The caller works out the next value's flow again (Tracker) and records it.
-        let next = try #require(result.library.valuations(for: "cash").first { $0.date == "2026-02-28" })
-        result.followedFlows([next])
-        #expect(result.recomputedFlows == [next.key])
-        #expect(result.changedMonths == ["2026-01", "2026-02"])
     }
 
     @Test func aValueBeforeTheOpeningDateOpensTheAccountEarlier() throws {

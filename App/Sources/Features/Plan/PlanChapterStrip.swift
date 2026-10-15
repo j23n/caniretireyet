@@ -1,6 +1,7 @@
 import Model
 import Planner
 import SwiftUI
+import Tracker
 
 /// "Your life in 6 chapters" (UI.md, "Plan"): the chapters side by side on a
 /// strip that scrolls sideways, each card as wide as its years (never too
@@ -12,13 +13,8 @@ import SwiftUI
 struct PlanChapterStrip: View {
     let timeline: PlanTimeline
     @Binding var selection: Int
-    /// Points a year along the time axis.
-    var pointsPerYear: CGFloat = 24
-    /// The strip's inset at both ends, so its first card lines up with the page.
-    var inset: CGFloat = Metrics.l
-    /// No card narrower than the strip between its insets (iPhone).
-    var fillsWidth = false
 
+    @Environment(\.pageLayout) private var layout
     @Environment(\.baseCurrency) private var currency
     @Environment(\.redactionReasons) private var redactionReasons
     @Environment(\.dynamicTypeSize) private var typeSize
@@ -26,6 +22,12 @@ struct PlanChapterStrip: View {
 
     /// Whether amounts are hidden: VoiceOver doesn't read them.
     private var hidesAmounts: Bool { redactionReasons.hidesAmounts }
+
+    /// Points a year along the time axis.
+    private var pointsPerYear: CGFloat { layout.isWide ? 26 : 22 }
+
+    /// The strip's inset at both ends, so its first card lines up with the page.
+    private var inset: CGFloat { layout.gutter }
 
     /// No card narrower: room for its name and the read-out.
     static let minimumWidth: CGFloat = 164
@@ -51,7 +53,8 @@ struct PlanChapterStrip: View {
     }
 
     private func width(of card: PlanTimeline.Card) -> CGFloat {
-        let filled = fillsWidth ? stripWidth - 2 * inset : 0
+        // On iPhone no card is narrower than the strip between its insets.
+        let filled = layout.isWide ? 0 : stripWidth - 2 * inset
         return max(Self.minimumWidth, filled, CGFloat(card.years) * pointsPerYear)
     }
 

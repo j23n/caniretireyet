@@ -1,4 +1,5 @@
 import Foundation
+import Tracker
 
 /// Series over time as stacked areas, e.g. net worth by asset class (UI.md,
 /// "Overview"), worked out without SwiftUI so it can be tested on Linux.

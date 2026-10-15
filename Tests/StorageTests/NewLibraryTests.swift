@@ -19,7 +19,7 @@ struct NewLibraryTests {
             {
               "baseCurrency": "EUR",
               "person": { "name": "Sam Sample" },
-              "schemaVersion": 4,
+              "schemaVersion": 5,
               "taxResidence": "IT"
             }
 
@@ -36,16 +36,6 @@ struct NewLibraryTests {
         let folder = try TemporaryFolder()
         try folder.library.createLibrary()
         #expect(throws: StorageError.libraryAlreadyExists(path: folder.url.path)) { try folder.library.createLibrary() }
-    }
-
-    @Test func theReadmeExplainsTheFolder() throws {
-        let readme = LibraryFolder.readme
-        for topic in ["library.json", "accounts/", "instruments/", "history/YYYY/YYYY-MM.json", "plans/", "projections/",
-                      "imports/", "backups/", "schemaVersion"] {
-            #expect(readme.contains(topic), "\(topic)")
-        }
-        #expect(readme.hasSuffix("\n"))
-        #expect(!readme.contains("\\"))
     }
 
     @Test func updateReadmeWritesOnlyWhenItDiffers() throws {

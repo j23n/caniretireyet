@@ -9,7 +9,7 @@ private func makeLibrary() -> Library {
     var library = Library(accounts: [
         Account(id: "current", name: "Current", kind: .cash, currency: .eur, opened: "2025-01-01"),
         Account(id: "broker", name: "Broker", kind: .brokerage, currency: .eur, opened: "2025-01-01",
-                valuation: .holdings),
+                valuation: .balance),
         Account(id: "dollars", name: "Dollars", kind: .cash, currency: .usd, opened: "2025-01-01"),
         Account(id: "yen", name: "Yen", kind: .cash, currency: .jpy, opened: "2025-01-01"),
         Account(id: "old", name: "Old", kind: .cash, currency: .eur, opened: "2024-01-01", closed: "2025-02-15"),

@@ -247,12 +247,6 @@ struct AccountForm: Hashable, Sendable {
         original?.valuationMode ?? kind.defaultValuationMode
     }
 
-    /// Whether the account is recorded as positions, from snapshots or from
-    /// its trades (or else as a balance).
-    var holdsPositions: Bool {
-        valuationMode == .holdings || valuationMode == .trades
-    }
-
     /// Whether the account records its trades.
     var recordsTrades: Bool {
         valuationMode == .trades
@@ -262,7 +256,7 @@ struct AccountForm: Hashable, Sendable {
     /// a single balance, by default or in some of their values (a
     /// brokerage's imported history, say). Positions follow their instruments.
     var takesAssetMix: Bool {
-        !kind.isLiability && (!holdsPositions || balanceValueCount > 0)
+        !kind.isLiability && (!recordsTrades || balanceValueCount > 0)
     }
 
     /// Whether it asks for an estimated loss of value a year: belongings.
@@ -347,157 +341,5 @@ struct AccountForm: Hashable, Sendable {
             account.assetClasses = assetMix.mix(locale: locale)
         }
         return account
-    }
-}
-
-/// The first valuation of a new account: an opening balance, or a trades
-/// account's cash and positions, which become opening trades (UI.md, "Add
-/// account", step 3).
-struct AccountOpeningForm: Hashable, Sendable {
-    /// One position typed in.
-    struct PositionField: Hashable, Sendable, Identifiable {
-        var id: Int
-        var instrument: InstrumentID?
-        var quantity: String = ""
-        /// What was paid for it in total (its cost basis), optional.
-        var cost: String = ""
-    }
-
-    var balance = ""
-    var cash = ""
-    var positions: [PositionField] = []
-    private var nextID = 0
-
-    init() {}
-
-    /// Adds an empty position, optionally for `instrument`.
-    mutating func addPosition(_ instrument: InstrumentID? = nil) {
-        positions.append(PositionField(id: nextID, instrument: instrument))
-        nextID += 1
-    }
-
-    mutating func removePosition(id: Int) {
-        positions.removeAll { $0.id == id }
-    }
-
-    /// The position with `id`, for bindings that stay valid while rows are
-    /// removed (an empty position once it's gone).
-    subscript(position id: Int) -> PositionField {
-        get { positions.first { $0.id == id } ?? PositionField(id: id) }
-        set {
-            guard let index = positions.firstIndex(where: { $0.id == id }) else { return }
-            positions[index] = newValue
-        }
-    }
-
-    /// Whether anything was typed.
-    var isEmpty: Bool {
-        balance.trimmingCharacters(in: .whitespaces).isEmpty && cash.trimmingCharacters(in: .whitespaces).isEmpty
-            && positions.allSatisfy { $0.quantity.trimmingCharacters(in: .whitespaces).isEmpty }
-    }
-
-    /// The opening balance's footer, which names a past opening date so the
-    /// balance typed is the one on that day: "What it held on 1 Jan 2023,
-    /// the day it opened. It becomes the account's first value; add later
-    /// values with Update Value or a check-in."
-    static func balanceFooter(opened: CalendarDate, today: CalendarDate, isLiability: Bool,
-                              locale: Locale = .current) -> String {
-        let isPast = opened < today
-        let day = isPast ? "on \(AmountFormat.mediumDate(opened, locale: locale)), the day it opened" : "on the day it opens"
-        if isLiability {
-            return "What you \(isPast ? "owed" : "owe") \(day). It's recorded as a negative amount. "
-                + "If the account is in credit, type + first, e.g. +20."
-        }
-        return "What it \(isPast ? "held" : "holds") \(day). It becomes the account's first value"
-            + (isPast ? "; add later values with Update Value or a check-in." : ".")
-    }
-
-    /// The opening positions' footer: "What it held on 1 Jan 2023, the day
-    /// it opened: choose an instrument, …".
-    static func positionsFooter(opened: CalendarDate, today: CalendarDate, locale: Locale = .current) -> String {
-        let isPast = opened < today
-        let day = isPast ? "on \(AmountFormat.mediumDate(opened, locale: locale)), the day it opened" : "on the day it opens"
-        return "What it \(isPast ? "held" : "holds") \(day): choose an instrument, or create one (an ETF, a coin, "
-            + "gold). What you paid becomes the purchase cost."
-    }
-
-    /// What can't be read.
-    func problems(holdsPositions: Bool, locale: Locale = .current) -> [String] {
-        var problems: [String] = []
-        func check(_ text: String, _ what: String) {
-            if AmountInput.parse(text, locale: locale) == .unreadable { problems.append("The \(what) can't be read.") }
-        }
-        if holdsPositions {
-            check(cash, "cash")
-            for position in positions {
-                check(position.quantity, "quantity")
-                check(position.cost, "amount paid")
-                if position.instrument == nil, !position.quantity.trimmingCharacters(in: .whitespaces).isEmpty {
-                    problems.append("Choose the instrument of each position.")
-                }
-            }
-            let instruments = positions.compactMap(\.instrument)
-            if Set(instruments).count != instruments.count {
-                problems.append("Each instrument can be listed once.")
-            }
-        } else {
-            check(balance, "balance")
-        }
-        return problems
-    }
-
-    /// The first valuation of `account`, on the day it opened, or `nil` if
-    /// nothing was typed. A debt's amount is what's owed and is recorded as
-    /// negative, unless typed with a leading "+" (in credit). The flow is
-    /// what the check-in would suggest for a first
-    /// valuation (the whole amount, at the day's prices, for most kinds;
-    /// unknown for pension funds and property).
-    ///
-    /// For an account that records trades, the positions become opening
-    /// trades (``openingTrades(for:locale:)``), and the valuation records
-    /// only the cash; `nil` without cash.
-    func valuation(for account: Account, in library: Library, locale: Locale = .current) -> Valuation? {
-        guard !isEmpty else { return nil }
-        var valuation = Valuation(account: account.id, date: account.opened, source: .manual)
-        if account.recordsTrades {
-            guard let cash = AmountInput.decimal(from: cash, locale: locale) else { return nil }
-            valuation.cash = cash
-            var snapshot = library
-            snapshot.accounts[account.id] = account
-            for trade in openingTrades(for: account, locale: locale) { snapshot.upsert(trade) }
-            // The openings at their market value, and the cash typed.
-            valuation.flow = Valuator(library: snapshot).defaultFlow(for: valuation, previous: nil)
-            return valuation
-        }
-        guard let amount = AmountInput.balance(from: balance, isLiability: account.kind.isLiability, locale: locale)
-        else { return nil }
-        valuation.balance = amount
-        var snapshot = library
-        snapshot.accounts[account.id] = account
-        valuation.flow = Valuator(library: snapshot).defaultFlow(for: valuation, previous: nil)
-        return valuation
-    }
-
-    /// For a new account that records trades: an `opening` trade per
-    /// position typed, on the day it opened, with what was paid as its
-    /// purchase cost (unknown when empty). Empty for other accounts.
-    func openingTrades(for account: Account, locale: Locale = .current) -> [Trade] {
-        guard account.recordsTrades else { return [] }
-        return positions.compactMap { position in
-            guard let instrument = position.instrument,
-                  let quantity = AmountInput.decimal(from: position.quantity, locale: locale), quantity > 0
-            else { return nil }
-            return Trade(account: account.id, date: account.opened, type: .opening, instrument: instrument,
-                         quantity: quantity, cost: AmountInput.decimal(from: position.cost, locale: locale),
-                         source: .manual)
-        }
-    }
-
-    /// The opening positions' footer for an account that records trades.
-    static func openingTradesFooter(opened: CalendarDate, today: CalendarDate, locale: Locale = .current) -> String {
-        let isPast = opened < today
-        let day = isPast ? "on \(AmountFormat.mediumDate(opened, locale: locale)), the day it opened" : "on the day it opens"
-        return "What it \(isPast ? "held" : "holds") \(day), if anything: each position becomes an opening trade, "
-            + "with what you paid as its purchase cost. Add later buys and sells as trades."
     }
 }

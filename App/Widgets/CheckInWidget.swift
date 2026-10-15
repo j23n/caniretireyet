@@ -9,43 +9,15 @@ struct CheckInWidget: Widget {
     static let kind = "CheckIn"
 
     var body: some WidgetConfiguration {
-        StaticConfiguration(kind: Self.kind, provider: GlanceProvider()) { entry in
-            CheckInView(entry: entry)
+        glance(kind: Self.kind, name: "Check-in",
+               description: "The days until your monthly check-in, and a way into it when it's due.",
+               families: [.small, .circular], link: .checkIn) { entry, family in
+            if family == .circular {
+                CheckInCircular(entry: entry)
+            } else {
+                CheckInSmall(entry: entry)
+            }
         }
-        .configurationDisplayName("Check-in")
-        .description("The days until your monthly check-in, and a way into it when it's due.")
-        .supportedFamilies(Self.families)
-    }
-
-    static var families: [WidgetFamily] {
-        #if os(iOS)
-        return [.systemSmall, .accessoryCircular]
-        #else
-        return [.systemSmall]
-        #endif
-    }
-}
-
-struct CheckInView: View {
-    var entry: GlanceEntry
-    @Environment(\.widgetFamily) private var family
-
-    var body: some View {
-        content
-            .widgetURL(GlanceLink.checkIn.url)
-    }
-
-    @ViewBuilder
-    private var content: some View {
-        #if os(iOS)
-        if family == .accessoryCircular {
-            CheckInCircular(entry: entry)
-        } else {
-            CheckInSmall(entry: entry)
-        }
-        #else
-        CheckInSmall(entry: entry)
-        #endif
     }
 }
 
@@ -158,7 +130,6 @@ struct CheckInSmall: View {
     }
 }
 
-#if os(iOS)
 /// "26 days" in a circle, or "Due" with the month once it's time.
 struct CheckInCircular: View {
     var entry: GlanceEntry
@@ -197,4 +168,3 @@ struct CheckInCircular: View {
         .clearBackground()
     }
 }
-#endif

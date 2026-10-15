@@ -9,8 +9,8 @@ import Storage
 ///
 /// The numbers come from a ``PlanEngine``; this store runs it off the main
 /// thread, cancels a run when a newer one of the same kind starts, keeps
-/// the latest results per plan with what they were computed from, and saves
-/// headlines and baselines into the library.
+/// the latest results per plan and kind with what they were computed from
+/// (``slots``), and saves headlines and baselines into the library.
 ///
 /// - **Nothing runs on its own.** A run starts only when asked: the Plan
 ///   screens' *Calculate*, *Recalculate* (⌘R) and *Run What-If* buttons,
@@ -19,11 +19,17 @@ import Storage
 ///   loaded if it's missing: ``recordMissingCheckInAnswer(today:)``).
 ///   Opening a screen, editing a plan or a check-in elsewhere only makes
 ///   results out of date.
+/// - **What if and focus age.** Each plan's what-if and the retirement age
+///   its charts are for live here, so switching plans and coming back keeps
+///   them; the Plan screen's `PlanSession` reads and sets them here.
 /// - **Out of date.** Each result keeps its ``PlanRunBasis``: the plan, the
 ///   library data a run reads, the start date, the what-if and focus age.
-///   ``staleReasons(of:_:plan:whatIf:focusAge:)`` compares it with the plan
-///   and library as they are now. ``adoptCached(_:modes:whatIf:focusAge:)``
-///   picks up results the engine kept for exactly the current inputs.
+///   ``staleReasons(of:_:plan:)`` compares it with the plan and library as
+///   they are now. ``lookUp(_:_:modes:)`` picks up results the engine kept
+///   for exactly the current inputs.
+/// - **In the base currency.** Results calculated in another base currency
+///   than the library's (before it changed) aren't shown: the plan is
+///   calculated again on request.
 /// - **Progress.** ``progress`` holds where each run in progress is
 ///   (`PlanRunProgress`), updated at most about ten times a second.
 /// - **Kept on the device.** Each plan's own results are written to the
@@ -32,17 +38,11 @@ import Storage
 ///   library data it reads are as they were, else out of date.
 @Observable @MainActor
 final class PlanStore {
-    /// The latest full results per plan (without what-if changes).
-    private(set) var results: [PlanID: PlanResults] = [:]
-    /// The latest what-if results per plan.
-    private(set) var whatIfResults: [PlanID: PlanResults] = [:]
-    /// The latest results per plan for another retirement age than the
-    /// plan's own (tapping an age on the success curve), without what-if
-    /// changes. See ``run(_:mode:whatIf:focusAge:)``.
-    private(set) var focusResults: [PlanID: PlanResults] = [:]
-    /// What the results above were computed from, by plan and kind
-    /// (`.base`, `.whatIf`, `.focus`).
-    private(set) var bases: [PlanRunKey: PlanRunBasis] = [:]
+    /// The latest results of each plan and kind of run (`.base`, `.whatIf`,
+    /// `.focus`; a check-in's are `.base`), with what they were computed
+    /// from. Read them with ``results(of:_:)``, which leaves out results in
+    /// another currency.
+    private var slots: [PlanRunKey: PlanSlot] = [:]
     /// Plans with a run in progress.
     private(set) var running: Set<PlanID> = []
     /// Where each run in progress is, by plan and kind.
@@ -51,12 +51,10 @@ final class PlanStore {
     private(set) var errors: [PlanID: String] = [:]
     /// The answer the latest check-in is waiting for (UI.md, "After saving").
     private(set) var checkInAnswer: CheckInAnswerRun?
-
-    /// The what-if each plan's screen was left with, so switching plans and
-    /// coming back keeps it. Not saved.
-    var whatIfs: [PlanID: PlanWhatIf] = [:]
+    /// The what-if each plan's screen was left with, never empty. Not saved.
+    private var whatIfs: [PlanID: PlanWhatIf] = [:]
     /// The retirement age each plan's charts were left on, when it isn't the plan's own.
-    var focusAges: [PlanID: Int] = [:]
+    private var focusAges: [PlanID: Int] = [:]
 
     let engine: any PlanEngine
     /// Where each plan's latest results are kept between launches; `nil`
@@ -92,6 +90,21 @@ final class PlanStore {
         var basis: PlanRunBasis
     }
 
+    // MARK: Results
+
+    /// The latest results of `plan` of `kind`; `nil` when there are none,
+    /// or when they're in another currency than the library's base currency.
+    func results(of plan: PlanID, _ kind: PlanRunKey.Kind = .base) -> PlanResults? {
+        slot(plan, kind)?.results
+    }
+
+    private func slot(_ plan: PlanID, _ kind: PlanRunKey.Kind) -> PlanSlot? {
+        guard let slot = slots[PlanRunKey(plan: plan, kind: kind.slot)],
+              slot.results.currency == library.settings.baseCurrency
+        else { return nil }
+        return slot
+    }
+
     /// Whether any run of `plan` is in progress.
     func isRunning(_ plan: PlanID) -> Bool { running.contains(plan) }
 
@@ -105,37 +118,75 @@ final class PlanStore {
         progress[PlanRunKey(plan: plan, kind: kind)]
     }
 
+    // MARK: What if and focus age
+
+    /// The what-if on top of `plan`; empty without one.
+    func whatIf(of plan: PlanID) -> PlanWhatIf {
+        whatIfs[plan] ?? PlanWhatIf()
+    }
+
+    /// The retirement age `plan`'s charts are for, when it isn't the plan's own.
+    func focusAge(of plan: PlanID) -> Int? {
+        focusAges[plan]
+    }
+
+    /// Sets `plan`'s what-if. Nothing runs. An empty one throws the
+    /// what-if's results away and stops its run ("Reset").
+    func setWhatIf(_ whatIf: PlanWhatIf, for plan: PlanID) {
+        guard !whatIf.isEmpty else {
+            whatIfs[plan] = nil
+            slots[PlanRunKey(plan: plan, kind: .whatIf)] = nil
+            cancel(plan, kinds: [.whatIf])
+            return
+        }
+        whatIfs[plan] = whatIf
+    }
+
+    /// Sets the retirement age `plan`'s charts are for. Nothing runs.
+    /// `nil`, the plan's own, throws the other age's results away.
+    func setFocusAge(_ age: Int?, for plan: PlanID) {
+        focusAges[plan] = age
+        if age == nil { slots[PlanRunKey(plan: plan, kind: .focus)] = nil }
+    }
+
+    /// The what-if and the focus age a run of `plan` of `kind` is for.
+    private func inputs(of plan: PlanID, _ kind: PlanRunKey.Kind) -> (whatIf: PlanWhatIf?, focusAge: Int?) {
+        switch kind {
+        case .base, .checkIn: (nil, nil)
+        case .whatIf: (whatIfs[plan], focusAges[plan])
+        case .focus: (nil, focusAges[plan])
+        }
+    }
+
     // MARK: Running
 
     /// Runs `plan` on the current library and returns its results, or `nil`
     /// if it was cancelled, superseded by a newer run, or failed (see
-    /// ``errors``). A run in progress for the same plan and the same kind
-    /// (plain, with what-if changes, or for another focus age) is cancelled
-    /// first, unless it's the very same request, which is joined instead.
+    /// ``errors``). A run in progress for the same plan and the same kind is
+    /// cancelled first, unless it's the very same request, which is joined
+    /// instead.
     ///
-    /// - `whatIf`: results go to ``whatIfResults``.
-    /// - `focusAge` without `whatIf`: the charts for that retirement age, in
-    ///   ``focusResults``. With `whatIf`, the what-if run is for that age.
+    /// - `.base`: the plan as it is.
+    /// - `.whatIf`: with the plan's what-if (``whatIf(of:)``), for its
+    ///   focus age; nothing without a what-if.
+    /// - `.focus`: the charts for the plan's focus age (``focusAge(of:)``);
+    ///   nothing without one.
+    /// - `.checkIn`: the plan as it is, recording the month's answer
+    ///   (``checkInSaved(on:)``); the Plan screens don't cancel it.
     ///
     /// Only call it when the user asked for a run (or a check-in needs its
     /// answer): screens never run plans on their own.
     @discardableResult
-    func run(_ plan: PlanID, mode: PlanRunMode = .full, whatIf: PlanWhatIf? = nil, focusAge: Int? = nil) async
-        -> PlanResults? {
-        await run(plan, mode: mode, whatIf: whatIf, focusAge: focusAge, checkIn: false)
-    }
-
-    private func run(_ plan: PlanID, mode: PlanRunMode, whatIf: PlanWhatIf?, focusAge: Int?, checkIn: Bool) async
-        -> PlanResults? {
+    func run(_ plan: PlanID, _ kind: PlanRunKey.Kind = .base, mode: PlanRunMode = .full) async -> PlanResults? {
         guard let document = library.library.plans[plan] else { return nil }
-        let whatIf = whatIf?.isEmpty == true ? nil : whatIf
-        let slot = PlanRunKey.Kind.slot(whatIf: whatIf, focusAge: focusAge)
-        let key = PlanRunKey(plan: plan, kind: checkIn ? .checkIn : slot)
+        let (whatIf, focusAge) = inputs(of: plan, kind)
+        if kind == .whatIf && whatIf == nil || kind == .focus && focusAge == nil { return nil }
+        let key = PlanRunKey(plan: plan, kind: kind)
         let signature = basis(document, mode: mode, whatIf: whatIf, focusAge: focusAge)
         // The very same request in progress, e.g. the Plan screen asking for
         // the main plan while a check-in's run of it is still going: join it.
         // A check-in joins only its own kind, which nothing else cancels.
-        let candidates = checkIn ? [key] : [key, PlanRunKey(plan: plan, kind: .checkIn)]
+        let candidates = kind == .checkIn ? [key] : [key, PlanRunKey(plan: plan, kind: .checkIn)]
         for candidate in candidates {
             guard let existing = inFlight[candidate], existing.basis == signature else { continue }
             do {
@@ -169,8 +220,8 @@ final class PlanStore {
         do {
             let value = try await task.value
             guard inFlight[key]?.token == token else { return nil }
-            keep(value, in: PlanRunKey(plan: plan, kind: slot), basis: signature)
-            if slot == .base { keepOnDevice(value, basis: signature, library: libraryURL) }
+            slots[PlanRunKey(plan: plan, kind: kind.slot)] = PlanSlot(results: value, basis: signature)
+            if kind.slot == .base { keepOnDevice(value, basis: signature, library: libraryURL) }
             errors[plan] = nil
             return value
         } catch is CancellationError {
@@ -189,29 +240,19 @@ final class PlanStore {
         progress[key] = value
     }
 
-    /// Stores `value` as the latest results of `key` (`.base`, `.whatIf` or `.focus`).
-    private func keep(_ value: PlanResults, in key: PlanRunKey, basis: PlanRunBasis) {
-        switch key.kind {
-        case .base, .checkIn: results[key.plan] = value
-        case .whatIf: whatIfResults[key.plan] = value
-        case .focus: focusResults[key.plan] = value
-        }
-        bases[PlanRunKey(plan: key.plan, kind: key.kind == .checkIn ? .base : key.kind)] = basis
-    }
-
     /// Takes the results the engine kept for exactly the current plan,
-    /// library, what-if and focus age, if it has them, without running
-    /// anything (e.g. a plan edited and changed back, or a focus age shown
-    /// before). Tries `modes` in order. Returns whether there were any.
+    /// library, what-if and focus age of `kind`, if it has them, without
+    /// running anything (e.g. a plan edited and changed back, or a focus age
+    /// shown before). Tries `modes` in order. Returns whether there were any.
     @discardableResult
-    func adoptCached(_ plan: PlanID, modes: [PlanRunMode] = [.full], whatIf: PlanWhatIf? = nil,
-                     focusAge: Int? = nil) async -> Bool {
+    func lookUp(_ plan: PlanID, _ kind: PlanRunKey.Kind = .base, modes: [PlanRunMode] = [.full]) async -> Bool {
         guard let document = library.library.plans[plan] else { return false }
-        let whatIf = whatIf?.isEmpty == true ? nil : whatIf
-        let key = PlanRunKey(plan: plan, kind: .slot(whatIf: whatIf, focusAge: focusAge))
+        let (whatIf, focusAge) = inputs(of: plan, kind)
+        if kind == .whatIf && whatIf == nil || kind == .focus && focusAge == nil { return false }
+        let key = PlanRunKey(plan: plan, kind: kind.slot)
         for mode in modes {
             let basis = basis(document, mode: mode, whatIf: whatIf, focusAge: focusAge)
-            if bases[key] == basis { return true }
+            if slots[key]?.basis == basis { return true }
             let request = PlanRunRequest(plan: document, library: library.library, mode: mode, whatIf: whatIf,
                                          asOf: library.asOfDate, focusAge: focusAge)
             guard let cached = await engine.cachedResults(for: request) else { continue }
@@ -220,7 +261,7 @@ final class PlanStore {
             guard !Task.isCancelled, let now = library.library.plans[plan],
                   self.basis(now, mode: mode, whatIf: whatIf, focusAge: focusAge) == basis
             else { return false }
-            keep(cached, in: key, basis: basis)
+            slots[key] = PlanSlot(results: cached, basis: basis)
             return true
         }
         return false
@@ -231,12 +272,11 @@ final class PlanStore {
     /// Shows each plan's results kept on this device (``archive``) once its
     /// library is open, as if they'd just been calculated: up to date when
     /// the plan and the library data it reads are as they were, else out of
-    /// date for that reason (``staleReasons(of:_:plan:whatIf:focusAge:)``).
-    /// Results this session already has win. Results whose library data
-    /// is the same are also handed to the engine, so going back to exactly
-    /// them later finds them (``adoptCached(_:modes:whatIf:focusAge:)``).
-    /// Once per library opened; the root view calls it when the library is
-    /// loaded.
+    /// date for that reason (``staleReasons(of:_:plan:)``). Results this
+    /// session already has win. Results whose library data is the same are
+    /// also handed to the engine, so going back to exactly them later finds
+    /// them (``lookUp(_:_:modes:)``). Once per library opened, when the
+    /// library is loaded (`AppModel`).
     func restoreKeptResults() async {
         guard let archive, let url = keptLibrary, restoredLibrary != url else { return }
         restoredLibrary = url
@@ -245,10 +285,11 @@ final class PlanStore {
         for item in restored {
             let entry = item.entry
             let plan = entry.results.plan
-            guard results[plan] == nil, library.library.plans[plan] != nil else { continue }
+            let key = PlanRunKey(plan: plan, kind: .base)
+            guard slots[key] == nil, library.library.plans[plan] != nil else { continue }
             let basis = PlanRunBasis(plan: entry.plan, inputs: item.inputsMatch ? PlanRunInputs(snapshot) : nil,
                                      mode: entry.results.mode, whatIf: nil, focusAge: nil, asOf: entry.asOf)
-            keep(entry.results, in: PlanRunKey(plan: plan, kind: .base), basis: basis)
+            slots[key] = PlanSlot(results: entry.results, basis: basis)
             let reasons = staleReasons(of: plan)
             PlanResultsLog.notice("Restored \(plan)'s results calculated \(entry.results.computedAt): "
                                   + (reasons.isEmpty ? "up to date."
@@ -290,69 +331,52 @@ final class PlanStore {
         }
     }
 
-    /// Throws away the what-if results ("Reset").
-    func clearWhatIf(_ plan: PlanID) {
-        whatIfResults[plan] = nil
-        bases[PlanRunKey(plan: plan, kind: .whatIf)] = nil
-    }
-
-    /// Cancels the what-if run of `plan` in progress, if any (after "Reset").
-    func cancelWhatIf(_ plan: PlanID) {
-        cancel(plan, kinds: [.whatIf])
-    }
-
-    /// Throws away the results for another focus age (back to the plan's own).
-    func clearFocus(_ plan: PlanID) {
-        focusResults[plan] = nil
-        bases[PlanRunKey(plan: plan, kind: .focus)] = nil
-    }
-
     // MARK: Out of date
 
-    /// What the results of `plan` of `kind` were computed from.
-    func basis(of plan: PlanID, _ kind: PlanRunKey.Kind) -> PlanRunBasis? {
-        bases[PlanRunKey(plan: plan, kind: kind == .checkIn ? .base : kind)]
-    }
-
     /// What a run of `document` would be computed from now.
-    func basis(_ document: PlanDocument, mode: PlanRunMode = .full, whatIf: PlanWhatIf? = nil,
-               focusAge: Int? = nil) -> PlanRunBasis {
-        PlanRunBasis(plan: document, inputs: PlanRunInputs(library.library), mode: mode,
-                     whatIf: whatIf?.isEmpty == true ? nil : whatIf, focusAge: focusAge, asOf: library.asOfDate)
+    private func basis(_ document: PlanDocument, mode: PlanRunMode, whatIf: PlanWhatIf?, focusAge: Int?)
+        -> PlanRunBasis {
+        PlanRunBasis(plan: document, inputs: PlanRunInputs(library.library), mode: mode, whatIf: whatIf,
+                     focusAge: focusAge, asOf: library.asOfDate)
     }
 
     /// Why the results of `plan` of `kind` don't fit `document` (by default
-    /// the library's plan), the library as it is now, `whatIf` and
-    /// `focusAge`; empty when they do, or when there are none.
-    func staleReasons(of plan: PlanID, _ kind: PlanRunKey.Kind = .base, plan document: PlanDocument? = nil,
-                      whatIf: PlanWhatIf? = nil, focusAge: Int? = nil) -> [PlanStaleReason] {
-        guard let stored = basis(of: plan, kind), let document = document ?? library.library.plans[plan] else {
+    /// the library's plan), the library as it is now, and the plan's what-if
+    /// and focus age; empty when they do, or when there are none.
+    func staleReasons(of plan: PlanID, _ kind: PlanRunKey.Kind = .base, plan document: PlanDocument? = nil)
+        -> [PlanStaleReason] {
+        guard let stored = slot(plan, kind)?.basis, let document = document ?? library.library.plans[plan] else {
             return []
         }
+        let (whatIf, focusAge) = inputs(of: plan, kind)
         return stored.staleReasons(comparedWith: basis(document, mode: stored.mode, whatIf: whatIf,
                                                        focusAge: focusAge))
     }
 
     // MARK: Headlines
 
-    /// The answer for the Overview's "Can I retire yet?" card (and the
-    /// widgets): the main plan's latest results (``latestResults(of:)``), or
-    /// else its last recorded headline. Never starts a run.
-    var mainHeadline: PlanHeadline? {
+    /// The main plan's latest answer, for the Overview's "Can I retire
+    /// yet?" card, Progress and the widgets: the Planner's `LatestAnswer`
+    /// of its latest results and its recorded headlines. Never starts a run.
+    var mainAnswer: LatestAnswer? {
         guard let main = library.settings.mainPlan else { return nil }
-        if let results = latestResults(of: main) { return results.headline }
-        return library.library.headlines(for: main).last.map { PlanHeadline(recorded: $0) }
+        return latestAnswer(of: main)
+    }
+
+    /// The main plan's latest answer itself (``mainAnswer``).
+    var mainHeadline: RetirementAnswer? { mainAnswer?.answer }
+
+    /// `plan`'s latest answer: its results, unless a check-in recorded a
+    /// newer answer since they start, else its last recorded headline
+    /// (`LatestAnswer`).
+    func latestAnswer(of plan: PlanID) -> LatestAnswer? {
+        LatestAnswer(plan: plan, library: library.library, results: results(of: plan))
     }
 
     /// The plan's latest results, unless a check-in recorded a newer answer
-    /// since the date they start from (on the other device, say, while
-    /// these were kept on this one): then that answer is the latest.
+    /// since the date they start from (`LatestAnswer.latestResults`).
     func latestResults(of plan: PlanID) -> PlanResults? {
-        guard let results = results[plan] else { return nil }
-        if let recorded = library.library.headlines(for: plan).last, recorded.date > results.start.date {
-            return nil
-        }
-        return results
+        LatestAnswer.latestResults(results(of: plan), recorded: library.library.headlines(for: plan))
     }
 
     /// The headlines recorded at check-ins for `plan`, oldest first.
@@ -415,9 +439,9 @@ final class PlanStore {
     /// writes, and returns the answer. `nil` without a main plan. The Plan
     /// screens can't cancel this run. A headline or baseline that can't be
     /// saved shows in the library's error (`LibraryStore.lastError`).
-    func checkInSaved(on date: CalendarDate) async -> PlanHeadline? {
+    func checkInSaved(on date: CalendarDate) async -> RetirementAnswer? {
         guard let main = library.settings.mainPlan,
-              let results = await run(main, mode: .full, whatIf: nil, focusAge: nil, checkIn: true)
+              let results = await run(main, .checkIn)
         else { return nil }
         do {
             try library.record(Self.headline(of: results, on: date), for: main)
@@ -445,7 +469,7 @@ final class PlanStore {
     @discardableResult
     func saveBaseline(for plan: PlanID, label: String?, kind: BaselineKind = .manual,
                       on date: CalendarDate = .today()) throws -> BaselineID {
-        guard let results = results[plan], results.mode == .full, let document = library.library.plans[plan],
+        guard let results = self.results(of: plan), results.mode == .full, let document = library.library.plans[plan],
               results.details.planHash == Planner.planHash(document)
         else {
             throw PlanStoreError.noResults
@@ -492,27 +516,31 @@ final class PlanStore {
 }
 
 /// A plan and a kind of run. Runs of the same key replace each other, and
-/// each kind keeps its own results.
+/// each kind but `.checkIn` keeps its own results.
 struct PlanRunKey: Hashable, Sendable {
     enum Kind: Hashable, Sendable {
-        /// The plan as it is: ``PlanStore/results``.
+        /// The plan as it is.
         case base
-        /// With what-if changes: ``PlanStore/whatIfResults``.
+        /// With the plan's what-if changes.
         case whatIf
-        /// The charts for another retirement age: ``PlanStore/focusResults``.
+        /// The charts for another retirement age.
         case focus
         /// After a check-in, recording the month's answer: its results are
         /// the plan's own (`.base`), but the Plan screens don't cancel it.
         case checkIn
 
-        /// Where results with `whatIf` and `focusAge` go.
-        static func slot(whatIf: PlanWhatIf?, focusAge: Int?) -> Kind {
-            whatIf != nil ? .whatIf : focusAge != nil ? .focus : .base
-        }
+        /// The kind whose results a run of this kind gives.
+        var slot: Kind { self == .checkIn ? .base : self }
     }
 
     var plan: PlanID
     var kind: Kind
+}
+
+/// A plan's latest results of one kind, and what they were computed from.
+struct PlanSlot: Sendable {
+    var results: PlanResults
+    var basis: PlanRunBasis
 }
 
 /// Everything a run depends on: the plan, the library data it reads, the
@@ -565,7 +593,7 @@ struct CheckInAnswerRun: Hashable, Sendable {
     var plan: PlanID
     var isRunning = true
     /// The answer, once it's there.
-    var headline: PlanHeadline?
+    var headline: RetirementAnswer?
     /// Why the plan couldn't run.
     var error: String?
 }
@@ -578,13 +606,5 @@ enum PlanStoreError: Error, Equatable, Sendable, LocalizedError {
         switch self {
         case .noResults: "Calculate the plan first: there are no results to save."
         }
-    }
-}
-
-extension Baseline {
-    /// Whether it's the automatic baseline of `year` ("Start of 2026"),
-    /// which the year's first check-in saves.
-    func isYearly(of year: Int) -> Bool {
-        kind == .yearly && created.year == year
     }
 }

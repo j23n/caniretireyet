@@ -15,11 +15,11 @@ extension IndexID {
     /// Eurostat publishes every month: the EU's members, Iceland, Norway and
     /// Switzerland, and the candidate countries Albania, Montenegro, North
     /// Macedonia, Serbia and Türkiye. Sorted.
-    public static let hicpCountries: [CountryCode] = hicpCurrencies.keys.sorted()
+    private static let hicpCountries: [CountryCode] = hicpCurrencies.keys.sorted()
 
     /// `hicp-de`: the all-items HICP of `country` (any case), or `nil` for a
     /// country without one (``hicpCountries``).
-    public static func hicp(_ country: CountryCode) -> IndexID? {
+    private static func hicp(_ country: CountryCode) -> IndexID? {
         let code = CountryCode(country.rawValue.uppercased())
         guard hicpCurrencies[code] != nil else { return nil }
         return IndexID("hicp-" + code.rawValue.lowercased())
@@ -29,7 +29,7 @@ extension IndexID {
     /// euro, else that of the country whose currency it is (`hicp-ch` for
     /// francs, `hicp-se` for kronor). `nil` when no HICP is in that
     /// currency, e.g. for dollars.
-    public static func hicp(currency: CurrencyCode) -> IndexID? {
+    private static func hicp(currency: CurrencyCode) -> IndexID? {
         let code = CurrencyCode(currency.rawValue.uppercased())
         if code == .eur { return .hicpEA }
         let countries = hicpCurrencies.filter { $0.value == code }.keys.sorted()
@@ -48,7 +48,7 @@ extension IndexID {
     /// The currency an HICP's prices are in: the euro for the euro area and
     /// the countries that use it, the country's own otherwise. `nil` for any
     /// other index.
-    public var hicpCurrency: CurrencyCode? {
+    private var hicpCurrency: CurrencyCode? {
         guard let area = hicpArea else { return nil }
         return area == "EA" ? .eur : Self.hicpCurrencies[CountryCode(area)]
     }
@@ -83,17 +83,17 @@ extension IndexID {
 
     /// The countries with a national consumer price index and no HICP: the
     /// United Kingdom and the United States. Sorted.
-    public static let cpiCountries: [CountryCode] = cpiIndices.keys.sorted()
+    private static let cpiCountries: [CountryCode] = cpiIndices.keys.sorted()
 
     /// `cpi-us`: the national CPI of `country` (any case), or `nil` for a
     /// country without one (``cpiCountries``).
-    public static func cpi(_ country: CountryCode) -> IndexID? {
+    private static func cpi(_ country: CountryCode) -> IndexID? {
         cpiIndices[CountryCode(country.rawValue.uppercased())]?.index
     }
 
     /// The country a national CPI measures, in capitals (`US`); `nil` for
     /// any other index.
-    public var cpiArea: String? {
+    private var cpiArea: String? {
         Self.cpiIndices.first { $0.value.index == self }?.key.rawValue
     }
 

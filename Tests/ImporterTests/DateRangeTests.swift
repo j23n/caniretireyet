@@ -24,9 +24,8 @@ struct DateRangeTests {
             31/01/2204;4.300,00
             30/09/2026;4.400,00
             """)
-        #expect(preview.cellErrors.map(\.description) == [
-            "Row 4, “Data”: “31/01/2204”: after 2026-10-11, more than a week from today",
-        ])
+        #expect(preview.cellErrors.map(\.row) == [4])
+        #expect(preview.cellErrors.map(\.problem) == [.dateInTheFuture(latest: "2026-10-11")])
         #expect(preview.lastDate == "2026-09-30")
         #expect(preview.records.map(\.imported.key.date) == ["2026-07-31", "2026-08-31", "2026-09-30"])
         // The account's values don't stop early, so it isn't proposed as closed.
@@ -40,7 +39,8 @@ struct DateRangeTests {
             1900-01-01,100
             2026-01-31,110
             """)
-        #expect(preview.cellErrors.map(\.description) == ["Row 2, “Date”: “1899-12-31”: before 1900"])
+        #expect(preview.cellErrors.map(\.row) == [2])
+        #expect(preview.cellErrors.map(\.problem) == [.dateBefore1900])
         #expect(preview.firstDate == "1900-01-01")
     }
 

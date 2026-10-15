@@ -34,13 +34,18 @@ public struct ImportTarget: OpenEnum {
     public static let costBasis: ImportTarget = "costBasis"
     /// A valuation's `cash`.
     public static let cash: ImportTarget = "cash"
+    /// What was saved into the account since its value before: a
+    /// valuation's `saved`, kept only on an account that asks for one
+    /// (``Account/asksForSaved``).
+    public static let saved: ImportTarget = "saved"
     /// A price record.
     public static let price: ImportTarget = "price"
     /// An FX record.
     public static let fx: ImportTarget = "fx"
     public static let ignore: ImportTarget = "ignore"
 
-    public static let knownValues: [ImportTarget] = [.balance, .quantity, .costBasis, .cash, .price, .fx, .ignore]
+    public static let knownValues: [ImportTarget] = [.balance, .quantity, .costBasis, .cash, .saved, .price, .fx,
+                                                     .ignore]
 }
 
 /// Long and trades layouts: which field of a record a column holds.

@@ -23,6 +23,8 @@ enum Keywords {
     /// Averages per unit, which aren't a purchase cost.
     static let average = ["medio", "media", "average", "avg", "pmc"]
     static let cash = ["cash", "liquidita", "contanti"]
+    /// What was saved into an account since its value before.
+    static let saved = ["saved", "versato", "versati", "versamenti", "contributi", "contributions", "risparmiato"]
     static let fx = ["cambio", "fx", "exchange rate", "tasso di cambio", "rate"]
     static let balance = ["saldo", "balance", "valore", "value", "controvalore", "market value", "importo", "amount"]
     /// Wide-layout columns that are computed or commentary, not account values.
@@ -88,7 +90,7 @@ enum Keywords {
 
     /// Words removed from a header to get the name it stands for:
     /// `BTC (qtà)` → `BTC`, `Prezzo VWCE` → `VWCE`.
-    static let headerNoise = quantity + price + costBasis + cash + balance
+    static let headerNoise = quantity + price + costBasis + cash + saved + balance
 
     // MARK: Kinds
 

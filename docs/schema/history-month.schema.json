@@ -44,17 +44,17 @@
         }
       ],
       "valuations": [
-        { "account": "conto-deposito", "balance": "17365.55", "date": "2026-09-30", "flow": "500", "interest": "35.05", "moneyIn": "0", "moneyOut": "0" },
-        { "account": "conto-fineco", "balance": "4210.55", "date": "2026-09-30", "flow": "-310.2", "moneyIn": "3400", "moneyOut": "2560.2" },
-        { "account": "directa", "cash": "312.1", "date": "2026-09-30", "flow": "11.3" },
-        { "account": "fondo-pensione", "balance": "18450.12", "date": "2026-09-30", "flow": "1325", "note": "from Q3 statement" },
+        { "account": "conto-deposito", "balance": "17365.55", "date": "2026-09-30", "interest": "35.05", "moneyIn": "0", "moneyOut": "0" },
+        { "account": "conto-fineco", "balance": "4210.55", "date": "2026-09-30", "moneyIn": "3400", "moneyOut": "2560.2" },
+        { "account": "directa", "cash": "312.1", "date": "2026-09-30" },
+        { "account": "fondo-pensione", "balance": "18450.12", "date": "2026-09-30", "note": "from Q3 statement", "saved": "1325" },
         { "account": "gold-coins", "cash": "0", "date": "2026-09-30" }
       ]
     }
   ],
   "$defs": {
     "valuation": {
-      "description": "What an account was worth on a date: a balance, or positions plus optional cash. Values carry forward until the account's next valuation. One with neither is worth zero; one with both counts its balance. An account that records trades records only cash: positions listed in its valuation are a check against its trades (TRADES.md), and a balance isn't used. Positions with no trades behind them are only in values recorded before format version 4.",
+      "description": "What an account was worth on a date: a balance, or positions plus optional cash. Values carry forward until the account's next valuation. One with neither is worth zero; one with both counts its balance. An account that records trades records only cash: positions listed in its valuation are a check against its trades (TRADES.md), and a balance isn't used.",
       "type": "object",
       "required": ["account", "date"],
       "properties": {
@@ -73,8 +73,8 @@
           "type": "array",
           "items": { "$ref": "#/$defs/position" }
         },
-        "flow": {
-          "description": "The net money added (+) or taken out (−) since the account's previous valuation, in the account's currency. Absent means unknown. The sum of all flows over a period is what you saved. The check-in works it out from what's typed, by the kind of account (ACCOUNTS.md): the whole change for cash accounts, debts and belongings, the change minus the interest for savings; an account that records trades gets it from its trades and cash, and it's written for the record. Pension funds, TFR, property and other accounts ask for it.",
+        "saved": {
+          "description": "What was saved: the net money added (+) or taken out (−) since the account's previous valuation, in the account's currency. Their sum over a period is what you saved in it. Stored only for the kinds that ask for it, pension funds, TFR, property and other accounts recorded as a balance, where absent means unknown. What every other account saved is worked out from its records, and isn't written (ACCOUNTS.md): the whole change for cash accounts, debts and belongings, the change minus the interest for savings; an account that records trades gets it from its trades and cash.",
           "$ref": "common.schema.json#/$defs/decimal"
         },
         "moneyIn": {
@@ -94,7 +94,7 @@
           "$ref": "common.schema.json#/$defs/decimal"
         },
         "interest": {
-          "description": "The interest a savings account earned since its previous valuation, in the account's currency. Absent means none was recorded. The flow is the change minus it, so it counts as market, as a fund's return does. Only savings accounts record it.",
+          "description": "The interest a savings account earned since its previous valuation, in the account's currency. Absent means none was recorded. What the value saved is the change minus it, so it counts as market, as a fund's return does. Only savings accounts record it.",
           "$ref": "common.schema.json#/$defs/decimal"
         },
         "note": { "type": "string" },

@@ -129,39 +129,38 @@ struct ImportStatementsCommand: RetireSubcommand {
                 throw CLIError("Can't read \(url.path): \(error.localizedDescription)")
             }
         }
-        var batch = StatementBatch(files: read, library: library, today: context.today)
-        try chooseAccounts(&batch, library: library, today: context.today)
-        for file in batch.files {
-            batch.editSession(ofFile: file.id, library: library, today: context.today) { session in
-                for rule in classes {
-                    if let (words, statementClass) = ImportCommand.classRule(rule) {
-                        session.setStatementRule(statementClass, for: words)
-                    }
+        var statements = StatementImport(StatementBatch(files: read, library: library, today: context.today),
+                                         paths: files)
+        try chooseAccounts(&statements.batch, library: library, today: context.today)
+        statements.batch.editSessions(library: library, today: context.today) { _, session in
+            for rule in classes {
+                if let (words, statementClass) = ImportCommand.classRule(rule) {
+                    session.setStatementRule(statementClass, for: words)
                 }
-                for move in moves {
-                    if let (words, account) = ImportCommand.moveRule(move) {
-                        session.setStatementRule(movingTo: account, for: words)
-                    }
-                }
-                if let dateFormat {
-                    var date = session.profile.defaults.date ?? ImportDateFormat()
-                    date.pattern = dateFormat
-                    session.profile.defaults.date = date
-                }
-                if let onConflict { session.profile.onConflict = onConflict.policy }
             }
+            for move in moves {
+                if let (words, account) = ImportCommand.moveRule(move) {
+                    session.setStatementRule(movingTo: account, for: words)
+                }
+            }
+            if let dateFormat {
+                var date = session.profile.defaults.date ?? ImportDateFormat()
+                date.pattern = dateFormat
+                session.profile.defaults.date = date
+            }
+            if let onConflict { session.profile.onConflict = onConflict.policy }
         }
-        try answerAssets(&batch, library: library, today: context.today)
+        try statements.answer(purchases: purchases, sales: sales, library: library, today: context.today)
 
-        let previews = batch.previews(against: library, today: context.today, decide: { _, preview in
-            decide(&preview)
-        }, apply: { $0.applyFollowingFlows(to: $1) })
-        var report = ImportStatementsReport(batch: batch, previews: previews,
-                                            gaps: StatementBatch.gaps(in: previews, batch: batch),
+        let previews = statements.batch.previews(against: library, today: context.today) { _, preview in
+            preview = ImportDecisions(acceptsNewAccounts: false, acceptsClosings: acceptClosings).applied(to: preview)
+        }
+        var report = ImportStatementsReport(batch: statements.batch, previews: previews,
+                                            gaps: StatementBatch.gaps(in: previews, batch: statements.batch),
                                             library: library, apply: apply, rows: rows)
         let blocked = report.blockers(acceptGuesses: acceptGuesses)
         if apply, blocked.isEmpty {
-            let result = StatementBatch.apply(previews.map(\.preview), to: library) { $0.applyFollowingFlows(to: $1) }
+            let result = statements.batch.apply(previews.map(\.preview), to: library, remembering: false).result
             var outcome = ImportReport.Outcome(result: result)
             if result.hasChanges {
                 try loaded.checkWritable()
@@ -197,54 +196,68 @@ struct ImportStatementsCommand: RetireSubcommand {
             batch.setAccount(account, forFile: file.id, library: library, today: today)
         }
     }
+}
+
+/// Bank statements being imported from the command line, as a batch:
+/// `retire import statements`, and `retire import` with one statement.
+struct StatementImport {
+    var batch: StatementBatch
+    /// The paths the files were given by, by their place, the files' IDs.
+    var paths: [String]
+
+    init(_ batch: StatementBatch, paths: [String]) {
+        self.batch = batch
+        self.paths = paths
+    }
 
     /// Answers the lines --purchase and --sale name, each by words only one
-    /// line of the files has, or by `<file>:<row>`.
-    private func answerAssets(_ batch: inout StatementBatch, library: Library, today: CalendarDate) throws {
+    /// line of the files has, by `<file>:<row>`, or with one file by its row.
+    mutating func answer(purchases: [String], sales: [String], library: Library, today: CalendarDate) throws {
         let answers = purchases.compactMap { ImportCommand.assetAnswer($0, sale: false) }
             + sales.compactMap { ImportCommand.assetAnswer($0, sale: true) }
         guard !answers.isEmpty else { return }
         var lines: [(file: StatementBatch.File, line: StatementLine)] = []
         for file in batch.files {
-            lines += file.session.preview(against: library, today: today).statementLines.map { (file, $0) }
+            lines += batch.preview(of: file, against: library, today: today).statementLines.map { (file, $0) }
+        }
+        // Without lines the report says why: the account, the layout or the file.
+        guard !lines.isEmpty else { return }
+        let one = batch.files.count == 1
+        func place(_ match: (file: StatementBatch.File, line: StatementLine)) -> String {
+            one ? "row \(match.line.row)" : "\(match.file.name):\(match.line.row)"
         }
         var answered: [String: String] = [:]
+        var assets: [Int: [Int: StatementAsset]] = [:]
         for (named, asset) in answers {
             let matches: [(file: StatementBatch.File, line: StatementLine)]
-            if let colon = named.lastIndex(of: ":"), let row = Int(named[named.index(after: colon)...]) {
+            if one, let row = Int(named) {
+                matches = lines.filter { $0.line.row == row }
+            } else if !one, let colon = named.lastIndex(of: ":"), let row = Int(named[named.index(after: colon)...]) {
                 let file = String(named[..<colon])
-                matches = lines.filter { ($0.file.name == file || files[$0.file.id] == file) && $0.line.row == row }
+                matches = lines.filter { ($0.file.name == file || paths[$0.file.id] == file) && $0.line.row == row }
             } else {
                 matches = lines.filter { $0.line.hasWords(named) }
             }
             let option = if case .sale = asset { "--sale" } else { "--purchase" }
             guard let match = matches.first, matches.count == 1 else {
-                throw CLIError(matches.isEmpty ? "\(option): no line of the files is “\(named)”."
-                    : "\(option): “\(named)” is in \(matches.count) lines ("
-                        + matches.map { "\($0.file.name):\($0.line.row)" }.joined(separator: ", ")
+                let places = matches.map(place)
+                throw CLIError(matches.isEmpty
+                    ? "\(option): no line of the \(one ? "statement" : "files") is “\(named)”."
+                    : one ? "\(option): “\(named)” is in \(matches.count) lines (rows "
+                        + matches.map { "\($0.line.row)" }.joined(separator: ", ") + "): name one by its row."
+                    : "\(option): “\(named)” is in \(matches.count) lines (" + places.joined(separator: ", ")
                         + "): name one as <file>:<row>.")
             }
-            let key = "\(match.file.id):\(match.line.row)"
+            let key = place(match)
             if let earlier = answered[key] {
-                throw CLIError("“\(earlier)” and “\(named)” both answer \(match.file.name):\(match.line.row): "
-                    + "give it one answer.")
+                throw CLIError("“\(earlier)” and “\(named)” both answer \(key): give it one answer.")
             }
             answered[key] = named
-            batch.editSession(ofFile: match.file.id, library: library, today: today) {
-                $0.setStatementAsset(asset, forRow: match.line.row)
-            }
+            assets[match.file.id, default: [:]][match.line.row] = asset
         }
-    }
-
-    /// Accepts or rejects the closings by the flag; a statement's purchases
-    /// and sales, and earlier openings, stay accepted.
-    func decide(_ preview: inout ImportPreview) {
-        for index in preview.newAccounts.indices where preview.newAccounts[index].statementRow == nil {
-            preview.newAccounts[index].isAccepted = false
-        }
-        for index in preview.accountChanges.indices where preview.accountChanges[index].statementRow == nil {
-            if case .close = preview.accountChanges[index].change {
-                preview.accountChanges[index].isAccepted = acceptClosings
+        batch.editSessions(library: library, today: today) { id, session in
+            for (row, asset) in assets[id] ?? [:] {
+                session.setStatementAsset(asset, forRow: row)
             }
         }
     }

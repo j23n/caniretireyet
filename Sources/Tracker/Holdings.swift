@@ -29,7 +29,7 @@ extension Valuator {
     /// average purchase cost (``snapshot(of:on:)``).
     public func holdings(of account: AccountID, on date: CalendarDate) -> [Holding] {
         guard let found = accounts[account],
-              let valuation = carried(found, on: date), !valuation.isBalance
+              let valuation = snapshot(of: account, on: date), !valuation.isBalance
         else { return [] }
         let values = value(of: found, valuation: valuation, on: date).components
         return valuation.positions.map { position in

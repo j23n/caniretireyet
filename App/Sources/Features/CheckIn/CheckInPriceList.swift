@@ -4,8 +4,8 @@ import Prices
 import Tracker
 
 // The check-in's price list (UI.md, "Prices": the source and time of each
-// price, and a way to type in any that failed), built from the draft and the
-// latest fetch. Free of SwiftUI so it can be checked on Linux.
+// price, and why any failed), built from the library and the latest fetch.
+// Free of SwiftUI so it can be checked on Linux.
 
 /// One line of the price list: an instrument's price, an exchange rate or an
 /// inflation index, and where its value comes from.
@@ -14,22 +14,21 @@ struct CheckInPriceLine: Identifiable, Hashable, Sendable {
     enum Status: Hashable, Sendable {
         /// Fetched for this check-in.
         case fetched
-        /// Typed in by hand for this check-in.
-        case typed
-        /// Fetching failed (see ``CheckInPriceLine/failure``); it can be typed in.
+        /// Fetching failed (see ``CheckInPriceLine/failure``).
         case failed
-        /// The instrument has no price source, so its price is typed in.
+        /// The instrument has no price source: its price is set on the
+        /// Instruments screen.
         case manual
         /// Not fetched for this check-in (yet): the latest known value is used.
         case notFetched
     }
 
-    var item: PriceListEntry.Item
+    var item: PriceItem
     /// "VWCE", "USD", "Inflation (Germany)".
     var title: String
     /// The instrument's full name, or "1 EUR in US dollars".
     var subtitle: String?
-    /// The value used: the check-in's own, else the latest known one.
+    /// The value used: the one fetched for the check-in, else the latest known one.
     var value: Decimal?
     /// The currency of ``value`` for a price; `nil` for rates and indices.
     var currency: CurrencyCode?
@@ -44,18 +43,13 @@ struct CheckInPriceLine: Identifiable, Hashable, Sendable {
     var observed: String?
     /// Why fetching failed.
     var failure: String?
-    /// Whether it failed because its provider has no history for the
-    /// check-in's past date: its price is typed in, not fetched again.
-    var hasNoHistory = false
-    /// Whether it can be typed in here (instruments and rates; not indices).
-    var canEnter: Bool
 
-    var id: PriceListEntry.Item { item }
+    var id: PriceItem { item }
 
-    /// Whether the line wants the user: it failed or has no price source,
-    /// and nothing was typed in for this check-in.
+    /// Whether the line wants the user: it failed, or it has no price source
+    /// and no price for the date.
     var needsAttention: Bool {
-        status == .failed || (status == .manual && staleDate != nil) || (status == .manual && value == nil)
+        status == .failed || (status == .manual && (staleDate != nil || value == nil))
     }
 }
 
@@ -71,154 +65,117 @@ struct CheckInPriceList: Hashable, Sendable {
     var lines: [CheckInPriceLine] { instruments + rates + indices }
     var isEmpty: Bool { lines.isEmpty }
 
-    /// The list for `draft`, with what the latest fetch (`fetched`) said
-    /// about each item. Items are what the draft's rows hold (positions not
-    /// sold) and the currencies they need, plus anything the fetch listed.
-    /// `today` tells how far in the past the check-in is, for the reason a
-    /// price failed.
-    static func make(draft: CheckInDraft, fetched: CheckInPrices?, library: Library, today: CalendarDate = .today(),
+    /// The list for a check-in on `date`, with what the latest fetch
+    /// (`fetched`) said about each item. Items are what the library's open
+    /// accounts hold on the date and the currencies they need
+    /// (`PriceNeeds`), plus anything the fetch listed.
+    static func make(date: CalendarDate, fetched: FetchedPrices?, library: Library,
                      locale: Locale = .current) -> CheckInPriceList {
-        let fetched = fetched?.date == draft.date ? fetched : nil
-        let base = library.settings.baseCurrency
+        let fetched = fetched?.date == date ? fetched : nil
+        let needs = PriceNeeds(library: library, checkInOn: date, indices: [])
+        let base = needs.baseCurrency
         let priceTable = PriceTable(library: library)
-        let fxTable = FXTable(library: draft.libraryWithRates(library))
+        let fxTable = FXTable(library: library)
 
-        // Instruments: what trades accounts hold comes from their trades.
-        var instrumentIDs = Set<InstrumentID>()
-        for row in draft.rows where row.isTrades {
-            instrumentIDs.formUnion((row.derived?.positions ?? []).filter { $0.quantity != 0 }.map(\.instrument))
+        var instrumentIDs = Set((needs.instruments + needs.manualInstruments).map(\.instrument))
+        for result in fetched?.results ?? [] {
+            if case .instrument(let id) = result.item { instrumentIDs.insert(id) }
         }
-        for entry in fetched?.entries ?? [] {
-            if case .instrument(let id) = entry.item { instrumentIDs.insert(id) }
-        }
+        // The rates the check-in needs; a rate that only converted a price
+        // isn't listed.
+        let quotes = needs.rates.map(\.quote)
         let instruments = instrumentIDs.map { id in
-            instrumentLine(id, draft: draft, entry: fetched?.entry(for: .instrument(id)), library: library,
-                           prices: priceTable, today: today, locale: locale)
+            instrumentLine(id, date: date, fetched: fetched, library: library, prices: priceTable, locale: locale)
         }.sorted { ($0.title.lowercased(), $0.item) < ($1.title.lowercased(), $1.item) }
-
-        // Exchange rates against the base currency.
-        var quotes = Set(draft.currencies(in: library))
-        for entry in fetched?.entries ?? [] {
-            if case .fx(let entryBase, let quote) = entry.item, entryBase == base { quotes.insert(quote) }
+        let rates = quotes.map { quote in
+            rateLine(quote, base: base, date: date, fetched: fetched, fx: fxTable, locale: locale)
         }
-        let rates = quotes.sorted().map { quote in
-            rateLine(quote, base: base, draft: draft, entry: fetched?.entry(for: .fx(base: base, quote: quote)),
-                     fx: fxTable, today: today, locale: locale)
-        }
-
         // Inflation indices, only when the fetch listed them (months missing).
-        let indices = (fetched?.entries ?? []).compactMap { entry -> CheckInPriceLine? in
-            guard case .index(let index) = entry.item else { return nil }
-            return indexLine(index, entry: entry, locale: locale)
+        let indices = (fetched?.results ?? []).compactMap { result -> CheckInPriceLine? in
+            guard case .index(let index) = result.item else { return nil }
+            return indexLine(index, result: result, locale: locale)
         }
-
-        let fetchedAt = (fetched?.entries ?? []).compactMap(\.details?.fetchedAt).max()
-        return CheckInPriceList(date: draft.date, instruments: instruments, rates: rates, indices: indices,
-                              fetchedAt: fetchedAt)
+        let fetchedAt = (fetched?.results ?? []).compactMap(\.fetchedAt).max()
+        return CheckInPriceList(date: date, instruments: instruments, rates: rates, indices: indices,
+                                fetchedAt: fetchedAt)
     }
 
     // MARK: Lines
 
-    private static func instrumentLine(_ id: InstrumentID, draft: CheckInDraft, entry: PriceListEntry?,
-                                       library: Library, prices: PriceTable, today: CalendarDate,
-                                       locale: Locale) -> CheckInPriceLine {
+    private static func instrumentLine(_ id: InstrumentID, date: CalendarDate, fetched: FetchedPrices?,
+                                       library: Library, prices: PriceTable, locale: Locale) -> CheckInPriceLine {
         let instrument = library.instruments[id]
-        let own = draft.prices.first { $0.instrument == id }
-        let known = own ?? prices.latest(for: id, onOrBefore: draft.date)
-        let status = lineStatus(typed: own?.source == .manual, hasOwn: own != nil, entry: entry,
-                                otherwise: instrument?.priceSource == nil ? .manual : .notFetched)
-        let failure = status == .typed ? nil : failureReason(of: entry, date: draft.date, today: today)
+        let result = fetched?.result(for: .instrument(id))
+        let origin = result?.shownOrigin
+        let own = fetched?.prices.first { $0.instrument == id }
+        let known = own ?? prices.latest(for: id, onOrBefore: date)
+        let status = lineStatus(hasOwn: own != nil, result: result,
+                                otherwise: PriceNeeds.isFetched(instrument?.priceSource) ? .notFetched : .manual)
         let unit = CheckInWording.unit(of: instrument)
-        var symbol = entry?.symbol ?? instrument?.priceSource?.symbol
-        if let typed = symbol, let resolved = entry?.resolvedSymbol { symbol = "\(typed) → \(resolved)" }
+        let label = CheckInWording.instrumentLabel(id, instrument: instrument)
+        var symbol = origin?.symbol ?? instrument?.priceSource?.symbol
         // A stand-in for a date the source has no price for: "Yahoo Finance · GC=F (history)".
-        if let shown = symbol, let note = entry?.note { symbol = "\(shown) (\(note))" }
+        if let shown = symbol, let note = origin?.note { symbol = "\(shown) (\(note))" }
         return CheckInPriceLine(
-            item: .instrument(id), title: CheckInWording.instrumentLabel(id, instrument: instrument),
-            subtitle: instrument.map(\.name).flatMap { $0 == CheckInWording.instrumentLabel(id, instrument: instrument) ? nil : $0 },
+            item: .instrument(id), title: label,
+            subtitle: instrument.map(\.name).flatMap { $0 == label ? nil : $0 },
             value: known?.price, currency: known?.currency ?? instrument?.currency,
             per: unit.isEmpty ? nil : "per " + (unit == "sh" ? "share" : unit),
-            staleDate: known.flatMap { $0.date < draft.date ? $0.date : nil },
-            status: status,
-            source: sourceText(status == .typed ? .manual : (entry?.source ?? own?.source), symbol: status == .typed ? nil : symbol),
-            observed: status == .fetched ? observedText(entry?.details, locale: locale) : nil,
-            failure: failure?.text, hasNoHistory: failure?.isNoHistory ?? false, canEnter: true)
+            staleDate: known.flatMap { $0.date < date ? $0.date : nil },
+            status: status, source: sourceText(origin?.source ?? known?.source, symbol: symbol),
+            observed: status == .fetched ? observedText(result, on: date, locale: locale) : nil,
+            failure: result?.failureReason)
     }
 
-    private static func rateLine(_ quote: CurrencyCode, base: CurrencyCode, draft: CheckInDraft,
-                                 entry: PriceListEntry?, fx: FXTable, today: CalendarDate,
-                                 locale: Locale) -> CheckInPriceLine {
-        let own = draft.fxRates.first { $0.base == base && $0.quote == quote }
-        let known = fx.quote(from: base, to: quote, on: draft.date)
-        let status = lineStatus(typed: own?.source == .manual, hasOwn: own != nil, entry: entry, otherwise: .notFetched)
-        let failure = status == .typed ? nil : failureReason(of: entry, date: draft.date, today: today)
+    private static func rateLine(_ quote: CurrencyCode, base: CurrencyCode, date: CalendarDate,
+                                 fetched: FetchedPrices?, fx: FXTable, locale: Locale) -> CheckInPriceLine {
+        let result = fetched?.result(for: .fx(base: base, quote: quote))
+        let own = fetched?.fx.first { $0.base == base && $0.quote == quote }
+        let known = fx.quote(from: base, to: quote, on: date)
+        let status = lineStatus(hasOwn: own != nil, result: result, otherwise: .notFetched)
         let name = locale.localizedString(forCurrencyCode: quote.rawValue)
         let knownDate = own?.date ?? known?.date
         return CheckInPriceLine(
             item: .fx(base: base, quote: quote), title: quote.rawValue,
             subtitle: name.map { "1 \(base.rawValue) in \($0)" },
             value: own?.rate ?? known?.rate, currency: nil, per: "\(quote.rawValue) per \(base.rawValue)",
-            staleDate: knownDate.flatMap { $0 < draft.date ? $0 : nil },
-            status: status,
-            source: sourceText(status == .typed ? .manual : (entry?.source ?? own?.source),
-                               symbol: status == .typed ? nil : entry?.symbol),
-            observed: status == .fetched ? observedText(entry?.details, locale: locale) : nil,
-            failure: failure?.text, hasNoHistory: failure?.isNoHistory ?? false, canEnter: true)
+            staleDate: knownDate.flatMap { $0 < date ? $0 : nil },
+            status: status, source: sourceText(result?.shownOrigin?.source ?? own?.source,
+                                               symbol: result?.shownOrigin?.symbol),
+            observed: status == .fetched ? observedText(result, on: date, locale: locale) : nil,
+            failure: result?.failureReason)
     }
 
-    private static func indexLine(_ index: IndexID, entry: PriceListEntry, locale: Locale) -> CheckInPriceLine {
+    private static func indexLine(_ index: IndexID, result: PriceResult, locale: Locale) -> CheckInPriceLine {
         // The values fetched are the check-in's own: they're saved with it.
-        let status = lineStatus(typed: false, hasOwn: true, entry: entry, otherwise: .notFetched)
+        let status = lineStatus(hasOwn: true, result: result, otherwise: .notFetched)
         return CheckInPriceLine(
             item: .index(index), title: InflationIndexText.title(of: index, locale: locale),
             subtitle: "Consumer prices, for plans in today's money", value: nil, currency: nil, per: nil,
-            staleDate: nil, status: status, source: sourceText(entry.source, symbol: nil),
-            observed: observedText(entry.details, locale: locale), failure: entry.failureReason, canEnter: false)
+            staleDate: nil, status: status, source: sourceText(result.shownOrigin?.source, symbol: nil),
+            observed: observedText(observedOn: result.asOf, fetchedAt: result.fetchedAt, locale: locale),
+            failure: result.failureReason)
     }
 
-    /// Where a line stands: typed in for this check-in; else as the fetch
-    /// left it, fetched only once the check-in has the value (`hasOwn`);
-    /// without an entry, fetched when it has one, else `otherwise`.
-    private static func lineStatus(typed: Bool, hasOwn: Bool, entry: PriceListEntry?,
+    /// Where a line stands: as the fetch left it, fetched only once the
+    /// check-in has the value (`hasOwn`); without a result, fetched when it
+    /// has one, else `otherwise`. An index month not published yet isn't a
+    /// failure.
+    private static func lineStatus(hasOwn: Bool, result: PriceResult?,
                                    otherwise: CheckInPriceLine.Status) -> CheckInPriceLine.Status {
-        if typed { return .typed }
-        guard let entry else { return hasOwn ? .fetched : otherwise }
-        switch entry.outcome {
-        case .fetched: return hasOwn ? .fetched : .notFetched
-        case .manual: return .manual
-        case .failed: return .failed
-        }
+        guard let result else { return hasOwn ? .fetched : otherwise }
+        if result.status == .manual { return .manual }
+        if result.isFailure { return .failed }
+        return hasOwn ? .fetched : .notFetched
     }
 
     // MARK: Words
-
-    /// Why an entry failed, for a check-in on `date`, and whether it's for
-    /// want of history. A provider without history for the date
-    /// (gold-api.com only has today's price; CoinGecko's free API about the
-    /// last year), when its stand-ins had none either (the metal's futures,
-    /// the coin's Yahoo Finance pairs), says so first: "No history for this
-    /// date: type the price." `nil` unless the entry failed.
-    private static func failureReason(of entry: PriceListEntry?, date: CalendarDate,
-                                      today: CalendarDate) -> (text: String, isNoHistory: Bool)? {
-        guard let entry, let error = entry.failure else { return nil }
-        let noHistory = "No history for this date: type the price."
-        switch error {
-        case .unsupportedDate:
-            return (noHistory + " " + error.description, true)
-        case .unauthorized where entry.source == .coingecko
-            && date < today.adding(days: -CoinGeckoProvider.historyDays):
-            return (noHistory + " CoinGecko's free prices only go back about a year.", true)
-        default:
-            return (error.description, false)
-        }
-    }
 
     /// A source's name: "Yahoo Finance", "ECB", "Typed in".
     static func sourceName(_ source: DataSource) -> String {
         switch source {
         case .manual: "Typed in"
         case .yahoo: "Yahoo Finance"
-        case .coingecko: "CoinGecko"
         case .goldAPI: "gold-api.com"
         case .ecb: "ECB"
         case .eurostat: "Eurostat"
@@ -235,14 +192,21 @@ struct CheckInPriceList: Hashable, Sendable {
         return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 
-    /// "As of 26 Sep · fetched 09:41".
-    static func observedText(_ details: FetchDetails?, locale: Locale = .current) -> String? {
-        guard let details else { return nil }
+    /// "As of 26 Sep · fetched 09:41": the day the value fetched for `date`
+    /// is from, and when it was fetched.
+    static func observedText(_ result: PriceResult?, on date: CalendarDate, locale: Locale = .current) -> String? {
+        guard let result else { return nil }
+        return observedText(observedOn: result.observedOn[date], fetchedAt: result.fetchedAt, locale: locale)
+    }
+
+    /// "As of 26 Sep · fetched 09:41"; `nil` when nothing was fetched.
+    static func observedText(observedOn: CalendarDate?, fetchedAt: Date?, locale: Locale = .current) -> String? {
+        guard let fetchedAt else { return nil }
         var parts: [String] = []
-        if let observed = details.observedOn {
-            parts.append("As of " + AmountFormat.shortDate(observed, locale: locale))
+        if let observedOn {
+            parts.append("As of " + AmountFormat.shortDate(observedOn, locale: locale))
         }
-        parts.append((parts.isEmpty ? "Fetched " : "fetched ") + time(details.fetchedAt, locale: locale))
+        parts.append((parts.isEmpty ? "Fetched " : "fetched ") + time(fetchedAt, locale: locale))
         return parts.joined(separator: " · ")
     }
 
@@ -255,8 +219,8 @@ struct CheckInPriceList: Hashable, Sendable {
     }
 }
 
-/// The price status row at the top of the check-in: "Prices and FX updated
-/// (4)", "2 couldn't be fetched", "Fetching prices…".
+/// The price status row on the check-in: "Prices and FX updated (4)",
+/// "2 couldn't be fetched", "Fetching prices…".
 struct CheckInPriceStatus: Hashable, Sendable {
     enum Kind: Hashable, Sendable {
         case fetching
@@ -280,30 +244,23 @@ struct CheckInPriceStatus: Hashable, Sendable {
             return CheckInPriceStatus(kind: .fetching, title: "Fetching \(noun.lowercased())…",
                                       subtitle: names.isEmpty ? nil : names)
         }
-        // A provider without history for a past date isn't a failure to retry: the price is typed in.
-        let noHistory = lines.count { $0.status == .failed && $0.hasNoHistory }
-        let failed = lines.count { $0.status == .failed } - noHistory
-        let noSource = lines.count { $0.status == .manual && $0.needsAttention }
+        let failed = lines.count { $0.status == .failed }
         if failed > 0 {
             return CheckInPriceStatus(
                 kind: .needsAttention,
                 title: failed == 1 ? "1 price couldn't be fetched" : "\(failed) prices couldn't be fetched",
-                subtitle: "The latest known ones are used · tap to type them in")
+                subtitle: "The latest known ones are used")
         }
-        let toType = noSource + noHistory
-        if toType > 0 {
-            let reason = switch (noSource > 0, noHistory > 0) {
-            case (true, true): "No price source, or no history for this date"
-            case (false, true): "No history for this date"
-            default: "No price source"
-            }
+        let noSource = lines.count { $0.status == .manual && $0.needsAttention }
+        if noSource > 0 {
             return CheckInPriceStatus(
-                kind: .needsAttention, title: toType == 1 ? "1 price to type in" : "\(toType) prices to type in",
-                subtitle: reason + " · tap to enter")
+                kind: .needsAttention,
+                title: noSource == 1 ? "1 price without a source" : "\(noSource) prices without a source",
+                subtitle: "The latest known ones are used · set them on the Instruments screen")
         }
         if lines.contains(where: { $0.status == .notFetched }) {
             return CheckInPriceStatus(kind: .notFetched, title: "\(noun) not fetched",
-                                      subtitle: "The latest known ones are used · tap to fetch or type them")
+                                      subtitle: "The latest known ones are used")
         }
         let time = list.fetchedAt.map { " · " + CheckInPriceList.time($0, locale: locale) } ?? ""
         return CheckInPriceStatus(kind: .updated, title: "\(noun) updated (\(lines.count))", subtitle: names + time)

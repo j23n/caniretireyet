@@ -38,11 +38,11 @@ struct DebtSignTests {
         let note = ImportIssue(kind: .positiveDebts("mutuo-casa", count: 2), column: 3, header: "Mutuo casa")
         #expect(preview.issues == [note])
         #expect(note.isNote)
-        #expect(note.description == "“Mutuo casa”: positive amounts were read as debts (2 values).")
         // A note isn't a problem to fix.
         #expect(preview.summary.issues == 0)
         #expect(preview.summary.notes == 1)
-        #expect(preview.summary.description == "3 new, 0 updated, 1 identical, 0 conflicts")
+        #expect(preview.summary.newRecords == 3)
+        #expect(preview.summary.identicalRecords == 1)
 
         let result = preview.apply(to: library())
         #expect(result.library.valuations(for: "mutuo-casa").map(\.balance) == [-146_900, -146_250])
@@ -80,8 +80,6 @@ struct DebtSignTests {
             ImportIssue(kind: .positiveDebts("mutuo-casa", count: 2), column: 3, header: "Mutuo casa"), note,
         ])
         #expect(note.isNote)
-        #expect(note.description
-            == "“Carta”: the column writes debts as negative amounts, so positive amounts were kept as credit (1 value).")
 
         let result = preview.apply(to: library)
         #expect(result.library.valuations(for: "carta").map(\.balance) == [d("-320.5"), 20])
@@ -162,10 +160,6 @@ struct DebtSignTests {
         #expect(preview.issues == [
             ImportIssue(kind: .positiveDebts("mutuo", count: 3), column: 3, header: "Mutuo"),
             ImportIssue(kind: .positiveDebts("prestito-auto", count: 3), column: 4, header: "Prestito auto"),
-        ])
-        #expect(preview.issues.map(\.description) == [
-            "“Mutuo”: positive amounts were read as debts (3 values).",
-            "“Prestito auto”: positive amounts were read as debts (3 values).",
         ])
 
         let result = preview.apply(to: library)

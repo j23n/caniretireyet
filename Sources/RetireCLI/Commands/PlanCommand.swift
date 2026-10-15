@@ -205,11 +205,11 @@ struct PlanReport: CommandReport {
         "\(Int((share * 100).rounded()))%"
     }
 
-    /// A readiness as a percentage, rounded down below 100% so it never
-    /// reads 100% while retiring today falls short: "7%".
+    /// A readiness as a percentage, rounded down to a whole percent as the
+    /// app shows it (`Readiness.rounded`): "7%", never "100%" while retiring
+    /// today falls short.
     static func readinessPercent(_ readiness: Double) -> String {
-        guard readiness < 1 else { return percent(readiness) }
-        return "\(min(99, Int((readiness * 100 + 1e-9).rounded(.down))))%"
+        percent(Readiness.shown(readiness))
     }
 
     /// What retiring today would need (PLANNER.md, "Assets needed to retire
@@ -378,7 +378,7 @@ struct PlanReport: CommandReport {
             assetsNeededToday: needed?.amount.flatMap { $0.isFinite ? $0.rounded() : nil },
             assetsNeededOutcome: needed.map { Self.outcomeName($0.outcome) },
             assetsNeededExtra: extra.flatMap { $0.isFinite ? $0.rounded() : nil },
-            readiness: needed?.readiness.flatMap { $0.isFinite ? ($0 * 10_000 + 1e-9).rounded(.down) / 10_000 : nil },
+            readiness: needed?.readiness.flatMap { $0.isFinite ? Readiness.shown($0) : nil },
             issues: result.issues.map { JSON.Issue(severity: $0.severity.rawValue, message: $0.message) },
             runs: result.settings.runs, fast: fast, engine: result.engine, startDate: result.start.date.description,
             savedBaseline: savedBaseline, start: start,
@@ -455,7 +455,8 @@ struct PlanReport: CommandReport {
         /// (negative when it could be taken out), whole.
         var assetsNeededExtra: Double?
         /// Today's plan assets over what retiring today needs, rounded down
-        /// to 4 decimals: 1 or more exactly when retiring today works.
+        /// to a whole percent as headlines record it (`Readiness.rounded`):
+        /// 1 or more exactly when retiring today works.
         var readiness: Double?
         var issues: [Issue]
         var runs: Int

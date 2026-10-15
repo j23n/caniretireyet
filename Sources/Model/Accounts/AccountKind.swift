@@ -1,9 +1,8 @@
 /// What kind of account this is. Drives defaults for valuation mode, asset
-/// mix and flows.
+/// mix and what its values saved.
 public struct AccountKind: OpenEnum {
     public let rawValue: String
-    /// `vehicle`, the name `belongings` had before, reads as `belongings`.
-    public init(rawValue: String) { self.rawValue = rawValue == "vehicle" ? "belongings" : rawValue }
+    public init(rawValue: String) { self.rawValue = rawValue }
 
     /// A current account.
     public static let cash: AccountKind = "cash"
@@ -15,7 +14,7 @@ public struct AccountKind: OpenEnum {
     public static let tfr: AccountKind = "tfr"
     public static let property: AccountKind = "property"
     /// Things you own that lose value and might sell: a car, a bike, a
-    /// boat, electronics. Written as `vehicle` before.
+    /// boat, electronics.
     public static let belongings: AccountKind = "belongings"
     public static let loan: AccountKind = "loan"
     public static let mortgage: AccountKind = "mortgage"
@@ -94,10 +93,10 @@ extension AccountKind {
         self == .loan || self == .mortgage
     }
 
-    /// How a valuation's `flow` is worked out for this kind (PROGRESS.md,
+    /// How a valuation's `saved` is worked out for this kind (PROGRESS.md,
     /// "Data this needs from day one"). Belongings' is their whole change,
     /// so their loss of value is spent, a little each year.
-    public var defaultFlow: FlowDefault {
+    public var savedRule: SavedRule {
         switch self {
         case .cash, .creditCard, .loan, .mortgage, .belongings, .taxPot: .wholeChange
         case .savings: .changeLessInterest
@@ -114,11 +113,6 @@ public struct ValuationMode: OpenEnum {
 
     /// One amount in the account's currency.
     public static let balance: ValuationMode = "balance"
-    /// Positions (quantity × price) plus optional cash, at each valuation.
-    /// Written before format version 4, whose upgrade converts such accounts
-    /// to trades, so it isn't in ``knownValues``; it still decodes, and its
-    /// values still count.
-    public static let holdings: ValuationMode = "holdings"
     /// Holdings worked out from the account's trades (buys, sells, …),
     /// valued at quantity × price, plus cash. Its valuations record only
     /// cash; positions listed in one are a reconciliation check
@@ -128,9 +122,9 @@ public struct ValuationMode: OpenEnum {
     public static let knownValues: [ValuationMode] = [.balance, .trades]
 }
 
-/// How a valuation's `flow` is worked out, by account kind.
-public enum FlowDefault: String, Hashable, Sendable, CaseIterable {
-    /// The whole change is new money (current accounts, cards, loans,
+/// How a valuation's `saved` is worked out, by account kind.
+public enum SavedRule: String, Hashable, Sendable, CaseIterable {
+    /// The whole change is saved (current accounts, cards, loans,
     /// mortgages, belongings).
     case wholeChange
     /// The change minus the interest recorded with the value (savings), so

@@ -43,7 +43,7 @@ public struct GlanceSnapshot: Hashable, Sendable, Codable {
 
 /// The main plan's next milestone (PROGRESS.md, "Milestones"): what it is,
 /// how far there, and when the plan's median future typically reaches it.
-public struct MilestoneGlance: Hashable, Sendable {
+public struct MilestoneGlance: Hashable, Sendable, Codable {
     /// What a milestone is, as written in the snapshot.
     public struct Kind: OpenEnum {
         public let rawValue: String
@@ -88,7 +88,7 @@ public struct MilestoneGlance: Hashable, Sendable {
 
 /// Net worth today, as the Overview has it, the change at the latest
 /// check-in, and a year of history.
-public struct NetWorthGlance: Hashable, Sendable {
+public struct NetWorthGlance: Hashable, Sendable, Codable {
     /// The date net worth is reported on: the day the app wrote the snapshot.
     public var date: CalendarDate
     /// The sum of what could be valued.
@@ -119,7 +119,7 @@ public struct NetWorthGlance: Hashable, Sendable {
 
 /// How net worth changed between two check-ins, split into markets, new
 /// money and the rest (UI.md, "Since last check-in").
-public struct NetWorthChange: Hashable, Sendable {
+public struct NetWorthChange: Hashable, Sendable, Codable {
     /// The check-in before the latest one.
     public var from: CalendarDate
     /// The latest check-in.
@@ -129,19 +129,19 @@ public struct NetWorthChange: Hashable, Sendable {
     /// Price and exchange-rate movements, interest, reinvested dividends.
     public var markets: Decimal
     /// Money added (+) or taken out (−).
-    public var newMoney: Decimal
+    public var saved: Decimal
     /// What can't be explained otherwise.
     public var other: Decimal
     /// Net worth on the latest check-in.
     public var end: Decimal
 
-    public init(from: CalendarDate, to: CalendarDate, start: Decimal, markets: Decimal, newMoney: Decimal,
+    public init(from: CalendarDate, to: CalendarDate, start: Decimal, markets: Decimal, saved: Decimal,
                 other: Decimal, end: Decimal) {
         self.from = from
         self.to = to
         self.start = start
         self.markets = markets
-        self.newMoney = newMoney
+        self.saved = saved
         self.other = other
         self.end = end
     }
@@ -157,7 +157,7 @@ public struct NetWorthChange: Hashable, Sendable {
 }
 
 /// One point of a value series.
-public struct GlancePoint: Hashable, Sendable {
+public struct GlancePoint: Hashable, Sendable, Codable {
     public var date: CalendarDate
     /// The sum of what could be valued.
     public var value: Decimal
@@ -169,7 +169,7 @@ public struct GlancePoint: Hashable, Sendable {
 }
 
 /// One asset class's part of net worth.
-public struct AllocationSlice: Hashable, Sendable {
+public struct AllocationSlice: Hashable, Sendable, Codable {
     /// The key debts have: they aren't an asset class.
     public static let debts = "debts"
 
@@ -217,76 +217,6 @@ public struct RetirementGlance: Hashable, Sendable, Codable {
         else { return nil }
         return AnswerMove(from: history[index - 1].earliestAge, to: history[index].earliestAge,
                           date: history[index].date)
-    }
-}
-
-/// The answer itself, without the history.
-public struct RetirementAnswer: Hashable, Sendable {
-    /// The confidence level required: 0.9 is "in 9 of 10 simulated futures".
-    public var confidence: Double
-    /// The earliest retirement age reaching the confidence level; `nil` if none does.
-    public var earliestAge: Int?
-    /// When that is: the birthday that age is reached on, e.g. 12 April 2042.
-    public var earliestDate: CalendarDate?
-    /// The plan's target retirement age, if it names one.
-    public var targetAge: Int?
-    /// The most you could spend a year retiring at the target age, in today's
-    /// money; `nil` in a recorded answer.
-    public var sustainableSpending: Decimal?
-    /// Plan assets as a fraction of what retiring today needs (PLANNER.md,
-    /// "Assets needed to retire today"): 1 or more exactly when retiring
-    /// today works.
-    public var readiness: Double?
-    /// ``readiness`` is a lower bound ("…% or more").
-    public var readinessIsLowerBound: Bool
-    /// Retiring today would need more than 20 times your plan assets, so
-    /// there's no ``readiness``.
-    public var needsMoreThanSearched: Bool
-    /// Whether retiring today reaches the confidence level ("Yes.").
-    public var canRetireNow: Bool
-
-    public init(confidence: Double, earliestAge: Int? = nil, earliestDate: CalendarDate? = nil, targetAge: Int? = nil,
-                sustainableSpending: Decimal? = nil, readiness: Double? = nil, readinessIsLowerBound: Bool = false,
-                needsMoreThanSearched: Bool = false, canRetireNow: Bool = false) {
-        self.confidence = confidence
-        self.earliestAge = earliestAge
-        self.earliestDate = earliestDate
-        self.targetAge = targetAge
-        self.sustainableSpending = sustainableSpending
-        self.readiness = readiness
-        self.readinessIsLowerBound = readinessIsLowerBound
-        self.needsMoreThanSearched = needsMoreThanSearched
-        self.canRetireNow = canRetireNow
-    }
-
-    /// The answer recorded at a check-in. A record has no date for the
-    /// earliest age, so it's the birthday that age is reached on (never
-    /// before the check-in, as the planner has it), and no spending. Retiring
-    /// today works when the recorded readiness, rounded down, is 1.
-    public init(recorded headline: Headline, birthDate: CalendarDate?, defaultConfidence: Double = 0.9) {
-        confidence = headline.confidence?.doubleValue ?? defaultConfidence
-        earliestAge = headline.earliestAge
-        if let age = headline.earliestAge, let birthDate {
-            earliestDate = Self.earliestDate(age: age, recordedOn: headline.date, birthDate: birthDate)
-        }
-        readiness = headline.readiness?.doubleValue
-        readinessIsLowerBound = false
-        needsMoreThanSearched = false
-        canRetireNow = (readiness ?? 0) >= 1
-    }
-
-    /// When an earliest `age` recorded at the check-in on `date` is reached:
-    /// the birthday of that age, never before the check-in, as the planner
-    /// has it.
-    public static func earliestDate(age: Int, recordedOn date: CalendarDate, birthDate: CalendarDate) -> CalendarDate {
-        max(date, birthDate.adding(years: age))
-    }
-
-    /// ``readiness`` as the app shows it (``ReadinessFigure/shown``): below
-    /// 1 rounded down to a whole percent, so it never reads 100% while
-    /// retiring today falls short; from 1 on, as it is.
-    public var shownReadiness: Double? {
-        readinessFigure.shown
     }
 }
 

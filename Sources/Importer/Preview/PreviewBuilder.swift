@@ -6,9 +6,25 @@ extension ImportSession {
     /// resulting records with `library`. Nothing is written. A date before
     /// 1900 or more than a week after `today` is a cell problem.
     public func preview(against library: Library, today: CalendarDate = .today()) -> ImportPreview {
-        var builder = PreviewBuilder(session: self, library: library, today: today)
+        preview(against: library, today: today, batch: StatementBatchContext())
+    }
+
+    /// The preview of a statement imported with others (``StatementBatch``).
+    func preview(against library: Library, today: CalendarDate, batch: StatementBatchContext) -> ImportPreview {
+        var builder = PreviewBuilder(session: self, library: library, today: today, batch: batch)
         return builder.build()
     }
+}
+
+/// What a statement's preview takes from the other statements imported
+/// with it (``StatementBatch``), which its session doesn't hold.
+struct StatementBatchContext: Hashable, Sendable {
+    /// Lines that a line of another file moves to or from, by 1-based row,
+    /// with that file's account: transfers.
+    var pairs: [Int: AccountID] = [:]
+    /// The other files' accounts. Money moved to one of them is that file's
+    /// to record, not this one's.
+    var accounts: Set<AccountID> = []
 }
 
 /// One value read from the file, before names are matched.
@@ -48,6 +64,8 @@ struct PreviewBuilder {
     let session: ImportSession
     let library: Library
     let today: CalendarDate
+    /// Statement layout: what the other statements imported with it say.
+    let batch: StatementBatchContext
     /// The last date a row may have: a week after today.
     let latestDate: CalendarDate
     let bindings: ImportSession.Bindings
@@ -79,6 +97,9 @@ struct PreviewBuilder {
     var removedTrades: [(trade: Trade, cells: [ImportCellRef])] = []
     /// Statement layout: the lines read, with their classes.
     var statementLines: [StatementLine] = []
+    /// Statement layout: the days the file covers, and its balance's breaks.
+    var statementPeriod: StatementPeriod?
+    var runningBalanceBreaks = 0
     /// Statement layout: the accounts the file's sales close.
     var statementCloses: [AccountChangeProposal] = []
 
@@ -88,10 +109,12 @@ struct PreviewBuilder {
     /// The first date a row may have.
     static let earliestDate: CalendarDate = "1900-01-01"
 
-    init(session: ImportSession, library: Library, today: CalendarDate) {
+    init(session: ImportSession, library: Library, today: CalendarDate,
+         batch: StatementBatchContext = StatementBatchContext()) {
         self.session = session
         self.library = library
         self.today = today
+        self.batch = batch
         latestDate = today.adding(days: 7)
         bindings = session.bindings
         matcher = NameMatcher(library: library, matches: session.profile.matches)
@@ -121,6 +144,8 @@ struct PreviewBuilder {
         }
         compare(records, into: &preview)
         preview.statementLines = statementLines
+        preview.statementPeriod = statementPeriod
+        preview.runningBalanceBreaks = runningBalanceBreaks
         preview.cellErrors = errors.sorted { $0.cell < $1.cell }
         preview.issues = issues
         preview.nameMatches = matcher.found
@@ -337,7 +362,7 @@ struct PreviewBuilder {
         var resolved: [(ExtractedValue, AccountID?, InstrumentID?)] = []
         for value in values {
             switch value.target {
-            case .balance, .cash, .quantity, .costBasis:
+            case .balance, .cash, .saved, .quantity, .costBasis:
                 guard let accountRef = value.account else { continue }
                 let account = matcher.account(accountRef)
                 let instrument = value.instrument.map { matcher.instrument($0) }
@@ -368,7 +393,7 @@ struct PreviewBuilder {
             let key: ImportRecordKey
             let field: RecordField
             switch value.target {
-            case .balance, .cash, .quantity, .costBasis:
+            case .balance, .cash, .saved, .quantity, .costBasis:
                 guard let accountID, let account = accounts[accountID] else { continue }
                 if let currency = value.currency, value.target != .quantity, currency != account.currency {
                     fail(value.cell.row, value.cell.column, value.raw,
@@ -379,6 +404,7 @@ struct PreviewBuilder {
                 switch (value.target, instrumentID) {
                 case (.balance, _): field = .balance
                 case (.cash, _): field = .cash
+                case (.saved, _): field = .saved
                 case (.quantity, let instrumentID?): field = .quantity(instrumentID)
                 case (_, let instrumentID?): field = .costBasis(instrumentID)
                 default: continue
@@ -495,9 +521,15 @@ struct PreviewBuilder {
                 .filter { $0.quantity == nil && !held.contains($0.instrument) }.map(\.instrument)
             for instrument in costOnly { failCost(accumulator, instrument) }
             accumulator.record.positions.removeAll { costOnly.contains($0.instrument) }
+            // What was saved goes with a value of the account, from the file or the library.
+            if accumulator.record.saved != nil, accumulator.record.balance == nil, accumulator.record.cash == nil,
+               accumulator.record.positions.isEmpty, existing == nil {
+                failSaved(accumulator)
+                accumulator.record.saved = nil
+            }
             let record = accumulator.record
-            if record.balance == nil, record.cash == nil, record.positions.isEmpty, record.price == nil,
-               record.rate == nil { continue }
+            if record.balance == nil, record.cash == nil, record.positions.isEmpty, record.saved == nil,
+               record.price == nil, record.rate == nil { continue }
             let outcome = RecordMerge.evaluate(record, existing: existing)
             records.append(ImportRecordPreview(
                 imported: record, status: outcome.status, existing: existing, incoming: outcome.overwritten,
@@ -537,6 +569,12 @@ struct PreviewBuilder {
         fail(cell.row, cell.column, raw, .costWithoutQuantity)
     }
 
+    mutating func failSaved(_ accumulator: Accumulator) {
+        guard let cell = accumulator.sources[.saved]?.cell else { return }
+        let raw = table.rows.first { $0.number == cell.row }?[cell.column] ?? ""
+        fail(cell.row, cell.column, raw, .savedWithoutValue)
+    }
+
     /// Accounts whose values stop before the file's last date are proposed
     /// as closed the day after their last non-zero value (not from a broker's
     /// transactions or a bank statement); accounts with
@@ -570,8 +608,7 @@ struct PreviewBuilder {
         var changes: [AccountChangeProposal] = []
         for (id, accountRecords) in byAccount.sorted(by: { $0.key < $1.key }) {
             let account = library.accounts[id] ?? newAccounts.first { $0.account.id == id }?.account
-            guard let account else { continue }
-            let first = accountRecords.map(\.key.date).min()!
+            guard let account, let first = accountRecords.map(\.key.date).min() else { continue }
             if library.accounts[id] != nil, first < account.opened {
                 changes.append(AccountChangeProposal(account: id, change: .openEarlier(on: first)))
             }
@@ -615,7 +652,7 @@ struct PreviewBuilder {
 
 /// Which value of a record a cell sets.
 enum RecordField: Hashable {
-    case balance, cash, price, rate
+    case balance, cash, saved, price, rate
     case quantity(InstrumentID)
     case costBasis(InstrumentID)
 }
@@ -628,6 +665,7 @@ extension ImportedRecord {
             balance = value
             writtenBalance = value
         case .cash: cash = value
+        case .saved: saved = value
         case .price:
             price = value
             self.currency = currency

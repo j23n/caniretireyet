@@ -63,7 +63,7 @@ extension GlanceSnapshot {
             GlancePoint(date: last.adding(months: index - (values.count - 1)).endOfMonth, value: value)
         }
         let change = NetWorthChange(from: history[history.count - 2].date, to: last, start: 308_270, markets: 2_950,
-                                    newMoney: 1_500, other: -240, end: 312_480)
+                                    saved: 1_500, other: -240, end: 312_480)
         let owned: [(String, String, Decimal)] = [
             ("cash", "Cash", 53_100), ("equity", "Equity", 182_400), ("gold", "Gold", 6_100),
             ("crypto", "Crypto", 40_100), ("other", "Other", 30_780),
@@ -87,5 +87,62 @@ extension GlanceSnapshot {
             checkIn: CheckInGlance(last: last, next: today.endOfMonth),
             milestone: MilestoneGlance(kind: .roundAmount, amount: 400_000, progress: 0.78,
                                        typically: today.adding(months: 20)))
+    }
+}
+
+/// A widget's size: the home screen's (on the Mac, the desktop's) or the
+/// lock screen's, which only iPhone and iPad have. Widgets name these, so
+/// only this type knows which platform has which.
+enum GlanceFamily: CaseIterable {
+    case small, medium, large
+    /// The lock screen's.
+    case inline, circular, rectangular
+
+    /// WidgetKit's family; `nil` for the lock screen's on the Mac.
+    var widgetFamily: WidgetFamily? {
+        switch self {
+        case .small: return .systemSmall
+        case .medium: return .systemMedium
+        case .large: return .systemLarge
+        #if os(iOS)
+        case .inline: return .accessoryInline
+        case .circular: return .accessoryCircular
+        case .rectangular: return .accessoryRectangular
+        #else
+        case .inline, .circular, .rectangular: return nil
+        #endif
+        }
+    }
+
+    init(_ family: WidgetFamily) {
+        self = Self.allCases.first { $0.widgetFamily == family } ?? .small
+    }
+}
+
+extension Widget {
+    /// A widget that draws the app's snapshot (``GlanceProvider``): `content`
+    /// draws an entry in each of `families` this platform has, and a tap
+    /// opens `link`.
+    func glance<Content: View>(kind: String, name: LocalizedStringKey, description: LocalizedStringKey,
+                               families: [GlanceFamily], link: GlanceLink,
+                               @ViewBuilder content: @escaping (GlanceEntry, GlanceFamily) -> Content)
+        -> some WidgetConfiguration {
+        StaticConfiguration(kind: kind, provider: GlanceProvider()) { entry in
+            GlanceFamilyReader { content(entry, $0) }
+                .widgetURL(link.url)
+        }
+        .configurationDisplayName(name)
+        .description(description)
+        .supportedFamilies(families.compactMap(\.widgetFamily))
+    }
+}
+
+/// Hands its content the family the widget is drawn in.
+private struct GlanceFamilyReader<Content: View>: View {
+    let content: (GlanceFamily) -> Content
+    @Environment(\.widgetFamily) private var family
+
+    var body: some View {
+        content(GlanceFamily(family))
     }
 }

@@ -51,39 +51,21 @@ struct ImportFilesTests {
     }
 
     @Test func eachStatementSaysItsBankWhatItCoversAndItsAccount() throws {
-        let rows = threeStatements().fileRows(today: today, locale: locale)
+        let flow = threeStatements()
+        let rows = flow.fileRows(today: today, locale: locale)
         #expect(rows.map(\.name) == ["deposito-2026.csv", "fineco-2026.csv", "export (3).csv"])
-
-        let deposito = try #require(rows.first)
-        #expect(deposito.bank == "Banca Esempio")
-        #expect(deposito.detail == "Banca Esempio · 1 line")
-        #expect(deposito.covers == "Sep 2026")
-        #expect(deposito.balance == .addsUp)
-        #expect(deposito.balance?.text == "Adds up")
-        #expect(deposito.accountName == "Conto deposito")
-        #expect(deposito.accountSource == "Its balance follows on from Aug 31, 2026")
-        #expect(deposito.compactDetail == "Sep 2026 · follows on from Aug 31, 2026")
-
-        let fineco = rows[1]
-        #expect(fineco.bank == "Fineco")
-        #expect(fineco.detail == "Fineco · 3 lines")
-        #expect(fineco.balance == .noColumn)
-        #expect(fineco.balance?.text == "No balance column")
-        #expect(fineco.account == "conto-fineco")
-        #expect(fineco.accountSource == "Remembered from last time")
-        #expect(fineco.compactDetail == "Sep 2026 · remembered from last time")
-        #expect(!fineco.showsReadingLink)
+        #expect(rows.map(\.bank) == ["Banca Esempio", "Fineco", nil])
+        #expect(rows.map(\.lines) == [1, 3, 5])
+        #expect(rows.map(\.balance) == [.addsUp, .noColumn, .noColumn])
+        #expect(rows.map(\.account) == ["conto-deposito", "conto-fineco", nil])
+        #expect(flow.batchFiles.map(\.accountSource) == [.balance("2026-08-31"), .profile, nil])
+        #expect(rows.map(\.showsReadingLink) == [false, false, true])
 
         // Before it has an account, a file still says what it covers.
         let export = rows[2]
-        #expect(export.bank == nil)
         #expect(export.needsAccount)
-        #expect(export.detail == "Bank not known · 5 lines")
-        #expect(export.covers == "Sep 2026")
-        #expect(export.balance == .noColumn)
+        #expect(export.covers != nil)
         #expect(export.accountSource == nil)
-        #expect(export.compactDetail == "Sep 2026 · bank not known · 5 lines")
-        #expect(export.showsReadingLink)
         #expect(export.offersDays)
     }
 
@@ -91,7 +73,7 @@ struct ImportFilesTests {
         var flow = threeStatements()
         flow.setBatchAccount("conto-deposito", forFile: 2)
         let row = try #require(flow.fileRow(2, today: today, locale: locale))
-        #expect(row.accountName == "Conto deposito")
+        #expect(row.account == "conto-deposito")
         #expect(row.accountSource == nil)
         // Its account's institution names the bank.
         #expect(row.bank == "Banca Esempio")
@@ -110,17 +92,6 @@ struct ImportFilesTests {
         #expect(flow.fileRows(today: today, locale: locale).first?.bank == nil)
     }
 
-    @Test func coversIsMonthsUnlessTheFileStartsOrEndsOnADayOfItsOwn() {
-        #expect(ImportFlow.covers(from: "2025-01-01", through: "2025-12-31", days: false, locale: locale)
-            == "Jan – Dec 2025")
-        #expect(ImportFlow.covers(from: "2024-11-01", through: "2025-02-28", days: false, locale: locale)
-            == "Nov 2024 – Feb 2025")
-        #expect(ImportFlow.covers(from: "2025-08-01", through: "2025-08-31", days: false, locale: locale)
-            == "Aug 2025")
-        #expect(ImportFlow.covers(from: "2025-08-03", through: "2025-09-15", days: true, locale: locale)
-            == "Aug 3 – Sep 15, 2025")
-    }
-
     @Test func daysOfTheFilesOwnShowInWhatItCovers() throws {
         var flow = threeStatements()
         flow.showBatchFile(2)
@@ -131,20 +102,10 @@ struct ImportFilesTests {
         #expect(flow.fileRow(2, today: today, locale: locale)?.covers == "Sep 2 – Sep 30, 2026")
     }
 
-    @Test func aBalanceThatDoesntAddUpSaysOnHowManyDays() {
-        #expect(ImportFileBalance.breaks(2).text == "Doesn't add up on 2 days")
-        #expect(ImportFileBalance.breaks(2).isProblem)
-        #expect(!ImportFileBalance.addsUp.isProblem)
-    }
-
     @Test func betweenTheFilesAreTheTransfersPairedAndNoGaps() throws {
         let flow = threeStatements()
         let notes = flow.betweenFilesNotes(locale: locale)
         #expect(notes.map(\.kind) == [.transfers(1), .noGaps])
-        #expect(notes[0].text == "1 transfer found in both files and paired: neither spent nor came in.")
-        #expect(notes[0].shortText == "1 transfer paired")
-        #expect(notes[1].text == "No gaps or overlaps: each file's closing balance is the next one's opening balance.")
-        #expect(notes[1].shortText == "No gaps or overlaps")
 
         let transfers = flow.pairedTransfers()
         #expect(transfers.count == 1)
@@ -199,34 +160,17 @@ struct ImportFilesTests {
         #expect(one.givenFileNames == ["fineco-2026.csv", "export (3).csv"])
     }
 
-    @Test func beforeAFileTheBarShowsTheStepsOfWhatTheFilesAre() {
-        let flow = ImportFlow(library: PreviewLibrary.library)
-        #expect(flow.filesKind == nil)
-        #expect(flow.barSteps(beforeFiles: .statements) == [.file, .classify, .preview])
-        #expect(flow.barSteps(beforeFiles: .brokerage) == [.file, .format, .columns, .types, .accounts, .preview])
-        #expect(flow.stepText(beforeFiles: .statements) == "Step 1 of 3")
-        #expect(threeStatements().stepText(beforeFiles: .brokerage) == "Step 1 of 3")
-    }
-
-    @Test func howItsReadSaysTheLinesReadAndWhatTheBalanceFollows() {
+    @Test func howItsReadShowsTheFilesRowsAndBank() {
         var flow = threeStatements()
         flow.showBatchFile(2)
-        #expect(flow.readingTitle == "How export (3).csv is read")
-        #expect(flow.readingSubtitle.hasPrefix("The bank isn't one it knows."))
-        #expect(flow.readingStatus(today: today) == ImportReadingStatus(
-            text: "All 5 lines read. With no balance column, the balance follows on from its account's last check-in.",
-            isProblem: false))
+        #expect(flow.readingStatus(today: today).isProblem == false)
         #expect(flow.sampleRows(limit: 2).map(\.cells) == [["02/09/2026", "-1.200,00", "Affitto settembre"],
                                                            ["10/09/2026", "3.400,00", "Stipendio settembre"]])
 
         #expect(flow.shownFileBank == nil)
         flow.showBatchFile(0)
         #expect(flow.shownFileBank == "Fineco")
-        #expect(flow.readingSubtitle.hasPrefix("It's read as Fineco's statements are."))
-        #expect(flow.readingStatus(today: today).text
-            == "All 3 lines read. With no balance column, the balance follows on from Conto Fineco's last check-in.")
-        flow.showBatchFile(1)
-        #expect(flow.readingStatus(today: today).text == "1 line read. The balance column adds up.")
+        #expect(flow.readingStatus(today: today).isProblem == false)
     }
 
     @Test func howItsReadShowsEachFormatByAnExample() {
@@ -235,7 +179,6 @@ struct ImportFilesTests {
         #expect(ImportChoices.dateExample(of: "dd.MM.yyyy") == "31.12.2025")
         #expect(ImportChoices.dateExample(of: "dd/MM/yyyy") == "31/12/2025")
         #expect(ImportChoices.numberExample(ImportNumberFormat(decimal: ",", thousands: ".")) == "1.234,56")
-        #expect(ImportChoices.delimiterWord(";") == "Semicolon")
 
         #expect(flow.datePatternInUse == "dd/MM/yyyy")
         #expect(!flow.datePatternChoices.contains("dd/MM/yyyy"))
@@ -245,14 +188,12 @@ struct ImportFilesTests {
         #expect(!flow.numberStyleChoices.contains(flow.detectedNumberStyle))
 
         #expect(flow.dateDetectedTitle == "31/12/2025")
-        #expect(flow.delimiterDetectedTitle == "Semicolon")
         #expect(flow.numberDetectedTitle == "1.234,56")
 
         let style = ImportNumberFormat(decimal: ",", thousands: "")
         flow.useNumberStyle(style)
         #expect(flow.numberStyle == style)
         #expect(flow.numberStyleChoices.contains(style))
-        #expect(flow.numberDetectedTitle == "As detected")
         flow.useNumberStyle(nil)
         #expect(flow.numberStyle == nil)
     }

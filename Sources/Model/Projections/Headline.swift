@@ -77,6 +77,15 @@ extension HeadlineFile: Codable {
     }
 }
 
+extension HeadlineFile: RecordFile {
+    public static var recordLists: [any RecordListing<HeadlineFile>] {
+        [RecordList("headlines", \HeadlineFile.headlines, key: ["date"])]
+    }
+
+    /// The file with its headlines sorted by date.
+    public var written: HeadlineFile? { sorted }
+}
+
 /// The headline answer recorded at one check-in, with what produced it, so
 /// the chart can mark changes to the plan or the engine.
 public struct Headline: Hashable, Sendable, KeyedRecord, KnownKeysProviding {

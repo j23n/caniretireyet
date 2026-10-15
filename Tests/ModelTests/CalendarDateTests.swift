@@ -123,10 +123,4 @@ struct YearMonthTests {
         #expect(month.contains("2025-11-15"))
         #expect(!month.contains("2025-12-01"))
     }
-
-    @Test func codesAsString() throws {
-        let data = try JSONEncoder().encode([YearMonth("2026-09")])
-        #expect(String(decoding: data, as: UTF8.self) == #"["2026-09"]"#)
-        #expect(try JSONDecoder().decode([YearMonth].self, from: data) == ["2026-09"])
-    }
 }

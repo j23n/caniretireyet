@@ -61,12 +61,10 @@ struct ScreenshotTests {
         try await keep("account-cash", .example, .cashAccount)
     }
 
-    /// The October check-in under way (`CheckInPreviewData`): a current
-    /// account with its money in and out and what moved, a savings account
-    /// with its interest, and trades accounts, one following its trades and
-    /// one waiting for a trade or *No Trades*. On iPhone the list in a
-    /// full-screen cover; on the Mac the table, with the money lines under
-    /// each account.
+    /// The October check-in under way (`CheckInPreviewData`), after this
+    /// month's files were imported: net worth and its change, the accounts
+    /// the files updated and those they didn't. On iPhone in a full-screen
+    /// cover; on the Mac the sidebar's Check-in page.
     @Test func checkIn() async throws {
         try await keep("check-in", .example, .checkIn)
     }
@@ -108,7 +106,7 @@ struct ScreenshotTests {
         let main = try #require(launch.library.settings.mainPlan)
         let model = launch.model()
         try await ScreenCapture.keep(root(model), named: name) {
-            !calculates || model.plans.results[main] != nil || model.plans.errors[main] != nil
+            !calculates || model.plans.results(of: main) != nil || model.plans.errors[main] != nil
         }
         #expect(model.plans.errors[main] == nil, "The main plan didn't calculate.")
     }

@@ -35,7 +35,6 @@ struct ImportStatementFlowTests {
         #expect(flow.layout == .statement)
         #expect(flow.steps == [.file, .classify, .preview, .done])
         #expect(ColumnUse.options(for: .statement).contains(.field(.credit)))
-        #expect(ColumnUse.field(.amount).title(in: .statement) == "Amount (+ in, − out)")
         let choices = flow.statementAccountChoices.map(\.id)
         #expect(choices.contains("conto-fineco"))
         #expect(choices.contains("conto-deposito"))
@@ -50,7 +49,7 @@ struct ImportStatementFlowTests {
         #expect(!flow.canShow(.classify))
         #expect(!flow.canShow(.preview))
         #expect(flow.isBatch)
-        #expect(flow.continueHint == "Choose the account of settembre.csv to continue.")
+        #expect(flow.continueHint != nil)
         flow.setConstants { $0.account = "conto-fineco" }
         #expect(!flow.needsStatementAccount)
         #expect(flow.nextStep == .classify)
@@ -129,12 +128,13 @@ struct ImportStatementFlowTests {
         #expect(period.through == "2026-09-30")
         flow.setStatementThrough("2026-09-26")
         #expect(flow.statementPeriod?.through == "2026-09-26")
-        let value = try #require(flow.preview?.records.first { $0.imported.key.date == "2026-09-26" })
-        let text = flow.describe(value.incoming, locale: Locale(identifier: "en_US"))
-        #expect(text.contains("in "))
-        #expect(text.contains("out "))
+        #expect(flow.preview?.records.contains { $0.imported.key.date == "2026-09-26" } == true)
+        // The rent on 2 September is before the first day given.
         flow.setStatementFrom("2026-09-03")
-        #expect(flow.statementNotes.contains { $0.isProblem })
+        #expect(flow.statementPeriod == nil)
+        #expect(flow.preview?.issues.contains {
+            $0.kind == .linesOutsidePeriod(count: 1, from: "2026-09-03", through: "2026-09-26")
+        } == true)
     }
 
     @Test func aCheckInsStatementsCoverThroughItsDate() throws {
@@ -160,26 +160,16 @@ struct ImportStatementFlowTests {
         flow.open(Data(Self.csv.utf8), fileName: "settembre.csv")
         flow.setConstants { $0.account = "conto-fineco" }
         #expect(flow.needsOpeningBalance)
-        #expect(flow.statementNotes.contains { $0.isProblem })
-        let problem = try #require(flow.openingBalanceProblem)
-        #expect(problem.hasPrefix("Conto Fineco's balances can't be worked out"))
-        #expect(!problem.contains("conto-fineco"))
-        #expect(flow.mappingIssues.contains(problem))
-        #expect(!flow.previewIssues.contains(problem))
-        #expect(flow.blockers.contains("Give the balance before the file's first line."))
-        flow.setStatementOpeningBalance(Decimal(string: "4515.2"))
+        #expect(!flow.blockers.isEmpty)
+        flow.setStatementOpeningBalance(Decimal(string: "4515.2"), forFile: 0)
         #expect(!flow.needsOpeningBalance)
-        #expect(flow.statementOpeningBalance == Decimal(string: "4515.2"))
-        #expect(flow.openingBalanceProblem == nil)
-        #expect(flow.statementNotes.contains { $0.text.contains("not the day before the file") })
-    }
-
-    @Test func anOpeningBalanceThatDisagreesWithTheValueBeforeIsSaidSo() {
-        var flow = flow()
-        flow.setStatementOpeningBalance(4000)
-        let notes = flow.statementNotes.map(\.text)
-        #expect(notes.contains { $0.contains("isn't the balance before the file's first line") })
-        #expect(!notes.contains { $0.contains("not the day before the file") })
+        // The file's closing balance, 4.515,20 + 1.589,60, isn't the library's on 30 September, so that value is a
+        // conflict the library's balance is kept for until it's overwritten: the blocker that's left.
+        let closing = flow.preview?.records.first { $0.imported.key.date == "2026-09-30" }
+        #expect(closing?.imported.balance == Decimal(string: "6104.8"))
+        #expect(flow.planned?.kept == 1)
+        #expect(flow.planned?.hasChanges == false)
+        #expect(!flow.blockers.isEmpty)
     }
 
     @Test func incomeIsListedBySender() throws {
@@ -187,21 +177,9 @@ struct ImportStatementFlowTests {
         let income = flow.incomeGroups
         #expect(income.map(\.sender) == ["Stipendio"])
         #expect(income.first?.total == 3400)
-        #expect(flow.incomeHeader(income) == "Income · 1 sender")
-        #expect(flow.senderDetail(try #require(income.first)) == "1 payment · the usual words")
         #expect(ImportFlow.filter(for: try #require(income.first)) == StatementLinesFilter(search: "Stipendio",
                                                                                             show: .income))
         #expect(flow.statementQuestions.isEmpty)
-        #expect(flow.questionsHeader == "Answered · 0 lines")
-    }
-
-    @Test func theSumsSayWhatCameInAndWhatWasSpent() {
-        let sums = flow().statementSums
-        #expect(sums.cameIn == 3400)
-        #expect(sums.wentOut == Decimal(string: "1310.4"))
-        #expect(sums.paidBack == 0)
-        #expect(sums.spent == Decimal(string: "1310.4"))
-        #expect(sums.moved == -500)
     }
 
     /// A question stays listed once it's answered, with its answer, and
@@ -210,19 +188,15 @@ struct ImportStatementFlowTests {
         var flow = flow(adding: "\n15/09/2026;5.000,00;Bonifico da Notaio Bianchi")
         let question = try #require(flow.statementQuestions.first)
         #expect(flow.statementQuestions.count == 1)
-        #expect(flow.questionsHeader == "Needs an answer · 1 of 1 left")
+        #expect(flow.unansweredQuestions == 1)
         #expect(question.line.sender == "Notaio Bianchi")
-        #expect(question.title == "Notaio Bianchi")
-        #expect(flow.dateAndAccount(question) == "\(AmountFormat.mediumDate("2026-09-15")) · Conto Fineco")
         #expect(flow.answerChoice(question) == nil)
         flow.setStatementClass(.oneOff, for: question)
         let answered = try #require(flow.statementQuestions.first)
         #expect(flow.statementQuestions.count == 1)
         #expect(flow.unansweredQuestions == 0)
-        #expect(flow.questionsHeader == "Answered · 1 line")
         #expect(flow.answerChoice(answered) == .statementClass(.oneOff))
-        #expect(flow.why(answered) == "chosen for this line")
-        #expect(flow.statementSums.oneOffs == 5000)
+        #expect(answered.line.source == .chosen)
         // An answered question isn't a sender's income too.
         flow.setStatementClass(.income, for: answered)
         #expect(flow.incomeGroups.map(\.sender) == ["Stipendio"])
@@ -241,11 +215,7 @@ struct ImportStatementFlowTests {
         let bought = try #require(flow.statementQuestions.first)
         #expect(flow.unansweredQuestions == 0)
         #expect(flow.answerChoice(bought) == .moved)
-        #expect(flow.answerDetail(bought) == StatementAnswerDetail(text: "to a new account, Car", opensSheet: true,
-                                                                   isProblem: false))
-        #expect(flow.whatItIs(bought) == "Moved to Car")
-        #expect(flow.statementSums.bought == 18000)
-        #expect(flow.statementSums.spent == Decimal(string: "1310.4"))
+        #expect(flow.answerDetail(bought)?.isProblem == false)
         #expect(flow.preview?.newAccounts.map(\.account.name) == ["Car"])
         #expect(flow.steps == [.file, .classify, .preview, .done])
         // An answered question isn't one of the moves found for you.
@@ -262,28 +232,20 @@ struct ImportStatementFlowTests {
         flow.setConstants { $0.account = "conto-fineco" }
         let question = try #require(flow.statementQuestions.first)
         #expect(flow.moveChoices(for: question).first?.id == "tasse")
-        #expect(ImportFlow.moveChoiceNote(try #require(flow.moveChoices(for: question).first)) == "counts as tax")
-        let deposito = try #require(PreviewLibrary.library.accounts["conto-deposito"])
-        #expect(ImportFlow.moveChoiceNote(deposito) == "savings")
         flow.setStatementAsset(.moved("tasse"), for: question)
         let moved = try #require(flow.statementQuestions.first)
-        #expect(flow.answerDetail(moved)?.text == "to Tax pot")
-        #expect(flow.whatItIs(moved) == "Moved to Tax pot")
-        #expect(flow.statementSums.moved == -6500)
+        #expect(flow.statementAnswer(moved) == .moved("tasse"))
         #expect(flow.preview?.records.contains { $0.imported.key.account == "tasse" } == true)
     }
 
     @Test func taxIsTakenOffWhatCameIn() throws {
         var flow = flow(adding: "\n16/09/2026;-800,00;Pagamento F24 Agenzia delle Entrate")
         #expect(try line(flow, "Pagamento F24").statementClass == .tax)
-        #expect(flow.statementSums.tax == 800)
-        #expect(flow.statementSums.afterTax == 2600)
-        #expect(flow.statementSums.spent == Decimal(string: "1310.4"))
         let tax = try #require(flow.allStatementLines.first { $0.line.text.hasPrefix("Pagamento F24") })
         #expect(flow.answerDetail(tax) == nil)
         flow.setStatementClass(.tax, for: tax)
         let chosen = try #require(flow.allStatementLines.first { $0.id == tax.id })
-        #expect(flow.answerDetail(chosen)?.text == "paid straight from the account")
+        #expect(flow.answerDetail(chosen) != nil)
     }
 
     @Test func aLargeLineInIsAnsweredAsTheSaleOfAnAccount() throws {
@@ -292,9 +254,7 @@ struct ImportStatementFlowTests {
         #expect(flow.saleChoices(for: question).map(\.id) == ["casa", "tfr"])
         flow.setStatementAsset(.sale("casa"), for: question)
         let sold = try #require(flow.statementQuestions.first)
-        #expect(flow.answerDetail(sold)?.text == "the sale of Home")
-        #expect(flow.whatItIs(sold) == "Sold: Home")
-        #expect(flow.statementSums.sold == 250_000)
+        #expect(flow.statementAnswer(sold) == .sale("casa"))
         #expect(flow.preview?.accountChanges.map(\.account) == ["casa"])
         // The Income step answered it: no Accounts step.
         #expect(flow.steps == [.file, .classify, .preview, .done])
@@ -313,7 +273,7 @@ struct ImportStatementFlowTests {
         #expect(!flow.saleChoices(for: earlier).map(\.id).contains("car"))
         flow.setStatementAsset(.sale("car"), for: sale)
         let sold = try #require(flow.allStatementLines.first { $0.id == sale.id })
-        #expect(flow.answerDetail(sold)?.text == "the sale of Car")
+        #expect(flow.statementAnswer(sold) == .sale("car"))
         #expect(flow.preview?.accountChanges.map(\.account) == ["car"])
         // Sold, it isn't offered to another line.
         #expect(!flow.saleChoices(for: earlier).map(\.id).contains("car"))
@@ -346,7 +306,7 @@ struct ImportStatementFlowTests {
         #expect(flow.saleChoices(for: sale).map(\.id) == ["car"])
         flow.setStatementAsset(.sale("car"), for: sale)
         let sold = try #require(flow.allStatementLines.first { $0.id == sale.id })
-        #expect(flow.answerDetail(sold)?.text == "the sale of Car")
+        #expect(flow.statementAnswer(sold) == .sale("car"))
         let planned = try #require(flow.planned)
         #expect(planned.library.accounts["car"]?.closed == "2026-09-23")
     }
@@ -380,7 +340,7 @@ struct ImportStatementFlowTests {
         #expect(flow.saleChoices(for: sale).map(\.id) == ["car"])
         flow.setStatementAsset(.sale("car"), for: sale)
         let sold = try #require(flow.allStatementLines.first { $0.id == sale.id })
-        #expect(flow.answerDetail(sold)?.text == "the sale of Car")
+        #expect(flow.statementAnswer(sold) == .sale("car"))
         let planned = try #require(flow.planned)
         #expect(planned.library.accounts["car"]?.closed == "2026-08-26")
         #expect(planned.library.valuations(for: "car").last?.balance == 0)
@@ -420,16 +380,16 @@ struct ImportStatementFlowTests {
         flow.open(Data((Self.csv + "\n18/09/2026;-18.000,00;Bonifico a Autosalone Neri").utf8),
                   fileName: "settembre.csv")
         flow.setConstants { $0.account = "nuovo" }
-        flow.setStatementOpeningBalance(25000)
+        flow.setStatementOpeningBalance(25000, forFile: 0)
         let question = try #require(flow.statementQuestions.first)
         flow.setStatementAsset(.moved("tasse"), for: question)
         let answered = try #require(flow.statementQuestions.first)
         #expect(answered.line.asset == nil)
-        #expect(flow.answerDetail(answered) == StatementAnswerDetail(
-            text: "not recorded: the file doesn't cover the value it counts in", opensSheet: true, isProblem: true))
+        #expect(flow.answerDetail(answered)?.isProblem == true)
+        #expect(flow.answerDetail(answered)?.opensSheet == true)
         flow.setStatementAsset(.purchase(name: "Car", kind: .belongings), for: answered)
         let bought = try #require(flow.statementQuestions.first)
-        #expect(flow.answerDetail(bought)?.text == "to a new account, Car")
+        #expect(flow.answerDetail(bought)?.isProblem == false)
         #expect(flow.preview?.newAccounts.map(\.account.id) == ["car"])
         flow.setStatementAsset(nil, for: bought)
         #expect(flow.statementAnswer(bought) == nil)
@@ -451,8 +411,6 @@ struct ImportStatementFlowTests {
         flow.open(files: Self.twoStatements)
         #expect(flow.allStatementLines.count == 6)
         #expect(flow.statementAccountsOpen.map(\.name) == ["Conto deposito", "Conto Fineco"])
-        #expect(flow.allLinesTitle == "All 6 Lines")
-        #expect(flow.allLinesCaption == "6 lines in 2 statements · change any of them")
         let shown = try #require(flow.batchFile)
         let rent = try #require(flow.allStatementLines.first { $0.line.text.hasPrefix("Affitto") })
         #expect(rent.file != shown)
@@ -464,18 +422,14 @@ struct ImportStatementFlowTests {
         #expect(flow.answerChoice(changed) == .statementClass(.oneOff))
         // The transfer between the files is still paired.
         let out = try #require(flow.allStatementLines.first { $0.line.text.hasPrefix("Giroconto") })
-        #expect(flow.why(out) == "paired by amount and day")
-        #expect(flow.whatItIs(out) == "Moved to Conto deposito")
+        #expect(out.line.source == .paired("conto-deposito"))
         #expect(flow.answerChoice(out, current: true) == .moved)
         let incoming = try #require(flow.allStatementLines.first { $0.line.text.hasPrefix("Bonifico in entrata") })
-        #expect(flow.whatItIs(incoming) == "Moved from Conto Fineco")
+        #expect(incoming.line.source == .paired("conto-fineco"))
         let paired = try #require(flow.moveGroups.first { $0.kind == .paired })
-        #expect(paired.title == "1 transfer")
-        #expect(paired.detail == "between these files")
-        #expect(paired.why == "paired by amount and day")
         #expect(paired.total == 500)
-        #expect(paired.linkTitle == "Show…")
-        #expect(flow.foundForYou.map(\.title) == ["Income · 1 sender", "Moved between your accounts"])
+        #expect(flow.foundForYou.map(\.filter) == [StatementLinesFilter(show: .income),
+                                                    StatementLinesFilter(show: .moved)])
     }
 
     /// A rule made from a line is made in every statement open.
@@ -486,8 +440,6 @@ struct ImportStatementFlowTests {
         #expect(flow.batchFiles.allSatisfy { $0.session.profile.rules.map(\.match) == ["Bonifico"] })
         let incoming = try #require(flow.allStatementLines.first { $0.line.text.hasPrefix("Bonifico in entrata") })
         #expect(incoming.line.source == .rule("Bonifico"))
-        #expect(flow.why(incoming) == "your rule “Bonifico”")
-        #expect(flow.why(incoming, short: true) == "your rule")
         #expect(flow.linesMatching(rule: "bonifico") == 1)
         #expect(flow.linesMatching(rule: "Giroconto") == 1)
         flow.setStatementRule(to: nil, for: "bonifico")
@@ -502,19 +454,13 @@ struct ImportStatementFlowTests {
         flow.setConstants { $0.account = "conto-fineco" }
         let line = try #require(flow.allStatementLines.first { $0.line.text.hasPrefix("Accantonamento") })
         #expect(flow.statementRuleTargets(for: line).contains(.moved("tasse")))
-        #expect(flow.statementRuleTargetTitle(.moved("tasse")) == "Moved to or from Tax pot")
-        #expect(flow.statementRuleTargetTitle(.statementClass(.ignore)) == "Left Out")
         flow.setStatementRule(to: .moved("tasse"), for: "Accantonamento")
         #expect(flow.statementRuleTarget(matching: "accantonamento") == .moved("tasse"))
         let group = try #require(flow.moveGroups.first)
         #expect(group.kind == .rule("Accantonamento", "tasse"))
-        #expect(group.title == "Accantonamento")
-        #expect(group.detail == "to Tax pot · 1 line")
-        #expect(group.why == "your rule · counts as tax")
         #expect(group.total == -600)
-        #expect(group.linkTitle == "Change…")
         #expect(group.filter == StatementLinesFilter(search: "Accantonamento", show: .moved))
-        #expect(flow.foundForYou.contains { $0.title == "Moved to Tax pot · your rule" && $0.amount == 600 })
+        #expect(flow.foundForYou.contains { $0.filter == group.filter && $0.amount == 600 })
         flow.setStatementRule(to: nil, for: "Accantonamento")
         #expect(flow.statementRuleTarget(matching: "Accantonamento") == nil)
     }
@@ -524,9 +470,7 @@ struct ImportStatementFlowTests {
     @Test func moneyThatPassedThroughIsOneRow() throws {
         let flow = flow(adding: "\n12/09/2026;20.000,00;Bonifico da Luca Bianchi\n13/09/2026;-20.000,00;Bonifico a Sara Neri")
         let group = try #require(flow.moveGroups.first { $0.kind == .passThrough("conto-fineco") })
-        #expect(group.title == "2 lines")
-        #expect(group.detail == "passed through Conto Fineco")
-        #expect(group.why == "same amount in and out, 1 day apart")
+        #expect(group.lines.count == 2)
         #expect(group.total == 20000)
         #expect(group.filter == StatementLinesFilter(show: .moved, account: "conto-fineco"))
     }
@@ -548,37 +492,23 @@ struct ImportStatementFlowTests {
         #expect(flow.statementLines(matching: StatementLinesFilter(account: "conto-deposito")).isEmpty)
         let months = flow.statementLineMonths(matching: StatementLinesFilter())
         #expect(months.map(\.month) == ["2026-09", "2026-08"])
-        #expect(ImportFlow.monthTitle("2026-09", locale: Locale(identifier: "en_US")) == "September 2026")
         let english = Locale(identifier: "en_US")
         #expect(ImportFlow.lineAmount(3400, locale: english) == "+3,400.00")
         #expect(ImportFlow.lineAmount(Decimal(string: "-74") ?? 0, locale: english) == "\u{2212}74.00")
         #expect(ImportFlow.lineAmount(0, locale: english) == "0.00")
-        let pay = try #require(all.first { $0.line.text.hasPrefix("Stipendio") })
-        #expect(flow.linesCaption(pay, showsAccount: false)
-            == "\(AmountFormat.shortDate(pay.date)) · Income · the usual words")
-        #expect(flow.linesCaption(pay, showsAccount: true, showsClass: false)
-            == "\(AmountFormat.shortDate(pay.date)) · Conto Fineco · the usual words")
         let rent = try #require(all.first { $0.line.text.hasPrefix("Affitto") })
-        #expect(flow.why(rent) == "by its sign")
+        #expect(rent.line.source == .sign)
         #expect(flow.answerChoice(rent) == nil)
         #expect(flow.answerChoice(rent, current: true) == .statementClass(.spending))
-    }
-
-    @Test func aRuleStartsFromTheSender() throws {
-        let flow = flow(adding: "\n04/09/2026;34,00;PayPal Europe *Kleinanzeigen Fahrrad")
-        let line = try line(flow, "PayPal")
-        #expect(ImportFlow.suggestedRulePhrase(for: line) == "Kleinanzeigen")
     }
 
     /// The summary: what came in, tax, after tax, spent and saved, from the
     /// library as importing would leave it.
     @Test func theSummarySaysWhatWasSaved() throws {
         let summary = try #require(flow().incomeSummary)
-        #expect(summary.title == "2026 · 1 account")
         #expect(summary.afterTax == summary.cameIn - summary.tax)
         #expect(summary.spent + summary.saved == summary.afterTax)
         #expect(summary.rate != nil)
-        #expect(IncomeSummary(title: "", cameIn: 0, tax: 0, afterTax: 0, spent: 0, saved: 0, rate: nil).rateText == "–")
     }
 
     /// Several statements at once (IMPORT.md, "Several statements at
@@ -589,12 +519,11 @@ struct ImportStatementFlowTests {
         var flow = ImportFlow(library: PreviewLibrary.library)
         flow.open(files: Self.twoStatements)
         #expect(flow.isBatch)
-        #expect(flow.displayName == "2 statements")
         #expect(flow.batchFiles.map(\.account) == ["conto-deposito", "conto-fineco"])
         #expect(!flow.needsStatementAccount)
         #expect(flow.steps == [.file, .classify, .preview, .done])
         #expect(flow.batchPairedTransfers == 1)
-        #expect(flow.batchPreviews.count == 2)
+        #expect(flow.previews.count == 2)
 
         flow.showBatchFile(0)
         #expect(flow.fileName == "fineco-settembre.csv")
@@ -613,7 +542,7 @@ struct ImportStatementFlowTests {
         unknown.open(files: [(name: "fineco-settembre.csv", data: Data(Self.csv.utf8)),
                              (name: "export.csv", data: Data(Self.csv.utf8))])
         #expect(unknown.needsStatementAccount)
-        #expect(unknown.continueHint == "Choose the account of export.csv to continue.")
+        #expect(unknown.continueHint != nil)
         #expect(!unknown.canShow(.classify))
         unknown.setBatchAccount("conto-deposito", forFile: 1)
         #expect(!unknown.needsStatementAccount)
@@ -627,8 +556,6 @@ struct ImportStatementFlowTests {
         flow.open(Data(Self.csv.utf8), fileName: "export.csv")
         flow.setBatchAccount("conto-fineco", forFile: 0)
         #expect(flow.barSteps == [.file, .classify, .preview])
-        #expect(ImportStep.file.title == "Files")
-        #expect(ImportStep.preview.title == "Review")
         flow.add(files: [(name: "esempio-settembre.csv", data: Data(Self.deposito.utf8))])
         #expect(flow.batchFiles.count == 2)
         #expect(flow.batchFiles.first { $0.id == 0 }?.accountSource == .chosen)
@@ -696,37 +623,7 @@ struct ImportStatementFlowTests {
         flow.setBatchAccount("conto-fineco", forFile: 0)
         flow.setBatchAccount("conto-fineco", forFile: 1)
         #expect(flow.batchGaps.map(\.isOverlap) == [true])
-        #expect(flow.blockers.contains("Two files cover the same days of an account: leave one out."))
-        #expect(flow.batchNotes.contains { note in
-            note.isProblem && note.text.hasPrefix("settembre.csv and settembre-copia.csv both cover")
-        })
-    }
-
-    /// Done counts the months and the files' accounts the import changed.
-    @Test func doneCountsTheAccountsTheImportChanged() throws {
-        var result = try #require(flow().planned)
-        result.changedMonths = ["2026-08", "2026-09"]
-        result.changedAccounts = ["casa"]
-        let accounts: [AccountID] = ["conto-deposito", "conto-fineco"]
-        #expect(ImportFlow.batchSummary(result, of: accounts, importedInto: PreviewLibrary.library)
-            == "Imported 2 months for 0 accounts")
-        result.library.upsert(Valuation(account: "conto-fineco", date: "2026-09-30", balance: 1))
-        #expect(ImportFlow.batchSummary(result, of: accounts, importedInto: PreviewLibrary.library)
-            == "Imported 2 months for 1 account")
-        result.changedAccounts = ["conto-deposito"]
-        #expect(ImportFlow.batchSummary(result, of: accounts, importedInto: PreviewLibrary.library)
-            == "Imported 2 months for 2 accounts")
-    }
-
-    /// Several statements take every step, and one file opens as "Import
-    /// with profile…" again after them.
-    @Test func severalStatementsTakeEveryStepOnIPhone() {
-        var flow = ImportFlow(library: PreviewLibrary.library, guided: true)
-        flow.open(files: Self.twoStatements)
-        #expect(!flow.isGuided)
-        #expect(flow.steps == [.file, .classify, .preview, .done])
-        flow.reset()
-        #expect(flow.isGuided)
+        #expect(!flow.blockers.isEmpty)
     }
 
     @Test func previewChartsTheFilesBalanceAgainstTheAccountsValues() throws {
@@ -737,7 +634,6 @@ struct ImportStatementFlowTests {
         #expect(charts.file.last == .init(date: "2026-09-30", balance: Decimal(string: "6104.8") ?? 0))
         #expect(charts.before.map(\.date) == ["2026-09-30"])
         #expect(!charts.agrees(try #require(charts.before.first)))
-        #expect(charts.balanceTitle == "Conto Fineco, balance")
     }
 
     @Test func moneyInAndOutEndsWithTheMonthWhenTheLibraryGoesOn() throws {

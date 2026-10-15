@@ -17,13 +17,13 @@ func foreignAccountLibrary() -> Library {
         settings: LibrarySettings(baseCurrency: .eur),
         accounts: [
             Account(id: "brokerage", name: "Brokerage", kind: .brokerage, currency: .usd, opened: "2018-06-01",
-                    valuation: .holdings),
+                    valuation: .balance),
             Account(id: "us-broker", name: "US broker", kind: .brokerage, currency: .usd, opened: "2025-09-01",
-                    valuation: .holdings),
+                    valuation: .balance),
             Account(id: "usd-trades", name: "USD trades", kind: .brokerage, currency: .usd, opened: "2024-01-01",
                     valuation: .trades),
             Account(id: "emptied", name: "Emptied", kind: .brokerage, currency: .eur, opened: "2024-01-01",
-                    valuation: .holdings),
+                    valuation: .balance),
             Account(id: "bank", name: "Bank", kind: .cash, currency: .eur, opened: "2025-01-01"),
         ],
         instruments: [
@@ -33,11 +33,11 @@ func foreignAccountLibrary() -> Library {
                        assetClasses: .single(.equity)),
         ])
     for valuation in [
-        Valuation(account: "brokerage", date: "2018-06-30", balance: 100_000, flow: 100_000),
-        Valuation(account: "brokerage", date: "2020-12-31", balance: 110_000, flow: 0),
+        Valuation(account: "brokerage", date: "2018-06-30", balance: 100_000, saved: 100_000),
+        Valuation(account: "brokerage", date: "2020-12-31", balance: 110_000, saved: 0),
         Valuation(account: "brokerage", date: "2021-11-30", balance: 123_959),
-        Valuation(account: "brokerage", date: "2022-01-01", balance: 0, flow: -123_959),
-        Valuation(account: "brokerage", date: "2022-03-31", balance: 0, flow: 0),
+        Valuation(account: "brokerage", date: "2022-01-01", balance: 0, saved: -123_959),
+        Valuation(account: "brokerage", date: "2022-03-31", balance: 0, saved: 0),
         Valuation(account: "us-broker", date: "2025-09-30", cash: 100, positions: [
             Position(instrument: "vwce", quantity: 10),
             Position(instrument: "aapl", quantity: 5),
@@ -50,7 +50,7 @@ func foreignAccountLibrary() -> Library {
         Valuation(account: "emptied", date: "2024-01-31", positions: [Position(instrument: "vwce", quantity: 5)]),
         Valuation(account: "emptied", date: "2024-02-29", cash: 0, positions: [Position(instrument: "vwce", quantity: 0)]),
         Valuation(account: "bank", date: "2025-09-30", balance: 2000),
-        Valuation(account: "bank", date: "2025-10-31", balance: 2500, flow: 500),
+        Valuation(account: "bank", date: "2025-10-31", balance: 2500, saved: 500),
     ] {
         library.upsert(valuation)
     }
@@ -140,23 +140,23 @@ struct AccountCurrencyTests {
 
     @Test func changeInTheAccountsCurrency() throws {
         let own = try #require(valuator.change(of: "brokerage", from: "2021-11-30", to: "2022-01-01", in: .account))
-        #expect(own.change == ValueChange(start: 123_959, market: 0, newMoney: -123_959, other: 0, end: 0))
-        #expect(own.flow == -123_959)
+        #expect(own.change == ValueChange(start: 123_959, market: 0, saved: -123_959, other: 0, end: 0))
+        #expect(own.saved == -123_959)
         #expect(own.problems.isEmpty)
 
-        // In euros the start lacks a rate, and so does the flow: nothing to show.
+        // In euros the start lacks a rate, and so does the saved: nothing to show.
         let base = try #require(valuator.change(of: "brokerage", from: "2021-11-30", to: "2022-01-01", in: .base))
         #expect(base == valuator.change(of: "brokerage", from: "2021-11-30", to: "2022-01-01"))
         #expect(base.change.change == 0)
-        #expect(base.flow == nil)
+        #expect(base.saved == nil)
         #expect(base.problems == [.missingFX(account: "brokerage", from: .usd, to: .eur)])
     }
 
     @Test func tradesAccountChangeInItsCurrency() throws {
-        // Cash 1000 − 751, plus 5 × 155: the deposit is new money, the rest the market.
+        // Cash 1000 − 751, plus 5 × 155: the deposit is saved, the rest the market.
         let change = try #require(valuator.change(of: "usd-trades", from: "2024-01-01", to: "2024-01-31",
                                                   in: .account))
-        #expect(change.change == ValueChange(start: 0, market: 24, newMoney: 1000, other: 0, end: 1024))
+        #expect(change.change == ValueChange(start: 0, market: 24, saved: 1000, other: 0, end: 1024))
         #expect(change.problems.isEmpty)
         let base = try #require(valuator.change(of: "usd-trades", from: "2024-01-01", to: "2024-01-31"))
         #expect(!base.problems.isEmpty)

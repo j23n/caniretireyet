@@ -29,8 +29,8 @@ final class ImportController {
     private var beforeImport: ImportFlow?
 
     /// `checkIn` is the date of the check-in the import is opened from, if any.
-    init(library: Library = Library(), guided: Bool = false, checkIn: CalendarDate? = nil) {
-        flow = ImportFlow(library: library, guided: guided, checkIn: checkIn)
+    init(library: Library = Library(), checkIn: CalendarDate? = nil) {
+        flow = ImportFlow(library: library, checkIn: checkIn)
     }
 
     /// The import of the Mac's and iPad's Import page, which survives
@@ -77,34 +77,25 @@ final class ImportController {
 
     // MARK: - Importing
 
-    /// When set, *Import* hands the flow to this instead of writing it: the
-    /// import belongs to a check-in, which holds the statements and writes
-    /// them when it's saved (UI.md, "Statements first").
-    var holdsImport: (@MainActor (ImportFlow) -> Void)?
-
     /// Imports: applies the preview to the library as it is now and saves
     /// (only the files that changed), with exactly those files backed up
     /// into `backups/<timestamp>-import/` first, in the same queued
     /// operation, and the files as written recorded in the backup after, so
     /// undoing leaves later edits alone. Then shows Done, which says when
-    /// there was nothing to import. The later values whose new money follows
-    /// an inserted one are part of the same change and backup
-    /// (``ImportPreview/applyFollowingFlows(to:)``).
+    /// there was nothing to import.
     ///
     /// Bank statements with ``remembers`` on also save each file's profile
-    /// with every file's rules and its lines' answers (`StatementBatch.rememberedProfiles(in:today:)`)
-    /// in the same change, so they're backed up and *Undo Import* takes them
-    /// back too.
+    /// with every file's rules and its lines' answers
+    /// (`StatementBatch.apply(_:to:remembering:today:)`) in the same change,
+    /// so they're backed up and *Undo Import* takes them back too.
     func runImport(in store: LibraryStore) async {
-        if let holdsImport { return holdsImport(flow) }
-        guard let preview = flow.preview, !isWorking else { return }
+        guard !flow.previews.isEmpty, !isWorking else { return }
         isWorking = true
         defer { isWorking = false }
         errorMessage = nil
-        // Several statements: each file's preview, applied in order.
-        let previews = flow.isBatch ? flow.batchPreviews.map(\.preview) : [preview]
-        let isStatement = flow.layout == .statement
-        let batch = remembers && isStatement ? flow.batch : nil
+        let previews = flow.previews.map(\.preview)
+        let batch = flow.batch
+        let remembers = self.remembers
         let reviewed = flow
         do {
             var result: ImportResult?
@@ -112,19 +103,19 @@ final class ImportController {
             var profiles: [StatementBatch.RememberedProfile] = []
             let backup = try await store.commit(backingUpAs: Backup.importLabel) { library in
                 before = library
-                let applied = previews.count == 1 ? preview.applyFollowingFlows(to: library)
-                    : StatementBatch.apply(previews, to: library) { $0.applyFollowingFlows(to: $1) }
-                result = applied
-                library = applied.library
-                profiles = batch?.rememberedProfiles(in: library) ?? []
-                for remembered in profiles { library.importProfiles[remembered.profile.id] = remembered.profile }
+                var applied = (result: ImportPreview.apply(previews, to: library),
+                               remembered: [StatementBatch.RememberedProfile]())
+                if let batch { applied = batch.apply(previews, to: library, remembering: remembers) }
+                result = applied.result
+                profiles = applied.remembered
+                library = applied.result.library
             }
             guard let result else { return }
             var receipt = ImportReceipt(fileName: flow.displayName ?? "the file", result: result)
-            if isStatement {
+            if let batch {
                 receipt.summary = ImportFlow.importedTitle(result, into: before)
                 receipt.savings = flow.reviewDay.flatMap { ImportSavings(library: result.library, through: $0) }
-                let names = Dictionary((flow.batch?.files ?? []).map { ($0.id, $0.name) }) { first, _ in first }
+                let names = Dictionary(batch.files.map { ($0.id, $0.name) }) { first, _ in first }
                 receipt.remembered = ImportRemembered.list(profiles, fileNames: names, before: before,
                                                            after: result.library)
             }
@@ -197,20 +188,5 @@ final class ImportController {
             errorMessage = "The profile couldn't be saved. \(LibraryStore.describe(error))"
             return false
         }
-    }
-}
-
-extension ImportPreview {
-    /// Applies the preview to `library`, then works out again the automatic
-    /// new money (flows) of the library's values that now follow an inserted
-    /// or changed one, as editing history does (UI.md, "New money after an
-    /// inserted value"). Typed flows stay. The values touched are in the
-    /// result, so they're backed up, written and undone with the import.
-    /// `retire import` does the same.
-    func applyFollowingFlows(to library: Library) -> ImportResult {
-        var result = apply(to: library)
-        let flows = result.library.followFlows(from: library)
-        result.followedFlows(flows.recomputed)
-        return result
     }
 }
