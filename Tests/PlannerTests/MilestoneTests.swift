@@ -55,6 +55,13 @@ struct MilestoneTests {
         #expect(ladder.milestones(in: 170_000...410_000).first?.amount == 180_000)
     }
 
+    @Test func theSpendingIsThePlansRetirementSpending() {
+        var plan = Sample.plan(retire: .age(60), endAge: 90, retired: "30000")
+        #expect(MilestoneLadder.spending(of: plan) == 30_000)
+        plan.spending.retired = 0
+        #expect(MilestoneLadder.spending(of: plan) == nil)
+    }
+
     // MARK: Reached
 
     @Test func aMilestoneIsReachedOnceAtTheFirstCheckInAboveIt() {
