@@ -61,9 +61,7 @@ struct OverviewScreen: View {
         let headline = answer?.answer
         let netWorth = NetWorthGlance(valuator: valuator, asOf: today)
         // What the plan spends a year in retirement, to say savings as time.
-        let spending = mainPlan.flatMap {
-            MilestoneLadder(plan: $0, library: library.library, on: planStart).spending
-        }
+        let spending = mainPlan.flatMap(MilestoneLadder.spending(of:))
         return ScrollView {
             VStack(alignment: .leading, spacing: Metrics.xl) {
                 if let headline, let mainPlan {

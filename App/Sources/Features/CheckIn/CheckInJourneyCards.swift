@@ -115,7 +115,7 @@ struct CheckInJourneyCards: View {
 
     /// The main plan's retirement spending a year.
     private var spending: Decimal? {
-        library.mainPlan.flatMap { MilestoneLadder(plan: $0, library: library.library, on: date).spending }
+        library.mainPlan.flatMap(MilestoneLadder.spending(of:))
     }
 
     // MARK: The next milestone

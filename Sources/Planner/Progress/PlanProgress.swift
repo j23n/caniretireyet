@@ -30,7 +30,7 @@ public struct PlanProgress: Sendable {
         self.years = years
         // What's reached doesn't depend on the results: only what's ahead does.
         let reached = document.map {
-            MilestoneLadder(plan: $0, library: library, on: asOf)
+            MilestoneLadder(plan: $0, library: library, valuator: valuator, on: asOf)
                 .reached(plan: plan, library: library, valuator: valuator, through: asOf)
         } ?? []
         self.reached = reached

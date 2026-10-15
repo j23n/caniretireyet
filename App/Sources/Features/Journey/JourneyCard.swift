@@ -18,14 +18,13 @@ struct JourneyCard: View {
     let today: CalendarDate
 
     @Environment(LibraryStore.self) private var library
+    @Environment(PlanStore.self) private var plans
     @Environment(AppNavigation.self) private var navigation
     @Environment(\.baseCurrency) private var currency
     @Environment(\.locale) private var locale
-    /// The milestones reached, worked out once for each state of the library.
-    @State private var progressMemo = PlanProgressMemo()
 
     var body: some View {
-        let progress = progressMemo.progress(of: plan.id, plan: plan, library: library)
+        let progress = plans.planProgress(of: plan.id, document: plan)
         let milestones = PlanMilestones(plan: plan, library: library.library, valuator: library.valuator,
                                         asOf: library.asOfDate, results: results, reached: progress.reached)
         let text = PlanMilestoneText(currency: currency, locale: locale)

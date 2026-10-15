@@ -1,11 +1,12 @@
 import Foundation
 import Model
+import Tracker
 
 /// What a plan's starting portfolio holds by asset class, as the planner
 /// reads the library (PLANNER.md, "The portfolio"): the money you can draw now,
 /// which the plan's target mix applies to, and every account the plan
 /// counts. The editors show it next to the target mix
-/// (``Planner/startingMix(plan:library:today:)``).
+/// (``Planner/startingMix(plan:library:valuator:today:)``).
 public struct StartingMix: Hashable, Sendable {
     /// The day the plan starts from.
     public var date: CalendarDate
@@ -44,12 +45,14 @@ extension Planner {
     /// What the plan's starting portfolio holds by asset class: the
     /// accounts it counts on its start date (the latest check-in, or the
     /// plan's date), valued in the base currency and grouped as a run groups
-    /// them. Without a check-in it starts `today` with nothing.
-    public static func startingMix(plan: PlanDocument, library: Library, today: CalendarDate? = nil) -> StartingMix {
+    /// them. Without a check-in it starts `today` with nothing. Pass the
+    /// library's `valuator` when there is one: building one reads every record.
+    public static func startingMix(plan: PlanDocument, library: Library, valuator: Valuator? = nil,
+                                   today: CalendarDate? = nil) -> StartingMix {
         let date = plan.startDate(in: library, today: today)
         let currentAge = library.settings.person?.birthDate.map { $0.wholeYears(to: date) } ?? 0
         var issues: [PlanIssue] = []
-        let portfolio = Portfolio.build(library: library, date: date, plan: plan, currentAge: currentAge,
+        let portfolio = Portfolio.build(library: library, valuator: valuator, date: date, plan: plan, currentAge: currentAge,
                                         extraClasses: [], issues: &issues)
         var accessible: [AssetClass: Double] = [:]
         var all: [AssetClass: Double] = [:]

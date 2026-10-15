@@ -66,6 +66,9 @@ final class PlanStore {
     private let library: LibraryStore
     /// The runs in progress, by plan and kind.
     @ObservationIgnored private var inFlight: [PlanRunKey: InFlight] = [:]
+    /// A plan's years and milestones reached, worked out once for each
+    /// state of the library (``planProgress(of:document:)``).
+    @ObservationIgnored private let progressMemo = PlanProgressMemo()
     /// The check-in each plan's missing answer was last caught up for
     /// (``recordMissingCheckInAnswer(today:)``), so it's tried once.
     @ObservationIgnored private var caughtUpAnswers: [PlanID: CalendarDate] = [:]
@@ -364,6 +367,14 @@ final class PlanStore {
     var mainAnswer: LatestAnswer? {
         guard let main = library.settings.mainPlan else { return nil }
         return latestAnswer(of: main)
+    }
+
+    /// `plan`'s years, answers and milestones reached (the Planner's
+    /// `PlanProgress`) for `document`, worked out once for each state of
+    /// the library and the plan and shared by *Your way there*, *Your year*
+    /// and the widgets' snapshot: it reads every check-in.
+    func planProgress(of plan: PlanID, document: PlanDocument) -> PlanProgress {
+        progressMemo.progress(of: plan, plan: document, library: library)
     }
 
     /// The main plan's latest answer itself (``mainAnswer``).

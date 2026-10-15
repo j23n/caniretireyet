@@ -15,7 +15,7 @@ struct PlanTargetMixEditor: View {
     @Environment(\.locale) private var locale
 
     var body: some View {
-        let model = PlanTargetMixModel(plan: plan, library: library.library)
+        let model = PlanTargetMixModel(plan: plan, library: library.library, valuator: library.valuator)
         let choosing = plan.portfolio.choosesTargetMix
         let targetMix = plan.portfolio.targetMix
         Section {

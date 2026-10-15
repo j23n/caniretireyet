@@ -313,11 +313,19 @@ public struct MilestoneLadder: Hashable, Sendable {
 extension MilestoneLadder {
     /// A plan's ladder: its retirement spending; what retiring today needs
     /// when known (from the plan's results); and the crossover
-    /// (``crossover(plan:library:on:)``).
-    public init(plan: PlanDocument, library: Library, on date: CalendarDate, neededToday: Decimal? = nil) {
-        self.init(spending: plan.spending.retired > 0 ? plan.spending.retired : nil, neededToday: neededToday,
-                  crossover: Self.crossover(plan: plan, library: library, on: date),
+    /// (``crossover(plan:library:valuator:on:)``). `valuator` is the
+    /// library's.
+    public init(plan: PlanDocument, library: Library, valuator: Valuator, on date: CalendarDate,
+                neededToday: Decimal? = nil) {
+        self.init(spending: Self.spending(of: plan), neededToday: neededToday,
+                  crossover: Self.crossover(plan: plan, library: library, valuator: valuator, on: date),
                   coastTarget: Self.coastTarget(of: plan))
+    }
+
+    /// `plan`'s retirement spending a year, the ladder's ``spending``;
+    /// `nil` without any.
+    public static func spending(of plan: PlanDocument) -> Decimal? {
+        plan.spending.retired > 0 ? plan.spending.retired : nil
     }
 
     /// The age `plan`'s coast point is for: when its first pension starts;
@@ -339,14 +347,15 @@ extension MilestoneLadder {
     /// take-home pay less spending while working,
     /// ``PlanDocument/workingSaving(on:)``) divided by the median
     /// yearly growth of the plan's target mix, else of the money you can
-    /// draw today. `nil` without saving or growth.
-    public static func crossover(plan: PlanDocument, library: Library, on date: CalendarDate) -> Decimal? {
+    /// draw today. `nil` without saving or growth. `valuator` is the library's.
+    public static func crossover(plan: PlanDocument, library: Library, valuator: Valuator,
+                                 on date: CalendarDate) -> Decimal? {
         guard let saving = plan.workingSaving(on: date)?.saving, saving > 0 else { return nil }
         let mix: [AssetClass: Double]
         if let target = plan.portfolio.targetMix, !target.shares.isEmpty {
             mix = target.shares.mapValues(\.doubleValue)
         } else {
-            mix = Planner.startingMix(plan: plan, library: library, today: date).accessibleShares
+            mix = Planner.startingMix(plan: plan, library: library, valuator: valuator, today: date).accessibleShares
         }
         let growth = Planner.growth(of: mix, assumptions: plan.assumptions)
         guard growth >= 0.001 else { return nil }

@@ -1,5 +1,6 @@
 import Foundation
 import Model
+import Tracker
 
 /// The Target mix card (UI.md, "Target mix"): what the money you can draw
 /// holds today next to the mix the plan rebalances it to, the
@@ -35,8 +36,10 @@ public struct PlanTargetMixModel: Sendable {
     /// One per class offered (``classes(plan:start:)``).
     public let rows: [Row]
 
-    public init(plan: PlanDocument, library: Library, today: CalendarDate = .today()) {
-        self.init(plan: plan, start: Planner.startingMix(plan: plan, library: library, today: today),
+    /// - Parameter valuator: the library's, when the caller has one.
+    public init(plan: PlanDocument, library: Library, valuator: Valuator? = nil, today: CalendarDate = .today()) {
+        self.init(plan: plan, start: Planner.startingMix(plan: plan, library: library, valuator: valuator,
+                                                         today: today),
                   birthDate: library.settings.person?.birthDate)
     }
 

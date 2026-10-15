@@ -18,7 +18,6 @@ struct YourYearScreen: View {
     @Environment(AppNavigation.self) private var navigation
     @Environment(\.baseCurrency) private var currency
     @Environment(\.locale) private var locale
-    @State private var progressMemo = PlanProgressMemo()
 
     var body: some View {
         ScrollView {
@@ -41,14 +40,14 @@ struct YourYearScreen: View {
     }
 
     private func review(of plan: PlanDocument) -> YearReview? {
-        let progress = progressMemo.progress(of: plan.id, plan: plan, library: library)
+        let progress = plans.planProgress(of: plan.id, document: plan)
         guard let year = YearReview.year(on: .today(), progress: progress) else { return nil }
         return YearReview(progress: progress, year: year, valuator: library.valuator)
     }
 
     private func content(_ review: YearReview, plan: PlanDocument) -> some View {
         let text = PlanMilestoneText(currency: currency, locale: locale)
-        let spending = MilestoneLadder(plan: plan, library: library.library, on: review.year.to).spending
+        let spending = MilestoneLadder.spending(of: plan)
         return VStack(alignment: .leading, spacing: Metrics.xl) {
             hero(review)
             tiles(review, spending: spending)

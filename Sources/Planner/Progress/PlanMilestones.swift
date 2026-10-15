@@ -32,7 +32,7 @@ public struct PlanMilestones: Sendable {
         // What retiring today needs; with a readiness, the ladder works it
         // out from today's plan assets instead.
         let needed = results?.details.assetsNeeded?.amount.map { Decimal(wholeNumber: $0) }
-        let ladder = MilestoneLadder(plan: plan, library: library, on: asOf, neededToday: needed)
+        let ladder = MilestoneLadder(plan: plan, library: library, valuator: valuator, on: asOf, neededToday: needed)
         self.ladder = ladder
         self.reached = reached
         let current: Decimal
@@ -79,7 +79,7 @@ public struct PlanMilestones: Sendable {
     /// (`previous`), which are valued from what you held and its prices.
     public static func reached(by plan: PlanDocument, library: Library, valuator: Valuator,
                                since previous: CalendarDate?, through date: CalendarDate) -> [ReachedMilestone] {
-        MilestoneLadder(plan: plan, library: library, on: date)
+        MilestoneLadder(plan: plan, library: library, valuator: valuator, on: date)
             .reached(plan: plan.id, library: library, valuator: valuator, through: date)
             .filter { milestone in
                 guard milestone.date <= date else { return false }

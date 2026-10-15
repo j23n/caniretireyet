@@ -55,6 +55,13 @@ struct MilestoneTests {
         #expect(ladder.milestones(in: 170_000...410_000).first?.amount == 180_000)
     }
 
+    @Test func theSpendingIsThePlansRetirementSpending() {
+        var plan = Sample.plan(retire: .age(60), endAge: 90, retired: "30000")
+        #expect(MilestoneLadder.spending(of: plan) == 30_000)
+        plan.spending.retired = 0
+        #expect(MilestoneLadder.spending(of: plan) == nil)
+    }
+
     // MARK: Reached
 
     @Test func aMilestoneIsReachedOnceAtTheFirstCheckInAboveIt() {
@@ -96,7 +103,7 @@ struct MilestoneTests {
         let library = try Fixtures.exampleLibrary()
         let plan = try #require(library.plans["base"])
         let valuator = Valuator(library: library)
-        let ladder = MilestoneLadder(plan: plan, library: library, on: "2026-09-30")
+        let ladder = MilestoneLadder(plan: plan, library: library, valuator: valuator, on: "2026-09-30")
         let reached = ladder.reached(plan: plan.id, library: library, valuator: valuator, through: "2026-09-30")
         let dates = valuator.checkInDates(in: .planAssets, through: "2026-09-30")
         for milestone in reached {
@@ -198,10 +205,10 @@ struct MilestoneTests {
     @Test func theExampleLibraryPassesItsCoastPointInAugust() throws {
         let library = try Fixtures.exampleLibrary()
         let plan = try #require(library.plans["base"])
-        let ladder = MilestoneLadder(plan: plan, library: library, on: "2026-09-30")
+        let valuator = Valuator(library: library)
+        let ladder = MilestoneLadder(plan: plan, library: library, valuator: valuator, on: "2026-09-30")
         #expect(ladder.coastTarget == 67)
-        let reached = ladder.reached(plan: plan.id, library: library, valuator: Valuator(library: library),
-                                     through: "2026-09-30")
+        let reached = ladder.reached(plan: plan.id, library: library, valuator: valuator, through: "2026-09-30")
         #expect(reached.first { $0.id == "coast" }?.date == "2026-08-31")
     }
 
@@ -265,14 +272,18 @@ struct MilestoneTests {
         var plan = Sample.plan(retire: .age(60), endAge: 90, working: "30000", retired: "30000",
                                work: [WorkPhase(from: "2026-01-01", until: .retirement, netIncome: 40_000)])
         plan.portfolio.targetMix = ["equity": 1]
+        let valuator = Valuator(library: library)
+        func crossover(on date: CalendarDate) -> Decimal? {
+            MilestoneLadder.crossover(plan: plan, library: library, valuator: valuator, on: date)
+        }
         // Saving 10.000 a year, at a typical 5% a year: 200.000.
-        let crossover = try #require(MilestoneLadder.crossover(plan: plan, library: library, on: "2026-09-30"))
-        #expect(abs(crossover - 200_000) <= 2_000)
+        let amount = try #require(crossover(on: "2026-09-30"))
+        #expect(abs(amount - 200_000) <= 2_000)
 
         // Not working on the day, or spending all of it: no crossover.
-        #expect(MilestoneLadder.crossover(plan: plan, library: library, on: "2025-12-31") == nil)
+        #expect(crossover(on: "2025-12-31") == nil)
         plan.spending.working = 40_000
-        #expect(MilestoneLadder.crossover(plan: plan, library: library, on: "2026-09-30") == nil)
+        #expect(crossover(on: "2026-09-30") == nil)
     }
 
     @Test func thePlansSavingsRateIsAYearsSavingOverThePay() throws {
@@ -290,6 +301,7 @@ struct MilestoneTests {
         var spender = plan
         spender.spending.working = 50_000
         #expect(spender.workingSavingsRate(on: "2026-09-30") == d("-0.25"))
-        #expect(MilestoneLadder.crossover(plan: spender, library: library, on: "2026-09-30") == nil)
+        #expect(MilestoneLadder.crossover(plan: spender, library: library, valuator: Valuator(library: library),
+                                          on: "2026-09-30") == nil)
     }
 }
