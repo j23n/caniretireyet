@@ -177,8 +177,9 @@ public enum StarterSetup {
         return date.adding(days: -sinceMonday)
     }
 
-    /// `amount` to two significant figures: 420 → 420, 1234 → 1200.
-    static func roundedToTwoFigures(_ amount: Decimal) -> Decimal {
+    /// `amount` to two significant figures: 420 → 420, 1234 → 1200; for
+    /// round amounts in sentences ("you save about 1.400 € a month").
+    public static func roundedToTwoFigures(_ amount: Decimal) -> Decimal {
         let value = amount.doubleValue
         guard value >= 100, value.isFinite else { return Decimal(Int(value.rounded())) }
         let step = pow(10, (log10(value).rounded(.down) - 1))
