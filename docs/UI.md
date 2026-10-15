@@ -1045,7 +1045,7 @@ Notes that remind you of your goal and the way there, never of the app: a few a 
 
 | Section | Contents |
 | --- | --- |
-| Each month | *Monthly note*, its *Day* (*Last day of the month*, the default, or day 1 to 21 or 25 to 28: on days 22 to 24 a check-in is for the month or the month before with the month's length, so a note there would skip a month now and then; a day saved among them is taken as 25) and *Time* (19:00). "When your check-in is due: where you stood at the last one, what's next, and the files to import." |
+| Each month | *Monthly note*, its *Day* (*Last day of the month*, the default; 1 to 6 days before the last; or day 1 to 21. A check-in in a month's last 7 days is for that month, and one before them for the month before, so later days count back from the month's end and a note never skips a month. A day saved past 21 counts back from the last of a 30-day month) and *Time* (19:00). "When your check-in is due: where you stood at the last one, what's next, and the files to import." |
 | Once a year | *Your year* ("Early January, your year in review"), *Birthday* ("How far your last Monday is"), *Records anniversary* ("How far you've come since you started"), *Plan check-up* ("A year after your plan last changed") |
 
 The footer: "Notes show ages, years and percentages, never amounts. On this device only, so you aren't told twice." Turning a note on asks for permission first; when notifications aren't allowed, nothing turns on and the screen says "Notifications are off for this app. Turn them on in the system settings to get notes." Onboarding turns on the monthly note and *Your year*; the Overview offers the yearly ones once ([Overview](#overview), *Keep your goal in view*).

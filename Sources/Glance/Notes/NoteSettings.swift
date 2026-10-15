@@ -10,8 +10,9 @@ public struct NoteSettings: Hashable, Sendable, Codable {
 
     /// The monthly note: once a month, the answer and the ask to check in.
     public var monthly: Bool
-    /// The monthly note's day of the month, one of ``days``, or
-    /// ``lastDay``; ``effectiveDay`` is the one used.
+    /// The monthly note's day of the month: one of ``days`` counted from
+    /// the start, ``lastDay``, or 1 to 6 days before the last as -1 to -6;
+    /// ``effectiveDay`` is the one used.
     public var day: Int
     public var hour: Int
     public var minute: Int
@@ -56,25 +57,31 @@ public struct NoteSettings: Hashable, Sendable, Codable {
             || (recordsAnniversary && !old.recordsAnniversary) || (planCheckUp && !old.planCheckUp)
     }
 
-    /// The days of the month the monthly note can be on, besides
-    /// ``lastDay``. A check-in in a month's last 7 days is for that month,
-    /// and one before them for the month before (``CheckInGlance``), so
-    /// days 22 to 24 would be in one or the other with the month's length,
-    /// skipping a month now and then; they're left out.
-    public static let days = Array(1...21) + Array(25...28)
+    /// The days the monthly note can be on, counted from the month's start.
+    /// A check-in in a month's last 7 days is for that month, and one
+    /// before them for the month before (``CheckInGlance``). Days 1 to 21
+    /// are before them in every month; later days are counted back from
+    /// the last (``daysBeforeLast``), so a note never skips a month.
+    public static let days = Array(1...21)
 
-    /// ``day``, with a day left out of ``days`` moved to 25.
+    /// How many days before the month's last day the note can be on.
+    public static let daysBeforeLast = Array(1...6)
+
+    /// ``day`` as one of the choices: a day saved past ``days`` counts as
+    /// that many days before the last of a 30-day month, at most 6.
     public var effectiveDay: Int {
-        get { (22...24).contains(day) ? 25 : day }
+        get {
+            if day > Self.days.count { return -min(Self.daysBeforeLast.count, max(0, 30 - day)) }
+            return max(day, -Self.daysBeforeLast.count)
+        }
         set { day = newValue }
     }
 
-    /// The monthly note's day in `month`: its ``effectiveDay``, or the
-    /// month's last when that's ``lastDay`` or past the month's end.
+    /// The monthly note's day in `month`.
     public func date(in month: YearMonth) -> CalendarDate {
         let day = effectiveDay
-        guard day > 0, day <= month.numberOfDays, let date = CalendarDate(year: month.year, month: month.month, day: day)
-        else { return month.lastDay }
+        guard day > 0, let date = CalendarDate(year: month.year, month: month.month, day: day)
+        else { return month.lastDay.adding(days: day) }
         return date
     }
 }
