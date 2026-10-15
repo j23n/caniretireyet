@@ -43,17 +43,6 @@ final class AppModel {
         #endif
     }
 
-    /// The app's model at launch: ``live()``, or in a Debug build launched
-    /// with `-screenLibrary`, a made-up library (``ScreenLaunch``).
-    static func atLaunch() -> AppModel {
-        #if DEBUG
-        if let launch = ScreenLaunch(arguments: ProcessInfo.processInfo.arguments) {
-            return launch.model()
-        }
-        #endif
-        return live()
-    }
-
     /// The real app: the library in iCloud Drive or on this device, prices
     /// from the network, each plan's latest results in the app's caches, and
     /// the widgets' snapshot in the App Group's container.
@@ -66,6 +55,22 @@ final class AppModel {
             planEngine: PlannerPlanEngine(),
             planResults: PlanResultsArchive.standard(),
             widgetSnapshotURL: AppGroup.snapshotURL, schedulesNotes: true)
+    }
+
+    /// The app in a test profile (``TestProfile``): as ``live()``, but the
+    /// library is in the profile's folder on this device, never in iCloud
+    /// Drive, this device's settings are the profile's, and it neither
+    /// writes the widgets' snapshot nor schedules notes, which stay the
+    /// real library's.
+    static func live(in profile: TestProfile, root: URL) -> AppModel {
+        let preferences = AppPreferences(defaults: profile.defaults)
+        let locator = LibraryLocator(localFolder: profile.libraryFolder(in: root), usesICloud: false)
+        return AppModel(
+            preferences: preferences,
+            library: LibraryStore(locator: locator, preferences: preferences),
+            prices: PriceStore(service: .standard()),
+            planEngine: PlannerPlanEngine(),
+            planResults: PlanResultsArchive.standard())
     }
 
     /// Previews, the screen tests and ``ScreenLaunch``: `library` in memory (by default

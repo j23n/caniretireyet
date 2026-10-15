@@ -18,6 +18,17 @@ struct LibraryLocationTests {
         #endif
     }
 
+    /// A locator that doesn't use iCloud Drive finds only the local folder,
+    /// signed in or not.
+    @Test func leavesICloudAloneWhenAsked() async throws {
+        let folder = try TemporaryFolder()
+        let locator = LibraryLocator(localFolder: folder.url, usesICloud: false)
+        #expect(!locator.isICloudAvailable)
+        #expect(await locator.iCloudLibraryURL() == nil)
+        #expect(try await locator.location(.iCloud) == nil)
+        #expect(try await locator.location(.local) == LibraryLocation(kind: .local, url: folder.url))
+    }
+
     @Test func movesALibrary() async throws {
         let folder = try TemporaryFolder()
         let source = LibraryLocation(kind: .local, url: folder.url.appendingPathComponent("From"))

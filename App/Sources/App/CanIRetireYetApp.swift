@@ -6,8 +6,10 @@ import SwiftUI
 /// The app, shared by iPhone, iPad and Mac.
 ///
 /// One `AppModel` holds every store; each scene injects them with
-/// `.appEnvironment(model)`. The Mac also gets the Settings window (⌘,),
-/// and every platform gets the menu commands (UI.md, "Menu commands").
+/// `.appEnvironment(model)`, and the `AppSession` that holds the model,
+/// which replaces it when a test profile is opened or left. The Mac also
+/// gets the Settings window (⌘,), and every platform gets the menu
+/// commands (UI.md, "Menu commands").
 ///
 /// **The Mac window** opens at 1200 × 800 and can be made as small as
 /// 900 × 600. A window can't be smaller than the minimum size of its
@@ -16,7 +18,9 @@ import SwiftUI
 /// for a narrower width; every page's content scrolls, or is pinned and short.
 @main
 struct CanIRetireYetApp: App {
-    @State private var model = AppModel.atLaunch()
+    @State private var session = AppSession.atLaunch()
+
+    private var model: AppModel { session.model }
 
     var body: some Scene {
         WindowGroup {
@@ -45,15 +49,23 @@ struct CanIRetireYetApp: App {
                 SettingsScreen()
             }
             .appEnvironment(model)
+            .environment(session)
             .frame(minWidth: 480, idealWidth: 560, minHeight: 420, idealHeight: 620)
         }
         #endif
     }
 
-    /// The window's content: the root view with every store.
+    /// The window's content: the root view with every store, built again
+    /// for each model the session opens.
     private var root: some View {
         RootView()
+            .testProfileBanner()
             .appEnvironment(model)
-            .task { await model.start() }
+            .environment(session)
+            .task {
+                await model.start()
+                await session.leaveProfileIfUnavailable()
+            }
+            .id(session.generation)
     }
 }

@@ -438,6 +438,16 @@ final class LibraryStore {
         await ioTail?.value
     }
 
+    /// Lets go of the folder, for a model the app is replacing (switching
+    /// test profiles, ``AppSession``): an opening in progress is dropped,
+    /// and changes made elsewhere are no longer watched. Call it after
+    /// ``waitForPendingWrites()``.
+    func close() {
+        openingAttempt += 1
+        endOpening()
+        stopWatching()
+    }
+
     // MARK: Backups
 
     /// The backups in the library's `backups/` folder, oldest first.
