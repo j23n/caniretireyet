@@ -212,6 +212,6 @@ struct SampleFileTests {
         #expect(preview.records.count == 7)
         // The broken cell in row 9 still counts as a value: Checking isn't proposed as closed.
         #expect(preview.accountChanges.isEmpty)
-        #expect(preview.cellErrors[0].description == "Row 3, “Date”: “2026-02-30”: no such date")
+        #expect(preview.cellErrors[0].row == 3 && preview.cellErrors[0].problem == .noSuchDate)
     }
 }

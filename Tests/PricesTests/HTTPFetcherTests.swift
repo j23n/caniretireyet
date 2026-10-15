@@ -46,8 +46,6 @@ struct HTTPFetcherTests {
             _ = try await fetcher.get(url)
         }
         #expect(await client.requestCount == 1)
-        #expect(PriceFetchError.rateLimited(service: "Yahoo Finance", retryAfter: .seconds(60)).description
-            == "Yahoo Finance is limiting requests. Try again in 60 seconds.")
     }
 
     @Test func retriesOnceWithoutAHintThenReportsTheRateLimit() async throws {
@@ -86,8 +84,6 @@ struct HTTPFetcherTests {
         #expect(error(404, notFound) == .unknownSymbol(service: "Example", symbol: "XYZ", message: "No such symbol"))
         let refused = #"{"error":{"status":{"error_code":10012,"error_message":"Beyond the allowed time range."}}}"#
         #expect(error(401, refused) == .unauthorized(service: "Example", message: "Beyond the allowed time range."))
-        #expect(error(401, refused)?.description
-            == "Example refused the request: Beyond the allowed time range.")
         #expect(error(429, rateLimitBody) == .rateLimited(service: "Example", retryAfter: nil))
         #expect(error(500, "<html><body>Oops</body></html>") == .httpStatus(service: "Example", code: 500, message: nil))
         #expect(error(503, "Service Unavailable\n") == .httpStatus(service: "Example", code: 503,

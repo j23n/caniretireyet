@@ -88,12 +88,12 @@ struct StatementTaxTests {
 
         let start = try #require(preview.record(.valuation("tax-pot", "2026-01-09"))?.imported)
         #expect(start.balance == 0)
-        #expect(start.flow == nil)
+        #expect(start.saved == nil)
         let values: [(CalendarDate, Decimal)] = [("2026-01-31", 500), ("2026-02-28", 1000), ("2026-03-31", 1500)]
         for (date, balance) in values {
             let value = try #require(preview.record(.valuation("tax-pot", date))?.imported)
             #expect(value.balance == balance)
-            #expect(value.flow == nil)
+            #expect(value.saved == nil)
             #expect(value.moneyIn == 0)
             #expect(value.moneyOut == 0)
         }

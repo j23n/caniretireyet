@@ -108,9 +108,9 @@ public struct Trade: Hashable, Sendable, KeyedRecord, KnownKeysProviding {
     }
 
     /// Whether the trade moves money or securities into or out of the
-    /// account (a flow, PROGRESS.md): a deposit, withdrawal, transfer or
-    /// opening (``TradeType/isFlow``), or a trade settled outside it
-    /// (``isSettledExternally``).
+    /// account (a flow, docs/TRADES.md, "Flows"): a deposit, withdrawal,
+    /// transfer or opening (``TradeType/isFlow``), or a trade settled
+    /// outside it (``isSettledExternally``).
     public var isFlow: Bool { type.isFlow || isSettledExternally }
 
     /// The currency of ``price``: ``currency`` as written, else the
@@ -217,8 +217,9 @@ extension TradeType {
     public var changesHoldings: Bool { addsUnits || removesUnits || self == .split }
 
     /// Whether the type moves money or securities into or out of the
-    /// account (a flow, PROGRESS.md): deposits, withdrawals, transfers and
-    /// openings. Buys, sells, income, fees and taxes are not flows.
+    /// account (a flow, docs/TRADES.md, "Flows"): deposits, withdrawals,
+    /// transfers and openings. Buys, sells, income, fees and taxes are not
+    /// flows.
     public var isFlow: Bool {
         self == .deposit || self == .withdrawal || self == .transferIn || self == .transferOut || self == .opening
     }

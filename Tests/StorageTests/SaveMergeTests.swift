@@ -31,7 +31,7 @@ struct SaveMergeTests {
                    of: september, in: folder)
 
         var library = previous
-        library.upsert(Valuation(account: "conto-fineco", date: "2026-09-30", balance: 4300, flow: -215.2))
+        library.upsert(Valuation(account: "conto-fineco", date: "2026-09-30", balance: 4300, saved: -215.2))
         let report = try folder.library.save(library, previous: previous)
 
         #expect(report.written == [september])
@@ -238,7 +238,7 @@ struct SaveMergeTests {
         let loaded = try folder.library.load()
         #expect(loaded.library.months["2026-09"] == nil)
         var library = loaded.library
-        library.upsert(Valuation(account: "tfr", date: "2026-09-30", balance: 11100, flow: 0))
+        library.upsert(Valuation(account: "tfr", date: "2026-09-30", balance: 11100, saved: 0))
 
         let report = try folder.library.save(library, previous: loaded.library)
         let issue = try #require(report.issues.first)

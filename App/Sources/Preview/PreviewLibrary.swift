@@ -35,7 +35,7 @@ enum PreviewLibrary {
     static let withStatementMismatch: Library = {
         var copy = PreviewLibrary.library
         copy.upsert(Valuation(account: "directa", date: "2026-09-30", cash: d("312.1"),
-                              positions: [Position(instrument: "vwce", quantity: d("424.5"))], flow: d("11.3")))
+                              positions: [Position(instrument: "vwce", quantity: d("424.5"))], saved: d("11.3")))
         copy.upsert(Trade(account: "directa", date: "2026-09-18", id: "nopricex", type: .buy, instrument: "vwce",
                           quantity: 2, source: .manual))
         return copy
@@ -53,13 +53,13 @@ enum PreviewLibrary {
             id: foreignAccount, name: "US brokerage", kind: .brokerage, currency: .usd, opened: "2018-06-01",
             institution: "Example Brokerage Inc.", country: "US",
             notes: "Made-up example: imported from a spreadsheet, without past exchange rates.")
-        for (date, balance, flow) in [
+        for (date, balance, saved) in [
             ("2018-06-30", "80000", "80000"), ("2018-12-31", "76500", "0"), ("2019-06-30", "88200", "2500"),
             ("2019-12-31", "97400", "0"), ("2020-06-30", "92100", "0"), ("2020-12-31", "109800", "5000"),
             ("2021-06-30", "118600", nil), ("2021-11-30", "123959", nil), ("2022-01-01", "0", "-123959"),
         ] as [(String, String, String?)] {
             copy.upsert(Valuation(account: foreignAccount, date: CalendarDate(date)!, balance: d(balance),
-                                  flow: flow.map(d), source: .`import`))
+                                  saved: saved.map(d), source: .`import`))
         }
         return copy
     }()

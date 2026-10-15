@@ -121,8 +121,8 @@ extension Valuator {
     /// `through`, in the base currency at each value's date: each value's
     /// ``moved(_:previous:)``, put in less taken back, so the tax paid
     /// from a pot (its money out) and refunds into it (its money in)
-    /// change nothing. A value without both amounts counts its flow, the
-    /// whole change, when it's above zero: a drop is taken as tax paid. A
+    /// change nothing. A value without both amounts counts what it saved,
+    /// the whole change, when it's above zero: a drop is taken as tax paid. A
     /// pot's first value is what it held when its records start, not money
     /// put in. A tax pot in net worth counts as savings instead: what's put
     /// in is saved.
@@ -137,7 +137,7 @@ extension Valuator {
                 defer { previous = valuation }
                 guard let previous, valuation.date > from, valuation.date <= through else { continue }
                 let moved = self.moved(valuation, previous: previous)
-                    ?? flow(of: valuation, previous: previous).map { max($0, 0) }
+                    ?? saved(valuation, previous: previous).map { max($0, 0) }
                 guard let moved,
                       let amount = converted(moved, from: account.currency, to: baseCurrency, on: valuation.date,
                                              for: account.id, problems: &problems)

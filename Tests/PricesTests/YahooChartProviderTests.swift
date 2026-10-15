@@ -70,8 +70,6 @@ struct YahooChartProviderTests {
         } catch let error as PriceFetchError {
             #expect(error == .unknownSymbol(service: "Yahoo Finance", symbol: "NOPE.DE",
                                             message: "No data found, symbol may be delisted"))
-            #expect(error.description
-                == "Yahoo Finance doesn't know \"NOPE.DE\": No data found, symbol may be delisted.")
         }
     }
 

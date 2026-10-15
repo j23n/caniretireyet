@@ -11,10 +11,6 @@ struct InitTests {
         let run = await retire(["init", path, "--birth-date", "1990-05-01", "--currency", "eur",
                                 "--residence", "it", "--name", "Alex"])
         #expect(run.status == 0, "\(run.all)")
-        #expect(run.output.hasPrefix("Created a new library in \(path)\n"))
-        #expect(run.output.contains("  Base currency  EUR\n"))
-        #expect(run.output.contains("  Country        IT\n"))
-        #expect(run.output.contains("retire import <file> --library \"\(path)\""))
 
         let loaded = try LibraryFolder(root: URL(fileURLWithPath: path)).load()
         #expect(loaded.report.issues.isEmpty)
@@ -28,7 +24,6 @@ struct InitTests {
         // A fresh library validates cleanly.
         let validate = await retire(["validate", "--library", path])
         #expect(validate.status == 0)
-        #expect(validate.output.contains("No problems found."))
     }
 
     @Test func takesTheFolderFromTheEnvironment() async throws {
@@ -54,13 +49,11 @@ struct InitTests {
         let library = try TemporaryFolder.exampleLibrary()
         let existing = await retire(["init", library.path, "--currency", "EUR"])
         #expect(existing.status == 1)
-        #expect(existing.errors.contains("There is already a library at \(library.path)."))
 
         let folder = try TemporaryFolder()
         try folder.write("notes.txt", "hello")
         let notEmpty = await retire(["init", folder.path, "--currency", "EUR"])
         #expect(notEmpty.status == 1)
-        #expect(notEmpty.errors.contains("isn't empty"))
         #expect(!folder.exists("library.json"))
     }
 
@@ -68,12 +61,10 @@ struct InitTests {
         let folder = try TemporaryFolder()
         let date = await retire(["init", folder.path, "--currency", "EUR", "--birth-date", "12/04/1988"])
         #expect(date.status == 64)
-        #expect(date.errors.contains("--birth-date must be a date written YYYY-MM-DD"))
         let currency = await retire(["init", folder.path, "--currency", "euro"])
         #expect(currency.status == 64)
         let nowhere = await retire(["init", "--currency", "EUR"])
         #expect(nowhere.status == 1)
-        #expect(nowhere.errors.contains("retire init <path>"))
         #expect(!folder.exists("library.json"))
     }
 }

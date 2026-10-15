@@ -225,7 +225,7 @@ struct NetWorthCommand: RetireSubcommand {
                 }
                 lines += accounts.lines()
             }
-            let unknown = change.unknownFlowAccounts
+            let unknown = change.unknownSavedAccounts
             if !unknown.isEmpty {
                 lines.append("  What was saved is unknown for \(Wording.list(unknown.map(name))): a price or an exchange "
                     + "rate is missing, so the change counts as other.")
@@ -331,7 +331,7 @@ struct NetWorthCommand: RetireSubcommand {
                     JSON.Change(from: report.from.description, to: report.to.description,
                                 total: JSON.Parts(report.total, account: nil),
                                 accounts: report.accounts.map { JSON.Parts($0.change, account: $0) },
-                                unknownFlowAccounts: report.unknownFlowAccounts.map(\.rawValue))
+                                unknownSavedAccounts: report.unknownSavedAccounts.map(\.rawValue))
                 },
                 problems: total.problems.map(\.description))
         }
@@ -374,7 +374,7 @@ struct NetWorthCommand: RetireSubcommand {
                 var saved: String
                 var other: String
                 var end: String
-                var flowKnown: Bool?
+                var savedKnown: Bool?
 
                 init(_ change: ValueChange, account: AccountChange?) {
                     self.account = account?.account.rawValue
@@ -383,7 +383,7 @@ struct NetWorthCommand: RetireSubcommand {
                     saved = Format.json(change.saved)
                     other = Format.json(change.other)
                     end = Format.json(change.end)
-                    flowKnown = account?.isFlowKnown
+                    savedKnown = account?.isSavedKnown
                 }
             }
 
@@ -392,7 +392,7 @@ struct NetWorthCommand: RetireSubcommand {
                 var to: String
                 var total: Parts
                 var accounts: [Parts]
-                var unknownFlowAccounts: [String]
+                var unknownSavedAccounts: [String]
             }
 
             var date: String

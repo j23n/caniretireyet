@@ -51,7 +51,7 @@
     { "account": "conto-deposito", "balance": "16159.5", "date": "2026-03-31", "interest": "32.55" },
     { "account": "conto-fineco", "balance": "5530.1", "date": "2026-03-31" },
     { "account": "directa", "cash": "150.2", "date": "2026-03-31" },
-    { "account": "fondo-pensione", "balance": "17480.9", "date": "2026-03-31", "flow": "1325" },
+    { "account": "fondo-pensione", "balance": "17480.9", "date": "2026-03-31", "saved": "1325" },
     { "account": "gold-coins", "cash": "0", "date": "2026-03-31", "note": "bought a 1 oz coin" },
     { "account": "ledger-wallet", "cash": "0", "date": "2026-03-31" },
     { "account": "mutuo-casa", "balance": "-144950", "date": "2026-03-31" }

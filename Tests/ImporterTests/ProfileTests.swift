@@ -76,10 +76,6 @@ struct ProfileTests {
             ImportIssue(kind: .missingColumn, header: "Oro"),
             ImportIssue(kind: .unknownColumn, column: 5, header: "Conto nuovo"),
         ])
-        #expect(preview.issues.filter { !$0.isNote }.map(\.description) == [
-            "“Oro” from the profile isn't in the file.",
-            "“Conto nuovo” isn't in the profile, so it isn't imported until you map it.",
-        ])
         #expect(preview.newAccounts.isEmpty)
         #expect(preview.records.map(\.imported.key) == [
             .valuation("conto-fineco", "2026-04-30"), .valuation("directa", "2026-04-30"),

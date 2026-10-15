@@ -440,13 +440,13 @@ extension PreviewBuilder {
     /// recorded on the line's own day, whatever the file's values cover: a
     /// purchase starts a new account (proposed, accepted), opened and worth
     /// 0 the day before, then worth the line's amount, with the amount as
-    /// its flow, so the amount is new money moved from the account, not
+    /// what it saved, so the amount is new money moved from the account, not
     /// what it already held; a sale
-    /// values the account sold at 0 that day, with the amount as its flow
-    /// out, and closes it the day after (proposed, accepted, unless this
+    /// values the account sold at 0 that day, with the amount as what it
+    /// saved, taken out, and closes it the day after (proposed, accepted, unless this
     /// sale closed it already). The account sold can be one a purchase on
     /// or before the sale's day in the file starts; bought and sold on one
-    /// day, it's worth 0 with what the two moved as its flow. Answers it
+    /// day, it's worth 0 with what the two moved as what it saved. Answers it
     /// can't take are issues: one that doesn't fit leaves the line
     /// classified as if it had none (a rule's move, a transfer, as the rule
     /// says), and a move on a line that counts in no value has no money in
@@ -510,8 +510,8 @@ extension PreviewBuilder {
             }
             let amount = -line.amount
             let id: AccountID
-            // The new money it brings, stored only where the account asks for it (Account.asksForFlow).
-            let asksForFlow: Bool
+            // The new money it brings, stored only where the account asks for it (Account.asksForSaved).
+            let asksForSaved: Bool
             switch asset {
             case .moved: continue
             case .purchase(let name, let kind):
@@ -524,14 +524,14 @@ extension PreviewBuilder {
                     // Importing the file again with the same answer finds the account it started.
                     id = existing.id
                     found.insert(id)
-                    asksForFlow = existing.asksForFlow
+                    asksForSaved = existing.asksForSaved
                 } else {
                     id = AccountID(Slug.unique(Slug.make(from: name), among: taken))
                     taken.insert(id.rawValue)
                     started[id] = line.date
                     let new = Account(id: id, name: name, kind: kind, currency: account.currency, opened: opened)
                     accountProposals.append(AccountProposal(account: new, names: [name], statementRow: row))
-                    asksForFlow = new.asksForFlow
+                    asksForSaved = new.asksForSaved
                 }
                 var start = ImportedRecord(key: .valuation(ValuationKey(account: id, date: opened)))
                 start.balance = 0
@@ -539,7 +539,7 @@ extension PreviewBuilder {
             case .sale(let sold):
                 id = sold
                 let soldAccount = library.accounts[sold] ?? accountProposals.first { $0.account.id == sold }?.account
-                asksForFlow = soldAccount?.asksForFlow ?? false
+                asksForSaved = soldAccount?.asksForSaved ?? false
                 if library.accounts[sold]?.closed != line.date.adding(days: 1) {
                     statementCloses.append(AccountChangeProposal(account: sold,
                                                                  change: .close(on: line.date.adding(days: 1)),
@@ -548,11 +548,11 @@ extension PreviewBuilder {
             }
             var record = ImportedRecord(key: .valuation(ValuationKey(account: id, date: line.date)))
             record.balance = line.amount < 0 ? amount : 0
-            if asksForFlow { record.flow = amount }
+            if asksForSaved { record.saved = amount }
             var accumulator = Accumulator(record: record, cells: cells)
             if let bought = records[record.key] {
                 // Bought and sold on one day.
-                if asksForFlow { accumulator.record.flow = (bought.record.flow ?? 0) + amount }
+                if asksForSaved { accumulator.record.saved = (bought.record.saved ?? 0) + amount }
                 accumulator.cells = bought.cells + cells
             }
             records[record.key] = accumulator

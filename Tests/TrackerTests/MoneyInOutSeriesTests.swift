@@ -149,7 +149,7 @@ struct MoneyInOutSeriesTests {
             library.months[month]?.valuations[index].moneyIn = 3000
             library.months[month]?.valuations[index].moneyOut = 2500
         }
-        library.upsert(Valuation(account: "conto-fineco", date: "2026-10-31", balance: 6000, flow: 400,
+        library.upsert(Valuation(account: "conto-fineco", date: "2026-10-31", balance: 6000, saved: 400,
                                  moneyIn: 3200, moneyOut: 2800))
         let valuator = Valuator(library: library)
         let series = valuator.moneyInOutSeries(.months, through: "2026-10-31")

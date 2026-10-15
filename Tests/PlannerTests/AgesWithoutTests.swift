@@ -97,7 +97,7 @@ struct AgesWithoutTests {
         for date in ["2025-07-31", "2025-08-31", "2025-09-30", "2025-10-31", "2025-11-30",
                      "2025-12-31"] as [CalendarDate] {
             balance += monthly
-            library.upsert(Valuation(account: "broker", date: date, balance: balance, flow: monthly))
+            library.upsert(Valuation(account: "broker", date: date, balance: balance, saved: monthly))
         }
         return library
     }

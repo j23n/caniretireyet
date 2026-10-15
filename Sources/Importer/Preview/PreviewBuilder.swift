@@ -522,13 +522,13 @@ struct PreviewBuilder {
             for instrument in costOnly { failCost(accumulator, instrument) }
             accumulator.record.positions.removeAll { costOnly.contains($0.instrument) }
             // What was saved goes with a value of the account, from the file or the library.
-            if accumulator.record.flow != nil, accumulator.record.balance == nil, accumulator.record.cash == nil,
+            if accumulator.record.saved != nil, accumulator.record.balance == nil, accumulator.record.cash == nil,
                accumulator.record.positions.isEmpty, existing == nil {
                 failSaved(accumulator)
-                accumulator.record.flow = nil
+                accumulator.record.saved = nil
             }
             let record = accumulator.record
-            if record.balance == nil, record.cash == nil, record.positions.isEmpty, record.flow == nil,
+            if record.balance == nil, record.cash == nil, record.positions.isEmpty, record.saved == nil,
                record.price == nil, record.rate == nil { continue }
             let outcome = RecordMerge.evaluate(record, existing: existing)
             records.append(ImportRecordPreview(
@@ -665,7 +665,7 @@ extension ImportedRecord {
             balance = value
             writtenBalance = value
         case .cash: cash = value
-        case .saved: flow = value
+        case .saved: saved = value
         case .price:
             price = value
             self.currency = currency

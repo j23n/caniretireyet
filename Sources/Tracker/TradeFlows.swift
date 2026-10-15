@@ -31,7 +31,7 @@ public struct TradeFlow: Hashable, Sendable {
     public let since: CalendarDate?
 }
 
-/// The recorded part of a trades account's flow for one valuation, split as
+/// The recorded part of what a trades account saved for one valuation, split as
 /// a check-in shows it (``Valuator/tradeFlowParts(of:on:previous:)``).
 /// Amounts are in the account's currency.
 public struct TradeFlowParts: Hashable, Sendable {
@@ -74,7 +74,7 @@ extension Valuator {
         return flows.sorted { $0.date < $1.date }
     }
 
-    /// The flow of `valuation` of a trades account since `previous`, the
+    /// What `valuation` of a trades account saved since `previous`, the
     /// account's valuation before it: the deposits, withdrawals, transfers,
     /// openings and trades settled outside the account dated after
     /// `previous` through the valuation, plus the valuation's residual (its
@@ -82,11 +82,11 @@ extension Valuator {
     /// when a transfer can't be valued.
     ///
     /// An account whose history is only trades has no valuation before its
-    /// first check-in; its flow then counts from the library's previous
+    /// first check-in; what it saved then counts from the library's previous
     /// check-in, the period the check-in covers, not from its first trade.
     /// Otherwise every purchase since the account began would count as new
     /// money in that one check-in.
-    func tradeFlow(for valuation: Valuation, previous: Valuation?) -> Decimal? {
+    func tradeSaved(for valuation: Valuation, previous: Valuation?) -> Decimal? {
         let history = self.history(of: valuation.account)
         guard history.ledger != nil,
               let total = tradeFlowParts(of: valuation.account, on: valuation.date, previous: previous).recorded
@@ -94,12 +94,12 @@ extension Valuator {
         return total + (history.residual(of: valuation) ?? 0)
     }
 
-    /// The recorded part of the flow of a trades account's valuation on
-    /// `date`, `previous` being the account's valuation before it, split
+    /// The recorded part of what a trades account's valuation on `date`
+    /// saved, `previous` being the account's valuation before it, split
     /// into what was paid from or into another account: the period starts
-    /// where ``defaultFlow(for:previous:)`` starts it (`previous`, or
+    /// where ``workedOutSaved(for:previous:)`` starts it (`previous`, or
     /// without one the library's previous check-in), so the parts add up to
-    /// the flow a check-in saves, residual aside. Zero for other accounts.
+    /// what a check-in saves, residual aside. Zero for other accounts.
     public func tradeFlowParts(of account: AccountID, on date: CalendarDate, previous: Valuation?) -> TradeFlowParts {
         guard let ledger = history(of: account).ledger, let details = accounts[account] else {
             return TradeFlowParts(recorded: 0, paidOutside: 0)

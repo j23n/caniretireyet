@@ -46,7 +46,7 @@ All data lives in a folder of plain JSON files in iCloud Drive. The apps on your
   - the change since the last check-in, split into market movement and saved;
   - accounts that haven't been updated recently.
 - Import from any spreadsheet or CSV export: you map the columns, the importer handles the file's date and number formats, and the mapping can be saved and reused ([IMPORT.md](IMPORT.md)).
-- Money in and out of each account (the *flow*), recorded from the imported files with sensible defaults. Savings and returns can then be measured later ([PROGRESS.md](PROGRESS.md)).
+- What was saved into each account, recorded from the imported files or worked out from its records. Savings and returns can then be measured later ([PROGRESS.md](PROGRESS.md)).
 - Sync between iPhone and Mac through iCloud Drive.
 
 **Planner**
@@ -276,7 +276,7 @@ The importer works with any spreadsheet or export instead of a fixed layout. Det
 - Accounts and instruments: create, edit, close and reopen.
 - The check-in flow: the month's files imported, prices and FX rates fetched.
 - The Overview: net-worth history, breakdowns, and the change since the last check-in split into market and saved. Plus the account detail screen.
-- Flows recorded with each value, with defaults per kind of account.
+- What was saved, recorded with each value or worked out per kind of account.
 - Live sync: a check-in on the iPhone appears on the Mac, and edits made directly to files are picked up.
 - The importer: the engine, the mapping and preview flow in the app, saved profiles, and `retire import`.
 

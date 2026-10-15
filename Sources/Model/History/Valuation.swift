@@ -13,9 +13,11 @@ public struct Valuation: Hashable, Sendable, KeyedRecord, KnownKeysProviding {
     public var cash: Decimal?
     /// Quantities held. Omitted from the file when empty.
     public var positions: [Position]
-    /// Net money added (+) or taken out (−) since the account's previous
-    /// valuation, in the account's currency. `nil` means unknown.
-    public var flow: Decimal?
+    /// What was saved: net money added (+) or taken out (−) since the
+    /// account's previous valuation, in the account's currency. Stored only
+    /// where the account asks for it (``Account/asksForSaved``); `nil` means
+    /// unknown there, and worked out from the records everywhere else.
+    public var saved: Decimal?
     /// Money that arrived from outside the tracked accounts since the
     /// account's previous valuation (salary, refunds), in the account's
     /// currency. Transfers between tracked accounts aren't counted. `nil`
@@ -42,7 +44,7 @@ public struct Valuation: Hashable, Sendable, KeyedRecord, KnownKeysProviding {
     /// it, with money in and out; a tax pot's tax is what moved into it.
     public var tax: Decimal?
     /// The interest a savings account earned since its previous valuation,
-    /// in the account's currency; the flow is the change minus it. `nil`
+    /// in the account's currency; what it saved is the change minus it. `nil`
     /// means none was recorded. Only savings accounts record it.
     public var interest: Decimal?
     public var note: String?
@@ -51,7 +53,7 @@ public struct Valuation: Hashable, Sendable, KeyedRecord, KnownKeysProviding {
 
     public init(
         account: AccountID, date: CalendarDate, balance: Decimal? = nil, cash: Decimal? = nil,
-        positions: [Position] = [], flow: Decimal? = nil, moneyIn: Decimal? = nil, moneyOut: Decimal? = nil,
+        positions: [Position] = [], saved: Decimal? = nil, moneyIn: Decimal? = nil, moneyOut: Decimal? = nil,
         oneOff: Decimal? = nil, tax: Decimal? = nil, interest: Decimal? = nil, note: String? = nil,
         source: DataSource? = nil
     ) {
@@ -60,7 +62,7 @@ public struct Valuation: Hashable, Sendable, KeyedRecord, KnownKeysProviding {
         self.balance = balance
         self.cash = cash
         self.positions = positions
-        self.flow = flow
+        self.saved = saved
         self.moneyIn = moneyIn
         self.moneyOut = moneyOut
         self.oneOff = oneOff
@@ -90,7 +92,7 @@ public struct Valuation: Hashable, Sendable, KeyedRecord, KnownKeysProviding {
 
 extension Valuation: Codable {
     enum CodingKeys: String, CodingKey, CaseIterable {
-        case account, date, balance, cash, positions, flow, moneyIn, moneyOut, oneOff, tax, interest, note, source
+        case account, date, balance, cash, positions, saved, moneyIn, moneyOut, oneOff, tax, interest, note, source
     }
 
     public static var knownKeys: Set<String> { Set(CodingKeys.allCases.map(\.stringValue)) }
@@ -102,7 +104,7 @@ extension Valuation: Codable {
         balance = try c.decodeDecimalIfPresent(forKey: .balance)
         cash = try c.decodeDecimalIfPresent(forKey: .cash)
         positions = try c.decodeArray([Position].self, forKey: .positions)
-        flow = try c.decodeDecimalIfPresent(forKey: .flow)
+        saved = try c.decodeDecimalIfPresent(forKey: .saved)
         moneyIn = try c.decodeDecimalIfPresent(forKey: .moneyIn)
         moneyOut = try c.decodeDecimalIfPresent(forKey: .moneyOut)
         oneOff = try c.decodeDecimalIfPresent(forKey: .oneOff)
@@ -119,7 +121,7 @@ extension Valuation: Codable {
         try c.encodeDecimalIfPresent(balance, forKey: .balance)
         try c.encodeDecimalIfPresent(cash, forKey: .cash)
         try c.encodeIfNotEmpty(positions, forKey: .positions)
-        try c.encodeDecimalIfPresent(flow, forKey: .flow)
+        try c.encodeDecimalIfPresent(saved, forKey: .saved)
         try c.encodeDecimalIfPresent(moneyIn, forKey: .moneyIn)
         try c.encodeDecimalIfPresent(moneyOut, forKey: .moneyOut)
         try c.encodeDecimalIfPresent(oneOff, forKey: .oneOff)

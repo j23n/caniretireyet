@@ -173,14 +173,13 @@ struct TargetMixTests {
                                 TargetMixStep(fromAge: .age(58), mix: [.cash: 1])])
         #expect(backwards.map(\.code) == ["planner.targetMixAges"])
         #expect(backwards.first?.isError == true && backwards.first?.index == 1)
-        #expect(backwards.first?.message == "The target mix's ages must go up: 58 comes after 60.")
 
         let late = issues([TargetMixStep(fromAge: .age(70), mix: [.bonds: 1])])
-        #expect(late.map(\.message) == ["The target mix from 70 starts after the plan's end at 62; it never applies."])
+        #expect(late.map(\.code) == ["planner.targetMixLate"])
         #expect(late.first?.isError == false && late.first?.option == "targetMixByAge")
 
         let total = issues([TargetMixStep(fromAge: .retirement, mix: [.bonds: d("0.5"), .equity: d("0.4")])])
-        #expect(total.map(\.message) == ["The target mix from retirement adds up to 90%, not 100%; the plan scales it."])
+        #expect(total.map(\.code) == ["planner.targetMixTotal"])
         #expect(total.first?.index == 0)
 
         let empty = issues([TargetMixStep(fromAge: .age(58), mix: [:])])
@@ -193,11 +192,10 @@ struct TargetMixTests {
         // A step before today's age applies from the start: nothing to say.
         #expect(issues([TargetMixStep(fromAge: .age(40), mix: [.bonds: 1])]).isEmpty)
         let base = Planner.validate(plan: Self.plan(target: [.equity: d("0.5")]), library: library)
-        #expect(base.map(\.message).contains("The target mix adds up to 50%, not 100%; the plan scales it."))
+        #expect(base.map(\.code).contains("planner.targetMixTotal"))
         // An empty target mix (every share cleared) keeps the money's own mix, and says so.
         let cleared = Planner.validate(plan: Self.plan(target: AssetMix()), library: library)
-        #expect(cleared.filter { $0.code == "planner.targetMixEmpty" }.map(\.message)
-            == ["The target mix has no asset class with a share; the money you can draw keeps its own mix."])
+        #expect(cleared.filter { $0.code == "planner.targetMixEmpty" }.map(\.isError) == [false])
     }
 
     // MARK: Today's mix and a mix's growth

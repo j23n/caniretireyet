@@ -13,7 +13,7 @@ struct AccountsNumberField: View {
     var prompt: String = ""
     /// The currency symbol or unit shown after the field.
     var suffix: String?
-    /// Whether a minus sign can be typed (balances of debts, flows).
+    /// Whether a minus sign can be typed (balances of debts).
     var allowsNegative = true
 
     var body: some View {

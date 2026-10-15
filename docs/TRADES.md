@@ -13,7 +13,7 @@ An account opts in with `"valuation": "trades"` (`ValuationMode.trades`; `Accoun
 ```
 
 - **Holdings** come from its trades, never from its valuations.
-- **Its valuations** record only `cash`, plus `flow`, `note` and `source`. Positions listed in one (copied from a broker statement, say) are a [reconciliation check](#reconciliation), not its holdings. A `balance` isn't used (the app says so).
+- **Its valuations** record only `cash`, plus `note` and `source`. Positions listed in one (copied from a broker statement, say) are a [reconciliation check](#reconciliation), not its holdings. A `balance` isn't used (the app says so).
 - Brokerage, crypto and metals accounts record trades by default (`AccountKind.defaultValuationMode`); the other kinds record a balance.
 - Trades of an account that doesn't record trades are left out of its values, and pointed out.
 
@@ -153,7 +153,7 @@ A trades account's flows (the money in and out, which [PROGRESS.md](PROGRESS.md)
 
 Dividends, interest, fees, taxes, buys and sells paid from or into the account's cash are not flows: they're the account's return, or move money within it.
 
-- The **default flow** of a trades account's valuation (`Valuator.defaultFlow(for:previous:)`) is this, since the previous valuation, or, for an account with none yet, since the library's previous check-in (so its first value doesn't count every purchase since its first trade as saved). A trades account's valuation stores no `flow`: it's always worked out from the trades.
+- What a trades account's valuation **saved** (`Valuator.workedOutSaved(for:previous:)`) is this, since the previous valuation, or, for an account with none yet, since the library's previous check-in (so its first value doesn't count every purchase since its first trade as saved). A trades account's valuation stores no `saved`: it's always worked out from the trades.
 - The **change split** uses the flows themselves: a deposit counts at its own date, and a trade after the latest check-in counts too.
 
 ## Reconciliation
@@ -166,7 +166,7 @@ A trades account needs no value at a check-in: its value is its trades at the ch
 
 ## Deleting a trade
 
-The app doesn't type or edit trades: a wrong one is fixed in its file and imported again, or deleted from the account's page. Tracker's `Library.removeTrade(_:)` removes one and returns the trade issues the removal brought in, e.g. a later sale now taking away more than is held; the flows of the account's valuations follow, since they're worked out from the trades. To preview it, remove it from a copy of the library. `Library.upsert(_:)` and `removeTradeRecord(_:)` (Model) write the record alone.
+The app doesn't type or edit trades: a wrong one is fixed in its file and imported again, or deleted from the account's page. Tracker's `Library.removeTrade(_:)` removes one and returns the trade issues the removal brought in, e.g. a later sale now taking away more than is held; what the account's valuations saved follows, since it's worked out from the trades. To preview it, remove it from a copy of the library. `Library.upsert(_:)` and `removeTradeRecord(_:)` (Model) write the record alone.
 
 ## Checks
 

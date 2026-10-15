@@ -1,9 +1,9 @@
 import Foundation
 import Model
 
-// A valuation's flow, the money added since the value before it (PROGRESS.md,
-// "Data this needs from day one"): recorded where the account asks for it,
-// worked out from the records everywhere else.
+// What a valuation saved, the money added since the value before it
+// (PROGRESS.md, "Data this needs from day one"): recorded where the account
+// asks for it, worked out from the records everywhere else.
 
 extension Valuator {
     /// `quantity` units of `instrument` valued in `currency` on `date`: the
@@ -33,27 +33,27 @@ extension Valuator {
         return total
     }
 
-    /// The flow of `valuation`, the money added since `previous`, the
-    /// account's valuation before it, in the account's currency: the one
+    /// What `valuation` saved, the money added since `previous`, the
+    /// account's valuation before it, in the account's currency: the amount
     /// recorded with it; without one, for an account that doesn't ask for
-    /// it (``Model/Account/asksForFlow``), the one its records give
-    /// (``defaultFlow(for:previous:)``). Files store a flow only where the
+    /// it (``Model/Account/asksForSaved``), the one its records give
+    /// (``workedOutSaved(for:previous:)``). Files store it only where the
     /// account asks for it, so that's every other account's. `nil` when it's
     /// unknown: an account that asks for it left empty, or a balance's first
     /// value, as what it held when its records start isn't money added.
-    public func flow(of valuation: Valuation, previous: Valuation?) -> Decimal? {
-        if let flow = valuation.flow { return flow }
-        guard let account = accounts[valuation.account], !account.asksForFlow,
+    public func saved(_ valuation: Valuation, previous: Valuation?) -> Decimal? {
+        if let saved = valuation.saved { return saved }
+        guard let account = accounts[valuation.account], !account.asksForSaved,
               previous != nil || history(of: account.id).ledger != nil
         else { return nil }
-        return defaultFlow(for: valuation, previous: previous)
+        return workedOutSaved(for: valuation, previous: previous)
     }
 
-    /// The flow a valuation's records give, following its account kind's
-    /// rule (``Model/AccountKind/defaultFlow``), in the account's currency
-    /// and rounded to cents; `previous` is the account's latest valuation
-    /// before it: the flow of a value that has none
-    /// (``flow(of:previous:)``).
+    /// What a valuation's records say it saved, following its account
+    /// kind's rule (``Model/AccountKind/savedRule``), in the account's
+    /// currency and rounded to cents; `previous` is the account's latest
+    /// valuation before it: what a value without a recorded amount saved
+    /// (``saved(_:previous:)``).
     ///
     /// - Whole change (current accounts, cards, loans, mortgages, belongings):
     ///   the new amount minus the previous one.
@@ -70,12 +70,12 @@ extension Valuator {
     ///
     /// Without a previous valuation, the whole amount is saved. `nil`
     /// also when the account is unknown or a needed price or rate is missing.
-    public func defaultFlow(for valuation: Valuation, previous: Valuation?) -> Decimal? {
+    public func workedOutSaved(for valuation: Valuation, previous: Valuation?) -> Decimal? {
         guard let account = accounts[valuation.account] else { return nil }
         if history(of: account.id).ledger != nil {
-            return tradeFlow(for: valuation, previous: previous)?.rounded(scale: 2)
+            return tradeSaved(for: valuation, previous: previous)?.rounded(scale: 2)
         }
-        let rule = account.kind.defaultFlow
+        let rule = account.kind.savedRule
         guard rule != .ask else { return nil }
         guard let now = amountInAccountCurrency(of: valuation, on: valuation.date) else { return nil }
         guard let previous else { return now.rounded(scale: 2) }
@@ -86,12 +86,12 @@ extension Valuator {
 }
 
 extension Valuator {
-    /// An account's known flows through `date`, added up by date, without
-    /// the zero ones, oldest first: a trades account's on their own dates
-    /// (deposits, withdrawals, transfers and residuals,
+    /// What an account saved through `date`, where it's known, added up by
+    /// date, without the zero amounts, oldest first: a trades account's on
+    /// their own dates (deposits, withdrawals, transfers and residuals,
     /// ``tradeFlows(of:after:through:)``), any other account's on its
-    /// valuations' dates (``flow(of:previous:)``).
-    public func flowsByDate(of account: AccountID, through date: CalendarDate)
+    /// valuations' dates (``saved(_:previous:)``).
+    public func savedByDate(of account: AccountID, through date: CalendarDate)
         -> [(date: CalendarDate, amount: Decimal)] {
         var byDate: [CalendarDate: Decimal] = [:]
         if history(of: account).ledger != nil {
@@ -101,8 +101,8 @@ extension Valuator {
         } else {
             var previous: Valuation?
             for valuation in valuations(for: account) where valuation.date <= date {
-                if let flow = self.flow(of: valuation, previous: previous) {
-                    byDate[valuation.date, default: 0] += flow
+                if let saved = self.saved(valuation, previous: previous) {
+                    byDate[valuation.date, default: 0] += saved
                 }
                 previous = valuation
             }

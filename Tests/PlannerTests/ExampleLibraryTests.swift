@@ -3,6 +3,7 @@ import Model
 @testable import Planner
 import Testing
 import TestSupport
+import Tracker
 
 /// The example library's plans, run as the app and the CLI run them.
 struct ExampleLibraryTests {
@@ -24,8 +25,9 @@ struct ExampleLibraryTests {
                                                                   solveSustainableSpending: false))
         #expect(result.issues.filter(\.isError).isEmpty)
         #expect(result.start.date == "2025-12-31")
-        // Not the latest check-in's 161,505.49.
-        #expect(result.start.planAssets > 0 && result.start.planAssets.rounded(2) != d("161505.49"))
+        // Not the latest check-in's.
+        let latest = Valuator(library: library).total(on: "2026-09-30", in: .planAssets).total
+        #expect(result.start.planAssets > 0 && result.start.planAssets.rounded(2) != latest.rounded(2))
         let baseline = result.baseline(created: "2026-10-06", kind: .past, label: "What I planned in 2025")
         #expect(baseline.kind == .past && baseline.created == "2026-10-06")
         #expect(baseline.start.date == "2025-12-31" && baseline.start.value == result.start.planAssets)
@@ -40,8 +42,9 @@ struct ExampleLibraryTests {
                                                                   solveSustainableSpending: false))
         #expect(result.issues.filter(\.isError).isEmpty)
         #expect(result.start.date == "2026-09-30" && result.answer.currentAge == 38)
-        // The plan leaves out the home and the mortgage (PROGRESS.md: 161,505.49).
-        #expect(result.start.planAssets.rounded(2) == d("161505.49"))
+        // The plan leaves out the home and the mortgage.
+        let latest = Valuator(library: library).total(on: "2026-09-30", in: .planAssets).total
+        #expect(result.start.planAssets.rounded(2) == latest.rounded(2))
         #expect(result.start.accounts
             == ["conto-deposito", "conto-fineco", "directa", "fondo-pensione", "gold-coins", "ledger-wallet", "tfr"])
         #expect(close(result.start.buckets.reduce(0) { $0 + $1.value }, result.start.planAssets.doubleValue, 1e-12))
