@@ -16,16 +16,18 @@ struct OnboardingWelcome: View {
             Text("When could your last Monday at work be?")
                 .font(.title3)
                 .foregroundStyle(Palette.ink)
-            Text("Tell it roughly what you have, earn and spend. In about three minutes you'll have a first answer.")
+            Text("Enter rough amounts for what you have, earn and spend. Your first answer takes about three minutes.")
                 .foregroundStyle(Palette.secondaryInk)
                 .fixedSize(horizontal: false, vertical: true)
             VStack(alignment: .leading, spacing: Metrics.l) {
-                OnboardingRow(title: "An honest answer.", systemImage: AppSymbol.plan,
-                              detail: "An age, and how sure, across thousands of possible markets.")
-                OnboardingRow(title: "A few minutes a month.", systemImage: AppSymbol.checkIn,
-                              detail: "Import your statements, and see how the answer moved.")
-                OnboardingRow(title: "Yours alone.", systemImage: "doc.text",
-                              detail: "Plain files in your iCloud Drive or on this device. No account, no server.")
+                OnboardingRow(title: "Your retirement age", systemImage: AppSymbol.plan,
+                              detail: "The earliest age you could retire at, and how likely it is to work across "
+                                + "thousands of simulated markets.")
+                OnboardingRow(title: "A monthly check-in", systemImage: AppSymbol.checkIn,
+                              detail: "Import your statements once a month to see how your answer changes.")
+                OnboardingRow(title: "Your data stays with you", systemImage: "doc.text",
+                              detail: "Your library is stored as files in iCloud Drive or on this device. There is "
+                                + "no account and no server.")
             }
             .onboardingCard()
         }
@@ -44,7 +46,7 @@ struct OnboardingYouStep: View {
         @Bindable var model = model
         VStack(alignment: .leading, spacing: Metrics.l) {
             OnboardingTitle("About you",
-                            detail: "Your answer is an age, so your birth date is the one thing it can't do without.")
+                            detail: "The answer is an age, so the app needs your birth date.")
             VStack(alignment: .leading, spacing: Metrics.m) {
                 birthDateRow
                 Divider()
@@ -77,9 +79,9 @@ struct OnboardingYouStep: View {
                 Toggle("Keep in iCloud Drive", isOn: $model.keepsInICloud)
                     .disabled(!library.isICloudAvailable)
                 Text(library.isICloudAvailable
-                     ? "Your iPhone and Mac share it. Turn off to keep it on this device only."
-                     : "iCloud Drive is off, so it's kept on this device. You can move it to iCloud Drive later in "
-                        + "Settings.")
+                     ? "Your iPhone and Mac use the same library. Turn this off to keep it on this device only."
+                     : "iCloud Drive is off, so your library stays on this device. You can move it to iCloud Drive "
+                        + "later in Settings.")
                     .font(.footnote)
                     .foregroundStyle(Palette.secondaryInk)
                     .fixedSize(horizontal: false, vertical: true)
@@ -127,7 +129,7 @@ struct OnboardingYouStep: View {
     }
 }
 
-/// Your money, roughly: what you have today, in four plain buckets that
+/// Your money: what you have today, in four plain buckets that
 /// become the starting estimates, and pay and spending a month, with what
 /// you save as you type.
 struct OnboardingMoneyStep: View {
@@ -137,16 +139,16 @@ struct OnboardingMoneyStep: View {
     var body: some View {
         @Bindable var model = model
         VStack(alignment: .leading, spacing: Metrics.l) {
-            OnboardingTitle("Your money, roughly",
-                            detail: "Round numbers are fine, in \(model.currency.rawValue). Your statements replace "
-                                + "them later.")
+            OnboardingTitle("Your money",
+                            detail: "Rough amounts in \(model.currency.rawValue) are fine. You can replace them with "
+                                + "your statements later.")
             VStack(alignment: .leading, spacing: Metrics.m) {
                 groupTitle("What you have today")
                 PlanNumberRow("Cash and savings", value: $model.answers.cash)
                 PlanNumberRow("Investments", value: $model.answers.investments)
-                PlanNumberRow("In a pension you can't touch yet", value: $model.answers.pension)
+                PlanNumberRow("Pension you can't access yet", value: $model.answers.pension)
                 if (model.answers.pension ?? 0) > 0 {
-                    Stepper("You can draw it from \(pensionAge.wrappedValue)", value: pensionAge, in: 50...75)
+                    Stepper("Available from age \(pensionAge.wrappedValue)", value: pensionAge, in: 50...75)
                         .font(.subheadline)
                 }
                 PlanNumberRow("Home, minus the mortgage", value: $model.answers.home, prompt: "Optional")
@@ -165,7 +167,7 @@ struct OnboardingMoneyStep: View {
                         .foregroundStyle(Palette.ink)
                         .fixedSize(horizontal: false, vertical: true)
                 } else {
-                    Text("Not sure about spending? Pay minus what you save.")
+                    Text("If you're not sure what you spend, enter your pay minus what you save.")
                         .font(.footnote)
                         .foregroundStyle(Palette.secondaryInk)
                 }
@@ -187,7 +189,7 @@ struct OnboardingMoneyStep: View {
     }
 }
 
-/// Later in life: a state pension (the one input that moves the answer
+/// Pension and retirement: a state pension (the one input that moves the answer
 /// most), when to stop, and the tax on investments, suggested for the
 /// country.
 struct OnboardingLaterStep: View {
@@ -197,11 +199,11 @@ struct OnboardingLaterStep: View {
     var body: some View {
         @Bindable var model = model
         VStack(alignment: .leading, spacing: Metrics.l) {
-            OnboardingTitle("Later in life")
+            OnboardingTitle("Pension and retirement")
             VStack(alignment: .leading, spacing: Metrics.m) {
                 groupTitle(CountryDefaults.statePensionName(for: model.country))
                 Stepper("From age \(statePensionAge.wrappedValue)", value: statePensionAge, in: 55...75)
-                PlanNumberRow("About, a month", value: $model.answers.statePensionPerMonth, prompt: "None")
+                PlanNumberRow("Amount per month", value: $model.answers.statePensionPerMonth, prompt: "None")
                 Text(OnboardingText.statePensionNote(country: model.country))
                     .font(.footnote)
                     .foregroundStyle(Palette.secondaryInk)
@@ -209,10 +211,10 @@ struct OnboardingLaterStep: View {
             }
             .onboardingCard()
             VStack(alignment: .leading, spacing: Metrics.m) {
-                groupTitle("When would you like to stop?")
+                groupTitle("When do you want to retire?")
                 Picker("When", selection: $model.retiresAtChosenAge) {
-                    Text("As early as works").tag(false)
-                    Text("At an age I choose").tag(true)
+                    Text("As early as possible").tag(false)
+                    Text("At a set age").tag(true)
                 }
                 .pickerStyle(.segmented)
                 .labelsHidden()

@@ -31,7 +31,7 @@ struct CheckInStatus: Hashable, Sendable {
             return "Continue check-in · " + AmountFormat.shortDate(openDate, locale: locale)
         }
         let month = AmountFormat.monthName(nextCheckIn, locale: locale)
-        guard let lastCheckIn else { return "First check-in · ready when you are" }
+        guard let lastCheckIn else { return "Start your first check-in" }
         if isDue {
             switch daysUntilDue {
             case 1...: return "\(month) check-in · due in \(Wording.count(daysUntilDue, "day"))"

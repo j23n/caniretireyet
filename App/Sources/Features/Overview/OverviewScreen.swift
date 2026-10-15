@@ -192,10 +192,10 @@ private struct OverviewEmptyState: View {
 
     var body: some View {
         ContentUnavailableView {
-            Label("Nothing here yet", systemImage: AppSymbol.overview)
+            Label("No accounts yet", systemImage: AppSymbol.overview)
         } description: {
-            Text("Import your bank statements, broker exports or the spreadsheet you've kept so far. Each file "
-                 + "creates the accounts it's about.")
+            Text("Import your bank statements, broker exports or your own spreadsheet. Each file creates the "
+                 + "accounts in it.")
         } actions: {
             Button("Import Files…") { navigation.startImport() }
                 .buttonStyle(.borderedProminent)

@@ -98,12 +98,12 @@ struct OnboardingTests {
         #expect(OnboardingText.savingLine(StarterAnswers(payPerMonth: 3_000), currency: .eur, locale: english) == nil)
         let saving = try #require(OnboardingText.savingLine(
             StarterAnswers(payPerMonth: 3_000, spendingPerMonth: 2_000), currency: .eur, locale: english))
-        #expect(saving.parts.first == .words("So you save about "))
+        #expect(saving.parts.first == .words("You save about "))
         #expect(saving.parts.last == .words(" a month, a third of your pay."))
         #expect(saving.hasAmounts)
         let even = try #require(OnboardingText.savingLine(
             StarterAnswers(payPerMonth: 3_000, spendingPerMonth: 3_000), currency: .eur, locale: english))
-        #expect(even.text == "So you spend all you take home.")
+        #expect(even.text == "You spend all you take home.")
         let short = try #require(OnboardingText.savingLine(
             StarterAnswers(payPerMonth: 3_000, spendingPerMonth: 3_300), currency: .eur, locale: english))
         #expect(short.parts.first == .words("You spend about "))

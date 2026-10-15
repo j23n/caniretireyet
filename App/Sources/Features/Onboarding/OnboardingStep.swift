@@ -8,14 +8,14 @@ enum OnboardingStep: String, CaseIterable, Sendable {
     /// Birth date, country and currency, and whether to keep the library in
     /// iCloud Drive.
     case you
-    /// Round amounts of what you have today, and pay and spending a month.
+    /// Rough amounts of what you have today, and pay and spending a month.
     case money
-    /// A state pension, when to stop, and the tax on investments; *See My
-    /// Answer* creates the library.
+    /// Pension and retirement: a state pension, when to retire, and the tax
+    /// on investments; *See My Answer* creates the library.
     case later
     /// The first answer, calculated in the tour.
     case answer
-    /// Making the answer real with files: *Import Files…* or *Later*.
+    /// Importing your accounts: *Import Files…* or *Later*.
     case files
     /// The monthly note and *Your year*, the widget, and the disclaimer;
     /// *Start* opens the Overview.

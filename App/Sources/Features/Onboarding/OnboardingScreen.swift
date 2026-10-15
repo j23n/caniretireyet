@@ -5,24 +5,24 @@ import Planner
 import SwiftUI
 
 /// First launch (UI.md, "Empty states and first launch"): a short tour to
-/// a first answer from round numbers, then ways to make it real.
+/// a first answer from rough amounts, then the files that replace them.
 ///
 /// 1. The question the app answers (``OnboardingWelcome``).
 /// 2. About you: birth date, country (which sets the currency and names
 ///    the inflation index), and iCloud Drive (``OnboardingYouStep``).
-/// 3. Your money, roughly: what you have today, pay and spending a month
+/// 3. Your money: what you have today, pay and spending a month
 ///    (``OnboardingMoneyStep``).
-/// 4. Later in life: a state pension, when to stop, the tax on investments
+/// 4. Pension and retirement: a state pension, when to stop, the tax on investments
 ///    (``OnboardingLaterStep``). *See My Answer* creates the library, the
 ///    starting estimates and the first plan (``OnboardingModel/seeAnswer(library:plans:navigation:preferences:)``).
 /// 5. The answer, calculated here (``OnboardingAnswerStep``).
-/// 6. Make it real: which files to import, the starter spreadsheet, the
+/// 6. Import your accounts: which files to import, the starter spreadsheet, the
 ///    Mac (``OnboardingFilesStep``); *Import Files…* pushes the import on
 ///    the tour's own stack.
-/// 7. Keep it in view: the monthly note, the widget and the disclaimer
+/// 7. Reminders: the monthly note, the widget and the disclaimer
 ///    (``OnboardingNotesStep``); *Start* opens the Overview.
 ///
-/// On the Mac and iPad the money and later-in-life steps have a quick
+/// On the Mac and iPad the money and pension steps have a quick
 /// estimate beside them (``OnboardingEstimatePanel``). What's typed lives
 /// in ``OnboardingModel``, so it survives the opening screen the root view
 /// shows while the new library opens. The root view keeps showing the tour
@@ -117,7 +117,7 @@ struct OnboardingScreen: View {
         }
     }
 
-    /// The quick estimate shows beside the money and later-in-life steps
+    /// The quick estimate shows beside the money and pension steps
     /// on the Mac and iPad, where there's room for it.
     private var showsEstimate: Bool {
         layout.isWide && (model.step == .money || model.step == .later)
@@ -175,7 +175,7 @@ struct OnboardingScreen: View {
             .keyboardShortcut(.defaultAction)
             .disabled(model.isCreating || !model.canContinue)
         case .answer:
-            Button("Make It Real") { advance() }
+            Button("Continue") { advance() }
                 .buttonStyle(.borderedProminent)
                 .keyboardShortcut(.defaultAction)
         case .files:
