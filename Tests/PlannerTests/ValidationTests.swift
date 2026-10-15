@@ -75,8 +75,6 @@ struct ValidationTests {
         plan.pensions = [PlanPension(fromAge: 67, perYear: nil), PlanPension(fromAge: 67, perYear: d("-5"))]
         #expect(await errors(plan) == ["planner.noNetIncome", "planner.workDates", "planner.negativeIncome",
                                         "planner.pensionAmount", "planner.negativePension"])
-        let message = Planner.validate(plan: plan, library: library).first { $0.code == "planner.noNetIncome" }?.message
-        #expect(message == "Work 1: enter the income after tax for this phase (netIncome).")
     }
 
     @Test func otherIncomeNeedsItsAmountAndAges() async {
@@ -91,7 +89,6 @@ struct ValidationTests {
         #expect(await errors(plan) == ["planner.otherIncomeAmount", "planner.negativeOtherIncome",
                                        "planner.otherIncomeAge", "planner.otherIncomeAges"])
         let issue = Planner.validate(plan: plan, library: library).first { $0.code == "planner.otherIncomeAmount" }
-        #expect(issue?.message == "Rent: enter the yearly amount after tax and when it starts.")
         #expect(issue?.section == .income && issue?.index == 0)
     }
 

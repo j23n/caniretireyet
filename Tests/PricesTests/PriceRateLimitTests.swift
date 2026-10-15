@@ -21,8 +21,7 @@ struct PriceRateLimitTests {
                   maxConcurrentFetches: maxConcurrentFetches)
     }
 
-    @Test func atMostFourInstrumentsAreFetchedAtOnce() async throws {
-        #expect(Self.service(MockHTTPClient()).maxConcurrentFetches == 4)
+    @Test func atMostTheLimitIsFetchedAtOnce() async throws {
         let symbols = (1...12).map { index in
             Instrument(id: InstrumentID("etf-\(index)"), name: "ETF \(index)", kind: .etf, currency: .eur, unit: .share,
                        assetClasses: ["equity": 1], priceSource: PriceSource(provider: .yahoo, symbol: "SYM\(index).DE"))

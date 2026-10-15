@@ -5,7 +5,7 @@ import Testing
 import TestSupport
 
 /// A spreadsheet's saved column (docs/IMPORT.md, "Saved"): what was saved
-/// into an account since its value before, kept as the valuation's flow on
+/// into an account since its value before, kept as the valuation's `saved` on
 /// an account that asks for one.
 struct SavedColumnTests {
     private let file = """
@@ -34,9 +34,9 @@ struct SavedColumnTests {
         let result = preview.apply(to: library)
         let pension = result.library.valuations(for: "fondo-pensione")
         #expect(pension.map(\.balance) == [17_000, 17_500])
-        #expect(pension.map(\.flow) == [1_325, 1_325])
+        #expect(pension.map(\.saved) == [1_325, 1_325])
         // A cash account's saved amount is worked out from its values.
-        #expect(result.library.valuations(for: "conto-fineco").map(\.flow) == [nil, nil])
+        #expect(result.library.valuations(for: "conto-fineco").map(\.saved) == [nil, nil])
     }
 
     @Test func aHeaderThatSaysSoIsProposed() throws {

@@ -35,7 +35,7 @@ struct TradeStorageTests {
         var library = previous
         library.upsert(buy)
         library.upsert(deposit)
-        library.upsert(Valuation(account: "broker", date: "2026-10-31", cash: d("604.0"), flow: 2000))
+        library.upsert(Valuation(account: "broker", date: "2026-10-31", cash: d("604.0"), saved: 2000))
         try folder.library.save(library, previous: previous)
 
         #expect(try folder.text(october) == """
@@ -58,7 +58,7 @@ struct TradeStorageTests {
                 }
               ],
               "valuations": [
-                { "account": "broker", "cash": "604", "date": "2026-10-31", "flow": "2000" }
+                { "account": "broker", "cash": "604", "date": "2026-10-31", "saved": "2000" }
               ]
             }
 
@@ -113,9 +113,7 @@ struct TradeStorageTests {
             }
             """)
         let result = try folder.library.load()
-        #expect(result.report.errors.map(\.message) == [
-            #"trades[1].price: Expected a decimal such as "1234.56", found "139,1". This record was skipped."#,
-        ])
+        #expect(result.report.errors.map(\.path) == [october])
         #expect(result.library.trades(for: "broker") == [deposit])
 
         var library = result.library

@@ -20,6 +20,8 @@ final class AppModel {
     let checkIn: CheckInStore
     let widgets: WidgetStore
     let notes: NoteStore
+    /// First launch's answers and step, while the tour shows.
+    let onboarding: OnboardingModel
     #if FEEDBACK
     /// In-app feedback, in Debug builds (`Feedback.swift`).
     let feedback: FeedbackCenter
@@ -35,6 +37,7 @@ final class AppModel {
         checkIn = CheckInStore(library: library, prices: prices, plans: plans, preferences: preferences)
         widgets = WidgetStore(library: library, plans: plans, snapshotURL: widgetSnapshotURL)
         notes = NoteStore(preferences: preferences, widgets: widgets, schedules: schedulesNotes)
+        onboarding = OnboardingModel()
         #if FEEDBACK
         feedback = .caniretireyet(navigation: navigation)
         #endif

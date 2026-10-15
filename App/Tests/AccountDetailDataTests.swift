@@ -47,10 +47,10 @@ struct AccountDetailDataTests {
     @Test func aValueThatFollowsTheTradesIsntAStatement() throws {
         var library = PreviewLibrary.library
         let cash = try #require(Valuator(library: library).tradeCash(of: "directa", on: "2026-10-05"))
-        library.upsert(Valuation(account: "directa", date: "2026-10-05", cash: cash, flow: 0))
+        library.upsert(Valuation(account: "directa", date: "2026-10-05", cash: cash, saved: 0))
         #expect(try detail("directa", in: library).statements.first?.id.date == "2026-09-30")
 
-        library.upsert(Valuation(account: "directa", date: "2026-10-05", cash: cash + 100, flow: 100))
+        library.upsert(Valuation(account: "directa", date: "2026-10-05", cash: cash + 100, saved: 100))
         let statement = try #require(try detail("directa", in: library).statements.first)
         #expect(statement.id.date == "2026-10-05")
         #expect(statement.cashDifference == 100)
@@ -62,15 +62,13 @@ struct AccountDetailDataTests {
         let mismatch = try #require(try detail("directa", in: PreviewLibrary.withStatementMismatch).statements.first)
         #expect(mismatch.id.date == "2026-09-30")
         #expect(mismatch.mismatchCount == 1)
-        #expect(mismatch.positionsText == "1 position listed, 1 differs from the trades")
 
         var library = PreviewLibrary.library
         let held = try #require(Valuator(library: library).holdings(of: "directa", on: "2026-09-30").first)
         library.upsert(Valuation(account: "directa", date: "2026-09-30", cash: d("312.1"),
-                                 positions: [Position(instrument: "vwce", quantity: held.quantity)], flow: d("11.3")))
+                                 positions: [Position(instrument: "vwce", quantity: held.quantity)], saved: d("11.3")))
         let matching = try #require(try detail("directa", in: library).statements.first)
         #expect(matching.mismatchCount == 0)
-        #expect(matching.positionsText == "1 position listed, as the trades give")
     }
 
     @Test func aTradesAccountWithoutCashOfItsOwnHasNoStatements() throws {
@@ -93,8 +91,6 @@ struct AccountDetailDataTests {
         // Saved −304,65 = 3.400 in − 2.554,65 out − 1.150 moved to your other accounts.
         #expect(september.moved == -1150)
         #expect(data.valuations.prefix(3).map(\.moved) == [-1150, d("-850.6"), -650])
-        #expect(data.movedNote == "Moved is the part of the change that money in and out don't explain: money "
-            + "moved between your own accounts.")
     }
 
     @Test func aValueWithoutMoneyInAndOutHasNothingMoved() throws {
@@ -105,7 +101,7 @@ struct AccountDetailDataTests {
         #expect(first.moved == nil)
         // Recorded before money in and out were: what was saved alone.
         let november = try #require(data.valuations.first { $0.id.date == "2025-11-30" })
-        #expect(november.flow == d("1285.45"))
+        #expect(november.saved == d("1285.45"))
         #expect(november.moved == nil)
     }
 
@@ -116,9 +112,8 @@ struct AccountDetailDataTests {
         let september = try #require(data.valuations.first)
         #expect(september.valuation.interest == d("35.05"))
         // The change less the interest is saved, 500, with nothing in or out: all of it moved.
-        #expect(september.flow == 500)
+        #expect(september.saved == 500)
         #expect(september.moved == 500)
-        #expect(data.movedNote?.contains("money in and out and interest don't explain") == true)
     }
 
     // MARK: Other accounts

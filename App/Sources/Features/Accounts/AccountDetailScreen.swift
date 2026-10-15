@@ -90,7 +90,7 @@ struct AccountDetailScreen: View {
         List {
             Section {
                 AccountDetailHeader(data: data)
-                AccountHistoryChart(points: data.history, flows: data.flows, currency: data.currency)
+                AccountHistoryChart(points: data.history, savedTicks: data.savedTicks, currency: data.currency)
                     .padding(.vertical, Metrics.xs)
                 chartNotes(data)
             }
@@ -227,7 +227,8 @@ struct AccountDetailScreen: View {
                     emptyAccountBanner(since)
                 }
                 Card {
-                    AccountHistoryChart(points: data.history, flows: data.flows, currency: data.currency, height: 240)
+                    AccountHistoryChart(points: data.history, savedTicks: data.savedTicks, currency: data.currency,
+                                        height: 240)
                     chartNotes(data)
                 }
                 ForEach(data.sections, id: \.self) { section in
@@ -803,7 +804,7 @@ private struct AccountValuationListRow: View {
                 if row.recordsMoneyInOut {
                     moneyInOut
                 } else {
-                    flow
+                    savedText
                 }
             }
         }
@@ -842,13 +843,13 @@ private struct AccountValuationListRow: View {
     }
 
     @ViewBuilder
-    private var flow: some View {
-        if let flow = row.flow {
-            if flow != 0 {
+    private var savedText: some View {
+        if let saved = row.saved {
+            if saved != 0 {
                 HStack(spacing: 4) {
                     Text("saved")
                         .foregroundStyle(Palette.secondaryInk)
-                    DeltaText(flow, currency: currency, precision: .automatic, showsArrow: false)
+                    DeltaText(saved, currency: currency, precision: .automatic, showsArrow: false)
                 }
                 .font(.caption)
             }
@@ -1000,7 +1001,7 @@ private struct AccountValuationsTable: View {
     private enum Columns {
         static let date = PageTableColumn(min: 84, max: 120)
         static let value = PageTableColumn(min: 100, max: 160, alignment: .trailing)
-        static let flow = PageTableColumn(min: 90, max: 140, alignment: .trailing)
+        static let saved = PageTableColumn(min: 90, max: 140, alignment: .trailing)
         static let amount = PageTableColumn(min: 80, max: 130, alignment: .trailing)
         static let note = PageTableColumn(min: 0, max: .infinity)
     }
@@ -1009,7 +1010,7 @@ private struct AccountValuationsTable: View {
         PageTable(rows, open: { _ in }) {
             Text("Date").pageTableColumn(Columns.date)
             Text("Value").pageTableColumn(Columns.value)
-            Text("Saved").pageTableColumn(Columns.flow)
+            Text("Saved").pageTableColumn(Columns.saved)
             if showsMoneyInOut {
                 Text("In").pageTableColumn(Columns.amount)
                 Text("Out").pageTableColumn(Columns.amount)
@@ -1027,8 +1028,8 @@ private struct AccountValuationsTable: View {
             AccountValuationValue(row: row, currency: currency)
                 .frame(maxWidth: .infinity, alignment: .trailing)
                 .pageTableColumn(Columns.value)
-            AccountValuationFlowCell(row: row, currency: currency)
-                .pageTableColumn(Columns.flow)
+            AccountValuationSavedCell(row: row, currency: currency)
+                .pageTableColumn(Columns.saved)
             if showsMoneyInOut {
                 AccountValuationAmountCell(amount: row.valuation.moneyIn, currency: currency)
                     .pageTableColumn(Columns.amount)
@@ -1113,14 +1114,14 @@ private struct AccountValuationAmountCell: View {
     }
 }
 
-private struct AccountValuationFlowCell: View {
+private struct AccountValuationSavedCell: View {
     let row: AccountValuationRow
     let currency: CurrencyCode
 
     var body: some View {
         Group {
-            if let flow = row.flow {
-                DeltaText(flow, currency: currency, precision: .automatic, showsArrow: false)
+            if let saved = row.saved {
+                DeltaText(saved, currency: currency, precision: .automatic, showsArrow: false)
             } else {
                 Text("Unknown")
                     .foregroundStyle(Palette.mutedInk)

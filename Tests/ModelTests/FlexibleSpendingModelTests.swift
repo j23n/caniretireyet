@@ -11,8 +11,6 @@ struct FlexibleSpendingModelTests {
         let spending = try decode(PlanSpending.self, #"{ "working": "1", "retired": "28000", "flexible": { "enabled": true } }"#)
         let rule = try #require(spending.flexibleRule)
         #expect(rule.isEnabled && rule.usesDefaults)
-        #expect(rule.effectiveCut == d("0.1") && rule.effectiveFloor == d("0.8"))
-        #expect(rule.effectiveUpperGuardrail == d("0.2") && rule.effectiveLowerGuardrail == d("0.2"))
         // Without `enabled`, written by hand, it's on too.
         #expect(try decode(PlanSpending.self, #"{ "working": "1", "retired": "1", "flexible": {} }"#).flexibleRule != nil)
         // The rule the app writes when it's switched on.

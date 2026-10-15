@@ -175,34 +175,28 @@ struct PlanProgressYearTests {
         [WorkPhase(from: "2026-01-01", until: .retirement, netIncome: 40_000)]
     }
 
-    @Test func aPhaseWithADateWorksThroughTheYearItEnds() throws {
-        let fixed = try baseline(work: [WorkPhase(from: "2026-01-01", until: .date("2028-12-31"), netIncome: 40_000)])
-        #expect(PlanProgressYear.plannedSpending(of: fixed, in: 2028, birthDate: birthDate) == 36_000)
-        #expect(PlanProgressYear.plannedSpending(of: fixed, in: 2029, birthDate: birthDate) == nil)
-    }
-
-    @Test func aPhaseUntilRetirementEndsOnTheRetirementBirthday() throws {
-        // 55 on 12 April 2043.
-        let retiring = try baseline(work: untilRetirement(), retiringAt: .age(55), earliestAge: 50)
-        #expect(PlanProgressYear.plannedSpending(of: retiring, in: 2043, birthDate: birthDate) == 36_000)
-        #expect(PlanProgressYear.plannedSpending(of: retiring, in: 2044, birthDate: birthDate) == nil)
-    }
-
-    @Test func withoutARetirementAgeTheEarliestAnswerPlacesIt() throws {
-        // 50 on 12 April 2038.
-        let earliest = try baseline(work: untilRetirement(), retiringAt: .earliest, earliestAge: 50)
-        #expect(PlanProgressYear.plannedSpending(of: earliest, in: 2038, birthDate: birthDate) == 36_000)
-        #expect(PlanProgressYear.plannedSpending(of: earliest, in: 2039, birthDate: birthDate) == nil)
-    }
-
-    @Test func withoutEitherOrABirthDateItNeverEnds() throws {
+    /// Spending while working is planned through the year the last phase
+    /// ends: its date, or the birthday of the retirement age, which the
+    /// earliest answer gives when the plan asks for the earliest age.
+    @Test func workingEndsInTheYearTheLastPhaseEnds() throws {
+        let dated = [WorkPhase(from: "2026-01-01", until: .date("2028-12-31"), netIncome: 40_000)]
+        // 55 on 12 April 2043; 50 on 12 April 2038.
+        let cases: [(work: [WorkPhase], age: AgeChoice, earliestAge: Int?, lastYear: Int)] = [
+            (dated, .age(55), nil, 2028),
+            (untilRetirement(), .age(55), 50, 2043),
+            (untilRetirement(), .earliest, 50, 2038),
+        ]
+        for item in cases {
+            let planned = try baseline(work: item.work, retiringAt: item.age, earliestAge: item.earliestAge)
+            #expect(PlanProgressYear.plannedSpending(of: planned, in: item.lastYear, birthDate: birthDate) == 36_000)
+            #expect(PlanProgressYear.plannedSpending(of: planned, in: item.lastYear + 1, birthDate: birthDate) == nil)
+        }
+        // Without either, or without a birth date, it never ends.
         let unknown = try baseline(work: untilRetirement(), retiringAt: .earliest)
         #expect(PlanProgressYear.plannedSpending(of: unknown, in: 2090, birthDate: birthDate) == 36_000)
         let retiring = try baseline(work: untilRetirement(), retiringAt: .age(55))
         #expect(PlanProgressYear.plannedSpending(of: retiring, in: 2090, birthDate: nil) == 36_000)
-    }
-
-    @Test func aPlanWithoutWorkIsPastWorking() throws {
+        // A plan without work is past working.
         let retired = try baseline(work: [])
         #expect(PlanProgressYear.plannedSpending(of: retired, in: 2026, birthDate: birthDate) == nil)
     }

@@ -29,7 +29,7 @@ import UniformTypeIdentifiers
 struct ImportScreen: View {
     let file: URL?
     /// Closes the screen when it's pushed on another flow's stack (first
-    /// launch's accounts step): it then has an import of its own, as the
+    /// launch's files step): it then has an import of its own, as the
     /// iPhone's sheet does, and *Cancel* or *Done* calls it. `nil` for the
     /// sheet and the page.
     let close: (() -> Void)?

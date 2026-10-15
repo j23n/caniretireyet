@@ -107,11 +107,11 @@ public struct ImportedRecord: Hashable, Sendable {
     public var interest: Decimal?
     /// What was saved into the account since its value before: a
     /// spreadsheet's saved column, or a statement's purchase or sale. Kept
-    /// only for an account that asks for one (``Model/Account/asksForFlow``):
+    /// only for an account that asks for one (``Model/Account/asksForSaved``):
     /// applying drops it when the account doesn't (a proposed account's kind
     /// edited since). It's never a conflict of its own: it changes with the
     /// balance, or fills in a missing one.
-    public var flow: Decimal?
+    public var saved: Decimal?
     /// Whether money in and out (and interest) were counted from a bank
     /// statement's classified lines: they replace the library's when the
     /// balance agrees, since the lines say what the value's own were
@@ -233,7 +233,7 @@ enum RecordMerge {
                         Position(instrument: position.instrument, quantity: $0, costBasis: position.costBasis)
                     }
                 }.sorted { $0.instrument < $1.instrument },
-                flow: imported.flow, moneyIn: imported.moneyIn, moneyOut: imported.moneyOut,
+                saved: imported.saved, moneyIn: imported.moneyIn, moneyOut: imported.moneyOut,
                 oneOff: imported.oneOff, tax: imported.tax, interest: imported.interest, source: .import)
             return Outcome(status: .new, kept: .valuation(valuation), overwritten: .valuation(valuation))
         case (.price(let key), let existing):
@@ -309,7 +309,7 @@ enum RecordMerge {
 
     /// Merges the file's values into a valuation. Without `overwrite`, only
     /// values the valuation lacks are filled in. Returns whether any value
-    /// differed. A flow is never a conflict of its own (see ``ImportedRecord/flow``).
+    /// differed. What was saved is never a conflict of its own (see ``ImportedRecord/saved``).
     static func merge(_ imported: ImportedRecord, into existing: Valuation,
                       overwrite: Bool) -> (Valuation, conflict: Bool) {
         var valuation = existing
@@ -398,9 +398,9 @@ enum RecordMerge {
                 valuation[keyPath: path] = value
             }
         }
-        // The flow goes with the balance: it's filled in, and replaced only with the values that changed.
-        if let flow = imported.flow, valuation.flow == nil || recounted || (overwrite && conflict) {
-            valuation.flow = flow
+        // What was saved goes with the balance: it's filled in, and replaced only with the values that changed.
+        if let saved = imported.saved, valuation.saved == nil || recounted || (overwrite && conflict) {
+            valuation.saved = saved
         }
         if recounted || (overwrite && conflict) { valuation.source = .import }
         return (valuation, conflict)

@@ -175,7 +175,7 @@ struct BackupTests {
 
         // A library written by a newer app can't be restored into.
         try folder.write("library.json", #"{ "baseCurrency": "EUR", "schemaVersion": 99 }"#)
-        #expect(throws: StorageError.libraryIsNewer(version: 99, supported: 5)) {
+        #expect(throws: StorageError.libraryIsNewer(version: 99, supported: LibrarySettings.currentSchemaVersion)) {
             try folder.library.restore(backup: backup)
         }
     }

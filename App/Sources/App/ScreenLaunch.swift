@@ -1,6 +1,7 @@
 #if DEBUG
 import Foundation
 import Model
+import Planner
 
 /// A screen of the app with a made-up library, for its screenshots
 /// (App/ScreenTests, `make screenshots`) and for opening a screen by hand:
@@ -13,9 +14,12 @@ import Model
 /// `CheckInPreviewData`). The main plan is calculated at once, with fewer runs than it
 /// says, so the plan's screens fill in quickly; not with `-screenNoRun`.
 /// `-screenLibrary empty` opens first launch instead, on the step `-screen`
-/// names (``OnboardingStep``: `welcome`, `location`, `you`, `money`,
-/// `accounts` or `disclaimer`). With `-screenHidesAmounts`, amounts are
-/// hidden, as with the eye button. Debug builds only.
+/// names (``OnboardingStep``: `welcome`, `you`, `money`, `later`,
+/// `answer`, `files` or `notes`), with made-up answers
+/// (``sampleAnswers``). `-screenLibrary dayOne` opens the library the tour
+/// leaves, with *Getting started* on the Overview. With
+/// `-screenHidesAmounts`, amounts are hidden, as with the eye button.
+/// Debug builds only.
 struct ScreenLaunch {
     /// The made-up libraries: ``PreviewLibrary/library`` and
     /// ``PreviewLibrary/withLongHistory``; or none, for first launch.
@@ -24,12 +28,16 @@ struct ScreenLaunch {
         case longHistory
         /// No library yet: first launch, on ``ScreenLaunch/onboardingStep``.
         case empty
+        /// The library the tour leaves (``ScreenLaunch/createdLibrary``),
+        /// on its first day.
+        case dayOne
 
         var library: Library {
             switch self {
             case .example: PreviewLibrary.library
             case .longHistory: PreviewLibrary.withLongHistory
             case .empty: Library()
+            case .dayOne: ScreenLaunch.createdLibrary
             }
         }
     }
@@ -68,6 +76,8 @@ struct ScreenLaunch {
     /// The step of first launch to open on, with ``Sample/empty``; `nil`
     /// with a library.
     var onboardingStep: OnboardingStep?
+    /// Whether the Overview shows *Getting started*, as on the tour's day.
+    var isFirstDay = false
 
     /// `sample` on `screen`; ``Sample/empty`` opens first launch's welcome.
     init(_ sample: Sample, screen: Screen, calculates: Bool = true, hidesAmounts: Bool = false) {
@@ -76,14 +86,15 @@ struct ScreenLaunch {
         self.calculates = calculates
         self.hidesAmounts = hidesAmounts
         onboardingStep = sample == .empty ? .welcome : nil
+        isFirstDay = sample == .dayOne
         for id in library.plans.keys {
             library.plans[id]?.simulation.runs = 400
         }
     }
 
-    /// First launch on `step`. Before *Create library* there's no library;
-    /// from the accounts step on, the library is the one *Create library*
-    /// leaves (``createdLibrary``).
+    /// First launch on `step`. Before *See My Answer* there's no library;
+    /// from the answer on, the library is the one *See My Answer* leaves
+    /// (``createdLibrary``).
     init(firstLaunchAt step: OnboardingStep) {
         library = step.comesAfterCreating ? Self.createdLibrary : Library()
         screen = .overview
@@ -110,16 +121,30 @@ struct ScreenLaunch {
                   hidesAmounts: arguments.contains("-screenHidesAmounts"))
     }
 
-    /// What *Create library* leaves, for first launch's last steps: the
-    /// example library's settings, the starter plan "Base case" spending
-    /// 2.500 a month and retiring at 60, and no accounts yet.
+    /// Made-up answers to the tour's questions: some cash, investments
+    /// and a pension pot, pay and spending, a state pension from 67.
+    static let sampleAnswers = StarterAnswers(
+        cash: 18_000, investments: 42_000, pension: 25_000, pensionFromAge: 67, home: nil,
+        payPerMonth: 3_800, spendingPerMonth: 2_600, statePensionPerMonth: 1_100, statePensionFromAge: 67,
+        retirementAge: nil, investmentTax: Decimal(string: "0.26"))
+
+    /// What *See My Answer* leaves, for first launch's last steps: the
+    /// example library's settings, ``sampleAnswers``'s starting estimates
+    /// on ``PreviewLibrary/latestCheckIn``, and the starter plan "Base
+    /// case" completed with them, as the main plan.
     static var createdLibrary: Library {
         var settings = PreviewLibrary.library.settings
         settings.mainPlan = nil
         var library = Library(settings: settings)
-        if let plan = PlanEditing.starterPlan(
-            id: "base-case", name: PlanEditing.starterPlanName, library: library,
-            asOf: PreviewLibrary.latestCheckIn, payPerMonth: nil, spendingPerMonth: 2_500, retirementAge: 60) {
+        let date = PreviewLibrary.latestCheckIn
+        let answers = sampleAnswers
+        StarterSetup.addEstimates(answers, to: &library, on: date, taken: [])
+        if var plan = PlanEditing.starterPlan(
+            id: "base-case", name: PlanEditing.starterPlanName, library: library, asOf: date,
+            payPerMonth: answers.payPerMonth, spendingPerMonth: answers.spendingPerMonth,
+            retirementAge: answers.retirementAge) {
+            StarterSetup.complete(&plan, with: answers, asOf: date)
+            plan.simulation.runs = 400
             library.plans[plan.id] = plan
             library.settings.mainPlan = plan.id
         }
@@ -135,6 +160,9 @@ struct ScreenLaunch {
         }
         let model = AppModel.preview(library, planEngine: PlannerPlanEngine(), defaults: suite)
         model.preferences.hidesAmounts = hidesAmounts
+        if isFirstDay {
+            model.preferences.gettingStartedSince = PreviewLibrary.latestCheckIn
+        }
         let navigation = model.navigation
         let main = library.settings.mainPlan
         switch screen {
@@ -173,22 +201,33 @@ struct ScreenLaunch {
         return model
     }
 
-    /// First launch on `step`. Before *Create library*, a store without a
-    /// library, which would create one in a new temporary folder; from the
-    /// accounts step on, ``library`` in memory, with onboarding still
-    /// showing as *Create library* leaves it.
+    /// First launch on `step`, with ``sampleAnswers`` given. Before *See My
+    /// Answer*, a store without a library, which would create one in a new
+    /// temporary folder; from the answer on, ``library`` in memory, with
+    /// onboarding still showing as *See My Answer* leaves it, and the
+    /// answer being recorded.
     @MainActor
     private func firstLaunchModel(on step: OnboardingStep, defaults suite: String) -> AppModel {
         let model: AppModel
         if step.comesAfterCreating {
             model = AppModel.preview(library, planEngine: PlannerPlanEngine(), defaults: suite)
             model.navigation.finishesOnboarding = true
+            model.preferences.gettingStartedSince = PreviewLibrary.latestCheckIn
         } else {
             let preferences = AppPreferences(defaults: UserDefaults(suiteName: suite) ?? .standard)
             let folder = FileManager.default.temporaryDirectory
                 .appendingPathComponent("screen-launch-\(UUID().uuidString)", isDirectory: true)
             model = AppModel(preferences: preferences, library: .needingSetup(in: folder, preferences: preferences),
                              prices: PriceStore(service: nil), planEngine: PlannerPlanEngine())
+        }
+        let onboarding = model.onboarding
+        onboarding.birthDate = library.settings.person?.birthDate?.dateValue
+            ?? PreviewLibrary.library.settings.person?.birthDate?.dateValue
+        onboarding.choose(country: PreviewLibrary.library.settings.taxResidence)
+        onboarding.currency = PreviewLibrary.library.settings.baseCurrency
+        onboarding.answers = Self.sampleAnswers
+        if step.comesAfterCreating {
+            onboarding.startAnswer(library: model.library, plans: model.plans)
         }
         model.navigation.requestedOnboardingStep = step
         return model

@@ -28,8 +28,8 @@
     { "account": "conto-deposito", "balance": "15562.1", "date": "2025-12-31", "interest": "30.85" },
     { "account": "conto-fineco", "balance": "3950.4", "date": "2025-12-31" },
     { "account": "directa", "cash": "402.15", "date": "2025-12-31" },
-    { "account": "fondo-pensione", "balance": "16850.4", "date": "2025-12-31", "flow": "1325" },
+    { "account": "fondo-pensione", "balance": "16850.4", "date": "2025-12-31", "saved": "1325" },
     { "account": "mutuo-casa", "balance": "-146900", "date": "2025-12-31" },
-    { "account": "tfr", "balance": "8420.55", "date": "2025-12-31", "flow": "310" }
+    { "account": "tfr", "balance": "8420.55", "date": "2025-12-31", "saved": "310" }
   ]
 }

@@ -10,7 +10,7 @@ import Tracker
 struct GapExplanationTests {
     /// A year that started on plan (100,000 both), planning to save 12,000
     /// and expecting 5,000 from markets: you saved 10,000, markets added
-    /// 3,000, a balance moved 500 without a flow, and prices rose, so the
+    /// 3,000, a balance moved 500 without a saved amount, and prices rose, so the
     /// 113,500 you have is 111,200 in the baseline's money.
     @Test func thePartsAddUpToTheGap() {
         let change = ValueChange(start: 100_000, market: 3_000, saved: 10_000, other: 500, end: 113_500)

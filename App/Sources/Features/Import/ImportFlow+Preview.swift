@@ -261,8 +261,8 @@ extension ImportFlow {
                 if let cost = position.costBasis { text += " (cost \(amount(cost)))" }
                 parts.append(text)
             }
-            if let flow = valuation.flow {
-                parts.append("flow \(AmountFormat.signedAmount(flow, currency: currency, precision: .automatic, locale: locale))")
+            if let saved = valuation.saved {
+                parts.append("saved \(AmountFormat.signedAmount(saved, currency: currency, precision: .automatic, locale: locale))")
             }
             return parts.isEmpty ? "No values" : parts.joined(separator: " · ")
         case .price(let price):

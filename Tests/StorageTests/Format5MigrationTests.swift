@@ -81,22 +81,24 @@ struct Format5MigrationTests {
         #expect(baseline?["crypto"] == median && baseline?["equity"] == mean)
     }
 
-    /// Flows stay only on the pension fund, which asks for one. The savings
-    /// value's typed flow left its interest out, so it gets that interest;
-    /// the car's flow wasn't its change, which a note says.
-    @Test func flowsStayOnlyWhereTheyreAskedFor() throws {
+    /// Flows stay only on the pension fund, which asks for one, renamed
+    /// `saved`. The savings value's typed flow left its interest out, so it
+    /// gets that interest; the car's flow wasn't its change, which a note
+    /// says.
+    @Test func flowsStayOnlyWhereTheyreAskedForAsSaved() throws {
         let (files, notes) = try upgrade(Self.accounts.merging(Self.history) { $1 })
         let february = try #require(files["history/2026/2026-02.json"]?["valuations"]?.arrayValue)
         let byAccount = Dictionary(uniqueKeysWithValues: february.map { ($0["account"]?.stringValue ?? "", $0) })
         #expect(byAccount["bank"] == ["account": "bank", "balance": "1200", "date": "2026-02-28", "moneyIn": "900",
                                       "moneyOut": "700"])
-        #expect(byAccount["broker"]?["flow"] == nil)
-        #expect(byAccount["car"]?["flow"] == nil)
+        #expect(byAccount["broker"] == ["account": "broker", "cash": "50", "date": "2026-02-28"])
+        #expect(byAccount["car"] == ["account": "car", "balance": "8500", "date": "2026-02-28"])
         #expect(byAccount["deposit"] == ["account": "deposit", "balance": "5040", "date": "2026-02-28",
                                          "interest": "40"])
-        #expect(byAccount["pension"]?["flow"] == "150")
+        #expect(byAccount["pension"] == ["account": "pension", "balance": "300", "date": "2026-02-28",
+                                         "saved": "150"])
         let january = try #require(files["history/2026/2026-01.json"]?["valuations"]?.arrayValue)
-        #expect(january.allSatisfy { $0["flow"] == nil })
+        #expect(january.allSatisfy { $0["flow"] == nil && $0["saved"] == nil })
         #expect(notes == ["Car: what 1 value saved wasn't the change in balance; it's now worked out from the "
             + "balances."])
     }
@@ -151,8 +153,8 @@ struct Format5MigrationTests {
         #expect(!loaded.report.needsMigration)
         #expect(loaded.library.settings.schemaVersion == 5)
         #expect(loaded.library.accounts["car"]?.kind == .belongings)
-        #expect(loaded.library.valuations(for: "pension").map(\.flow) == [nil, 150])
-        #expect(loaded.library.valuations(for: "bank").map(\.flow) == [nil, nil])
+        #expect(loaded.library.valuations(for: "pension").map(\.saved) == [nil, 150])
+        #expect(loaded.library.valuations(for: "bank").map(\.saved) == [nil, nil])
         #expect(try folder.library.migrate(date: date) == nil)
     }
 }

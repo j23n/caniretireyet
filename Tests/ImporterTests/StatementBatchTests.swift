@@ -275,7 +275,7 @@ struct StatementBatchTests {
             $0.id == .valuation(ValuationKey(account: "auto", date: saleLine.date))
         }).imported
         #expect(value.balance == 0)
-        #expect(value.flow == nil)
+        #expect(value.saved == nil)
         #expect(sold.accountChanges == [AccountChangeProposal(account: "auto",
                                                               change: .close(on: saleLine.date.adding(days: 1)),
                                                               statementRow: saleLine.row)])
