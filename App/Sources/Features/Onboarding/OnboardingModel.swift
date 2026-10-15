@@ -162,8 +162,10 @@ final class OnboardingModel {
                 return
             }
         }
-        preferences.gettingStartedSince = preferences.gettingStartedSince ?? library.asOfDate
         await addStarterRecords(library: library, currency: settings.baseCurrency)
+        if !openedExistingLibrary {
+            preferences.gettingStartedSince = preferences.gettingStartedSince ?? library.asOfDate
+        }
         step = .answer
         startAnswer(library: library, plans: plans)
     }
@@ -202,9 +204,11 @@ final class OnboardingModel {
     }
 
     /// Records the main plan's first answer on the estimates' day, once;
-    /// nothing without a main plan or values to stand on.
+    /// nothing without a main plan, a birth date (the answer step asks for
+    /// it, then retries) or values to stand on.
     func startAnswer(library: LibraryStore, plans: PlanStore) {
-        guard !startedAnswer, library.mainPlan != nil, let date = library.latestCheckIn else { return }
+        guard !startedAnswer, library.mainPlan != nil, library.settings.person?.birthDate != nil,
+              let date = library.latestCheckIn else { return }
         startedAnswer = true
         plans.recordCheckInAnswer(on: date)
     }

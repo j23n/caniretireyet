@@ -154,6 +154,7 @@ struct ImportAnswerFollowUp: View {
         before = plans.mainHeadline
         do {
             try await library.replaceStartingEstimates(estimates)
+            model.noteEstimatesReplaced()
             await library.waitForPendingWrites()
             runAnswer()
         } catch {

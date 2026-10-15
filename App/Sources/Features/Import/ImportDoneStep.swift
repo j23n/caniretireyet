@@ -213,6 +213,10 @@ struct ImportDoneStep: View {
             return "Undone, except for what changed after the import, which was left in place."
         }
         if receipt.isUndone { return "Undone: the \(files) it wrote were put back." }
+        if receipt.replacedEstimates {
+            return "Not offered once your round amounts were replaced, which undoing the import would leave "
+                + "behind. Both edits have backups in Sync & backups."
+        }
         if let backup = receipt.backup {
             return "The import wrote \(files). They were copied to \(backup.path) first; undoing puts back what the "
                 + "import changed and leaves later edits alone."

@@ -130,6 +130,13 @@ final class ImportController {
         }
     }
 
+    /// Done replaced starting estimates with the accounts the import brought
+    /// in (``ImportAnswerFollowUp``): Undo import is no longer offered
+    /// (``ImportReceipt/replacedEstimates``).
+    func noteEstimatesReplaced() {
+        receipt?.replacedEstimates = true
+    }
+
     /// Undoes the import, leaving edits made since in place: keeps a copy of
     /// the files as they are now (`undo-import`, as `retire import --undo`
     /// does), then puts back what the import changed and deletes the files

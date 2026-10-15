@@ -33,6 +33,23 @@ struct OnboardingTests {
         #expect(OnboardingStep.files.questionNumber == nil)
     }
 
+    /// Without a birth date the answer step asks for one, so the tour
+    /// doesn't start a run the planner would refuse.
+    @MainActor
+    @Test func theAnswerWaitsForABirthDate() throws {
+        var library = Library(settings: LibrarySettings())
+        StarterSetup.addEstimates(StarterAnswers(cash: 10_000), to: &library, on: "2026-10-15")
+        let plan = try #require(PlanEditing.starterPlan(
+            id: "base-case", name: PlanEditing.starterPlanName, library: library, asOf: "2026-10-15",
+            payPerMonth: nil, spendingPerMonth: 2_000))
+        library.plans[plan.id] = plan
+        library.settings.mainPlan = plan.id
+        let model = AppModel.preview(library, defaults: "onboarding-tests")
+        model.onboarding.startAnswer(library: model.library, plans: model.plans)
+        #expect(!model.onboarding.startedAnswer)
+        #expect(model.plans.checkInAnswer == nil)
+    }
+
     // MARK: Words
 
     @Test func theRevealSaysYesOrNotYet() {
