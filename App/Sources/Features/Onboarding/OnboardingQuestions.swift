@@ -89,8 +89,8 @@ struct OnboardingYouStep: View {
     }
 
     /// The picker, always there: it shows a suggestion, saved once a date
-    /// is picked or *Use This Date* is tapped, so none is made up. Without
-    /// one the library is still created, and the answer asks for it.
+    /// is picked or *Use This Date* is tapped, so none is made up.
+    /// *Continue* waits for one (`OnboardingModel.canContinue`).
     private var birthDateRow: some View {
         VStack(alignment: .leading, spacing: Metrics.xs) {
             DatePicker("Born", selection: birthDateBinding, in: ...Date(), displayedComponents: .date)
@@ -102,7 +102,7 @@ struct OnboardingYouStep: View {
                     .privacySensitiveInFeedback()
             } else {
                 HStack {
-                    Text("Not set yet: pick your birth date, or use the one shown.")
+                    Text("Pick your birth date to continue, or use the one shown.")
                         .font(.footnote)
                         .foregroundStyle(Palette.secondaryInk)
                         .fixedSize(horizontal: false, vertical: true)

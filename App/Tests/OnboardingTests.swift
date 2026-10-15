@@ -26,11 +26,31 @@ struct OnboardingTests {
         #expect(OnboardingStep.files.previous == .answer)
     }
 
-    @Test func theQuestionsAreNumberedUpToTheAnswer() {
-        #expect(OnboardingStep.allCases.compactMap(\.questionNumber) == [1, 2, 3, 4])
-        #expect(OnboardingStep.questionCount == 4)
-        #expect(OnboardingStep.welcome.questionNumber == nil)
-        #expect(OnboardingStep.files.questionNumber == nil)
+    @Test func everyStepAfterTheWelcomeIsNumbered() {
+        #expect(OnboardingStep.allCases.compactMap(\.number) == [1, 2, 3, 4, 5, 6])
+        #expect(OnboardingStep.count == 6)
+        #expect(OnboardingStep.welcome.number == nil)
+        #expect(OnboardingStep.notes.number == 6)
+    }
+
+    /// The answer is an age, so *About you* doesn't go on without a birth
+    /// date; the picker's suggestion doesn't count until it's chosen.
+    @MainActor
+    @Test func aboutYouWaitsForABirthDate() {
+        let model = OnboardingModel(locale: english)
+        model.step = .you
+        #expect(!model.canContinue)
+        model.birthDate = model.pickedBirthDate
+        #expect(model.canContinue)
+    }
+
+    @MainActor
+    @Test func aNegativeAmountKeepsTheMoneyStepFromGoingOn() {
+        let model = OnboardingModel(locale: english)
+        model.step = .money
+        #expect(model.canContinue)
+        model.answers.cash = -1
+        #expect(!model.canContinue)
     }
 
     /// Without a birth date the answer step asks for one, so the tour
