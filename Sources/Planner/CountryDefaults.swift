@@ -43,6 +43,28 @@ public enum CountryDefaults {
         }
     }
 
+    /// The currency of the country you live in, for the countries first
+    /// launch offers and a few more; `nil` elsewhere, which keeps the
+    /// currency chosen.
+    public static func currency(for country: CountryCode?) -> CurrencyCode? {
+        switch country?.rawValue {
+        case "AT", "BE", "CY", "DE", "EE", "ES", "FI", "FR", "GR", "HR", "IE", "IT", "LT", "LU", "LV", "MT", "NL",
+             "PT", "SI", "SK": .eur
+        case "CH", "LI": "CHF"
+        case "GB": "GBP"
+        case "US": "USD"
+        case "CA": "CAD"
+        case "AU": "AUD"
+        case "JP": "JPY"
+        case "SE": "SEK"
+        case "NO": "NOK"
+        case "DK": "DKK"
+        case "PL": "PLN"
+        case "CZ": "CZK"
+        default: nil
+        }
+    }
+
     /// What the state pension is called where you live: "Social Security"
     /// in the United States, else "State pension".
     public static func statePensionName(for country: CountryCode?) -> String {

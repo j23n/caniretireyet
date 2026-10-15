@@ -131,7 +131,60 @@ struct StarterSetupTests {
         #expect(soonerAge < earliest)
     }
 
+    /// A library with the estimates of ``answers`` on `today`, and a real
+    /// current account valued from `from`.
+    func libraryWithCurrentAccount(from: CalendarDate) -> (Library, [AccountID]) {
+        var library = emptyLibrary()
+        let ids = StarterSetup.addEstimates(answers, to: &library, on: today)
+        library.accounts["girokonto"] = Account(id: "girokonto", name: "Girokonto", kind: .cash, currency: .eur,
+                                                opened: from)
+        library.upsert(Valuation(account: "girokonto", date: from, balance: d("4000")))
+        library.upsert(Valuation(account: "girokonto", date: from.adding(days: 20), balance: d("4200")))
+        return (library, ids)
+    }
+
+    @Test func realAccountsOfTheRightKindReplaceAnEstimate() throws {
+        let (library, _) = libraryWithCurrentAccount(from: "2026-11-01")
+        let cash = try #require(library.openStartingEstimates.first { $0.kind == .savings })
+        #expect(library.accountsReplacing(cash).map(\.id) == ["girokonto"])
+        #expect(library.replacement(of: cash) == .close(on: "2026-10-31", successor: "girokonto"))
+        let pension = try #require(library.openStartingEstimates.first { $0.kind == .pensionFund })
+        #expect(library.accountsReplacing(pension).isEmpty)
+        #expect(library.replacement(of: pension) == nil)
+    }
+
+    @Test func historyFromBeforeTheEstimateRemovesIt() throws {
+        let (library, _) = libraryWithCurrentAccount(from: "2026-01-31")
+        let cash = try #require(library.openStartingEstimates.first { $0.kind == .savings })
+        #expect(library.replacement(of: cash) == .remove)
+    }
+
+    @Test func theSuccessorIsOfTheEstimatesOwnKind() throws {
+        var library = emptyLibrary()
+        StarterSetup.addEstimates(StarterAnswers(home: d("200000")), to: &library, on: today)
+        for (id, kind) in [("mortgage", AccountKind.mortgage), ("home", .property)] {
+            library.accounts[AccountID(id)] = Account(id: AccountID(id), name: id, kind: kind, currency: .eur,
+                                                      opened: "2026-11-30")
+            library.upsert(Valuation(account: AccountID(id), date: "2026-11-30", balance: d("1")))
+        }
+        let home = try #require(library.openStartingEstimates.first)
+        #expect(library.accountsReplacing(home).count == 2)
+        #expect(library.replacement(of: home) == .close(on: "2026-11-29", successor: "home"))
+    }
+
+    @Test func aSketchIsOnlyEstimates() {
+        var (library, _) = libraryWithCurrentAccount(from: "2026-11-01")
+        #expect(library.valuesAreStartingEstimates(on: today))
+        #expect(!library.valuesAreStartingEstimates(on: "2026-11-01"))
+        #expect(!library.valuesAreStartingEstimates(on: "2026-10-14"))
+        library.upsert(Valuation(account: "girokonto", date: today, balance: d("1")))
+        #expect(!library.valuesAreStartingEstimates(on: today))
+    }
+
     @Test func countryDefaults() {
+        #expect(CountryDefaults.currency(for: "DE") == .eur)
+        #expect(CountryDefaults.currency(for: "GB") == .gbp)
+        #expect(CountryDefaults.currency(for: "ZZ") == nil)
         #expect(CountryDefaults.statePensionAge(for: "DE") == 67)
         #expect(CountryDefaults.statePensionAge(for: "FR") == 64)
         #expect(CountryDefaults.statePensionAge(for: nil) == 67)

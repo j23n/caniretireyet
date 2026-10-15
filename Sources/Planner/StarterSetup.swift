@@ -183,6 +183,30 @@ extension Account {
     public var isStartingEstimate: Bool {
         tags.contains(StarterSetup.estimateTag)
     }
+
+    /// The kinds of real accounts that replace this starting estimate:
+    /// current and savings accounts replace cash and savings; investment
+    /// accounts the investments; pension funds and TFR the pension; the
+    /// home and its mortgage the home.
+    public var kindsReplacingEstimate: Set<AccountKind> {
+        switch kind {
+        case .savings, .cash: [.cash, .savings]
+        case .pensionFund, .tfr: [.pensionFund, .tfr]
+        case .property: [.property, .mortgage]
+        default: [.brokerage, .crypto, .metals, .other]
+        }
+    }
+}
+
+/// What replacing a starting estimate with real accounts does to it
+/// (``Library/replacement(of:)``).
+public enum EstimateReplacement: Hashable, Sendable {
+    /// The real accounts have values on or before the day it was
+    /// estimated, so it goes: its one value would count twice.
+    case remove
+    /// It counts until the day before the real accounts' first value, and
+    /// `successor` continues it, so charts stay continuous.
+    case close(on: CalendarDate, successor: AccountID)
 }
 
 extension Library {
@@ -191,5 +215,39 @@ extension Library {
     public var openStartingEstimates: [Account] {
         accounts.values.filter { $0.isStartingEstimate && !$0.isClosed }
             .sorted { $0.name < $1.name }
+    }
+
+    /// The open accounts with values that can replace `estimate`: not
+    /// estimates themselves, of a kind that replaces it
+    /// (``Account/kindsReplacingEstimate``), by name.
+    public func accountsReplacing(_ estimate: Account) -> [Account] {
+        let kinds = estimate.kindsReplacingEstimate
+        return accounts.values
+            .filter { !$0.isStartingEstimate && !$0.isClosed && kinds.contains($0.kind) }
+            .filter { !valuations(for: $0.id).isEmpty }
+            .sorted { $0.name < $1.name }
+    }
+
+    /// How the accounts that can replace `estimate` replace it
+    /// (``accountsReplacing(_:)``); `nil` without any. Its successor is the
+    /// one of its own kind (else any) whose values start first.
+    public func replacement(of estimate: Account) -> EstimateReplacement? {
+        let starts = accountsReplacing(estimate).compactMap { account in
+            valuations(for: account.id).map(\.date).min().map { (account, $0) }
+        }
+        guard let first = starts.map(\.1).min() else { return nil }
+        if first <= estimate.opened { return .remove }
+        let sameKind = starts.filter { $0.0.kind == estimate.kind }
+        let successor = (sameKind.isEmpty ? starts : sameKind)
+            .min { ($0.1, $0.0.id) < ($1.1, $1.0.id) }
+        guard let successor else { return nil }
+        return .close(on: first.adding(days: -1), successor: successor.0.id)
+    }
+
+    /// Whether every value on `date` is a starting estimate's (and there
+    /// is one): first launch's sketch, which saves no yearly baseline.
+    public func valuesAreStartingEstimates(on date: CalendarDate) -> Bool {
+        let accountIDs = Set(months[date.yearMonth]?.valuations.filter { $0.date == date }.map(\.account) ?? [])
+        return !accountIDs.isEmpty && accountIDs.allSatisfy { accounts[$0]?.isStartingEstimate == true }
     }
 }
