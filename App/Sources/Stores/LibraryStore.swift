@@ -172,7 +172,7 @@ final class LibraryStore {
     }
 
     /// A store without a library, for first launch's screen tests
-    /// (``ScreenLaunch``): onboarding shows at once, and *Create library*
+    /// (``ScreenLaunch``): onboarding shows at once, and *See My Answer*
     /// creates one on this device, in `folder`. It never looks for iCloud
     /// Drive (``start()`` does), so ``isICloudAvailable`` stays false and
     /// onboarding offers only this device.

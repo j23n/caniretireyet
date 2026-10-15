@@ -40,7 +40,8 @@ private struct ImportBars: ViewModifier {
 
 /// Bank statements' Done (UI.md, "Import"): a page of its own, centered,
 /// with no bars. "Imported 26 months for 3 accounts", what was saved this
-/// year, what was remembered for next time, then *Undo Import*, *Open
+/// year, the starting estimates it can replace and the answer
+/// (``ImportAnswerFollowUp``), what was remembered for next time, then *Undo Import*, *Open
 /// Trends* and *Done*. Undone with later changes kept, it says what stayed.
 struct ImportStatementDone: View {
     let model: ImportController
@@ -84,6 +85,7 @@ struct ImportStatementDone: View {
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
+                ImportAnswerFollowUp(model: model, receipt: receipt)
                 if !receipt.isUndone, !receipt.remembered.isEmpty {
                     ImportRememberedCard(items: receipt.remembered)
                 }

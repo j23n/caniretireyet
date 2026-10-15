@@ -40,12 +40,15 @@ enum AppSheet: Hashable, Sendable, Identifiable {
     /// An import, optionally of a file dropped on the window (⌘⇧I). On the
     /// Mac and iPad the import is a sidebar page instead.
     case importFile(URL?)
+    /// *Your year*: the year in review (UI.md, "Your year").
+    case yourYear
 
     var id: String {
         switch self {
         case .settings: "settings"
         case .newAccount: "newAccount"
         case .importFile(let url): "import \(url?.absoluteString ?? "")"
+        case .yourYear: "yourYear"
         }
     }
 }
@@ -98,8 +101,8 @@ final class AppNavigation {
     /// and clears it.
     var planRoute: PlanRoute?
     /// Whether first launch goes on once its library is open, with the
-    /// accounts step and the disclaimer: *Create library* sets it, and the
-    /// root view shows `OnboardingScreen` until its *Start* clears it.
+    /// answer, files and notes: *See My Answer* sets it, and the root view
+    /// shows `OnboardingScreen` until its *Start* clears it.
     var finishesOnboarding = false
     /// The step of first launch `OnboardingScreen` opens on (``ScreenLaunch``);
     /// it clears it once taken.
@@ -186,6 +189,12 @@ final class AppNavigation {
     func showSettings() {
         showsSyncInSheet = false
         sheet = .settings
+    }
+
+    /// Shows *Your year*, the year in review.
+    func showYourYear() {
+        showsSyncInSheet = false
+        sheet = .yourYear
     }
 
     func newAccount() {

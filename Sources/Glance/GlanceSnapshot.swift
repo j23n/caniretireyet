@@ -27,15 +27,20 @@ public struct GlanceSnapshot: Hashable, Sendable, Codable {
     /// The main plan's next milestone (PROGRESS.md, "Milestones"); `nil`
     /// without one.
     public var milestone: MilestoneGlance?
+    /// The way there so far, for the notes (UI.md, "Notifications"); `nil`
+    /// in a snapshot written before it was added.
+    public var journey: JourneyGlance?
 
     public init(currency: CurrencyCode, netWorth: NetWorthGlance?, allocation: [AllocationSlice],
-                retirement: RetirementGlance?, checkIn: CheckInGlance, milestone: MilestoneGlance? = nil) {
+                retirement: RetirementGlance?, checkIn: CheckInGlance, milestone: MilestoneGlance? = nil,
+                journey: JourneyGlance? = nil) {
         self.currency = currency
         self.netWorth = netWorth
         self.allocation = allocation
         self.retirement = retirement
         self.checkIn = checkIn
         self.milestone = milestone
+        self.journey = journey
     }
 }
 

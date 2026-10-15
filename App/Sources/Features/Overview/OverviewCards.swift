@@ -22,6 +22,9 @@ struct OverviewChangeCard: View {
     /// Its split with saved as the savings rate counts it (Tracker's
     /// `Valuator.savedSplit(of:)`).
     let split: ValueChange
+    /// The main plan's retirement spending a year, to say what was saved as
+    /// time (``SavingAsTimeText``); `nil` without a main plan.
+    var yearlySpending: Decimal?
     @Environment(\.locale) private var locale
 
     private var title: String {
@@ -38,6 +41,7 @@ struct OverviewChangeCard: View {
                                from: AmountFormat.shortDate(report.from, relativeTo: .today(), locale: locale),
                                to: AmountFormat.shortDate(report.to, relativeTo: .today(), locale: locale),
                                showsChange: false)
+                SavingAsTimeText(saved: split.saved, markets: split.market, yearlySpending: yearlySpending)
                 Text(Self.explanation(split))
                     .font(.footnote)
                     .foregroundStyle(Palette.mutedInk)
@@ -78,6 +82,8 @@ struct OverviewYearCard: View {
     /// Tracker's `Valuator.savingsRate(from:through:)` over the values
     /// recorded this year; `nil` without money in and out.
     var savings: SavingsRate?
+    /// The main plan's retirement spending a year (``SavingAsTimeText``).
+    var yearlySpending: Decimal?
     @Environment(\.locale) private var locale
 
     var body: some View {
@@ -86,6 +92,7 @@ struct OverviewYearCard: View {
                 WaterfallChart(change: split,
                                from: AmountFormat.shortDate(report.from, relativeTo: .today(), locale: locale),
                                to: AmountFormat.shortDate(report.to, relativeTo: .today(), locale: locale))
+                SavingAsTimeText(saved: split.saved, markets: split.market, yearlySpending: yearlySpending)
                 Text(OverviewChangeCard.explanation(split))
                     .font(.footnote)
                     .foregroundStyle(Palette.mutedInk)

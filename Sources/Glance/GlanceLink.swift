@@ -1,6 +1,6 @@
 import Foundation
 
-/// Where tapping a widget goes in the app, as a URL the app opens
+/// Where tapping a widget or a note goes in the app, as a URL the app opens
 /// (`caniretireyet://check-in`).
 public enum GlanceLink: String, Hashable, Sendable, CaseIterable {
     /// Net worth: the Overview.
@@ -9,6 +9,8 @@ public enum GlanceLink: String, Hashable, Sendable, CaseIterable {
     case plan
     /// The check-in.
     case checkIn = "check-in"
+    /// Your year: the year in review (UI.md, "Your year").
+    case yourYear = "your-year"
 
     /// The app's URL scheme (CFBundleURLTypes in App/Config/Info.plist).
     public static let scheme = "caniretireyet"

@@ -49,12 +49,14 @@ enum CheckInWording {
 
 // MARK: - The answer
 
-/// This month's answer after saving (UI.md, "After saving"):
-/// "Not yet: earliest at **54**, unchanged since August."
+/// This month's answer after saving (UI.md, "After saving"): "Not yet. You
+/// could retire at **54**, in March 2042.", or with a move since the
+/// check-in before, "Not yet. You could retire at **55**, a year later than
+/// in February."
 struct CheckInAnswer: Hashable, Sendable {
     /// The words before the emphasised part.
     var lead: String
-    /// The emphasised part, e.g. the earliest age.
+    /// The emphasised part, e.g. the age.
     var emphasis: String?
     /// The words after it.
     var trail: String
@@ -67,26 +69,32 @@ struct CheckInAnswer: Hashable, Sendable {
     static func make(_ headline: RetirementAnswer, previous: Headline?, locale: Locale = .current) -> CheckInAnswer {
         if headline.canRetireNow {
             return CheckInAnswer(
-                lead: "Yes: retiring now works in ", emphasis: GlanceText.futures(headline.confidence),
+                lead: "Yes. You could retire today, in ", emphasis: GlanceText.futures(headline.confidence),
                 trail: " simulated futures.")
         }
         guard let age = headline.earliestAge else {
             return CheckInAnswer(
-                lead: "Not yet: no retirement age in the plan works in \(GlanceText.futures(headline.confidence)) "
+                lead: "Not yet. No retirement age in the plan works in \(GlanceText.futures(headline.confidence)) "
                     + "simulated futures yet.", emphasis: nil, trail: "")
         }
-        return CheckInAnswer(lead: "Not yet: earliest at ", emphasis: "\(age)",
-                             trail: comparison(age: age, previous: previous, locale: locale))
+        return CheckInAnswer(lead: "Not yet. You could retire at ", emphasis: "\(age)",
+                             trail: comparison(age: age, previous: previous, date: headline.earliestDate,
+                                               locale: locale))
     }
 
-    /// ", unchanged since August.", ", 1 year earlier than in August.", or ".".
-    static func comparison(age: Int, previous: Headline?, locale: Locale = .current) -> String {
-        guard let previous, let before = previous.earliestAge else { return "." }
-        let month = AmountFormat.monthName(previous.date, locale: locale)
-        if before == age { return ", unchanged since \(month)." }
-        let years = abs(age - before)
-        let span = Wording.count(years, "year")
-        return age < before ? ", \(span) earlier than in \(month)." : ", \(span) later than in \(month)."
+    /// ", 2 years sooner than in August.", ", a year later than in August.",
+    /// ", as in August."; without an age before, ", in March 2042." (when
+    /// you could retire), else ".".
+    static func comparison(age: Int, previous: Headline?, date: CalendarDate?, locale: Locale = .current) -> String {
+        if let previous, let before = previous.earliestAge {
+            let month = AmountFormat.monthName(previous.date, locale: locale)
+            guard before != age else { return ", as in \(month)." }
+            let years = abs(age - before)
+            let span = years == 1 ? "a year" : "\(years) years"
+            return ", \(span) \(age < before ? "sooner" : "later") than in \(month)."
+        }
+        if let date { return ", in \(GlanceText.monthAndYear(date, locale: locale))." }
+        return "."
     }
 
     /// The answer recorded at the check-in before `date` for the main plan.

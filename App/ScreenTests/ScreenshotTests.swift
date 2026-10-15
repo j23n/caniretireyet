@@ -69,16 +69,23 @@ struct ScreenshotTests {
         try await keep("check-in", .example, .checkIn)
     }
 
-    /// First launch, with no library: each step up to the disclaimer, as
-    /// ``ScreenLaunch`` opens it. It's ready once onboarding has taken the
-    /// step. The accounts step and the disclaimer show the library *Create
-    /// library* leaves, with its starter plan.
+    /// First launch, with no library: each step of the tour, with made-up
+    /// answers, as ``ScreenLaunch`` opens it. It's ready once onboarding has
+    /// taken the step. From the answer on, the library is the one *See My
+    /// Answer* leaves, and the answer step waits for the answer.
     @Test(arguments: OnboardingStep.allCases)
     func firstLaunch(_ step: OnboardingStep) async throws {
         let model = ScreenLaunch(firstLaunchAt: step).model()
         try await ScreenCapture.keep(root(model), named: "first-launch-\(step.rawValue)") {
             model.navigation.requestedOnboardingStep == nil
+                && (step != .answer || model.plans.checkInAnswer?.isRunning == false)
         }
+    }
+
+    /// The Overview on the tour's day: the first sketch, *Getting started*,
+    /// and the round amounts as accounts.
+    @Test func overviewOnDayOne() async throws {
+        try await keep("overview-day-one", .dayOne, .overview)
     }
 
     // With the eye on (UI.md, "Privacy"): amounts are placeholders, words

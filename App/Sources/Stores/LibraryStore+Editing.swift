@@ -1,5 +1,6 @@
 import Foundation
 import Model
+import Planner
 import Prices
 import Storage
 import Tracker
@@ -47,6 +48,62 @@ extension LibraryStore {
                 library.removeTradeRecord(trade.key)
             }
             library.removeReferences(to: id)
+        }
+    }
+
+    // MARK: Starting estimates
+
+    /// The backup label of first launch's starting estimates.
+    static let startingEstimatesBackupLabel = "starting-estimates"
+
+    /// The backup label of replacing starting estimates with imported accounts.
+    static let replaceEstimatesBackupLabel = "replace-estimates"
+
+    /// First launch's records (UI.md, "Empty states and first launch"): the
+    /// starting estimates for `answers`, valued on `date`
+    /// (`StarterSetup.addEstimates`), and `plan`, if any, as the main plan,
+    /// in one edit written as an import writes, with a backup, so values
+    /// still come only from imports and the edit can be undone. Returns
+    /// the estimates' IDs.
+    @discardableResult
+    func addStartingEstimates(_ answers: StarterAnswers, plan: PlanDocument?, on date: CalendarDate) async throws
+        -> [AccountID] {
+        let taken = unloadedFiles.compactMap { file -> AccountID? in
+            if case .account(let id) = file { id } else { nil }
+        }
+        var added: [AccountID] = []
+        _ = try await commit(backingUpAs: Self.startingEstimatesBackupLabel) { library in
+            added = StarterSetup.addEstimates(answers, to: &library, on: date, taken: taken)
+            if let plan {
+                library.plans[plan.id] = plan
+                if library.settings.mainPlan == nil { library.settings.mainPlan = plan.id }
+            }
+        }
+        return added
+    }
+
+    /// Replaces each of `estimates` with the imported accounts that stand
+    /// for it (`Library.replacement(of:)`), in one edit with a backup:
+    /// closed the day before their values start, continued by its
+    /// successor, or removed when their values reach back to its day.
+    /// Estimates nothing replaces stay.
+    func replaceStartingEstimates(_ estimates: [AccountID]) async throws {
+        _ = try await commit(backingUpAs: Self.replaceEstimatesBackupLabel) { library in
+            for id in estimates {
+                guard let estimate = library.accounts[id], estimate.isStartingEstimate,
+                      let replacement = library.replacement(of: estimate) else { continue }
+                switch replacement {
+                case .remove:
+                    library.accounts[id] = nil
+                    for valuation in library.valuations(for: id) {
+                        library.removeValuation(valuation.key)
+                    }
+                    library.removeReferences(to: id)
+                case .close(let date, let successor):
+                    library.accounts[id]?.closed = date
+                    library.accounts[id]?.successor = successor
+                }
+            }
         }
     }
 

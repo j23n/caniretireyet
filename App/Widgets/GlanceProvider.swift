@@ -52,7 +52,7 @@ struct GlanceProvider: TimelineProvider {
 
 extension GlanceSnapshot {
     /// Made-up numbers, for the widget gallery and while a widget loads:
-    /// the mockups' (and UI.md's) 312.480 €, earliest at 54 in 15 years and
+    /// the mockups' (and UI.md's) 312.480 €, retiring at 54 in 15 years and
     /// 6 months, 58% of what retiring today would need. The dates are around
     /// `today`, so the countdowns read as they would.
     static func placeholder(today: CalendarDate = .today()) -> GlanceSnapshot {

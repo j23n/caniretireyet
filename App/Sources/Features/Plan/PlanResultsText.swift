@@ -37,12 +37,12 @@ enum PlanResultsText {
         headline.canRetireNow ? "Yes." : "Not yet."
     }
 
-    /// "Earliest at 54 · March 2042", or why there's no age.
+    /// "You could retire at 54 · March 2042", or why there's no age.
     static func earliest(_ headline: RetirementAnswer, locale: Locale = .current) -> String {
         guard let age = headline.earliestAge else { return "No retirement age reaches it yet" }
         if headline.canRetireNow { return "You could stop working today" }
-        guard let date = headline.earliestDate else { return "Earliest at \(age)" }
-        return "Earliest at \(age) · \(GlanceText.monthAndYear(date, locale: locale))"
+        guard let date = headline.earliestDate else { return "You could retire at \(age)" }
+        return "You could retire at \(age) · \(GlanceText.monthAndYear(date, locale: locale))"
     }
 
     /// "54 → 53" when a what-if moves the earliest age, else `nil`.

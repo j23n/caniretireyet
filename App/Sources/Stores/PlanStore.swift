@@ -16,9 +16,12 @@ import Storage
 ///   screens' *Calculate*, *Recalculate* (⌘R) and *Run What-If* buttons,
 ///   saving a baseline without results, and a check-in recording its month's
 ///   answer (``recordCheckInAnswer(on:)``, caught up once the library is
-///   loaded if it's missing: ``recordMissingCheckInAnswer(today:)``).
-///   Opening a screen, editing a plan or a check-in elsewhere only makes
-///   results out of date.
+///   loaded if it's missing: ``recordMissingCheckInAnswer(today:)``). Two
+///   moments record an answer the same way, because the answer is what the
+///   person is there for: the end of first launch's tour, and the import
+///   after it that gives the plan its first answer or replaces the starting
+///   estimates (UI.md, "Empty states and first launch"). Opening a screen,
+///   editing a plan or a check-in elsewhere only makes results out of date.
 /// - **What if and focus age.** Each plan's what-if and the retirement age
 ///   its charts are for live here, so switching plans and coming back keeps
 ///   them; the Plan screen's `PlanSession` reads and sets them here.
@@ -436,7 +439,9 @@ final class PlanStore {
 
     /// After a check-in: re-runs the main plan, records its headline, saves
     /// the yearly baseline at the year's first check-in, waits for the
-    /// writes, and returns the answer. `nil` without a main plan. The Plan
+    /// writes, and returns the answer. First launch's sketch, a day whose
+    /// values are all starting estimates, saves no baseline: the year's
+    /// first check-in with imported values does. `nil` without a main plan. The Plan
     /// screens can't cancel this run. A headline or baseline that can't be
     /// saved shows in the library's error (`LibraryStore.lastError`).
     func checkInSaved(on date: CalendarDate) async -> RetirementAnswer? {
@@ -448,7 +453,8 @@ final class PlanStore {
         } catch {
             library.reportError("This month's answer couldn't be recorded. \(LibraryStore.describe(error))")
         }
-        if !library.library.baselines(for: main).contains(where: { $0.isYearly(of: date.year) }) {
+        if !library.library.valuesAreStartingEstimates(on: date),
+           !library.library.baselines(for: main).contains(where: { $0.isYearly(of: date.year) }) {
             do {
                 _ = try saveBaseline(for: main, label: "Start of \(date.year)", kind: .yearly, on: date)
             } catch PlanStoreError.noResults {

@@ -39,6 +39,10 @@ struct ImportReceipt: Hashable, Sendable {
     /// without files (previews), which can't be undone.
     var backup: Backup?
     var isUndone = false
+    /// Whether Done replaced starting estimates with the accounts it
+    /// brought in: a later edit with a backup of its own, which undoing the
+    /// import would leave behind, so Undo import is no longer offered.
+    var replacedEstimates = false
     /// What undoing did, once it's undone.
     var undoReport: UndoReport?
     /// The profile saved from this import.
@@ -83,7 +87,7 @@ struct ImportReceipt: Hashable, Sendable {
 
     /// Whether Undo import can run.
     var canUndo: Bool {
-        hasChanges && !isUndone && backup != nil
+        hasChanges && !isUndone && backup != nil && !replacedEstimates
     }
 
     /// What undoing couldn't undo because it changed after the import, in

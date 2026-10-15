@@ -39,6 +39,15 @@ public struct RetirementCountdown: Hashable, Sendable {
         parts(separator: "")
     }
 
+    /// For a sentence about a date: "about 15 years away" from two years
+    /// on, rounded to the nearest year (15 y 6 m reads 16); "14 months
+    /// away" below that; "under a month away".
+    public var awayText: String {
+        if years >= 2 { return "about \(Wording.count(roundedYears, "year")) away" }
+        if totalMonths == 0 { return "under a month away" }
+        return "\(Wording.count(totalMonths, "month")) away"
+    }
+
     /// As a headline: "In 16 years" from two years on, rounded to the
     /// nearest year (15 y 6 m reads 16); "In 18 months" below that; "In
     /// under a month".

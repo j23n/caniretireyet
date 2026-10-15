@@ -7,8 +7,8 @@ import Prices
 import Storage
 import SwiftUI
 
-/// Settings (UI.md, "Settings"): the library, you, prices, the check-in
-/// reminder and privacy. The Mac shows it in the Settings window (⌘,);
+/// Settings (UI.md, "Settings"): the library, you, prices, notifications
+/// and privacy. The Mac shows it in the Settings window (⌘,);
 /// iPhone and iPad in a sheet from the Overview's gear.
 ///
 /// "You" is saved in the library (`library.json`); everything else belongs
@@ -36,7 +36,7 @@ struct SettingsScreen: View {
             }
             YouSection()
             PricesSection()
-            ReminderSection()
+            NotesSection()
             PrivacySection()
             #if FEEDBACK
             FeedbackSection()
@@ -237,76 +237,20 @@ private struct PricesSection: View {
     }
 }
 
-/// The monthly check-in reminder: this device only. Like "You", each control
-/// changes the reminder from its own setter, so opening Settings changes
-/// nothing.
-private struct ReminderSection: View {
+/// The notes this device shows (UI.md, "Notifications"), on a page of their own.
+private struct NotesSection: View {
     @Environment(AppPreferences.self) private var preferences
-    @State private var notAllowed = false
 
     var body: some View {
         Section {
-            Toggle("Remind me each month", isOn: isOnBinding)
-            if preferences.reminder != nil {
-                Picker("Day", selection: dayBinding) {
-                    Text("Last day of the month").tag(CheckInReminder.lastDay)
-                    ForEach(1...28, id: \.self) { day in
-                        Text("Day \(day)").tag(day)
-                    }
-                }
-                DatePicker("Time", selection: timeBinding, displayedComponents: .hourAndMinute)
+            NavigationLink {
+                NotificationsScreen()
+            } label: {
+                LabeledContent("Notifications", value: NotificationsScreen.summary(preferences.notes))
             }
-            if notAllowed {
-                Text("Notifications are off for this app. Turn them on in the system settings to get reminders.")
-                    .font(.footnote)
-                    .foregroundStyle(Palette.secondaryInk)
-            }
-        } header: {
-            Text("Check-in reminder")
         } footer: {
-            Text("Only on this device, so you aren't reminded twice.")
+            Text("Only on this device, so you aren't told twice.")
         }
-    }
-
-    private var isOnBinding: Binding<Bool> {
-        Binding(get: { preferences.reminder != nil }, set: { apply($0 ? CheckInReminder.standard : nil) })
-    }
-
-    private var dayBinding: Binding<Int> {
-        Binding(
-            get: { preferences.reminder?.day ?? CheckInReminder.lastDay },
-            set: { day in
-                var reminder = preferences.reminder ?? CheckInReminder.standard
-                reminder.day = day
-                apply(reminder)
-            })
-    }
-
-    private var timeBinding: Binding<Date> {
-        Binding(
-            get: {
-                let reminder = preferences.reminder ?? CheckInReminder.standard
-                return Calendar.current.date(bySettingHour: reminder.hour, minute: reminder.minute, second: 0, of: Date())
-                    ?? Date()
-            },
-            set: { time in
-                let components = Calendar.current.dateComponents([.hour, .minute], from: time)
-                var reminder = preferences.reminder ?? CheckInReminder.standard
-                reminder.hour = components.hour ?? CheckInReminder.standard.hour
-                reminder.minute = components.minute ?? CheckInReminder.standard.minute
-                apply(reminder)
-            })
-    }
-
-    private func apply(_ reminder: CheckInReminder?) {
-        guard reminder != preferences.reminder else { return }
-        preferences.reminder = reminder
-        #if canImport(UserNotifications)
-        Task {
-            let scheduled = await ReminderScheduler.apply(reminder)
-            notAllowed = reminder != nil && !scheduled
-        }
-        #endif
     }
 }
 

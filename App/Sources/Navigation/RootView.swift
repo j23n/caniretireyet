@@ -9,6 +9,7 @@ struct RootView: View {
     @Environment(LibraryStore.self) private var library
     @Environment(AppNavigation.self) private var navigation
     @Environment(AppPreferences.self) private var preferences
+    @Environment(NoteStore.self) private var notes
     @Environment(\.scenePhase) private var scenePhase
     #if os(iOS)
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
@@ -24,6 +25,12 @@ struct RootView: View {
             .onChange(of: scenePhase) { _, phase in
                 if phase == .active { Task { await library.refreshFromDisk() } }
             }
+            .onChange(of: notes.pendingLink, initial: true) { _, link in
+                // A tapped note (UI.md, "Notifications").
+                guard let link else { return }
+                notes.pendingLink = nil
+                open(link)
+            }
             .onOpenURL { url in
                 if let link = GlanceLink(url: url) {
                     open(link)
@@ -33,14 +40,15 @@ struct RootView: View {
             }
     }
 
-    /// A widget was tapped: its net worth opens the Overview, its answer the
-    /// main plan, its check-in the check-in.
+    /// A widget or a note was tapped: net worth opens the Overview, the
+    /// answer the main plan, the check-in the check-in, *Your year* its sheet.
     private func open(_ link: GlanceLink) {
         adoptLaunchLayout()
         switch link {
         case .overview: navigation.showOverview()
         case .plan: navigation.showPlan()
         case .checkIn: navigation.startCheckIn()
+        case .yourYear: navigation.showYourYear()
         }
     }
 
@@ -60,8 +68,8 @@ struct RootView: View {
         #endif
     }
 
-    /// Onboarding stays one view from its first step to its last, so its
-    /// steps keep their state when *Create library* has opened the library.
+    /// Onboarding's state is `OnboardingModel`, in the app model, so its
+    /// steps keep their answers while *See My Answer* opens the library.
     @ViewBuilder
     private var content: some View {
         if showsOnboarding {
@@ -79,12 +87,12 @@ struct RootView: View {
         }
     }
 
-    /// Onboarding shows while there's no library, and once *Create library*
+    /// Onboarding shows while there's no library, and once *See My Answer*
     /// has opened the new one, until its last step's *Start*
     /// (`AppNavigation.finishesOnboarding`). While the library waits for
     /// iCloud Drive (`.starting`), the opening screen shows the progress,
-    /// and onboarding comes back on its accounts step; when opening fails,
-    /// the failure shows.
+    /// and onboarding comes back on the step it was on; when opening
+    /// fails, the failure shows.
     private var showsOnboarding: Bool {
         switch library.phase {
         case .needsSetup: true
@@ -177,6 +185,15 @@ private struct AppSheetView: View {
         case .newAccount:
             NavigationStack {
                 NewAccountScreen()
+            }
+        case .yourYear:
+            NavigationStack {
+                YourYearScreen()
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("Done") { dismiss() }
+                        }
+                    }
             }
         case .importFile(let file):
             NavigationStack {

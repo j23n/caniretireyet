@@ -338,7 +338,7 @@ struct NetWorthLarge: View {
     }
 }
 
-/// "Can I retire yet? Not yet · earliest at 54", with the readiness bar.
+/// "Can I retire yet? Not yet · retire at 54", with the readiness bar.
 struct RetirementSection: View {
     var retirement: RetirementGlance?
     var today: CalendarDate
@@ -386,11 +386,11 @@ struct RetirementSection: View {
         }
     }
 
-    /// "Not yet · earliest at 54", "Yes. You could retire today".
+    /// "Not yet · retire at 54", "Yes. You could retire today".
     private func headline(_ answer: RetirementAnswer) -> String {
         if answer.canRetireNow { return "Yes. You could retire today" }
         guard let age = answer.earliestAge else { return "Not yet · no age works out yet" }
-        return "Not yet · earliest at \(age)"
+        return "Not yet · retire at \(age)"
     }
 
     /// "April 2042, in 9 of 10 simulated futures".

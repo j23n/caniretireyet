@@ -25,6 +25,9 @@ final class WidgetStore {
     @ObservationIgnored private let plans: PlanStore
     /// The snapshot last written.
     @ObservationIgnored private var written: GlanceSnapshot?
+    /// The main plan's progress, worked out once for each state of the
+    /// library, for the milestones the journey reached.
+    @ObservationIgnored private let progressMemo = PlanProgressMemo()
 
     init(library: LibraryStore, plans: PlanStore, snapshotURL: URL?) {
         self.library = library
@@ -54,7 +57,21 @@ final class WidgetStore {
         var snapshot = GlanceSnapshot(library: library.library, valuator: library.valuator, asOf: today,
                                       answer: answer, checkIn: checkIn)
         snapshot.milestone = nextMilestone()
+        snapshot.journey = journey(asOf: today)
         return snapshot
+    }
+
+    /// The way there so far (UI.md, "Notifications"): the main plan's
+    /// answers, the milestones it reached, and what the last two years added.
+    private func journey(asOf today: CalendarDate) -> JourneyGlance {
+        var reached: [CalendarDate] = []
+        var spending: Decimal?
+        if let main = library.settings.mainPlan, let plan = library.library.plans[main] {
+            reached = progressMemo.progress(of: main, plan: plan, library: library).reached.map(\.date)
+            spending = MilestoneLadder(plan: plan, library: library.library, on: library.asOfDate).spending
+        }
+        return JourneyGlance(library: library.library, valuator: library.valuator, asOf: today, reached: reached,
+                             yearlySpending: spending)
     }
 
     /// The main plan's next milestone, as Progress shows it (UI.md,

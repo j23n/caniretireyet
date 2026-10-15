@@ -48,6 +48,8 @@ private struct AppEnvironmentModifier: ViewModifier {
             .environment(model.plans)
             .environment(model.checkIn)
             .environment(model.widgets)
+            .environment(model.notes)
+            .environment(model.onboarding)
             .environment(\.baseCurrency, model.library.shownCurrency)
             .environment(\.pageLayout, PageLayout(isWide: model.navigation.layout == .sidebar))
             .redacted(reason: model.preferences.hidesAmounts ? .privacy : [])

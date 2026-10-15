@@ -19,13 +19,16 @@ final class AppModel {
     let plans: PlanStore
     let checkIn: CheckInStore
     let widgets: WidgetStore
+    let notes: NoteStore
+    /// First launch's answers and step, while the tour shows.
+    let onboarding: OnboardingModel
     #if FEEDBACK
     /// In-app feedback, in Debug builds (`Feedback.swift`).
     let feedback: FeedbackCenter
     #endif
 
     init(preferences: AppPreferences, library: LibraryStore, prices: PriceStore, planEngine: any PlanEngine,
-         planResults: PlanResultsArchive? = nil, widgetSnapshotURL: URL? = nil) {
+         planResults: PlanResultsArchive? = nil, widgetSnapshotURL: URL? = nil, schedulesNotes: Bool = false) {
         self.preferences = preferences
         navigation = AppNavigation()
         self.library = library
@@ -33,6 +36,8 @@ final class AppModel {
         plans = PlanStore(library: library, engine: planEngine, archive: planResults)
         checkIn = CheckInStore(library: library, prices: prices, plans: plans, preferences: preferences)
         widgets = WidgetStore(library: library, plans: plans, snapshotURL: widgetSnapshotURL)
+        notes = NoteStore(preferences: preferences, widgets: widgets, schedules: schedulesNotes)
+        onboarding = OnboardingModel()
         #if FEEDBACK
         feedback = .caniretireyet(navigation: navigation)
         #endif
@@ -60,7 +65,7 @@ final class AppModel {
             prices: PriceStore(service: .standard()),
             planEngine: PlannerPlanEngine(),
             planResults: PlanResultsArchive.standard(),
-            widgetSnapshotURL: AppGroup.snapshotURL)
+            widgetSnapshotURL: AppGroup.snapshotURL, schedulesNotes: true)
     }
 
     /// Previews, the screen tests and ``ScreenLaunch``: `library` in memory (by default
@@ -83,14 +88,9 @@ final class AppModel {
     /// The widgets' inputs their snapshot was last written for.
     private var widgetInputs: WidgetStore.Inputs?
 
-    /// Launch work: find and load the library, refresh the reminders
-    /// scheduled on this device, and keep the stores in step from then on.
+    /// Launch work: find and load the library, and keep the stores in
+    /// step from then on.
     func start() async {
-        #if canImport(UserNotifications)
-        if let reminder = preferences.reminder {
-            Task { await ReminderScheduler.apply(reminder) }
-        }
-        #endif
         if !keepsInStep {
             keepsInStep = true
             keepInStep()
@@ -114,8 +114,8 @@ final class AppModel {
     /// kept from the last launch, then a check-in's answer the app was
     /// closed before recording; when the widgets' inputs changed, their
     /// snapshot, a second later, so a burst of changes (a check-in's files,
-    /// a sync) writes it once. Returns what finishes at the next change,
-    /// one during the step too.
+    /// a sync) writes it once, and then the notes scheduled from it.
+    /// Returns what finishes at the next change, one during the step too.
     private func step() async -> AsyncStream<Void> {
         let (changes, continuation) = AsyncStream<Void>.makeStream()
         withObservationTracking {
@@ -135,6 +135,8 @@ final class AppModel {
             try? await Task.sleep(for: .seconds(1))
             widgetInputs = widgets.inputs
             await widgets.refresh()
+            // The notes read the same snapshot (UI.md, "Notifications").
+            await notes.reschedule()
         }
         return changes
     }

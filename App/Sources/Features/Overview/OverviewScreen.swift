@@ -10,7 +10,8 @@ import Tracker
 /// Top to bottom: the header (``OverviewHeader``) when the main plan has an
 /// answer: "can I retire yet?" as a headline with the readiness ring, then
 /// the *Net worth* and *On track?* tiles; without an answer, net worth as
-/// the hero number. Then the history chart by asset class with its time
+/// the hero number. After first launch, *Getting started*
+/// (``GettingStartedCard``) until it's done. Then the history chart by asset class with its time
 /// span and *Future* switch, the change since the last check-in, the change
 /// this year, the answer's card with the next step when there's no answer
 /// yet, what needs attention, and the allocation bars. Everything but the
@@ -21,6 +22,7 @@ struct OverviewScreen: View {
     @Environment(LibraryStore.self) private var library
     @Environment(PlanStore.self) private var plans
     @Environment(AppNavigation.self) private var navigation
+    @Environment(AppPreferences.self) private var preferences
 
     // `overview.scope` and `overview.stacked`, stored by earlier versions, are no longer read.
     @AppStorage("overview.range") private var range: HistoryRange = .threeYears
@@ -58,12 +60,24 @@ struct OverviewScreen: View {
         // what to do.
         let headline = answer?.answer
         let netWorth = NetWorthGlance(valuator: valuator, asOf: today)
+        // What the plan spends a year in retirement, to say savings as time.
+        let spending = mainPlan.flatMap {
+            MilestoneLadder(plan: $0, library: library.library, on: planStart).spending
+        }
         return ScrollView {
             VStack(alignment: .leading, spacing: Metrics.xl) {
                 if let headline, let mainPlan {
                     OverviewHeader(headline: headline, plan: mainPlan, netWorth: netWorth, today: today)
                 } else {
                     OverviewHeroView(hero: netWorth)
+                }
+                // On day one *Getting started* comes first; the yearly notes are offered once it's gone.
+                if headline != nil, preferences.gettingStartedSince == nil {
+                    NotesOfferCard()
+                }
+                GettingStartedCard()
+                if let headline, let mainPlan {
+                    JourneyCard(plan: mainPlan, answer: headline, results: results, today: today)
                 }
                 if library.latestCheckIn == nil {
                     FirstCheckInCard()
@@ -73,12 +87,14 @@ struct OverviewScreen: View {
                     planName: mainPlan?.name, range: $range, showsFuture: $navigation.showsFuture)
                 VStack(alignment: .leading, spacing: Metrics.l) {
                     if let report = valuator.changeSinceLastCheckIn(asOf: today) {
-                        OverviewChangeCard(report: report, split: valuator.savedSplit(of: report))
+                        OverviewChangeCard(report: report, split: valuator.savedSplit(of: report),
+                                           yearlySpending: spending)
                     }
                     if let report = valuator.changeThisYear(asOf: today) {
                         OverviewYearCard(
                             report: report, split: valuator.savedSplit(of: report),
-                            savings: valuator.savingsRate(from: report.from.adding(days: 1), through: today))
+                            savings: valuator.savingsRate(from: report.from.adding(days: 1), through: today),
+                            yearlySpending: spending)
                     }
                     if headline == nil {
                         OverviewAnswerCard()
@@ -151,25 +167,28 @@ private struct OverviewHeroView: View {
     }
 }
 
-/// Before the first check-in: one clear next step.
+/// Before the first values: one clear next step. Values come only from
+/// imported files, so it opens the import.
 private struct FirstCheckInCard: View {
     @Environment(AppNavigation.self) private var navigation
 
     var body: some View {
-        Card("Record your first values") {
+        Card("Import your first values") {
             VStack(alignment: .leading, spacing: Metrics.m) {
-                Text("A check-in records what each account is worth today. Your history starts with it.")
+                Text("Your accounts get their values from the files you import: bank statements, broker exports or "
+                     + "a spreadsheet. Your history starts with them.")
                     .font(.callout)
                     .foregroundStyle(Palette.secondaryInk)
                     .fixedSize(horizontal: false, vertical: true)
-                Button("Start a check-in") { navigation.startCheckIn() }
+                Button("Import Files…") { navigation.startImport() }
                     .buttonStyle(.borderedProminent)
             }
         }
     }
 }
 
-/// A new library: add accounts or import a spreadsheet.
+/// A new library without accounts: import files, which create them, or
+/// add an account for a later import to fill.
 private struct OverviewEmptyState: View {
     @Environment(AppNavigation.self) private var navigation
 
@@ -177,11 +196,12 @@ private struct OverviewEmptyState: View {
         ContentUnavailableView {
             Label("Nothing here yet", systemImage: AppSymbol.overview)
         } description: {
-            Text("Add your accounts, or import the spreadsheet you've kept so far.")
+            Text("Import your bank statements, broker exports or the spreadsheet you've kept so far. Each file "
+                 + "creates the accounts it's about.")
         } actions: {
-            Button("Add accounts") { navigation.newAccount() }
+            Button("Import Files…") { navigation.startImport() }
                 .buttonStyle(.borderedProminent)
-            Button("Import…") { navigation.startImport() }
+            Button("Add an Account") { navigation.newAccount() }
         }
         .background(Palette.page)
     }

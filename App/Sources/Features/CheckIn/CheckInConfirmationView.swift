@@ -7,7 +7,11 @@ import Tracker
 /// worth, and this month's answer.
 ///
 /// > Saved · Net worth 312.480 € (▲ 4.210)
-/// > Can I retire yet? Not yet: earliest at **54**, unchanged since August.
+/// > Can I retire yet? Not yet. You could retire at **54**, in March 2042.
+///
+/// Then how the age moved over the last 12 check-ins, what the month saved
+/// as time of the life you plan with the last 12 months as bars, and the
+/// next milestone (``CheckInJourneyCards``).
 ///
 /// It shows as soon as the check-in is written. The main plan then runs to
 /// record the month's answer (`PlanStore.checkInAnswer`): its progress shows
@@ -61,6 +65,7 @@ struct CheckInConfirmationView: View {
                     Card("Can I retire yet?") {
                         answer
                     }
+                    CheckInJourneyCards(date: result.date)
                 }
                 LibraryStatusBanners()
                 Button {
@@ -209,11 +214,11 @@ struct CheckInConfirmationView: View {
         return Text(verbatim: parts.text)
     }
 
-    /// "Last answer (31 Aug): not yet, earliest at 54."
+    /// "Last answer (31 Aug): you could retire at 54."
     private func lastAnswer(_ headline: Headline) -> String {
         let date = AmountFormat.shortDate(headline.date, locale: locale)
         guard let age = headline.earliestAge else { return "Last answer (\(date)): not yet." }
-        return "Last answer (\(date)): not yet, earliest at \(age)."
+        return "Last answer (\(date)): you could retire at \(age)."
     }
 
     /// Why there's no answer this month, without alarm.

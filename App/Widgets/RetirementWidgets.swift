@@ -277,7 +277,7 @@ struct RetireInInline: View {
         let words = AnswerWords(answer: retirement.answer, today: entry.today, locale: locale)
         if let countdown = words.countdown { return "Retire in \(countdown.compactText)" }
         if let headline = words.headline { return headline }
-        return words.answer.earliestAge.map { "Earliest at \($0)" } ?? "Can I Retire Yet?"
+        return words.answer.earliestAge.map { "Retire at \($0)" } ?? "Can I Retire Yet?"
     }
 }
 
@@ -299,7 +299,7 @@ struct RetireInRectangular: View {
                 .widgetAccentable()
                 if let age = words.answer.earliestAge {
                     let year = words.answer.earliestDate.map { " · \($0.year)" } ?? ""
-                    Text(verbatim: "Earliest at \(age)\(year)")
+                    Text(verbatim: "At \(age)\(year)")
                     Text(verbatim: words.futures)
                 }
             } else {
