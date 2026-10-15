@@ -26,8 +26,8 @@ struct OnboardingFilesStep: View {
                 OnboardingRow(title: "Broker exports", systemImage: "chart.line.uptrend.xyaxis",
                               detail: "Your transactions, as CSV.")
                 OnboardingRow(title: "Home, pension, debts", systemImage: "house",
-                              detail: "Fill in the starter spreadsheet: one row per date, one column per account. "
-                                + "Then import it.") {
+                              detail: "Fill in the starter spreadsheet: one row per date, one column per account, the "
+                                + "home's value with its mortgage beside it. Then import it.") {
                     StarterSpreadsheetButton()
                         .padding(.top, Metrics.xs)
                 }

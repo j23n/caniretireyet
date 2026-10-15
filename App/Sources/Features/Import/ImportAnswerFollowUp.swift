@@ -154,6 +154,8 @@ struct ImportAnswerFollowUp: View {
         before = plans.mainHeadline
         do {
             try await library.replaceStartingEstimates(estimates)
+            // Changes the receipt, which restarts the first-import task;
+            // `runAnswer()` runs the plan once either way.
             model.noteEstimatesReplaced()
             await library.waitForPendingWrites()
             runAnswer()
@@ -175,7 +177,7 @@ struct ImportAnswerFollowUp: View {
     }
 
     private func runAnswer() {
-        guard let date = library.latestCheckIn else { return }
+        guard !startedAnswer, let date = library.latestCheckIn else { return }
         startedAnswer = true
         plans.recordCheckInAnswer(on: date)
     }

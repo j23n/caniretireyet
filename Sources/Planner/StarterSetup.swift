@@ -181,17 +181,8 @@ public enum StarterSetup {
     /// round amounts in sentences ("you save about 1.400 € a month").
     public static func roundedToTwoFigures(_ amount: Decimal) -> Decimal {
         let value = amount.doubleValue
-        guard value >= 100, value.isFinite else { return rounded(amount) }
-        let step = Decimal(sign: .plus, exponent: Int(log10(value).rounded(.down)) - 1, significand: 1)
-        return rounded(amount / step) * step
-    }
-
-    /// `amount` to a whole number, halves away from zero.
-    private static func rounded(_ amount: Decimal) -> Decimal {
-        var amount = amount
-        var result = Decimal()
-        NSDecimalRound(&result, &amount, 0, .plain)
-        return result
+        guard value >= 100, value.isFinite else { return amount.rounded(scale: 0) }
+        return amount.rounded(scale: 1 - Int(log10(value).rounded(.down)))
     }
 }
 
