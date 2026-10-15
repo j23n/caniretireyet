@@ -91,6 +91,16 @@ final class OnboardingModel {
         taxIsDefault = tax != nil
     }
 
+    /// Whether *Continue* can leave the step: *About you* needs a birth
+    /// date, since the answer is an age, and no amount can be negative.
+    var canContinue: Bool {
+        switch step {
+        case .you: birthDate != nil
+        case .money, .later: !answers.hasNegativeAmount
+        case .welcome, .answer, .files, .notes: true
+        }
+    }
+
     /// Chooses the country: its currency when there's one for it, and its
     /// suggested ages and tax rate for those not changed yet.
     func choose(country: CountryCode?) {

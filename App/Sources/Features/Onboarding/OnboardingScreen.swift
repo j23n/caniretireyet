@@ -134,8 +134,8 @@ struct OnboardingScreen: View {
                 .disabled(model.isCreating)
             }
             Spacer()
-            if let number = model.step.questionNumber {
-                Text("Step \(number) of \(OnboardingStep.questionCount)")
+            if let number = model.step.number {
+                Text("Step \(number) of \(OnboardingStep.count)")
                     .font(.footnote)
                     .foregroundStyle(Palette.secondaryInk)
                     .monospacedDigit()
@@ -158,7 +158,7 @@ struct OnboardingScreen: View {
             Button("Continue") { advance() }
                 .buttonStyle(.borderedProminent)
                 .keyboardShortcut(.defaultAction)
-                .disabled(model.answers.hasNegativeAmount)
+                .disabled(!model.canContinue)
         case .later:
             Button {
                 Task { await model.seeAnswer(library: library, plans: plans, navigation: navigation,
@@ -173,7 +173,7 @@ struct OnboardingScreen: View {
             }
             .buttonStyle(.borderedProminent)
             .keyboardShortcut(.defaultAction)
-            .disabled(model.isCreating || model.answers.hasNegativeAmount)
+            .disabled(model.isCreating || !model.canContinue)
         case .answer:
             Button("Make It Real") { advance() }
                 .buttonStyle(.borderedProminent)

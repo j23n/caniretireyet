@@ -42,18 +42,13 @@ enum OnboardingStep: String, CaseIterable, Sendable {
         return steps[index - 1]
     }
 
-    /// The questions' steps, numbered "1 of 4" along the bottom; `nil`
-    /// for the welcome and the steps after the answer is there.
-    var questionNumber: Int? {
-        switch self {
-        case .you: 1
-        case .money: 2
-        case .later: 3
-        case .answer: 4
-        case .welcome, .files, .notes: nil
-        }
+    /// The step's number along the bottom, "Step 1 of 6": every step after
+    /// the welcome, which has none.
+    var number: Int? {
+        guard self != .welcome, let index = Self.allCases.firstIndex(of: self) else { return nil }
+        return index
     }
 
-    /// How many steps ``questionNumber`` counts.
-    static let questionCount = 4
+    /// How many steps ``number`` counts.
+    static let count = allCases.count - 1
 }
