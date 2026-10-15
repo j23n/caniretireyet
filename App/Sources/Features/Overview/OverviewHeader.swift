@@ -8,7 +8,9 @@ import SwiftUI
 /// *On track?* tiles under it. Everything starts at the tiles' leading edge.
 ///
 /// - **Title row:** "Can I retire yet?", an ⓘ after it that explains the
-///   whole answer, and the chevron at the trailing edge, above *On track?*'s.
+///   whole answer, "First sketch" while starting estimates are open
+///   (``OnboardingSketchChip``), and the chevron at the trailing edge,
+///   above *On track?*'s.
 ///   The tile opens the plan, with a tap gesture rather than as a button, so
 ///   the ⓘ and *Calculate* get their own taps; the chevron is the button
 ///   VoiceOver and keyboards use.
@@ -102,6 +104,9 @@ struct OverviewHeader: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityAddTraits(.isHeader)
             explanationButton(words)
+            if !library.library.openStartingEstimates.isEmpty {
+                OnboardingSketchChip(showsDisclaimer: false)
+            }
             Spacer(minLength: Metrics.xs)
             Button {
                 navigation.showPlan()

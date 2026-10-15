@@ -10,7 +10,8 @@ import Tracker
 /// Top to bottom: the header (``OverviewHeader``) when the main plan has an
 /// answer: "can I retire yet?" as a headline with the readiness ring, then
 /// the *Net worth* and *On track?* tiles; without an answer, net worth as
-/// the hero number. Then the history chart by asset class with its time
+/// the hero number. After first launch, *Getting started*
+/// (``GettingStartedCard``) until it's done. Then the history chart by asset class with its time
 /// span and *Future* switch, the change since the last check-in, the change
 /// this year, the answer's card with the next step when there's no answer
 /// yet, what needs attention, and the allocation bars. Everything but the
@@ -21,6 +22,7 @@ struct OverviewScreen: View {
     @Environment(LibraryStore.self) private var library
     @Environment(PlanStore.self) private var plans
     @Environment(AppNavigation.self) private var navigation
+    @Environment(AppPreferences.self) private var preferences
 
     // `overview.scope` and `overview.stacked`, stored by earlier versions, are no longer read.
     @AppStorage("overview.range") private var range: HistoryRange = .threeYears
@@ -69,9 +71,11 @@ struct OverviewScreen: View {
                 } else {
                     OverviewHeroView(hero: netWorth)
                 }
-                if headline != nil {
+                // On day one *Getting started* comes first; the yearly notes are offered once it's gone.
+                if headline != nil, preferences.gettingStartedSince == nil {
                     NotesOfferCard()
                 }
+                GettingStartedCard()
                 if let headline, let mainPlan {
                     JourneyCard(plan: mainPlan, answer: headline, results: results, today: today)
                 }
