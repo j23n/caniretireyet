@@ -8,7 +8,7 @@ import SwiftUI
 /// records the first answer. Then the calendar page of the last Monday at
 /// work, the answer in words, how ready (the ring) and how sure (a small
 /// fan of futures), each explained once, the one lever worked out, and
-/// "First sketch": it stands on round numbers until files replace them.
+/// "First sketch": it stands on rough amounts until files replace them.
 ///
 /// When there's nothing to answer from, it says what's missing: a birth
 /// date (with a picker, which saves it and runs the plan), amounts, or a
@@ -235,7 +235,7 @@ struct OnboardingAnswerStep: View {
     }
 }
 
-/// "First sketch": the answer stands on round numbers. The tour shows it
+/// "First sketch": the answer stands on rough amounts. The tour shows it
 /// under the answer, the Overview beside "Can I retire yet?" while any
 /// starting estimate is open, with a tap explaining it.
 struct OnboardingSketchChip: View {

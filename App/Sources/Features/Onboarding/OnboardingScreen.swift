@@ -5,7 +5,7 @@ import Planner
 import SwiftUI
 
 /// First launch (UI.md, "Empty states and first launch"): a short tour to
-/// a first answer from round numbers, then ways to make it real.
+/// a first answer from rough amounts, then the files that replace them.
 ///
 /// 1. The question the app answers (``OnboardingWelcome``).
 /// 2. About you: birth date, country (which sets the currency and names
