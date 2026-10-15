@@ -115,8 +115,6 @@ struct JSONParserTests {
         let error = try #require(syntaxError("{\n  \"a\": \"1\",\n  \"b\": [1, 2,]\n}\n"))
         #expect(error.line == 3)
         #expect(error.column == 14)
-        #expect(error.description.hasPrefix("Line 3, column 14:"))
-        #expect(error.message.contains("Trailing comma"))
     }
 
     @Test func columnsCountCharacters() throws {

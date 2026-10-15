@@ -110,12 +110,12 @@ public enum CSVExport {
     static func valuations(_ months: [MonthFile]) -> File {
         let rows = months.flatMap(\.valuations).sortedByKey().map { valuation in
             [valuation.date.description, valuation.account.rawValue, exact(valuation.balance), exact(valuation.cash),
-             String(valuation.positions.count), exact(valuation.flow), exact(valuation.moneyIn),
+             String(valuation.positions.count), exact(valuation.saved), exact(valuation.moneyIn),
              exact(valuation.moneyOut), exact(valuation.oneOff), exact(valuation.tax), exact(valuation.interest),
              valuation.note ?? "",
              valuation.source?.rawValue ?? ""]
         }
-        return table("valuations.csv", ["date", "account", "balance", "cash", "positions", "flow", "money_in",
+        return table("valuations.csv", ["date", "account", "balance", "cash", "positions", "saved", "money_in",
                                          "money_out", "one_off", "tax", "interest", "note", "source"], rows)
     }
 

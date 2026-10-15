@@ -8,7 +8,7 @@ import Model
 ///
 /// An account with a record before the stretch saved what its change over
 /// it counts as saved (``Valuator/change(from:to:in:)``). One whose records start in the
-/// stretch held its first amount already: its first value without a flow
+/// stretch held its first amount already: its first value without a saved amount
 /// (`other`) and what it saved after it. That amount counts as saved only as far as
 /// money moved from the accounts tracked before it pays for it, shared over
 /// the stretch's first amounts on that side in proportion to them: above

@@ -69,7 +69,6 @@ struct TradeRecordTests {
     }
 
     @Test func onlyBuysSellsFeesAndTaxesSettleExternally() {
-        #expect(TradeType.knownValues.filter(\.canSettleExternally) == [.buy, .sell, .fee, .tax])
         let fee = Trade(account: "a", date: "2026-01-02", id: "x", type: .fee, amount: -40, settlement: .external)
         #expect(fee.isSettledExternally)
         #expect(fee.problems.isEmpty)

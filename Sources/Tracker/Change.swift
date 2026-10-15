@@ -7,13 +7,13 @@ public struct ValueChange: Hashable, Sendable {
     public var start: Decimal
     /// Returns: price and FX movement, interest, reinvested dividends.
     public var market: Decimal
-    /// Money added (+) or taken out (−): the values' flows
-    /// (``Valuator/flow(of:previous:)``).
+    /// Money added (+) or taken out (−): what the values saved
+    /// (``Valuator/saved(_:previous:)``).
     public var saved: Decimal
     /// What can't be explained: an account's first value without a
-    /// recorded flow (what it held when its records start), and the change
-    /// of a balance without a flow, apart from FX movement: one that asks
-    /// for a flow and has none, or one whose saved amount needs a missing
+    /// recorded saved amount (what it held when its records start), and the
+    /// change of a balance without one, apart from FX movement: one that
+    /// asks for it and has none, or one whose saved amount needs a missing
     /// price or exchange rate.
     public var other: Decimal
     public var end: Decimal
@@ -50,26 +50,26 @@ public struct ValueChange: Hashable, Sendable {
 public struct AccountChange: Hashable, Sendable, Identifiable {
     public let account: AccountID
     public let change: ValueChange
-    /// The flows of the period's valuations (``Valuator/flow(of:previous:)``),
+    /// What the period's valuations saved (``Valuator/saved(_:previous:)``),
     /// converted to the change's currency at each valuation's date; zero
-    /// when there was no new valuation. `nil` when one has no flow: a
-    /// balance that asks for one without it, the account's first value, or
+    /// when there was no new valuation. `nil` when one's is unknown: a
+    /// balance that asks for it without it, the account's first value, or
     /// a price or rate missing.
-    public let flow: Decimal?
+    public let saved: Decimal?
     /// Missing prices and FX rates. Parts that couldn't be valued count as zero.
     public let problems: [ValuationProblem]
 
-    public init(account: AccountID, change: ValueChange, flow: Decimal?, problems: [ValuationProblem]) {
+    public init(account: AccountID, change: ValueChange, saved: Decimal?, problems: [ValuationProblem]) {
         self.account = account
         self.change = change
-        self.flow = flow
+        self.saved = saved
         self.problems = problems
     }
 
     public var id: AccountID { account }
 
-    /// Whether the money in and out over the period is known.
-    public var isFlowKnown: Bool { flow != nil }
+    /// Whether what was saved over the period is known.
+    public var isSavedKnown: Bool { saved != nil }
 }
 
 /// The change of every account in a scope between two dates, and the total:
@@ -86,8 +86,8 @@ public struct ChangeReport: Hashable, Sendable {
 
     /// Accounts whose saved amount couldn't be worked out, because a price or
     /// an exchange rate it needs is missing: their change counts as other.
-    public var unknownFlowAccounts: [AccountID] {
-        accounts.filter { !$0.isFlowKnown && !$0.problems.isEmpty }.map(\.account)
+    public var unknownSavedAccounts: [AccountID] {
+        accounts.filter { !$0.isSavedKnown && !$0.problems.isEmpty }.map(\.account)
     }
 
     /// Everything missing, across accounts.
@@ -112,23 +112,24 @@ extension Valuator {
     /// market, saved and other (docs/schema/README.md, "How values are computed",
     /// and PROGRESS.md):
     ///
-    /// - **Flow known** (every valuation in the period has a flow,
-    ///   ``flow(of:previous:)``, or there was none): saved is the flows,
-    ///   and market is the rest. A balance's flow is worked out from its
-    ///   balances (the whole change, less the interest for savings), so its
-    ///   market is the FX effect; one the check-in asks about records it.
-    /// - **Balance, flow unknown:** when only the account's first value has
-    ///   none, the other values' flows are saved, the first value is
+    /// - **Saved known** (what every valuation in the period saved is
+    ///   known, ``saved(_:previous:)``, or there was none): saved is their
+    ///   sum, and market is the rest. What a balance saved is worked out
+    ///   from its balances (the whole change, less the interest for
+    ///   savings), so its market is the FX effect; one that asks for it
+    ///   records it.
+    /// - **Balance, saved unknown:** when only the account's first value has
+    ///   none, what the other values saved is saved, the first value is
     ///   other (what it held when its records start), and market is the
-    ///   rest. Otherwise (a balance that asks for a flow without one,
-    ///   ``Model/Account/asksForFlow``, or a price or an exchange rate
+    ///   rest. Otherwise (a balance that asks for it without one,
+    ///   ``Model/Account/asksForSaved``, or a price or an exchange rate
     ///   missing), market is only the FX effect on the old balance, and the
     ///   rest is other.
     /// - **Trades accounts:** values are snapshots (``snapshot(of:on:)``),
     ///   and saved is the account's ``TradeFlow``s in the period
     ///   (deposits, withdrawals, transfers and residuals), each converted at
     ///   its date. Dividends, interest and fees are market. Without a price
-    ///   for a transfer, the flow is unknown: market is the old holdings at
+    ///   for a transfer, what it saved is unknown: market is the old holdings at
     ///   the new prices and rates, and saved the rest.
     /// - An account that closes in the period ends at zero: its value on the
     ///   closing day leaves as saved. One that opens starts at zero.
@@ -191,14 +192,14 @@ extension Valuator {
         let end = valued(endValuation, on: endDate)
         let heldAtEnd = valued(startValuation, on: endDate)
         let heldMarket = heldAtEnd - start
-        let flow = recordedFlows(of: account, after: from, through: endDate, in: target, problems: &problems)
+        let saved = recordedSaved(of: account, after: from, through: endDate, in: target, problems: &problems)
 
         var parts = ValueChange(start: start, market: 0, saved: 0, other: 0, end: end)
-        if let flow {
-            parts.saved = flow
-            parts.market = end - start - flow
+        if let saved {
+            parts.saved = saved
+            parts.market = end - start - saved
         } else if endValuation?.isBalance ?? false,
-                  let filled = filledFlows(of: account, after: from, through: endDate, in: target,
+                  let filled = filledSaved(of: account, after: from, through: endDate, in: target,
                                            problems: &problems) {
             parts.saved = filled.saved
             parts.other = filled.firstValue
@@ -218,15 +219,15 @@ extension Valuator {
             parts.saved -= end
             parts.end = 0
         }
-        return AccountChange(account: account.id, change: parts, flow: flow, problems: problems)
+        return AccountChange(account: account.id, change: parts, saved: saved, problems: problems)
     }
 
     /// What a balance saved, from its values dated after `from`
-    /// through `through`: each one's flow (``flow(of:previous:)``),
+    /// through `through`: what each one saved (``saved(_:previous:)``),
     /// converted to `currency` at the value's date. The account's first
     /// value is `firstValue` instead: what it held when its records start,
-    /// not money paid in. `nil` when another value has no flow.
-    func filledFlows(of account: Account, after from: CalendarDate, through: CalendarDate,
+    /// not money paid in. `nil` when another value's is unknown.
+    func filledSaved(of account: Account, after from: CalendarDate, through: CalendarDate,
                      in currency: CurrencyCode, problems: inout [ValuationProblem])
         -> (saved: Decimal, firstValue: Decimal)? {
         func convert(_ amount: Decimal, from source: CurrencyCode, on date: CalendarDate) -> Decimal? {
@@ -238,8 +239,8 @@ extension Valuator {
         for valuation in valuations(for: account.id) {
             defer { previous = valuation }
             guard valuation.date > from, valuation.date <= through else { continue }
-            if let flow = self.flow(of: valuation, previous: previous) {
-                guard let amount = convert(flow, from: account.currency, on: valuation.date) else { return nil }
+            if let recorded = self.saved(valuation, previous: previous) {
+                guard let amount = convert(recorded, from: account.currency, on: valuation.date) else { return nil }
                 saved += amount
             } else if previous != nil {
                 return nil
@@ -252,12 +253,12 @@ extension Valuator {
         return (saved, firstValue)
     }
 
-    /// The flows of the account's valuations dated after `from` through
-    /// `through` (``flow(of:previous:)``), each converted at its own date;
-    /// zero if there are none, `nil` if one is unknown. For a trades account, its ``TradeFlow``s
-    /// instead: deposits, withdrawals, transfers and residuals. Converted to
-    /// `currency` (the base currency when `nil`).
-    func recordedFlows(of account: Account, after from: CalendarDate, through: CalendarDate,
+    /// What the account's valuations dated after `from` through `through`
+    /// saved (``saved(_:previous:)``), each converted at its own date;
+    /// zero if there are none, `nil` if one is unknown. For a trades
+    /// account, its ``TradeFlow``s instead: deposits, withdrawals, transfers
+    /// and residuals. Converted to `currency` (the base currency when `nil`).
+    func recordedSaved(of account: Account, after from: CalendarDate, through: CalendarDate,
                        in currency: CurrencyCode? = nil, problems: inout [ValuationProblem]) -> Decimal? {
         let target = currency ?? baseCurrency
         if history(of: account.id).ledger != nil {
@@ -270,8 +271,8 @@ extension Valuator {
         for valuation in valuations(for: account.id) {
             defer { previous = valuation }
             guard valuation.date > from, valuation.date <= through else { continue }
-            guard let flow = self.flow(of: valuation, previous: previous),
-                  let amount = converted(flow, from: account.currency, to: target, on: valuation.date,
+            guard let saved = self.saved(valuation, previous: previous),
+                  let amount = converted(saved, from: account.currency, to: target, on: valuation.date,
                                          for: account.id, problems: &problems)
             else {
                 known = false

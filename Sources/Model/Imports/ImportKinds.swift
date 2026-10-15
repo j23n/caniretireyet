@@ -35,8 +35,8 @@ public struct ImportTarget: OpenEnum {
     /// A valuation's `cash`.
     public static let cash: ImportTarget = "cash"
     /// What was saved into the account since its value before: a
-    /// valuation's `flow`, kept only on an account that asks for one
-    /// (``Account/asksForFlow``).
+    /// valuation's `saved`, kept only on an account that asks for one
+    /// (``Account/asksForSaved``).
     public static let saved: ImportTarget = "saved"
     /// A price record.
     public static let price: ImportTarget = "price"

@@ -5,8 +5,8 @@ import TestSupport
 import Tracker
 
 /// Directa in the example library records trades: an opening, monthly
-/// deposits and buys of VWCE, and a sale in July. Its values and flows at
-/// each check-in are the ones it had as positions.
+/// deposits and buys of VWCE, and a sale in July. Its values and what it
+/// saved at each check-in are the ones it had as positions.
 struct ExampleLibraryTradeTests {
     let library: Library
     let valuator: Valuator
@@ -16,9 +16,9 @@ struct ExampleLibraryTradeTests {
         valuator = Valuator(library: library)
     }
 
-    /// Month-end values and flows of Directa when it recorded positions
+    /// Month-end values and amounts saved of Directa when it recorded positions
     /// (before it recorded trades), and its quantities.
-    private let monthEnds: [(CalendarDate, cash: String, quantity: String, flow: String?)] = [
+    private let monthEnds: [(CalendarDate, cash: String, quantity: String, saved: String?)] = [
         ("2025-10-31", "215.4", "338", nil), ("2025-11-30", "188.9", "348", "1267.5"),
         ("2025-12-31", "402.15", "358", "1523.75"), ("2026-01-31", "256.8", "368", "1180.65"),
         ("2026-02-28", "310.45", "378", "1355.65"), ("2026-03-31", "150.2", "388", "1118.25"),
@@ -35,15 +35,15 @@ struct ExampleLibraryTradeTests {
         #expect(library.valuations(for: "directa").allSatisfy { $0.positions.isEmpty && $0.cash != nil })
     }
 
-    @Test func itsHoldingsCashAndFlowsAreTheSameAsBefore() throws {
+    @Test func itsHoldingsCashAndSavedAreTheSameAsBefore() throws {
         var previous: Valuation?
-        for (date, cash, quantity, flow) in monthEnds {
+        for (date, cash, quantity, saved) in monthEnds {
             let snapshot = try #require(valuator.snapshot(of: "directa", on: date))
             #expect(snapshot.cash == d(cash), "\(date)")
             #expect(snapshot.positions.map(\.quantity) == [d(quantity)], "\(date)")
             let valuation = try #require(library.valuations(for: "directa").first { $0.date == date })
-            if let flow {
-                #expect(valuator.defaultFlow(for: valuation, previous: previous) == d(flow), "\(date)")
+            if let saved {
+                #expect(valuator.workedOutSaved(for: valuation, previous: previous) == d(saved), "\(date)")
             }
             previous = valuation
         }

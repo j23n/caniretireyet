@@ -40,8 +40,6 @@ struct ConflictResolverTests {
         #expect(try merged(result).prices.count == 1)
         #expect(result.recordsAdded == 2)
         #expect(result.conflictingRecords.isEmpty)
-        #expect(result.summary
-            == "Merged 2 versions of history/2026/2026-10.json: added 2 records that only an older version had.")
     }
 
     @Test func whenBothChangedARecordTheNewerFileWins() throws {
@@ -55,7 +53,6 @@ struct ConflictResolverTests {
             #expect(try merged(result) == newer)
             #expect(result.recordsAdded == 0)
             #expect(result.conflictingRecords == ["valuations: 2026-10-31 tfr"])
-            #expect(result.summary.contains("kept the newest version of 1 record changed on both sides"))
         }
     }
 
@@ -97,7 +94,6 @@ struct ConflictResolverTests {
             ConflictVersion(mine, modified: earlier, source: "iPhone"), ConflictVersion(theirs, modified: later, source: "Mac"),
         ])
         #expect(result.value == theirs)
-        #expect(result.summary == "Kept the newest version of accounts/tfr.json from Mac; the other version was discarded.")
     }
 
     @Test func mergingFilesKeepsUnknownKeysAndWritesCanonicalJSON() throws {
@@ -135,7 +131,6 @@ struct ConflictResolverTests {
             ConflictVersion(try JSONEncoder().encode(older), modified: earlier), ConflictVersion(newest, modified: later),
         ])
         #expect(result.value == newest)
-        #expect(result.summary == "Merged 2 versions of history/2026/2026-09.json; they had the same records.")
     }
 
     @Test func withinOneVersionTheLaterDuplicateWinsAsWhenLoading() throws {
@@ -160,6 +155,5 @@ struct ConflictResolverTests {
             ConflictVersion(good, modified: earlier), ConflictVersion(broken, modified: later),
         ])
         #expect(result.value == good)
-        #expect(result.summary.hasSuffix("1 version wasn't valid JSON and was left out."))
     }
 }

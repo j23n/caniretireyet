@@ -30,7 +30,7 @@ public struct GapExplanation: Hashable, Sendable {
     /// happened. `nil` when the actual values aren't adjusted for inflation
     /// (then it's part of ``other``, and close to nothing).
     public var inflation: Decimal?
-    /// The rest: changes of balance accounts without a recorded flow, and
+    /// The rest: changes of balance accounts without a recorded saved amount, and
     /// exchange rates.
     public var other: Decimal
 

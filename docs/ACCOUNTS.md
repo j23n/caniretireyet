@@ -2,11 +2,11 @@
 
 An account's kind alone says what its values record and how what it saved is worked out. Values come only from imported files: the app types no balance, money in and out, what was saved or trade, and the check-in is read-only ([UI.md](UI.md#check-in)).
 
-The rules are in `Sources/Model/Accounts/`: `AccountKind.defaultValuationMode`, `AccountKind.defaultFlow` (`FlowDefault`), `AccountKind.recordsMoneyInOut`, `Account.valuationMode` and `Account.asksForFlow`.
+The rules are in `Sources/Model/Accounts/`: `AccountKind.defaultValuationMode`, `AccountKind.savedRule` (`SavedRule`), `AccountKind.recordsMoneyInOut`, `Account.valuationMode` and `Account.asksForSaved`.
 
 ## Every kind
 
-| Kind | Records | Saved (`flow`) |
+| Kind | Records | Saved (`saved`) |
 | --- | --- | --- |
 | `cash` | Balance, money in, money out | The whole change |
 | `savings` | Balance, interest (optional), money in, money out | The change minus the interest |
@@ -37,7 +37,7 @@ Each kind's values record the fields in the table above, from its files. An acco
 
 ### Saved
 
-- **Stored only where it's information.** What a pension fund, a TFR, a property or an `other` account saved can't be told from its balance, so its values record it in `flow` (`Account.asksForFlow`). Every other account's is worked out from what's recorded whenever it's needed (Tracker's `Valuator.flow(of:previous:)`), and its values store none: a stored copy could only fall out of step.
+- **Stored only where it's information.** What a pension fund, a TFR, a property or an `other` account saved can't be told from its balance, so its values record it in `saved` (`Account.asksForSaved`). Every other account's is worked out from what's recorded whenever it's needed (Tracker's `Valuator.saved(_:previous:)`), and its values store none: a stored copy could only fall out of step.
 - **Cash:** the whole change. **Savings:** the change minus the interest. **Debts and belongings:** the whole change. **Trades accounts:** from the trades ([TRADES.md](TRADES.md#flows)).
 - So a savings account's interest counts as market, as a fund's return does.
 - What was saved splits the change into market, saved and other ([schema/README.md](schema/README.md#how-values-are-computed)).
@@ -48,7 +48,7 @@ What's left over. It's shown, and not stored:
 
 > moved = balance − previous balance − money in − one-off + money out (− interest, for savings)
 
-The flow is the change (cash) or the change minus the interest (savings), so this is **flow − money in − the one-off + money out** for both kinds (`Valuator.moved(_:previous:)`).
+What was saved is the change (cash) or the change minus the interest (savings), so this is **saved − money in − the one-off + money out** for both kinds (`Valuator.moved(_:previous:)`).
 
 - **Shown with each value** of a cash or savings account on its page ([UI.md](UI.md#accounts)).
 - **Interest on a current account** isn't recorded; it ends up in "moved".

@@ -111,8 +111,8 @@ extension ImportPreview {
     /// trade of an account that doesn't record trades (a switch that was
     /// rejected) is left out. The other accepted
     /// account changes come last (opening earlier moves `Account.opened`).
-    /// Applying the same file twice changes nothing. A valuation keeps a
-    /// flow only when its account asks for one (``Model/Account/asksForFlow``):
+    /// Applying the same file twice changes nothing. A valuation keeps what
+    /// it saved only when its account asks for it (``Model/Account/asksForSaved``):
     /// every other account's is worked out from its records.
     public func apply(to library: Library) -> ImportResult {
         var library = library
@@ -181,7 +181,7 @@ extension ImportPreview {
                 imported.signBalance(isLiability: account.kind.isLiability,
                                      columnWritesDebtsNegative: imported.balanceColumn.map(negativeDebtColumns.contains)
                                          ?? false)
-                if !account.asksForFlow { imported.flow = nil }
+                if !account.asksForSaved { imported.saved = nil }
             }
             let existing = library.record(for: imported.key)
             let keepsLibrary = record.isFromQuantities && imported.key.account.map(keepingTrades.contains) == true

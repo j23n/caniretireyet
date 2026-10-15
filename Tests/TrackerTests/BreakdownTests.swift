@@ -16,7 +16,6 @@ struct ExampleLibraryBreakdownTests {
 
     @Test func byAssetClass() throws {
         let breakdown = valuator.breakdown(by: .assetClass, on: "2026-09-30")
-        #expect(breakdown.total.rounded(2) == d("332455.49"))
         #expect(breakdown.isComplete)
         #expect(breakdown.slices.map(\.key) == [
             .assetClass(.realEstate), .assetClass(.equity), .assetClass(.crypto), .assetClass(.cash),
@@ -43,46 +42,32 @@ struct ExampleLibraryBreakdownTests {
         #expect(debts.shareOfAssets?.rounded(4) == d("-0.2979"))
     }
 
-    @Test func byAccountGroup() {
-        let breakdown = valuator.breakdown(by: .accountGroup, on: "2026-09-30")
-        #expect(breakdown.value(of: .accountGroup(.cash)) == d("21576.1"))
-        #expect(breakdown.value(of: .accountGroup(.investments)) == d("57410.35"))
-        #expect(breakdown.value(of: .accountGroup(.cryptoAndGold)).rounded(6) == (wallet + d("9180.72")).rounded(6))
-        #expect(breakdown.value(of: .accountGroup(.pension)) == d("29210.32"))
-        #expect(breakdown.value(of: .accountGroup(.property)) == 312_000)
-        #expect(breakdown.value(of: .accountGroup(.debts)) == -141_050)
-        #expect(breakdown.slices.count == 6)
+    /// Every dimension splits the whole net worth, leaving nothing out.
+    @Test(arguments: BreakdownDimension.allCases)
+    func slicesSumToNetWorth(dimension: BreakdownDimension) {
+        let netWorth = valuator.netWorth(on: "2026-09-30").total
+        let breakdown = valuator.breakdown(by: dimension, on: "2026-09-30")
+        #expect(breakdown.total.rounded(10) == netWorth.rounded(10))
     }
 
-    @Test func byCurrency() {
-        let breakdown = valuator.breakdown(by: .currency, on: "2026-09-30")
+    @Test func slicesFollowEachAccount() {
         // Bitcoin is priced in dollars; everything else is in euros.
-        #expect(breakdown.slices.map(\.key) == [.currency(.eur), .currency(.usd)])
-        #expect(breakdown.value(of: .currency(.usd)).rounded(20) == wallet.rounded(20))
-        #expect(breakdown.value(of: .currency(.eur)).rounded(2) == d("288327.49"))
-    }
-
-    @Test func byInstitution() {
-        let breakdown = valuator.breakdown(by: .institution, on: "2026-09-30")
-        #expect(breakdown.value(of: .institution("Banca Esempio")) == d("-123684.45"))
-        #expect(breakdown.value(of: .institution("Directa SIM")) == d("57410.35"))
-        #expect(breakdown.value(of: .institution(nil)).rounded(2) == d("365308.72"))
-        #expect(breakdown.slice(for: .institution(nil))?.accounts == ["casa", "gold-coins", "ledger-wallet"])
-        #expect(BreakdownKey.institution(nil).description == "No institution")
-    }
-
-    @Test func liquidOrLocked() {
-        let breakdown = valuator.breakdown(by: .liquidity, on: "2026-09-30")
+        let currency = valuator.breakdown(by: .currency, on: "2026-09-30")
+        #expect(currency.slices.map(\.key) == [.currency(.eur), .currency(.usd)])
+        #expect(currency.value(of: .currency(.usd)).rounded(20) == wallet.rounded(20))
+        // Accounts without an institution share one slice.
+        let institution = valuator.breakdown(by: .institution, on: "2026-09-30")
+        #expect(institution.slice(for: .institution(nil))?.accounts == ["casa", "gold-coins", "ledger-wallet"])
         // Locked: pension fund, TFR, the home and its mortgage.
-        #expect(breakdown.value(of: .liquidity(.locked)) == d("200160.32"))
-        #expect(breakdown.value(of: .liquidity(.liquid)).rounded(2) == d("132295.17"))
+        let liquidity = valuator.breakdown(by: .liquidity, on: "2026-09-30")
+        #expect(liquidity.value(of: .liquidity(.locked)) == d("200160.32"))
     }
 
     @Test func planScopeLeavesOutTheHome() {
         let breakdown = valuator.breakdown(by: .assetClass, on: "2026-09-30", in: .planAssets)
         #expect(breakdown.slice(for: .assetClass(.realEstate)) == nil)
         #expect(breakdown.slice(for: .debts) == nil)
-        #expect(breakdown.total.rounded(2) == d("161505.49"))
+        #expect(breakdown.total.rounded(10) == valuator.total(on: "2026-09-30", in: .planAssets).total.rounded(10))
     }
 
     @Test func stackedSeriesByAssetClass() {

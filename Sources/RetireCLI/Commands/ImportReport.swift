@@ -559,7 +559,7 @@ struct ImportReport: CommandReport {
             parts.append("balance \(Format.amount(balance))" + (record.balanceReadAsDebt ? " (read as a debt)" : ""))
         }
         if let cash = record.cash { parts.append("cash \(Format.amount(cash))") }
-        if let saved = record.flow { parts.append("saved \(Format.amount(saved))") }
+        if let saved = record.saved { parts.append("saved \(Format.amount(saved))") }
         for position in record.positions {
             var text = "\(position.instrument)"
             if let quantity = position.quantity { text += " \(Format.exact(quantity))" }
@@ -585,7 +585,7 @@ struct ImportReport: CommandReport {
                 parts.append("\(position.instrument) \(Format.exact(position.quantity))"
                     + (position.costBasis.map { " (cost \(Format.amount($0)))" } ?? ""))
             }
-            if imported?.flow != nil, let saved = valuation.flow { parts.append("saved \(Format.amount(saved))") }
+            if imported?.saved != nil, let saved = valuation.saved { parts.append("saved \(Format.amount(saved))") }
             if imported?.moneyIn != nil || imported?.moneyOut != nil {
                 parts += moneyInOut(valuation.moneyIn, valuation.moneyOut, valuation.interest, valuation.oneOff,
                                    valuation.tax)

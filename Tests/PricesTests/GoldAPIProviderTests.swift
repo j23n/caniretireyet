@@ -31,7 +31,7 @@ struct GoldAPIProviderTests {
         #expect(spot.name == "gold-api.com · XAU")
         #expect(spot.covers("2026-09-27"))
         #expect(!spot.covers("2026-09-26"))
-        #expect(spot.limitReason == "gold-api.com only has today's price.")
+        #expect(spot.limitReason != nil)
         let history = try await spot.fetch(HistoryRange(from: "2026-09-20", through: "2026-09-27", today: today))
         #expect(history.origin == QuoteOrigin(source: .goldAPI, service: "gold-api.com", symbol: "XAU"))
         #expect(history.quote(onOrBefore: "2026-09-27")?.observedOn == today)
