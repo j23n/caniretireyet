@@ -101,8 +101,8 @@ final class AppNavigation {
     /// and clears it.
     var planRoute: PlanRoute?
     /// Whether first launch goes on once its library is open, with the
-    /// accounts step and the disclaimer: *Create library* sets it, and the
-    /// root view shows `OnboardingScreen` until its *Start* clears it.
+    /// answer, files and notes: *See My Answer* sets it, and the root view
+    /// shows `OnboardingScreen` until its *Start* clears it.
     var finishesOnboarding = false
     /// The step of first launch `OnboardingScreen` opens on (``ScreenLaunch``);
     /// it clears it once taken.

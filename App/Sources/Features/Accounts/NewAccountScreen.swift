@@ -14,9 +14,7 @@ import Tracker
 /// It starts with no values: they come from importing its files (a bank's
 /// statement, a broker's export, or a spreadsheet you keep for it).
 ///
-/// ⌘N and the Accounts toolbar present it in a NavigationStack; first
-/// launch's accounts step pushes it on its own stack, which *Cancel* and
-/// *Add* go back to.
+/// ⌘N and the Accounts toolbar present it in a NavigationStack.
 struct NewAccountScreen: View {
     @Environment(LibraryStore.self) private var library
     @Environment(\.dismiss) private var dismiss
