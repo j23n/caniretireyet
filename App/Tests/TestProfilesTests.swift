@@ -44,8 +44,14 @@ struct TestProfilesTests {
         #expect(profiles.all.isEmpty)
         #expect(profiles.active == nil)
 
-        let first = try #require(TestProfile(name: "first"))
-        let second = try #require(TestProfile(name: "second"))
+        // Unique names: a profile's settings suite is the app's own.
+        let unique = UUID().uuidString.lowercased()
+        let first = try #require(TestProfile(name: "a-\(unique)"))
+        let second = try #require(TestProfile(name: "b-\(unique)"))
+        defer {
+            UserDefaults().removePersistentDomain(forName: first.defaultsSuite)
+            UserDefaults().removePersistentDomain(forName: second.defaultsSuite)
+        }
         try profiles.create(second)
         try profiles.create(first)
         #expect(profiles.all == [first, second])
