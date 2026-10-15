@@ -138,16 +138,26 @@ struct NotePlannerMonthlyTests {
         #expect(settings.date(in: "2027-02") == "2027-02-28")
     }
 
-    @Test func daysThatWouldSkipAMonthMoveTo25() {
-        #expect(!NoteSettings.days.contains(22) && !NoteSettings.days.contains(24))
+    @Test func daysBeforeTheLastCountBackFromTheMonthsEnd() throws {
         var settings = NoteSettings.standard
-        settings.day = 24
-        #expect(settings.effectiveDay == 25)
+        settings.day = -6
         #expect(settings.date(in: "2026-10") == "2026-10-25")
-        // On 25 October a check-in is October's, as on 25 November it's November's.
-        #expect(NotePlanner.checkInMonth(on: "2026-10-25") == "2026-10")
-        #expect(NotePlanner.checkInMonth(on: "2026-11-25") == "2026-11")
-        #expect(NotePlanner.checkInMonth(on: "2026-10-21") == "2026-09")
+        #expect(settings.date(in: "2026-11") == "2026-11-24")
+        #expect(settings.date(in: "2027-02") == "2027-02-22")
+        // A day saved past day 21 counts back from the last of a 30-day month.
+        #expect(NoteSettings(monthly: true, day: 24).effectiveDay == -6)
+        #expect(NoteSettings(monthly: true, day: 28).effectiveDay == -2)
+        #expect(NoteSettings(monthly: true, day: 31).effectiveDay == 0)
+        // Each note is for its own month: none is skipped.
+        let notes = NotePlanner.notes(for: snapshot(checkIns: year, answer: answer(age: 54, readiness: 0.58)),
+                                      settings: settings, now: NoteTime(date: "2026-10-01", hour: 9, minute: 0),
+                                      locale: english)
+            .filter { $0.kind == .monthly || $0.kind == .catchUp }
+        let first = try #require(notes.first)
+        #expect(first.time.date == "2026-10-25")
+        #expect(first.title == "October check-in")
+        #expect(notes.dropFirst().first?.time.date == "2026-11-24")
+        #expect(notes.dropFirst().first?.title == "November check-in")
     }
 
     @Test func offMeansNone() {
