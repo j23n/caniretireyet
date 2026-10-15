@@ -317,6 +317,15 @@ At launch `LibraryStore.start()` asks `CloudSync.LibraryLocator` for the iCloud 
 
 If the iPhone sticks on the opening screen, Console (on a Mac, with the iPhone connected) shows each step: filter on the subsystem (the bundle id) and the category `library`.
 
+## Test profiles
+
+Debug and TestFlight builds can open a test profile instead of the real library, to try first launch and the rest of the app on a library that doesn't matter. In Settings, tapping *Version* seven times shows the *Test profiles* section: *Your library* and each profile, with the one open ticked; *New Profile…*; *Start Over…* for the profile that's open; *Delete* in a profile's context menu; *Hide This Section*. In a Debug build, `-testProfile <name>` opens that profile at launch, making it if it's new.
+
+- **What a profile is** (`TestProfile`, `TestProfiles`, `Sources/App/TestProfiles.swift`): a folder, `Application Support/<bundle id>/Profiles/<name>`, with its library in `Library/`, and a `UserDefaults` suite of its own (`<bundle id>.profile.<name>`) for the device's settings (`AppPreferences`). Its `LibraryLocator` has `usesICloud` off, so it never sees the library in iCloud Drive, and first launch keeps it on the device. The one open is kept in the app's own defaults (`testProfiles.active`).
+- **What stays the real library's:** the widgets' snapshot and the notes, which the app has one of each: a profile's model (`AppModel.live(in:root:)`) writes no snapshot and schedules no notes. `@AppStorage` choices (the Overview's range, Trends' grain) are shared.
+- **Switching** (`AppSession`, `Sources/App/AppSession.swift`): the app holds an `AppSession`, which holds the `AppModel`. Switching waits for the model's saves, closes its library (`LibraryStore.close()`), and opens a new model; the window's content is built again for it (`generation`). *Start Over…* and *Delete* also delete the profile's settings and its plans' kept results.
+- **Which builds:** Debug builds always; Release builds ask `AppTransaction` and show it only in TestFlight's sandbox, never in the App Store's. While a profile is open, a strip over the window names it, with *Leave*.
+
 ## Not done yet
 
 - **Not built:** separate windows for plan comparison and import on the Mac (add `WindowGroup(id:)` scenes and `openWindow`), Face ID lock (M3), and reacting to the iCloud account changing while the app runs.

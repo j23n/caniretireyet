@@ -13,9 +13,16 @@ import SwiftUI
 ///
 /// "You" is saved in the library (`library.json`); everything else belongs
 /// to this device. Present it inside a `NavigationStack`.
+///
+/// In Debug and TestFlight builds, tapping the version seven times shows the
+/// Test profiles section (``TestProfilesSection``), which stays while a
+/// profile is open or until it's hidden. Previews have no session.
 struct SettingsScreen: View {
     @Environment(LibraryStore.self) private var library
+    @Environment(AppSession.self) private var session: AppSession?
     @State private var csvExport: LibraryCSVExport?
+    /// Taps on the version so far, toward showing the Test profiles section.
+    @State private var versionTaps = 0
 
     init() {}
 
@@ -41,8 +48,14 @@ struct SettingsScreen: View {
             #if FEEDBACK
             FeedbackSection()
             #endif
+            if let session, let profiles = session.profiles, profiles.isAvailable,
+               profiles.isRevealed || profiles.active != nil {
+                TestProfilesSection(session: session, profiles: profiles)
+            }
             Section {
                 LabeledContent("Version", value: Self.version)
+                    .contentShape(Rectangle())
+                    .onTapGesture(perform: countVersionTap)
                 LabeledContent("Library format", value: "\(library.settings.schemaVersion)")
             } header: {
                 Text("About")
@@ -53,6 +66,18 @@ struct SettingsScreen: View {
         .formStyle(.grouped)
         .navigationTitle("Settings")
         .sheet(item: $csvExport) { LibraryCSVExportSheet(export: $0) }
+        .task { await session?.profiles?.checkAvailability() }
+    }
+
+    /// The seventh tap on the version shows the Test profiles section, where
+    /// this build has it.
+    private func countVersionTap() {
+        guard let profiles = session?.profiles, profiles.isAvailable, !profiles.isRevealed else { return }
+        versionTaps += 1
+        if versionTaps >= 7 {
+            versionTaps = 0
+            profiles.isRevealed = true
+        }
     }
 
     private var syncSummary: String {
