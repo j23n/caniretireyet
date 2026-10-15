@@ -180,7 +180,7 @@ struct OnboardingAnswerStep: View {
     private func readiness(_ headline: RetirementAnswer, endAge: Int) -> some View {
         let figure = headline.readinessFigure
         HStack(alignment: .center, spacing: Metrics.l) {
-            if let percent = figure.text({ AmountFormat.percent($0, digits: 0, locale: locale) }) {
+            if let percent = figure.text(percent: { AmountFormat.percent($0, digits: 0, locale: locale) }) {
                 ZStack {
                     ReadinessRing(fraction: figure.lappingFill, lineWidth: 10, laps: true)
                         .privacySensitiveInFeedback()

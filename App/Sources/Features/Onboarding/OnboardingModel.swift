@@ -1,6 +1,7 @@
 import Foundation
 import Model
 import Observation
+import os
 import Planner
 
 /// First launch's answers and where the tour is (UI.md, "Empty states and
@@ -74,6 +75,9 @@ final class OnboardingModel {
     /// The latest quick estimate, and the one before it.
     private(set) var estimate: Estimate?
     private(set) var previousEstimate: Estimate?
+
+    private static let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "CanIRetireYet",
+                                       category: "onboarding")
 
     init(locale: Locale = .current) {
         let region = locale.region.map { CountryCode($0.identifier) }
@@ -199,7 +203,8 @@ final class OnboardingModel {
         do {
             try await library.addStartingEstimates(answers, plan: plan, on: today)
         } catch {
-            LibraryLog.error("Onboarding: couldn't save the starting estimates: \(LibraryStore.describe(error))")
+            Self.logger.error(
+                "Couldn't save the starting estimates: \(LibraryStore.describe(error), privacy: .public)")
         }
     }
 

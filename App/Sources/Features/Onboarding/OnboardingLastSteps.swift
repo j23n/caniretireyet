@@ -102,7 +102,7 @@ struct OnboardingNotesStep: View {
     private var monthlyNote: EngagementNote? {
         guard let snapshot = widgets.snapshot() else { return nil }
         return NotePlanner.notes(for: snapshot, settings: NoteSettings(monthly: true, yourYear: false),
-                                 now: NoteStore.now(), locale: locale).first
+                                 now: .now(), locale: locale).first
     }
 
     private func notePreview(_ note: EngagementNote) -> some View {
