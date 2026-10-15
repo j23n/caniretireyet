@@ -91,7 +91,7 @@ final class LibraryStore {
     /// checks across files (`Library.problems()`), worked out again for
     /// each revision of ``library``, so they follow every edit and reload.
     var issues: [LibraryIssue] {
-        (loadIssues + problems.value(for: revision) { library.problems() }).sortedByPath()
+        (loadIssues + problems.value(for: revision) { library.problems(valuator: valuator) }).sortedByPath()
     }
     /// Sync conflicts merged since launch, newest first.
     private(set) var mergedConflicts: [ConflictResolution] = []

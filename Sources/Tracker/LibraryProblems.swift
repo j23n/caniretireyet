@@ -20,8 +20,10 @@ extension Library {
     ///   accounts or instruments that don't exist, or with a layout this
     ///   version doesn't import;
     /// - trades that can't be applied as they are (``Valuator/tradeIssues(for:)``).
-    public func problems() -> [LibraryIssue] {
-        var checks = LibraryChecks(library: self, valuator: Valuator(library: self))
+    ///
+    /// `valuator` is the library's, when the caller has one.
+    public func problems(valuator: Valuator? = nil) -> [LibraryIssue] {
+        var checks = LibraryChecks(library: self, valuator: valuator ?? Valuator(library: self))
         checks.references()
         checks.moneyInOut()
         checks.valuationDates()
