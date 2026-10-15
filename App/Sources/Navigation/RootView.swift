@@ -38,6 +38,7 @@ struct RootView: View {
                     openFile(url)
                 }
             }
+            .modifier(LayoutFromSizeClass())
     }
 
     /// A widget or a note was tapped: net worth opens the Overview, the
@@ -60,8 +61,8 @@ struct RootView: View {
         navigation.startImport(url)
     }
 
-    /// At launch the layout isn't set yet, so on iPhone it's set here, as
-    /// the main navigation would, before a link or a file is opened.
+    /// At launch the layout may not be set yet, so on iPhone it's set here,
+    /// as `LayoutFromSizeClass` would, before a link or a file is opened.
     private func adoptLaunchLayout() {
         #if os(iOS)
         if horizontalSizeClass == .compact { navigation.layout = .tabs }
@@ -104,18 +105,34 @@ struct RootView: View {
     @ViewBuilder
     private var mainNavigation: some View {
         #if os(iOS)
-        Group {
-            if horizontalSizeClass == .compact {
-                TabRoot()
-            } else {
-                SidebarRoot()
-            }
-        }
-        .onChange(of: horizontalSizeClass, initial: true) { _, sizeClass in
-            navigation.layout = sizeClass == .compact ? .tabs : .sidebar
+        if horizontalSizeClass == .compact {
+            TabRoot()
+        } else {
+            SidebarRoot()
         }
         #else
         SidebarRoot()
+        #endif
+    }
+}
+
+/// Sets `AppNavigation.layout` from the width, for everything the root
+/// shows: the tour and the import it pushes lay out as the main navigation
+/// will, tabs in compact width and a sidebar otherwise.
+private struct LayoutFromSizeClass: ViewModifier {
+    @Environment(AppNavigation.self) private var navigation
+    #if os(iOS)
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    #endif
+
+    func body(content: Content) -> some View {
+        #if os(iOS)
+        content
+            .onChange(of: horizontalSizeClass, initial: true) { _, sizeClass in
+                navigation.layout = sizeClass == .compact ? .tabs : .sidebar
+            }
+        #else
+        content
             .onAppear { navigation.layout = .sidebar }
         #endif
     }
