@@ -15,7 +15,9 @@ import SwiftUI
 /// 4. Pension and retirement: a state pension, when to stop, the tax on investments
 ///    (``OnboardingLaterStep``). *See My Answer* creates the library, the
 ///    starting estimates and the first plan (``OnboardingModel/seeAnswer(library:plans:navigation:preferences:)``).
-/// 5. The answer, calculated here (``OnboardingAnswerStep``).
+/// 5. The answer, calculated here (``OnboardingAnswerStep``). *Back* goes
+///    to the questions until files are imported, and *See My Answer* then
+///    replaces what it added.
 /// 6. Import your accounts: which files to import, the starter spreadsheet, the
 ///    Mac (``OnboardingFilesStep``); *Import Files…* pushes the import on
 ///    the tour's own stack.
@@ -127,7 +129,8 @@ struct OnboardingScreen: View {
 
     private var buttons: some View {
         HStack(spacing: Metrics.m) {
-            if let previous = model.step.previous {
+            if let previous = model.previousStep(in: library.library,
+                                                 answerIsRunning: plans.checkInAnswer?.isRunning == true) {
                 Button("Back") {
                     withAnimation { model.step = previous }
                 }

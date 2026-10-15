@@ -18,6 +18,13 @@ final class OnboardingModel {
         var yearsSooner: Int
     }
 
+    /// What *See My Answer* added to the library it created: the starting
+    /// estimates and the first plan.
+    struct TourRecords: Hashable, Sendable {
+        var estimates: [AccountID]
+        var plan: PlanID?
+    }
+
     /// The quick estimate beside the questions on the Mac and iPad.
     struct Estimate: Hashable, Sendable {
         var headline: RetirementAnswer
@@ -67,6 +74,9 @@ final class OnboardingModel {
     /// iCloud Drive (synced from another device), which keeps its own
     /// accounts and plans.
     private(set) var openedExistingLibrary = false
+    /// What *See My Answer* added to a library it created; `nil` before, and
+    /// for a library that was already in iCloud Drive.
+    private(set) var tourRecords: TourRecords?
     /// Whether the answer is being recorded, or was, for the tour.
     private(set) var startedAnswer = false
     /// The lever on the answer, once it's worked out; `nil` before, and
@@ -99,6 +109,25 @@ final class OnboardingModel {
         case .money, .later: !answers.hasNegativeAmount
         case .welcome, .answer, .files, .notes: true
         }
+    }
+
+    /// The step *Back* goes to: none from the welcome, and from the answer
+    /// only while the library holds just what the tour added (no import yet)
+    /// and no answer is being calculated, so *See My Answer* can replace
+    /// it with what's changed.
+    func previousStep(in library: Library, answerIsRunning: Bool) -> OnboardingStep? {
+        guard let previous = step.previous else { return nil }
+        guard step == .answer else { return previous }
+        return !answerIsRunning && holdsOnlyTourRecords(library) ? previous : nil
+    }
+
+    /// Whether `library` holds just ``tourRecords``: no other accounts or
+    /// plans, and nothing an import adds (instruments, import profiles).
+    func holdsOnlyTourRecords(_ library: Library) -> Bool {
+        guard let records = tourRecords else { return false }
+        return Set(library.accounts.keys) == Set(records.estimates)
+            && Set(library.plans.keys) == Set(records.plan.map { [$0] } ?? [])
+            && library.instruments.isEmpty && library.importProfiles.isEmpty
     }
 
     /// Chooses the country: its currency when there's one for it, and its
@@ -153,10 +182,11 @@ final class OnboardingModel {
     // MARK: See My Answer
 
     /// *See My Answer*: creates the library with the settings chosen, adds
-    /// the starting estimates and the first plan (``addStarterRecords(library:)``),
+    /// the starting estimates and the first plan (``addStarterRecords(library:settings:)``),
     /// moves to the answer and starts recording it
     /// (`PlanStore.recordCheckInAnswer(on:)`), as a check-in does. When the
-    /// library can't be created, it says why and stays on the step.
+    /// library can't be created, it says why and stays on the step. After
+    /// *Back* from the answer, it replaces what it added before.
     func seeAnswer(library: LibraryStore, plans: PlanStore, navigation: AppNavigation,
                    preferences: AppPreferences) async {
         guard !isCreating else { return }
@@ -176,34 +206,49 @@ final class OnboardingModel {
                 return
             }
         }
-        await addStarterRecords(library: library, currency: settings.baseCurrency)
+        await addStarterRecords(library: library, settings: settings)
         if !openedExistingLibrary {
             preferences.gettingStartedSince = preferences.gettingStartedSince ?? library.asOfDate
         }
         step = .answer
+        startedAnswer = false
+        lever = nil
         startAnswer(library: library, plans: plans)
     }
 
     /// The starting estimates and the first plan, as the main plan, in a
     /// new library (one synced from another device keeps its own, as does
-    /// one whose files didn't all load), and only in the `currency` the
-    /// amounts were typed in: a library that appeared in iCloud Drive
-    /// meanwhile is opened instead. No plan without spending outside the
-    /// euro (`PlanEditing.starterPlan`). When they can't be saved, the
-    /// Plan screen still offers to create a plan.
-    private func addStarterRecords(library: LibraryStore, currency: CurrencyCode) async {
-        let existing = library.library
+    /// one whose files didn't all load), and only in the currency of
+    /// `settings`, which the amounts were typed in: a library that appeared
+    /// in iCloud Drive meanwhile is opened instead. No plan without spending
+    /// outside the euro (`PlanEditing.starterPlan`). When they can't be
+    /// saved, the Plan screen still offers to create a plan.
+    ///
+    /// Again after *Back* from the answer, while the library holds just
+    /// ``tourRecords``: those are replaced, the plan keeps its ID, and the
+    /// library takes `settings`.
+    private func addStarterRecords(library: LibraryStore, settings: LibrarySettings) async {
+        var existing = library.library
+        let replacing = holdsOnlyTourRecords(existing) ? tourRecords : nil
+        if let replacing {
+            for id in replacing.estimates { existing.accounts[id] = nil }
+            existing.plans = [:]
+            existing.settings.baseCurrency = settings.baseCurrency
+            existing.settings.person = settings.person
+            existing.settings.taxResidence = settings.taxResidence
+        }
         guard library.canEdit, existing.plans.isEmpty, existing.accounts.isEmpty, library.unloadedFiles.isEmpty,
-              existing.settings.baseCurrency == currency
+              existing.settings.baseCurrency == settings.baseCurrency
         else {
             openedExistingLibrary = !existing.plans.isEmpty || !existing.accounts.isEmpty
-                || existing.settings.baseCurrency != currency
+                || existing.settings.baseCurrency != settings.baseCurrency
             return
         }
         let answers = finalAnswers
         let today = library.asOfDate
+        let planID = replacing?.plan ?? library.newPlanID(for: PlanEditing.starterPlanName)
         var plan = PlanEditing.starterPlan(
-            id: library.newPlanID(for: PlanEditing.starterPlanName), name: PlanEditing.starterPlanName,
+            id: planID, name: PlanEditing.starterPlanName,
             library: existing, asOf: today, payPerMonth: answers.payPerMonth,
             spendingPerMonth: answers.spendingPerMonth, retirementAge: answers.retirementAge)
         if var starter = plan {
@@ -211,7 +256,10 @@ final class OnboardingModel {
             plan = starter
         }
         do {
-            try await library.addStartingEstimates(answers, plan: plan, on: today)
+            let estimates = try await library.addStartingEstimates(
+                answers, plan: plan, on: today, replacing: replacing?.estimates ?? [],
+                replacingPlan: replacing?.plan, settings: replacing == nil ? nil : settings)
+            tourRecords = TourRecords(estimates: estimates, plan: plan?.id)
         } catch {
             Self.logger.error(
                 "Couldn't save the starting estimates: \(LibraryStore.describe(error), privacy: .public)")
