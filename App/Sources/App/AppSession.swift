@@ -52,6 +52,18 @@ final class AppSession {
         try? await replaceModel { profiles.activate(profile) }
     }
 
+    /// Goes back to the real library when a profile is open in a build that
+    /// turns out not to have test profiles: an App Store build that
+    /// replaced a TestFlight one keeps the app's data, the profile in use
+    /// with it. Asks the App Store only while a profile is open.
+    func leaveProfileIfUnavailable() async {
+        guard let profiles, profiles.active != nil else { return }
+        await profiles.checkAvailability()
+        if !profiles.isAvailable {
+            await switchTo(nil)
+        }
+    }
+
     /// Makes a profile named from `typed` and opens it, at first launch.
     func createAndSwitch(typed: String) async throws {
         guard let profiles else { return }

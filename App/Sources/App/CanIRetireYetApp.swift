@@ -62,7 +62,10 @@ struct CanIRetireYetApp: App {
             .testProfileBanner()
             .appEnvironment(model)
             .environment(session)
-            .task { await model.start() }
+            .task {
+                await model.start()
+                await session.leaveProfileIfUnavailable()
+            }
             .id(session.generation)
     }
 }
