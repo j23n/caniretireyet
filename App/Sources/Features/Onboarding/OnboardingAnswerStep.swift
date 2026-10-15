@@ -137,7 +137,7 @@ struct OnboardingAnswerStep: View {
         let today = library.asOfDate
         let results = library.mainPlan.flatMap { plans.results(of: $0.id) }
         return VStack(alignment: .leading, spacing: Metrics.l) {
-            Text("Your first answer")
+            Text(model.openedExistingLibrary ? "Your answer" : "Your first answer")
                 .font(.footnote.weight(.semibold))
                 .textCase(.uppercase)
                 .foregroundStyle(Palette.secondaryInk)

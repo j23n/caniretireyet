@@ -3,7 +3,7 @@ import Model
 import Planner
 import SwiftUI
 
-/// Beside the money and later-in-life steps on the Mac and iPad (UI.md,
+/// Beside the money and pension steps on the Mac and iPad (UI.md,
 /// "Empty states and first launch"): the answer moving as you type. Each
 /// change runs a quick estimate, a few hundred futures of the library and
 /// plan *See My Answer* would create, in memory

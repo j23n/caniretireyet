@@ -3,7 +3,7 @@ import Glance
 import Model
 import SwiftUI
 
-/// Make it real (UI.md, "Empty states and first launch"): files come after
+/// Import your accounts (UI.md, "Empty states and first launch"): files come after
 /// the answer, as the way to sharpen it. Which files work and where they
 /// come from, the starter spreadsheet for what has no export, and on the
 /// iPhone and iPad that importing is easiest on the Mac. *Import Files…*
@@ -53,7 +53,7 @@ struct OnboardingFilesStep: View {
     }
 }
 
-/// Keep it in view: the monthly note, shown with your own answer before
+/// Reminders: the monthly note, shown with your own answer before
 /// it's turned on, and *Your year*; the widget, suggested once; and the
 /// disclaimer in a line, with the whole text a tap away. *Start* turns on
 /// the notes ticked and opens the Overview.

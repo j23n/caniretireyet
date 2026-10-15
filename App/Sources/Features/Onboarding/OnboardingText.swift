@@ -50,7 +50,7 @@ enum OnboardingText {
         return AmountFormat.percent(fraction, digits: 0, locale: locale)
     }
 
-    // MARK: Later in life
+    // MARK: Pension and retirement
 
     /// Under the state pension: where its amount comes from, and what
     /// leaving it empty does.

@@ -129,7 +129,7 @@ struct OnboardingYouStep: View {
     }
 }
 
-/// Your money, roughly: what you have today, in four plain buckets that
+/// Your money: what you have today, in four plain buckets that
 /// become the starting estimates, and pay and spending a month, with what
 /// you save as you type.
 struct OnboardingMoneyStep: View {
@@ -189,7 +189,7 @@ struct OnboardingMoneyStep: View {
     }
 }
 
-/// Later in life: a state pension (the one input that moves the answer
+/// Pension and retirement: a state pension (the one input that moves the answer
 /// most), when to stop, and the tax on investments, suggested for the
 /// country.
 struct OnboardingLaterStep: View {

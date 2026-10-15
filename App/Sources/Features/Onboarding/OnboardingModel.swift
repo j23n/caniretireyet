@@ -41,7 +41,7 @@ final class OnboardingModel {
     /// it's available.
     var keepsInICloud = true
 
-    // MARK: Money and later in life
+    // MARK: Money, pension and retirement
 
     /// The amounts, ages and rates typed, with the country's suggestions
     /// for the ages and the tax until they're changed.
@@ -52,7 +52,7 @@ final class OnboardingModel {
     /// Whether the tax rate is still the country's suggestion.
     private(set) var taxIsDefault: Bool
 
-    // MARK: Keep it in view
+    // MARK: Reminders
 
     /// The monthly note and *Your year*, as the last step's switches have them.
     var monthlyNote = true
