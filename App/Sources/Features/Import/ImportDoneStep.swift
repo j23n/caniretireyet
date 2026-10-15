@@ -153,7 +153,7 @@ struct ImportDoneStep: View {
         } header: {
             Text("Price sources")
         } footer: {
-            Text("These new instruments have no price source, so their prices are typed in at each check-in. "
+            Text("These new instruments have no price source, so their prices are typed in on Instruments. "
                 + "Find Price Sources searches Yahoo Finance by each one's ISIN, ticker or name, and only those "
                 + "leave this device.")
         }

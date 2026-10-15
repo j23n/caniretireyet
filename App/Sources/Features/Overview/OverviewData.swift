@@ -283,7 +283,7 @@ enum OverviewAttention {
             } else {
                 items.append(OverviewAttentionItem(
                     id: "stale.\(stale.account)", systemImage: "clock.badge.exclamationmark",
-                    title: "\(name): no value yet", detail: "Add its first value in a check-in",
+                    title: "\(name): no value yet", detail: "Import a file with its values",
                     target: .account(stale.account)))
             }
         }

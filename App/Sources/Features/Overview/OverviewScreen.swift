@@ -163,25 +163,28 @@ private struct OverviewHeroView: View {
     }
 }
 
-/// Before the first check-in: one clear next step.
+/// Before the first values: one clear next step. Values come only from
+/// imported files, so it opens the import.
 private struct FirstCheckInCard: View {
     @Environment(AppNavigation.self) private var navigation
 
     var body: some View {
-        Card("Record your first values") {
+        Card("Import your first values") {
             VStack(alignment: .leading, spacing: Metrics.m) {
-                Text("A check-in records what each account is worth today. Your history starts with it.")
+                Text("Your accounts get their values from the files you import: bank statements, broker exports or "
+                     + "a spreadsheet. Your history starts with them.")
                     .font(.callout)
                     .foregroundStyle(Palette.secondaryInk)
                     .fixedSize(horizontal: false, vertical: true)
-                Button("Start a check-in") { navigation.startCheckIn() }
+                Button("Import Files…") { navigation.startImport() }
                     .buttonStyle(.borderedProminent)
             }
         }
     }
 }
 
-/// A new library: add accounts or import a spreadsheet.
+/// A new library without accounts: import files, which create them, or
+/// add an account for a later import to fill.
 private struct OverviewEmptyState: View {
     @Environment(AppNavigation.self) private var navigation
 
@@ -189,11 +192,12 @@ private struct OverviewEmptyState: View {
         ContentUnavailableView {
             Label("Nothing here yet", systemImage: AppSymbol.overview)
         } description: {
-            Text("Add your accounts, or import the spreadsheet you've kept so far.")
+            Text("Import your bank statements, broker exports or the spreadsheet you've kept so far. Each file "
+                 + "creates the accounts it's about.")
         } actions: {
-            Button("Add accounts") { navigation.newAccount() }
+            Button("Import Files…") { navigation.startImport() }
                 .buttonStyle(.borderedProminent)
-            Button("Import…") { navigation.startImport() }
+            Button("Add an Account") { navigation.newAccount() }
         }
         .background(Palette.page)
     }
