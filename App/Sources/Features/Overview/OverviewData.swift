@@ -283,7 +283,9 @@ enum OverviewAttention {
             } else {
                 items.append(OverviewAttentionItem(
                     id: "stale.\(stale.account)", systemImage: "clock.badge.exclamationmark",
-                    title: "\(name): no value yet", detail: "Import a file with its values",
+                    title: "\(name): no value yet",
+                    detail: library.accounts[stale.account]?.acceptsTypedValues == true
+                        ? "Update its value" : "Import a file with its values",
                     target: .account(stale.account)))
             }
         }

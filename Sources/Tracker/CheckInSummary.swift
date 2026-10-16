@@ -2,8 +2,8 @@ import Model
 
 /// What a check-in shows before it's saved (UI.md, "Check-in"): net worth on
 /// its date at the prices and rates fetched for it, the change since the
-/// previous check-in, and which open accounts this month's imports updated.
-/// Read-only: every value and trade comes from an imported file.
+/// previous check-in, and which open accounts this month's imports or typed
+/// values updated. Read-only: it changes nothing in the library.
 public struct CheckInSummary: Hashable, Sendable {
     public let date: CalendarDate
     /// Net worth on the date, with the check-in's prices and rates.

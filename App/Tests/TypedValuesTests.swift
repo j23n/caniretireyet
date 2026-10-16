@@ -44,8 +44,11 @@ struct TypedValuesTests {
     }
 
     @Test func editingKeepsTheNoteAndMovesTheDate() throws {
-        let original = Valuation(account: "a", date: "2026-06-30", balance: 300_000, note: "agent's estimate",
+        var original = Valuation(account: "a", date: "2026-06-30", balance: 300_000, note: "agent's estimate",
                                  source: .manual)
+        original.saved = 1000
+        original.moneyIn = 200
+        original.moneyOut = 100
         var form = TypedValueForm(editing: original, of: account(.property), locale: locale)
         #expect(form.balance == "300000")
         form.date = "2026-07-31"
@@ -54,6 +57,7 @@ struct TypedValuesTests {
         #expect(valuation.date == "2026-07-31")
         #expect(valuation.balance == 305_000)
         #expect(valuation.note == "agent's estimate")
+        #expect(valuation.saved == nil && valuation.moneyIn == nil && valuation.moneyOut == nil)
         #expect(form.original?.key == original.key)
     }
 

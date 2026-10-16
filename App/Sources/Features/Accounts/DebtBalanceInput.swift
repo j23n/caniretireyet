@@ -4,13 +4,12 @@ import Model
 // Typing the balance of a debt (a loan or mortgage) in *Update Value*.
 // Debts are stored as negative balances, but people type what they owe:
 // "1.200" for a 1.200 € debt is recorded as −1.200 (as the importer reads
-// positive debts). A debt can also be in credit, e.g. an overpaid loan: a
-// leading "+" says so, and "+20" is recorded as 20.
+// positive debts). A value already recorded in credit, e.g. an overpaid
+// loan's imported +20, shows with a leading "+" and reads back as 20.
 
 extension AmountInput {
     /// The footer under a debt's balance field.
-    static let debtBalanceFooter = "Type what you owe, e.g. 1200: debts are recorded as negative amounts. "
-        + "If the account is in credit, type + first, e.g. +20."
+    static let debtBalanceFooter = "Type what you owe, e.g. 1200: debts are recorded as negative amounts."
 
     /// The balance recorded for `text` typed into a balance field. For a
     /// debt (`isLiability`) an amount is what's owed, stored negative,

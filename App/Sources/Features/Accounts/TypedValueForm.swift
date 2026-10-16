@@ -78,8 +78,10 @@ struct TypedValueForm: Hashable, Sendable {
         return problems
     }
 
-    /// The value to save, or `nil` while the balance can't be read. An
-    /// edited value keeps its note and what else its file records.
+    /// The value to save, or `nil` while the balance can't be read: a
+    /// balance only. An edited value keeps its note and any keys this
+    /// version doesn't know, and drops what it recorded besides the balance
+    /// (money in and out, saved, interest, a one-off, tax).
     func valuation(locale: Locale = .current) -> Valuation? {
         guard let amount = AmountInput.balance(from: balance, isLiability: isLiability, locale: locale) else {
             return nil
@@ -89,6 +91,12 @@ struct TypedValueForm: Hashable, Sendable {
         valuation.balance = amount
         valuation.cash = nil
         valuation.positions = []
+        valuation.saved = nil
+        valuation.moneyIn = nil
+        valuation.moneyOut = nil
+        valuation.oneOff = nil
+        valuation.tax = nil
+        valuation.interest = nil
         valuation.source = .manual
         return valuation
     }

@@ -91,7 +91,9 @@ struct OverviewScreen: View {
                     if let report = valuator.changeThisYear(asOf: today) {
                         OverviewYearCard(
                             report: report, split: valuator.savedSplit(of: report),
-                            savings: valuator.savingsRate(from: report.from.adding(days: 1), through: today),
+                            // Off with Trends while savings or investments are typed (UI.md, "Trends").
+                            savings: library.library.accountsTurningOffTrends.isEmpty
+                                ? valuator.savingsRate(from: report.from.adding(days: 1), through: today) : nil,
                             yearlySpending: spending)
                     }
                     if headline == nil {
