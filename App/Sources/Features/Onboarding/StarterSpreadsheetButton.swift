@@ -10,9 +10,9 @@ import AppKit
 /// *Save Starter Spreadsheet…* (UI.md, "Empty states and first launch"):
 /// the Importer's `StarterSpreadsheet`, a CSV with a column each for a
 /// home, a mortgage and a pension, headed with today's row and the open
-/// estimates' amounts (the mortgage's as owed), to fill in and import. On
-/// the iPhone and iPad it's shared (*Save to Files*); on the Mac it's saved where you
-/// choose.
+/// estimates' amounts (the mortgage's as owed), to fill in and import.
+/// On the iPhone and iPad it's shared (*Save to Files*); on the Mac it's
+/// saved where you choose.
 struct StarterSpreadsheetButton: View {
     @Environment(LibraryStore.self) private var library
     @State private var file: URL?
