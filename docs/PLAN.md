@@ -22,7 +22,7 @@ All data lives in a folder of plain JSON files in iCloud Drive. The apps on your
 
 - **Files are the source of truth.** The data outlives the app. You can read it, back it up, put it in git, or edit it by hand.
 - **Offline-first and private.** There is no server, no analytics and no third-party SDKs. Only instrument symbols ever leave the device, when prices are fetched, and an instrument's ISIN, ticker or name when you search for its symbol. (Debug builds can also send feedback you write, with a screenshot whose amounts, names, dates and notes are hidden, to the developer's private GitHub inbox; release builds can't: [App/README.md](../App/README.md#feedback).)
-- **The monthly check-in should take under five minutes.** You import the month's files and prices are fetched for you. Only accounts with no file to import, such as a home or a pension fund, can have a balance typed, if you choose so for them.
+- **The monthly check-in should take under five minutes.** You import the month's files and prices are fetched for you. Accounts with no file to import, such as a home, a pension fund or a savings account without exports, can have a balance typed, if you choose so for them; current accounts can't, and typed savings or investments turn Trends off.
 - **History is never lost.** Closing an account removes it from today's totals and from check-ins, but not from the charts.
 - **Plans start from real data.** The planner's starting portfolio is your latest check-in, not a number you type in.
 - **Honest numbers.** Results show ranges and a confidence level, and every assumption is visible and editable. They are estimates, not tax advice.
@@ -39,7 +39,7 @@ All data lives in a folder of plain JSON files in iCloud Drive. The apps on your
 - Monthly check-in:
   - the month's files imported: bank statements, broker exports, spreadsheets;
   - prices and FX rates fetched automatically where possible;
-  - a balance typed for the accounts you chose to type (a home, a pension fund, a mortgage: never a current or savings account);
+  - a balance typed for the accounts you chose to type (a home, a pension fund, a mortgage: never a current account);
   - a look at what changed, then save.
 - Overview:
   - net worth over time;

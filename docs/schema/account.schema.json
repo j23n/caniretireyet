@@ -67,7 +67,7 @@
       "$ref": "common.schema.json#/$defs/decimal"
     },
     "values": {
-      "description": "Where the account's values come from. imported: from imported files (statements, exports, spreadsheets). typed: also typed by hand, a balance on a date (source manual), with no money in and out. Default: imported. Only balance accounts of kind pensionFund, tfr, property, belongings, loan, mortgage and other take typed; the other kinds, and accounts that record trades, read it as imported, so a current or savings account's money in and out keeps coming from its statements (ACCOUNTS.md). A starting estimate (tagged estimate) takes typed values until it's closed, whatever this says.",
+      "description": "Where the account's values come from. imported: from imported files (statements, exports, spreadsheets). typed: also typed by hand, a balance on a date (source manual), with no money in and out. Default: imported. Only balance accounts take typed, of every kind but cash, creditCard and taxPot, whose money in and out keeps coming from their statements; those kinds, and accounts that record trades, read it as imported. An investment account set to typed is written with valuation balance. Typed savings or investments turn Trends off (ACCOUNTS.md). A starting estimate (tagged estimate) takes typed values until it's closed, whatever this says.",
       "$comment": "Open enum.",
       "enum": ["imported", "typed"]
     }

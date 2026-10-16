@@ -1,6 +1,6 @@
 # Accounts: what each kind records
 
-An account's kind alone says what its values record and how what it saved is worked out. Values come from imported files. A pension fund, TFR, property, belongings, loan, mortgage or other balance can also have its balance typed by hand, if you choose so for it ([Typed values](#typed-values)); current and savings accounts, credit cards, tax pots and trades accounts stay import-only. The app never types money in and out, what was saved or a trade.
+An account's kind alone says what its values record and how what it saved is worked out. Values come from imported files. Any account recorded as a balance but a current account, a credit card or a tax pot can also have its balance typed by hand, if you choose so for it ([Typed values](#typed-values)); typed savings or investments turn Trends off. Current accounts, credit cards, tax pots and accounts with trades stay import-only. The app never types money in and out, what was saved or a trade.
 
 The rules are in `Sources/Model/Accounts/`: `AccountKind.defaultValuationMode`, `AccountKind.savedRule` (`SavedRule`), `AccountKind.recordsMoneyInOut`, `AccountKind.takesTypedValues`, `Account.valuationMode`, `Account.asksForSaved` and `Account.acceptsTypedValues`.
 
@@ -31,10 +31,11 @@ Each kind's values record the fields in the table above, from its files. An acco
 
 ### Typed values
 
-Some accounts have no file to import: a home's value is an estimate, a pension fund sends a yearly letter, a mortgage's balance is on a schedule. For those you can type the balance yourself.
+Some accounts have no file to import: a home's value is an estimate, a pension fund sends a yearly letter, a mortgage's balance is on a schedule, a savings account or a broker may not export one. For those you can type the balance yourself.
 
 - **Opt-in, per account.** The account's `values` is `imported` (the default, left out of the file) or `typed`, set in the account's editor (*Values: From imported files* or *Typed by you*) and changeable any time. Switching back keeps the values already typed.
-- **Only balance kinds without money in and out:** pension funds, TFR, property, belongings, loans, mortgages and other (`AccountKind.takesTypedValues`), recorded as a balance. Current and savings accounts, credit cards and tax pots record money in and out, which is what Trends and the savings rate stand on, so their values only come from statements; so do trades accounts, whose holdings come from their trades.
+- **Every kind but current accounts, credit cards and tax pots** (`AccountKind.takesTypedValues`), recorded as a balance. Those three record the money in and out that Trends and the savings rate stand on, so their values only come from statements. An investment account (brokerage, crypto, metals) switches to a balance when its values are set to typed, as long as it has no trades, and stays one when switched back; an account with trades gets its holdings from them.
+- **Typed savings or investments turn Trends off** (`Account.typedValuesTurnOffTrends`): Trends counts what came in and was saved from statements, and a typed balance records neither. While an open savings or investment account's values are typed, Trends shows only why it's off and those accounts ([UI.md](UI.md#trends)). Typed pensions, property, belongings and debts don't turn it off.
 - **A balance only.** A typed value is a balance on a date, today or earlier, with `source: manual`: no money in and out, no saved, no prices. A debt's is typed as what's owed and stored negative. So Trends shows no money in and out for it, and what a pension fund or property typed this way saved is unknown, as for an import without a saved column ([Saved](#saved)).
 - **Imports still work.** An imported value stays as its file wrote it; only typed ones can be edited. A typed value on the same date as another replaces it.
 - **Starting estimates** (first launch's round amounts, tagged `estimate`) take typed values whatever their kind, until they're closed, so a rough amount can be corrected before the real accounts are imported (`Account.acceptsTypedValues`).
