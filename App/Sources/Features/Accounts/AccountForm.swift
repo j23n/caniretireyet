@@ -117,6 +117,10 @@ struct AccountForm: Hashable, Sendable {
     /// An estimated loss of value a year, in per cent as typed
     /// ("15"); empty for none (``Model/Account/depreciation``).
     var depreciation: String
+    /// Where its values come from: imported files, or typed by you too
+    /// (``Model/Account/values``). Only kinds that take typed values offer
+    /// the choice (``offersTypedValues``).
+    var values: ValueEntry
     var notes: String
     /// The account being edited, whose other fields are kept.
     private(set) var original: Account?
@@ -145,6 +149,7 @@ struct AccountForm: Hashable, Sendable {
         isPlanInclusionChosen = false
         assetMix = AccountsAssetMixForm()
         depreciation = ""
+        values = .imported
         notes = ""
         original = nil
     }
@@ -169,8 +174,15 @@ struct AccountForm: Hashable, Sendable {
         isPlanInclusionChosen = true
         assetMix = AccountsAssetMixForm(account.assetClasses, locale: locale)
         depreciation = account.depreciation.map { AmountInput.text(for: $0 * 100, locale: locale) } ?? ""
+        values = Self.shownValues(of: account)
         notes = account.notes ?? ""
         original = account
+    }
+
+    /// The *Values* choice an account shows: typed, or imported for
+    /// anything else (a value a newer app wrote, too).
+    private static func shownValues(of account: Account) -> ValueEntry {
+        account.effectiveValues == .typed ? .typed : .imported
     }
 
     var isNew: Bool { original == nil }
@@ -259,6 +271,14 @@ struct AccountForm: Hashable, Sendable {
         !kind.isLiability && (!recordsTrades || balanceValueCount > 0)
     }
 
+    /// Whether it offers *Values: Typed by you*: a balance account of a
+    /// kind that takes typed values (``Model/Account/offersTypedValues``),
+    /// unless it's a starting estimate, which takes them anyway until it's
+    /// closed.
+    var offersTypedValues: Bool {
+        kind.takesTypedValues && valuationMode == .balance && !(original?.isStartingEstimate ?? false)
+    }
+
     /// Whether it asks for an estimated loss of value a year: belongings.
     var takesDepreciation: Bool { kind == .belongings }
 
@@ -320,6 +340,7 @@ struct AccountForm: Hashable, Sendable {
         account.availableFromAge = availableFromAge
         // A kind that doesn't lose value drops it, so nothing hidden keeps estimating.
         account.depreciation = takesDepreciation ? depreciationShare(locale: locale) : nil
+        account.values = valuesField
 
         // What the file leaves out follows the kind: true, or false for a tax pot.
         let byDefault = kind.isIncludedByDefault
@@ -341,5 +362,14 @@ struct AccountForm: Hashable, Sendable {
             account.assetClasses = assetMix.mix(locale: locale)
         }
         return account
+    }
+
+    /// `values` as written: as the file had it while the choice is
+    /// unchanged; `typed` when chosen, else left out. A kind that doesn't
+    /// offer the choice drops a known value, so nothing hidden stays typed.
+    private var valuesField: ValueEntry? {
+        guard offersTypedValues else { return original?.values.flatMap { $0.isKnown ? nil : $0 } }
+        if let original, values == Self.shownValues(of: original) { return original.values }
+        return values == .typed ? .typed : nil
     }
 }

@@ -165,7 +165,7 @@ private struct OverviewHeroView: View {
     }
 }
 
-/// Before the first values: one clear next step. Values come only from
+/// Before the first values: one clear next step. Most values come from
 /// imported files, so it opens the import.
 private struct FirstCheckInCard: View {
     @Environment(AppNavigation.self) private var navigation
