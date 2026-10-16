@@ -297,9 +297,9 @@ struct EditAccountSheet: View {
         .onAppear {
             if form == nil, let account = library.account(accountID) {
                 let valuations = library.valuator.valuations(for: account.id)
-                let hasHistory = !valuations.isEmpty || !library.library.trades(for: account.id).isEmpty
+                let hasTrades = !library.library.trades(for: account.id).isEmpty
                 form = AccountForm(editing: account, balanceValueCount: valuations.filter(\.isBalance).count,
-                                   hasHistory: hasHistory, locale: locale)
+                                   hasHistory: !valuations.isEmpty, hasTrades: hasTrades, locale: locale)
                 initialForm = form
             }
         }
@@ -317,7 +317,10 @@ struct EditAccountSheet: View {
                         Text("Typed by you").tag(ValueEntry.typed)
                     }
                 } footer: {
-                    Text("Typed values are balances only: Trends shows no money in and out for them.")
+                    Text(form.wrappedValue.typedValuesTurnOffTrends
+                         ? "Typed values are balances only. Trends needs the money in and out that statements record, "
+                            + "so it's off while a savings or investment account's values are typed."
+                         : "Typed values are balances only: Trends shows no money in and out for them.")
                 }
             }
             Section {

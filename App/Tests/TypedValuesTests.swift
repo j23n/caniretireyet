@@ -118,15 +118,36 @@ struct TypedValuesTests {
 
     // MARK: The account's form
 
-    @Test func onlyBalanceKindsWithoutMoneyInOutOfferTypedValues() {
+    @Test func everyKindButCurrentCardsAndTaxPotsOffersTypedValues() {
+        let importOnly: [AccountKind] = [.cash, .creditCard, .taxPot]
         for kind in AccountKind.knownValues {
             var form = AccountForm(editing: account(kind, values: nil))
             form.values = .typed
-            let offered = [.pensionFund, .tfr, .property, .belongings, .loan, .mortgage, .other].contains(kind)
-                && form.valuationMode == .balance
+            let offered = !importOnly.contains(kind)
             #expect(form.offersTypedValues == offered, "\(kind)")
             #expect(form.account(id: "a").values == (offered ? .typed : nil), "\(kind)")
+            #expect(form.account(id: "a").acceptsTypedValues == offered, "\(kind)")
         }
+    }
+
+    @Test func anInvestmentAccountSwitchesToABalanceUntilItHasTrades() {
+        var form = AccountForm(editing: account(.brokerage, values: nil))
+        #expect(form.valuationMode == .trades)
+        form.values = .typed
+        #expect(form.valuationMode == .balance)
+        let typed = form.account(id: "a")
+        #expect(typed.valuation == .balance)
+        #expect(typed.acceptsTypedValues)
+        #expect(typed.typedValuesTurnOffTrends)
+        // Switched back, it stays a balance: its typed values are balances.
+        var back = AccountForm(editing: typed)
+        back.values = .imported
+        #expect(back.account(id: "a").valuation == .balance)
+        #expect(back.account(id: "a").values == nil)
+        // With trades, it can't switch.
+        let withTrades = AccountForm(editing: account(.brokerage, values: nil), hasTrades: true)
+        #expect(!withTrades.offersTypedValues)
+        #expect(withTrades.account(id: "a").valuation == nil)
     }
 
     @Test func switchingBackToImportedLeavesTheFieldOut() {
@@ -179,5 +200,15 @@ struct TypedValuesTests {
         withEstimate.accounts["fondo-pensione"]?.tags = [Account.startingEstimateTag]
         let estimates = CheckInSummary(date: PreviewLibrary.latestCheckIn, library: withEstimate)
         #expect(Set(estimates.typedAccounts(in: withEstimate)) == ["casa", "fondo-pensione"])
+    }
+
+    @Test func typedSavingsOrInvestmentsTurnTrendsOff() {
+        var library = PreviewLibrary.library
+        #expect(library.accountsTurningOffTrends.isEmpty)
+        library.accounts["conto-deposito"]?.values = .typed
+        library.accounts["fondo-pensione"]?.values = .typed
+        #expect(library.accountsTurningOffTrends.map(\.id) == ["conto-deposito"])
+        library.accounts["conto-deposito"]?.closed = "2026-09-30"
+        #expect(library.accountsTurningOffTrends.isEmpty)
     }
 }

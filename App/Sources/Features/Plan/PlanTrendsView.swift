@@ -15,7 +15,8 @@ import Tracker
 /// iPhone the grain and the span are at the top of the page; on the Mac and
 /// iPad they're in the toolbar (``PlanTrendsControls``), the tiles are in a
 /// row, the charts in two columns and *Year by year* is a table across the
-/// page.
+/// page. While a savings or investment account's values are typed, one
+/// card says Trends is off instead (``PlanTrendsOffCard``).
 struct PlanTrendsView: View {
     let session: PlanSession
     /// Opens a year on Progress.
@@ -38,9 +39,22 @@ struct PlanTrendsView: View {
     private var isMainPlan: Bool { library.settings.mainPlan == session.planID }
 
     var body: some View {
+        let typedAccounts = library.library.accountsTurningOffTrends
+        if typedAccounts.isEmpty {
+            trends
+        } else {
+            ScrollView {
+                PlanTrendsOffCard(accounts: typedAccounts)
+                    .padding(gutter)
+            }
+            .background(Palette.page)
+        }
+    }
+
+    private var trends: some View {
         let model = trendsModel
         let reference = moneyReference(on: model.money.end)
-        ScrollView {
+        return ScrollView {
             VStack(alignment: .leading, spacing: Metrics.l) {
                 if isWide {
                     if model.money.isEmpty {

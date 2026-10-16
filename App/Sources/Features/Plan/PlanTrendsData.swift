@@ -36,3 +36,13 @@ extension PlanMoneySources {
         return sentence
     }
 }
+
+extension Library {
+    /// The accounts whose typed values turn Trends off (UI.md, "Trends";
+    /// ``Model/Account/typedValuesTurnOffTrends``), by name: open savings
+    /// and investment accounts set to typed values.
+    var accountsTurningOffTrends: [Account] {
+        accounts.values.filter(\.typedValuesTurnOffTrends)
+            .sorted { ($0.name.lowercased(), $0.id) < ($1.name.lowercased(), $1.id) }
+    }
+}

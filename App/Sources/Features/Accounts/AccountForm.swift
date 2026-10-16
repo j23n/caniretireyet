@@ -131,6 +131,9 @@ struct AccountForm: Hashable, Sendable {
     /// Whether the edited account has values or trades, which are in its
     /// currency: the currency can't change then (``locksCurrency``).
     private(set) var hasHistory = false
+    /// Whether the edited account has trades: an investment account that
+    /// records them can't switch to typed values then.
+    private(set) var hasTrades = false
 
     /// A new account: today, in the base currency, in the country you live
     /// in (`residence`), with the defaults for a current account.
@@ -155,11 +158,12 @@ struct AccountForm: Hashable, Sendable {
     }
 
     /// The fields of an existing account; `hasHistory`: it has values or
-    /// trades.
-    init(editing account: Account, balanceValueCount: Int = 0, hasHistory: Bool = false,
+    /// trades; `hasTrades`: it has trades.
+    init(editing account: Account, balanceValueCount: Int = 0, hasHistory: Bool = false, hasTrades: Bool = false,
          locale: Locale = .current) {
         self.balanceValueCount = balanceValueCount
-        self.hasHistory = hasHistory
+        self.hasHistory = hasHistory || hasTrades
+        self.hasTrades = hasTrades
         kind = account.kind
         name = account.name
         institution = account.institution ?? ""
@@ -251,11 +255,18 @@ struct AccountForm: Hashable, Sendable {
         set { opened = CalendarDate(newValue, in: .current) }
     }
 
-    /// How the account records its values: an edited account's own mode,
-    /// which changing its kind doesn't change (see ``account(id:locale:)``);
-    /// for a new one, the kind's: brokerage, crypto and metals record
-    /// trades, the others a balance (docs/ACCOUNTS.md, "Decisions").
+    /// How the account records its values: a balance when its values are
+    /// typed (an investment account without trades switches to one), else
+    /// an edited account's own mode, which changing its kind doesn't change
+    /// (see ``account(id:locale:)``); for a new one, the kind's: brokerage,
+    /// crypto and metals record trades, the others a balance
+    /// (docs/ACCOUNTS.md, "Decisions").
     var valuationMode: ValuationMode {
+        offersTypedValues && values == .typed ? .balance : unchangedValuationMode
+    }
+
+    /// The mode the account has without the *Values* choice.
+    private var unchangedValuationMode: ValuationMode {
         original?.valuationMode ?? kind.defaultValuationMode
     }
 
@@ -271,12 +282,20 @@ struct AccountForm: Hashable, Sendable {
         !kind.isLiability && (!recordsTrades || balanceValueCount > 0)
     }
 
-    /// Whether it offers *Values: Typed by you*: a balance account of a
-    /// kind that takes typed values (``Model/Account/offersTypedValues``),
-    /// unless it's a starting estimate, which takes them anyway until it's
-    /// closed.
+    /// Whether it offers *Values: Typed by you*: an account of a kind that
+    /// takes typed values (``Model/Account/offersTypedValues``) recorded as
+    /// a balance, or an investment account without trades, which typed
+    /// values switch to a balance; unless it's a starting estimate, which
+    /// takes them anyway until it's closed.
     var offersTypedValues: Bool {
-        kind.takesTypedValues && valuationMode == .balance && !(original?.isStartingEstimate ?? false)
+        kind.takesTypedValues && (unchangedValuationMode == .balance || !hasTrades)
+            && !(original?.isStartingEstimate ?? false)
+    }
+
+    /// Whether choosing *Typed by you* turns Trends off: savings and
+    /// investments (``Model/Account/typedValuesTurnOffTrends``).
+    var typedValuesTurnOffTrends: Bool {
+        kind == .savings || kind.isInvestment
     }
 
     /// Whether it asks for an estimated loss of value a year: belongings.
@@ -319,11 +338,12 @@ struct AccountForm: Hashable, Sendable {
     ///
     /// An edited account keeps how its values are read: its valuation mode,
     /// written out when the new kind's default would differ (a current
-    /// account made a brokerage stays a balance), and its currency once it
-    /// has history (``locksCurrency``).
+    /// account made a brokerage stays a balance, and so does an investment
+    /// account switched to typed values, switched back too), and its
+    /// currency once it has history (``locksCurrency``).
     func account(id: AccountID, locale: Locale = .current) -> Account {
         var account = original ?? Account(id: id, name: "", kind: kind, currency: currency, opened: opened)
-        if original?.kind != kind {
+        if original?.kind != kind || valuationMode != unchangedValuationMode {
             // Written only when it isn't the kind's default (brokerage defaults to trades).
             account.valuation = valuationMode == kind.defaultValuationMode ? nil : valuationMode
         }
