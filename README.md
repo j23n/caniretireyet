@@ -36,7 +36,7 @@ You need a Mac with Xcode 26 and an Apple Developer account (for iCloud).
    LIVE_PRICE_TESTS=1 swift test --filter PricesTests
    ```
 
-5. **Bring in your history:** *Import…* (⌘⇧I, or drop a file on the window) takes a spreadsheet export (CSV/TSV); map it once and save the mapping as a profile for next time. Or add values by hand with past check-ins or *Add Past Value…* on an account ([UI.md, "Adding history"](docs/UI.md)). Then *Fill In Past Prices…* (Instruments, or the import's last step) fetches the prices, exchange rates and inflation figures the history is missing.
+5. **Bring in your history:** *Import…* (⌘⇧I, or drop a file on the window) takes a spreadsheet export (CSV/TSV); map it once and save the mapping as a profile for next time. For a home, a pension fund or a mortgage you can choose to type their balances instead, with *Update Value…* on the account ([docs/ACCOUNTS.md, "Typed values"](docs/ACCOUNTS.md#typed-values)). Then *Fill In Past Prices…* (Instruments, or the import's last step) fetches the prices, exchange rates and inflation figures the history is missing.
 
 The command-line tool works on the same folder, on a Mac or Linux:
 
