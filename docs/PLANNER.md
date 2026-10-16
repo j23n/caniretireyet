@@ -116,7 +116,7 @@ Every field, its default and allowed range, and the error or warning a value out
 
 ### Work, pensions and other income
 
-- **Work** (`work`) is what the plan's search moves: every phase stops the day work stops, whatever its `until`, and retirement spending starts then.
+- **Work** (`work`) is what the plan's search moves: every phase stops the day work stops, whatever its `until`, and retirement spending starts then. Phases don't overlap: one that starts while another still runs is an error (`planner.workOverlap`), and a phase until retirement runs until work stops. The app's new phase ends the one before it the day before it starts.
 - **Pensions** (`pensions`) pay from the birthday at their age to the plan's end, retired or not. The first one paid ends the bridge.
 - **Other income** (`income`) is everything else that pays after tax: rent, a side business, an annuity, or part-time work once the main job stops (coast or barista FIRE). It pays from the birthday at `from`, or from the day work stops when `from` is `"retirement"`, to the day before the birthday at `untilAge` (the plan's end without one), retired or not, and keeps its value in real terms. Unlike work, retiring doesn't stop it, and "from retirement" moves with each retirement age the search tries: part-time work from retirement until 60 starts whenever the main job stops. Unlike a pension, it ends no bridge and starts no chapter, and the coast point doesn't wait for it. Results show it as `IncomeKind.other`.
 
@@ -219,7 +219,7 @@ The settings, `enabled`, `cut`, `floor`, `upperGuardrail` and `lowerGuardrail`, 
 
 `PlanChapters` splits a plan's years into chapters, so a plan can be shown by the stages of a life rather than by the sections of its file. A chapter is a stretch of calendar years in which the same things pay for your life, judged on 31 December of each year:
 
-- **Working.** One chapter per work phase: the phase in force on that day (of two, the one that started last). Years before retirement with no phase in force are a chapter of their own (`betweenWork`), lived on savings.
+- **Working.** One chapter per work phase: the phase in force on that day. Years before retirement with no phase in force are a chapter of their own (`betweenWork`), lived on savings.
 - **Retired**, from the year work stops: `bridge` until a pension is paid, then `pensions`, with a new chapter each time retirement spending moves to another phase. A phase that starts before retirement applies from it.
 
 So a chapter starts in the year the work phase changes, work stops, the first pension is paid or a spending phase begins in retirement; a change during a year starts the chapter in that year. How long a chapter is says nothing about how much it holds.

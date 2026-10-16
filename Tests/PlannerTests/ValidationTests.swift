@@ -68,13 +68,50 @@ struct ValidationTests {
     @Test func workAndPensionsNeedTheirAmounts() async {
         var plan = plan
         plan.work = [
-            WorkPhase(from: "2026-01-01", until: .retirement, netIncome: nil),
+            WorkPhase(from: "2026-01-01", until: .date("2026-12-31"), netIncome: nil),
             WorkPhase(name: "Backwards", from: "2026-01-01", until: .date("2025-06-30"), netIncome: d("1")),
-            WorkPhase(from: "2026-01-01", until: .retirement, netIncome: d("-1")),
+            WorkPhase(from: "2027-01-01", until: .retirement, netIncome: d("-1")),
         ]
         plan.pensions = [PlanPension(fromAge: 67, perYear: nil), PlanPension(fromAge: 67, perYear: d("-5"))]
         #expect(await errors(plan) == ["planner.noNetIncome", "planner.workDates", "planner.negativeIncome",
                                         "planner.pensionAmount", "planner.negativePension"])
+    }
+
+    /// At most one work phase is in force on any day, and each spending
+    /// phase starts at its own age.
+    @Test func overlappingPhasesAreErrors() {
+        var plan = plan
+        plan.work = [
+            WorkPhase(from: "2026-01-01", until: .date("2027-12-31"), netIncome: d("40000")),
+            WorkPhase(from: "2028-01-01", until: .retirement, netIncome: d("40000")),
+        ]
+        plan.spending.phases = [SpendingPhase(fromAge: 75, factor: d("0.9")), SpendingPhase(fromAge: 85, factor: d("0.8"))]
+        #expect(codes(plan) == [])
+
+        plan.work.append(WorkPhase(name: "Side job", from: "2027-06-01", until: .date("2027-08-31"),
+                                   netIncome: d("1")))
+        plan.spending.phases.append(SpendingPhase(fromAge: 75, factor: d("0.7")))
+        #expect(codes(plan) == ["planner.workOverlap", "planner.spendingPhaseAges"])
+        let issues = Planner.validate(plan: plan, library: library).filter(\.isError)
+        #expect(issues.map(\.index) == [2, 2])
+        #expect(plan.overlappingWork.map { [$0.earlier, $0.later] } == [[0, 2]])
+    }
+
+    /// A new work phase ends the one running on its first day the day
+    /// before, and ends itself the day before the next one starts.
+    @Test func addingAWorkPhaseEndsItsNeighbors() {
+        var plan = plan
+        plan.work = [WorkPhase(from: "2026-01-01", until: .retirement, netIncome: d("40000"))]
+        let added = plan.work(adding: WorkPhase(from: "2030-07-01", until: .retirement, netIncome: d("20000")))
+        #expect(added.map(\.until) == [.date("2030-06-30"), .retirement])
+
+        plan.work = [
+            WorkPhase(from: "2026-01-01", until: .date("2029-12-31"), netIncome: d("40000")),
+            WorkPhase(from: "2035-01-01", until: .retirement, netIncome: d("30000")),
+        ]
+        plan.work = plan.work(adding: WorkPhase(from: "2032-01-01", until: .retirement, netIncome: d("20000")))
+        #expect(plan.work.map(\.until) == [.date("2029-12-31"), .retirement, .date("2034-12-31")])
+        #expect(plan.overlappingWork.isEmpty)
     }
 
     @Test func otherIncomeNeedsItsAmountAndAges() async {

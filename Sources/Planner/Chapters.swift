@@ -272,17 +272,10 @@ private struct ChapterBuilder {
     }
 
     /// The work phase in force on 31 December of `year`, a year before work
-    /// stops; of several, the one that started last.
+    /// stops. Phases don't overlap (``PlanDocument/overlappingWork``).
     func workPhase(atEndOf year: Int) -> Int? {
         let day = CalendarDate.lastDay(ofYear: year)
-        let work = plan.work
-        return work.indices
-            .filter { index in
-                guard work[index].from <= day else { return false }
-                guard let until = work[index].until.date else { return true }
-                return until >= day
-            }
-            .max { a, b in (work[a].from, a) < (work[b].from, b) }
+        return plan.work.firstIndex { $0.runs(on: day) }
     }
 
     /// Every input with the years it's in force or happens in; `nil` when
@@ -295,7 +288,7 @@ private struct ChapterBuilder {
             (item: Item.retiredSpending, years: span(retired, last)),
         ]
         for index in plan.spending.phases.indices {
-            let years = range(from: retired, to: last, where: { spendingPhase(atAge: $0 - birthYear) == index })
+            let years = range(from: retired, to: last, where: { plan.spending.phaseIndex(atAge: $0 - birthYear) == index })
             placed.append((item: Item.spendingPhase(index), years: years))
         }
         for index in plan.work.indices {
@@ -361,14 +354,6 @@ private struct ChapterBuilder {
         return span(first, min(until, retirementYear - 1))
     }
 
-    /// The index of the spending phase in force at `age`, picked as
-    /// ``PlanSpending/factor(atAge:)`` picks it.
-    func spendingPhase(atAge age: Int) -> Int? {
-        let phases = plan.spending.phases
-        return phases.indices
-            .filter { phases[$0].fromAge <= age }
-            .max { phases[$0].fromAge < phases[$1].fromAge }
-    }
 
     /// The index of the target mix step in force in `year`; `nil` while
     /// ``PlanPortfolio/targetMix`` is.

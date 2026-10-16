@@ -50,7 +50,8 @@ struct PlanItemSheet: View {
     var body: some View {
         switch target {
         case .work(let index, let phase):
-            editor(\.work, at: index, item: phase, title: "Work phase", new: "New work phase") {
+            editor(\.work, at: index, item: phase, title: "Work phase", new: "New work phase",
+                   adding: { $0.work(adding: $1) }) {
                 PlanWorkPhaseForm(phase: $0, issues: issues.issues(for: .work, index: index))
             }
         case .pension(let index, let pension):
@@ -90,14 +91,22 @@ struct PlanItemSheet: View {
 
     /// The editor of the item at `index` of the plan's `list`: titled
     /// `title`, or `new` for an item not in the list yet, which has no
-    /// *Delete*. *Done* puts the item at its index.
+    /// *Delete*. *Done* puts the item at its index, or a new one where
+    /// `adding` puts it.
     private func editor<Item: Equatable, Fields: View>(
         _ list: WritableKeyPath<PlanDocument, [Item]>, at index: Int, item: Item, title: String, new: String,
+        adding: ((PlanDocument, Item) -> [Item])? = nil,
         @ViewBuilder fields: @escaping (Binding<Item>) -> Fields
     ) -> some View {
         let exists = index < session.editablePlan[keyPath: list].count
         return PlanItemEditor(exists ? title : new, item: item, onSave: { edited in
-            session.edit { $0[keyPath: list] = PlanEditing.replacing(at: index, with: edited, in: $0[keyPath: list]) }
+            session.edit { plan in
+                if !exists, let adding {
+                    plan[keyPath: list] = adding(plan, edited)
+                } else {
+                    plan[keyPath: list] = PlanEditing.replacing(at: index, with: edited, in: plan[keyPath: list])
+                }
+            }
         }, onDelete: exists ? {
             session.edit { $0[keyPath: list] = PlanEditing.removing(at: index, from: $0[keyPath: list]) }
         } : nil, content: fields)

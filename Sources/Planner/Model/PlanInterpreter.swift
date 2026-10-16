@@ -114,12 +114,22 @@ enum PlanInterpreter {
                                  net: net, realGrowth: phase.realGrowth?.doubleValue ?? 0,
                                  baseYear: max(phase.from.year, startDate.year)))
         }
+        for (earlier, later) in plan.overlappingWork {
+            error("planner.workOverlap",
+                  "\(plan.workName(later)) starts while \(plan.workName(earlier)) still runs: work phases can't "
+                      + "overlap.", .work, index: later, option: "from")
+        }
 
         // Spending.
         let working = plan.spending.working.doubleValue
         let retired = plan.spending.retired.doubleValue
         if working < 0 || retired < 0 {
             error("planner.negativeSpending", "Spending can't be negative.", .spending)
+        }
+        for (index, phase) in plan.spending.phases.enumerated()
+        where plan.spending.phases[..<index].contains(where: { $0.fromAge == phase.fromAge }) {
+            error("planner.spendingPhaseAges", "Two spending phases start at \(phase.fromAge); each needs its own age.",
+                  .spending, index: index, option: "phases")
         }
         var spending = SpendingSpec(working: working, retired: retired,
                                     phases: plan.spending.phases.sorted { $0.fromAge < $1.fromAge }
