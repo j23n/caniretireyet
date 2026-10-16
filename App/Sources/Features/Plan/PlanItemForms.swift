@@ -326,10 +326,12 @@ struct PlanWorkingSpendingForm: View {
     /// What was spent over the last twelve months, a month on average
     /// (``Tracker/SavingsRate/spent``: what came in less what was saved),
     /// to set the plan's spending against (PROGRESS.md, "Savings rate");
-    /// `nil` when no money in and out was recorded, or nothing was spent.
-    /// The amount hides with the eye.
+    /// `nil` when no money in and out was recorded, or nothing was spent,
+    /// and while typed savings or investments turn Trends off (UI.md,
+    /// "Trends"). The amount hides with the eye.
     private var spentNote: AmountSentence? {
-        guard let savings = library.valuator.savingsRate(overYearEndingOn: .today()), savings.spent > 0
+        guard library.library.accountsTurningOffTrends.isEmpty,
+              let savings = library.valuator.savingsRate(overYearEndingOn: .today()), savings.spent > 0
         else { return nil }
         let amount = AmountSentence.amount(
             AmountFormat.amount(savings.spentPerYear / 12, currency: savings.moneyInOut.currency, locale: locale))

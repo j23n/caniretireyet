@@ -186,3 +186,39 @@ struct PlanMoneyInOutEmptyCard: View {
     .background(Palette.page)
     .previewEnvironment()
 }
+
+/// Trends in place of its cards while a savings or investment account's
+/// values are typed (UI.md, "Trends"; `Library.accountsTurningOffTrends`):
+/// why it's off, and those accounts, each opening its page.
+struct PlanTrendsOffCard: View {
+    let accounts: [Account]
+
+    @Environment(AppNavigation.self) private var navigation
+
+    var body: some View {
+        Card {
+            Text("Trends is built on the money in and out and the money invested that statements record. "
+                + "A typed value is a balance only, so Trends is off while a savings or investment "
+                + "account's values are typed.")
+                .font(PlanProgressFont.text)
+                .foregroundStyle(Palette.secondaryInk)
+                .fixedSize(horizontal: false, vertical: true)
+            ForEach(accounts) { account in
+                Button {
+                    navigation.showAccount(account.id)
+                } label: {
+                    Label(account.name, systemImage: AppSymbol.accounts)
+                        .privacySensitiveInFeedback()
+                }
+                .buttonStyle(.borderless)
+                .font(PlanProgressFont.text)
+            }
+            Text("To turn it on, set their Values to From imported files in Edit Account and import their statements.")
+                .font(PlanProgressFont.caption)
+                .foregroundStyle(Palette.secondaryInk)
+                .fixedSize(horizontal: false, vertical: true)
+        } header: {
+            SectionHeader("Trends is off")
+        }
+    }
+}

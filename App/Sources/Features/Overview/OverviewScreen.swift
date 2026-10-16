@@ -91,7 +91,9 @@ struct OverviewScreen: View {
                     if let report = valuator.changeThisYear(asOf: today) {
                         OverviewYearCard(
                             report: report, split: valuator.savedSplit(of: report),
-                            savings: valuator.savingsRate(from: report.from.adding(days: 1), through: today),
+                            // Off with Trends while savings or investments are typed (UI.md, "Trends").
+                            savings: library.library.accountsTurningOffTrends.isEmpty
+                                ? valuator.savingsRate(from: report.from.adding(days: 1), through: today) : nil,
                             yearlySpending: spending)
                     }
                     if headline == nil {
@@ -165,7 +167,7 @@ private struct OverviewHeroView: View {
     }
 }
 
-/// Before the first values: one clear next step. Values come only from
+/// Before the first values: one clear next step. Most values come from
 /// imported files, so it opens the import.
 private struct FirstCheckInCard: View {
     @Environment(AppNavigation.self) private var navigation

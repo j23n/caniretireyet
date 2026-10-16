@@ -333,14 +333,19 @@ struct AccountStaleBadge: View {
 /// What a row's swipe action or context menu asked for.
 struct AccountAction: Identifiable, Hashable {
     enum Kind: Hashable {
+        /// A balance typed by hand (*Update Value…*), on ``AccountAction/date``
+        /// or today.
+        case updateValue
+        /// Changing a value typed earlier (*Edit Value*).
+        case editValue(ValuationKey)
         case close
         case edit
     }
 
     var kind: Kind
     var account: AccountID
-    /// The date the sheet starts on: for ``Kind/close`` the day an empty
-    /// account emptied.
+    /// The date the sheet starts on: for ``Kind/updateValue`` a check-in's,
+    /// for ``Kind/close`` the day an empty account emptied.
     var date: CalendarDate?
 
     init(_ kind: Kind, _ account: AccountID, date: CalendarDate? = nil) {
@@ -359,16 +364,33 @@ struct AccountActionSheet: View {
     var body: some View {
         NavigationStack {
             switch action.kind {
+            case .updateValue:
+                TypedValueSheet(accountID: action.account, date: action.date)
+            case .editValue(let key):
+                TypedValueSheet(accountID: action.account, editing: key)
             case .close:
                 CloseAccountSheet(accountID: action.account, date: action.date)
             case .edit:
                 EditAccountSheet(accountID: action.account)
             }
         }
+        #if os(iOS)
+        .presentationDetents(detents)
+        #endif
         #if os(macOS)
         .frame(minWidth: 460, idealWidth: 520, minHeight: 420, idealHeight: 560)
         #endif
     }
+
+    #if os(iOS)
+    /// A typed value's sheet starts at half height: it asks for little.
+    private var detents: Set<PresentationDetent> {
+        switch action.kind {
+        case .updateValue, .editValue: [.medium, .large]
+        case .close, .edit: [.large]
+        }
+    }
+    #endif
 }
 
 #Preview("Accounts") {

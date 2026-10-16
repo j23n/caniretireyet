@@ -3,9 +3,11 @@ import SwiftUI
 import Tracker
 
 /// One account (UI.md, "Account detail"): its value and change, a history
-/// chart with new-money ticks, the list of valuations, read-only (they come
-/// from imports; a wrong one can be deleted), the details, and closing,
-/// reopening and deleting. On the Mac the valuations are a table.
+/// chart with new-money ticks, the list of valuations, the details, and
+/// closing, reopening and deleting. On the Mac the valuations are a table.
+/// Imported values are read-only (a wrong one can be deleted). An account
+/// that takes typed values (`Account.acceptsTypedValues`) offers *Update
+/// Value…*, and its typed values open *Edit Value* (`TypedValueSheet`).
 ///
 /// An account that records trades shows, instead of its values, its
 /// holdings with average cost and share, its trades by month (a table on
@@ -36,8 +38,6 @@ struct AccountDetailScreen: View {
     // The words the iPhone and Mac layouts share.
     private static let incomeNote =
         "Realised gains use the average cost. Dividends and interest are before tax withheld."
-    private static let noValues = "No values yet. Import a file for this account: a bank statement, a "
-        + "broker's export, or a spreadsheet you keep for it."
     private static let noTrades =
         "No trades yet. Import the broker's transactions for this account."
     private static let statementsNote = "Values that record a broker statement, as a check on the trades. A cash "
@@ -54,7 +54,7 @@ struct AccountDetailScreen: View {
                 : nil
             layout(data, trades: trades)
                 .personalNavigationTitle(account.name, hidden: "Account")
-                .toolbar { toolbarContent }
+                .toolbar { toolbarContent(offersUpdateValue: data.offersUpdateValue) }
                 .sheet(item: $action) { action in
                     AccountActionSheet(action: action)
                 }
@@ -181,11 +181,11 @@ struct AccountDetailScreen: View {
         case .values:
             Section {
                 if data.valuations.isEmpty {
-                    Text(Self.noValues)
+                    Text(data.noValuesText)
                         .foregroundStyle(Palette.secondaryInk)
                 }
                 ForEach(data.valuations) { row in
-                    AccountValuationListRow(row: row, currency: currency)
+                    valuationRow(row, data)
                         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                             deleteButton(.valuation(row.id))
                         }
@@ -194,10 +194,27 @@ struct AccountDetailScreen: View {
                 Text("Values")
             } footer: {
                 if !data.valuations.isEmpty {
-                    Text("Values come from your imports. Swipe a wrong one to delete it."
+                    Text(data.valuesSource
+                        + (data.account.acceptsTypedValues ? " Tap a typed value to change it, or swipe a wrong one "
+                            + "to delete it." : " Swipe a wrong one to delete it.")
                         + (data.movedNote.map { " " + $0 } ?? ""))
                 }
             }
+        }
+    }
+
+    /// A value in the iPhone list: a typed one opens *Edit Value* when
+    /// tapped; an imported one is read-only.
+    @ViewBuilder
+    private func valuationRow(_ row: AccountValuationRow, _ data: AccountDetailData) -> some View {
+        if data.isEditable(row) {
+            Button {
+                action = AccountAction(.editValue(row.id), accountID)
+            } label: {
+                AccountValuationListRow(row: row, currency: data.currency)
+            }
+        } else {
+            AccountValuationListRow(row: row, currency: data.currency)
         }
     }
 
@@ -298,13 +315,15 @@ struct AccountDetailScreen: View {
         case .values:
             Card {
                 if data.valuations.isEmpty {
-                    Text(Self.noValues)
+                    Text(data.noValuesText)
                         .foregroundStyle(Palette.secondaryInk)
                 } else {
                     AccountValuationsTable(
                         rows: data.valuations, currency: currency,
                         showsMoneyInOut: data.valuationsShowMoneyInOut,
                         showsInterest: data.valuationsShowInterest,
+                        editable: library.canEdit ? Set(data.valuations.filter(data.isEditable).map(\.id)) : [],
+                        edit: { action = AccountAction(.editValue($0), accountID) },
                         delete: { pendingDeletion = .valuation($0) })
                 }
                 if let note = data.movedNote {
@@ -314,7 +333,8 @@ struct AccountDetailScreen: View {
                 }
             } header: {
                 SectionHeader("Values") {
-                    Text("Values come from your imports")
+                    Text(data.account.acceptsTypedValues
+                        ? data.valuesSource + " Double-click a typed value to edit it." : data.valuesSource)
                         .font(.caption)
                         .foregroundStyle(Palette.mutedInk)
                 }
@@ -421,6 +441,10 @@ struct AccountDetailScreen: View {
             Button("Reopen Account") { reopen() }
                 .disabled(!library.canEdit)
         } else {
+            if data.offersUpdateValue {
+                Button("Update Value…") { action = AccountAction(.updateValue, accountID) }
+                    .disabled(!library.canEdit)
+            }
             Button("Close Account…") { action = AccountAction(.close, accountID) }
                 .disabled(!library.canEdit)
         }
@@ -428,9 +452,18 @@ struct AccountDetailScreen: View {
             .disabled(!library.canEdit)
     }
 
+    /// *Update Value* for an account that takes typed values, and *Edit Account*.
     @ToolbarContentBuilder
-    private var toolbarContent: some ToolbarContent {
+    private func toolbarContent(offersUpdateValue: Bool) -> some ToolbarContent {
         ToolbarItemGroup(placement: .primaryAction) {
+            if offersUpdateValue {
+                Button {
+                    action = AccountAction(.updateValue, accountID)
+                } label: {
+                    Label("Update Value", systemImage: "square.and.pencil")
+                }
+                .disabled(!library.canEdit)
+            }
             Button {
                 action = AccountAction(.edit, accountID)
             } label: {
@@ -990,12 +1023,16 @@ private struct AccountStatementsTable: View {
 /// and for a cash or savings account (`showsMoneyInOut`) money in, money
 /// out, the interest (a savings account's, `showsInterest`) and what moved
 /// between your own accounts. As tall as its lines, so the page scrolls
-/// them (`PageTable`). The context menu deletes one.
+/// them (`PageTable`). Double-click (or the context menu) edits a typed
+/// value (`editable`); the context menu deletes any.
 private struct AccountValuationsTable: View {
     let rows: [AccountValuationRow]
     let currency: CurrencyCode
     let showsMoneyInOut: Bool
     let showsInterest: Bool
+    /// The values *Edit Value* can change: typed ones.
+    let editable: Set<ValuationKey>
+    let edit: (ValuationKey) -> Void
     let delete: (ValuationKey) -> Void
 
     private enum Columns {
@@ -1007,7 +1044,7 @@ private struct AccountValuationsTable: View {
     }
 
     var body: some View {
-        PageTable(rows, open: { _ in }) {
+        PageTable(rows, open: { key in if editable.contains(key) { edit(key) } }) {
             Text("Date").pageTableColumn(Columns.date)
             Text("Value").pageTableColumn(Columns.value)
             Text("Saved").pageTableColumn(Columns.saved)
@@ -1047,6 +1084,9 @@ private struct AccountValuationsTable: View {
                 .privacySensitiveInFeedback()
                 .pageTableColumn(Columns.note)
         } menu: { row in
+            if editable.contains(row.id) {
+                Button("Edit Value…") { edit(row.id) }
+            }
             Button("Delete Value…", role: .destructive) { delete(row.id) }
         }
     }
@@ -1349,6 +1389,13 @@ private struct AccountInfoRows: View {
 #Preview("Pension fund") {
     NavigationStack {
         AccountDetailScreen(accountID: "fondo-pensione")
+    }
+    .previewEnvironment()
+}
+
+#Preview("Home with typed values") {
+    NavigationStack {
+        AccountDetailScreen(accountID: "casa")
     }
     .previewEnvironment()
 }

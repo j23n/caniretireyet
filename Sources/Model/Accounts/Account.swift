@@ -39,13 +39,16 @@ public struct Account: Hashable, Sendable, Identifiable, KnownKeysProviding {
     /// value is typed. `nil` means it keeps its value until then. Other
     /// kinds ignore it.
     public var depreciation: Decimal?
+    /// `values` as written in the file: where a balance account's values
+    /// come from. See ``effectiveValues`` and ``acceptsTypedValues``.
+    public var values: ValueEntry?
 
     public init(
         id: AccountID, name: String, kind: AccountKind, currency: CurrencyCode, opened: CalendarDate,
         closed: CalendarDate? = nil, institution: String? = nil, country: CountryCode? = nil,
         valuation: ValuationMode? = nil, assetClasses: AssetMix? = nil, availableFromAge: Int? = nil,
         includeIn: IncludeIn? = nil, successor: AccountID? = nil, tags: [String] = [],
-        notes: String? = nil, depreciation: Decimal? = nil
+        notes: String? = nil, depreciation: Decimal? = nil, values: ValueEntry? = nil
     ) {
         self.id = id
         self.name = name
@@ -63,6 +66,7 @@ public struct Account: Hashable, Sendable, Identifiable, KnownKeysProviding {
         self.tags = tags
         self.notes = notes
         self.depreciation = depreciation
+        self.values = values
     }
 }
 
@@ -109,6 +113,50 @@ extension Account {
         includeIn?.plan ?? kind.isIncludedByDefault
     }
 
+    /// Where the account's values come from: `values` if set, otherwise
+    /// ``ValueEntry/imported``.
+    public var effectiveValues: ValueEntry {
+        values ?? .imported
+    }
+
+    /// Whether its values can be switched to typed by hand: a balance
+    /// account of a kind that takes them (``AccountKind/takesTypedValues``).
+    /// Current accounts, credit cards, tax pots and accounts that record
+    /// trades stay import-only, so their money in and out keep coming from
+    /// statements.
+    public var offersTypedValues: Bool {
+        kind.takesTypedValues && valuationMode == .balance
+    }
+
+    /// Whether its typed values turn Trends off: an open savings or
+    /// investment account in net worth, set to typed values. Trends stands
+    /// on the money in and out and the money invested that statements
+    /// record, which a typed balance doesn't; an account out of net worth
+    /// isn't counted there. A starting estimate doesn't: it's a round
+    /// amount until it's replaced.
+    public var typedValuesTurnOffTrends: Bool {
+        !isClosed && !isStartingEstimate && includedInNetWorth && offersTypedValues && effectiveValues == .typed
+            && (kind == .savings || kind.isInvestment)
+    }
+
+    /// Whether a balance can be typed for it by hand: an account that
+    /// ``offersTypedValues`` and has `values` set to ``ValueEntry/typed``,
+    /// or an open starting estimate of any kind (``isStartingEstimate``),
+    /// so its round amount can be corrected.
+    public var acceptsTypedValues: Bool {
+        (offersTypedValues && effectiveValues == .typed) || (isStartingEstimate && !isClosed)
+    }
+
+    /// The tag that marks an account as a starting estimate: an account
+    /// first launch made from a round amount.
+    public static let startingEstimateTag = "estimate"
+
+    /// Whether first launch made it from a round amount
+    /// (``startingEstimateTag``).
+    public var isStartingEstimate: Bool {
+        tags.contains(Self.startingEstimateTag)
+    }
+
     /// Whether the account has been closed.
     public var isClosed: Bool {
         closed != nil
@@ -132,7 +180,7 @@ extension Account {
 extension Account: Codable {
     enum CodingKeys: String, CodingKey, CaseIterable {
         case id, name, kind, currency, opened, closed, institution, country, valuation, assetClasses,
-             availableFromAge, includeIn, successor, tags, notes, depreciation
+             availableFromAge, includeIn, successor, tags, notes, depreciation, values
     }
 
     public static var knownKeys: Set<String> { Set(CodingKeys.allCases.map(\.stringValue)) }
@@ -155,6 +203,7 @@ extension Account: Codable {
         tags = try c.decodeArray([String].self, forKey: .tags)
         notes = try c.decodeIfPresent(String.self, forKey: .notes)
         depreciation = try c.decodeDecimalIfPresent(forKey: .depreciation)
+        values = try c.decodeIfPresent(ValueEntry.self, forKey: .values)
     }
 
     public func encode(to encoder: any Encoder) throws {
@@ -175,6 +224,7 @@ extension Account: Codable {
         try c.encodeIfNotEmpty(tags, forKey: .tags)
         try c.encodeIfPresent(notes, forKey: .notes)
         try c.encodeDecimalIfPresent(depreciation, forKey: .depreciation)
+        try c.encodeIfPresent(values, forKey: .values)
     }
 }
 
