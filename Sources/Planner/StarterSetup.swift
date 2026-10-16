@@ -3,9 +3,9 @@ import Model
 
 /// What first launch asks (UI.md, "Empty states and first launch"): round
 /// amounts of what you have today, what you take home and spend a month
-/// (and in retirement), a state pension, the age to retire at and the tax on investments. All
-/// optional; amounts are in the base currency, after tax, and none is
-/// negative (a debt is what's owed, above 0).
+/// (and in retirement), a state pension, the age to retire at and the tax
+/// on investments. All optional; amounts are in the base currency, after
+/// tax, and none is negative (a debt is what's owed, above 0).
 public struct StarterAnswers: Hashable, Sendable {
     /// Cash and savings.
     public var cash: Decimal?
@@ -158,8 +158,9 @@ public enum StarterSetup {
     }
 
     /// `plan` with the answers' pay and spending a month (in retirement
-    /// too, unless it's given on its own), the age to retire at, the state pension (in place of the plan's pensions, when
-    /// one above 0 is given) and the tax on investments.
+    /// too, unless it's given on its own), the age to retire at, the state
+    /// pension (in place of the plan's pensions, when one above 0 is given)
+    /// and the tax on investments.
     public static func complete(_ plan: inout PlanDocument, with answers: StarterAnswers, asOf: CalendarDate) {
         plan.setMonthly(payPerMonth: answers.payPerMonth, spendingPerMonth: answers.spendingPerMonth, asOf: asOf)
         if let retired = answers.retiredSpendingPerMonth, retired >= 0 {

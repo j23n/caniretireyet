@@ -212,6 +212,25 @@ struct OnboardingTests {
             == "Your money lasts to 95 in fewer than 1 of 10 futures. Your plan aims for 9 of 10.")
     }
 
+    /// A hidden field's negative amount doesn't hold the tour up.
+    @MainActor
+    @Test func hiddenFieldsDontBlockContinuing() {
+        let model = OnboardingModel(locale: english)
+        model.step = .money
+        model.answers.retiredSpendingPerMonth = -500
+        #expect(!model.canContinue)
+        model.hasStoppedWorking = true
+        #expect(model.canContinue)
+    }
+
+    @Test func theEstimateSaysWhetherTheMoneyLastsOnceRetired() {
+        let lasts = RetirementAnswer(confidence: 0.9, targetAge: 70, successAtTarget: 0.95, canRetireNow: true)
+        let short = RetirementAnswer(confidence: 0.9, earliestAge: 75, targetAge: 70, successAtTarget: 0.6)
+        #expect(OnboardingEstimatePanel.title(lasts, hasStoppedWorking: true) == "Your money lasts")
+        #expect(OnboardingEstimatePanel.title(short, hasStoppedWorking: true) == "Your money runs short")
+        #expect(OnboardingEstimatePanel.title(short) == "You could retire at 75")
+    }
+
     @Test func theRetiredAnswerSaysWhatYouCouldSpend() throws {
         let answer = RetirementAnswer(confidence: 0.9, sustainableSpending: 27_650)
         let line = try #require(OnboardingText.retiredSpendingLine(answer, currency: .eur, locale: english))

@@ -111,7 +111,7 @@ final class OnboardingModel {
     var canContinue: Bool {
         switch step {
         case .you: birthDate != nil
-        case .money, .later: !answers.hasNegativeAmount
+        case .money, .later: !finalAnswers.hasNegativeAmount
         case .welcome, .answer, .files, .notes: true
         }
     }
@@ -342,7 +342,7 @@ final class OnboardingModel {
     /// would create, in memory; `nil` without a birth date, an amount you
     /// have today, or a plan (outside the euro without spending).
     func estimateRequest(today: CalendarDate = .today()) -> PlanRunRequest? {
-        guard birthDate != nil, answers.hasStartingAmounts, !answers.hasNegativeAmount else { return nil }
+        guard birthDate != nil, answers.hasStartingAmounts, !finalAnswers.hasNegativeAmount else { return nil }
         let answers = finalAnswers
         var library = Library(settings: settings)
         StarterSetup.addEstimates(answers, to: &library, on: today)
