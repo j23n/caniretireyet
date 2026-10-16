@@ -3,10 +3,12 @@ import Prices
 import SwiftUI
 import Tracker
 
-/// The monthly check-in (UI.md, "Check-in"). Nothing is typed in: this
+/// The monthly check-in (UI.md, "Check-in"). It's import-led: this
 /// month's files are imported, each written with its own backup, and the
-/// page shows what they did, read-only. Then *Save* writes the prices
-/// fetched for the date and records this month's answer.
+/// page shows what they did. Accounts that take typed values are listed
+/// apart, each with *Update* to type its balance on the check-in's date.
+/// Then *Save* writes the prices fetched for the date and records this
+/// month's answer.
 ///
 /// - **iPhone** a full-screen cover, in a NavigationStack, with the price
 ///   list pushed on top.
@@ -143,9 +145,10 @@ struct CheckInScreen: View {
 
 // MARK: - The page
 
-/// The open check-in, read-only: its date, the way to this month's files,
-/// the prices, net worth with the change since the previous check-in, and
-/// the accounts this month's files updated and those they didn't.
+/// The open check-in: its date, the way to this month's files, the prices,
+/// net worth with the change since the previous check-in, the accounts
+/// whose values you type, with *Update*, and the other accounts, those
+/// this month's files updated and those they didn't.
 struct CheckInPage: View {
     let summary: CheckInSummary
     @Binding var saveError: String?
@@ -157,16 +160,25 @@ struct CheckInPage: View {
     @Environment(LibraryStore.self) private var library
     @Environment(\.locale) private var locale
 
+    /// *Update Value* for one of the typed accounts, open in a sheet.
+    @State private var typing: AccountAction?
+
     var body: some View {
+        let typed = summary.typedAccounts(in: library.library)
+        let notUpdated = summary.notUpdated.filter { !typed.contains($0) }
         ScrollView {
             VStack(alignment: .leading, spacing: Metrics.l) {
                 banners
                 dateAndFiles
                 prices
                 netWorth
-                accounts(summary.updated, title: "Updated", empty: "No file imported for this month yet.")
-                if !summary.notUpdated.isEmpty {
-                    accounts(summary.notUpdated, title: "Not updated",
+                if !typed.isEmpty {
+                    typedAccounts(typed)
+                }
+                accounts(summary.updated.filter { !typed.contains($0) }, title: "Updated",
+                         empty: "No file imported for this month yet.")
+                if !notUpdated.isEmpty {
+                    accounts(notUpdated, title: "Not updated",
                              footer: "No file this month covered these accounts: they keep their last values.")
                 }
             }
@@ -175,6 +187,9 @@ struct CheckInPage: View {
             .frame(maxWidth: .infinity)
         }
         .background(Palette.page)
+        .sheet(item: $typing) { action in
+            AccountActionSheet(action: action)
+        }
     }
 
     @ViewBuilder
@@ -291,6 +306,43 @@ struct CheckInPage: View {
             }
         } header: {
             SectionHeader(ids.isEmpty ? title : "\(title) (\(ids.count))")
+        }
+    }
+
+    /// The accounts whose values you type, each with the date of its
+    /// latest value, its value on the date and *Update*, which types its
+    /// balance on the check-in's date.
+    private func typedAccounts(_ ids: [AccountID]) -> some View {
+        Card {
+            ForEach(ids, id: \.self) { id in
+                HStack(spacing: Metrics.s) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(verbatim: library.library.accounts[id]?.name ?? id.rawValue)
+                            .lineLimit(1)
+                            .privacySensitiveInFeedback()
+                        if let latest = library.valuator.latestValuation(for: id, onOrBefore: summary.date) {
+                            Text(verbatim: "Last value " + AmountFormat.shortDate(latest.date, locale: locale))
+                                .font(.footnote)
+                                .foregroundStyle(Palette.secondaryInk)
+                                .privacySensitiveInFeedback()
+                        }
+                    }
+                    Spacer(minLength: Metrics.s)
+                    AmountText(value(of: id))
+                    Button("Update") {
+                        typing = AccountAction(.updateValue, id, date: summary.date)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .disabled(!library.canEdit)
+                }
+            }
+            Text("You type these accounts' values. Update one when its value changed.")
+                .font(.footnote)
+                .foregroundStyle(Palette.secondaryInk)
+                .fixedSize(horizontal: false, vertical: true)
+        } header: {
+            SectionHeader("Typed by you (\(ids.count))")
         }
     }
 

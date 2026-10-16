@@ -170,4 +170,14 @@ struct TypedValuesTests {
         #expect(current.valuesSource == "Values come from your imports.")
         #expect(!current.valuations.contains(where: current.isEditable))
     }
+
+    @Test func theCheckInListsTheTypedAccountsApart() {
+        let library = PreviewLibrary.library
+        let summary = CheckInSummary(date: PreviewLibrary.latestCheckIn, library: library)
+        #expect(summary.typedAccounts(in: library) == ["casa"])
+        var withEstimate = library
+        withEstimate.accounts["fondo-pensione"]?.tags = [Account.startingEstimateTag]
+        let estimates = CheckInSummary(date: PreviewLibrary.latestCheckIn, library: withEstimate)
+        #expect(Set(estimates.typedAccounts(in: withEstimate)) == ["casa", "fondo-pensione"])
+    }
 }
