@@ -17,25 +17,28 @@ struct AccountDefaultsTests {
         #expect(bank.isClosed)
     }
 
-    /// Values come from imports unless the file says `typed`, and only
-    /// balance accounts whose kind records no money in and out take it.
-    @Test func typedValuesOnlyForBalanceKindsWithoutMoneyInOut() {
-        let eligible: [AccountKind] = [.pensionFund, .tfr, .property, .belongings, .loan, .mortgage, .other]
+    /// Values come from imports unless the file says `typed`, and every
+    /// balance account takes it but current accounts, credit cards and tax
+    /// pots.
+    @Test func typedValuesForBalanceAccountsButCurrentCardsAndTaxPots() {
+        let importOnly: [AccountKind] = [.cash, .creditCard, .taxPot]
         for kind in AccountKind.knownValues {
             var typed = account(kind)
+            typed.valuation = .balance
             typed.values = .typed
             #expect(account(kind).effectiveValues == .imported)
             #expect(!account(kind).acceptsTypedValues)
-            #expect(typed.offersTypedValues == eligible.contains(kind), "\(kind)")
-            #expect(typed.acceptsTypedValues == eligible.contains(kind), "\(kind)")
+            #expect(typed.offersTypedValues == !importOnly.contains(kind), "\(kind)")
+            #expect(typed.acceptsTypedValues == !importOnly.contains(kind), "\(kind)")
+            let turnsOffTrends = kind == .savings || kind.isInvestment
+            #expect(typed.typedValuesTurnOffTrends == turnsOffTrends, "\(kind)")
         }
         // A kind this version doesn't know stays import-only.
         var unknown = account(AccountKind(rawValue: "boat"))
         unknown.values = .typed
         #expect(!unknown.acceptsTypedValues)
         // An eligible kind that records trades doesn't take them.
-        var trades = account(.other)
-        trades.valuation = .trades
+        var trades = account(.brokerage)
         trades.values = .typed
         #expect(!trades.offersTypedValues)
         #expect(!trades.acceptsTypedValues)
@@ -51,8 +54,10 @@ struct AccountDefaultsTests {
         var estimate = account(.savings)
         estimate.tags = [Account.startingEstimateTag]
         #expect(estimate.isStartingEstimate)
-        #expect(!estimate.offersTypedValues)
         #expect(estimate.acceptsTypedValues)
+        var typed = estimate
+        typed.values = .typed
+        #expect(!typed.typedValuesTurnOffTrends)
         estimate.closed = "2025-01-31"
         #expect(!estimate.acceptsTypedValues)
     }

@@ -87,12 +87,14 @@ extension AccountKind {
     }
 
     /// Whether a balance account of this kind can have its values typed by
-    /// hand (``Account/offersTypedValues``): pension funds, TFR, property,
-    /// belongings, loans, mortgages and other balances, whose values don't
-    /// record money in and out. Current and savings accounts, credit cards
-    /// and tax pots don't: their money in and out comes from statements.
+    /// hand (``Account/offersTypedValues``): every kind but current
+    /// accounts, credit cards and tax pots, whose money in and out, the
+    /// ground of Trends, comes only from their statements. Savings and
+    /// investments can be typed, which turns Trends off
+    /// (``Account/typedValuesTurnOffTrends``).
     public var takesTypedValues: Bool {
-        [.pensionFund, .tfr, .property, .belongings, .loan, .mortgage, .other].contains(self)
+        [.savings, .brokerage, .crypto, .metals, .pensionFund, .tfr, .property, .belongings, .loan, .mortgage, .other]
+            .contains(self)
     }
 
     /// Whether a drop in what the account owes is principal repaid: loans

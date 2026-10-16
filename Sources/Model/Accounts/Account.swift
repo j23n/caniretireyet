@@ -121,11 +121,21 @@ extension Account {
 
     /// Whether its values can be switched to typed by hand: a balance
     /// account of a kind that takes them (``AccountKind/takesTypedValues``).
-    /// Current and savings accounts, credit cards, tax pots and accounts
-    /// that record trades stay import-only, so their money in and out, and
-    /// with it Trends, keep coming from statements.
+    /// Current accounts, credit cards, tax pots and accounts that record
+    /// trades stay import-only, so their money in and out keep coming from
+    /// statements.
     public var offersTypedValues: Bool {
         kind.takesTypedValues && valuationMode == .balance
+    }
+
+    /// Whether its typed values turn Trends off: an open savings or
+    /// investment account set to typed values. Trends stands on the money
+    /// in and out and the money invested that statements record, which a
+    /// typed balance doesn't. A starting estimate doesn't: it's a round
+    /// amount until it's replaced.
+    public var typedValuesTurnOffTrends: Bool {
+        !isClosed && !isStartingEstimate && offersTypedValues && effectiveValues == .typed
+            && (kind == .savings || kind.isInvestment)
     }
 
     /// Whether a balance can be typed for it by hand: an account that
