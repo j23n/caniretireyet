@@ -267,6 +267,9 @@ struct OnboardingLaterStep: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             .onboardingCard()
+            if model.finalAnswers.hasNegativeAmount {
+                PlanIssueLine(message: "Amounts can't be negative.", isError: true)
+            }
         }
     }
 
