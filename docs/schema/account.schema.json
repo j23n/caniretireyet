@@ -65,6 +65,11 @@
     "depreciation": {
       "description": "The share of its value a belongings account is estimated to lose a year, such as \"0.15\" for a car, above 0 and below 1; other kinds, and other values, ignore it. After each value, its value on a later day is estimated from it, compounding a year at a time, until the next value is typed; the next value trues it up. Left out, it keeps its value until then. Belongings' change in value is saved, so its loss of value is spent (PROGRESS.md, \"Savings rate\").",
       "$ref": "common.schema.json#/$defs/decimal"
+    },
+    "values": {
+      "description": "Where the account's values come from. imported: from imported files (statements, exports, spreadsheets). typed: also typed by hand, a balance on a date (source manual), with no money in and out. Default: imported. Only balance accounts of kind pensionFund, tfr, property, belongings, loan, mortgage and other take typed; the other kinds, and accounts that record trades, read it as imported, so a current or savings account's money in and out keeps coming from its statements (ACCOUNTS.md). A starting estimate (tagged estimate) takes typed values until it's closed, whatever this says.",
+      "$comment": "Open enum.",
+      "enum": ["imported", "typed"]
     }
   },
   "examples": [

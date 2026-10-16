@@ -6,5 +6,6 @@
   "kind": "property",
   "name": "Home",
   "notes": "Made-up estimate of the home's market value.",
-  "opened": "2024-07-15"
+  "opened": "2024-07-15",
+  "values": "typed"
 }
