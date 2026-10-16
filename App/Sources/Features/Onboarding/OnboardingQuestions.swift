@@ -169,7 +169,7 @@ struct OnboardingMoneyStep: View {
                     OnboardingNumberRow("Take-home pay", value: $model.answers.payPerMonth, unit: symbol)
                 }
                 OnboardingNumberRow("Spending", value: $model.answers.spendingPerMonth, unit: symbol)
-                if model.finalAnswers.hasNegativeAmount {
+                if model.moneyHasNegativeAmount {
                     PlanIssueLine(message: "Amounts can't be negative.", isError: true)
                 } else if model.hasStoppedWorking {
                     Text("What you live on now, paid from your savings and pensions. Your answer is whether it lasts.")

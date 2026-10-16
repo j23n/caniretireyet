@@ -107,11 +107,13 @@ final class OnboardingModel {
     }
 
     /// Whether *Continue* can leave the step: *About you* needs a birth
-    /// date, since the answer is an age, and no amount can be negative.
+    /// date, since the answer is an age, and no amount it shows can be
+    /// negative.
     var canContinue: Bool {
         switch step {
         case .you: birthDate != nil
-        case .money, .later: !finalAnswers.hasNegativeAmount
+        case .money: !moneyHasNegativeAmount
+        case .later: !finalAnswers.hasNegativeAmount
         case .welcome, .answer, .files, .notes: true
         }
     }
@@ -171,9 +173,10 @@ final class OnboardingModel {
 
     /// The answers as the plan takes them: the age chosen, else as early as
     /// works. Once you've stopped working: no pay, one spending, and your
-    /// age today.
+    /// age today. No mortgage without a home.
     var finalAnswers: StarterAnswers {
         var final = answers
+        if !final.asksForMortgage { final.mortgage = nil }
         if hasStoppedWorking {
             final.payPerMonth = nil
             final.retiredSpendingPerMonth = nil
@@ -182,6 +185,14 @@ final class OnboardingModel {
             final.retirementAge = retiresAtChosenAge ? chosenAge : nil
         }
         return final
+    }
+
+    /// Whether an amount the money step shows is negative: not the
+    /// fields it hides, nor spending in retirement, which the next step asks.
+    var moneyHasNegativeAmount: Bool {
+        let shown = finalAnswers
+        return [shown.cash, shown.investments, shown.pension, shown.home, shown.mortgage, shown.payPerMonth,
+                shown.spendingPerMonth].contains { ($0 ?? 0) < 0 }
     }
 
     /// Your age today, from the birth date picked.

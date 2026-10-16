@@ -217,10 +217,23 @@ struct OnboardingTests {
     @Test func hiddenFieldsDontBlockContinuing() {
         let model = OnboardingModel(locale: english)
         model.step = .money
-        model.answers.retiredSpendingPerMonth = -500
+        model.answers.payPerMonth = -500
         #expect(!model.canContinue)
         model.hasStoppedWorking = true
         #expect(model.canContinue)
+        // Spending in retirement is the next step's.
+        model.hasStoppedWorking = false
+        model.answers.payPerMonth = nil
+        model.answers.retiredSpendingPerMonth = -500
+        #expect(model.canContinue)
+        model.step = .later
+        #expect(!model.canContinue)
+        // A mortgage without a home is left out.
+        model.step = .money
+        model.answers.mortgage = -1_000
+        #expect(model.canContinue)
+        model.answers.home = 300_000
+        #expect(!model.canContinue)
     }
 
     @Test func theEstimateSaysWhetherTheMoneyLastsOnceRetired() {
