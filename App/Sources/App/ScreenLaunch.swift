@@ -122,9 +122,10 @@ struct ScreenLaunch {
     }
 
     /// Made-up answers to the tour's questions: some cash, investments
-    /// and a pension pot, pay and spending, a state pension from 67.
+    /// and a pension pot, a home with a mortgage, pay and spending, a state
+    /// pension from 67.
     static let sampleAnswers = StarterAnswers(
-        cash: 18_000, investments: 42_000, pension: 25_000, pensionFromAge: 67, home: nil,
+        cash: 18_000, investments: 42_000, pension: 25_000, pensionFromAge: 67, home: 320_000, mortgage: 190_000,
         payPerMonth: 3_800, spendingPerMonth: 2_600, statePensionPerMonth: 1_100, statePensionFromAge: 67,
         retirementAge: nil, investmentTax: Decimal(string: "0.26"))
 

@@ -6,8 +6,8 @@ import WidgetKit
 
 /// The Overview's *Getting started* list (UI.md, "Overview", "Getting
 /// started"), in words, free of SwiftUI's views so it can be tested: the
-/// first answer, the first import, the home and pension (while first
-/// launch estimated them), the widget, and the first check-in.
+/// first answer, the first import, the home, its mortgage and the pension
+/// (while first launch estimated them), the widget, and the first check-in.
 struct GettingStartedList: Hashable {
     enum Item: String, Hashable, CaseIterable, Identifiable {
         case answer, importFiles, fillIn, widget, checkIn
@@ -33,7 +33,7 @@ struct GettingStartedList: Hashable {
             !account.isStartingEstimate && !library.valuations(for: account.id).isEmpty
         }
         let estimatedHomeOrPension = library.accounts.values.filter {
-            $0.isStartingEstimate && ($0.kind == .property || $0.kind == .pensionFund)
+            $0.isStartingEstimate && [.property, .mortgage, .pensionFund].contains($0.kind)
         }
         let latest = library.latestCheckInDate
         let next = CheckInGlance(last: latest, today: today).next
@@ -57,10 +57,11 @@ struct GettingStartedList: Hashable {
     /// Whether every item is done, so the list goes away for good.
     var isDone: Bool { rows.allSatisfy(\.isDone) }
 
-    /// "Fill in your home and pension", or only the one estimated.
+    /// "Fill in your home and pension", or only the one estimated; the
+    /// mortgage goes with the home.
     static func fillInTitle(_ estimates: [Account]) -> String {
         let kinds = Set(estimates.map(\.kind))
-        if kinds == [.property] { return "Fill in your home" }
+        if !kinds.contains(.pensionFund) { return "Fill in your home" }
         if kinds == [.pensionFund] { return "Fill in your pension" }
         return "Fill in your home and pension"
     }

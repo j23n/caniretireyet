@@ -180,10 +180,11 @@ struct OnboardingTests {
 
     // MARK: Getting started
 
-    private func library(home: Decimal? = 300_000) -> Library {
+    private func library(pension: Decimal? = 20_000, home: Decimal? = 300_000,
+                         mortgage: Decimal? = nil) -> Library {
         var library = Library(settings: LibrarySettings())
-        StarterSetup.addEstimates(StarterAnswers(cash: 10_000, pension: 20_000, home: home), to: &library,
-                                  on: "2026-10-15")
+        StarterSetup.addEstimates(StarterAnswers(cash: 10_000, pension: pension, home: home, mortgage: mortgage),
+                                  to: &library, on: "2026-10-15")
         return library
     }
 
@@ -217,6 +218,25 @@ struct OnboardingTests {
         #expect(list.rows.map(\.item) == [.answer, .importFiles, .fillIn, .widget, .checkIn])
         #expect(list.rows[2].title == "Fill in your pension")
         #expect(list.isDone)
+    }
+
+    /// The mortgage goes with the home: filling in the home waits for both.
+    @Test func theMortgageIsFilledInWithTheHome() throws {
+        var library = library(pension: nil, mortgage: 120_000)
+        let home = try #require(library.openStartingEstimates.first { $0.kind == .property })
+        library.accounts[home.id]?.closed = "2026-11-29"
+        let list = GettingStartedList(library: library, hasAnswer: true, hasWidget: true, since: "2026-10-15",
+                                      today: "2026-10-15", locale: english)
+        let fillIn = try #require(list.rows.first { $0.item == .fillIn })
+        #expect(fillIn.title == "Fill in your home")
+        #expect(!fillIn.isDone)
+    }
+
+    /// The starter spreadsheet starts from the estimates, the mortgage as
+    /// owed, as spreadsheets write a debt.
+    @Test func theStarterSpreadsheetStartsFromTheEstimates() {
+        let csv = StarterSpreadsheetButton.csv(for: library(mortgage: 120_000), on: "2026-10-20")
+        #expect(csv == "Date,Home,Mortgage,Pension\n2026-10-20,300000,120000,20000\n")
     }
 
     // MARK: After an import
