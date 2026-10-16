@@ -54,6 +54,17 @@ struct StarterSetupTests {
         #expect(StarterAnswers(home: d("200000"), mortgage: d("80000")).hasStartingAmounts)
     }
 
+    /// The mortgage is asked once the home has a value; without one, it's
+    /// left out.
+    @Test func aMortgageGoesWithAHome() {
+        #expect(!StarterAnswers(mortgage: d("80000")).asksForMortgage)
+        #expect(StarterAnswers(home: d("200000")).asksForMortgage)
+        var library = emptyLibrary()
+        let ids = StarterSetup.addEstimates(StarterAnswers(cash: d("5000"), home: 0, mortgage: d("80000")),
+                                            to: &library, on: today)
+        #expect(ids.compactMap { library.accounts[$0]?.kind } == [.savings])
+    }
+
     @Test func amountsOfZeroOrNothingGetNoAccount() {
         var library = emptyLibrary()
         let ids = StarterSetup.addEstimates(StarterAnswers(cash: d("5000"), investments: 0, pension: nil),
@@ -86,10 +97,21 @@ struct StarterSetupTests {
         var plan = Sample.plan(retire: .earliest, endAge: 90, working: "30000", retired: "30000")
         StarterSetup.complete(&plan, with: answers, asOf: today)
         #expect(plan.spending.working == d("31200"))
+        #expect(plan.spending.retired == d("31200"))
         #expect(plan.work == [WorkPhase(from: "2026-01-01", until: .retirement, netIncome: d("40800"))])
         #expect(plan.pensions == [PlanPension(name: "State pension", fromAge: 67, perYear: d("17400"))])
         #expect(plan.tax.investmentRate == d("0.26375"))
         #expect(plan.retirement.age == .earliest)
+    }
+
+    @Test func spendingInRetirementCanDiffer() {
+        var plan = Sample.plan(retire: .earliest, endAge: 90, working: "30000", retired: "30000")
+        var answers = answers
+        answers.retiredSpendingPerMonth = d("2000")
+        StarterSetup.complete(&plan, with: answers, asOf: today)
+        #expect(plan.spending.working == d("31200"))
+        #expect(plan.spending.retired == d("24000"))
+        #expect(StarterAnswers(retiredSpendingPerMonth: d("-1")).hasNegativeAmount)
     }
 
     @Test func completeKeepsThePlanWithoutAnswers() {

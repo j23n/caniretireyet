@@ -92,22 +92,60 @@ enum OnboardingText {
     /// Under the ring: how ready, and how sure. "You have 13% of what
     /// retiring today would need. At 58, your money lasts to 95 in 9 of
     /// 10 futures."
-    static func readinessLine(_ headline: RetirementAnswer, endAge: Int, locale: Locale = .current) -> String {
+    /// Once you've stopped working, only how ready.
+    static func readinessLine(_ headline: RetirementAnswer, endAge: Int, hasStoppedWorking: Bool = false,
+                              locale: Locale = .current) -> String {
         var sentences: [String] = []
         if let readiness = PlanResultsText.readiness(headline, locale: locale) {
             sentences.append("You have \(readiness).")
         }
         let futures = GlanceText.futures(headline.confidence)
-        if let age = headline.earliestAge, !headline.canRetireNow {
+        if let age = headline.earliestAge, !headline.canRetireNow, !hasStoppedWorking {
             sentences.append("At \(age), your money lasts to \(endAge) in \(futures) futures.")
         }
         return sentences.joined(separator: " ")
     }
 
+    // MARK: The answer, once you've stopped working
+
+    /// Whether your money lasts to the plan's end in the plan's share of
+    /// futures, retiring at your age today.
+    static func moneyLasts(_ headline: RetirementAnswer) -> Bool {
+        headline.canRetireNow || (headline.successAtTarget ?? 0) >= headline.confidence
+    }
+
+    /// The answer's first words once you've stopped working: "Yes." when
+    /// your money lasts, else "Not quite."
+    static func retiredTitle(_ headline: RetirementAnswer) -> String {
+        moneyLasts(headline) ? "Yes." : "Not quite."
+    }
+
+    /// "Your money lasts to 95 in at least 9 of 10 futures.", or "Your
+    /// money lasts to 95 in 7 of 10 futures. Your plan aims for 9 of 10."
+    /// (the share rounded down to tenths).
+    static func retiredLine(_ headline: RetirementAnswer, endAge: Int) -> String {
+        let aim = GlanceText.futures(headline.confidence)
+        if moneyLasts(headline) { return "Your money lasts to \(endAge) in at least \(aim) futures." }
+        let tenths = Int(((headline.successAtTarget ?? headline.successToday ?? 0) * 10).rounded(.down))
+        let share = tenths == 0 ? "fewer than 1 of 10" : "\(tenths) of 10"
+        return "Your money lasts to \(endAge) in \(share) futures. Your plan aims for \(aim)."
+    }
+
+    /// "Spending up to 2.300 € a month lasts in 9 of 10 futures."; `nil`
+    /// without a sustainable spending.
+    static func retiredSpendingLine(_ headline: RetirementAnswer, currency: CurrencyCode,
+                                    locale: Locale = .current) -> AmountSentence? {
+        guard let perYear = headline.sustainableSpending, perYear > 0 else { return nil }
+        let about = StarterSetup.roundedToTwoFigures(perYear / 12)
+        let amount = AmountFormat.amount(about, currency: currency, locale: locale)
+        return "Spending up to \(amount: amount) a month lasts in \(GlanceText.futures(headline.confidence)) futures."
+    }
+
     /// Under the fan: what its lines are, and what the answer is.
-    static func fanLine(confidence: Double) -> String {
-        "Each band shows how your money could develop across thousands of simulated futures. The answer is "
-            + "the earliest age that works in \(GlanceText.futures(confidence))."
+    static func fanLine(confidence: Double, hasStoppedWorking: Bool = false) -> String {
+        let bands = "Each band shows how your money could develop across thousands of simulated futures."
+        if hasStoppedWorking { return bands + " The answer is whether it lasts in \(GlanceText.futures(confidence))." }
+        return bands + " The answer is the earliest age that works in \(GlanceText.futures(confidence))."
     }
 
     /// The lever: "Save 340 € more a month" over "about 2 years sooner".

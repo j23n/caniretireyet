@@ -178,6 +178,80 @@ struct OnboardingTests {
         #expect(short.parts.first == .words("You spend about "))
     }
 
+    // MARK: Once you've stopped working
+
+    @MainActor
+    @Test func stoppingWorkDropsPayAndRetiresToday() {
+        let model = OnboardingModel(locale: english)
+        model.birthDate = CalendarDate("1956-03-01").dateValue
+        model.answers.payPerMonth = 3_000
+        model.answers.spendingPerMonth = 2_500
+        model.answers.retiredSpendingPerMonth = 2_000
+        model.hasStoppedWorking = true
+        let final = model.finalAnswers
+        #expect(final.payPerMonth == nil)
+        #expect(final.retiredSpendingPerMonth == nil)
+        #expect(final.spendingPerMonth == 2_500)
+        #expect(final.retirementAge == model.currentAge)
+        model.hasStoppedWorking = false
+        #expect(model.finalAnswers.payPerMonth == 3_000)
+        #expect(model.finalAnswers.retirementAge == nil)
+    }
+
+    @Test func theRetiredAnswerSaysWhetherTheMoneyLasts() {
+        let lasts = RetirementAnswer(confidence: 0.9, targetAge: 70, successAtTarget: 0.93, canRetireNow: true)
+        #expect(OnboardingText.retiredTitle(lasts) == "Yes.")
+        #expect(OnboardingText.retiredLine(lasts, endAge: 95)
+            == "Your money lasts to 95 in at least 9 of 10 futures.")
+        let short = RetirementAnswer(confidence: 0.9, targetAge: 70, successAtTarget: 0.78)
+        #expect(OnboardingText.retiredTitle(short) == "Not quite.")
+        #expect(OnboardingText.retiredLine(short, endAge: 95)
+            == "Your money lasts to 95 in 7 of 10 futures. Your plan aims for 9 of 10.")
+        let none = RetirementAnswer(confidence: 0.9, targetAge: 70, successAtTarget: 0.04)
+        #expect(OnboardingText.retiredLine(none, endAge: 95)
+            == "Your money lasts to 95 in fewer than 1 of 10 futures. Your plan aims for 9 of 10.")
+    }
+
+    /// A hidden field's negative amount doesn't hold the tour up.
+    @MainActor
+    @Test func hiddenFieldsDontBlockContinuing() {
+        let model = OnboardingModel(locale: english)
+        model.step = .money
+        model.answers.payPerMonth = -500
+        #expect(!model.canContinue)
+        model.hasStoppedWorking = true
+        #expect(model.canContinue)
+        // Spending in retirement is the next step's.
+        model.hasStoppedWorking = false
+        model.answers.payPerMonth = nil
+        model.answers.retiredSpendingPerMonth = -500
+        #expect(model.canContinue)
+        model.step = .later
+        #expect(!model.canContinue)
+        // A mortgage without a home is left out.
+        model.step = .money
+        model.answers.mortgage = -1_000
+        #expect(model.canContinue)
+        model.answers.home = 300_000
+        #expect(!model.canContinue)
+    }
+
+    @Test func theEstimateSaysWhetherTheMoneyLastsOnceRetired() {
+        let lasts = RetirementAnswer(confidence: 0.9, targetAge: 70, successAtTarget: 0.95, canRetireNow: true)
+        let short = RetirementAnswer(confidence: 0.9, earliestAge: 75, targetAge: 70, successAtTarget: 0.6)
+        #expect(OnboardingEstimatePanel.title(lasts, hasStoppedWorking: true) == "Your money lasts")
+        #expect(OnboardingEstimatePanel.title(short, hasStoppedWorking: true) == "Your money runs short")
+        #expect(OnboardingEstimatePanel.title(short) == "You could retire at 75")
+    }
+
+    @Test func theRetiredAnswerSaysWhatYouCouldSpend() throws {
+        let answer = RetirementAnswer(confidence: 0.9, sustainableSpending: 27_650)
+        let line = try #require(OnboardingText.retiredSpendingLine(answer, currency: .eur, locale: english))
+        #expect(line.parts.first == .words("Spending up to "))
+        #expect(line.parts.last == .words(" a month lasts in 9 of 10 futures."))
+        #expect(OnboardingText.retiredSpendingLine(RetirementAnswer(confidence: 0.9), currency: .eur) == nil)
+    }
+
     // MARK: Getting started
 
     private func library(pension: Decimal? = 20_000, home: Decimal? = 300_000,

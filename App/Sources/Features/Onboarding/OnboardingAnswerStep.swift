@@ -9,6 +9,8 @@ import SwiftUI
 /// work, the answer in words, how ready (the ring) and how sure (a small
 /// fan of futures), each explained once, the one lever worked out, and
 /// "First sketch": it stands on rough amounts until files replace them.
+/// Once you've stopped working, the answer is whether your money lasts,
+/// and what you could spend, with no calendar page and no lever.
 ///
 /// When there's nothing to answer from, it says what's missing: a birth
 /// date (with a picker, which saves it and runs the plan), amounts, or a
@@ -136,20 +138,23 @@ struct OnboardingAnswerStep: View {
     private func reveal(_ headline: RetirementAnswer) -> some View {
         let today = library.asOfDate
         let results = library.mainPlan.flatMap { plans.results(of: $0.id) }
+        let endAge = library.mainPlan?.effectiveEndAge ?? 95
+        let retired = model.hasStoppedWorking && !model.openedExistingLibrary
         return VStack(alignment: .leading, spacing: Metrics.l) {
             Text(model.openedExistingLibrary ? "Your answer" : "Your first answer")
                 .font(.footnote.weight(.semibold))
                 .textCase(.uppercase)
                 .foregroundStyle(Palette.secondaryInk)
             HStack(alignment: .center, spacing: Metrics.l) {
-                if !headline.canRetireNow, let date = headline.earliestDate {
+                if !retired, !headline.canRetireNow, let date = headline.earliestDate {
                     OnboardingCalendarPage(date: StarterSetup.lastMonday(onOrBefore: date))
                 }
                 VStack(alignment: .leading, spacing: Metrics.xs) {
-                    Text(OnboardingText.revealTitle(headline))
+                    Text(retired ? OnboardingText.retiredTitle(headline) : OnboardingText.revealTitle(headline))
                         .font(.largeTitle.bold())
                         .foregroundStyle(Palette.ink)
-                    Text(OnboardingText.revealLine(headline, today: today))
+                    Text(retired ? OnboardingText.retiredLine(headline, endAge: endAge)
+                         : OnboardingText.revealLine(headline, today: today))
                         .font(.title3)
                         .foregroundStyle(Palette.ink)
                         .fixedSize(horizontal: false, vertical: true)
@@ -158,12 +163,19 @@ struct OnboardingAnswerStep: View {
                 .accessibilityElement(children: .combine)
                 .accessibilityAddTraits(.isHeader)
             }
-            readiness(headline, endAge: library.mainPlan?.effectiveEndAge ?? 95)
+            if retired, let spending = OnboardingText.retiredSpendingLine(headline, currency: library.baseCurrency,
+                                                                         locale: locale) {
+                AmountSentenceText(spending)
+                    .font(.callout)
+                    .foregroundStyle(Palette.ink)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            readiness(headline, endAge: endAge, hasStoppedWorking: retired)
             if let results, !results.portfolio.isEmpty {
                 VStack(alignment: .leading, spacing: Metrics.s) {
                     FanChart(fan: results.portfolio, markers: results.markers)
                         .privacySensitiveInFeedback()
-                    Text(OnboardingText.fanLine(confidence: headline.confidence))
+                    Text(OnboardingText.fanLine(confidence: headline.confidence, hasStoppedWorking: retired))
                         .font(.footnote)
                         .foregroundStyle(Palette.secondaryInk)
                         .fixedSize(horizontal: false, vertical: true)
@@ -179,7 +191,7 @@ struct OnboardingAnswerStep: View {
 
     /// The ring, with what it compares in a sentence beside it.
     @ViewBuilder
-    private func readiness(_ headline: RetirementAnswer, endAge: Int) -> some View {
+    private func readiness(_ headline: RetirementAnswer, endAge: Int, hasStoppedWorking: Bool) -> some View {
         let figure = headline.readinessFigure
         HStack(alignment: .center, spacing: Metrics.l) {
             if let percent = figure.text(percent: { AmountFormat.percent($0, digits: 0, locale: locale) }) {
@@ -202,7 +214,8 @@ struct OnboardingAnswerStep: View {
                 .frame(width: 104, height: 104)
                 .accessibilityHidden(true)
             }
-            Text(OnboardingText.readinessLine(headline, endAge: endAge, locale: locale))
+            Text(OnboardingText.readinessLine(headline, endAge: endAge, hasStoppedWorking: hasStoppedWorking,
+                                              locale: locale))
                 .font(.callout)
                 .foregroundStyle(Palette.ink)
                 .fixedSize(horizontal: false, vertical: true)
