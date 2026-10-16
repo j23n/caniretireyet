@@ -219,4 +219,16 @@ struct TypedValuesTests {
         library.accounts["conto-deposito"]?.closed = "2026-09-30"
         #expect(library.accountsTurningOffTrends.isEmpty)
     }
+
+    @Test func needsAttentionSaysHowToFillAnAccountWithoutValues() {
+        var library = PreviewLibrary.library
+        library.accounts["boat"] = Account(id: "boat", name: "Boat", kind: .belongings, currency: .eur,
+                                           opened: "2026-01-01", values: .typed)
+        library.accounts["second-bank"] = Account(id: "second-bank", name: "Second bank", kind: .cash,
+                                                  currency: .eur, opened: "2026-01-01")
+        let items = OverviewAttention.items(library: library, valuator: Valuator(library: library),
+                                            on: PreviewLibrary.latestCheckIn, stalenessThreshold: 45)
+        #expect(items.first { $0.id == "stale.boat" }?.detail == "Update its value")
+        #expect(items.first { $0.id == "stale.second-bank" }?.detail == "Import a file with its values")
+    }
 }
