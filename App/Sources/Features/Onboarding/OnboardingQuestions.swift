@@ -156,7 +156,7 @@ struct OnboardingMoneyStep: View {
                 }
                 OnboardingNumberRow("Your home's value", value: $model.answers.home, unit: symbol,
                                     prompt: "Optional")
-                if (model.answers.home ?? 0) > 0 || (model.answers.mortgage ?? 0) > 0 {
+                if model.answers.asksForMortgage {
                     OnboardingNumberRow("Mortgage still owed", value: $model.answers.mortgage, unit: symbol,
                                         prompt: "Optional")
                 }

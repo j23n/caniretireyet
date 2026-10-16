@@ -54,6 +54,17 @@ struct StarterSetupTests {
         #expect(StarterAnswers(home: d("200000"), mortgage: d("80000")).hasStartingAmounts)
     }
 
+    /// The mortgage is asked once the home has a value; without one, it's
+    /// left out.
+    @Test func aMortgageGoesWithAHome() {
+        #expect(!StarterAnswers(mortgage: d("80000")).asksForMortgage)
+        #expect(StarterAnswers(home: d("200000")).asksForMortgage)
+        var library = emptyLibrary()
+        let ids = StarterSetup.addEstimates(StarterAnswers(cash: d("5000"), home: 0, mortgage: d("80000")),
+                                            to: &library, on: today)
+        #expect(ids.compactMap { library.accounts[$0]?.kind } == [.savings])
+    }
+
     @Test func amountsOfZeroOrNothingGetNoAccount() {
         var library = emptyLibrary()
         let ids = StarterSetup.addEstimates(StarterAnswers(cash: d("5000"), investments: 0, pension: nil),

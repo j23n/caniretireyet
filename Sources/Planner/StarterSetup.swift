@@ -58,6 +58,12 @@ public struct StarterAnswers: Hashable, Sendable {
             .contains { ($0 ?? 0) < 0 }
     }
 
+    /// Whether the home's mortgage is asked: once the home has a value.
+    /// A mortgage without one is left out.
+    public var asksForMortgage: Bool {
+        (home ?? 0) > 0
+    }
+
     /// Whether anything you have today was entered (above 0); a mortgage
     /// is owed, not had.
     public var hasStartingAmounts: Bool {
@@ -98,7 +104,8 @@ public enum StarterSetup {
 
     /// The estimate accounts for `answers`, opened on `date`, in `currency`,
     /// each with its amount (the mortgage's as owed, above 0); `id` makes
-    /// each one's ID from its name. Amounts of 0 or less get none.
+    /// each one's ID from its name. Amounts of 0 or less get none, nor
+    /// does a mortgage without a home (``StarterAnswers/asksForMortgage``).
     public static func estimateAccounts(for answers: StarterAnswers, currency: CurrencyCode, country: CountryCode?,
                                         on date: CalendarDate, id: (String) -> AccountID) -> [(Account, Decimal)] {
         func estimate(_ name: String, _ kind: AccountKind, _ amount: Decimal?,
@@ -120,7 +127,9 @@ public enum StarterSetup {
                 account.availableFromAge = answers.pensionFromAge
             },
             estimate("Home", .property, answers.home) { $0.includeIn = IncludeIn(plan: false) },
-            estimate("Mortgage", .mortgage, answers.mortgage) { $0.includeIn = IncludeIn(plan: false) },
+            estimate("Mortgage", .mortgage, answers.asksForMortgage ? answers.mortgage : nil) {
+                $0.includeIn = IncludeIn(plan: false)
+            },
         ].compactMap { $0 }
     }
 
