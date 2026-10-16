@@ -9,11 +9,9 @@ import AppKit
 
 /// *Save Starter Spreadsheet…* (UI.md, "Empty states and first launch"):
 /// the Importer's `StarterSpreadsheet`, a CSV with a column each for a
-/// home, a mortgage and a pension, headed with today's row and the
-/// pension estimate's amount, to fill in and import. The home's column
-/// starts empty: it's the home's value, with the mortgage beside it, and
-/// the tour's home estimate is the two together. On the iPhone and
-/// iPad it's shared (*Save to Files*); on the Mac it's saved where you
+/// home, a mortgage and a pension, headed with today's row and the open
+/// estimates' amounts (the mortgage's as owed), to fill in and import. On
+/// the iPhone and iPad it's shared (*Save to Files*); on the Mac it's saved where you
 /// choose.
 struct StarterSpreadsheetButton: View {
     @Environment(LibraryStore.self) private var library
@@ -46,11 +44,16 @@ struct StarterSpreadsheetButton: View {
         .task(id: library.revision) { file = write() }
     }
 
-    /// The CSV with today's row and the open pension estimate's amount.
+    /// The CSV with today's row and the open home, mortgage and pension
+    /// estimates' amounts, the mortgage's as owed (positive), as
+    /// spreadsheets usually write a debt.
     static func csv(for library: Library, on date: CalendarDate) -> String {
+        let columns: [AccountKind: String] = [.property: "Home", .mortgage: "Mortgage", .pensionFund: "Pension"]
         var amounts: [String: Decimal] = [:]
-        for estimate in library.openStartingEstimates where estimate.kind == .pensionFund {
-            if let balance = library.valuations(for: estimate.id).last?.balance { amounts["Pension"] = balance }
+        for estimate in library.openStartingEstimates {
+            guard let column = columns[estimate.kind],
+                  let balance = library.valuations(for: estimate.id).last?.balance else { continue }
+            amounts[column] = estimate.kind.isLiability ? -balance : balance
         }
         return StarterSpreadsheet.csv(on: date, amounts: amounts)
     }

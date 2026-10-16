@@ -10,7 +10,7 @@ struct StarterSetupTests {
 
     var answers: StarterAnswers {
         StarterAnswers(cash: d("18000"), investments: d("42000"), pension: d("31000"), pensionFromAge: 67,
-                       home: d("150000"), payPerMonth: d("3400"), spendingPerMonth: d("2600"),
+                       home: d("250000"), mortgage: d("100000"), payPerMonth: d("3400"), spendingPerMonth: d("2600"),
                        statePensionPerMonth: d("1450"), statePensionFromAge: 67, retirementAge: nil,
                        investmentTax: d("0.26375"))
     }
@@ -23,9 +23,9 @@ struct StarterSetupTests {
     @Test func eachAmountBecomesAnEstimateAccount() throws {
         var library = emptyLibrary()
         let ids = StarterSetup.addEstimates(answers, to: &library, on: today)
-        #expect(ids.count == 4)
+        #expect(ids.count == 5)
         let accounts = ids.compactMap { library.accounts[$0] }
-        #expect(accounts.map(\.kind) == [.savings, .other, .pensionFund, .property])
+        #expect(accounts.map(\.kind) == [.savings, .other, .pensionFund, .property, .mortgage])
         #expect(accounts.allSatisfy { $0.isStartingEstimate && $0.opened == today && $0.currency == .eur })
         #expect(accounts.allSatisfy { $0.country == "DE" && $0.name.hasSuffix("(estimate)") })
         let pension = try #require(accounts.first { $0.kind == .pensionFund })
@@ -34,12 +34,24 @@ struct StarterSetupTests {
         let home = try #require(accounts.first { $0.kind == .property })
         #expect(!home.includedInPlan)
         #expect(home.includedInNetWorth)
+        let mortgage = try #require(accounts.first { $0.kind == .mortgage })
+        #expect(!mortgage.includedInPlan)
+        #expect(mortgage.includedInNetWorth)
+        #expect(library.valuations(for: mortgage.id).map(\.balance) == [d("-100000")])
         let investments = try #require(accounts.first { $0.kind == .other })
         #expect(investments.effectiveAssetClasses == .single(.equity))
-        #expect(library.openStartingEstimates.count == 4)
+        #expect(library.openStartingEstimates.count == 5)
         let values = ids.flatMap { library.valuations(for: $0) }
         #expect(values.compactMap(\.balance).reduce(0, +) == d("241000"))
         #expect(values.allSatisfy { $0.date == today })
+    }
+
+    /// A mortgage is entered as what's owed: negative is a mistake, and on
+    /// its own it isn't something you have.
+    @Test func aMortgageIsOwed() {
+        #expect(StarterAnswers(home: d("200000"), mortgage: d("-1")).hasNegativeAmount)
+        #expect(!StarterAnswers(mortgage: d("80000")).hasStartingAmounts)
+        #expect(StarterAnswers(home: d("200000"), mortgage: d("80000")).hasStartingAmounts)
     }
 
     @Test func amountsOfZeroOrNothingGetNoAccount() {
@@ -66,7 +78,7 @@ struct StarterSetupTests {
         let ids = StarterSetup.addEstimates(answers, to: &library, on: today)
         let id = try #require(ids.first)
         library.accounts[id]?.closed = today
-        #expect(library.openStartingEstimates.count == 3)
+        #expect(library.openStartingEstimates.count == 4)
         #expect(!library.openStartingEstimates.contains { $0.id == id })
     }
 
@@ -170,15 +182,18 @@ struct StarterSetupTests {
 
     @Test func theSuccessorIsOfTheEstimatesOwnKind() throws {
         var library = emptyLibrary()
-        StarterSetup.addEstimates(StarterAnswers(home: d("200000")), to: &library, on: today)
+        StarterSetup.addEstimates(StarterAnswers(home: d("200000"), mortgage: d("80000")), to: &library, on: today)
         for (id, kind) in [("mortgage", AccountKind.mortgage), ("home", .property)] {
             library.accounts[AccountID(id)] = Account(id: AccountID(id), name: id, kind: kind, currency: .eur,
                                                       opened: "2026-11-30")
             library.upsert(Valuation(account: AccountID(id), date: "2026-11-30", balance: d("1")))
         }
-        let home = try #require(library.openStartingEstimates.first)
+        let home = try #require(library.openStartingEstimates.first { $0.kind == .property })
         #expect(library.accountsReplacing(home).map(\.id) == ["home"])
         #expect(library.replacement(of: home) == .close(on: "2026-11-29", successor: "home"))
+        let mortgage = try #require(library.openStartingEstimates.first { $0.kind == .mortgage })
+        #expect(library.accountsReplacing(mortgage).map(\.id) == ["mortgage"])
+        #expect(library.replacement(of: mortgage) == .close(on: "2026-11-29", successor: "mortgage"))
     }
 
     @Test func aSketchIsOnlyEstimates() {

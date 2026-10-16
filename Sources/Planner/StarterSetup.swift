@@ -4,7 +4,8 @@ import Model
 /// What first launch asks (UI.md, "Empty states and first launch"): round
 /// amounts of what you have today, what you take home and spend a month,
 /// a state pension, the age to retire at and the tax on investments. All
-/// optional; amounts are in the base currency, after tax.
+/// optional; amounts are in the base currency, after tax, and none is
+/// negative (a debt is what's owed, above 0).
 public struct StarterAnswers: Hashable, Sendable {
     /// Cash and savings.
     public var cash: Decimal?
@@ -14,8 +15,10 @@ public struct StarterAnswers: Hashable, Sendable {
     public var pension: Decimal?
     /// The age the pension pot can be drawn from.
     public var pensionFromAge: Int?
-    /// What your home is worth, less what you still owe on it.
+    /// What your home is worth.
     public var home: Decimal?
+    /// What you still owe on the home's mortgage.
+    public var mortgage: Decimal?
     public var payPerMonth: Decimal?
     public var spendingPerMonth: Decimal?
     /// A state pension a month, after tax, in today's money.
@@ -27,14 +30,15 @@ public struct StarterAnswers: Hashable, Sendable {
     public var investmentTax: Decimal?
 
     public init(cash: Decimal? = nil, investments: Decimal? = nil, pension: Decimal? = nil,
-                pensionFromAge: Int? = nil, home: Decimal? = nil, payPerMonth: Decimal? = nil,
-                spendingPerMonth: Decimal? = nil, statePensionPerMonth: Decimal? = nil,
+                pensionFromAge: Int? = nil, home: Decimal? = nil, mortgage: Decimal? = nil,
+                payPerMonth: Decimal? = nil, spendingPerMonth: Decimal? = nil, statePensionPerMonth: Decimal? = nil,
                 statePensionFromAge: Int? = nil, retirementAge: Int? = nil, investmentTax: Decimal? = nil) {
         self.cash = cash
         self.investments = investments
         self.pension = pension
         self.pensionFromAge = pensionFromAge
         self.home = home
+        self.mortgage = mortgage
         self.payPerMonth = payPerMonth
         self.spendingPerMonth = spendingPerMonth
         self.statePensionPerMonth = statePensionPerMonth
@@ -45,11 +49,13 @@ public struct StarterAnswers: Hashable, Sendable {
 
     /// Whether any amount is negative: first launch waits until it's fixed.
     public var hasNegativeAmount: Bool {
-        [cash, investments, pension, home, payPerMonth, spendingPerMonth, statePensionPerMonth, investmentTax]
+        [cash, investments, pension, home, mortgage, payPerMonth, spendingPerMonth, statePensionPerMonth,
+         investmentTax]
             .contains { ($0 ?? 0) < 0 }
     }
 
-    /// Whether anything you have today was entered (above 0).
+    /// Whether anything you have today was entered (above 0); a mortgage
+    /// is owed, not had.
     public var hasStartingAmounts: Bool {
         [cash, investments, pension, home].contains { ($0 ?? 0) > 0 }
     }
@@ -70,7 +76,8 @@ public struct StarterAnswers: Hashable, Sendable {
 ///   of its own, tagged ``estimateTag`` and named "(estimate)", with one
 ///   value on the day: cash and savings as a savings account, investments
 ///   as equity, the pension pot as a pension fund available from its age,
-///   the home as property that plans leave out. They are what the first
+///   the home as property and its mortgage as a debt, both of which plans
+///   leave out, so net worth counts the home's equity. They are what the first
 ///   answer stands on until imported files replace them; closing an
 ///   estimate with the real account as its successor retires it.
 /// - **The plan.** Pay and spending a month (`setMonthly`), the age to
@@ -85,8 +92,9 @@ public enum StarterSetup {
     /// A pension pot's mix: balanced, as most default funds are.
     static let pensionMix: AssetMix = [.equity: Decimal(string: "0.6") ?? 0, .bonds: Decimal(string: "0.4") ?? 0]
 
-    /// The estimate accounts for `answers`, opened on `date`, in `currency`;
-    /// `id` makes each one's ID from its name. Amounts of 0 or less get none.
+    /// The estimate accounts for `answers`, opened on `date`, in `currency`,
+    /// each with its amount (the mortgage's as owed, above 0); `id` makes
+    /// each one's ID from its name. Amounts of 0 or less get none.
     public static func estimateAccounts(for answers: StarterAnswers, currency: CurrencyCode, country: CountryCode?,
                                         on date: CalendarDate, id: (String) -> AccountID) -> [(Account, Decimal)] {
         func estimate(_ name: String, _ kind: AccountKind, _ amount: Decimal?,
@@ -108,6 +116,7 @@ public enum StarterSetup {
                 account.availableFromAge = answers.pensionFromAge
             },
             estimate("Home", .property, answers.home) { $0.includeIn = IncludeIn(plan: false) },
+            estimate("Mortgage", .mortgage, answers.mortgage) { $0.includeIn = IncludeIn(plan: false) },
         ].compactMap { $0 }
     }
 
@@ -127,7 +136,9 @@ public enum StarterSetup {
         }
         for (account, amount) in estimates {
             library.accounts[account.id] = account
-            library.upsert(Valuation(account: account.id, date: date, balance: amount,
+            // Debts are stored as negative balances.
+            let balance = account.kind.isLiability ? -amount : amount
+            library.upsert(Valuation(account: account.id, date: date, balance: balance,
                                      note: "Estimate from first launch", source: .manual))
         }
         return estimates.map(\.0.id)
@@ -195,14 +206,14 @@ extension Account {
 
     /// The kinds of real accounts that replace this starting estimate:
     /// current and savings accounts replace cash and savings; investment
-    /// accounts the investments; pension funds and TFR the pension; the
-    /// home's value the home. A mortgage doesn't: the estimate is the
-    /// home's equity, and the mortgage is a debt beside the home's value.
+    /// accounts the investments; pension funds and TFR the pension;
+    /// property the home; a mortgage the mortgage.
     public var kindsReplacingEstimate: Set<AccountKind> {
         switch kind {
         case .savings, .cash: [.cash, .savings]
         case .pensionFund, .tfr: [.pensionFund, .tfr]
         case .property: [.property]
+        case .mortgage: [.mortgage]
         default: [.brokerage, .crypto, .metals, .other]
         }
     }

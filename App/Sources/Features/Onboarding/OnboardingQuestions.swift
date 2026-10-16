@@ -131,9 +131,9 @@ struct OnboardingYouStep: View {
     }
 }
 
-/// Your money: what you have today, in four plain buckets that
-/// become the starting estimates, and pay and spending a month, with what
-/// you save as you type.
+/// Your money: what you have today, in four plain buckets (the home with
+/// what's still owed on it) that become the starting estimates, and pay and
+/// spending a month, with what you save as you type.
 struct OnboardingMoneyStep: View {
     @Environment(OnboardingModel.self) private var model
     @Environment(\.locale) private var locale
@@ -153,7 +153,10 @@ struct OnboardingMoneyStep: View {
                     Stepper("Available from age \(pensionAge.wrappedValue)", value: pensionAge, in: 50...75)
                         .font(.subheadline)
                 }
-                PlanNumberRow("Home, minus the mortgage", value: $model.answers.home, prompt: "Optional")
+                PlanNumberRow("Your home's value", value: $model.answers.home, prompt: "Optional")
+                if (model.answers.home ?? 0) > 0 || (model.answers.mortgage ?? 0) > 0 {
+                    PlanNumberRow("Mortgage still owed", value: $model.answers.mortgage, prompt: "Optional")
+                }
             }
             .onboardingCard()
             VStack(alignment: .leading, spacing: Metrics.m) {
