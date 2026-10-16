@@ -143,6 +143,10 @@ struct TypedValuesTests {
         #expect(typed.valuation == .balance)
         #expect(typed.acceptsTypedValues)
         #expect(typed.typedValuesTurnOffTrends)
+        #expect(form.typedValuesTurnOffTrends)
+        form.chosenNetWorthInclusion = false
+        #expect(!form.typedValuesTurnOffTrends)
+        #expect(!form.account(id: "a").typedValuesTurnOffTrends)
         // Switched back, it stays a balance: its typed values are balances.
         var back = AccountForm(editing: typed)
         back.values = .imported

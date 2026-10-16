@@ -293,9 +293,9 @@ struct AccountForm: Hashable, Sendable {
     }
 
     /// Whether choosing *Typed by you* turns Trends off: savings and
-    /// investments (``Model/Account/typedValuesTurnOffTrends``).
+    /// investments in net worth (``Model/Account/typedValuesTurnOffTrends``).
     var typedValuesTurnOffTrends: Bool {
-        kind == .savings || kind.isInvestment
+        (kind == .savings || kind.isInvestment) && includedInNetWorth
     }
 
     /// Whether it asks for an estimated loss of value a year: belongings.
