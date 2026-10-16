@@ -32,6 +32,9 @@ struct AccountDefaultsTests {
             #expect(typed.acceptsTypedValues == !importOnly.contains(kind), "\(kind)")
             let turnsOffTrends = kind == .savings || kind.isInvestment
             #expect(typed.typedValuesTurnOffTrends == turnsOffTrends, "\(kind)")
+            var outOfNetWorth = typed
+            outOfNetWorth.includeIn = IncludeIn(netWorth: false)
+            #expect(!outOfNetWorth.typedValuesTurnOffTrends, "\(kind)")
         }
         // A kind this version doesn't know stays import-only.
         var unknown = account(AccountKind(rawValue: "boat"))

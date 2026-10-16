@@ -129,12 +129,13 @@ extension Account {
     }
 
     /// Whether its typed values turn Trends off: an open savings or
-    /// investment account set to typed values. Trends stands on the money
-    /// in and out and the money invested that statements record, which a
-    /// typed balance doesn't. A starting estimate doesn't: it's a round
+    /// investment account in net worth, set to typed values. Trends stands
+    /// on the money in and out and the money invested that statements
+    /// record, which a typed balance doesn't; an account out of net worth
+    /// isn't counted there. A starting estimate doesn't: it's a round
     /// amount until it's replaced.
     public var typedValuesTurnOffTrends: Bool {
-        !isClosed && !isStartingEstimate && offersTypedValues && effectiveValues == .typed
+        !isClosed && !isStartingEstimate && includedInNetWorth && offersTypedValues && effectiveValues == .typed
             && (kind == .savings || kind.isInvestment)
     }
 
