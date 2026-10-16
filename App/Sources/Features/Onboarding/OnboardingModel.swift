@@ -54,6 +54,10 @@ final class OnboardingModel {
     /// The amounts, ages and rates typed, with the country's suggestions
     /// for the ages and the tax until they're changed.
     var answers: StarterAnswers
+    /// Whether you've already stopped working: there's no pay, the plan
+    /// retires at your age today, and the answer says whether your money
+    /// lasts (``OnboardingText/retiredTitle(_:)``).
+    var hasStoppedWorking = false
     /// Whether the plan retires at ``chosenAge`` rather than as early as works.
     var retiresAtChosenAge = false
     var chosenAge = 60
@@ -165,11 +169,24 @@ final class OnboardingModel {
         birthDate.map { CalendarDate($0, in: .current) }
     }
 
-    /// The answers as the plan takes them: the age chosen, else as early as works.
+    /// The answers as the plan takes them: the age chosen, else as early as
+    /// works. Once you've stopped working: no pay, one spending, and your
+    /// age today.
     var finalAnswers: StarterAnswers {
         var final = answers
-        final.retirementAge = retiresAtChosenAge ? chosenAge : nil
+        if hasStoppedWorking {
+            final.payPerMonth = nil
+            final.retiredSpendingPerMonth = nil
+            final.retirementAge = currentAge
+        } else {
+            final.retirementAge = retiresAtChosenAge ? chosenAge : nil
+        }
         return final
+    }
+
+    /// Your age today, from the birth date picked.
+    var currentAge: Int? {
+        birthCalendarDate.map { $0.wholeYears(to: .today()) }
     }
 
     /// The settings of the library *See My Answer* creates.
@@ -181,7 +198,7 @@ final class OnboardingModel {
     /// The age *At an age I choose* starts from: 60, or next year's age
     /// for someone 60 or older, within the plan's ages (30 to 85).
     var suggestedAge: Int {
-        let age = birthCalendarDate.map { $0.wholeYears(to: .today()) } ?? 0
+        let age = currentAge ?? 0
         return min(max(60, age + 1), OnboardingScreen.retirementAges.upperBound)
     }
 
@@ -297,9 +314,10 @@ final class OnboardingModel {
     /// and first launch"): the main plan with ``StarterAnswers`` saving
     /// `StarterSetup.leverStep` more a month, against the plan as it is,
     /// both as quick runs, so the two are alike. Nothing when you could
-    /// retire today, no age works, or saving more doesn't move the age.
+    /// retire today, no age works, saving more doesn't move the age, or
+    /// you've stopped working.
     func findLever(for headline: RetirementAnswer, library: LibraryStore, plans: PlanStore) async {
-        guard lever == nil, !headline.canRetireNow, headline.earliestAge != nil,
+        guard lever == nil, !hasStoppedWorking, !headline.canRetireNow, headline.earliestAge != nil,
               let step = StarterSetup.leverStep(for: finalAnswers), let plan = library.mainPlan else { return }
         let date = library.asOfDate
         let base = PlanRunRequest(plan: plan, library: library.library, mode: .fast, whatIf: nil, asOf: date)
@@ -356,7 +374,7 @@ final class OnboardingModel {
         guard !Task.isCancelled, let request = estimateRequest() else { return }
         guard let results = try? await plans.engine.run(request, progress: nil), !Task.isCancelled else { return }
         let next = Estimate(headline: results.headline, spendingPerMonth: answers.spendingPerMonth,
-                            savingPerMonth: answers.saving?.perMonth)
+                            savingPerMonth: finalAnswers.saving?.perMonth)
         guard next != estimate else { return }
         previousEstimate = estimate
         estimate = next

@@ -20,12 +20,13 @@ struct OnboardingEstimatePanel: View {
                 .font(.footnote.weight(.semibold))
                 .foregroundStyle(Palette.secondaryInk)
             if let estimate = model.estimate, model.estimateRequest() != nil {
-                Text(Self.title(estimate.headline))
+                Text(Self.title(estimate.headline, hasStoppedWorking: model.hasStoppedWorking))
                     .font(.title2.bold())
                     .foregroundStyle(Palette.ink)
                     .fixedSize(horizontal: false, vertical: true)
                     .privacySensitiveInFeedback()
-                if let change = Self.change(from: model.previousEstimate?.headline, to: estimate.headline) {
+                if !model.hasStoppedWorking,
+                   let change = Self.change(from: model.previousEstimate?.headline, to: estimate.headline) {
                     Text(change.text)
                         .font(.callout)
                         .foregroundStyle(change.isSooner ? Palette.positive : Palette.secondaryInk)
@@ -70,8 +71,12 @@ struct OnboardingEstimatePanel: View {
     }
 
     /// "You could retire at 57", "You could retire today", or "No age works
-    /// yet".
-    static func title(_ headline: RetirementAnswer) -> String {
+    /// yet"; once you've stopped working, "Your money lasts" or "Your money
+    /// runs short".
+    static func title(_ headline: RetirementAnswer, hasStoppedWorking: Bool = false) -> String {
+        if hasStoppedWorking {
+            return OnboardingText.moneyLasts(headline) ? "Your money lasts" : "Your money runs short"
+        }
         if headline.canRetireNow { return "You could retire today" }
         guard let age = headline.earliestAge else { return "No age works yet" }
         return "You could retire at \(age)"

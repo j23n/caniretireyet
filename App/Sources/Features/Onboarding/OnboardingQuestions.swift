@@ -133,7 +133,8 @@ struct OnboardingYouStep: View {
 
 /// Your money: what you have today, in four plain buckets (the home with
 /// what's still owed on it) that become the starting estimates, and pay and
-/// spending a month, with what you save as you type.
+/// spending a month, with what you save as you type. Once you've stopped
+/// working there's no pay: spending is what you live on now.
 struct OnboardingMoneyStep: View {
     @Environment(OnboardingModel.self) private var model
     @Environment(\.locale) private var locale
@@ -146,25 +147,35 @@ struct OnboardingMoneyStep: View {
                                 + "your statements later.")
             VStack(alignment: .leading, spacing: Metrics.m) {
                 groupTitle("What you have today")
-                PlanNumberRow("Cash and savings", value: $model.answers.cash)
-                PlanNumberRow("Investments", value: $model.answers.investments)
-                PlanNumberRow("Pension you can't access yet", value: $model.answers.pension)
+                OnboardingNumberRow("Cash and savings", value: $model.answers.cash, unit: symbol)
+                OnboardingNumberRow("Investments", value: $model.answers.investments, unit: symbol)
+                OnboardingNumberRow("Pension you can't access yet", value: $model.answers.pension, unit: symbol)
                 if (model.answers.pension ?? 0) > 0 {
                     Stepper("Available from age \(pensionAge.wrappedValue)", value: pensionAge, in: 50...75)
                         .font(.subheadline)
                 }
-                PlanNumberRow("Your home's value", value: $model.answers.home, prompt: "Optional")
+                OnboardingNumberRow("Your home's value", value: $model.answers.home, unit: symbol,
+                                    prompt: "Optional")
                 if (model.answers.home ?? 0) > 0 || (model.answers.mortgage ?? 0) > 0 {
-                    PlanNumberRow("Mortgage still owed", value: $model.answers.mortgage, prompt: "Optional")
+                    OnboardingNumberRow("Mortgage still owed", value: $model.answers.mortgage, unit: symbol,
+                                        prompt: "Optional")
                 }
             }
             .onboardingCard()
             VStack(alignment: .leading, spacing: Metrics.m) {
                 groupTitle("Each month, after tax")
-                PlanNumberRow("Take-home pay", value: $model.answers.payPerMonth)
-                PlanNumberRow("Spending", value: $model.answers.spendingPerMonth)
+                Toggle("I've already stopped working", isOn: $model.hasStoppedWorking)
+                if !model.hasStoppedWorking {
+                    OnboardingNumberRow("Take-home pay", value: $model.answers.payPerMonth, unit: symbol)
+                }
+                OnboardingNumberRow("Spending", value: $model.answers.spendingPerMonth, unit: symbol)
                 if model.answers.hasNegativeAmount {
                     PlanIssueLine(message: "Amounts can't be negative.", isError: true)
+                } else if model.hasStoppedWorking {
+                    Text("What you live on now, paid from your savings and pensions. Your answer is whether it lasts.")
+                        .font(.footnote)
+                        .foregroundStyle(Palette.secondaryInk)
+                        .fixedSize(horizontal: false, vertical: true)
                 } else if let line = OnboardingText.savingLine(model.answers, currency: model.currency,
                                                                 locale: locale) {
                     AmountSentenceText(line)
@@ -186,6 +197,11 @@ struct OnboardingMoneyStep: View {
                 set: { model.answers.pensionFromAge = $0 })
     }
 
+    /// The currency's symbol, inside each amount's field: "€".
+    private var symbol: String {
+        AmountFormat.symbol(for: model.currency, locale: locale)
+    }
+
     private func groupTitle(_ title: String) -> some View {
         Text(title)
             .font(.subheadline.weight(.semibold))
@@ -195,7 +211,8 @@ struct OnboardingMoneyStep: View {
 }
 
 /// Pension and retirement: a state pension (the one input that moves the answer
-/// most), when to stop, and the tax on investments, suggested for the
+/// most), when to stop and what you'd spend then (neither once you've
+/// stopped working), and the tax on investments, suggested for the
 /// country.
 struct OnboardingLaterStep: View {
     @Environment(OnboardingModel.self) private var model
@@ -208,33 +225,42 @@ struct OnboardingLaterStep: View {
             VStack(alignment: .leading, spacing: Metrics.m) {
                 groupTitle(CountryDefaults.statePensionName(for: model.country))
                 Stepper("From age \(statePensionAge.wrappedValue)", value: statePensionAge, in: 55...75)
-                PlanNumberRow("Amount per month", value: $model.answers.statePensionPerMonth, prompt: "None")
+                OnboardingNumberRow("Amount per month", value: $model.answers.statePensionPerMonth, unit: symbol,
+                                    prompt: "None")
                 Text(OnboardingText.statePensionNote(country: model.country))
                     .font(.footnote)
                     .foregroundStyle(Palette.secondaryInk)
                     .fixedSize(horizontal: false, vertical: true)
             }
             .onboardingCard()
-            VStack(alignment: .leading, spacing: Metrics.m) {
-                groupTitle("When do you want to retire?")
-                Picker("When", selection: $model.retiresAtChosenAge) {
-                    Text("As early as possible").tag(false)
-                    Text("At a set age").tag(true)
+            if !model.hasStoppedWorking {
+                VStack(alignment: .leading, spacing: Metrics.m) {
+                    groupTitle("When do you want to retire?")
+                    Picker("When", selection: $model.retiresAtChosenAge) {
+                        Text("As early as possible").tag(false)
+                        Text("At a set age").tag(true)
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    if model.retiresAtChosenAge {
+                        Stepper("Retire at \(model.chosenAge)", value: $model.chosenAge,
+                                in: OnboardingScreen.retirementAges)
+                    }
+                    OnboardingNumberRow("Spending in retirement", value: $model.answers.retiredSpendingPerMonth,
+                                        unit: symbol, prompt: sameSpending)
+                    Text("A month, after tax, in today's money. Leave it empty to spend what you spend now.")
+                        .font(.footnote)
+                        .foregroundStyle(Palette.secondaryInk)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-                if model.retiresAtChosenAge {
-                    Stepper("Retire at \(model.chosenAge)", value: $model.chosenAge,
-                            in: OnboardingScreen.retirementAges)
+                .onboardingCard()
+                .onChange(of: model.retiresAtChosenAge) { _, chosen in
+                    if chosen { model.chosenAge = model.suggestedAge }
                 }
             }
-            .onboardingCard()
-            .onChange(of: model.retiresAtChosenAge) { _, chosen in
-                if chosen { model.chosenAge = model.suggestedAge }
-            }
             VStack(alignment: .leading, spacing: Metrics.m) {
-                PlanNumberRow("Tax on investment gains", value: taxBinding, kind: .percent, unit: "%",
-                              prompt: "None")
+                OnboardingNumberRow("Tax on investment gains", value: taxBinding, kind: .percent, unit: "%",
+                                    prompt: "None")
                 Text(OnboardingText.taxNote(country: model.country, isDefault: model.taxIsDefault, locale: locale))
                     .font(.footnote)
                     .foregroundStyle(Palette.secondaryInk)
@@ -247,6 +273,18 @@ struct OnboardingLaterStep: View {
     private var statePensionAge: Binding<Int> {
         Binding(get: { model.answers.statePensionFromAge ?? CountryDefaults.statePensionAge(for: model.country) },
                 set: { model.answers.statePensionFromAge = $0 })
+    }
+
+    /// The currency's symbol, inside each amount's field: "€".
+    private var symbol: String {
+        AmountFormat.symbol(for: model.currency, locale: locale)
+    }
+
+    /// Spending in retirement's placeholder: today's spending, which an
+    /// empty field keeps.
+    private var sameSpending: String {
+        guard let spending = model.answers.spendingPerMonth else { return "Same as now" }
+        return PlanNumberText.text(spending, kind: .amount, locale: locale)
     }
 
     private var taxBinding: Binding<Decimal?> {
