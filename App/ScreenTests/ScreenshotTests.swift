@@ -61,6 +61,14 @@ struct ScreenshotTests {
         try await keep("account-cash", .example, .cashAccount)
     }
 
+    /// An account whose name and institution are longer than fit beside
+    /// its value: they truncate to a line each, and its value stays on one
+    /// line in the column of the others'. On iPhone the Accounts list; on
+    /// the Mac the sidebar's accounts.
+    @Test func accountsWithALongName() async throws {
+        try await keep("accounts-long-name", .longAccountName, .accounts)
+    }
+
     /// The October check-in under way (`CheckInPreviewData`), after this
     /// month's files were imported: net worth and its change, the accounts
     /// the files updated and those they didn't. On iPhone in a full-screen
