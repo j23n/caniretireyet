@@ -26,11 +26,12 @@ struct JourneyCard: View {
         let milestones = PlanMilestones(plan: plan, library: library.library, valuator: library.valuator,
                                         asOf: library.asOfDate, results: results, reached: progress.reached)
         let text = PlanMilestoneText(currency: currency, locale: locale)
+        let next = milestones.next
         if let start = library.valuator.firstValuationDate(in: .planAssets) {
             let track = MilestoneTrack(
                 start: start, today: today, retirement: answer.canRetireNow ? nil : answer.earliestDate,
                 reached: milestones.reached, ahead: milestones.ahead,
-                next: milestones.next.flatMap { next in
+                next: next.flatMap { next in
                     milestones.nextDate.map { date in
                         (id: next.milestone.id, name: text.label(next.milestone), date: date)
                     }
@@ -39,7 +40,7 @@ struct JourneyCard: View {
                 VStack(alignment: .leading, spacing: Metrics.m) {
                     track
                     legend(reached: !track.reached.isEmpty, ahead: !track.drawnAhead.isEmpty)
-                    if let next = milestones.next {
+                    if let next {
                         Divider()
                         nextMilestone(next, date: milestones.nextDate, text: text)
                     }

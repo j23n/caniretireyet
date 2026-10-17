@@ -94,7 +94,7 @@ enum OverviewYearText {
 // MARK: - Can I retire yet?
 
 /// The main plan's answer in the Overview's header (UI.md, "Can I retire
-/// yet?"): the headline, what its ⓘ says, and what VoiceOver reads.
+/// yet?"): the headline, the line under it, and what VoiceOver reads.
 struct OverviewAnswerText {
     var headline: RetirementAnswer
     /// When the earliest age is reached: the headline's date, or for an
