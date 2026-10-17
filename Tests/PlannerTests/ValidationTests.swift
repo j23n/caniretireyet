@@ -116,6 +116,13 @@ struct ValidationTests {
         // Starting the same day as another phase still overlaps it.
         plan.work = plan.work(adding: WorkPhase(from: "2035-01-01", until: .retirement, netIncome: d("10000")))
         #expect(plan.overlappingWork.map { [$0.earlier, $0.later] } == [[1, 3]])
+
+        // A phase inside another leaves it whole, and overlaps it.
+        plan.work = [WorkPhase(from: "2026-01-01", until: .date("2035-12-31"), netIncome: d("40000"))]
+        plan.work = plan.work(adding: WorkPhase(name: "Sabbatical", from: "2030-01-01", until: .date("2030-12-31"),
+                                                netIncome: 0))
+        #expect(plan.work.map(\.until) == [.date("2035-12-31"), .date("2030-12-31")])
+        #expect(plan.overlappingWork.map { [$0.earlier, $0.later] } == [[0, 1]])
     }
 
     @Test func otherIncomeNeedsItsAmountAndAges() async {
