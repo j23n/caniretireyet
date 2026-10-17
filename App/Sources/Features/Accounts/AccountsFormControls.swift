@@ -25,7 +25,7 @@ struct AccountsNumberField: View {
                     .monospacedDigit()
                     // Not `.privacySensitive()`: what you type shows while amounts are hidden.
                     #if os(iOS)
-                    .keyboardType(allowsNegative ? .numbersAndPunctuation : .decimalPad)
+                    .numberKeyboard(allowsNegative ? .numbersAndPunctuation : .decimalPad)
                     #endif
                 if let suffix {
                     Text(suffix)
