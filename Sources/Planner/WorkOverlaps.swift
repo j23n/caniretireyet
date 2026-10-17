@@ -21,7 +21,8 @@ extension PlanDocument {
 
     /// `work` with `phase` added after the others, and without overlaps it
     /// would cause: a phase still running on its first day ends the day
-    /// before, and it ends the day before the next phase starts.
+    /// before, and it ends the day before the next phase starts. A phase
+    /// starting the same day can't end before it, so the two still overlap.
     public func work(adding phase: WorkPhase) -> [WorkPhase] {
         var phase = phase
         if let next = work.map(\.from).filter({ $0 > phase.from }).min(), phase.runs(on: next) {

@@ -112,6 +112,10 @@ struct ValidationTests {
         plan.work = plan.work(adding: WorkPhase(from: "2032-01-01", until: .retirement, netIncome: d("20000")))
         #expect(plan.work.map(\.until) == [.date("2029-12-31"), .retirement, .date("2034-12-31")])
         #expect(plan.overlappingWork.isEmpty)
+
+        // Starting the same day as another phase still overlaps it.
+        plan.work = plan.work(adding: WorkPhase(from: "2035-01-01", until: .retirement, netIncome: d("10000")))
+        #expect(plan.overlappingWork.map { [$0.earlier, $0.later] } == [[1, 3]])
     }
 
     @Test func otherIncomeNeedsItsAmountAndAges() async {

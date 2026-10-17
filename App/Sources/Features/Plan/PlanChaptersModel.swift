@@ -119,10 +119,11 @@ extension PlanChaptersModel {
 
     // MARK: New inputs for a chapter
 
-    /// A work phase from the chapter's first day until retirement.
+    /// A work phase in the chapter until retirement, from
+    /// ``newWorkPhaseStart(in:)``.
     func newWorkPhase(in chapter: PlanChapter) -> WorkPhase {
         var phase = PlanEditing.newWorkPhase(in: plan, asOf: start)
-        phase.from = max(start.adding(days: 1), Self.lastDay(of: chapter.years.lowerBound - 1).adding(days: 1))
+        phase.from = newWorkPhaseStart(in: chapter)
         phase.until = .retirement
         return phase
     }
