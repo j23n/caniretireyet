@@ -44,7 +44,7 @@
       }
     },
     "work": {
-      "description": "Working phases. Every phase stops at retirement, whatever its until.",
+      "description": "Working phases. Every phase stops at retirement, whatever its until. Phases don't overlap: one that starts while another still runs is an error (planner.workOverlap).",
       "type": "array",
       "items": { "$ref": "#/$defs/workPhase" }
     },
@@ -121,7 +121,7 @@
         "working": { "description": "While working.", "$ref": "common.schema.json#/$defs/decimal" },
         "retired": { "description": "In retirement, before phase factors.", "$ref": "common.schema.json#/$defs/decimal" },
         "phases": {
-          "description": "Factors on retirement spending from given ages: the latest phase started is in force, 1 before the first.",
+          "description": "Factors on retirement spending from given ages: the latest phase started is in force, 1 before the first. Each phase has its own fromAge (error planner.spendingPhaseAges).",
           "type": "array",
           "items": {
             "type": "object",

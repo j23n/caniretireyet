@@ -178,6 +178,22 @@ public struct PlanChaptersModel: Sendable {
         return from.dateValue...max(from.dateValue, to.dateValue)
     }
 
+    /// The first day of a work phase added in `chapter`: the chapter's first
+    /// day, unless a phase starts then; else 1 January of its middle year
+    /// (1 July in a chapter of one year), which splits the chapter's phase.
+    /// Two phases starting the same day overlap, which
+    /// ``PlanDocument/work(adding:)`` can't undo.
+    public func newWorkPhaseStart(in chapter: PlanChapter) -> CalendarDate {
+        let first = max(start.adding(days: 1), Self.lastDay(of: chapter.years.lowerBound - 1).adding(days: 1))
+        let starts = Set(plan.work.map(\.from))
+        guard starts.contains(first) else { return first }
+        let years = chapter.years
+        let split = years.count > 1
+            ? Self.lastDay(of: years.lowerBound + years.count / 2 - 1).adding(days: 1)
+            : CalendarDate(year: years.lowerBound, month: 7, day: 1) ?? first
+        return split > first && !starts.contains(split) ? split : first.adding(days: 1)
+    }
+
     /// 31 December of `year`.
     public static func lastDay(of year: Int) -> CalendarDate {
         CalendarDate(year: year, month: 12, day: 31) ?? .today()

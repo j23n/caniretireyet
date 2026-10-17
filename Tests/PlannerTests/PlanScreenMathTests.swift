@@ -30,6 +30,22 @@ struct PlanScreenMathTests {
 
     // MARK: Chapters
 
+    /// A work phase added in a working chapter starts on a day no phase
+    /// starts, so adding it leaves no overlap: in the Self-employed chapter,
+    /// which starts the day that phase does, it starts in the middle year.
+    @Test func aWorkPhaseAddedInAChapterOverlapsNothing() throws {
+        let model = try chapters()
+        let working = model.chapters.chapters.filter { !$0.isRetired }
+        #expect(working.count >= 2)
+        for chapter in working {
+            let from = model.newWorkPhaseStart(in: chapter)
+            #expect(!plan.work.map(\.from).contains(from))
+            var added = plan
+            added.work = plan.work(adding: WorkPhase(from: from, until: .retirement, netIncome: 1))
+            #expect(added.overlappingWork.isEmpty)
+        }
+    }
+
     @Test func theChaptersAreCutAtTheAgeChosenFirst() throws {
         #expect(try chapters().ageSource == .plan)
         #expect(try chapters().retirementAge == 55)
