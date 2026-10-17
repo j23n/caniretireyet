@@ -242,7 +242,7 @@ private struct Words {
             sentences.append(sentence + ".")
         }
         let saved = SpendingTime(amount: summary.saved, yearlySpending: journey.yearlySpending ?? 0)
-            .map { "saved \($0.text) of the life you plan" }
+            .map { "saved \($0.text) of expenses" }
         let reached = journey.reachedCount(in: year)
         let passed = reached == 0 ? nil : reached == 1 ? "passed a milestone" : "passed \(reached) milestones"
         let done = [saved, passed].compactMap(\.self)

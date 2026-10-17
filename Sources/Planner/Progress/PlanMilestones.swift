@@ -9,9 +9,23 @@ public struct PlanMilestones: Sendable {
     public let ladder: MilestoneLadder
     /// Oldest first; Progress sets those its ``PlanProgress`` worked out.
     public var reached: [ReachedMilestone]
-    /// Soonest first; empty without results.
-    public let ahead: [ProjectedMilestone]
-    public let next: NextMilestone?
+    /// Soonest first; empty without results. A milestone reached before,
+    /// that plan assets fell below since, isn't ahead again.
+    public var ahead: [ProjectedMilestone] {
+        let ids = Set(reached.map(\.id))
+        return projected.filter { !ids.contains($0.id) }
+    }
+    /// The nearest milestone not reached yet, and how far there.
+    public var next: NextMilestone? {
+        ladder.next(after: current, readiness: readiness, excluding: Set(reached.map(\.id)))
+    }
+    /// Every milestone above today's plan assets that the median future
+    /// reaches, reached before or not.
+    private let projected: [ProjectedMilestone]
+    /// Today's plan assets: the median future's start, else the valuator's.
+    private let current: Decimal
+    /// Today's readiness: the results', else the latest check-in's record.
+    private let readiness: Decimal?
     /// The coast age now (PLANNER.md, "Ages without"): from the results
     /// shown, else the latest check-in's record; `nil` when no age works
     /// saving nothing more, or when it isn't known (``knowsCoastAge``).
@@ -35,6 +49,7 @@ public struct PlanMilestones: Sendable {
         let ladder = MilestoneLadder(plan: plan, library: library, valuator: valuator, on: asOf, neededToday: needed)
         self.ladder = ladder
         self.reached = reached
+        self.readiness = readiness
         let current: Decimal
         let median: [SeriesPoint]
         let portfolio = results?.portfolio ?? []
@@ -47,8 +62,8 @@ public struct PlanMilestones: Sendable {
             current = valuator.total(on: asOf, in: .planAssets).total
             median = []
         }
-        ahead = ladder.ahead(of: current, readiness: readiness, median: median)
-        next = ladder.next(after: current, readiness: readiness)
+        self.current = current
+        projected = ladder.ahead(of: current, readiness: readiness, median: median)
         let coast = Self.currentCoastAge(results: results, recorded: recorded)
         coastAge = coast.age
         knowsCoastAge = coast.isKnown

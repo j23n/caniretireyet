@@ -56,11 +56,7 @@ struct PlanProgressView: View {
         let progress = session.progress
         let timeline = PlanProgressTimeline(progress, text: milestoneText)
         let derived = session.derived(locale: locale)
-        let milestones = derived.milestones.map { milestones in
-            var milestones = milestones
-            milestones.reached = progress.reached
-            return milestones
-        }
+        let milestones = derived.milestones
         ScrollView {
             VStack(alignment: .leading, spacing: Metrics.l) {
                 headline(progress.latestYear, history: progress.history)

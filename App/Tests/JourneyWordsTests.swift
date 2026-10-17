@@ -5,8 +5,9 @@ import Planner
 import Testing
 @testable import CanIRetireYet
 
-/// The words of the check-in's answer, *Your way there* and Settings ›
-/// Notifications (UI.md, "After saving", "Your way there", "Notifications").
+/// The words of the check-in's answer, *Your way to retirement* and
+/// Settings › Notifications (UI.md, "After saving", "Your way to
+/// retirement", "Notifications").
 struct JourneyWordsTests {
     private let english = Locale(identifier: "en_US")
 
@@ -35,8 +36,11 @@ struct JourneyWordsTests {
         let answer = RetirementAnswer(confidence: 0.9, earliestAge: 54, readiness: 0.58)
         let since = try #require(SinceYouStarted(history: history, answer: answer, reached: 7))
         #expect(since.date == "2021-10-31")
-        #expect(since.answer == "You could retire at 54, not 58")
+        #expect(since.answer == "Your retirement moved 4 years sooner, to 54")
         #expect(since.progress == "From 21% to 58% ready, 7 milestones passed")
+        let later = RetirementAnswer(confidence: 0.9, earliestAge: 59, readiness: 0.58)
+        #expect(SinceYouStarted(history: history, answer: later, reached: 7)?.answer
+            == "Your retirement slipped a year, to 59")
         #expect(SinceYouStarted(history: PlanAnswerHistory([headline("2026-09-30", age: 54)]), answer: answer,
                                 reached: 0) == nil)
     }

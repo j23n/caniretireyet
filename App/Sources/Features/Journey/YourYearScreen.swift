@@ -8,8 +8,8 @@ import Tracker
 /// *Your year* (UI.md, "Your year"): a year of the main plan looked back
 /// on. Last year in January (the note on 3 January opens it), else this
 /// year so far. Readiness from the year's start to its end as a ring, how
-/// the answer moved, what you saved and markets did as time of the life you
-/// plan, the age at each check-in, your money against what January's plan
+/// the answer moved, what you saved and markets did as time of
+/// expenses, the age at each check-in, your money against what January's plan
 /// expected with the milestones passed, month by month, and the year ahead.
 /// Present it inside a `NavigationStack`.
 struct YourYearScreen: View {
@@ -175,7 +175,7 @@ struct YourYearScreen: View {
 
     // MARK: Tiles
 
-    /// "You saved 8 months of the life you plan" and what markets did, as time.
+    /// "You saved 8 months of expenses" and what markets did, as time.
     @ViewBuilder
     private func tiles(_ review: YearReview, spending: Decimal?) -> some View {
         let saved = spending.flatMap { SpendingTime(amount: review.saved, yearlySpending: $0) }
@@ -184,7 +184,7 @@ struct YourYearScreen: View {
             HStack(alignment: .top, spacing: Metrics.m) {
                 if let saved {
                     tile("You saved", value: saved.text.replacingOccurrences(of: "about ", with: ""),
-                         detail: "of the life you plan", color: Palette.accent)
+                         detail: "of expenses", color: Palette.accent)
                 }
                 if let markets {
                     tile("Markets", value: markets.text.replacingOccurrences(of: "about ", with: ""),
@@ -223,7 +223,8 @@ struct YourYearScreen: View {
     @ViewBuilder
     private func yearAhead(plan: PlanDocument, text: PlanMilestoneText) -> some View {
         let milestones = PlanMilestones(plan: plan, library: library.library, valuator: library.valuator,
-                                        asOf: library.asOfDate, results: plans.latestResults(of: plan.id))
+                                        asOf: library.asOfDate, results: plans.latestResults(of: plan.id),
+                                        reached: plans.planProgress(of: plan.id, document: plan).reached)
         if let next = milestones.next {
             Card("The year ahead") {
                 VStack(alignment: .leading, spacing: Metrics.xs) {

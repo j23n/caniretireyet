@@ -411,7 +411,7 @@ final class PlanSession {
         return derivedMemo.value(for: key) {
             PlanDerived(plan: key.document, library: library.library, valuator: library.valuator,
                         results: key.results, chosenAge: key.focusAge, whatIfAge: key.whatIfAge,
-                        asOf: key.asOf, locale: locale)
+                        asOf: key.asOf, reached: progress.reached, locale: locale)
         }
     }
 

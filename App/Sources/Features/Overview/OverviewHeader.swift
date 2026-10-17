@@ -7,21 +7,20 @@ import SwiftUI
 /// retire yet?"): the answer in a tile of its own, then the *Net worth* and
 /// *On track?* tiles under it. Everything starts at the tiles' leading edge.
 ///
-/// - **Title row:** "Can I retire yet?", an ⓘ after it that explains the
-///   whole answer, "First sketch" while starting estimates are open
-///   (``OnboardingSketchChip``), and the chevron at the trailing edge,
-///   above *On track?*'s.
+/// - **Title row:** "Can I retire yet?", "First sketch" while starting
+///   estimates are open (``OnboardingSketchChip``), and the chevron at the
+///   trailing edge, above *On track?*'s.
 ///   The tile opens the plan, with a tap gesture rather than as a button, so
-///   the ⓘ and *Calculate* get their own taps; the chevron is the button
-///   VoiceOver and keyboards use.
+///   *Calculate* gets its own tap; the chevron is the button VoiceOver and
+///   keyboards use.
 /// - **The ring** (``ReadinessRing``) at the leading edge, with the
 ///   percentage inside it, by the *Readiness* widget's rules
 ///   (``ReadinessFigure``); it laps past 100%.
 /// - **The answer's words** at the ring's right: the headline ("In 15
-///   years", "Yes", "Not yet", or "At 54" without a time to go), when ("At 54
-///   · March 2042") and how sure ("in 9 of 10 futures"), then the run status
-///   ("◷ 30 Sep" for an answer recorded at a check-in, *Calculate* when the
-///   results are out of date, "Calculating 29%"). Out-of-date results dim
+///   years", "Yes", "Not yet", or "At 54" without a time to go), when ("Age
+///   54 · March 2042"), then the run status ("◷ As of 30 Sep" for an answer
+///   recorded at a check-in, *Calculate* when the results are out of date,
+///   "Calculating 29%"). Out-of-date results dim
 ///   the ring and the words, as the Plan screen dims them.
 /// - **Tiles:** net worth with its changes, and where the latest check-in
 ///   stands against its baseline (opening Progress) with the coast point
@@ -42,7 +41,6 @@ struct OverviewHeader: View {
     @Environment(\.locale) private var locale
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.redactionReasons) private var redactionReasons
-    @State private var showsExplanation = false
 
     private var hidesAmounts: Bool { redactionReasons.hidesAmounts }
 
@@ -65,11 +63,10 @@ struct OverviewHeader: View {
     // MARK: Answer
 
     /// The question, the ring and the answer's words in a tile as wide as
-    /// the two under it; a tap anywhere but the ⓘ and *Calculate* opens
-    /// the plan.
+    /// the two under it; a tap anywhere but *Calculate* opens the plan.
     private func answerTile(_ words: OverviewAnswerText, dims: Bool) -> some View {
         FigureTile(surface: .raised) {
-            titleRow(words)
+            titleRow
             answerRow(words, dims: dims)
                 .padding(.top, Metrics.m)
             if headline.recordedOn != nil, headline.readiness == nil {
@@ -95,15 +92,14 @@ struct OverviewHeader: View {
         }
     }
 
-    /// "Can I retire yet?" with its ⓘ, and the chevron at the trailing edge.
-    private func titleRow(_ words: OverviewAnswerText) -> some View {
+    /// "Can I retire yet?", and the chevron at the trailing edge.
+    private var titleRow: some View {
         HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
             Text("Can I retire yet?")
                 .font(.title2.bold())
                 .foregroundStyle(Palette.ink)
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityAddTraits(.isHeader)
-            explanationButton(words)
             if !library.library.openStartingEstimates.isEmpty {
                 OnboardingSketchChip(showsDisclaimer: false)
             }
@@ -132,7 +128,7 @@ struct OverviewHeader: View {
                 .accessibilityLabel(Text(verbatim: PlanRunText.accessibility(
                     progress, isCheckIn: plans.isRunning(plan.id, .checkIn), locale: locale)))
         } else if let recorded = headline.recordedOn {
-            Label(AmountFormat.shortDate(recorded, locale: locale), systemImage: "clock")
+            Label("As of \(AmountFormat.shortDate(recorded, locale: locale))", systemImage: "clock")
                 .foregroundStyle(Palette.secondaryInk)
                 .privacySensitiveInFeedback()
                 .accessibilityLabel(Text(verbatim:
@@ -141,30 +137,6 @@ struct OverviewHeader: View {
             Button("Calculate") { Task { await plans.run(plan.id) } }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
-        }
-    }
-
-    /// The ⓘ: when and how sure, the readiness and what it compares, that
-    /// the results are out of date, and the disclaimer.
-    private func explanationButton(_ words: OverviewAnswerText) -> some View {
-        Button {
-            showsExplanation = true
-        } label: {
-            Image(systemName: "info.circle")
-                .font(.body)
-                .foregroundStyle(Palette.accent)
-        }
-        .buttonStyle(.borderless)
-        .accessibilityLabel("About this answer")
-        .popover(isPresented: $showsExplanation) {
-            Text(words.explanation(isOutOfDate: isStale).joined(separator: "\n\n"))
-                .font(.callout)
-                .foregroundStyle(Palette.ink)
-                .fixedSize(horizontal: false, vertical: true)
-                .privacySensitiveInFeedback()
-                .padding(Metrics.l)
-                .frame(idealWidth: 320, maxWidth: 360, alignment: .leading)
-                .presentationCompactAdaptation(.popover)
         }
     }
 
@@ -209,21 +181,17 @@ struct OverviewHeader: View {
         }
     }
 
-    /// The headline, then when and how sure; the headline in largeTitle
-    /// when there's no ring beside it.
+    /// The headline, then when; the headline in largeTitle when there's no
+    /// ring beside it.
     private func answerWords(_ words: OverviewAnswerText, nextToRing: Bool) -> some View {
         VStack(alignment: .leading, spacing: Metrics.xs) {
             Text(words.title)
                 .font(nextToRing ? .title.bold() : .largeTitle.bold())
                 .foregroundStyle(Palette.ink)
                 .dynamicTypeSize(...DynamicTypeSize.accessibility2)
-            VStack(alignment: .leading, spacing: 2) {
-                if let when = words.whenLine {
-                    Text(verbatim: when)
-                        .foregroundStyle(Palette.ink)
-                }
-                Text(verbatim: words.futuresLine)
-                    .foregroundStyle(Palette.secondaryInk)
+            if let when = words.whenLine {
+                Text(verbatim: when)
+                    .foregroundStyle(Palette.ink)
             }
             if let move = yearMove {
                 VStack(alignment: .leading, spacing: 0) {
