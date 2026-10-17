@@ -161,10 +161,12 @@ extension PlanChaptersModel {
     }
 
     /// A later phase of retirement spending from the middle of a retired
-    /// chapter.
+    /// chapter, or the next age no phase starts at.
     func newSpendingPhase(in chapter: PlanChapter) -> SpendingPhase {
         var phase = PlanEditing.newSpendingPhase(in: plan)
+        let taken = Set(plan.spending.phases.map(\.fromAge))
         phase.fromAge = chapter.ages.lowerBound + chapter.ages.count / 2
+        while taken.contains(phase.fromAge) { phase.fromAge += 1 }
         return phase
     }
 }

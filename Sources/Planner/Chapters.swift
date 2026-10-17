@@ -354,7 +354,6 @@ private struct ChapterBuilder {
         return span(first, min(until, retirementYear - 1))
     }
 
-
     /// The index of the target mix step in force in `year`; `nil` while
     /// ``PlanPortfolio/targetMix`` is.
     func mixStep(in year: Int) -> Int? {
