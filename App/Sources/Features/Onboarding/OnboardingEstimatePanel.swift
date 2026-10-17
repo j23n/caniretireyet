@@ -65,7 +65,7 @@ struct OnboardingEstimatePanel: View {
 
     /// What the estimate still needs.
     private var waitingText: String {
-        if model.birthDate == nil { return "Add your birth date on the first step to see an age." }
+        if model.age == nil { return "Choose your age on the first step to see an estimate." }
         if !model.answers.hasStartingAmounts { return "Enter what you have today to see an estimate." }
         return "Calculating…"
     }

@@ -38,10 +38,8 @@ final class OnboardingModel {
 
     // MARK: About you
 
-    /// The birth date picked; `nil` until one is, so none is made up.
-    var birthDate: Date?
-    /// What the birth-date picker shows before one is picked.
-    var pickedBirthDate = YouSettings.suggestedBirthDate().dateValue
+    /// Your age today; `nil` until one is chosen, so none is made up.
+    var age: Int?
     /// The country you live in; the device's region to start with.
     private(set) var country: CountryCode?
     var currency: CurrencyCode
@@ -106,12 +104,12 @@ final class OnboardingModel {
         taxIsDefault = tax != nil
     }
 
-    /// Whether *Continue* can leave the step: *About you* needs a birth
-    /// date, since the answer is an age, and no amount it shows can be
+    /// Whether *Continue* can leave the step: *About you* needs an age,
+    /// since the answer is an age, and no amount it shows can be
     /// negative.
     var canContinue: Bool {
         switch step {
-        case .you: birthDate != nil
+        case .you: age != nil
         case .money: !moneyHasNegativeAmount
         case .later: !finalAnswers.hasNegativeAmount
         case .welcome, .answer, .files, .notes: true
@@ -166,9 +164,10 @@ final class OnboardingModel {
         taxIsDefault = false
     }
 
-    /// The birth date as the library stores it.
+    /// The birth date the library stores for the age chosen
+    /// (``YouSettings/birthDate(forAge:today:)``).
     var birthCalendarDate: CalendarDate? {
-        birthDate.map { CalendarDate($0, in: .current) }
+        age.map { YouSettings.birthDate(forAge: $0) }
     }
 
     /// The answers as the plan takes them: the age chosen, else as early as
@@ -195,10 +194,8 @@ final class OnboardingModel {
                 shown.spendingPerMonth].contains { ($0 ?? 0) < 0 }
     }
 
-    /// Your age today, from the birth date picked.
-    var currentAge: Int? {
-        birthCalendarDate.map { $0.wholeYears(to: .today()) }
-    }
+    /// Your age today, as chosen.
+    var currentAge: Int? { age }
 
     /// The settings of the library *See My Answer* creates.
     var settings: LibrarySettings {
@@ -353,7 +350,7 @@ final class OnboardingModel {
     /// would create, in memory; `nil` without a birth date, an amount you
     /// have today, or a plan (outside the euro without spending).
     func estimateRequest(today: CalendarDate = .today()) -> PlanRunRequest? {
-        guard birthDate != nil, answers.hasStartingAmounts, !finalAnswers.hasNegativeAmount else { return nil }
+        guard age != nil, answers.hasStartingAmounts, !finalAnswers.hasNegativeAmount else { return nil }
         let answers = finalAnswers
         var library = Library(settings: settings)
         StarterSetup.addEstimates(answers, to: &library, on: today)

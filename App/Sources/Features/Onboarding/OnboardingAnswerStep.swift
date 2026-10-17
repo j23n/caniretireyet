@@ -12,16 +12,16 @@ import SwiftUI
 /// Once you've stopped working, the answer is whether your money lasts,
 /// and what you could spend, with no calendar page and no lever.
 ///
-/// When there's nothing to answer from, it says what's missing: a birth
-/// date (with a picker, which saves it and runs the plan), amounts, or a
-/// plan.
+/// When there's nothing to answer from, it says what's missing: an age
+/// (with a picker; *See My Answer* saves it as a birth date and runs the
+/// plan), amounts, or a plan.
 struct OnboardingAnswerStep: View {
     @Environment(OnboardingModel.self) private var model
     @Environment(LibraryStore.self) private var library
     @Environment(PlanStore.self) private var plans
     @Environment(\.locale) private var locale
-    @State private var birthDate = YouSettings.suggestedBirthDate().dateValue
-    @State private var savingBirthDate = false
+    @State private var age: Int?
+    @State private var savingAge = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: Metrics.l) {
@@ -97,15 +97,13 @@ struct OnboardingAnswerStep: View {
                                 + "Plan screen.")
         } else if library.settings.person?.birthDate == nil {
             VStack(alignment: .leading, spacing: Metrics.m) {
-                OnboardingTitle("Add your birth date",
-                                detail: "The answer is an age, so the app needs your birth date. It stays on your "
-                                    + "devices.")
-                DatePicker("Born", selection: $birthDate, in: ...Date(), displayedComponents: .date)
-                    .personalControl()
+                OnboardingTitle("Add your age",
+                                detail: "The answer is an age, so the app needs yours. It stays on your devices.")
+                OnboardingAgePicker(age: $age)
                     .onboardingCard()
-                Button("See My Answer") { Task { await saveBirthDate() } }
+                Button("See My Answer") { Task { await saveAge() } }
                     .buttonStyle(.borderedProminent)
-                    .disabled(savingBirthDate || !library.canEdit)
+                    .disabled(age == nil || savingAge || !library.canEdit)
             }
         } else {
             OnboardingTitle("Your library is ready",
@@ -114,11 +112,12 @@ struct OnboardingAnswerStep: View {
         }
     }
 
-    /// Saves the birth date picked here, then records the answer.
-    private func saveBirthDate() async {
-        savingBirthDate = true
-        defer { savingBirthDate = false }
-        let date = CalendarDate(birthDate, in: .current)
+    /// Saves the age chosen here as a birth date, then records the answer.
+    private func saveAge() async {
+        guard let age else { return }
+        savingAge = true
+        defer { savingAge = false }
+        let date = YouSettings.birthDate(forAge: age)
         do {
             try library.updateSettings { settings in
                 var person = settings.person ?? Person()
@@ -126,7 +125,7 @@ struct OnboardingAnswerStep: View {
                 settings.person = person
             }
             await library.waitForPendingWrites()
-            model.birthDate = birthDate
+            model.age = age
             model.retryAnswer(library: library, plans: plans)
         } catch {
             model.error = LibraryStore.describe(error)

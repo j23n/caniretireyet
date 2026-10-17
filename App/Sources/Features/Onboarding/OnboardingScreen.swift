@@ -38,6 +38,8 @@ struct OnboardingScreen: View {
 
     /// The ages to retire at that can be chosen, as in the plan's editor.
     static let retirementAges = 30...85
+    /// The ages you can be today.
+    static let currentAges = 18...100
 
     @Environment(LibraryStore.self) private var library
     @Environment(PlanStore.self) private var plans
