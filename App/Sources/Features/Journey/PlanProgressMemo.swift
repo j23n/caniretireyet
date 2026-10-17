@@ -3,9 +3,9 @@ import Planner
 
 /// A plan's years, answers and milestones reached through the latest
 /// check-in (the Planner's `PlanProgress`), worked out once for each state
-/// of the library and the plan: for *Your way there*, *Your year* and the
-/// widgets' snapshot, which show the main plan's journey outside the plan's
-/// own screen.
+/// of the library and the plan: for *Your way to retirement*, *Your year*
+/// and the widgets' snapshot, which show the main plan's journey outside
+/// the plan's own screen.
 @MainActor
 final class PlanProgressMemo {
     private struct Key: Equatable {
