@@ -223,7 +223,8 @@ struct YourYearScreen: View {
     @ViewBuilder
     private func yearAhead(plan: PlanDocument, text: PlanMilestoneText) -> some View {
         let milestones = PlanMilestones(plan: plan, library: library.library, valuator: library.valuator,
-                                        asOf: library.asOfDate, results: plans.latestResults(of: plan.id))
+                                        asOf: library.asOfDate, results: plans.latestResults(of: plan.id),
+                                        reached: plans.planProgress(of: plan.id, document: plan).reached)
         if let next = milestones.next {
             Card("The year ahead") {
                 VStack(alignment: .leading, spacing: Metrics.xs) {

@@ -124,7 +124,8 @@ struct CheckInJourneyCards: View {
     private var nextMilestone: AmountSentence? {
         guard let plan = library.mainPlan else { return nil }
         let milestones = PlanMilestones(plan: plan, library: library.library, valuator: library.valuator,
-                                        asOf: library.asOfDate, results: plans.latestResults(of: plan.id))
+                                        asOf: library.asOfDate, results: plans.latestResults(of: plan.id),
+                                        reached: plans.planProgress(of: plan.id, document: plan).reached)
         guard let next = milestones.next else { return nil }
         let text = PlanMilestoneText(currency: currency, locale: locale)
         return "Next: \(text.name(next.milestone)), \(text.progress(next))."
