@@ -187,7 +187,7 @@ struct NotePlannerYearlyTests {
         #expect(note.time == NoteTime(date: "2027-01-03", hour: 10, minute: 0))
         #expect(note.title == "Your 2026")
         #expect(note.body == "You could retire at 54, 2 years sooner than a year ago. "
-            + "You saved about 8 months of the life you plan and passed 2 milestones. See your year.")
+            + "You saved about 8 months of expenses and passed 2 milestones. See your year.")
         #expect(note.link == .yourYear)
     }
 

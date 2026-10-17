@@ -3,7 +3,7 @@ import Model
 import SwiftUI
 
 extension SavingAsTime {
-    /// "You saved 1.500 €, about 2½ weeks of the life you plan. Markets
+    /// "You saved 1.500 €, about 2½ weeks of expenses. Markets
     /// added about 7 more." (UI.md, "Saving as time"): the amount hides
     /// with the eye, the time doesn't give it away on its own.
     func sentence(saved: Decimal, currency: CurrencyCode, locale: Locale = .current) -> AmountSentence {
@@ -14,8 +14,8 @@ extension SavingAsTime {
     }
 }
 
-/// What a change saved, said as time of the life the plan describes, under
-/// *What moved*, *This year* and the check-in's ending (UI.md, "Saving as
+/// What a change saved, said as time of the plan's expenses, under
+/// *What changed*, *This year* and the check-in's ending (UI.md, "Saving as
 /// time"); nothing without a saving or the plan's spending.
 struct SavingAsTimeText: View {
     let saved: Decimal

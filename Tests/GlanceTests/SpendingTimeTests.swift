@@ -34,9 +34,9 @@ struct SpendingTimeTests {
 
     @Test func marketsAreSaidInTheSavedUnit() throws {
         let saving = try #require(SavingAsTime(saved: 1750, markets: 4900, yearlySpending: spending))
-        #expect(saving.savedText == "about 2½ weeks of the life you plan")
+        #expect(saving.savedText == "about 2½ weeks of expenses")
         #expect(saving.marketsSentence == "Markets added about 7 more.")
-        #expect(saving.sentence == "You saved about 2½ weeks of the life you plan. Markets added about 7 more.")
+        #expect(saving.sentence == "You saved about 2½ weeks of expenses. Markets added about 7 more.")
     }
 
     @Test func marketsThatTookAreSaidOnTheirOwn() throws {

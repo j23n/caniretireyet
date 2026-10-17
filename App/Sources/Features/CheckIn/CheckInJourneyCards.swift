@@ -6,7 +6,7 @@ import Tracker
 
 /// The check-in's ending after the answer (UI.md, "After saving"): the age
 /// you could retire at over the last 12 check-ins and how it moved in a
-/// year; what this month saved, said as time of the life you plan, with
+/// year; what this month saved, said as time of expenses, with
 /// the last 12 months' saving and markets as bars, and a word of
 /// perspective when markets took 5% or more; then the next milestone.
 struct CheckInJourneyCards: View {
@@ -106,7 +106,7 @@ struct CheckInJourneyCards: View {
     // MARK: The month
 
     /// The change since the check-in before, with new money as what was
-    /// saved, as the Overview's *What moved* splits it.
+    /// saved, as the Overview's *What changed* splits it.
     private var monthSplit: ValueChange? {
         let valuator = library.valuator
         guard let previous = valuator.previousCheckIn(before: date) else { return nil }

@@ -1,9 +1,9 @@
 import Foundation
 import Model
 
-/// An amount as time of the life a plan describes: how long the plan's
+/// An amount as time of a plan's expenses: how long the plan's
 /// retirement spending would make it last (UI.md, "Saving as time"). "You
-/// saved about 2½ weeks of the life you plan."
+/// saved about 2½ weeks of expenses."
 public struct SpendingTime: Hashable, Sendable {
     /// The unit an amount of time is said in.
     public enum Unit: Hashable, Sendable {
@@ -92,9 +92,9 @@ public struct SpendingTime: Hashable, Sendable {
     }
 }
 
-/// What a check-in, a month or a year added, said as time of the life the
-/// plan describes (UI.md, "Saving as time"): "about 2½ weeks of the life
-/// you plan. Markets added about 7 more."
+/// What a check-in, a month or a year added, said as time of the plan's
+/// expenses (UI.md, "Saving as time"): "about 2½ weeks of expenses.
+/// Markets added about 7 more."
 public struct SavingAsTime: Hashable, Sendable {
     /// What was saved: new money.
     public var saved: SpendingTime
@@ -110,9 +110,9 @@ public struct SavingAsTime: Hashable, Sendable {
         marketDays = (markets / yearlySpending).doubleValue * SpendingTime.Unit.year.days
     }
 
-    /// What follows the amount saved: "about 2½ weeks of the life you plan".
+    /// What follows the amount saved: "about 2½ weeks of expenses".
     public var savedText: String {
-        "\(saved.text) of the life you plan"
+        "\(saved.text) of expenses"
     }
 
     /// "Markets added about 7 more.", "Markets took about a week.", or `nil`
@@ -125,8 +125,8 @@ public struct SavingAsTime: Hashable, Sendable {
         return "Markets took \(took.text)."
     }
 
-    /// The whole thing without the amount: "You saved about 2½ weeks of the
-    /// life you plan. Markets added about 7 more."
+    /// The whole thing without the amount: "You saved about 2½ weeks of
+    /// expenses. Markets added about 7 more."
     public var sentence: String {
         ["You saved \(savedText).", marketsSentence].compactMap(\.self).joined(separator: " ")
     }
