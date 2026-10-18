@@ -20,7 +20,7 @@ struct SyncScreen: View {
     /// Whether every backup shows, not only the newest ``shownBackups``.
     @State private var showsAllBackups = false
 
-    /// How many backups show until *Show All Backups*: a library can have
+    /// How many backups show until *Show All N Backups*: a library can have
     /// thousands, one for each import, and a row for each would take long
     /// to lay out.
     static let shownBackups = 20
