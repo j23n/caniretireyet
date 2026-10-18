@@ -132,15 +132,24 @@ extension LibraryFolder {
     /// The folder inside a backup that holds the files as the change wrote them.
     static let backupResultFolder = "result"
 
+    /// How many backups are kept: each new backup deletes the oldest beyond
+    /// these (``makeBackup(paths:name:label:date:contents:sparing:)``).
+    /// Every import and every save from the CLI makes one, so without a
+    /// limit they pile up by the thousand.
+    public static let keptBackups = 50
+
     /// Copies files into a new folder `backups/<timestamp>-<label>/`, e.g.
     /// before an import, so ``undo(_:)`` can undo it. `paths` are relative to
     /// the library folder; paths that don't exist are recorded, and undoing
     /// deletes them. The timestamp is `date` in the device's time zone
-    /// (`2026-09-30-142501`).
+    /// (`2026-09-30-142501`). Backups beyond the newest ``keptBackups`` are
+    /// deleted, except `sparing`: the backup about to be restored or undone
+    /// when this one is its safety copy.
     @discardableResult
-    public func backup(paths: [String], label: String, date: Date = Date()) throws -> Backup {
+    public func backup(paths: [String], label: String, date: Date = Date(), sparing: Backup? = nil) throws -> Backup {
         let label = Slug.make(from: label)
-        return try makeBackup(paths: paths, name: "\(Self.timestamp(date))-\(label)", label: label, date: date)
+        return try makeBackup(paths: paths, name: "\(Self.timestamp(date))-\(label)", label: label, date: date,
+                              sparing: sparing?.name)
     }
 
     /// Copies file contents into a new folder `backups/<timestamp>-<label>/`:
@@ -289,16 +298,18 @@ extension LibraryFolder {
 
     /// Copies `paths` into `backups/<name>/` (or `<name>-2`, … if taken)
     /// and writes its `backup.json`. Paths in `contents` are written with
-    /// those bytes instead of being read.
+    /// those bytes instead of being read. Then deletes the backups beyond
+    /// the newest ``keptBackups``, but not the one named `sparing`.
     func makeBackup(paths: [String], name: String, label: String, date: Date,
-                    contents: [String: Data] = [:]) throws -> Backup {
+                    contents: [String: Data] = [:], sparing: String? = nil) throws -> Backup {
         for path in paths {
             try validateRelativePath(path)
             guard path != Self.backupManifestName, !path.hasPrefix(Self.backupsFolder + "/") else {
                 throw StorageError.invalidPath(path)
             }
         }
-        let existing = Set(try files.listFiles(in: url(for: Self.backupsFolder)).map { String($0.prefix { $0 != "/" }) })
+        let listed = try files.listFiles(in: url(for: Self.backupsFolder))
+        let existing = Set(listed.map { String($0.prefix { $0 != "/" }) })
         let uniqueName = Slug.unique(name, among: existing)
         let folder = "\(Self.backupsFolder)/\(uniqueName)"
         var copied: [String] = []
@@ -320,7 +331,23 @@ extension LibraryFolder {
         let backup = Backup(name: uniqueName, label: label, created: (try? Date(created, strategy: .iso8601)) ?? date,
                             files: copied, absentFiles: absent, schemaVersion: schemaVersionOnDisk())
         try writeManifest(of: backup)
+        let backups = listed.compactMap { path -> String? in
+            let parts = path.split(separator: "/")
+            return parts.count == 2 && parts[1] == Self.backupManifestName ? String(parts[0]) : nil
+        }
+        pruneBackups(Set(backups).union([uniqueName]), sparing: [uniqueName, sparing].compactMap { $0 })
         return backup
+    }
+
+    /// Deletes the backups among `names` beyond the newest ``keptBackups``,
+    /// except those in `sparing`. Names start with when the backup was taken
+    /// (`2026-09-30-142501-import`, `2026-09-30-v4`), so they sort oldest
+    /// first. A backup that can't be deleted is tried again next time.
+    private func pruneBackups(_ names: Set<String>, sparing: [String]) {
+        let oldest = names.sorted().dropLast(Self.keptBackups)
+        for name in oldest where !sparing.contains(name) {
+            try? files.removeItem(at: url(for: "\(Self.backupsFolder)/\(name)"))
+        }
     }
 
     private func writeManifest(of backup: Backup) throws {

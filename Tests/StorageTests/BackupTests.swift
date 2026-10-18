@@ -47,6 +47,35 @@ struct BackupTests {
         #expect(try folder.json("\(first.path)/backup.json")["files"] == ["accounts/tfr.json"])
     }
 
+    @Test func onlyTheNewestBackupsAreKept() throws {
+        let folder = try TemporaryFolder.exampleLibrary()
+        try folder.write("backups/by-hand/accounts/tfr.json", "{}")
+        let start = Date(timeIntervalSince1970: 1_780_000_000)
+        let made = try (0..<(LibraryFolder.keptBackups + 2)).map { day in
+            try folder.library.backup(paths: ["accounts/tfr.json"], label: "import",
+                                      date: start.addingTimeInterval(Double(day) * 86_400))
+        }
+
+        #expect(try folder.library.backups() == Array(made.dropFirst(2)))
+        // A folder that isn't a backup is left alone.
+        #expect(folder.exists("backups/by-hand/accounts/tfr.json"))
+    }
+
+    @Test func theBackupBeingUndoneIsKept() throws {
+        let folder = try TemporaryFolder.exampleLibrary()
+        let start = Date(timeIntervalSince1970: 1_780_000_000)
+        let made = try (0..<LibraryFolder.keptBackups).map { day in
+            try folder.library.backup(paths: ["accounts/tfr.json"], label: "import",
+                                      date: start.addingTimeInterval(Double(day) * 86_400))
+        }
+        let oldest = try #require(made.first)
+        let safety = try folder.library.backup(paths: oldest.paths, label: Backup.undoImportLabel,
+                                               date: start.addingTimeInterval(100 * 86_400), sparing: oldest)
+
+        // Without sparing it, the oldest would go now.
+        #expect(try folder.library.backups() == made + [safety])
+    }
+
     // MARK: Undo
 
     /// An "import" of September and October 2026 and a new account, with a

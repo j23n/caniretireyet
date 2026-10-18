@@ -478,7 +478,7 @@ final class LibraryStore {
         }
         guard let sync else { return }
         try await enqueueThrowing { [weak self] in
-            _ = try await sync.backup(paths: backup.paths, label: Backup.restoreLabel)
+            _ = try await sync.backup(paths: backup.paths, label: Backup.restoreLabel, sparing: backup)
             let report = try await sync.restore(backup)
             await self?.reload(report.written + report.deleted, using: sync)
         }
@@ -494,7 +494,7 @@ final class LibraryStore {
         if let readOnlyReason { throw LibraryStoreError.readOnly(readOnlyReason) }
         guard let sync else { return nil }
         return try await enqueueThrowing { [weak self] in
-            _ = try await sync.backup(paths: backup.paths, label: safetyLabel)
+            _ = try await sync.backup(paths: backup.paths, label: safetyLabel, sparing: backup)
             let report = try await sync.undo(backup)
             await self?.reload(report.changedPaths, using: sync)
             return report

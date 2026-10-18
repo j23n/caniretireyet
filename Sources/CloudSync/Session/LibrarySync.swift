@@ -115,9 +115,11 @@ public actor LibrarySync {
         try folder.save(library, previous: previous)
     }
 
-    /// Copies the files at `paths` into `backups/<timestamp>-<label>/`.
-    public func backup(paths: [String], label: String) throws -> Backup {
-        try folder.backup(paths: paths, label: label)
+    /// Copies the files at `paths` into `backups/<timestamp>-<label>/`, and
+    /// deletes the backups beyond the newest `LibraryFolder.keptBackups`,
+    /// except `sparing` (see `LibraryFolder.backup(paths:label:date:sparing:)`).
+    public func backup(paths: [String], label: String, sparing: Backup? = nil) throws -> Backup {
+        try folder.backup(paths: paths, label: label, sparing: sparing)
     }
 
     /// Records a backup's files as they are now, after the change it was
