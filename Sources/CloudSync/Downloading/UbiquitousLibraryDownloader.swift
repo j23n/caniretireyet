@@ -11,9 +11,8 @@ import Storage
 ///    iCloud's resource values say which files aren't current. If every
 ///    file is, `library.json` included, it's complete at once.
 /// 2. Otherwise the iCloud Drive query (`UbiquitousItemQuery`) lists the
-///    files with their download status, size, progress and errors; paths
-///    are matched with `LibraryFolder.relativePath(of:)`, which copes with
-///    `/private`. It's stopped once every file is current, or on ``stop()``.
+///    files with their download status, size, progress and errors. It's
+///    stopped once every file is current, or on ``stop()``.
 ///
 /// Reading a file iCloud Drive hasn't downloaded yet (a coordinated read)
 /// waits until it's downloaded, so reading a library that's only partly on
@@ -30,7 +29,7 @@ public final class UbiquitousLibraryDownloader {
 
     private let folder: LibraryFolder
     private var tracker = LibraryDownloadTracker()
-    private let query = UbiquitousItemQuery()
+    private let query: UbiquitousItemQuery
     /// The URLs iCloud gave for the files, by path.
     private var itemURLs: [String: URL] = [:]
     private var continuation: AsyncStream<LibraryDownloadProgress>.Continuation?
@@ -41,6 +40,7 @@ public final class UbiquitousLibraryDownloader {
     public init(root: URL) {
         self.root = root
         folder = LibraryFolder(root: root)
+        query = UbiquitousItemQuery(root: root)
     }
 
     /// Starts (stopping a previous run first). Progress arrives on the
@@ -105,14 +105,13 @@ public final class UbiquitousLibraryDownloader {
     }
 
     private func startQuery() {
-        if query.start({ [weak self] items in self?.receive(items) }) {
-            LibraryLog.notice("Download: asking iCloud Drive for the library's files")
-        } else {
+        LibraryLog.notice("Download: asking iCloud Drive for the library's files")
+        query.start({ [weak self] items in self?.receive(items) }, failed: { [weak self] in
             // Without the list there's nothing to follow: reading the
             // library downloads what's missing, file by file.
             LibraryLog.error("Download: iCloud Drive's file list (NSMetadataQuery) didn't start")
-            stop()
-        }
+            self?.stop()
+        })
     }
 
     /// The library's files on disk and whether each is current, from
@@ -131,10 +130,9 @@ public final class UbiquitousLibraryDownloader {
         guard continuation != nil else { return }
         var files: [UbiquitousFileStatus] = []
         for item in items {
-            guard let path = folder.relativePath(of: item.url) else { continue }
-            itemURLs[path] = item.url
+            itemURLs[item.path] = item.url
             files.append(UbiquitousFileStatus(
-                path: path, isCurrent: item.isCurrent, isDownloading: item.isDownloading, size: item.size,
+                path: item.path, isCurrent: item.isCurrent, isDownloading: item.isDownloading, size: item.size,
                 downloadedFraction: item.percentDownloaded.map { $0 / 100 }, error: item.error))
         }
         let requests = tracker.update(files)
