@@ -347,7 +347,7 @@ final class OnboardingModel {
     // MARK: The quick estimate
 
     /// What the quick estimate runs: the library and plan *See My Answer*
-    /// would create, in memory; `nil` without a birth date, an amount you
+    /// would create, in memory; `nil` without an age, an amount you
     /// have today, or a plan (outside the euro without spending).
     func estimateRequest(today: CalendarDate = .today()) -> PlanRunRequest? {
         guard age != nil, answers.hasStartingAmounts, !finalAnswers.hasNegativeAmount else { return nil }
