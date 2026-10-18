@@ -222,8 +222,8 @@ struct ScreenLaunch {
                              prices: PriceStore(service: nil), planEngine: PlannerPlanEngine())
         }
         let onboarding = model.onboarding
-        onboarding.birthDate = library.settings.person?.birthDate?.dateValue
-            ?? PreviewLibrary.library.settings.person?.birthDate?.dateValue
+        onboarding.age = (library.settings.person?.birthDate ?? PreviewLibrary.library.settings.person?.birthDate)
+            .map { $0.wholeYears(to: .today()) }
         onboarding.choose(country: PreviewLibrary.library.settings.taxResidence)
         onboarding.currency = PreviewLibrary.library.settings.baseCurrency
         onboarding.answers = Self.sampleAnswers

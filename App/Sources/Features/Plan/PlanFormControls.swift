@@ -41,7 +41,7 @@ struct PlanNumberField: View {
             .monospacedDigit()
             // Not `.privacySensitive()`: what you type shows while amounts are hidden.
             #if os(iOS)
-            .keyboardType(kind == .integer ? .numberPad : .decimalPad)
+            .numberKeyboard(kind == .integer ? .numberPad : .decimalPad)
             #endif
             .onAppear {
                 text = PlanNumberText.text(value, kind: kind, locale: locale)
