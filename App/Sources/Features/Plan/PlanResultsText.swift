@@ -76,15 +76,6 @@ enum PlanResultsText {
             : "\(percent) of what you'd need to retire today"
     }
 
-    /// What the readiness compares, for its ⓘ.
-    static func readinessExplanation(confidence: Double, locale: Locale = .current) -> String {
-        let percent = AmountFormat.percent(confidence, digits: 0, locale: locale)
-        return "Your plan assets compared with what retiring now would need for a \(percent) chance (the plan's "
-            + "confidence), including the years before your pensions start and taxes. The plan finds it by "
-            + "simulating retiring today with extra money added to the money you can draw now, or with money taken "
-            + "out of it; accounts available only from a later age stay as they are. At 100% you could retire today."
-    }
-
     /// Under an answer recorded before readiness existed, instead of a number.
     static let readinessNotRecorded = "Calculate the plan to see how close you are to retiring today."
 

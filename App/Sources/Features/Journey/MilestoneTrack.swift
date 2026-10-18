@@ -4,10 +4,11 @@ import Planner
 import SwiftUI
 
 /// The way from your first record to the day you could retire, as a line
-/// with the milestones on it (UI.md, "Your way there"): solid up to today
-/// with the milestones reached as dots, dashed after it with those ahead as
-/// rings where the plan's median future typically reaches them, the next
-/// one larger and named, and a flag at your last Monday.
+/// with the milestones on it (UI.md, "Your way to retirement"): solid up
+/// to today with the milestones reached as dots, dashed after it with those
+/// ahead as rings where the plan's median future typically reaches them,
+/// the next one larger and named, and a flag at your last Monday. Its ends
+/// are labeled with their years ("2018", "2031").
 struct MilestoneTrack: View {
     let start: CalendarDate
     let today: CalendarDate
@@ -47,6 +48,11 @@ struct MilestoneTrack: View {
         return max(retirement ?? last, today.adding(months: 6))
     }
 
+    /// The milestones ahead that the line has room for: those by its end.
+    var drawnAhead: [ProjectedMilestone] {
+        ahead.filter { $0.date <= end }
+    }
+
     private func x(_ date: CalendarDate, width: CGFloat) -> CGFloat {
         let span = Double(max(start.days(to: end), 1))
         let share = min(max(Double(start.days(to: date)) / span, 0), 1)
@@ -73,7 +79,7 @@ struct MilestoneTrack: View {
         for milestone in reached {
             dot(in: &context, at: CGPoint(x: x(milestone.date, width: width), y: y), radius: 4.5, filled: true)
         }
-        for milestone in ahead where milestone.date <= end {
+        for milestone in drawnAhead {
             let isNext = milestone.id == next?.id
             dot(in: &context, at: CGPoint(x: x(milestone.date, width: width), y: y), radius: isNext ? 6.5 : 4.5,
                 filled: false)
@@ -144,8 +150,8 @@ struct MilestoneTrack: View {
             .fixedSize()
             .position(x: nx, y: 100)
         }
-        caption(yearLabel(start))
-            .position(x: Self.inset + 12, y: 100)
+        caption(String(start.year))
+            .position(x: Self.inset + 14, y: 100)
             .opacity(next.map { x($0.date, width: width) < 110 } == true ? 0 : 1)
         caption(String(end.year))
             .position(x: right - 14, y: 100)
@@ -157,11 +163,6 @@ struct MilestoneTrack: View {
             .font(.caption)
             .foregroundStyle(Palette.secondaryInk)
             .fixedSize()
-    }
-
-    /// "’21", short, as the line's start.
-    private func yearLabel(_ date: CalendarDate) -> String {
-        "\u{2019}" + String(format: "%02d", date.year % 100)
     }
 
     /// "Your milestones from October 2021 to your last Monday in 2042: 7

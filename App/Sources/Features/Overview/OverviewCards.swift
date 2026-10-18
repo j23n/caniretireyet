@@ -15,8 +15,8 @@ import Tracker
 /// The change since the previous check-in (UI.md, "Since last check-in"),
 /// which the hero number above says ("▲ +5.730 € in September"): the
 /// totals before and after, and a bar each for markets, saved and
-/// other, from a shared zero line (``WaterfallChart``). Titled by the month
-/// it covers when the check-in before was the end of the month before.
+/// other, from a shared zero line (``WaterfallChart``). Titled "What changed
+/// in September" when the check-in before was the end of the month before.
 struct OverviewChangeCard: View {
     let report: ChangeReport
     /// Its split with saved as the savings rate counts it (Tracker's
@@ -31,7 +31,7 @@ struct OverviewChangeCard: View {
         guard let month = GlanceText.coveredMonth(from: report.from, to: report.to) else {
             return "Since last check-in"
         }
-        return "What moved in \(GlanceText.month(month, relativeTo: .today(), locale: locale))"
+        return "What changed in \(GlanceText.month(month, relativeTo: .today(), locale: locale))"
     }
 
     var body: some View {
@@ -42,32 +42,19 @@ struct OverviewChangeCard: View {
                                to: AmountFormat.shortDate(report.to, relativeTo: .today(), locale: locale),
                                showsChange: false)
                 SavingAsTimeText(saved: split.saved, markets: split.market, yearlySpending: yearlySpending)
-                Text(Self.explanation(split))
-                    .font(.footnote)
-                    .foregroundStyle(Palette.mutedInk)
-                    .fixedSize(horizontal: false, vertical: true)
             }
         } header: {
             SectionHeader(title)
                 .privacySensitiveInFeedback()
         }
     }
-
-    /// What the bars mean, under them; *Other* only when there is some.
-    static func explanation(_ change: ValueChange) -> String {
-        var text = "Markets: prices, exchange rates and interest. Saved: what you added or took out; "
-        text += "money moved between your own accounts cancels out."
-        if change.other != 0 {
-            text += " Other: what new accounts already held, and changes in accounts without what was saved recorded."
-        }
-        return text
-    }
 }
 
 // MARK: - This year
 
 /// How net worth changed since 31 December of last year (UI.md, "This
-/// year"), split as *What moved* splits a check-in's change: markets, new
+/// year"), titled "What changed this year", split as *What changed*
+/// splits a check-in's change: markets, new
 /// money and other, so what you saved stands apart from what markets did.
 /// The hero says this year's change in per cent; this card leads with it
 /// in money ("▲ +18.240 € since 31 Dec 2025"), and in per cent while
@@ -87,16 +74,12 @@ struct OverviewYearCard: View {
     @Environment(\.locale) private var locale
 
     var body: some View {
-        Card("This year") {
+        Card("What changed this year") {
             VStack(alignment: .leading, spacing: Metrics.m) {
                 WaterfallChart(change: split,
                                from: AmountFormat.shortDate(report.from, relativeTo: .today(), locale: locale),
                                to: AmountFormat.shortDate(report.to, relativeTo: .today(), locale: locale))
                 SavingAsTimeText(saved: split.saved, markets: split.market, yearlySpending: yearlySpending)
-                Text(OverviewChangeCard.explanation(split))
-                    .font(.footnote)
-                    .foregroundStyle(Palette.mutedInk)
-                    .fixedSize(horizontal: false, vertical: true)
                 if let savings, let text = OverviewYearText.savings(savings, today: report.to, locale: locale) {
                     AmountSentenceText(text)
                         .font(.subheadline)
@@ -393,14 +376,7 @@ struct OverviewAllocationCard: View {
 
     var body: some View {
         Card {
-            VStack(alignment: .leading, spacing: Metrics.s) {
-                BreakdownBars(rows: breakdown.rows, limit: dimension.limit)
-                if dimension == .assetClass && breakdown.slices.contains(where: { $0.key == .debts }) {
-                    Text("Shares are of what you own; debts are their own bar.")
-                        .font(.footnote)
-                        .foregroundStyle(Palette.mutedInk)
-                }
-            }
+            BreakdownBars(rows: breakdown.rows, limit: dimension.limit)
         } header: {
             SectionHeader("Allocation") {
                 Picker("Group by", selection: $dimension) {

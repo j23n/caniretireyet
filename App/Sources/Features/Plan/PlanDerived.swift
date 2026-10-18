@@ -17,17 +17,20 @@ struct PlanDerived {
     let timeline: PlanTimeline?
     /// The largest month among the chapters, so their bars compare.
     let barMaximum: Double
-    /// The milestones from the results shown (none reached: Progress adds
-    /// those); `nil` without a plan.
+    /// The milestones from the results shown, with those reached; `nil`
+    /// without a plan.
     let milestones: PlanMilestones?
     /// Where the latest check-in stands against its year's baseline.
     let position: PlanBaselineComparison.Position?
 
+    /// - Parameter reached: the milestones reached (``PlanSession/progress``),
+    ///   which are neither next nor ahead again.
     init(plan: PlanDocument?, library: Library, valuator: Valuator, results: PlanResults?, chosenAge: Int?,
-         whatIfAge: Int?, asOf: CalendarDate, locale: Locale) {
+         whatIfAge: Int?, asOf: CalendarDate, reached: [ReachedMilestone], locale: Locale) {
         let currency = library.settings.baseCurrency
         let milestones = plan.map {
-            PlanMilestones(plan: $0, library: library, valuator: valuator, asOf: asOf, results: results)
+            PlanMilestones(plan: $0, library: library, valuator: valuator, asOf: asOf, results: results,
+                           reached: reached)
         }
         let chapters = plan.flatMap {
             PlanChaptersModel(plan: $0, library: library, results: results, chosenAge: chosenAge,

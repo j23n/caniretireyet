@@ -272,11 +272,14 @@ public struct MilestoneLadder: Hashable, Sendable {
     ///   - current: today's plan assets.
     ///   - readiness: today's readiness, for the shares of what retiring
     ///     today needs (as in ``ahead(of:readiness:median:)``).
-    public func next(after current: Decimal, readiness: Decimal? = nil) -> NextMilestone? {
+    ///   - reached: the IDs of milestones already reached, which plan assets
+    ///     may have fallen below since: passing one again isn't a milestone.
+    public func next(after current: Decimal, readiness: Decimal? = nil,
+                     excluding reached: Set<String> = []) -> NextMilestone? {
         let ladder = matching(current: current, readiness: readiness)
         let upper = max(current, 0) * 2 + Self.roundFloor
         guard let milestone = ladder.milestones(in: current...upper)
-            .first(where: { Self.isAhead($0, of: current, readiness: readiness) }) else {
+            .first(where: { !reached.contains($0.id) && Self.isAhead($0, of: current, readiness: readiness) }) else {
             return nil
         }
         let progress: Double

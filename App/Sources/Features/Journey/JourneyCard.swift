@@ -3,11 +3,10 @@ import Model
 import Planner
 import SwiftUI
 
-/// *Your way there* on the Overview (UI.md, "Your way there"): the
-/// milestones from your first record to your last Monday on one line, the
-/// next with how far there, the last one reached, and how far you've come
-/// since you started. *All Milestones* opens the plan's Progress, *Your
-/// Year* the year in review.
+/// *Your way to retirement* on the Overview (UI.md, "Your way to
+/// retirement"): the milestones from your first record to your last Monday
+/// on one line, the next with how far there, the last one reached, and how
+/// far you've come since you started.
 struct JourneyCard: View {
     let plan: PlanDocument
     /// The main plan's latest answer, as the header shows it.
@@ -19,7 +18,6 @@ struct JourneyCard: View {
 
     @Environment(LibraryStore.self) private var library
     @Environment(PlanStore.self) private var plans
-    @Environment(AppNavigation.self) private var navigation
     @Environment(\.baseCurrency) private var currency
     @Environment(\.locale) private var locale
 
@@ -28,19 +26,21 @@ struct JourneyCard: View {
         let milestones = PlanMilestones(plan: plan, library: library.library, valuator: library.valuator,
                                         asOf: library.asOfDate, results: results, reached: progress.reached)
         let text = PlanMilestoneText(currency: currency, locale: locale)
+        let next = milestones.next
         if let start = library.valuator.firstValuationDate(in: .planAssets) {
+            let track = MilestoneTrack(
+                start: start, today: today, retirement: answer.canRetireNow ? nil : answer.earliestDate,
+                reached: milestones.reached, ahead: milestones.ahead,
+                next: next.flatMap { next in
+                    milestones.nextDate.map { date in
+                        (id: next.milestone.id, name: text.label(next.milestone), date: date)
+                    }
+                })
             Card {
                 VStack(alignment: .leading, spacing: Metrics.m) {
-                    MilestoneTrack(
-                        start: start, today: today, retirement: answer.canRetireNow ? nil : answer.earliestDate,
-                        reached: milestones.reached, ahead: milestones.ahead,
-                        next: milestones.next.flatMap { next in
-                            milestones.nextDate.map { date in
-                                (id: next.milestone.id, name: text.label(next.milestone), date: date)
-                            }
-                        })
-                    legend
-                    if let next = milestones.next {
+                    track
+                    legend(reached: !track.reached.isEmpty, ahead: !track.drawnAhead.isEmpty)
+                    if let next {
                         Divider()
                         nextMilestone(next, date: milestones.nextDate, text: text)
                     }
@@ -53,32 +53,35 @@ struct JourneyCard: View {
                         Divider()
                         sinceYouStarted(since)
                     }
-                    HStack(spacing: Metrics.l) {
-                        Button("All Milestones") { navigation.showPlan(at: PlanRoute(part: .progress)) }
-                        Button("Your Year") { navigation.showYourYear() }
-                    }
-                    .buttonStyle(.borderless)
                 }
             } header: {
-                SectionHeader("Your way there")
+                SectionHeader("Your way to retirement")
             }
         }
     }
 
-    private var legend: some View {
-        HStack(spacing: Metrics.m) {
-            HStack(spacing: Metrics.xs) {
-                Circle().fill(Palette.accent).frame(width: 9, height: 9)
-                Text("Reached")
+    /// What the dots and rings mean, each only when the line has some.
+    @ViewBuilder
+    private func legend(reached: Bool, ahead: Bool) -> some View {
+        if reached || ahead {
+            HStack(spacing: Metrics.m) {
+                if reached {
+                    HStack(spacing: Metrics.xs) {
+                        Circle().fill(Palette.accent).frame(width: 9, height: 9)
+                        Text("Reached")
+                    }
+                }
+                if ahead {
+                    HStack(spacing: Metrics.xs) {
+                        Circle().strokeBorder(Palette.accent, lineWidth: 2).frame(width: 9, height: 9)
+                        Text("Ahead, when typical")
+                    }
+                }
             }
-            HStack(spacing: Metrics.xs) {
-                Circle().strokeBorder(Palette.accent, lineWidth: 2).frame(width: 9, height: 9)
-                Text("Ahead, when typical")
-            }
+            .font(.caption)
+            .foregroundStyle(Palette.secondaryInk)
+            .accessibilityHidden(true)
         }
-        .font(.caption)
-        .foregroundStyle(Palette.secondaryInk)
-        .accessibilityHidden(true)
     }
 
     /// "⚑ Next · 80% there", its name, a bar, and "150.000 € · typically by late 2028".
@@ -123,7 +126,8 @@ struct JourneyCard: View {
         .accessibilityElement(children: .combine)
     }
 
-    /// "Since you started · October 2021", "You could retire at 54, not 58",
+    /// "Since you started · October 2021", "Your retirement moved 4 years
+    /// sooner, to 54",
     /// "From 21% to 58% ready, 7 milestones passed".
     private func sinceYouStarted(_ since: SinceYouStarted) -> some View {
         VStack(alignment: .leading, spacing: 2) {
@@ -144,11 +148,12 @@ struct JourneyCard: View {
 }
 
 /// How far you've come since the first answer recorded (UI.md, "Your way
-/// there").
+/// to retirement").
 struct SinceYouStarted: Hashable {
     /// The check-in of the first answer with an age.
     var date: CalendarDate
-    /// "You could retire at 54, not 58".
+    /// "Your retirement moved 4 years sooner, to 54", "Your retirement
+    /// slipped a year, to 59".
     var answer: String
     /// "From 21% to 58% ready, 7 milestones passed"; `nil` with neither.
     var progress: String?
@@ -160,8 +165,11 @@ struct SinceYouStarted: Hashable {
               let then = first.earliestAge, let now = answer.earliestAge, !answer.canRetireNow
         else { return nil }
         date = first.date
+        let years = abs(now - then)
+        let count = years == 1 ? "a year" : "\(years) years"
         self.answer = then == now ? "You could retire at \(now), as when you started"
-            : "You could retire at \(now), not \(then)"
+            : now < then ? "Your retirement moved \(count) sooner, to \(now)"
+            : "Your retirement slipped \(count), to \(now)"
         var parts: [String] = []
         if let from = first.readiness, let to = answer.readiness.map(Readiness.shown) {
             let fromPercent = Int((Readiness.shown(from.doubleValue) * 100).rounded())

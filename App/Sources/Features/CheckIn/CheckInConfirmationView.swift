@@ -10,7 +10,7 @@ import Tracker
 /// > Can I retire yet? Not yet. You could retire at **54**, in March 2042.
 ///
 /// Then how the age moved over the last 12 check-ins, what the month saved
-/// as time of the life you plan with the last 12 months as bars, and the
+/// as time of expenses with the last 12 months as bars, and the
 /// next milestone (``CheckInJourneyCards``).
 ///
 /// It shows as soon as the check-in is written. The main plan then runs to

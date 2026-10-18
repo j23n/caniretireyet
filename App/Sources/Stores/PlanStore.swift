@@ -371,8 +371,8 @@ final class PlanStore {
 
     /// `plan`'s years, answers and milestones reached (the Planner's
     /// `PlanProgress`) for `document`, worked out once for each state of
-    /// the library and the plan and shared by *Your way there*, *Your year*
-    /// and the widgets' snapshot: it reads every check-in.
+    /// the library and the plan and shared by *Your way to retirement*,
+    /// *Your year* and the widgets' snapshot: it reads every check-in.
     func planProgress(of plan: PlanID, document: PlanDocument) -> PlanProgress {
         progressMemo.progress(of: plan, plan: document, library: library)
     }
