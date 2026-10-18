@@ -38,6 +38,9 @@ struct OnboardingScreen: View {
 
     /// The ages to retire at that can be chosen, as in the plan's editor.
     static let retirementAges = 30...85
+    /// The ages you can be today: up to 90, so the starter plan's end age
+    /// (95, the default) stays above yours.
+    static let currentAges = 18...90
 
     @Environment(LibraryStore.self) private var library
     @Environment(PlanStore.self) private var plans

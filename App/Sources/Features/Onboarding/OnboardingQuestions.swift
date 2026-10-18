@@ -34,7 +34,7 @@ struct OnboardingWelcome: View {
     }
 }
 
-/// About you: the birth date first, since the answer is an age; the
+/// About you: your age first, since the answer is an age; the
 /// country, which sets the currency and names the inflation index; and
 /// whether to keep the library in iCloud Drive.
 struct OnboardingYouStep: View {
@@ -46,9 +46,17 @@ struct OnboardingYouStep: View {
         @Bindable var model = model
         VStack(alignment: .leading, spacing: Metrics.l) {
             OnboardingTitle("About you",
-                            detail: "The answer is an age, so the app needs your birth date.")
+                            detail: "The answer is an age, so the app needs yours.")
             VStack(alignment: .leading, spacing: Metrics.m) {
-                birthDateRow
+                // Starts unset, so no age is made up; *Continue* waits for
+                // one (`OnboardingModel.canContinue`).
+                VStack(alignment: .leading, spacing: Metrics.xs) {
+                    OnboardingAgePicker(age: $model.age)
+                    Text("You can set your exact birth date later in Settings.")
+                        .font(.footnote)
+                        .foregroundStyle(Palette.secondaryInk)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
                 Divider()
                 VStack(alignment: .leading, spacing: Metrics.xs) {
                     LabeledContent("Country") {
@@ -90,40 +98,6 @@ struct OnboardingYouStep: View {
             }
             .onboardingCard()
         }
-    }
-
-    /// The picker, always there: it shows a suggestion, saved once a date
-    /// is picked or *Use This Date* is tapped, so none is made up.
-    /// *Continue* waits for one (`OnboardingModel.canContinue`).
-    private var birthDateRow: some View {
-        VStack(alignment: .leading, spacing: Metrics.xs) {
-            DatePicker("Born", selection: birthDateBinding, in: ...Date(), displayedComponents: .date)
-                .personalControl()
-            if let line = OnboardingText.ageLine(birthDate: model.birthCalendarDate) {
-                Text(line)
-                    .font(.footnote)
-                    .foregroundStyle(Palette.secondaryInk)
-                    .privacySensitiveInFeedback()
-            } else {
-                HStack {
-                    Text("Pick your birth date to continue, or use the one shown.")
-                        .font(.footnote)
-                        .foregroundStyle(Palette.secondaryInk)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Spacer()
-                    Button("Use This Date") { model.birthDate = model.pickedBirthDate }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
-                }
-            }
-        }
-    }
-
-    private var birthDateBinding: Binding<Date> {
-        Binding(get: { model.birthDate ?? model.pickedBirthDate }, set: { date in
-            model.pickedBirthDate = date
-            model.birthDate = date
-        })
     }
 
     private var countryBinding: Binding<CountryCode?> {

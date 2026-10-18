@@ -18,12 +18,6 @@ enum OnboardingText {
         return "Totals in \(name), adjusted for inflation with \(InflationIndexText.prices(of: index, locale: locale))."
     }
 
-    /// "You're 34." under the birth date; `nil` without one.
-    static func ageLine(birthDate: CalendarDate?, today: CalendarDate = .today()) -> String? {
-        guard let birthDate, birthDate <= today else { return nil }
-        return "You're \(birthDate.wholeYears(to: today))."
-    }
-
     // MARK: Money
 
     /// Under pay and spending, as you type: "You save about 1.400 € a
