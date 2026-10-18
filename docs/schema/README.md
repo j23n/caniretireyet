@@ -52,7 +52,7 @@ Can I Retire Yet/                   ← the app's folder in iCloud Drive
 │       └── headlines/2026.json         the answer at each check-in
 ├── imports/                        saved import mappings
 │   └── net-worth-sheet.json
-└── backups/                        copies taken before a migration, an import or a replaced file; the newest 50 are kept; safe to delete
+└── backups/                        copies taken before a migration, an import or a replaced file; the newest 50 and every migration's are kept; safe to delete
 ```
 
 Files the app doesn't know are ignored. A file's name is its ID (`accounts/<id>.json`), and a record's date decides its month file.

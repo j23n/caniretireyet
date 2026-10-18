@@ -61,6 +61,21 @@ struct BackupTests {
         #expect(folder.exists("backups/by-hand/accounts/tfr.json"))
     }
 
+    @Test func migrationBackupsAreAlwaysKept() throws {
+        let folder = try TemporaryFolder.exampleLibrary()
+        let start = Date(timeIntervalSince1970: 1_780_000_000)
+        let unchanged = Migration(from: 5, summary: "Change nothing") { _ in }
+        let report = try #require(try folder.library.migrate(to: 6, steps: [unchanged],
+                                                             date: start.addingTimeInterval(-86_400)))
+        let made = try (0..<(LibraryFolder.keptBackups + 2)).map { day in
+            try folder.library.backup(paths: ["accounts/tfr.json"], label: "import",
+                                      date: start.addingTimeInterval(Double(day) * 86_400))
+        }
+
+        // The migration backup is the oldest, and doesn't count toward the limit.
+        #expect(try folder.library.backups() == [report.backup] + Array(made.dropFirst(2)))
+    }
+
     @Test func theBackupBeingUndoneIsKept() throws {
         let folder = try TemporaryFolder.exampleLibrary()
         let start = Date(timeIntervalSince1970: 1_780_000_000)

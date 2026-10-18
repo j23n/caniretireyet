@@ -135,16 +135,20 @@ extension LibraryFolder {
     /// How many backups are kept: each new backup deletes the oldest beyond
     /// these (``makeBackup(paths:name:label:date:contents:sparing:)``).
     /// Every import and every save from the CLI makes one, so without a
-    /// limit they pile up by the thousand.
+    /// limit they pile up by the thousand. Migration backups don't count
+    /// and are never deleted: there is one per migration, and it's the only
+    /// copy of the library in its older format. In a library that already
+    /// has thousands, the next backup deletes all but these before it
+    /// returns, which takes a while that once.
     public static let keptBackups = 50
 
     /// Copies files into a new folder `backups/<timestamp>-<label>/`, e.g.
     /// before an import, so ``undo(_:)`` can undo it. `paths` are relative to
     /// the library folder; paths that don't exist are recorded, and undoing
     /// deletes them. The timestamp is `date` in the device's time zone
-    /// (`2026-09-30-142501`). Backups beyond the newest ``keptBackups`` are
-    /// deleted, except `sparing`: the backup about to be restored or undone
-    /// when this one is its safety copy.
+    /// (`2026-09-30-142501`). Backups beyond the newest ``keptBackups``, by
+    /// the timestamp in their names, are deleted, except `sparing`: the
+    /// backup about to be restored or undone when this one is its safety copy.
     @discardableResult
     public func backup(paths: [String], label: String, date: Date = Date(), sparing: Backup? = nil) throws -> Backup {
         let label = Slug.make(from: label)
@@ -340,14 +344,21 @@ extension LibraryFolder {
     }
 
     /// Deletes the backups among `names` beyond the newest ``keptBackups``,
-    /// except those in `sparing`. Names start with when the backup was taken
-    /// (`2026-09-30-142501-import`, `2026-09-30-v4`), so they sort oldest
-    /// first. A backup that can't be deleted is tried again next time.
+    /// except those in `sparing` and migration backups (`2026-09-30-v4`).
+    /// Names start with when the backup was taken in the device's time zone
+    /// (`2026-09-30-142501-import`), so they sort oldest first. A backup
+    /// that can't be deleted is tried again next time.
     private func pruneBackups(_ names: Set<String>, sparing: [String]) {
-        let oldest = names.sorted().dropLast(Self.keptBackups)
+        let oldest = names.filter { !Self.isMigrationBackup($0) }.sorted().dropLast(Self.keptBackups)
         for name in oldest where !sparing.contains(name) {
             try? files.removeItem(at: url(for: "\(Self.backupsFolder)/\(name)"))
         }
+    }
+
+    /// Whether `name` is a migration backup's: `<yyyy-MM-dd>-v<old>`, where
+    /// other backups have a time after the day (`<yyyy-MM-dd-HHmmss>-<label>`).
+    private static func isMigrationBackup(_ name: String) -> Bool {
+        name.dropFirst("yyyy-MM-dd".count).hasPrefix("-v")
     }
 
     private func writeManifest(of backup: Backup) throws {
