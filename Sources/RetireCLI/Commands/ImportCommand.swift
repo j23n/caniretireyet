@@ -586,7 +586,8 @@ struct ImportCommand: RetireSubcommand {
             console.print("Dry run: nothing was written.")
             return
         }
-        let safety = try folder.backup(paths: backup.paths, label: Backup.undoImportLabel, date: context.now())
+        let safety = try folder.backup(paths: backup.paths, label: Backup.undoImportLabel, date: context.now(),
+                                      sparing: backup)
         let undone = try folder.undo(backup)
         console.print("Undid the import of \(created) from \(backup.path).")
         console.print(lines: undone.written.map { "  restored \($0)" } + undone.deleted.map { "  deleted  \($0)" })

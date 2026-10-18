@@ -19,8 +19,7 @@ public final class UbiquitousLibraryWatcher: LibraryWatching {
     /// How long to wait for more events before reporting a change.
     static let debounce: Duration = .milliseconds(500)
 
-    private let folder: LibraryFolder
-    private let query = UbiquitousItemQuery()
+    private let query: UbiquitousItemQuery
     private var snapshot: FolderSnapshot?
     /// The folder when the library was loaded, until the first look.
     private var baseline: FolderSnapshot?
@@ -31,7 +30,7 @@ public final class UbiquitousLibraryWatcher: LibraryWatching {
 
     public init(root: URL) {
         self.root = root
-        folder = LibraryFolder(root: root)
+        query = UbiquitousItemQuery(root: root)
     }
 
     /// How far apart the query's and the file system's modification dates
@@ -44,7 +43,7 @@ public final class UbiquitousLibraryWatcher: LibraryWatching {
         self.continuation = continuation
         self.baseline = baseline
 
-        _ = query.start { [weak self] items in self?.receive(items) }
+        query.start({ [weak self] items in self?.receive(items) })
         return stream
     }
 
@@ -65,7 +64,8 @@ public final class UbiquitousLibraryWatcher: LibraryWatching {
     private func receive(_ items: [UbiquitousItemQuery.Item]) {
         var files: [String: WatchedFileState] = [:]
         for item in items {
-            guard let path = folder.relativePath(of: item.url), LibraryChange.isWatched(path) else { continue }
+            let path = item.path
+            guard LibraryChange.isWatched(path) else { continue }
             files[path] = WatchedFileState(
                 modified: item.modified, isDownloaded: item.isCurrent, hasConflicts: item.hasConflicts)
             if item.isCurrent {
