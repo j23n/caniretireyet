@@ -17,6 +17,13 @@ struct SyncScreen: View {
     /// What the last restore did, or why it failed.
     @State private var restoreNote: String?
     @State private var restoreFailed = false
+    /// Whether every backup shows, not only the newest ``shownBackups``.
+    @State private var showsAllBackups = false
+
+    /// How many backups show until *Show All Backups*: a library can have
+    /// thousands, one for each import, and a row for each would take long
+    /// to lay out.
+    static let shownBackups = 20
 
     init() {}
 
@@ -119,7 +126,9 @@ struct SyncScreen: View {
                     Text("No backups yet. The app makes one before an import or an upgrade.")
                         .foregroundStyle(Palette.secondaryInk)
                 }
-                ForEach(backups.reversed(), id: \.name) { backup in
+                let newestFirst = Array(backups.reversed())
+                ForEach(showsAllBackups ? newestFirst : Array(newestFirst.prefix(Self.shownBackups)),
+                        id: \.name) { backup in
                     LabeledContent {
                         HStack(spacing: Metrics.s) {
                             Text(backup.created, format: .dateTime.day().month().year().hour().minute())
@@ -132,6 +141,9 @@ struct SyncScreen: View {
                         Text(backup.label)
                             .privacySensitiveInFeedback()
                     }
+                }
+                if !showsAllBackups && backups.count > Self.shownBackups {
+                    Button("Show All \(backups.count) Backups") { showsAllBackups = true }
                 }
                 if let restoreNote {
                     Text(restoreNote)
