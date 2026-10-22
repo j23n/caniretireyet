@@ -213,7 +213,8 @@ public enum Planner {
             flexibleSpending: model.spending.flexible.flatMap { rule in
                 flexibleSummary(outcomes, rule: rule, age: focus, planSpending: spending,
                                 retirementYears: simulator.retirementYears)
-            })
+            },
+            latestCheckIn: library.latestCheckInDate)
         progress?.finish()
         return (result, model)
     }

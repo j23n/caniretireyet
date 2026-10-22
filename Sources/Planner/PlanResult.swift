@@ -41,6 +41,10 @@ public struct PlanResult: Hashable, Sendable {
     /// What flexible spending did at `focusAge`; `nil` when the plan
     /// doesn't use it (PLANNER.md, "Flexible spending").
     public var flexibleSpending: FlexibleSpendingSummary?
+    /// The library's latest check-in when the plan ran
+    /// (`Library.latestCheckInDate`), whatever date it starts from; `nil`
+    /// before the first one.
+    public var latestCheckIn: CalendarDate?
 }
 
 /// The starting point of a plan: the portfolio on the start date.
