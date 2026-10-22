@@ -51,12 +51,29 @@ struct ReachedMilestonePager: Hashable {
         shownID = kept == reached.count - 1 ? nil : reached[kept].id
     }
 
-    /// "Last reached · August" for the newest, "Reached · March 2025" for
-    /// an older one.
+    /// Whether the one shown was reached at the newest check-in, as the
+    /// newest was: one check-in often reaches several.
+    var showsLastReached: Bool {
+        shown.map { $0.date == reached.last?.date } ?? false
+    }
+
+    /// "3 of 21", where it is among those reached, oldest first; `nil`
+    /// with fewer than two, where there's nothing to step to.
+    var position: String? {
+        guard reached.count > 1, let index else { return nil }
+        return "\(index + 1) of \(reached.count)"
+    }
+
+    /// "Last reached · August · 21 of 21" for one reached at the newest
+    /// check-in, "Reached · March 2025 · 3 of 21" for an older one; without
+    /// the position with only one reached.
     func label(relativeTo today: CalendarDate, locale: Locale) -> String? {
-        shown.map { shown in
-            (showsNewest ? "Last reached · " : "Reached · ")
-                + GlanceText.month(shown.date, relativeTo: today, locale: locale)
+        guard let shown else { return nil }
+        var parts = [showsLastReached ? "Last reached" : "Reached",
+                     GlanceText.month(shown.date, relativeTo: today, locale: locale)]
+        if let position {
+            parts.append(position)
         }
+        return parts.joined(separator: " · ")
     }
 }

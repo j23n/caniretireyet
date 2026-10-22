@@ -117,10 +117,10 @@ struct JourneyCard: View {
         .accessibilityElement(children: .combine)
     }
 
-    /// "⚑ Last reached · August" over "Halfway to what retiring today
-    /// needs.", or "⚑ Reached · March 2025" for an older one: a swipe, ‹ ›
-    /// on the Mac and iPad, or VoiceOver's adjustable action steps to an
-    /// older or a newer one.
+    /// "⚑ Last reached · August · 21 of 21" over "Halfway to what retiring
+    /// today needs.", or "⚑ Reached · March 2025 · 3 of 21" for one from an
+    /// older check-in: a swipe, ‹ › on the Mac and iPad, or VoiceOver's
+    /// adjustable action steps to an older or a newer one.
     private func reachedMilestone(_ milestone: ReachedMilestone, pager: ReachedMilestonePager,
                                   text: PlanMilestoneText) -> some View {
         HStack(alignment: .top, spacing: Metrics.s) {

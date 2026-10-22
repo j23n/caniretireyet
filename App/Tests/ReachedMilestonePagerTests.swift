@@ -23,7 +23,27 @@ struct ReachedMilestonePagerTests {
         #expect(pager.showsNewest)
         #expect(pager.canStepOlder)
         #expect(!pager.canStepNewer)
-        #expect(pager.label(relativeTo: "2026-10-22", locale: english) == "Last reached · August")
+        #expect(pager.label(relativeTo: "2026-10-22", locale: english) == "Last reached · August · 3 of 3")
+    }
+
+    @Test func labelsEveryOneFromTheNewestCheckInLastReached() {
+        let sameCheckIn = reached + [
+            ReachedMilestone(milestone: Milestone(kind: .roundAmount, amount: 200_000), date: "2026-08-31"),
+        ]
+        var pager = ReachedMilestonePager(reached: sameCheckIn)
+        #expect(pager.label(relativeTo: "2026-10-22", locale: english) == "Last reached · August · 4 of 4")
+        pager.step(by: -1)
+        #expect(pager.shown?.id == "share-1-2")
+        #expect(!pager.showsNewest)
+        #expect(pager.label(relativeTo: "2026-10-22", locale: english) == "Last reached · August · 3 of 4")
+        pager.step(by: -1)
+        #expect(pager.label(relativeTo: "2026-10-22", locale: english) == "Reached · June 2025 · 2 of 4")
+    }
+
+    @Test func leavesOutThePositionWithOnlyOneReached() {
+        let pager = ReachedMilestonePager(reached: [reached[0]])
+        #expect(pager.position == nil)
+        #expect(pager.label(relativeTo: "2026-10-22", locale: english) == "Last reached · March 2024")
     }
 
     @Test func stepsOlderAndStopsAtTheOldest() {
@@ -31,7 +51,7 @@ struct ReachedMilestonePagerTests {
         pager.step(by: -1)
         #expect(pager.shown?.id == "years-5")
         #expect(!pager.showsNewest)
-        #expect(pager.label(relativeTo: "2026-10-22", locale: english) == "Reached · June 2025")
+        #expect(pager.label(relativeTo: "2026-10-22", locale: english) == "Reached · June 2025 · 2 of 3")
         pager.step(by: -1)
         #expect(pager.shown?.id == "round-100000")
         #expect(!pager.canStepOlder)
