@@ -144,6 +144,55 @@ struct PlanMoneyInOutTests {
         #expect(percents(money.rateAxisValues(planRate: nil)) == [30, -200])
     }
 
+    // MARK: The 12-month line
+
+    /// 12 months ending on `through` with what came in and what was spent.
+    private func twelveMonths(through: CalendarDate, moneyIn: Decimal, spent: Decimal) -> SavingsRate {
+        let from = through.adding(years: -1)
+        let money = MoneyInOutSummary(from: from.adding(days: 1), through: through, currency: .eur,
+                                      moneyIn: moneyIn, months: [through.yearMonth], measuredFrom: from)
+        return SavingsRate(moneyInOut: money, from: from, through: through,
+                           savedByAccount: ["bank": moneyIn - spent])
+    }
+
+    @Test func theLineBreaksWhereTwelveMonthsHaveNoRate() {
+        // August's 12 months had nothing come in: no rate there. September's
+        // is far below its bar, but stands on its own.
+        let money = series([
+            period("2026-06", moneyIn: 3_000, spent: 2_100,
+                   lastTwelveMonths: twelveMonths(through: "2026-06-30", moneyIn: 30_000, spent: 24_000)),
+            period("2026-07", moneyIn: 3_000, spent: 2_100,
+                   lastTwelveMonths: twelveMonths(through: "2026-07-31", moneyIn: 27_000, spent: 24_000)),
+            period("2026-08", moneyIn: 0, spent: 2_000,
+                   lastTwelveMonths: twelveMonths(through: "2026-08-31", moneyIn: 0, spent: 24_000)),
+            period("2026-09", moneyIn: 3_000, spent: 2_100,
+                   lastTwelveMonths: twelveMonths(through: "2026-09-30", moneyIn: 3_000, spent: 24_000)),
+        ])
+        #expect(money.lastTwelveMonthsRuns.map { $0.map(\.from) }
+            == [["2026-06-01", "2026-07-01"], ["2026-09-01"]])
+        #expect(money.hasLastTwelveMonths)
+    }
+
+    @Test func theLineStartsAtTheTwelfthMonth() {
+        let money = series([
+            period("2026-08", moneyIn: 3_000, spent: 2_100),
+            period("2026-09", moneyIn: 3_000, spent: 2_100,
+                   lastTwelveMonths: twelveMonths(through: "2026-09-30", moneyIn: 30_000, spent: 24_000)),
+        ])
+        #expect(money.lastTwelveMonthsRuns.map { $0.map(\.from) } == [["2026-09-01"]])
+        #expect(series([period("2026-09", moneyIn: 3_000, spent: 2_100)]).lastTwelveMonthsRuns.isEmpty)
+    }
+
+    @Test func aMonthWithSpendingButNothingInHasNoBar() {
+        let empty = MoneyInOutPeriod(from: "2026-07-01", through: "2026-07-31", savings: nil)
+        let money = series([empty,
+                            period("2026-08", moneyIn: 0, spent: 2_000),
+                            period("2026-09", moneyIn: 3_000, spent: 2_100)])
+        // July has nothing counted, so nothing to show; August spent with nothing in.
+        #expect(money.countedWithoutRate.map(\.from) == ["2026-08-01"])
+        #expect(self.money().countedWithoutRate.isEmpty)
+    }
+
     @Test func theHiddenAxisIsInMultiplesOfTheAverageCameIn() throws {
         let money = self.money()
         let base = try #require(money.relativeBase)

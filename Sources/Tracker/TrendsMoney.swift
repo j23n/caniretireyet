@@ -104,6 +104,33 @@ public struct PlanMoneyInOut: Hashable, Sendable {
     /// at it: *Savings rate* draws its line.
     public var hasLastTwelveMonths: Bool { periods.contains { $0.lastTwelveMonths?.rate != nil } }
 
+    /// *Savings rate*'s line: the periods with a rate over the 12 months
+    /// ending at them, in unbroken runs, oldest first. A period without one
+    /// (nothing came in over its 12 months, or less than nothing) ends a
+    /// run, so the line breaks there instead of joining its neighbors.
+    public var lastTwelveMonthsRuns: [[MoneyInOutPeriod]] {
+        var runs: [[MoneyInOutPeriod]] = []
+        var run: [MoneyInOutPeriod] = []
+        for period in periods {
+            if period.lastTwelveMonths?.rate != nil {
+                run.append(period)
+            } else if !run.isEmpty {
+                runs.append(run)
+                run = []
+            }
+        }
+        if !run.isEmpty { runs.append(run) }
+        return runs
+    }
+
+    /// The periods with money in and out counted but no savings rate:
+    /// nothing came in, or less than nothing after tax. *Savings rate* has
+    /// no bar for them, yet what they spent counts in the rate over the 12
+    /// months that hold them, and can pull it far below every bar.
+    public var countedWithoutRate: [MoneyInOutPeriod] {
+        periods.filter { !$0.isEmpty && $0.rate == nil }
+    }
+
     /// Whether any period in the span covers more than itself.
     public var hasCoversMore: Bool { periods.contains { coversMore($0) } }
 
