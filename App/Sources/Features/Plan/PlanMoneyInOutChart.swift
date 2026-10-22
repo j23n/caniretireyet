@@ -236,7 +236,7 @@ struct PlanMoneyInOutLegend: View {
     }
 }
 
-/// What a period of *Savings rate* or *Money in and out* reads where the
+/// What a period of *Money in and out* reads where the
 /// pointer or a finger is (UI.md, "Trends"): its last day, with "so far"
 /// or what it covers, then its rows: "Savings rate 34%", "Last 12 months
 /// 31%", "Came in 4.100 €", "Spent 2.600 €", "Saved 1.500 €". Rates stay
@@ -249,7 +249,7 @@ struct PlanMoneyInOutCallout: View {
 
     var body: some View {
         ChartCallout {
-            ChartCalloutDate(period.through.dateValue, detail: detail)
+            ChartCalloutDate(period.through.dateValue, detail: money.calloutDetail(period, locale: locale))
             if period.isEmpty {
                 Text("No money in and out recorded")
                     .font(.caption2)
@@ -269,13 +269,6 @@ struct PlanMoneyInOutCallout: View {
                                 amount: period.saved.doubleValue, currency: money.currency)
             }
         }
-    }
-
-    /// "so far", "covers Sep – Oct", or both.
-    private var detail: String? {
-        let parts = [money.isSoFar(period) ? "so far" : nil, money.coverWords(period, locale: locale)]
-            .compactMap { $0 }
-        return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 
     /// A rate in a row, as an amount's row reads: "Savings rate 34%".
@@ -299,7 +292,7 @@ struct PlanMoneyInOutCallout: View {
     let planRate = Decimal(string: "0.1")
     VStack(spacing: Metrics.l) {
         Card("Savings rate") {
-            PlanSavingsRateLegend(showsLastTwelveMonths: money.hasLastTwelveMonths, planRate: planRate)
+            PlanSavingsRateLegend(money: money, planRate: planRate)
             PlanSavingsRateChart(money: money, planRate: planRate)
         }
         Card("Money in and out") {

@@ -29,6 +29,31 @@ extension PlanMoneyInOut {
         }
     }
 
+    /// What a callout says after a period's last day: "so far", "covers Sep
+    /// – Oct", or both; `nil` for neither.
+    func calloutDetail(_ period: MoneyInOutPeriod, locale: Locale = .current) -> String? {
+        let parts = [isSoFar(period) ? "so far" : nil, coverWords(period, locale: locale)].compactMap { $0 }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+    }
+
+    /// *Savings rate*'s periods without a bar, for its summary: "In Aug 2026
+    /// nothing came in, so it has no bar; what was spent then counts in the
+    /// rate over 12 months."; `nil` without any. The part after the
+    /// semicolon only when the line is drawn.
+    func withoutRateWords(locale: Locale = .current) -> String? {
+        let periods = countedWithoutRate
+        guard !periods.isEmpty else { return nil }
+        let names = periods.map { period -> String in
+            switch grain {
+            case .months: return GlanceText.shortMonthAndYear(period.from, locale: locale)
+            case .years: return String(period.from.year)
+            }
+        }
+        let bar = periods.count == 1 ? "it has no bar" : "they have no bar"
+        let line = hasLastTwelveMonths ? "; what was spent then counts in the rate over 12 months" : ""
+        return "In \(Wording.list(names)) nothing came in, so \(bar)\(line)."
+    }
+
     /// "Money in and out is recorded since 30 Jun 2026: 3 months so far.";
     /// `nil` when it was recorded before the span, or not at all.
     func whereItStarts(locale: Locale = .current) -> String? {

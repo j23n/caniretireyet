@@ -52,6 +52,32 @@ struct PlanMoneyInOutTests {
         #expect(worse.tiles.map { $0.change?.isGood } == [false, false, false, false])
     }
 
+    /// *Savings rate*'s summary names the months with money in and out but
+    /// no bar.
+    @Test func theSummaryNamesTheMonthsWithoutABar() {
+        func month(_ month: YearMonth, moneyIn: Decimal, spent: Decimal) -> MoneyInOutPeriod {
+            let from = month.firstDay.adding(days: -1)
+            let money = MoneyInOutSummary(from: month.firstDay, through: month.lastDay, currency: .eur,
+                                          moneyIn: moneyIn, months: [month], measuredFrom: from,
+                                          lastCounted: month.lastDay)
+            return MoneyInOutPeriod(from: month.firstDay, through: month.lastDay,
+                                    savings: SavingsRate(moneyInOut: money, from: from, through: month.lastDay,
+                                                         savedByAccount: ["bank": moneyIn - spent]))
+        }
+        let periods = [month("2026-07", moneyIn: 3_000, spent: 2_100), month("2026-08", moneyIn: 0, spent: 2_000)]
+        let recorded = MoneyInOutSummary(from: "2026-07-01", through: "2026-08-31", currency: .eur,
+                                         months: ["2026-07", "2026-08"], measuredFrom: "2026-06-30")
+        let money = PlanMoneyInOut(MoneyInOutSeries(currency: .eur, grain: .months, periods: periods,
+                                                    recorded: recorded),
+                                   from: nil, firstRecord: nil, through: "2026-08-31")
+        #expect(money.withoutRateWords(locale: locale) == "In Aug 2026 nothing came in, so it has no bar.")
+
+        // Every month of the example library has a rate.
+        let example = PlanMoneyInOut(PreviewLibrary.valuator.moneyInOutSeries(.months, through: latest), from: nil,
+                                     firstRecord: nil, through: latest)
+        #expect(example.withoutRateWords(locale: locale) == nil)
+    }
+
     /// The plan's spending is an amount, which hides with the eye.
     @Test func spendingAgainstThePlanWhileWorking() throws {
         let year = PlanLastTwelveMonths(current: savings(moneyIn: 45_000, spent: 30_000), previous: nil, since: nil)
