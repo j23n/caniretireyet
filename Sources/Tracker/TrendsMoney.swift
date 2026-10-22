@@ -106,8 +106,8 @@ public struct PlanMoneyInOut: Hashable, Sendable {
 
     /// *Savings rate*'s line: the periods with a rate over the 12 months
     /// ending at them, in unbroken runs, oldest first. A period without one
-    /// (nothing came in over its 12 months, or less than nothing) ends a
-    /// run, so the line breaks there instead of joining its neighbors.
+    /// (``SavingsRate/noRate`` over its 12 months) ends a run, so the line
+    /// breaks there instead of joining its neighbors.
     public var lastTwelveMonthsRuns: [[MoneyInOutPeriod]] {
         var runs: [[MoneyInOutPeriod]] = []
         var run: [MoneyInOutPeriod] = []
@@ -123,8 +123,8 @@ public struct PlanMoneyInOut: Hashable, Sendable {
         return runs
     }
 
-    /// The periods with money in and out counted but no savings rate:
-    /// nothing came in, or less than nothing after tax. *Savings rate* has
+    /// The periods with money in and out counted but no savings rate
+    /// (``MoneyInOutPeriod/noRate`` says why). *Savings rate* has
     /// no bar for them, yet what they spent counts in the rate over the 12
     /// months that hold them, and can pull it far below every bar.
     public var countedWithoutRate: [MoneyInOutPeriod] {

@@ -193,6 +193,27 @@ struct PlanMoneyInOutTests {
         #expect(self.money().countedWithoutRate.isEmpty)
     }
 
+    @Test func aPeriodWithoutARateSaysWhy() {
+        func savings(moneyIn: Decimal, taxes: Decimal = 0, pension: Decimal = 0) -> SavingsRate {
+            let money = MoneyInOutSummary(from: "2026-08-01", through: "2026-08-31", currency: .eur,
+                                          moneyIn: moneyIn, taxes: taxes, months: ["2026-08"],
+                                          measuredFrom: "2026-07-31")
+            return SavingsRate(moneyInOut: money, from: "2026-07-31", through: "2026-08-31",
+                               pensionContributions: pension, savedByAccount: ["bank": -2_000])
+        }
+        #expect(savings(moneyIn: 0).noRate == .nothingCameIn)
+        #expect(savings(moneyIn: -500).noRate == .lessThanNothingCameIn)
+        // Pension contributions count as came in.
+        #expect(savings(moneyIn: -500, pension: 400).noRate == .lessThanNothingCameIn)
+        #expect(savings(moneyIn: -500, pension: 500).noRate == .nothingCameIn)
+        #expect(savings(moneyIn: 3_000, taxes: 4_000).noRate == .moreTaxThanCameIn)
+        #expect(savings(moneyIn: 0, taxes: 100).noRate == .moreTaxThanCameIn)
+        #expect(savings(moneyIn: 3_000, taxes: 3_000).noRate == .moreTaxThanCameIn)
+        // With a rate, no reason.
+        #expect(savings(moneyIn: 3_000, taxes: 1_000).noRate == nil)
+        #expect(MoneyInOutPeriod(from: "2026-08-01", through: "2026-08-31", savings: nil).noRate == nil)
+    }
+
     @Test func theHiddenAxisIsInMultiplesOfTheAverageCameIn() throws {
         let money = self.money()
         let base = try #require(money.relativeBase)

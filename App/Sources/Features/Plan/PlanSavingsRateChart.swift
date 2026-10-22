@@ -9,9 +9,10 @@ import Tracker
 /// the 12 months ending at each month, from the twelfth month recorded,
 /// broken where those 12 months have no rate
 /// (``PlanMoneyInOut/lastTwelveMonthsRuns``). A period with money in and
-/// out but nothing came in has no bar, but what it spent counts in the
-/// line: a dot at the value axis's bottom edge marks it
-/// (``PlanMoneyInOut/countedWithoutRate``). A dashed rule at the plan's
+/// out but no rate (nothing came in after tax) has no bar, but what it
+/// spent counts in the line: a dot at the value axis's bottom edge marks
+/// it, "No rate" in the legend (``PlanMoneyInOut/countedWithoutRate``),
+/// and its callout says why. A dashed rule at the plan's
 /// own savings rate while working. The value axis fits the line, the rule
 /// and the bars within ±100% (``PlanMoneyInOut/rateAxisValues(planRate:)``);
 /// a bar beyond is drawn to the axis's edge, and its callout reads the real
@@ -157,12 +158,12 @@ struct PlanSavingsRateChart: View {
     }
 
     /// Each period with money in and out but no rate, a dot at the value
-    /// axis's `bottom` edge: nothing came in, so it has no bar, yet what it
-    /// spent counts in the line.
+    /// axis's `bottom` edge: nothing came in after tax, so it has no bar,
+    /// yet what it spent counts in the line.
     @ChartContentBuilder
     private func withoutRateDots(_ bars: [Bar], at bottom: Double) -> some ChartContent {
         ForEach(bars) { bar in
-            PointMark(x: .value("Date", bar.middle), y: .value("Nothing came in", bottom))
+            PointMark(x: .value("Date", bar.middle), y: .value("No rate", bottom))
                 .foregroundStyle(Palette.color(for: Self.withoutRateColor).opacity(bar.opacity))
                 .symbolSize(36)
         }
@@ -240,9 +241,8 @@ struct PlanSavingsRateChart: View {
         let rolling = bars.compactMap { bar in bar.lastTwelveMonths.map { (day(bar), $0) } }
         if !rolling.isEmpty { series.append(ChartSummary.Series(name: "Rate over 12 months", points: rolling)) }
         var text = "What you saved of what came in, each \(unit)."
-        if !rolling.isEmpty {
-            text += " A line shows the rate over the 12 months ending at each month, "
-                + "with a gap where nothing came in over them."
+        if let line = money.lineWords() {
+            text += " " + line
         }
         if let withoutRate = money.withoutRateWords(locale: locale) {
             text += " " + withoutRate
@@ -257,8 +257,8 @@ struct PlanSavingsRateChart: View {
 }
 
 /// The key of *Savings rate*: the rate over 12 months when its line is
-/// drawn, the dot of a period where nothing came in when there's one, and
-/// the plan's rate ("Your plan's 28%") when there's one.
+/// drawn, "No rate" for the dot of a period without one when there's one,
+/// and the plan's rate ("Your plan's 28%") when there's one.
 struct PlanSavingsRateLegend: View {
     let money: PlanMoneyInOut
     var planRate: Decimal?
@@ -271,7 +271,7 @@ struct PlanSavingsRateLegend: View {
             items.append(ChartLegendItem(name: "Rate over 12 months", swatch: .line(.ink, dashed: false)))
         }
         if !money.countedWithoutRate.isEmpty {
-            items.append(ChartLegendItem(name: "Nothing came in", swatch: .dot(PlanSavingsRateChart.withoutRateColor)))
+            items.append(ChartLegendItem(name: "No rate", swatch: .dot(PlanSavingsRateChart.withoutRateColor)))
         }
         if let planRate {
             let rate = AmountFormat.percent(planRate, digits: 0, locale: locale)
@@ -289,7 +289,9 @@ struct PlanSavingsRateLegend: View {
 /// where the line has a point, the rate over the 12 months ending there
 /// with theirs ("Rate over 12 months 31%", "Came in 45.800 €", "Saved
 /// 14.200 €"), so a point of the line can be checked. A rate is "–" when
-/// nothing came in. Rates stay with the eye; amounts hide.
+/// there's none, with why under it ("Nothing came in", "Less than nothing
+/// came in", "More tax than came in"). Rates stay with the eye; amounts
+/// hide.
 struct PlanSavingsRateCallout: View {
     let money: PlanMoneyInOut
     let period: MoneyInOutPeriod
@@ -340,6 +342,11 @@ struct PlanSavingsRateCallout: View {
                     .monospacedDigit()
             }
             .font(.caption2)
+            if let why = savings.noRate {
+                Text(why.words)
+                    .font(.caption2)
+                    .foregroundStyle(Palette.secondaryInk)
+            }
             ChartCalloutRow("Came in", amount: savings.income.doubleValue, currency: money.currency)
             ChartCalloutRow("Saved", amount: savings.saved.doubleValue, currency: money.currency)
         }

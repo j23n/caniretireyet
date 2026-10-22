@@ -238,9 +238,9 @@ struct PlanMoneyInOutLegend: View {
 
 /// What a period of *Money in and out* reads where the
 /// pointer or a finger is (UI.md, "Trends"): its last day, with "so far"
-/// or what it covers, then its rows: "Savings rate 34%", "Last 12 months
-/// 31%", "Came in 4.100 €", "Spent 2.600 €", "Saved 1.500 €". Rates stay
-/// with the eye; amounts hide.
+/// or what it covers, then its rows: "Savings rate 34%", "Rate over 12
+/// months 31%", "Came in 4.100 €", "Spent 2.600 €", "Saved 1.500 €". Rates
+/// stay with the eye; amounts hide.
 struct PlanMoneyInOutCallout: View {
     let money: PlanMoneyInOut
     let period: MoneyInOutPeriod
@@ -259,7 +259,7 @@ struct PlanMoneyInOutCallout: View {
                     rateRow("Savings rate", rate)
                 }
                 if let lastTwelveMonths = period.lastTwelveMonths?.rate {
-                    rateRow("Last 12 months", lastTwelveMonths)
+                    rateRow("Rate over 12 months", lastTwelveMonths)
                 }
                 ChartCalloutRow("Came in", swatch: Palette.color(for: PlanMoneyInOutChart.cameInColor),
                                 amount: period.cameIn.doubleValue, currency: money.currency)
