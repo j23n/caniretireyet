@@ -298,7 +298,7 @@ private struct OverviewHistorySection: View {
     /// every visit.
     private func calculateForFuture() async {
         guard showsFuture, let planID, results == nil, !isCalculating(planID),
-              plans.errors[planID] == nil, newerRecordedAnswer(planID) == nil else { return }
+              plans.errors[planID] == nil else { return }
         await plans.run(planID)
     }
 
@@ -306,21 +306,9 @@ private struct OverviewHistorySection: View {
         plans.isRunning(plan, .base) || plans.isRunning(plan, .checkIn)
     }
 
-    /// The date of the answer recorded at a check-in that the plan's up-to-date
-    /// results give way to (`LatestAnswer`), so calculating again wouldn't
-    /// show them: a check-in dated after the day they were calculated, and
-    /// after the plan's start. `nil` when there's no such answer.
-    private func newerRecordedAnswer(_ plan: PlanID) -> CalendarDate? {
-        guard plans.results(of: plan) != nil, plans.latestResults(of: plan) == nil,
-              plans.staleReasons(of: plan).isEmpty
-        else { return nil }
-        return plans.recordedHeadlines(for: plan).last?.date
-    }
-
     /// Under the controls while *Future* is on without a projection: the
     /// main plan's calculation with its bar, why it can't run (with *Try
-    /// Again* and *Open Plan*), why its results aren't shown when a newer
-    /// answer was recorded (``newerRecordedAnswer(_:)``), or *Calculate*.
+    /// Again* and *Open Plan*), or *Calculate*.
     @ViewBuilder
     private func futureStatus(_ plan: PlanID) -> some View {
         if let progress = plans.progress(of: plan, .base) ?? plans.progress(of: plan, .checkIn) {
@@ -350,19 +338,6 @@ private struct OverviewHistorySection: View {
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
-            }
-            .font(.subheadline)
-        } else if let newer = newerRecordedAnswer(plan) {
-            HStack(spacing: Metrics.s) {
-                Text("\(planTitle)'s projection isn't shown: the answer recorded for "
-                     + "\(AmountFormat.shortDate(newer, locale: locale)) is newer.")
-                    .foregroundStyle(Palette.secondaryInk)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .privacySensitiveInFeedback()
-                Spacer(minLength: Metrics.s)
-                Button("Open Plan") { navigation.showPlan(plan) }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
             }
             .font(.subheadline)
         } else {

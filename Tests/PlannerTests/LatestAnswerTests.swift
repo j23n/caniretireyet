@@ -5,7 +5,8 @@ import Testing
 import TestSupport
 
 /// Which answer the Overview, Plan, Progress and the widgets show: the
-/// latest results, unless a check-in recorded a newer answer.
+/// latest results, unless they're out of date with the library and a
+/// check-in recorded a newer answer.
 struct LatestAnswerTests {
     let library: Library
 
@@ -17,65 +18,64 @@ struct LatestAnswerTests {
         get throws { try #require(library.headlines(for: "base").last) }
     }
 
-    @Test func resultsFromTheLatestCheckInWin() throws {
+    @Test(arguments: [true, false])
+    func resultsFromTheLatestCheckInWin(upToDate: Bool) throws {
         let answer = RetirementAnswer(confidence: 0.9, earliestAge: 53, sustainableSpending: 41_000)
         let results = PlanResults.made(start: try lastRecorded.date, answer: answer)
-        let latest = try #require(LatestAnswer(plan: "base", library: library, results: results))
+        let latest = try #require(LatestAnswer(plan: "base", library: library, results: results,
+                                               upToDate: upToDate))
         #expect(latest.answer == answer)
         #expect(latest.results == results)
         #expect(latest.recorded == nil)
     }
 
-    /// Results calculated after the last recorded answer are the latest,
-    /// though they start before it: from a date of the plan's own, or from
-    /// an earlier check-in once the one the answer was recorded at is gone
-    /// (starting estimates replaced by imported values).
-    @Test func aRunAfterTheLastRecordedAnswerWinsWhereverItStarts() throws {
+    /// Results up to date with the library are the latest, though they
+    /// start before the last recorded answer: from a date of the plan's
+    /// own, or from an earlier check-in once the one the answer was
+    /// recorded at is gone (starting estimates replaced by imported values).
+    @Test func upToDateResultsWinWhereverTheyStart() throws {
         let last = try lastRecorded
         let answer = RetirementAnswer(confidence: 0.9, earliestAge: 51)
-        let results = PlanResults.made(start: "2026-06-30", answer: answer,
-                                       computedAt: CalendarDate("2026-10-22").dateValue)
+        let results = PlanResults.made(start: "2026-06-30", answer: answer)
         #expect(results.start.date < last.date)
-        let latest = try #require(LatestAnswer(plan: "base", library: library, results: results))
+        let latest = try #require(LatestAnswer(plan: "base", library: library, results: results, upToDate: true))
         #expect(latest.answer == answer)
         #expect(latest.results == results)
         #expect(latest.recorded == nil)
-        #expect(LatestAnswer.latestResults(results, recorded: library.headlines(for: "base")) == results)
+        #expect(LatestAnswer.latestResults(results, recorded: library.headlines(for: "base"),
+                                           upToDate: true) == results)
     }
 
-    /// Results calculated on the day of the last recorded answer still win.
-    @Test func aRunOnTheDayOfTheLastRecordedAnswerWins() throws {
+    /// Results start from the 31 Aug check-in and were calculated on 2 Oct;
+    /// later the other device saves the 30 Sep check-in and records its
+    /// answer. The day they were calculated doesn't count: until they're
+    /// calculated again, they're out of date with the library, and the
+    /// recorded answer is the latest, dated the birthday of its age.
+    @Test func aNewerRecordedAnswerWinsOverOutOfDateResults() throws {
         let last = try lastRecorded
-        let results = PlanResults.made(start: "2026-06-30", computedAt: last.date.dateValue)
-        #expect(LatestAnswer.latestResults(results, recorded: library.headlines(for: "base")) == results)
-    }
-
-    /// A check-in recorded after the results start and after they were
-    /// calculated (on the other device) is the latest: its answer, dated
-    /// the birthday of its age.
-    @Test func aNewerRecordedAnswerWins() throws {
-        let last = try lastRecorded
+        #expect(last.date == "2026-09-30")
         let results = PlanResults.made(start: "2026-08-31", answer: RetirementAnswer(confidence: 0.9, earliestAge: 50),
-                                       computedAt: CalendarDate("2026-09-01").dateValue)
-        let latest = try #require(LatestAnswer(plan: "base", library: library, results: results))
+                                       computedAt: CalendarDate("2026-10-02").dateValue)
+        let latest = try #require(LatestAnswer(plan: "base", library: library, results: results, upToDate: false))
         #expect(latest.results == nil)
         #expect(latest.recorded == last)
         #expect(latest.answer.earliestAge == 54)
         // Born 12 April 1988.
         #expect(latest.answer.earliestDate == "2042-04-12")
         #expect(latest.answer.recordedOn == "2026-09-30")
-        #expect(LatestAnswer.latestResults(results, recorded: library.headlines(for: "base")) == nil)
+        #expect(LatestAnswer.latestResults(results, recorded: library.headlines(for: "base"),
+                                           upToDate: false) == nil)
     }
 
     @Test func withoutResultsTheLastRecordedAnswer() throws {
         let last = try lastRecorded
-        let latest = try #require(LatestAnswer(plan: "base", library: library, results: nil))
+        let latest = try #require(LatestAnswer(plan: "base", library: library, results: nil, upToDate: true))
         #expect(latest.recorded == last)
         #expect(latest.answer.readiness == 0.25)
         #expect(!latest.answer.canRetireNow)
     }
 
     @Test func noResultsAndNothingRecordedIsNoAnswer() {
-        #expect(LatestAnswer(results: nil, recorded: [], birthDate: "1988-04-12") == nil)
+        #expect(LatestAnswer(results: nil, recorded: [], birthDate: "1988-04-12", upToDate: true) == nil)
     }
 }
