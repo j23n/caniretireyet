@@ -85,6 +85,18 @@ extension ChartContent {
             self
         }
     }
+
+    /// A mark as VoiceOver reads it: `spoken` in place of the value it's
+    /// plotted at, such as a cut mark's real value (``ChartCut``); `nil`
+    /// reads the plotted value.
+    @MainActor @ChartContentBuilder
+    func spokenValue(_ spoken: String?) -> some ChartContent {
+        if let spoken {
+            accessibilityValue(Text(verbatim: spoken))
+        } else {
+            self
+        }
+    }
 }
 
 // MARK: - Colours
@@ -329,9 +341,10 @@ enum ChartHatch {
     }
 }
 
-/// A bar or dot beyond the value axis, drawn to its edge: a bar is broken
-/// by a gap in the chart's surface a little inside the edge, a dot becomes
-/// a triangle pointing past it.
+/// A bar, dot or line beyond the value axis, drawn to its edge: a bar is
+/// broken by a gap in the chart's surface a little inside the edge, a dot
+/// becomes a triangle pointing past it, and a line runs along the edge with
+/// a triangle at each point past it.
 enum ChartCut {
     /// How far inside the edge a bar's gap is, as a share of the axis.
     static let inset = 0.06
@@ -346,12 +359,14 @@ enum ChartCut {
     }
 
     /// The gap across a cut bar, from `start` to `end`, at `y`, in the
-    /// surface's colour.
+    /// surface's colour. VoiceOver skips it: the bar's marks read the
+    /// value.
     @ChartContentBuilder
     static func gapMark(from start: Date, to end: Date, at y: Double, surface: Color) -> some ChartContent {
         RuleMark(xStart: .value("Date", start), xEnd: .value("Date", end), y: .value("Cut", y))
             .foregroundStyle(surface)
             .lineStyle(StrokeStyle(lineWidth: 2))
+            .accessibilityHidden(true)
     }
 
     /// The triangle a cut dot is drawn as, pointing up past the top or down

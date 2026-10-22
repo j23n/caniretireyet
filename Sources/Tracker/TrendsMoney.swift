@@ -100,6 +100,18 @@ public struct PlanMoneyInOut: Hashable, Sendable {
         period.coversMore(grain)
     }
 
+    /// How many months (or years) `period`'s values hold: one, or after a
+    /// skipped check-in (``coversMore(_:)``) the months (or years) its pay
+    /// covers, about two for a month that holds September and October.
+    public func length(of period: MoneyInOutPeriod) -> Double {
+        guard coversMore(period), let covers = period.covers else { return 1 }
+        let days = Double(covers.lowerBound.days(to: covers.upperBound) + 1)
+        switch grain {
+        case .months: return days / (365.25 / 12)
+        case .years: return days / 365.25
+        }
+    }
+
     /// Whether any period in the span has a rate over the 12 months ending
     /// at it: *Savings rate* draws its line.
     public var hasLastTwelveMonths: Bool { periods.contains { $0.lastTwelveMonths?.rate != nil } }
@@ -160,8 +172,10 @@ public struct PlanMoneyInOut: Hashable, Sendable {
 
     /// How far *Money in and out*'s value axis fits a period's values
     /// either side of zero: 2.5 times its typical amount, the larger of the
-    /// medians of came in and of spent over its periods. A month with a
-    /// bonus of a month's pay still fits.
+    /// medians of came in and of spent over its periods, each for a month
+    /// (or year) of what it holds, times the months (or years) it holds
+    /// (``length(of:)``). A month with a bonus of a month's pay still fits,
+    /// and so does a quarter's money after skipped check-ins.
     public static let amountAxisReach = 2.5
 
     /// How far *Savings rate*'s value axis fits a period's rate either side
@@ -178,11 +192,13 @@ public struct PlanMoneyInOut: Hashable, Sendable {
     /// nothing typically came in or was spent.
     public var amountAxisLimits: [Double?] {
         let counted = self.counted
-        return Self.typicalWindows(counted).map { window in
-            let cameIn = Self.median(window.map(\.cameIn.doubleValue)) ?? 0
-            let spent = Self.median(window.map(\.spent.doubleValue)) ?? 0
-            let typical = max(cameIn, spent)
-            return typical > 0 ? typical * Self.amountAxisReach : nil
+        let lengths = counted.map { length(of: $0) }
+        // What came in and was spent a month (or year) of what each holds.
+        let cameIn = Self.typicalWindows(zip(counted, lengths).map { $0.cameIn.doubleValue / $1 })
+        let spent = Self.typicalWindows(zip(counted, lengths).map { $0.spent.doubleValue / $1 })
+        return lengths.indices.map { index in
+            let typical = max(Self.median(Array(cameIn[index])) ?? 0, Self.median(Array(spent[index])) ?? 0)
+            return typical > 0 ? typical * lengths[index] * Self.amountAxisReach : nil
         }
     }
 
@@ -212,29 +228,40 @@ public struct PlanMoneyInOut: Hashable, Sendable {
         }
     }
 
-    /// For each period with a rate, the rates *Savings rate*'s value axis
-    /// fits its bar within, as fractions: its typical rate, give or take
-    /// ``rateAxisSpread`` times how far its periods' rates typically stray
-    /// from it, and at least ``rateAxisMinimumReach`` either side of it and
-    /// of zero.
-    public var rateAxisBands: [ClosedRange<Double>] {
+    /// For each period, the rates *Savings rate*'s value axis fits its bar
+    /// and its point of the line over 12 months within, as fractions: the
+    /// typical rate of its periods with a rate, give or take
+    /// ``rateAxisSpread`` times how far their rates typically stray from
+    /// it, and at least ``rateAxisMinimumReach`` either side of it and of
+    /// zero. A period without a rate takes the band of the last one with a
+    /// rate before it, or of the first; `nil` when none has a rate.
+    public var rateAxisBands: [ClosedRange<Double>?] {
         let rates = periods.compactMap(\.rate).map(\.doubleValue)
-        return Self.typicalWindows(rates).map { window in
+        let bands = Self.typicalWindows(rates).map { window in
             let typical = Self.median(Array(window)) ?? 0
             let stray = Self.median(window.map { abs($0 - typical) }) ?? 0
             let reach = max(stray * Self.rateAxisSpread, Self.rateAxisMinimumReach)
             return min(typical - reach, -reach)...max(typical + reach, reach)
         }
+        guard !bands.isEmpty else { return periods.map { _ in nil } }
+        var rated = -1
+        return periods.map { period in
+            if period.rate != nil { rated += 1 }
+            return bands[max(rated, 0)]
+        }
     }
 
     /// The rates *Savings rate*'s value axis fits, as fractions: each
-    /// period's rate, kept within its band (``rateAxisBands``), the rate
-    /// over the last 12 months and the plan's own rate, which are never
-    /// cut.
+    /// period's rate and its rate over the 12 months ending at it, kept
+    /// within its band (``rateAxisBands``), and the plan's own rate, which
+    /// is never cut.
     public func rateAxisValues(planRate: Decimal?) -> [Double] {
-        let rates = periods.compactMap(\.rate).map(\.doubleValue)
-        let bars = zip(rates, rateAxisBands).map { Self.clamped($0, to: $1) }
-        let lines = periods.compactMap { $0.lastTwelveMonths?.rate?.doubleValue }
+        let bands = rateAxisBands
+        func kept(_ rate: Decimal?, _ band: ClosedRange<Double>?) -> Double? {
+            rate.map { rate in band.map { Self.clamped(rate.doubleValue, to: $0) } ?? rate.doubleValue }
+        }
+        let bars = zip(periods, bands).compactMap { kept($0.rate, $1) }
+        let lines = zip(periods, bands).compactMap { kept($0.lastTwelveMonths?.rate, $1) }
         return bars + lines + [planRate?.doubleValue].compactMap { $0 }
     }
 
@@ -244,11 +271,16 @@ public struct PlanMoneyInOut: Hashable, Sendable {
         AmountScale(values: rateAxisValues(planRate: planRate).map { $0 * 100 })
     }
 
-    /// Whether some period's rate is beyond the value axis of *Savings
-    /// rate*, and its bar drawn cut.
+    /// Whether some period's rate, or its rate over the 12 months ending at
+    /// it, is beyond the value axis of *Savings rate*, and its bar or the
+    /// line drawn cut.
     public func cutsRates(planRate: Decimal?) -> Bool {
         let domain = rateScale(planRate: planRate).domain
-        return periods.contains { period in period.rate.map { !domain.contains($0.doubleValue * 100) } ?? false }
+        return periods.contains { period in
+            [period.rate, period.lastTwelveMonths?.rate].contains { rate in
+                rate.map { !domain.contains($0.doubleValue * 100) } ?? false
+            }
+        }
     }
 
     /// `value` kept inside `domain`: where a bar or dot beyond the axis is
@@ -276,13 +308,11 @@ public struct PlanMoneyInOut: Hashable, Sendable {
         return sorted.count.isMultiple(of: 2) ? (sorted[middle - 1] + sorted[middle]) / 2 : sorted[middle]
     }
 
-    /// What came in, on average, in the periods counted: the 1× of the value
-    /// axis of *Money in and out* while amounts are hidden.
+    /// What typically came in in a period counted, the median, so one
+    /// month with an inheritance doesn't move it: the 1× of the value axis
+    /// of *Money in and out* while amounts are hidden.
     public var relativeBase: Double? {
-        let counted = self.counted
-        guard !counted.isEmpty else { return nil }
-        let average = counted.reduce(0.0) { $0 + $1.cameIn.doubleValue } / Double(counted.count)
-        return average > 0 ? average : nil
+        Self.median(counted.map(\.cameIn.doubleValue)).flatMap { $0 > 0 ? $0 : nil }
     }
 }
 

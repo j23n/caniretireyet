@@ -14,8 +14,9 @@ import Tracker
 /// what's typical around each period and the plan's rule
 /// (``PlanMoneyInOut/amountAxisValues(planSpending:)``); a bar beyond is
 /// drawn to the axis's edge with a gap, a dot as a triangle (``ChartCut``),
-/// and the callout reads the real amounts. While amounts are hidden the
-/// value axis reads in multiples of a period's average came in.
+/// and the callout and VoiceOver read the real amounts. While amounts are
+/// hidden the value axis reads in multiples of what typically came in in a
+/// period (``PlanMoneyInOut/relativeBase``).
 struct PlanMoneyInOutChart: View {
     let money: PlanMoneyInOut
     /// The plan's spending while working, for a month or a year; `nil` when
@@ -128,11 +129,11 @@ struct PlanMoneyInOutChart: View {
             AreaMark(x: .value("Date", pair.cameInStart), yStart: .value("From", 0.0),
                      yEnd: .value("Came in", height), series: .value("Bar", "Came in " + pair.key))
                 .foregroundStyle(Self.fill(Self.cameInColor, of: pair))
-                .spokenValueHidden(hidesAmounts)
+                .spokenValue(spokenAmount(pair.cameIn, within: domain))
             AreaMark(x: .value("Date", pair.cameInEnd), yStart: .value("From", 0.0),
                      yEnd: .value("Came in", height), series: .value("Bar", "Came in " + pair.key))
                 .foregroundStyle(Self.fill(Self.cameInColor, of: pair))
-                .spokenValueHidden(hidesAmounts)
+                .spokenValue(spokenAmount(pair.cameIn, within: domain))
             if let gap = ChartCut.gap(pair.cameIn, within: domain) {
                 ChartCut.gapMark(from: pair.cameInStart, to: pair.cameInEnd, at: gap, surface: surface)
             }
@@ -148,11 +149,11 @@ struct PlanMoneyInOutChart: View {
             AreaMark(x: .value("Date", pair.spentStart), yStart: .value("From", 0.0),
                      yEnd: .value("Spent", height), series: .value("Bar", "Spent " + pair.key))
                 .foregroundStyle(Self.fill(Self.spentColor, of: pair))
-                .spokenValueHidden(hidesAmounts)
+                .spokenValue(spokenAmount(pair.spent, within: domain))
             AreaMark(x: .value("Date", pair.spentEnd), yStart: .value("From", 0.0),
                      yEnd: .value("Spent", height), series: .value("Bar", "Spent " + pair.key))
                 .foregroundStyle(Self.fill(Self.spentColor, of: pair))
-                .spokenValueHidden(hidesAmounts)
+                .spokenValue(spokenAmount(pair.spent, within: domain))
             if let gap = ChartCut.gap(pair.spent, within: domain) {
                 ChartCut.gapMark(from: pair.spentStart, to: pair.spentEnd, at: gap, surface: surface)
             }
@@ -187,14 +188,23 @@ struct PlanMoneyInOutChart: View {
                 PointMark(x: .value("Date", pair.middle), y: .value("Saved", pair.saved))
                     .foregroundStyle(color)
                     .symbolSize(36)
-                    .spokenValueHidden(hidesAmounts)
+                    .spokenValue(spokenAmount(pair.saved, within: domain))
             } else {
                 PointMark(x: .value("Date", pair.middle),
                           y: .value("Saved", PlanMoneyInOut.clamped(pair.saved, to: domain)))
                     .symbol { ChartCut.arrow(up: pair.saved > domain.upperBound, color: color) }
-                    .spokenValueHidden(hidesAmounts)
+                    .spokenValue(spokenAmount(pair.saved, within: domain))
             }
         }
+    }
+
+    /// What VoiceOver reads for a mark of `value`: "Amount hidden" while
+    /// amounts are hidden, the real amount when it's beyond the value
+    /// axis's `domain` and drawn cut, else `nil` for what's plotted.
+    private func spokenAmount(_ value: Double, within domain: ClosedRange<Double>) -> String? {
+        if hidesAmounts { return ChartStyle.spokenHiddenAmount }
+        guard !domain.contains(value) else { return nil }
+        return ChartStyle.spokenAmount(currency: money.currency, hidden: false)(value)
     }
 
     /// The selected period's rule and its callout.
@@ -236,7 +246,7 @@ struct PlanMoneyInOutChart: View {
 
 /// The key of *Money in and out*: came in, spent and saved; the plan's
 /// spending while working when it's drawn; the hatching when a period
-/// covers more than itself; and a note when a value runs past the edge.
+/// covers more than itself; and a note when a value is cut at the edge.
 struct PlanMoneyInOutLegend: View {
     let money: PlanMoneyInOut
     let showsPlanSpending: Bool
@@ -258,7 +268,7 @@ struct PlanMoneyInOutLegend: View {
             items.append(ChartLegendItem(name: money.grain == .months ? "More than a month" : "More than a year",
                                          swatch: .hatchedBar(.neutral)))
         }
-        return ChartLegendRow(items: items, note: cuts ? "A gap or ▲▼ runs past the edge" : nil)
+        return ChartLegendRow(items: items, note: cuts ? "Cut at the edge" : nil)
     }
 }
 

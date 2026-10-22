@@ -8,12 +8,13 @@ import Tracker
 /// more was spent than came in. With months, a line through the rate over
 /// the 12 months ending at each month, from the twelfth month recorded. A
 /// dashed rule at the plan's own savings rate while working. The value axis
-/// fits the line, the rule and the bars around what's typical for each
+/// fits the rule, and the bars and the line around what's typical for each
 /// period (``PlanMoneyInOut/rateAxisValues(planRate:)``); a bar beyond is
-/// drawn to the axis's edge with a gap (``ChartCut``), and its callout
-/// reads the real rate. Rates stay with
-/// the eye. The current month or year is drawn lighter ("so far"). Drag
-/// across it to read a period (``PlanMoneyInOutCallout``).
+/// drawn to the axis's edge with a gap, the line along the edge with
+/// triangles (``ChartCut``), and the callout and VoiceOver read the real
+/// rate. Rates stay with the eye. The current month or year is drawn
+/// lighter ("so far"). Drag across it to read a period
+/// (``PlanMoneyInOutCallout``).
 struct PlanSavingsRateChart: View {
     let money: PlanMoneyInOut
     /// The plan's own savings rate while working; `nil` without a work
@@ -92,7 +93,7 @@ struct PlanSavingsRateChart: View {
         return Chart {
             rateBars(rated, within: scale.domain)
             zeroRule()
-            lastTwelveMonthsLine(rolling)
+            lastTwelveMonthsLine(rolling, within: scale.domain)
             planRule()
             selectionRule(selectedPeriod)
         }
@@ -114,9 +115,11 @@ struct PlanSavingsRateChart: View {
             AreaMark(x: .value("Date", bar.start), yStart: .value("From", 0.0),
                      yEnd: .value("Savings rate", bar.height(within: domain)), series: .value("Bar", bar.key))
                 .foregroundStyle(Palette.color(for: Self.barColor).opacity(bar.opacity))
+                .spokenValue(spokenRate(bar.rate ?? 0, within: domain))
             AreaMark(x: .value("Date", bar.end), yStart: .value("From", 0.0),
                      yEnd: .value("Savings rate", bar.height(within: domain)), series: .value("Bar", bar.key))
                 .foregroundStyle(Palette.color(for: Self.barColor).opacity(bar.opacity))
+                .spokenValue(spokenRate(bar.rate ?? 0, within: domain))
             if let gap = ChartCut.gap(bar.rate ?? 0, within: domain) {
                 ChartCut.gapMark(from: bar.start, to: bar.end, at: gap, surface: surface)
             }
@@ -130,15 +133,34 @@ struct PlanSavingsRateChart: View {
             .lineStyle(StrokeStyle(lineWidth: 1))
     }
 
-    /// The rate over the 12 months ending at each month.
+    /// The rate over the 12 months ending at each month, kept within the
+    /// value axis's `domain`: where it runs past, the line goes along the
+    /// edge, with a triangle at each month pointing past it (``ChartCut``).
     @ChartContentBuilder
-    private func lastTwelveMonthsLine(_ bars: [Bar]) -> some ChartContent {
+    private func lastTwelveMonthsLine(_ bars: [Bar], within domain: ClosedRange<Double>) -> some ChartContent {
         ForEach(bars) { bar in
-            LineMark(x: .value("Date", bar.middle), y: .value("Last 12 months", bar.lastTwelveMonths ?? 0.0),
+            let rate = bar.lastTwelveMonths ?? 0
+            LineMark(x: .value("Date", bar.middle),
+                     y: .value("Last 12 months", PlanMoneyInOut.clamped(rate, to: domain)),
                      series: .value("Line", "Last 12 months"))
                 .foregroundStyle(Palette.ink)
                 .lineStyle(StrokeStyle(lineWidth: Metrics.lineWidth, lineCap: .round, lineJoin: .round))
+                .spokenValue(spokenRate(rate, within: domain))
         }
+        ForEach(bars.filter { !domain.contains($0.lastTwelveMonths ?? 0) }) { bar in
+            let rate = bar.lastTwelveMonths ?? 0
+            PointMark(x: .value("Date", bar.middle),
+                      y: .value("Last 12 months", PlanMoneyInOut.clamped(rate, to: domain)))
+                .symbol { ChartCut.arrow(up: rate > domain.upperBound, color: Palette.ink) }
+                .accessibilityHidden(true)
+        }
+    }
+
+    /// What VoiceOver reads for a mark of `rate`, in percentage points: the
+    /// real rate when it's beyond the value axis's `domain` and drawn cut,
+    /// else `nil` for what's plotted.
+    private func spokenRate(_ rate: Double, within domain: ClosedRange<Double>) -> String? {
+        domain.contains(rate) ? nil : AmountFormat.percent(rate / 100, digits: 0, locale: locale)
     }
 
     /// The plan's own savings rate, dashed.
@@ -206,11 +228,11 @@ struct PlanSavingsRateChart: View {
 
 /// The key of *Savings rate*: the line over the last 12 months when it's
 /// drawn, the plan's rate ("Your plan's 28%") when there's one, and a note
-/// when a bar runs past the edge.
+/// when a bar or the line is cut at the edge.
 struct PlanSavingsRateLegend: View {
     let showsLastTwelveMonths: Bool
     var planRate: Decimal?
-    /// Whether a bar is beyond the value axis
+    /// Whether a bar or the line is beyond the value axis
     /// (``PlanMoneyInOut/cutsRates(planRate:)``).
     var cuts = false
 
@@ -226,6 +248,6 @@ struct PlanSavingsRateLegend: View {
             items.append(ChartLegendItem(name: "Your plan's \(rate)",
                                          swatch: .line(.taxes, dashed: true)))
         }
-        return ChartLegendRow(items: items, note: cuts ? "A gap runs past the edge" : nil)
+        return ChartLegendRow(items: items, note: cuts ? "Cut at the edge" : nil)
     }
 }
