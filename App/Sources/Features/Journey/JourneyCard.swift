@@ -27,6 +27,14 @@ struct JourneyCard: View {
     /// The last step's direction, so the milestone shown slides in from
     /// that side: older from the leading edge.
     @State private var steppedOlder = true
+    /// A step waiting for its direction to reach the milestone shown: the
+    /// one going out slides with the transition it was last drawn with.
+    @State private var pendingStep: Step?
+
+    /// The milestone reached a step shows; `nil` the newest.
+    private struct Step: Equatable {
+        var shownID: String?
+    }
 
     var body: some View {
         let progress = plans.planProgress(of: plan.id, document: plan)
@@ -165,16 +173,24 @@ struct JourneyCard: View {
                 .controlSize(.small)
             }
         }
+        // Runs after the update that gave the milestone shown the step's
+        // direction, so the one going out slides that way too.
+        .onChange(of: pendingStep) { _, pending in
+            guard let pending else { return }
+            pendingStep = nil
+            withAnimation(.snappy) { shownReached = pending.shownID }
+        }
     }
 
     /// Shows the milestone reached `offset` steps newer than the one shown
-    /// (older when negative), sliding it in from that side.
+    /// (older when negative), sliding it in from that side and the one
+    /// going out to the other.
     private func step(_ pager: ReachedMilestonePager, by offset: Int) {
         var stepped = pager
         stepped.step(by: offset)
         guard stepped.index != pager.index else { return }
         steppedOlder = offset < 0
-        withAnimation(.snappy) { shownReached = stepped.shownID }
+        pendingStep = Step(shownID: stepped.shownID)
     }
 
     /// "Since you started · October 2021", "Your retirement moved 4 years
