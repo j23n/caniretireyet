@@ -388,12 +388,16 @@ struct PlanStripHeader: View {
 }
 
 /// ‹ › buttons that step through `count` items (⌘[ and ⌘] with a
-/// keyboard), and *Today* when one of them is today's.
+/// keyboard, unless `hasShortcuts` is off), and *Today* when one of them
+/// is today's.
 struct PlanStepButtons: View {
     let index: Int
     let count: Int
     /// The item that holds today: *Today* selects it.
     var today: Int?
+    /// Whether ⌘[ and ⌘] step too: off on a page that stays under what it
+    /// opens, where they would step it unseen.
+    var hasShortcuts = true
     let select: (Int) -> Void
 
     var body: some View {
@@ -408,8 +412,8 @@ struct PlanStepButtons: View {
                 Label("Earlier", systemImage: "chevron.left")
                     .labelStyle(.iconOnly)
             }
-            .keyboardShortcut("[", modifiers: .command)
-            .help("Earlier (⌘[)")
+            .keyboardShortcut(hasShortcuts ? KeyboardShortcut("[", modifiers: .command) : nil)
+            .help(hasShortcuts ? "Earlier (⌘[)" : "Earlier")
             .disabled(index <= 0)
             Button {
                 select(index + 1)
@@ -417,8 +421,8 @@ struct PlanStepButtons: View {
                 Label("Later", systemImage: "chevron.right")
                     .labelStyle(.iconOnly)
             }
-            .keyboardShortcut("]", modifiers: .command)
-            .help("Later (⌘])")
+            .keyboardShortcut(hasShortcuts ? KeyboardShortcut("]", modifiers: .command) : nil)
+            .help(hasShortcuts ? "Later (⌘])" : "Later")
             .disabled(index >= count - 1)
         }
         .buttonStyle(.bordered)
