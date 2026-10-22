@@ -7,7 +7,7 @@ import Testing
 /// reached never collide.
 struct MilestoneTrackLabelsTests {
     /// About the labels' widths in English at the default text size.
-    private let widths = MilestoneTrackLabels.Widths(reached: 118, today: 37, lastMonday: 76)
+    private let widths = MilestoneTrackLabels.Widths(reached: 118, reachedShort: 60, today: 37, lastMonday: 76)
     /// The track on a 393-point-wide iPhone, inside the card, and on the Mac.
     private let iPhone: CGFloat = 329
     private let mac: CGFloat = 640
@@ -23,7 +23,8 @@ struct MilestoneTrackLabelsTests {
     private func spans(_ row: MilestoneTrackLabels,
                        widths: MilestoneTrackLabels.Widths? = nil) -> [ClosedRange<CGFloat>] {
         let widths = widths ?? self.widths
-        return [row.reached.map { $0...($0 + widths.reached) },
+        let reachedWidth = row.reachedIsShort ? widths.reachedShort : widths.reached
+        return [row.reached.map { $0...($0 + reachedWidth) },
                 row.today...(row.today + widths.today),
                 row.lastMonday.map { $0...($0 + widths.lastMonday) }]
             .compactMap { $0 }
@@ -72,7 +73,7 @@ struct MilestoneTrackLabelsTests {
     }
 
     @Test func theFlagStandsAloneWithoutRoomForBoth() {
-        let large = MilestoneTrackLabels.Widths(reached: 260, today: 90, lastMonday: 190)
+        let large = MilestoneTrackLabels.Widths(reached: 260, reachedShort: 130, today: 90, lastMonday: 190)
         let width: CGFloat = 250
         for now in stride(from: inset, through: width - inset, by: 1) {
             let row = labels(width: width, now: now, flag: width - inset, widths: large)
@@ -87,7 +88,32 @@ struct MilestoneTrackLabelsTests {
         #expect(labels(width: iPhone, now: 30, flag: iPhone - inset, hasReached: false).reached == nil)
         let later = labels(width: iPhone, now: 140, flag: iPhone - inset)
         #expect(later.reached == 15)
+        #expect(!later.reachedIsShort)
         #expect(areApart(spans(later), width: iPhone))
+    }
+
+    /// 5 years of records with 15 to go puts today a quarter of the way
+    /// along an iPhone's track: the full count doesn't fit, its short form does.
+    @Test func theCountOfMilestonesReachedIsShortenedWhenTight() {
+        let row = labels(width: iPhone, now: 86, flag: iPhone - inset)
+        #expect(row.reachedIsShort)
+        #expect(row.reached == 17)
+        #expect(areApart(spans(row), width: iPhone))
+    }
+
+    @Test func theCountOfMilestonesReachedIsShownWheneverItsShortFormFits() {
+        for width in [iPhone, mac] {
+            let flag = width - inset
+            for now in stride(from: inset, through: flag, by: 1) {
+                let row = labels(width: width, now: now, flag: flag)
+                #expect(areApart(spans(row), width: width), "now \(now) of \(width)")
+                let room = row.today - MilestoneTrackLabels.gap
+                #expect((row.reached != nil) == (widths.reachedShort <= room), "now \(now) of \(width)")
+                if row.reached != nil {
+                    #expect(row.reachedIsShort == (widths.reached > room), "now \(now) of \(width)")
+                }
+            }
+        }
     }
 
     @Test func withoutAFlagTodayStaysOnTheTrack() {

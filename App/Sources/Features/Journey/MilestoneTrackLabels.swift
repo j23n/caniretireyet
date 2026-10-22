@@ -6,18 +6,23 @@ import CoreGraphics
 /// ends at the flag; when neither side has room (today's tick is under
 /// "Last Monday"), "Last Monday" is left out and the flag stands alone,
 /// "Today" right of its tick. The count of milestones reached sits halfway
-/// between the line's start and today, clear of "Today", and is left out
-/// when there's no room for it.
+/// between the line's start and today, clear of "Today"; it's shortened
+/// ("21 reached") when the full count doesn't fit, and left out when even
+/// that doesn't.
 struct MilestoneTrackLabels: Equatable {
     /// How wide each label is, measured; 0 for a label the line doesn't have.
     struct Widths: Equatable {
         var reached: CGFloat = 0
+        /// The count's short form, "21 reached".
+        var reachedShort: CGFloat = 0
         var today: CGFloat = 0
         var lastMonday: CGFloat = 0
     }
 
     /// Where each label starts; `nil` for a label left out.
     var reached: CGFloat?
+    /// Whether the count of milestones reached is in its short form.
+    var reachedIsShort = false
     var today: CGFloat
     var lastMonday: CGFloat?
 
@@ -52,9 +57,11 @@ struct MilestoneTrackLabels: Equatable {
             lastMonday = nil
         }
         let room = today - Self.gap
-        if hasReached, widths.reached <= room {
-            let centered = (start + now) / 2 - widths.reached / 2
-            reached = max(0, min(centered, room - widths.reached))
+        reachedIsShort = widths.reached > room
+        let reachedWidth = reachedIsShort ? widths.reachedShort : widths.reached
+        if hasReached, reachedWidth <= room {
+            let centered = (start + now) / 2 - reachedWidth / 2
+            reached = max(0, min(centered, room - reachedWidth))
         } else {
             reached = nil
         }

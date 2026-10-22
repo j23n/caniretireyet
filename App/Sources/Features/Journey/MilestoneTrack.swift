@@ -129,14 +129,22 @@ struct MilestoneTrack: View {
                                        flag: retirement == nil ? nil : right,
                                        hasReached: !reached.isEmpty, widths: labelWidths)
         if !reached.isEmpty {
-            measured(caption(Wording.count(reached.count, "milestone") + " reached"), \.reached)
+            // Both forms are laid out, so both are measured; one is shown.
+            caption(Wording.count(reached.count, "milestone") + " reached")
+                .measuringWidth($labelWidths.reached)
                 .position(x: (row.reached ?? 0) + labelWidths.reached / 2, y: 24)
-                .opacity(row.reached == nil ? 0 : 1)
+                .opacity(row.reached != nil && !row.reachedIsShort ? 1 : 0)
+            caption("\(reached.count) reached")
+                .measuringWidth($labelWidths.reachedShort)
+                .position(x: (row.reached ?? 0) + labelWidths.reachedShort / 2, y: 24)
+                .opacity(row.reached != nil && row.reachedIsShort ? 1 : 0)
         }
-        measured(mark("Today"), \.today)
+        mark("Today")
+            .measuringWidth($labelWidths.today)
             .position(x: row.today + labelWidths.today / 2, y: 24)
         if retirement != nil {
-            measured(mark("Last Monday"), \.lastMonday)
+            mark("Last Monday")
+                .measuringWidth($labelWidths.lastMonday)
                 .position(x: (row.lastMonday ?? 0) + labelWidths.lastMonday / 2, y: 24)
                 .opacity(row.lastMonday == nil ? 0 : 1)
         }
@@ -157,17 +165,6 @@ struct MilestoneTrack: View {
         caption(String(end.year))
             .position(x: right - 14, y: 100)
             .opacity(next.map { x($0.date, width: width) > width - 110 } == true ? 0 : 1)
-    }
-
-    /// A label above the line, its width kept in `labelWidths` for
-    /// ``MilestoneTrackLabels``.
-    private func measured(_ label: some View,
-                          _ key: WritableKeyPath<MilestoneTrackLabels.Widths, CGFloat> & Sendable) -> some View {
-        label.onGeometryChange(for: CGFloat.self) { proxy in
-            proxy.size.width.rounded(.up)
-        } action: { newWidth in
-            labelWidths[keyPath: key] = newWidth
-        }
     }
 
     /// "Today" and "Last Monday" above the line.
