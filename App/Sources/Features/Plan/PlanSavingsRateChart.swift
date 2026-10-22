@@ -8,9 +8,10 @@ import Tracker
 /// more was spent than came in. With months, a line through the rate over
 /// the 12 months ending at each month, from the twelfth month recorded. A
 /// dashed rule at the plan's own savings rate while working. The value axis
-/// fits the line, the rule and the bars within ±100%
-/// (``PlanMoneyInOut/rateAxisValues(planRate:)``); a bar beyond is drawn to
-/// the axis's edge, and its callout reads the real rate. Rates stay with
+/// fits the line, the rule and the bars around what's typical for each
+/// period (``PlanMoneyInOut/rateAxisValues(planRate:)``); a bar beyond is
+/// drawn to the axis's edge with a gap (``ChartCut``), and its callout
+/// reads the real rate. Rates stay with
 /// the eye. The current month or year is drawn lighter ("so far"). Drag
 /// across it to read a period (``PlanMoneyInOutCallout``).
 struct PlanSavingsRateChart: View {
@@ -22,6 +23,7 @@ struct PlanSavingsRateChart: View {
     @State private var selectedDate: Date?
     @State private var width: CGFloat = ChartStyle.defaultWidth
     @Environment(\.locale) private var locale
+    @Environment(\.chartSurface) private var surface
 
     static let height: CGFloat = 180
 
@@ -44,7 +46,7 @@ struct PlanSavingsRateChart: View {
         /// How high the bar is drawn: its rate, kept within the value
         /// axis's `domain`.
         func height(within domain: ClosedRange<Double>) -> Double {
-            PlanMoneyInOut.clampedRate(rate ?? 0, to: domain)
+            PlanMoneyInOut.clamped(rate ?? 0, to: domain)
         }
         /// How much of its colour the bar keeps.
         var opacity: Double { isSoFar ? PlanSavingsRateChart.soFarOpacity : 1 }
@@ -65,7 +67,7 @@ struct PlanSavingsRateChart: View {
 
     var body: some View {
         let bars = self.bars
-        let scale = AmountScale(values: money.rateAxisValues(planRate: planRate).map { $0 * 100 })
+        let scale = money.rateScale(planRate: planRate)
         let domain = money.domain ?? (Date.now...Date.now.addingTimeInterval(31 * 86_400))
         chart(bars, scale: scale, domain: domain)
             .frame(height: Self.height)
@@ -103,8 +105,9 @@ struct PlanSavingsRateChart: View {
     }
 
     /// Each bar, an area from zero to its rate between its start and its
-    /// end, drawn to the edge of the value axis's `domain` when its rate is
-    /// beyond it; `key` keeps a bar's area apart from the others'.
+    /// end, drawn to the edge of the value axis's `domain` with a gap when
+    /// its rate is beyond it; `key` keeps a bar's area apart from the
+    /// others'.
     @ChartContentBuilder
     private func rateBars(_ bars: [Bar], within domain: ClosedRange<Double>) -> some ChartContent {
         ForEach(bars) { bar in
@@ -114,6 +117,9 @@ struct PlanSavingsRateChart: View {
             AreaMark(x: .value("Date", bar.end), yStart: .value("From", 0.0),
                      yEnd: .value("Savings rate", bar.height(within: domain)), series: .value("Bar", bar.key))
                 .foregroundStyle(Palette.color(for: Self.barColor).opacity(bar.opacity))
+            if let gap = ChartCut.gap(bar.rate ?? 0, within: domain) {
+                ChartCut.gapMark(from: bar.start, to: bar.end, at: gap, surface: surface)
+            }
         }
     }
 
@@ -199,10 +205,14 @@ struct PlanSavingsRateChart: View {
 }
 
 /// The key of *Savings rate*: the line over the last 12 months when it's
-/// drawn, and the plan's rate ("Your plan's 28%") when there's one.
+/// drawn, the plan's rate ("Your plan's 28%") when there's one, and a note
+/// when a bar runs past the edge.
 struct PlanSavingsRateLegend: View {
     let showsLastTwelveMonths: Bool
     var planRate: Decimal?
+    /// Whether a bar is beyond the value axis
+    /// (``PlanMoneyInOut/cutsRates(planRate:)``).
+    var cuts = false
 
     @Environment(\.locale) private var locale
 
@@ -216,6 +226,6 @@ struct PlanSavingsRateLegend: View {
             items.append(ChartLegendItem(name: "Your plan's \(rate)",
                                          swatch: .line(.taxes, dashed: true)))
         }
-        return ChartLegendRow(items: items)
+        return ChartLegendRow(items: items, note: cuts ? "A gap runs past the edge" : nil)
     }
 }

@@ -329,6 +329,40 @@ enum ChartHatch {
     }
 }
 
+/// A bar or dot beyond the value axis, drawn to its edge: a bar is broken
+/// by a gap in the chart's surface a little inside the edge, a dot becomes
+/// a triangle pointing past it.
+enum ChartCut {
+    /// How far inside the edge a bar's gap is, as a share of the axis.
+    static let inset = 0.06
+
+    /// Where `value`'s bar is broken when it's beyond `domain`; `nil` when
+    /// it fits.
+    static func gap(_ value: Double, within domain: ClosedRange<Double>) -> Double? {
+        let inset = (domain.upperBound - domain.lowerBound) * Self.inset
+        if value > domain.upperBound { return domain.upperBound - inset }
+        if value < domain.lowerBound { return domain.lowerBound + inset }
+        return nil
+    }
+
+    /// The gap across a cut bar, from `start` to `end`, at `y`, in the
+    /// surface's colour.
+    @ChartContentBuilder
+    static func gapMark(from start: Date, to end: Date, at y: Double, surface: Color) -> some ChartContent {
+        RuleMark(xStart: .value("Date", start), xEnd: .value("Date", end), y: .value("Cut", y))
+            .foregroundStyle(surface)
+            .lineStyle(StrokeStyle(lineWidth: 2))
+    }
+
+    /// The triangle a cut dot is drawn as, pointing up past the top or down
+    /// past the bottom.
+    static func arrow(up: Bool, color: Color) -> some View {
+        Image(systemName: up ? "arrowtriangle.up.fill" : "arrowtriangle.down.fill")
+            .font(.system(size: 8))
+            .foregroundStyle(color)
+    }
+}
+
 /// One item of a chart's legend.
 struct ChartLegendItem: Hashable, Identifiable {
     var name: String
