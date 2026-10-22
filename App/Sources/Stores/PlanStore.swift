@@ -381,16 +381,16 @@ final class PlanStore {
     var mainHeadline: RetirementAnswer? { mainAnswer?.answer }
 
     /// `plan`'s latest answer: its results, unless they're out of date with
-    /// the library and a check-in recorded a newer answer since they start,
-    /// else its last recorded headline (`LatestAnswer`).
+    /// the library and a check-in they didn't see recorded its answer, else
+    /// its last recorded headline (`LatestAnswer`).
     func latestAnswer(of plan: PlanID) -> LatestAnswer? {
         LatestAnswer(plan: plan, library: library.library, results: results(of: plan),
                      upToDate: resultsSeeLibrary(of: plan))
     }
 
     /// The plan's latest results, unless they're out of date with the
-    /// library and a check-in recorded an answer after the date they start
-    /// from (`LatestAnswer.latestResults`).
+    /// library and a check-in after the latest one they saw recorded an
+    /// answer (`LatestAnswer.latestResults`).
     func latestResults(of plan: PlanID) -> PlanResults? {
         LatestAnswer.latestResults(results(of: plan), recorded: library.library.headlines(for: plan),
                                    upToDate: resultsSeeLibrary(of: plan))

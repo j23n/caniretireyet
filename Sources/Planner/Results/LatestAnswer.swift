@@ -5,9 +5,9 @@ import Tracker
 /// A plan's latest answer to "can I retire yet?", picked by one rule that
 /// the Overview, the Plan screens, Progress and the widgets all follow: the
 /// plan's latest results, unless they're out of date with the library and
-/// a check-in recorded a newer answer since the date they start from (on
-/// the other device, say, while these were kept on this one); else the last
-/// answer recorded at a check-in.
+/// a check-in they didn't see recorded its answer (on the other device,
+/// say, while these were kept on this one); else the last answer recorded
+/// at a check-in.
 public struct LatestAnswer: Hashable, Sendable {
     /// The answer.
     public var answer: RetirementAnswer
@@ -42,18 +42,24 @@ public struct LatestAnswer: Hashable, Sendable {
 
     /// `results`, unless they're out of date with the library (`upToDate`
     /// is false: its check-ins, accounts or prices changed since they were
-    /// calculated) and a check-in recorded an answer after the date they
-    /// start from: then that answer is the latest, and the results aren't.
+    /// calculated) and a check-in they didn't see recorded an answer: one
+    /// dated after the latest check-in they saw (``PlanResults/latestCheckIn``,
+    /// else the date they start from). Then that answer is the latest, and
+    /// the results aren't.
     ///
     /// Results up to date with the library saw every check-in it holds, so
     /// they're the latest whatever date they start from: a plan can start
     /// before its last recorded answer, from a date of its own, or from an
     /// earlier check-in once the one the answer was recorded at is gone
     /// (starting estimates replaced by imported values, a value deleted).
+    /// Results out of date for another reason (a trade, an edited account)
+    /// still saw the check-ins they did: an answer recorded at one of them
+    /// isn't newer.
     public static func latestResults(_ results: PlanResults?, recorded: [Headline],
                                      upToDate: Bool) -> PlanResults? {
         guard let results else { return nil }
-        if !upToDate, let last = recorded.last, last.date > results.start.date { return nil }
+        let seen = results.latestCheckIn ?? results.start.date
+        if !upToDate, let last = recorded.last, last.date > seen { return nil }
         return results
     }
 }
