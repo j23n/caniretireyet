@@ -18,7 +18,7 @@ extension PlanWhatIfSlider {
 enum PlanWhatIfText {
     /// A line for each slider moved away from the plan's value, in the
     /// sliders' order: "Stop at 52", "Spend 2.800 € a month", "Save 500 € a
-    /// month", "Shares 4.50% a year"; empty without a change.
+    /// month", "Shares 4.75% a year"; empty without a change.
     static func changes(_ model: PlanWhatIfModel, words: PlanWords) -> [AmountSentence] {
         PlanWhatIfSlider.allCases.filter(model.isChanged).map { slider -> AmountSentence in
             let value = model.value(slider)

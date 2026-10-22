@@ -30,4 +30,16 @@ struct PlanWhatIfTextTests {
         #expect(said[1].text == "Spend \(amount) a month")
         #expect(said[1].hasAmounts)
     }
+
+    @Test func itSaysSavingThenShares() throws {
+        let said = changes(PlanWhatIf(monthlySaving: 500, equityReturn: 0.0475))
+        try #require(said.count == 2)
+        let amount = AmountFormat.amount(500, currency: "EUR", locale: english)
+        #expect(said[0].text == "Save \(amount) a month")
+        #expect(said[0].hasAmounts)
+        // Up to two digits, as the Shares slider says it.
+        #expect(said[1].text == "Shares 4.75% a year")
+        #expect(!said[1].hasAmounts)
+        #expect(changes(PlanWhatIf(equityReturn: 0.045)).map(\.text) == ["Shares 4.5% a year"])
+    }
 }
