@@ -120,7 +120,7 @@ struct PlanTrendsView: View {
             if money.counted.isEmpty {
                 notYet("No money in and out was recorded in this time span.")
             } else {
-                PlanSavingsRateLegend(showsLastTwelveMonths: money.hasLastTwelveMonths, planRate: planRate)
+                PlanSavingsRateLegend(money: money, planRate: planRate)
                 PlanSavingsRateChart(money: money, planRate: planRate)
             }
             whereItStarts(money)
