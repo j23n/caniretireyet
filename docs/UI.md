@@ -846,13 +846,19 @@ How you've actually been doing, from your own records: what came in, what you sa
 │ ╰──────────────────────────────────────╯ │
 │ Year by year                             │
 │ ╭──────────────────────────────────────╮ │
-│ │        You saved   You spent  Markets│ │
-│ │ 2026   more than   less than  strong │ │
-│ │ so far planned     planned           │ │
-│ │ 2025   as planned  more than  average│ │
-│ │                    planned           │ │
-│ │ 2024   more than   —          hard   │ │
-│ │        planned                       │ │
+│ │        You saved  You spent  Markets │ │
+│ │ 2026   more than  less than  strong  │ │
+│ │ so far planned    planned    +12,4K €│ │
+│ │        20,5K €    31,6K €    +9%     │ │
+│ │        planned    a year             │ │
+│ │        13,5K €    planned            │ │
+│ │                   36,0K €            │ │
+│ │ 2025   as planned more than  average │ │
+│ │        18,2K €    planned    +4,12K €│ │
+│ │        planned    38,9K €    +3%     │ │
+│ │        18,0K €    a year             │ │
+│ │                   planned            │ │
+│ │                   36,0K €            │ │
 │ ╰──────────────────────────────────────╯ │
 └──────────────────────────────────────────┘
 ```
@@ -869,8 +875,9 @@ How you've actually been doing, from your own records: what came in, what you sa
   - **You spent:** what was spent a year, as the savings rate counts it, against the baseline plan's spending while working: "less than planned", "as planned" (within 5%) or "more than planned"; "—" without money in and out recorded that year, or when the baseline's plan was past working.
   - **Markets:** context, not a grade, as the year's words on Progress say it: "strong" (markets added 8% or more of what you had going in), "hard" (they took 5% or more) or "average".
   - A year without a baseline has "—" for both, and its row says "No plan to compare with" in place of them. The row opens that year on Progress.
+  - Under each word, the amounts it compares, in a smaller font: what you saved and "planned" what the baseline planned, what you spent "a year" and "planned" its spending, and what markets added and its share of what you had going in. On iPhone each is on a line of its own and short, as the charts' callouts write them but from 1.000 in thousands (`20,5K €`, `999K €`, `1,23M €`), so they fit its narrow columns: "20,5K €", "planned 13,5K €"; "+12,4K €", "+9%". This year's are by now, which its "so far" says.
 - **Not enough data.** Money in and out start at the first check-in that records them, so *Savings rate* and *Money in and out* say where their data starts when the span reaches back before it: "Money in and out is recorded since 30 Jun 2026: 3 months so far." (the date the first counted value is measured from; *Your last 12 months* says it in its title) Without any recorded, those three cards fold into one that says what records them, with *Open Accounts*. *Where your money came from* needs two check-ins, and *Time to retirement* a recorded answer; until then each says so in a line. Check-ins record answers and automatic baselines only for the main plan, as on Progress, so for any other plan *Time to retirement* says "Only your main plan records an answer at each check-in." with *Set as Main Plan*, and *Year by year* grades only the years a saved or past baseline of the plan covers.
-- **Mac and iPad.** The tiles in one row across the page, then two columns: *Savings rate* over *Money in and out* on the left, *Where your money came from* over *Time to retirement* on the right, and *Year by year* across the page as a table, with a column each for the year, the three words and, beside them, the amounts they compare ("20.486 € · planned 13.463 €"; for markets, what they added and its share of what you had going in: "+12.400 € · +9%").
+- **Mac and iPad.** The tiles in one row across the page, then two columns: *Savings rate* over *Money in and out* on the left, *Where your money came from* over *Time to retirement* on the right, and *Year by year* across the page as a table, with a column each for the year and the three words, the amounts under each in full on one line ("20.486 € · planned 13.463 €", "… by now" this year; "31.600 € a year · planned 36.000 €"; "+12.400 € · +9%").
 - **Hidden amounts.** Rates, words, ages and the charts' shapes stay. Amounts are placeholders, and the value axes of *Money in and out* and *Where your money came from* switch to relative labels (*Privacy* under [Design system](#design-system)): multiples of a period's average came in, and of today's plan assets.
 - **VoiceOver** reads each tile as its title, figure and change, each chart as a chart with its audio graph and chart details, and each row of *Year by year* as the year and its three words.
 - **What if** goes back to the plan, as from Progress.
