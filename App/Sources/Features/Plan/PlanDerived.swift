@@ -20,8 +20,10 @@ struct PlanDerived {
     /// The milestones from the results shown, with those reached; `nil`
     /// without a plan.
     let milestones: PlanMilestones?
-    /// Where the latest check-in stands against its year's baseline.
-    let position: PlanBaselineComparison.Position?
+    /// Where the latest check-in stands against its year's baseline, and
+    /// the coast point line, as the Overview's *On track?* has them; `nil`
+    /// without a plan.
+    let onTrack: OverviewOnTrack?
 
     /// - Parameter reached: the milestones reached (``PlanSession/progress``),
     ///   which are neither next nor ahead again.
@@ -51,8 +53,9 @@ struct PlanDerived {
                 .compactMap { PlanChapterStory.bar($0, model: model, results: results, words: words)?.total }
                 .max() ?? 0
         } ?? 0
-        position = plan.flatMap {
-            PlanProgressYear.latestPosition(for: $0.id, library: library, valuator: valuator, asOf: asOf)
+        onTrack = plan.map {
+            OverviewOnTrack(plan: $0, library: library, valuator: valuator, asOf: asOf, results: results,
+                            canRetireNow: results?.headline.canRetireNow ?? false, locale: locale)
         }
     }
 }
