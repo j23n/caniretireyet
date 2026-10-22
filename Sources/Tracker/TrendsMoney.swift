@@ -143,27 +143,137 @@ public struct PlanMoneyInOut: Hashable, Sendable {
         }
     }
 
-    /// How far a period's bar on *Savings rate* reaches before the axis
-    /// stops fitting it: 100% either way. A month with almost nothing in
-    /// (5 € in, 2.000 € out) has a rate of about −40.000%, which would
-    /// flatten every other bar.
-    public static let rateAxisLimit = 1.0
+    // MARK: Value axes
+
+    // Both charts fit their value axis to what's typical around each
+    // period, not to the extremes: one month with an inheritance, a car or
+    // almost nothing in would flatten every other one. What's typical is a
+    // median over the period's 12 periods (``typicalPeriods``), so one
+    // outlier doesn't move it and a rising income moves it along. A value
+    // beyond the axis is drawn to its edge (``clamped(_:to:)``), marked as
+    // cut, and its callout reads the real value.
+
+    /// How many periods what's typical is taken over: the 12 that end at a
+    /// period, or the first 12 while fewer come before it, all of them
+    /// with fewer.
+    public static let typicalPeriods = 12
+
+    /// How far *Money in and out*'s value axis fits a period's values
+    /// either side of zero: 2.5 times its typical amount, the larger of the
+    /// medians of came in and of spent over its periods. A month with a
+    /// bonus of a month's pay still fits.
+    public static let amountAxisReach = 2.5
+
+    /// How far *Savings rate*'s value axis fits a period's rate either side
+    /// of its typical rate, the median over its periods: 3 times how far
+    /// their rates typically stray from it (their median distance)…
+    public static let rateAxisSpread = 3.0
+
+    /// …and at least 50 points, either side of zero too, so a month's
+    /// rate is cut only when it's far from the others.
+    public static let rateAxisMinimumReach = 0.5
+
+    /// For each counted period, how far either side of zero *Money in and
+    /// out*'s value axis fits its values (``amountAxisReach``); `nil` when
+    /// nothing typically came in or was spent.
+    public var amountAxisLimits: [Double?] {
+        let counted = self.counted
+        return Self.typicalWindows(counted).map { window in
+            let cameIn = Self.median(window.map(\.cameIn.doubleValue)) ?? 0
+            let spent = Self.median(window.map(\.spent.doubleValue)) ?? 0
+            let typical = max(cameIn, spent)
+            return typical > 0 ? typical * Self.amountAxisReach : nil
+        }
+    }
+
+    /// The amounts *Money in and out*'s value axis fits: each counted
+    /// period's came in, spent and saved, kept within its limit
+    /// (``amountAxisLimits``), and the plan's spending, which is never cut.
+    public func amountAxisValues(planSpending: Decimal?) -> [Double] {
+        let values: [Double] = zip(counted, amountAxisLimits).flatMap { period, limit in
+            [period.cameIn, period.spent, period.saved].map { value in
+                limit.map { Self.clamped(value.doubleValue, to: -$0...$0) } ?? value.doubleValue
+            }
+        }
+        return values + [planSpending?.doubleValue].compactMap { $0 }
+    }
+
+    /// *Money in and out*'s value axis.
+    public func amountScale(planSpending: Decimal?) -> AmountScale {
+        AmountScale(values: amountAxisValues(planSpending: planSpending))
+    }
+
+    /// Whether some period's came in, spent or saved is beyond the value
+    /// axis of *Money in and out*, and drawn cut.
+    public func cutsAmounts(planSpending: Decimal?) -> Bool {
+        let domain = amountScale(planSpending: planSpending).domain
+        return counted.contains { period in
+            [period.cameIn, period.spent, period.saved].contains { !domain.contains($0.doubleValue) }
+        }
+    }
+
+    /// For each period with a rate, the rates *Savings rate*'s value axis
+    /// fits its bar within, as fractions: its typical rate, give or take
+    /// ``rateAxisSpread`` times how far its periods' rates typically stray
+    /// from it, and at least ``rateAxisMinimumReach`` either side of it and
+    /// of zero.
+    public var rateAxisBands: [ClosedRange<Double>] {
+        let rates = periods.compactMap(\.rate).map(\.doubleValue)
+        return Self.typicalWindows(rates).map { window in
+            let typical = Self.median(Array(window)) ?? 0
+            let stray = Self.median(window.map { abs($0 - typical) }) ?? 0
+            let reach = max(stray * Self.rateAxisSpread, Self.rateAxisMinimumReach)
+            return min(typical - reach, -reach)...max(typical + reach, reach)
+        }
+    }
 
     /// The rates *Savings rate*'s value axis fits, as fractions: each
-    /// period's rate, kept within ±``rateAxisLimit``, the rate over the
-    /// last 12 months and the plan's own rate, which are never cut. A bar
-    /// beyond the axis is drawn to its edge (``clampedRate(_:to:)``); its
-    /// callout reads the real rate.
+    /// period's rate, kept within its band (``rateAxisBands``), the rate
+    /// over the last 12 months and the plan's own rate, which are never
+    /// cut.
     public func rateAxisValues(planRate: Decimal?) -> [Double] {
-        let limit = Self.rateAxisLimit
-        let bars = periods.compactMap(\.rate).map { min(max($0.doubleValue, -limit), limit) }
+        let rates = periods.compactMap(\.rate).map(\.doubleValue)
+        let bars = zip(rates, rateAxisBands).map { Self.clamped($0, to: $1) }
         let lines = periods.compactMap { $0.lastTwelveMonths?.rate?.doubleValue }
         return bars + lines + [planRate?.doubleValue].compactMap { $0 }
     }
 
-    /// `rate` kept inside `domain`, where a bar beyond the axis is drawn to.
-    public static func clampedRate(_ rate: Double, to domain: ClosedRange<Double>) -> Double {
-        min(max(rate, domain.lowerBound), domain.upperBound)
+    /// *Savings rate*'s value axis, in percentage points, as the chart
+    /// draws it: "30" is 30%.
+    public func rateScale(planRate: Decimal?) -> AmountScale {
+        AmountScale(values: rateAxisValues(planRate: planRate).map { $0 * 100 })
+    }
+
+    /// Whether some period's rate is beyond the value axis of *Savings
+    /// rate*, and its bar drawn cut.
+    public func cutsRates(planRate: Decimal?) -> Bool {
+        let domain = rateScale(planRate: planRate).domain
+        return periods.contains { period in period.rate.map { !domain.contains($0.doubleValue * 100) } ?? false }
+    }
+
+    /// `value` kept inside `domain`: where a bar or dot beyond the axis is
+    /// drawn to.
+    public static func clamped(_ value: Double, to domain: ClosedRange<Double>) -> Double {
+        min(max(value, domain.lowerBound), domain.upperBound)
+    }
+
+    /// For each element, the ``typicalPeriods`` that end at it, or the
+    /// first ones while fewer come before it.
+    static func typicalWindows<Element>(_ elements: [Element]) -> [ArraySlice<Element>] {
+        let size = min(typicalPeriods, elements.count)
+        return elements.indices.map { index in
+            let start = max(0, index - size + 1)
+            return elements[start..<(start + size)]
+        }
+    }
+
+    /// The middle value, or the mean of the two in the middle; `nil`
+    /// without values.
+    static func median(_ values: [Double]) -> Double? {
+        guard !values.isEmpty else { return nil }
+        let sorted = values.sorted()
+        let middle = sorted.count / 2
+        return sorted.count.isMultiple(of: 2) ? (sorted[middle - 1] + sorted[middle]) / 2 : sorted[middle]
     }
 
     /// What came in, on average, in the periods counted: the 1× of the value

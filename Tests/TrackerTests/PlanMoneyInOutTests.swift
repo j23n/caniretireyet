@@ -121,16 +121,31 @@ struct PlanMoneyInOutTests {
         values.map { Int(($0 * 100).rounded()) }
     }
 
-    @Test func theRateAxisFitsBarsWithinAHundredPercent() {
-        // July saves 30%, August 5 € in and 2.000 € spent: −39.900%.
+    @Test func theRateAxisFitsBarsAroundTheTypicalRate() {
+        // July saves 30%, August 25%, September 5 € in and 2.000 € spent: −39.900%.
         let money = series([period("2026-07", moneyIn: 3_000, spent: 2_100),
-                            period("2026-08", moneyIn: 5, spent: 2_000)])
+                            period("2026-08", moneyIn: 4_000, spent: 3_000),
+                            period("2026-09", moneyIn: 5, spent: 2_000)])
+        // Typically 25%, give or take 50 points, and 50 points below zero.
+        #expect(money.rateAxisBands.allSatisfy { $0 == -0.5...0.75 })
         let values = money.rateAxisValues(planRate: Decimal(string: "0.1"))
-        #expect(percents(values) == [30, -100, 10])
-        #expect(values.min() == -PlanMoneyInOut.rateAxisLimit)
+        #expect(percents(values) == [30, 25, -50, 10])
+        #expect(money.cutsRates(planRate: Decimal(string: "0.1")))
         // The bar is drawn to the axis's edge.
-        #expect(PlanMoneyInOut.clampedRate(-399, to: -105...35) == -105)
-        #expect(PlanMoneyInOut.clampedRate(30, to: -105...35) == 30)
+        let domain = money.rateScale(planRate: Decimal(string: "0.1")).domain
+        #expect(domain.lowerBound > -60)
+        #expect(PlanMoneyInOut.clamped(-39_900, to: domain) == domain.lowerBound)
+        #expect(PlanMoneyInOut.clamped(30, to: domain) == 30)
+    }
+
+    @Test func theRateAxisKeepsRatesThatVaryTogether() {
+        // A rate that swings from −40% to 70% month to month isn't cut.
+        let money = series([period("2026-05", moneyIn: 3_000, spent: 4_200),
+                            period("2026-06", moneyIn: 3_000, spent: 900),
+                            period("2026-07", moneyIn: 3_000, spent: 2_100),
+                            period("2026-08", moneyIn: 3_000, spent: 3_300)])
+        #expect(percents(money.rateAxisValues(planRate: nil)) == [-40, 70, 30, -10])
+        #expect(!money.cutsRates(planRate: nil))
     }
 
     @Test func theRateAxisAlwaysFitsTheLineAndThePlansRate() {
@@ -142,6 +157,60 @@ struct PlanMoneyInOutTests {
         let money = series([period("2026-09", moneyIn: 3_000, spent: 2_100, lastTwelveMonths: rolling)])
         #expect(percents(money.rateAxisValues(planRate: Decimal(string: "-1.5"))) == [30, -200, -150])
         #expect(percents(money.rateAxisValues(planRate: nil)) == [30, -200])
+    }
+
+    /// A month for each of `amounts`, what came in and what was spent, from January 2025.
+    private func months(_ amounts: [(moneyIn: Decimal, spent: Decimal)]) -> PlanMoneyInOut {
+        let january: YearMonth = "2025-01"
+        return series(amounts.enumerated().map { index, amount in
+            period(january.adding(months: index), moneyIn: amount.moneyIn, spent: amount.spent)
+        })
+    }
+
+    @Test func oneLargeMonthDoesNotStretchTheAmountAxis() {
+        // 4.000 € in and 2.800 € spent a month; in June an inheritance of 100.000 €, in
+        // September a car for 40.000 €.
+        var amounts = [(moneyIn: Decimal, spent: Decimal)](repeating: (4_000, 2_800), count: 12)
+        amounts[5] = (104_000, 2_800)
+        amounts[8] = (4_000, 40_000)
+        let money = months(amounts)
+        // Typically 4.000 € came in: the axis fits 2.5 times that either side of zero.
+        #expect(money.amountAxisLimits.allSatisfy { $0 == 10_000 })
+        let values = money.amountAxisValues(planSpending: 3_000)
+        #expect(values.max() == 10_000)
+        #expect(values.min() == -10_000)
+        // The plan's spending is always in view.
+        #expect(values.last == 3_000)
+        #expect(money.amountScale(planSpending: 3_000).domain.upperBound < 12_000)
+        #expect(money.cutsAmounts(planSpending: 3_000))
+        // Without them nothing is cut, and the axis fits the values themselves.
+        let usual = months([(moneyIn: Decimal, spent: Decimal)](repeating: (4_000, 2_800), count: 12))
+        #expect(!usual.cutsAmounts(planSpending: 3_000))
+        #expect(usual.amountAxisValues(planSpending: nil).max() == 4_000)
+    }
+
+    @Test func thePlansSpendingIsNeverCut() {
+        let money = months([(moneyIn: Decimal, spent: Decimal)](repeating: (4_000, 2_800), count: 3))
+        let values = money.amountAxisValues(planSpending: 50_000)
+        #expect(values.max() == 50_000)
+        #expect(money.amountScale(planSpending: 50_000).domain.contains(50_000))
+    }
+
+    @Test func theAmountAxisFollowsWhatsTypicalAroundEachMonth() {
+        // A year at 2.000 € in, then a year at 6.000 €; in the first month a bonus of 9.000 €.
+        var amounts = [(moneyIn: Decimal, spent: Decimal)](repeating: (2_000, 1_500), count: 12)
+            + [(moneyIn: Decimal, spent: Decimal)](repeating: (6_000, 4_500), count: 12)
+        amounts[0] = (9_000, 1_500)
+        let money = months(amounts)
+        let limits = money.amountAxisLimits
+        #expect(limits.first == 5_000)
+        #expect(limits.last == 15_000)
+        // The bonus and what it saved are kept to the first year's limit, so the axis
+        // fits the second year's months and the bonus is cut.
+        let values = money.amountAxisValues(planSpending: nil)
+        #expect(Array(values.prefix(3)) == [5_000, 1_500, 5_000])
+        #expect(values.max() == 6_000)
+        #expect(money.cutsAmounts(planSpending: nil))
     }
 
     @Test func theHiddenAxisIsInMultiplesOfTheAverageCameIn() throws {
