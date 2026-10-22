@@ -48,7 +48,7 @@ struct PlanTimelineView: View {
                     } else {
                         PlanOutOfDateBanner(state: state) { session.perform($0) }
                     }
-                    headline(state, position: derived.position)
+                    headline(state, onTrack: derived.onTrack)
                     PlanResultWarnings(session: session)
                 }
                 .padding(.horizontal, gutter)
@@ -82,11 +82,12 @@ struct PlanTimelineView: View {
     // MARK: The answer
 
     @ViewBuilder
-    private func headline(_ state: PlanResultsState, position: PlanBaselineComparison.Position?) -> some View {
+    private func headline(_ state: PlanResultsState, onTrack: OverviewOnTrack?) -> some View {
         if let results = state.results {
-            PlanTimelineHeadline(session: session, results: results, progress: position,
+            // On iPhone the ring and its words dim as on the Overview; the tiles stay.
+            PlanTimelineHeadline(session: session, results: results, onTrack: onTrack, dims: state.dimsResults,
                                  onShowProgress: onShowProgress, onWhatIf: onWhatIf)
-                .opacity(state.isRunning ? 0.5 : 1)
+                .opacity(layout.isWide && state.isRunning ? 0.5 : 1)
                 .accessibilityElement(children: .contain)
                 .accessibilityIdentifier("plan.answer")
         } else if !state.isRunning {
@@ -214,26 +215,37 @@ struct PlanTimelineView: View {
 
 // MARK: - The answer
 
-/// "Not yet. Stop at 63, in April 2051.", why, as ten dots and in words
-/// ("At 55, as planned, 4 in 10 futures last to 95. Your bar is 9 in
-/// 10."), and where you stand against this year's baseline, which opens
-/// Progress. On iPhone a card, with *What if…* beside it; on the Mac and
-/// iPad What if is in the toolbar.
+/// The plan's answer (UI.md, "The plan").
+///
+/// - **iPhone:** the Overview's *Can I retire yet?* tile, the ring and its
+///   words (``RetirementAnswerRow``); under it *What if* (``PlanWhatIfTile``)
+///   beside *On track?* (``OverviewOnTrackTile``), which opens Progress; then
+///   why, in a quiet line ("At 55, as planned, 4 in 10 futures last to 95.
+///   Your bar is 9 in 10.").
+/// - **Mac and iPad:** a header: "Not yet. Stop at 63, in April 2051.", why,
+///   as ten dots and in words, and where you stand against this year's
+///   baseline, which opens Progress. What if is in the toolbar.
 struct PlanTimelineHeadline: View {
     let session: PlanSession
     let results: PlanResults
-    var progress: PlanBaselineComparison.Position?
+    /// Where the latest check-in stands, as the Overview's *On track?* has it.
+    var onTrack: OverviewOnTrack?
+    /// Whether the answer dims: the results are out of date or being recalculated.
+    var dims = false
     var onShowProgress: (() -> Void)?
     var onWhatIf: (() -> Void)?
 
     @Environment(\.pageLayout) private var layout
     @Environment(\.locale) private var locale
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     private var focusAge: Int { results.details.focus.age }
 
     private var success: Double? { results.details.focus.success ?? results.headline.successAtTarget }
 
     private var endAge: Int { results.details.endAge }
+
+    private var progress: PlanBaselineComparison.Position? { onTrack?.position }
 
     var body: some View {
         let title = PlanTimelineText.headline(results.headline, locale: locale)
@@ -267,30 +279,74 @@ struct PlanTimelineHeadline: View {
                 progressPill
             }
         } else {
-            Card {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Can I retire yet?")
+            VStack(alignment: .leading, spacing: Metrics.m) {
+                answerTile
+                tiles
+                if let success {
+                    Text(reasonText(success))
                         .font(.subheadline)
                         .foregroundStyle(Palette.secondaryInk)
-                    Text(title)
-                        .font(.title.weight(.bold))
-                        .foregroundStyle(Palette.ink)
                         .fixedSize(horizontal: false, vertical: true)
+                        .opacity(dims ? OverviewHeader.dimmedOpacity : 1)
                         .privacySensitiveInFeedback()
-                        .accessibilityAddTraits(.isHeader)
-                }
-                reason
-                    .foregroundStyle(Palette.ink)
-                HStack(spacing: Metrics.s) {
-                    if let onWhatIf {
-                        whatIfButton(onWhatIf)
-                    }
-                    progressPill
-                    Spacer(minLength: 0)
                 }
             }
         }
     }
+
+    // MARK: iPhone
+
+    /// The Overview's answer tile without its chevron and run status: the
+    /// banners above say when the results are out of date or calculating.
+    private var answerTile: some View {
+        let headline = results.headline
+        let words = OverviewAnswerText(headline: headline, earliestDate: headline.earliestDate,
+                                       today: CalendarDate.today(), locale: locale)
+        return FigureTile(surface: .raised) {
+            Text("Can I retire yet?")
+                .font(.title2.bold())
+                .foregroundStyle(Palette.ink)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityAddTraits(.isHeader)
+            RetirementAnswerRow(headline: headline, words: words, dims: dims)
+                .padding(.top, Metrics.m)
+        }
+        .font(.subheadline)
+        .accessibilityElement(children: .contain)
+    }
+
+    /// *What if* and *On track?*, side by side and as tall as each other, 12
+    /// points apart as on the Overview; stacked at the largest text sizes.
+    @ViewBuilder
+    private var tiles: some View {
+        if dynamicTypeSize.isAccessibilitySize {
+            VStack(alignment: .leading, spacing: Metrics.m) {
+                tileContent
+            }
+        } else {
+            EqualColumns(spacing: Metrics.m, equalHeights: true) {
+                tileContent
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var tileContent: some View {
+        if let onWhatIf {
+            PlanWhatIfTile(session: session, action: onWhatIf)
+        }
+        if let onTrack, let onShowProgress {
+            OverviewOnTrackTile(onTrack: onTrack, currency: session.currency, dims: dimsCoastLine,
+                                action: onShowProgress)
+        }
+    }
+
+    /// Whether *On track?*'s coast point line dims: with the rest of the
+    /// results, and while they're a quick estimate, which doesn't solve the
+    /// coast age, so the line is the one the latest check-in recorded.
+    private var dimsCoastLine: Bool { dims || results.mode == .fast }
+
+    // MARK: Mac and iPad
 
     /// The answer's title on the Mac and iPad: 22 points on the Mac.
     private static var wideTitleFont: Font {
@@ -305,12 +361,10 @@ struct PlanTimelineHeadline: View {
     @ViewBuilder
     private var reason: some View {
         if let success {
-            let isPlanned = !session.hasWhatIf && focusAge == results.headline.targetAge
             HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
                 PlanTenthsView(filled: PlanTimelineText.tenths(success))
                     .alignmentGuide(.firstTextBaseline) { $0[VerticalAlignment.center] + 4 }
-                Text(PlanTimelineText.reason(success, endAge: endAge, age: focusAge, isPlanned: isPlanned,
-                                             bar: results.headline.confidence))
+                Text(reasonText(success))
                     .font(.subheadline)
                     .fixedSize(horizontal: false, vertical: true)
                     .privacySensitiveInFeedback()
@@ -318,27 +372,24 @@ struct PlanTimelineHeadline: View {
         }
     }
 
-    private func whatIfButton(_ action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Label(session.hasWhatIf ? "What if… (changed)" : "What if…", systemImage: "slider.horizontal.3")
-        }
-        .buttonStyle(.bordered)
-        .buttonBorderShape(.capsule)
+    /// "At 55, as planned, 4 in 10 futures last to 95. Your bar is 9 in 10."
+    private func reasonText(_ success: Double) -> String {
+        let isPlanned = !session.hasWhatIf && focusAge == results.headline.targetAge
+        return PlanTimelineText.reason(success, endAge: endAge, age: focusAge, isPlanned: isPlanned,
+                                       bar: results.headline.confidence)
     }
 
-    /// "18.400 € ahead ›" on iPhone, "On plan · 18.400 € ahead ›" on the Mac and
-    /// iPad: the amount against the baseline's median, in orange only when
-    /// behind plan (``PlanBaselineComparison/Standing``).
+    /// "On plan · 18.400 € ahead ›": the amount against the baseline's
+    /// median, in orange only when behind plan
+    /// (``PlanBaselineComparison/Standing``).
     @ViewBuilder
     private var progressPill: some View {
         if let progress, let onShowProgress {
             let standing = progress.standing
             Button(action: onShowProgress) {
                 HStack(spacing: 4) {
-                    if layout.isWide {
-                        Text(verbatim: "\(standing.label) ·")
-                            .privacySensitiveInFeedback()
-                    }
+                    Text(verbatim: "\(standing.label) ·")
+                        .privacySensitiveInFeedback()
                     AmountText(abs(progress.gap), currency: session.currency, tabular: false)
                     Text(verbatim: progress.gap >= 0 ? "ahead" : "behind")
                         .privacySensitiveInFeedback()
@@ -356,6 +407,57 @@ struct PlanTimelineHeadline: View {
             .fixedSize()
             .accessibilityHint(Text("Shows your progress"))
         }
+    }
+}
+
+/// *What if* on iPhone (UI.md, "The plan"): a tile tinted in the accent
+/// beside *On track?*, which opens the sliders in a sheet. Without a change
+/// it says what it's for; with one, what's changed ("Stop at 52", "Spend
+/// 2.800 € a month") and, once it has run, how the earliest age moved
+/// ("Earliest 54 → 53").
+struct PlanWhatIfTile: View {
+    let session: PlanSession
+    let action: () -> Void
+
+    @Environment(\.locale) private var locale
+
+    var body: some View {
+        let words = PlanWords(currency: session.currency, locale: locale)
+        let changes = session.whatIfModel.map { PlanWhatIfText.changes($0, words: words) } ?? []
+        Button(action: action) {
+            FigureTile(surface: .accent) {
+                HStack(alignment: .firstTextBaseline, spacing: Metrics.xs) {
+                    Text("What if…")
+                        .fontWeight(.semibold)
+                    Spacer(minLength: Metrics.xs)
+                    Image(systemName: "slider.horizontal.3")
+                        .accessibilityHidden(true)
+                }
+                .foregroundStyle(Palette.accent)
+                if changes.isEmpty {
+                    Text("Try a change before you make it in the plan.")
+                        .foregroundStyle(Palette.ink)
+                        .fixedSize(horizontal: false, vertical: true)
+                } else {
+                    ForEach(Array(changes.enumerated()), id: \.offset) { _, change in
+                        AmountSentenceText(change)
+                            .foregroundStyle(Palette.ink)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    if let change = PlanWhatIfPanel.change(in: session) {
+                        Text("Earliest \(change)")
+                            .fontWeight(.semibold)
+                            .monospacedDigit()
+                            .foregroundStyle(Palette.accent)
+                            .privacySensitiveInFeedback()
+                    }
+                }
+            }
+            .font(.subheadline)
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .combine)
+        .accessibilityHint(Text("Opens What if"))
     }
 }
 

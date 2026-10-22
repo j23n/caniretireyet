@@ -83,7 +83,7 @@ struct PlanWhatIfPanel: View {
                     .foregroundStyle(Palette.ink)
                     .fixedSize(horizontal: false, vertical: true)
                     .privacySensitiveInFeedback()
-                if let change {
+                if let change = Self.change(in: session) {
                     Text("Earliest \(change)")
                         .font(.subheadline.weight(.semibold))
                         .monospacedDigit()
@@ -116,8 +116,9 @@ struct PlanWhatIfPanel: View {
         return "Not yet. Stop at \(age)."
     }
 
-    /// "54 → 53" when the what-if's own results move the earliest age.
-    private var change: String? {
+    /// "54 → 53" when the what-if's own results move the earliest age; the
+    /// plan's *What if* tile says it too.
+    static func change(in session: PlanSession) -> String? {
         guard session.hasWhatIf, !session.whatIfIsOutOfDate, session.baseIsUpToDate,
               let base = session.baseResults, let results = session.shownResults else { return nil }
         return PlanResultsText.change(from: base.headline.earliestAge, to: results.headline.earliestAge)
