@@ -21,8 +21,9 @@ struct PlanDerived {
     /// without a plan.
     let milestones: PlanMilestones?
     /// Where the latest check-in stands against its year's baseline, and
-    /// the coast point line, as the Overview's *On track?* has them; `nil`
-    /// without a plan.
+    /// the coast point line, as the Overview's *On track?* has them but from
+    /// the results shown, so it agrees with the answer above it (a what-if's
+    /// once one has run); `nil` without a plan.
     let onTrack: OverviewOnTrack?
 
     /// - Parameter reached: the milestones reached (``PlanSession/progress``),

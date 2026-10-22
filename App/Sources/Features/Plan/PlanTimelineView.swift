@@ -287,6 +287,7 @@ struct PlanTimelineHeadline: View {
                         .font(.subheadline)
                         .foregroundStyle(Palette.secondaryInk)
                         .fixedSize(horizontal: false, vertical: true)
+                        .opacity(dims ? OverviewHeader.dimmedOpacity : 1)
                         .privacySensitiveInFeedback()
                 }
             }
@@ -335,9 +336,15 @@ struct PlanTimelineHeadline: View {
             PlanWhatIfTile(session: session, action: onWhatIf)
         }
         if let onTrack, let onShowProgress {
-            OverviewOnTrackTile(onTrack: onTrack, currency: session.currency, dims: dims, action: onShowProgress)
+            OverviewOnTrackTile(onTrack: onTrack, currency: session.currency, dims: dimsCoastLine,
+                                action: onShowProgress)
         }
     }
+
+    /// Whether *On track?*'s coast point line dims: with the rest of the
+    /// results, and while they're a quick estimate, which doesn't solve the
+    /// coast age, so the line is the one the latest check-in recorded.
+    private var dimsCoastLine: Bool { dims || results.mode == .fast }
 
     // MARK: Mac and iPad
 
