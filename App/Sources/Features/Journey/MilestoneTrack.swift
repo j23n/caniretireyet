@@ -21,6 +21,8 @@ struct MilestoneTrack: View {
     let next: (id: String, name: AmountSentence, date: CalendarDate)?
 
     @Environment(\.locale) private var locale
+    /// The labels above the line, measured, so they can be kept apart.
+    @State private var labelWidths = MilestoneTrackLabels.Widths()
 
     private static let height: CGFloat = 122
     private static let lineY: CGFloat = 60
@@ -123,21 +125,20 @@ struct MilestoneTrack: View {
     private func labels(width: CGFloat) -> some View {
         let now = x(today, width: width)
         let right = x(end, width: width)
+        let row = MilestoneTrackLabels(width: width, start: Self.inset, now: now,
+                                       flag: retirement == nil ? nil : right,
+                                       hasReached: !reached.isEmpty, widths: labelWidths)
         if !reached.isEmpty {
-            caption(Wording.count(reached.count, "milestone") + " reached")
-                .position(x: max((Self.inset + now) / 2, 44), y: 24)
+            measured(caption(Wording.count(reached.count, "milestone") + " reached"), \.reached)
+                .position(x: (row.reached ?? 0) + labelWidths.reached / 2, y: 24)
+                .opacity(row.reached == nil ? 0 : 1)
         }
-        Text("Today")
-            .font(.caption.weight(.semibold))
-            .foregroundStyle(Palette.ink)
-            .fixedSize()
-            .position(x: min(max(now + 22, 22), width - 90), y: 24)
+        measured(mark("Today"), \.today)
+            .position(x: row.today + labelWidths.today / 2, y: 24)
         if retirement != nil {
-            Text("Last Monday")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(Palette.ink)
-                .fixedSize()
-                .position(x: right - 38, y: 24)
+            measured(mark("Last Monday"), \.lastMonday)
+                .position(x: (row.lastMonday ?? 0) + labelWidths.lastMonday / 2, y: 24)
+                .opacity(row.lastMonday == nil ? 0 : 1)
         }
         if let next {
             let nx = min(max(x(next.date, width: width), 70), width - 70)
@@ -156,6 +157,25 @@ struct MilestoneTrack: View {
         caption(String(end.year))
             .position(x: right - 14, y: 100)
             .opacity(next.map { x($0.date, width: width) > width - 110 } == true ? 0 : 1)
+    }
+
+    /// A label above the line, its width kept in `labelWidths` for
+    /// ``MilestoneTrackLabels``.
+    private func measured(_ label: some View,
+                          _ key: WritableKeyPath<MilestoneTrackLabels.Widths, CGFloat> & Sendable) -> some View {
+        label.onGeometryChange(for: CGFloat.self) { proxy in
+            proxy.size.width.rounded(.up)
+        } action: { newWidth in
+            labelWidths[keyPath: key] = newWidth
+        }
+    }
+
+    /// "Today" and "Last Monday" above the line.
+    private func mark(_ text: LocalizedStringKey) -> some View {
+        Text(text)
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(Palette.ink)
+            .fixedSize()
     }
 
     private func caption(_ text: String) -> some View {
