@@ -83,7 +83,7 @@ struct NetWorthWidget: Widget {
     var body: some WidgetConfiguration {
         glance(kind: Self.kind, name: "Net worth",
                description: "Your net worth at the latest check-in, and how it changed.",
-               families: [.small, .medium, .large, .rectangular, .circular], link: .overview) { entry, family in
+               families: [.small, .medium, .large, .rectangular, .circular], link: .today) { entry, family in
             switch family {
             case .rectangular: NetWorthRectangular(entry: entry)
             case .circular: NetWorthCircular(entry: entry)
@@ -480,7 +480,7 @@ struct SinceCheckInWidget: Widget {
     var body: some WidgetConfiguration {
         glance(kind: Self.kind, name: "Since last check-in",
                description: "What changed since your last check-in: what you saved, and what markets did.",
-               families: [.medium], link: .overview) { entry, _ in
+               families: [.medium], link: .today) { entry, _ in
             SinceCheckInView(entry: entry)
         }
     }
@@ -580,7 +580,7 @@ struct AllocationWidget: Widget {
     var body: some WidgetConfiguration {
         glance(kind: Self.kind, name: "Allocation",
                description: "What you own by asset class, at the latest check-in.",
-               families: [.medium], link: .overview) { entry, _ in
+               families: [.medium], link: .today) { entry, _ in
             AllocationView(entry: entry)
         }
     }

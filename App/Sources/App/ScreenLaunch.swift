@@ -2,14 +2,16 @@
 import Foundation
 import Model
 import Planner
+import SwiftUI
 
 /// A screen of the app with a made-up library, for its screenshots
 /// (App/ScreenTests, `make screenshots`) and for opening a screen by hand:
 /// `-screenLibrary example` (or `longHistory` or `longAccountName`) opens a
 /// made-up library in memory, with the real planner, no network and settings
-/// of its own, and `-screen` the screen to start on (`overview`, `plan`,
-/// `progress`, `trends` or `whatIf`; `targetMix`, the Target mix sheet of
-/// the first plan with changes with age; `accounts`, the Accounts list;
+/// of its own, and `-screen` the screen to start on (`today`, `plan`,
+/// `whatIf`; `year`, `decades` or `lookBack`, the Timeline at that zoom;
+/// `targetMix`, the Target mix sheet of the first plan with changes with
+/// age; `accounts`, the accounts list;
 /// `tradesAccount` or `cashAccount`, an account's
 /// details; `checkIn`, the October check-in under way, from
 /// `CheckInPreviewData`). The main plan is calculated at once, with fewer runs than it
@@ -18,7 +20,7 @@ import Planner
 /// names (``OnboardingStep``: `welcome`, `you`, `money`, `later`,
 /// `answer`, `files` or `notes`), with made-up answers
 /// (``sampleAnswers``). `-screenLibrary dayOne` opens the library the tour
-/// leaves, with *Getting started* on the Overview. With
+/// leaves, on its first day. With
 /// `-screenHidesAmounts`, amounts are hidden, as with the eye button.
 /// Debug builds only.
 struct ScreenLaunch {
@@ -47,14 +49,18 @@ struct ScreenLaunch {
     }
 
     enum Screen: String, CaseIterable {
-        case overview
+        case today
         case plan
-        case progress
-        case trends
+        /// The Timeline at a year (was Progress).
+        case year
+        /// The Timeline at decades: the history and the plan's futures.
+        case decades
+        /// The Timeline looking back (was Trends).
+        case lookBack
         case whatIf
         case targetMix
-        /// The Accounts tab's list on iPhone; the sidebar's accounts on the
-        /// Mac, which show on every screen there.
+        /// The accounts: on iPhone pushed on Today's stack, on the Mac
+        /// *All Accounts*.
         case accounts
         /// Directa's details: a trades account's holdings, trades and statements.
         case tradesAccount
@@ -83,7 +89,7 @@ struct ScreenLaunch {
     /// The step of first launch to open on, with ``Sample/empty``; `nil`
     /// with a library.
     var onboardingStep: OnboardingStep?
-    /// Whether the Overview shows *Getting started*, as on the tour's day.
+    /// Whether it's the tour's day, as with ``Sample/dayOne``.
     var isFirstDay = false
 
     /// `sample` on `screen`; ``Sample/empty`` opens first launch's welcome.
@@ -104,7 +110,7 @@ struct ScreenLaunch {
     /// (``createdLibrary``).
     init(firstLaunchAt step: OnboardingStep) {
         library = step.comesAfterCreating ? Self.createdLibrary : Library()
-        screen = .overview
+        screen = .today
         calculates = false
         hidesAmounts = false
         onboardingStep = step
@@ -123,7 +129,7 @@ struct ScreenLaunch {
             self.init(firstLaunchAt: value(of: "-screen").flatMap(OnboardingStep.init(rawValue:)) ?? .welcome)
             return
         }
-        self.init(sample, screen: value(of: "-screen").flatMap(Screen.init(rawValue:)) ?? .overview,
+        self.init(sample, screen: value(of: "-screen").flatMap(Screen.init(rawValue:)) ?? .today,
                   calculates: !arguments.contains("-screenNoRun"),
                   hidesAmounts: arguments.contains("-screenHidesAmounts"))
     }
@@ -174,14 +180,16 @@ struct ScreenLaunch {
         let navigation = model.navigation
         let main = library.settings.mainPlan
         switch screen {
-        case .overview:
-            navigation.showOverview()
+        case .today:
+            navigation.showToday()
         case .plan:
             navigation.showPlan(main)
-        case .progress:
-            navigation.showPlan(main, at: PlanRoute(part: .progress))
-        case .trends:
-            navigation.showPlan(main, at: PlanRoute(part: .trends))
+        case .year:
+            navigation.showTimeline(.year)
+        case .decades:
+            navigation.showTimeline(.decades)
+        case .lookBack:
+            navigation.showTimeline(.lookBack)
         case .whatIf:
             navigation.showPlan(main, at: PlanRoute(opensWhatIf: true))
         case .targetMix:
@@ -189,12 +197,16 @@ struct ScreenLaunch {
             navigation.showPlan(plans.first { !$0.portfolio.targetMixByAge.isEmpty }?.id ?? main,
                                 at: PlanRoute(opensTargetMix: true))
         case .accounts:
-            navigation.tab = .accounts
-        case .tradesAccount, .cashAccount:
             // Both layouts', since the root view sets the layout once it appears.
+            navigation.tab = .today
+            navigation.todayPath.append(TodayPage.accounts)
+            navigation.sidebarSelection = .accounts
+        case .tradesAccount, .cashAccount:
+            // Both layouts', as above.
             if let account = screen.account {
-                navigation.tab = .accounts
-                navigation.accountsPath = [account]
+                navigation.tab = .today
+                navigation.todayPath.append(TodayPage.accounts)
+                navigation.todayPath.append(account)
                 navigation.sidebarSelection = .account(account)
             }
         case .checkIn:

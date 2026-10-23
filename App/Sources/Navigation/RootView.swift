@@ -1,4 +1,5 @@
 import Glance
+import Model
 import SwiftUI
 
 /// The app's root: launch, onboarding or the main navigation, which is a
@@ -41,15 +42,16 @@ struct RootView: View {
             .modifier(LayoutFromSizeClass())
     }
 
-    /// A widget or a note was tapped: net worth opens the Overview, the
-    /// answer the main plan, the check-in the check-in, *Your year* its sheet.
+    /// A widget or a note was tapped: net worth and the date open Today,
+    /// the answer the main plan, the check-in the check-in, *Your year* last
+    /// year on the Timeline.
     private func open(_ link: GlanceLink) {
         adoptLaunchLayout()
         switch link {
-        case .overview: navigation.showOverview()
+        case .today: navigation.showToday()
         case .plan: navigation.showPlan()
         case .checkIn: navigation.startCheckIn()
-        case .yourYear: navigation.showYourYear()
+        case .yourYear: navigation.showTimeline(.year, year: CalendarDate.today().year - 1)
         }
     }
 
@@ -202,15 +204,6 @@ private struct AppSheetView: View {
         case .newAccount:
             NavigationStack {
                 NewAccountScreen()
-            }
-        case .yourYear:
-            NavigationStack {
-                YourYearScreen()
-                    .toolbar {
-                        ToolbarItem(placement: .confirmationAction) {
-                            Button("Done") { dismiss() }
-                        }
-                    }
             }
         case .importFile(let file):
             NavigationStack {

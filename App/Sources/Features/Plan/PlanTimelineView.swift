@@ -287,7 +287,7 @@ struct PlanTimelineHeadline: View {
                         .font(.subheadline)
                         .foregroundStyle(Palette.secondaryInk)
                         .fixedSize(horizontal: false, vertical: true)
-                        .opacity(dims ? OverviewHeader.dimmedOpacity : 1)
+                        .opacity(dims ? Metrics.dimmedOpacity : 1)
                         .privacySensitiveInFeedback()
                 }
             }

@@ -146,7 +146,7 @@ struct OnboardingAnswerStep: View {
                 .foregroundStyle(Palette.secondaryInk)
             HStack(alignment: .center, spacing: Metrics.l) {
                 if !retired, !headline.canRetireNow, let date = headline.earliestDate {
-                    OnboardingCalendarPage(date: StarterSetup.lastMonday(onOrBefore: date))
+                    OnboardingCalendarPage(date: date.mondayOnOrBefore)
                 }
                 VStack(alignment: .leading, spacing: Metrics.xs) {
                     Text(retired ? OnboardingText.retiredTitle(headline) : OnboardingText.revealTitle(headline))

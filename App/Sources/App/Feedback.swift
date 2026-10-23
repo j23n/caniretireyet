@@ -35,7 +35,9 @@ extension AppNavigation {
         switch layout {
         case .tabs:
             parts = ["tab \(tab.rawValue)"]
-            if tab == .accounts, !accountsPath.isEmpty { parts.append("account detail") }
+            if tab == .today, !todayPath.isEmpty {
+                parts.append(todayPath.count > 1 ? "account detail" : "accounts")
+            }
         case .sidebar:
             parts = ["sidebar \(sidebarSelection.map(Self.feedbackName) ?? "nothing selected")"]
         }

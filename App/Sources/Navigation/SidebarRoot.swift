@@ -5,9 +5,10 @@ import Tracker
 /// Mac and iPad (regular width): a sidebar with a content area (UI.md,
 /// "Navigation"):
 ///
-///     Overview
-///     Check-in                      •     ← dot when due
-///     Accounts             97.330     ← the total of the open accounts
+///     Today
+///     Timeline
+///     Check-in                      •     ← only while one is due or under way
+///     Accounts             97.330     ← the total of the open accounts; All Accounts
 ///       ▾ Cash                 12.990     ← a group and its subtotal
 ///           Conto deposito      8.200
 ///           Conto Fineco     ◷  4.790     ← ◷ when the value is stale
@@ -23,8 +24,8 @@ import Tracker
 ///       Import… · Instruments · Sync & backups
 ///
 /// - Selecting an account shows its detail in the content area, in a stack
-///   of its own (`SidebarItem.account`). The groups and their subtotals are
-///   the list; there's no page for all accounts.
+///   of its own (`SidebarItem.account`). *All Accounts* is the list with
+///   the net-worth chart and the allocation (`SidebarItem.accounts`).
 /// - A group's row expands or collapses it (click it, or its disclosure
 ///   triangle); which ones are collapsed is remembered on the device
 ///   (`AppPreferences.collapsedAccountFolders`). Showing an account
@@ -32,7 +33,7 @@ import Tracker
 /// - The sidebar follows the library: accounts added or closed, here or on
 ///   the other device, appear in their place at once. A selected account
 ///   that's closed moves under *Closed* and stays selected; one that's
-///   deleted gives way to the Overview.
+///   deleted gives way to *All Accounts*.
 ///
 /// Settings is the Settings window on the Mac (⌘,) and a toolbar button on iPad.
 struct SidebarRoot: View {
@@ -44,10 +45,14 @@ struct SidebarRoot: View {
     var body: some View {
         NavigationSplitView {
             List(selection: selection) {
-                Label("Overview", systemImage: AppSymbol.overview)
-                    .tag(SidebarItem.overview)
-                checkInRow
-                    .tag(SidebarItem.checkIn)
+                Label("Today", systemImage: AppSymbol.today)
+                    .tag(SidebarItem.today)
+                Label("Timeline", systemImage: AppSymbol.timeline)
+                    .tag(SidebarItem.timeline)
+                if checkIn.status.isActive || navigation.sidebarSelection == .checkIn {
+                    checkInRow
+                        .tag(SidebarItem.checkIn)
+                }
 
                 SidebarAccountsSection()
 
@@ -75,7 +80,7 @@ struct SidebarRoot: View {
             .navigationTitle("Can I Retire Yet?")
             .navigationSplitViewColumnWidth(min: 220, ideal: 270)
         } detail: {
-            SidebarDetail(navigation: navigation, item: navigation.sidebarSelection ?? .overview)
+            SidebarDetail(navigation: navigation, item: navigation.sidebarSelection ?? .today)
         }
         .onChange(of: navigation.sidebarSelection, initial: true) { selectPlanRow() }
         .onChange(of: library.sortedPlans.map(\.id)) { selectPlanRow() }
@@ -136,6 +141,8 @@ private struct SidebarAccountsSection: View {
         let accounts = AccountList(library: library.library, valuator: library.valuator, today: .today(),
                                    stalenessThreshold: preferences.stalenessThreshold, includesSparklines: false)
         Section {
+            Label("All Accounts", systemImage: AppSymbol.accounts)
+                .tag(SidebarItem.accounts)
             ForEach(accounts.sections) { section in
                 let isExpanded = expansion(of: .group(section.group))
                 DisclosureGroup(isExpanded: isExpanded) {
@@ -264,10 +271,20 @@ private struct SidebarDetail: View {
 
     var body: some View {
         switch item {
-        case .overview:
+        case .today:
             NavigationStack {
-                OverviewScreen()
-                    .overviewToolbar()
+                TodayScreen()
+                    .todayToolbar()
+                    .appDestinations()
+            }
+        case .timeline:
+            NavigationStack {
+                TimelineScreen()
+                    .appDestinations()
+            }
+        case .accounts:
+            NavigationStack {
+                AccountsScreen()
                     .appDestinations()
             }
         case .checkIn:
@@ -307,7 +324,8 @@ private struct SidebarDetail: View {
 
 extension View {
     /// Registers the pages any screen can push: account details (push an
-    /// `AccountID`) and plans (push a `PlanID`).
+    /// `AccountID`), plans (push a `PlanID`) and the accounts (push
+    /// ``TodayPage/accounts``).
     func appDestinations() -> some View {
         navigationDestination(for: AccountID.self) { id in
             AccountDetailScreen(accountID: id)
@@ -315,11 +333,17 @@ extension View {
         .navigationDestination(for: PlanID.self) { id in
             PlanScreen(planID: id)
         }
+        .navigationDestination(for: TodayPage.self) { page in
+            switch page {
+            case .accounts: AccountsScreen()
+            }
+        }
     }
 
-    /// The Overview's toolbar: the eye button (hide amounts) and, on iPhone
-    /// and iPad, the gear that opens Settings.
-    func overviewToolbar() -> some View {
+    /// Today's toolbar: *Check In* (iPhone, while none is due), the eye
+    /// button (hide amounts) and, on iPhone and iPad, the gear that opens
+    /// Settings.
+    func todayToolbar() -> some View {
         toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
                 #if os(iOS)
@@ -349,7 +373,7 @@ struct HideAmountsButton: View {
     }
 }
 
-/// *Check In* in the Overview's toolbar on iPhone while no check-in is due:
+/// *Check In* in Today's toolbar on iPhone while no check-in is due:
 /// the tab bar's accessory, the way in otherwise, shows only when one is
 /// due or under way (UI.md, "Navigation").
 struct CheckInToolbarButton: View {

@@ -1,19 +1,23 @@
 import Foundation
 import Model
 import Observation
+import SwiftUI
 import Tracker
 
 /// The iPhone's tabs (UI.md, "Navigation").
 enum AppTab: String, Hashable, Sendable, CaseIterable {
-    case overview
-    case accounts
+    case today
+    case timeline
     case plan
 }
 
 /// A place in the Mac and iPad sidebar (UI.md, "Navigation").
 enum SidebarItem: Hashable, Sendable {
-    case overview
+    case today
+    case timeline
     case checkIn
+    /// Every account, with the net-worth chart and the allocation.
+    case accounts
     /// One account's detail, selected under its group (or *Closed*) in the
     /// sidebar's Accounts section.
     case account(AccountID)
@@ -40,15 +44,38 @@ enum AppSheet: Hashable, Sendable, Identifiable {
     /// An import, optionally of a file dropped on the window (⌘⇧I). On the
     /// Mac and iPad the import is a sidebar page instead.
     case importFile(URL?)
-    /// *Your year*: the year in review (UI.md, "Your year").
-    case yourYear
 
     var id: String {
         switch self {
         case .settings: "settings"
         case .newAccount: "newAccount"
         case .importFile(let url): "import \(url?.absoluteString ?? "")"
-        case .yourYear: "yourYear"
+        }
+    }
+}
+
+/// A page pushed on Today's stack on iPhone, where the accounts live
+/// now that they have no tab: the list, from the net worth row.
+enum TodayPage: Hashable, Sendable {
+    case accounts
+}
+
+/// How far the Timeline zooms out (UI.md, "Timeline").
+enum TimelineZoom: String, Hashable, Sendable, CaseIterable, Identifiable {
+    /// One year, its check-ins and what moved (was Progress).
+    case year
+    /// Your records to now, then the main plan's futures to its end.
+    case decades
+    /// Your whole history, by month, quarter or year (was Trends).
+    case lookBack
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .year: "Year"
+        case .decades: "Decades"
+        case .lookBack: "Look Back"
         }
     }
 }
@@ -58,7 +85,6 @@ enum AppSheet: Hashable, Sendable, Identifiable {
 struct PlanRoute: Hashable, Sendable {
     /// The plan that takes it; `nil` is the main plan.
     var plan: PlanID?
-    var part: PlanPart = .plan
     var opensWhatIf = false
     var opensTargetMix = false
 }
@@ -78,10 +104,15 @@ enum NavigationLayout: Hashable, Sendable {
 final class AppNavigation {
     /// Set by the root view.
     var layout: NavigationLayout = .sidebar
-    var tab: AppTab = .overview
-    var sidebarSelection: SidebarItem? = .overview
-    /// The pushed account details on the Accounts tab's stack.
-    var accountsPath: [AccountID] = []
+    var tab: AppTab = .today
+    var sidebarSelection: SidebarItem? = .today
+    /// The pages pushed on Today's stack (iPhone): the accounts (a
+    /// ``TodayPage``) and an account's detail (an `AccountID`).
+    var todayPath = NavigationPath()
+    /// How far the Timeline zooms out, and the year it shows at
+    /// ``TimelineZoom/year`` (`nil`: this one).
+    var timelineZoom: TimelineZoom = .year
+    var timelineYear: Int?
     /// The plan the Plan tab shows; `nil` for the main (or first) plan.
     var selectedPlan: PlanID?
     var sheet: AppSheet?
@@ -93,9 +124,6 @@ final class AppNavigation {
     /// The check-in as a full-screen sheet (tab layout); in the sidebar
     /// layout it's the Check-in page.
     var isCheckInPresented = false
-    /// The Overview's *Future* switch (⌘⇧F): continue the history chart into
-    /// the main plan's projection.
-    var showsFuture = false
     /// A place in a plan to open once (``showPlan(_:at:)``): the plan's
     /// screen takes it when it appears, or at once when it's already open,
     /// and clears it.
@@ -116,10 +144,10 @@ final class AppNavigation {
         }
     }
 
-    /// Closes the full-screen check-in, or leaves the Check-in page for the Overview.
+    /// Closes the full-screen check-in, or leaves the Check-in page for Today.
     func finishCheckIn() {
         isCheckInPresented = false
-        if sidebarSelection == .checkIn { sidebarSelection = .overview }
+        if sidebarSelection == .checkIn { sidebarSelection = .today }
     }
 
     /// Closes the check-in, then goes on with `next`, e.g. to open the plan.
@@ -132,29 +160,47 @@ final class AppNavigation {
         }
     }
 
-    func showOverview() {
-        tab = .overview
-        sidebarSelection = .overview
+    func showToday() {
+        tab = .today
+        todayPath = NavigationPath()
+        sidebarSelection = .today
     }
 
-    /// Shows an account's detail: pushed on the Accounts tab's stack, or
-    /// selected in the sidebar, which expands its group (or *Closed*) so
-    /// the row shows.
+    /// Shows the Timeline at `zoom`; at a year, `year` (`nil`: this one).
+    func showTimeline(_ zoom: TimelineZoom = .year, year: Int? = nil) {
+        timelineZoom = zoom
+        timelineYear = year
+        tab = .timeline
+        sidebarSelection = .timeline
+    }
+
+    /// Shows an account's detail: on iPhone pushed over the accounts on
+    /// Today's stack; in the sidebar selected, which expands its group (or
+    /// *Closed*) so the row shows.
     func showAccount(_ id: AccountID) {
-        tab = .accounts
         switch layout {
-        case .tabs: accountsPath = [id]
-        case .sidebar: sidebarSelection = .account(id)
+        case .tabs:
+            tab = .today
+            var path = NavigationPath()
+            path.append(TodayPage.accounts)
+            path.append(id)
+            todayPath = path
+        case .sidebar:
+            sidebarSelection = .account(id)
         }
     }
 
-    /// Shows the accounts: the Accounts tab at its list; in the sidebar,
-    /// which lists them, `account` when there's one.
-    func showAccounts(selecting account: AccountID?) {
-        tab = .accounts
+    /// Shows the accounts: on iPhone the list, pushed on Today's stack; in
+    /// the sidebar `account` when there's one, else every account.
+    func showAccounts(selecting account: AccountID? = nil) {
         switch layout {
-        case .tabs: accountsPath = []
-        case .sidebar: if let account { sidebarSelection = .account(account) }
+        case .tabs:
+            tab = .today
+            var path = NavigationPath()
+            path.append(TodayPage.accounts)
+            todayPath = path
+        case .sidebar:
+            sidebarSelection = account.map(SidebarItem.account) ?? .accounts
         }
     }
 
@@ -165,11 +211,11 @@ final class AppNavigation {
 
     /// Keeps the sidebar on a place that exists: when the selected account
     /// is no longer in `library` (deleted here or on another device), shows
-    /// the Overview. A closed account stays selected; it's listed under
+    /// every account. A closed account stays selected; it's listed under
     /// *Closed*. The sidebar calls it whenever the library changes.
     func libraryChanged(_ library: Library) {
         if let id = selectedAccount, library.accounts[id] == nil {
-            sidebarSelection = .overview
+            sidebarSelection = .accounts
         }
     }
 
@@ -189,12 +235,6 @@ final class AppNavigation {
     func showSettings() {
         showsSyncInSheet = false
         sheet = .settings
-    }
-
-    /// Shows *Your year*, the year in review.
-    func showYourYear() {
-        showsSyncInSheet = false
-        sheet = .yourYear
     }
 
     func newAccount() {
@@ -229,11 +269,13 @@ final class AppNavigation {
     func show(_ item: SidebarItem) {
         sidebarSelection = item
         switch item {
-        case .overview, .instruments: tab = .overview
+        case .today, .instruments: tab = .today
+        case .timeline: tab = .timeline
         case .sync:
-            tab = .overview
+            tab = .today
             if layout == .tabs { showSyncInSheet() }
         case .checkIn: startCheckIn()
+        case .accounts: showAccounts()
         case .account(let id): showAccount(id)
         case .plan(let id): showPlan(id)
         case .plans: showPlan()

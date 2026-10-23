@@ -35,11 +35,11 @@ struct RetirementAnswerRow<Status: View>: View {
         stack {
             if let percent {
                 ring(figure, percent: percent)
-                    .opacity(dims ? OverviewHeader.dimmedOpacity : 1)
+                    .opacity(dims ? Metrics.dimmedOpacity : 1)
             }
             VStack(alignment: .leading, spacing: Metrics.s) {
                 answerWords(nextToRing: percent != nil)
-                    .opacity(dims ? OverviewHeader.dimmedOpacity : 1)
+                    .opacity(dims ? Metrics.dimmedOpacity : 1)
                 status
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -177,7 +177,7 @@ struct OverviewOnTrackTile: View {
                     Text(OverviewOnTrack.coastLine(coast))
                         .foregroundStyle(Palette.ink)
                         .fixedSize(horizontal: false, vertical: true)
-                        .opacity(dims ? OverviewHeader.dimmedOpacity : 1)
+                        .opacity(dims ? Metrics.dimmedOpacity : 1)
                         .privacySensitiveInFeedback()
                         .accessibilityLabel(OverviewOnTrack.spokenCoastLine(coast))
                 }

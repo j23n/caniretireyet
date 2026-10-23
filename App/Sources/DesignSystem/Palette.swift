@@ -153,4 +153,9 @@ enum Metrics {
     static let barRadius: CGFloat = 4
     /// The largest a readable page gets on a wide window.
     static let readableWidth: CGFloat = 760
+    /// The largest a page of cards side by side gets on a wide window
+    /// (Today on the Mac and iPad).
+    static let wideReadableWidth: CGFloat = 1120
+    /// The opacity of an answer from out-of-date results.
+    static let dimmedOpacity = 0.7
 }

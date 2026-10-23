@@ -117,7 +117,7 @@ final class NoteDelegate: NSObject, UNUserNotificationCenterDelegate, Sendable {
         case NoteScheduler.importAction:
             link = .checkIn
         case NoteScheduler.overviewAction:
-            link = .overview
+            link = .today
         default:
             let raw = response.notification.request.content.userInfo[NoteScheduler.linkKey] as? String
             link = raw.flatMap(GlanceLink.init(rawValue:))

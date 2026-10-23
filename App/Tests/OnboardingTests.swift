@@ -267,7 +267,7 @@ struct OnboardingTests {
         #expect(OnboardingText.retiredSpendingLine(RetirementAnswer(confidence: 0.9), currency: .eur) == nil)
     }
 
-    // MARK: Getting started
+    // MARK: The starting estimates
 
     private func library(pension: Decimal? = 20_000, home: Decimal? = 300_000,
                          mortgage: Decimal? = nil) -> Library {
@@ -275,50 +275,6 @@ struct OnboardingTests {
         StarterSetup.addEstimates(StarterAnswers(cash: 10_000, pension: pension, home: home, mortgage: mortgage),
                                   to: &library, on: "2026-10-15")
         return library
-    }
-
-    @Test func gettingStartedListsTheFirstSteps() {
-        let list = GettingStartedList(library: library(), hasAnswer: true, hasWidget: false, since: "2026-10-15",
-                                      today: "2026-10-15", locale: english)
-        #expect(list.rows.map(\.item) == [.answer, .importFiles, .fillIn, .widget, .checkIn])
-        #expect(list.rows.map(\.isDone) == [true, false, false, false, false])
-        #expect(list.doneCount == 1)
-        #expect(!list.isDone)
-        #expect(list.rows[2].title == "Fill in your home and pension")
-    }
-
-    @Test func fillingInGoesWithoutAHomeOrPensionEstimate() {
-        var library = Library(settings: LibrarySettings())
-        StarterSetup.addEstimates(StarterAnswers(cash: 10_000), to: &library, on: "2026-10-15")
-        let list = GettingStartedList(library: library, hasAnswer: false, hasWidget: false, since: "2026-10-15",
-                                      today: "2026-10-15", locale: english)
-        #expect(list.rows.map(\.item) == [.answer, .importFiles, .widget, .checkIn])
-    }
-
-    @Test func importingAndClosingTheEstimatesTicksThem() {
-        var library = library(home: nil)
-        library.accounts["bank"] = Account(id: "bank", name: "Bank", kind: .cash, currency: .eur, opened: "2026-01-01")
-        library.upsert(Valuation(account: "bank", date: "2026-11-30", balance: 9_000))
-        for estimate in library.openStartingEstimates where estimate.kind == .pensionFund {
-            library.accounts[estimate.id]?.closed = "2026-11-29"
-        }
-        let list = GettingStartedList(library: library, hasAnswer: true, hasWidget: true, since: "2026-10-15",
-                                      today: "2026-12-01", locale: english)
-        #expect(list.rows.map(\.item) == [.answer, .importFiles, .fillIn, .widget, .checkIn])
-        #expect(list.rows[2].title == "Fill in your pension")
-        #expect(list.isDone)
-    }
-
-    /// The mortgage goes with the home: filling in the home waits for both.
-    @Test func theMortgageIsFilledInWithTheHome() throws {
-        var library = library(pension: nil, mortgage: 120_000)
-        let home = try #require(library.openStartingEstimates.first { $0.kind == .property })
-        library.accounts[home.id]?.closed = "2026-11-29"
-        let list = GettingStartedList(library: library, hasAnswer: true, hasWidget: true, since: "2026-10-15",
-                                      today: "2026-10-15", locale: english)
-        let fillIn = try #require(list.rows.first { $0.item == .fillIn })
-        #expect(fillIn.title == "Fill in your home")
-        #expect(!fillIn.isDone)
     }
 
     /// The starter spreadsheet starts from the estimates, the mortgage as

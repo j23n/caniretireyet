@@ -108,7 +108,7 @@ struct OnboardingNotesStep: View {
 
     private func notePreview(_ note: EngagementNote) -> some View {
         HStack(alignment: .top, spacing: Metrics.m) {
-            Image(systemName: AppSymbol.overview)
+            Image(systemName: AppSymbol.today)
                 .font(.title3)
                 .foregroundStyle(.white)
                 .frame(width: 36, height: 36)
@@ -186,7 +186,7 @@ struct OnboardingStartButton: View {
             let settings = NoteSettings(monthly: model.monthlyNote, yourYear: model.yourYearNote)
             Task { await notes.apply(settings) }
         }
-        navigation.showOverview()
+        navigation.showToday()
         navigation.finishesOnboarding = false
     }
 }

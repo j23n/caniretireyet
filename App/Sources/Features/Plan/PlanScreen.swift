@@ -2,24 +2,12 @@ import Model
 import SwiftUI
 
 /// One plan (UI.md, "Plan"): a plan picker (New, Duplicate, Rename, Delete,
-/// Set as main plan, Export Calculations), then Plan, Progress and Trends.
+/// Set as main plan, Export Calculations), then the plan: the answer, your
+/// life as chapters, and *Assumptions…*, what every chapter shares. How
+/// you've been doing is on the Timeline.
 ///
-/// - **Plan**: the answer, your life as a strip of chapters with one graph
-///   running through them, the chosen chapter in words with its settings,
-///   and *Assumptions…*, what every chapter shares.
-/// - **Progress**: whether you're on track, and each year as a card on a
-///   strip that opens at today, with its story below.
-/// - **Trends**: how you've actually been doing over your whole history:
-///   where your money came from, the answer at each check-in, and each year
-///   graded in words; a year opens on Progress.
-///
-/// On iPhone (tabs) a segmented Plan | Progress | Trends, and What-if is a
-/// bottom sheet; on the Mac and iPad (sidebar) the same in the toolbar,
-/// with Trends' grain and span beside it, and What-if in a column beside
-/// the plan.
-///
-/// The plan is calculated only on request: *Calculate* / *Recalculate* in
-/// the results, the toolbar and the Plan menu (⌘R), *Run What-If*.
+/// On iPhone (tabs) What-if is a bottom sheet; on the Mac and iPad
+/// (sidebar) What-if is a column beside the plan.
 ///
 /// Created by the navigation as `PlanScreen(planID:)`; `nil` is the main plan.
 struct PlanScreen: View {
@@ -44,23 +32,6 @@ struct PlanScreen: View {
                 .id(plan.id)
         } else {
             PlanEmptyView()
-        }
-    }
-}
-
-/// The parts of a plan.
-enum PlanPart: String, CaseIterable, Hashable, Identifiable {
-    case plan
-    case progress
-    case trends
-
-    var id: String { rawValue }
-
-    var title: String {
-        switch self {
-        case .plan: "Plan"
-        case .progress: "Progress"
-        case .trends: "Trends"
         }
     }
 }
@@ -107,18 +78,13 @@ struct PlanContentView: View {
     @Environment(\.pageLayout) private var layout
     @Environment(\.locale) private var locale
     @State private var session: PlanSession
-    @State private var part: PlanPart = .plan
-    /// The year Progress opens on, from a row of Trends' *Year by year*.
-    @State private var progressYear: Int?
     @State private var showsInspector = false
     @State private var showsWhatIf = false
     @State private var showsTargetMix = false
     @State private var isRenaming = false
     @State private var isDeleting = false
-    @State private var isSavingBaseline = false
     @State private var calculations: PlanCalculationsExport?
     @State private var newName = ""
-    @State private var baselineLabel = ""
     @State private var message: String?
 
     init(planID: PlanID, library: LibraryStore, plans: PlanStore) {
@@ -135,7 +101,7 @@ struct PlanContentView: View {
 
     /// What if beside the plan (the Mac and iPad): only with the plan, whose
     /// answer it changes.
-    private var showsWhatIfColumn: Bool { showsInspector && part == .plan }
+    private var showsWhatIfColumn: Bool { showsInspector }
 
     var body: some View {
         planLayout
@@ -172,13 +138,6 @@ struct PlanContentView: View {
                 Button("Rename") { rename() }
                 Button("Cancel", role: .cancel) {}
             }
-            .alert("Save baseline", isPresented: $isSavingBaseline) {
-                TextField("Label, e.g. Before going part-time", text: $baselineLabel)
-                Button("Save") { saveBaseline() }
-                Button("Cancel", role: .cancel) {}
-            } message: {
-                Text("A baseline remembers this projection, so you can compare your actual numbers against it later.")
-            }
             .confirmationDialog("Delete “\(name)”?", isPresented: $isDeleting, titleVisibility: .visible) {
                 Button("Delete Plan", role: .destructive) { delete() }
             } message: {
@@ -188,7 +147,6 @@ struct PlanContentView: View {
                 PlanCalculationsSheet(export: export)
             }
             .focusedSceneValue(\.planActions, PlanCommandActions(
-                saveBaseline: { startSavingBaseline() },
                 duplicate: { duplicate() },
                 recalculate: { session.calculate() },
                 exportCalculations: { exportCalculations() }))
@@ -196,11 +154,10 @@ struct PlanContentView: View {
     }
 
     /// Opens where ``AppNavigation/planRoute`` asks, once, when it's for
-    /// this plan: e.g. Progress from the Overview's *On track?*.
+    /// this plan: e.g. What if from a screenshot's launch.
     private func takeRoute() {
         guard let route = navigation.planRoute, planID == route.plan ?? library.settings.mainPlan else { return }
         navigation.planRoute = nil
-        part = route.part
         if route.opensWhatIf {
             if isWide { showsInspector = true } else { showsWhatIf = true }
         }
@@ -218,21 +175,9 @@ struct PlanContentView: View {
         }
     }
 
-    /// iPhone: Plan | Progress | Trends.
+    /// iPhone: the plan, with What if as a sheet.
     private var compactLayout: some View {
         partView
-            .safeAreaInset(edge: .top, spacing: 0) {
-                Picker("Show", selection: $part) {
-                    ForEach(PlanPart.allCases) { part in
-                        Text(part.title).tag(part)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-                .padding(.horizontal, Metrics.l)
-                .padding(.vertical, Metrics.s)
-                .background(Palette.page)
-            }
             .sheet(isPresented: $showsWhatIf) {
                 ScrollView {
                     PlanWhatIfPanel(session: session)
@@ -253,24 +198,14 @@ struct PlanContentView: View {
     /// The part shown. On iPhone *What if…* on the answer opens the
     /// What-if sheet; on the Mac and iPad What if is in the toolbar, and
     /// takes a column beside the plan, which narrows its page.
-    @ViewBuilder
     private var partView: some View {
-        switch part {
-        case .plan:
-            PlanTimelineView(session: session, showsTargetMix: $showsTargetMix,
-                             onWhatIf: openWhatIfSheet, onShowProgress: { part = .progress },
-                             onExport: { exportCalculations() })
-                .environment(\.pageLayout, PageLayout(isWide: isWide, besideWhatIf: showsWhatIfColumn))
-        case .progress:
-            PlanProgressView(session: session, onSaveBaseline: { startSavingBaseline() },
-                             onShowPlan: { part = .plan }, openingYear: $progressYear)
-        case .trends:
-            PlanTrendsView(session: session, onShowYear: showProgress(of:))
-        }
+        PlanTimelineView(session: session, showsTargetMix: $showsTargetMix,
+                         onWhatIf: openWhatIfSheet, onShowProgress: { navigation.showTimeline(.year) },
+                         onExport: { exportCalculations() })
+            .environment(\.pageLayout, PageLayout(isWide: isWide, besideWhatIf: showsWhatIfColumn))
     }
 
-    /// Mac and iPad: Plan | Progress | Trends, with What if in a column
-    /// beside the plan.
+    /// Mac and iPad: the plan, with What if in a column beside it.
     ///
     /// On the Mac the page has a fixed minimum (``FixedMinimumSize``), as
     /// the window's root has: measured through the page, its minimum moved
@@ -296,12 +231,6 @@ struct PlanContentView: View {
         }
     }
 
-    /// Progress, opened on `year`.
-    private func showProgress(of year: Int) {
-        progressYear = year
-        part = .progress
-    }
-
     // MARK: Toolbar
 
     @ToolbarContentBuilder
@@ -310,22 +239,6 @@ struct PlanContentView: View {
             planMenu
         }
         if isWide {
-            ToolbarItem(placement: .principal) {
-                HStack(spacing: Metrics.m) {
-                    Picker("Show", selection: $part) {
-                        ForEach(PlanPart.allCases) { part in
-                            Text(part.title).tag(part)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                    .labelsHidden()
-                    .fixedSize()
-                    if part == .trends, library.library.accountsTurningOffTrends.isEmpty {
-                        PlanTrendsControls()
-                            .fixedSize()
-                    }
-                }
-            }
             ToolbarItemGroup(placement: .primaryAction) {
                 Button {
                     session.calculate()
@@ -336,21 +249,7 @@ struct PlanContentView: View {
                 .help("Calculate the plan with its inputs and your latest data (⌘R)")
                 .disabled(session.isRunning)
                 Button {
-                    startSavingBaseline()
-                } label: {
-                    Label("Save Baseline…", systemImage: "bookmark")
-                }
-                .disabled(!library.canEdit)
-                Button {
-                    withAnimation(.snappy) {
-                        // From Progress or Trends, What if opens with the plan.
-                        if part != .plan {
-                            part = .plan
-                            showsInspector = true
-                        } else {
-                            showsInspector.toggle()
-                        }
-                    }
+                    withAnimation(.snappy) { showsInspector.toggle() }
                 } label: {
                     Label(inspectorTitle, systemImage: "slider.horizontal.3")
                 }
@@ -398,11 +297,6 @@ struct PlanContentView: View {
                     Label("Set as Main Plan", systemImage: "star")
                 }
                 .disabled(library.settings.mainPlan == planID)
-                Button {
-                    startSavingBaseline()
-                } label: {
-                    Label("Save Baseline…", systemImage: "bookmark")
-                }
             }
             .disabled(!library.canEdit)
             // How the answer shown was calculated, above what's behind it.
@@ -490,16 +384,11 @@ struct PlanContentView: View {
                 navigation.showPlan(next.id)
             } else {
                 navigation.selectedPlan = nil
-                if isWide { navigation.showOverview() }
+                if isWide { navigation.showToday() }
             }
         } catch {
             message = LibraryStore.describe(error)
         }
-    }
-
-    private func startSavingBaseline() {
-        baselineLabel = ""
-        isSavingBaseline = true
     }
 
     /// Export Calculations…: every calculation behind this plan's answer,
@@ -508,19 +397,6 @@ struct PlanContentView: View {
         session.saveNow()
         calculations = PlanCalculationsExport.source(session: session, library: library)
             .map(PlanCalculationsExport.init(source:))
-    }
-
-    private func saveBaseline() {
-        let label = baselineLabel
-        Task {
-            do {
-                _ = try await session.saveBaseline(label: label)
-                let trimmed = label.trimmingCharacters(in: .whitespacesAndNewlines)
-                message = trimmed.isEmpty ? "Baseline saved." : "Saved the baseline “\(trimmed)”."
-            } catch {
-                message = LibraryStore.describe(error)
-            }
-        }
     }
 }
 
