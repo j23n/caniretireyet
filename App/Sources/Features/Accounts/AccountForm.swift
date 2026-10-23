@@ -385,9 +385,9 @@ struct AccountForm: Hashable, Sendable {
         account.availableFromAge = availableFromAge
         // A kind that doesn't lose value drops it, so nothing hidden keeps estimating.
         account.depreciation = takesDepreciation ? depreciationShare(locale: locale) : nil
-        // Hidden while plans leave it out: what it had is kept.
-        account.withdrawalTaxRate = takesWithdrawalTaxRate
-            ? withdrawalTaxShare(locale: locale) : original?.withdrawalTaxRate
+        // A debt drops it, as plans never draw on one; hidden while plans leave it out, what it had is kept.
+        account.withdrawalTaxRate = kind.isLiability ? nil
+            : takesWithdrawalTaxRate ? withdrawalTaxShare(locale: locale) : original?.withdrawalTaxRate
         account.values = valuesField
 
         // What the file leaves out follows the kind: true, or false for a tax pot.

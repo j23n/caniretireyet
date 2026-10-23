@@ -1232,8 +1232,8 @@ private struct AccountMoneyInOutRows: View {
     }
 }
 
-/// Kind, institution, country, currency, when plans can draw on it, what it counts in,
-/// dates, where the money went, tags and notes.
+/// Kind, institution, country, currency, when plans can draw on it, its tax on
+/// withdrawals, what it counts in, dates, where the money went, tags and notes.
 private struct AccountInfoRows: View {
     let account: Account
     @Environment(LibraryStore.self) private var library
@@ -1256,7 +1256,7 @@ private struct AccountInfoRows: View {
                 Text(availability)
                     .privacySensitiveInFeedback()
             }
-            if account.includedInPlan, let rate = account.withdrawalTaxRate {
+            if account.includedInPlan, !account.kind.isLiability, let rate = account.withdrawalTaxRate {
                 AccountInfoRow(title: "Tax on withdrawals") {
                     Text(AmountFormat.percent(rate, locale: locale))
                         .privacySensitiveInFeedback()
