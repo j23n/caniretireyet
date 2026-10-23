@@ -218,9 +218,9 @@ struct PreTaxTests {
     }
 
     /// The tax on what paying off debts took from pre-tax money was paid at
-    /// the start, not from the first year's income: the income chart's
-    /// sources still reach that year's spending, and its taxes are the year's own.
-    /// In a part first year, the *Taxes* chart shows it once, not for a whole year.
+    /// the start, not from the first year's income: the income by source
+    /// still reaches that year's spending, and its taxes are the year's own.
+    /// In a part first year, the taxes per year count it once, not for a whole year.
     @Test func theDebtsTaxIsntPaidFromTheFirstYearsIncome() async throws {
         let library = Self.libraryWithDebt(card: 40_000)
         let result = try await Sample.run(Sample.plan(retire: .age(59), endAge: 64, retired: "1000"), library)
@@ -236,11 +236,11 @@ struct PreTaxTests {
         #expect(close(first.spending, 1_000))
         let taxes = segments.first { $0.source == PlanResultsMapping.taxesLabel }
         #expect(close(taxes?.amount, 1_000 / 3.0))
-        // The *Taxes* chart still counts it.
+        // The taxes per year still count it.
         #expect(close(PlanResultsMapping.taxes([first]).first { $0.source == "Tax on withdrawals" }?.amount,
                       first.withdrawalTax))
 
-        // From 2026-09-30, 92 days of 365, the *Taxes* chart shows the year's
+        // From 2026-09-30, 92 days of 365, the taxes per year show the year's
         // own tax on withdrawals for a whole year and the debts' 10,000 once,
         // as paid, not as about 40,000.
         let late = try await Sample.run(Sample.plan(retire: .age(59), endAge: 64, retired: "1000"),
@@ -280,7 +280,7 @@ struct PreTaxTests {
         #expect(results.portfolio.first?.p50 == tracked.doubleValue)
     }
 
-    /// The year's withdrawal tax is one of the chart's taxes, and the chapter
+    /// The year's withdrawal tax is one of the taxes per year, and the chapter
     /// card's average counts it (`totalTax`).
     @Test func theWithdrawalTaxIsOneOfTheTaxes() {
         let year = YearDetail(year: 2040, age: 60, endAssets: 100_000, spending: 30_000, investmentTax: 500,
