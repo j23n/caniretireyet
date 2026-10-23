@@ -193,25 +193,33 @@ public enum PlanResultsMapping {
     /// Taxes per year by tax: on investments, on wealth and on withdrawals
     /// from pre-tax accounts. The largest over all the years takes the first
     /// colour slot.
+    ///
+    /// A part first year shows each tax for a whole year, except the tax on
+    /// what paying off debts took from pre-tax accounts
+    /// (``YearDetail/debtWithdrawalTax``): it's paid once, at the start, so
+    /// it's shown as paid.
     public static func taxes(_ years: [YearDetail]) -> [IncomeSegment] {
         let taxes: [(label: String, amount: KeyPath<YearDetail, Double>)] = [
             ("Tax on investments", \.investmentTax), ("Wealth tax", \.wealthTax),
             ("Tax on withdrawals", \.withdrawalTax),
         ]
+        func shown(_ amount: KeyPath<YearDetail, Double>, _ year: YearDetail) -> Double {
+            let once = amount == \YearDetail.withdrawalTax ? year.debtWithdrawalTax : 0
+            return whole(year[keyPath: amount] - once, year) + once
+        }
         let totals: [Double] = taxes.map { tax in
             years.reduce(0.0) { total, year in
-                let amount = year[keyPath: tax.amount]
-                return amount > 0.5 ? total + whole(amount, year) : total
+                year[keyPath: tax.amount] > 0.5 ? total + shown(tax.amount, year) : total
             }
         }
         let ranked = taxes.indices.filter { totals[$0] > 0 }.sorted { (totals[$0], $1) > (totals[$1], $0) }
         var segments: [IncomeSegment] = []
         for year in years {
             for (slot, index) in ranked.enumerated() {
-                let amount = year[keyPath: taxes[index].amount]
-                guard amount > 0.5, whole(amount, year) > 0.5 else { continue }
+                let amount = shown(taxes[index].amount, year)
+                guard year[keyPath: taxes[index].amount] > 0.5, amount > 0.5 else { continue }
                 segments.append(IncomeSegment(year: year.year, source: taxes[index].label,
-                                              amount: whole(amount, year), color: .series(slot)))
+                                              amount: amount, color: .series(slot)))
             }
         }
         return segments

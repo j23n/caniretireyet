@@ -207,9 +207,9 @@ struct PreTaxTests {
     }
 
     /// A broker with 10,000 of cash, an open IRA at 25%, a fund locked until
-    /// 62 and a credit card owing `card`, for a 59-year-old.
-    private static func libraryWithDebt(card: Decimal) -> Library {
-        Sample.library(birth: "1966-01-01", on: "2025-12-31", [
+    /// 62 and a credit card owing `card`, for someone born in 1966.
+    private static func libraryWithDebt(card: Decimal, on date: CalendarDate = "2025-12-31") -> Library {
+        Sample.library(birth: "1966-01-01", on: date, [
             SampleAccount(id: "broker", mix: [.cash: 1], balance: 10_000),
             SampleAccount(id: "ira", kind: .pensionFund, balance: 100_000, withdrawalTaxRate: d("0.25")),
             SampleAccount(id: "fund", kind: .pensionFund, balance: 50_000, availableFromAge: 62),
@@ -220,6 +220,7 @@ struct PreTaxTests {
     /// The tax on what paying off debts took from pre-tax money was paid at
     /// the start, not from the first year's income: the income chart's
     /// sources still reach that year's spending, and its taxes are the year's own.
+    /// In a part first year, the *Taxes* chart shows it once, not for a whole year.
     @Test func theDebtsTaxIsntPaidFromTheFirstYearsIncome() async throws {
         let library = Self.libraryWithDebt(card: 40_000)
         let result = try await Sample.run(Sample.plan(retire: .age(59), endAge: 64, retired: "1000"), library)
@@ -238,6 +239,27 @@ struct PreTaxTests {
         // The *Taxes* chart still counts it.
         #expect(close(PlanResultsMapping.taxes([first]).first { $0.source == "Tax on withdrawals" }?.amount,
                       first.withdrawalTax))
+
+        // From 2026-09-30, 92 days of 365, the *Taxes* chart shows the year's
+        // own tax on withdrawals for a whole year and the debts' 10,000 once,
+        // as paid, not as about 40,000.
+        let late = try await Sample.run(Sample.plan(retire: .age(59), endAge: 64, retired: "1000"),
+                                        Self.libraryWithDebt(card: 40_000, on: "2026-09-30"))
+        let part = try #require(late.expectedYear(2026))
+        #expect(close(part.fraction, 92 / 365.0))
+        #expect(close(part.debtWithdrawalTax, 10_000))
+        let own = part.withdrawalTax - part.debtWithdrawalTax
+        #expect(own > 0)
+        #expect(close(PlanResultsMapping.taxes([part]).first { $0.source == "Tax on withdrawals" }?.amount,
+                      10_000 + own / part.fraction))
+
+        // The ranking counts it once too: 3,000 of tax on investments in a
+        // quarter is 12,000 for the year, more than the 10,000 of debts' tax.
+        let quarter = YearDetail(year: 2026, age: 60, fraction: 0.25, endAssets: 100_000, spending: 1_000,
+                                 investmentTax: 3_000, withdrawalTax: 10_000, debtWithdrawalTax: 10_000)
+        let ranked = PlanResultsMapping.taxes([quarter])
+        #expect(ranked.map(\.source) == ["Tax on investments", "Tax on withdrawals"])
+        #expect(ranked.map(\.amount) == [12_000, 10_000])
     }
 
     /// A baseline starts from the plan assets as the tracker values them that
