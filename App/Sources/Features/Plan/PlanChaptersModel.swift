@@ -119,10 +119,11 @@ extension PlanChaptersModel {
 
     // MARK: New inputs for a chapter
 
-    /// A work phase from the chapter's first day until retirement.
+    /// A work phase in the chapter until retirement, from
+    /// ``newWorkPhaseStart(in:)``.
     func newWorkPhase(in chapter: PlanChapter) -> WorkPhase {
         var phase = PlanEditing.newWorkPhase(in: plan, asOf: start)
-        phase.from = max(start.adding(days: 1), Self.lastDay(of: chapter.years.lowerBound - 1).adding(days: 1))
+        phase.from = newWorkPhaseStart(in: chapter)
         phase.until = .retirement
         return phase
     }
@@ -160,10 +161,12 @@ extension PlanChaptersModel {
     }
 
     /// A later phase of retirement spending from the middle of a retired
-    /// chapter.
+    /// chapter, or the next age no phase starts at.
     func newSpendingPhase(in chapter: PlanChapter) -> SpendingPhase {
         var phase = PlanEditing.newSpendingPhase(in: plan)
+        let taken = Set(plan.spending.phases.map(\.fromAge))
         phase.fromAge = chapter.ages.lowerBound + chapter.ages.count / 2
+        while taken.contains(phase.fromAge) { phase.fromAge += 1 }
         return phase
     }
 }

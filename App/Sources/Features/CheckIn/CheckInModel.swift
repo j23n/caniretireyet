@@ -47,6 +47,22 @@ enum CheckInWording {
     }
 }
 
+// MARK: - Typed values
+
+extension CheckInSummary {
+    /// The accounts the check-in lists apart, under *Typed by you*: those
+    /// it lists that take typed values (``Model/Account/acceptsTypedValues``),
+    /// whose value no file may update, each with *Update*. By group, then
+    /// name, as the summary orders accounts.
+    func typedAccounts(in library: Library) -> [AccountID] {
+        (updated + notUpdated)
+            .compactMap { library.accounts[$0] }
+            .filter(\.acceptsTypedValues)
+            .sorted { ($0.group, $0.name.lowercased(), $0.id) < ($1.group, $1.name.lowercased(), $1.id) }
+            .map(\.id)
+    }
+}
+
 // MARK: - The answer
 
 /// This month's answer after saving (UI.md, "After saving"): "Not yet. You

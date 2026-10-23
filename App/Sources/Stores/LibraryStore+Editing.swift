@@ -62,8 +62,9 @@ extension LibraryStore {
     /// First launch's records (UI.md, "Empty states and first launch"): the
     /// starting estimates for `answers`, valued on `date`
     /// (`StarterSetup.addEstimates`), and `plan`, if any, as the main plan,
-    /// in one edit written as an import writes, with a backup, so values
-    /// still come only from imports and the edit can be undone. Returns
+    /// in one edit written as an import writes, with a backup, so the edit
+    /// can be undone. Their values can be corrected by hand until they're
+    /// closed (`Account.acceptsTypedValues`). Returns
     /// the estimates' IDs.
     ///
     /// After *Back* from the tour's answer, the same edit first deletes the
@@ -161,6 +162,20 @@ extension LibraryStore {
     }
 
     // MARK: History
+
+    /// The backup label of saving a value typed by hand.
+    static let typedValueBackupLabel = "typed-value"
+
+    /// Saves a balance typed by hand (*Update Value*, *Edit Value*), in
+    /// place of the value at `old` when given (`Library.saveTypedValue(_:replacing:)`),
+    /// with the files it changes backed up first (`typed-value`), and waits
+    /// for the write. Throws ``LibraryEditError/valuesNotTyped(_:)`` for an
+    /// account that doesn't take typed values.
+    func saveTypedValue(_ valuation: Valuation, replacing old: ValuationKey? = nil) async throws {
+        _ = try await commit(backingUpAs: Self.typedValueBackupLabel) { library in
+            try library.saveTypedValue(valuation, replacing: old)
+        }
+    }
 
     /// Removes one value (`Library.removeValuation(_:)`).
     func removeValue(_ key: ValuationKey) throws {
@@ -279,6 +294,22 @@ extension LibraryStore {
 }
 
 extension Library {
+    /// Saves a balance typed by hand for an account that takes typed values
+    /// (``Model/Account/acceptsTypedValues``): it replaces the value at
+    /// `old` (the one being edited) and any value already on its date. A
+    /// date before the account's opening date moves that date back.
+    mutating func saveTypedValue(_ valuation: Valuation, replacing old: ValuationKey? = nil) throws {
+        guard let account = accounts[valuation.account] else {
+            throw LibraryEditError.unknownAccount(valuation.account)
+        }
+        guard account.acceptsTypedValues else { throw LibraryEditError.valuesNotTyped(account.id) }
+        if let old, old != valuation.key { removeValuation(old) }
+        upsert(valuation)
+        if valuation.date < account.opened {
+            accounts[account.id]?.opened = valuation.date
+        }
+    }
+
     /// Whether a valuation's position or a trade refers to `instrument`, so
     /// it can't be deleted.
     func refersTo(instrument: InstrumentID) -> Bool {
@@ -318,12 +349,14 @@ enum LibraryEditError: Error, Equatable, Sendable, LocalizedError {
     case unknownAccount(AccountID)
     case unknownPlan(PlanID)
     case instrumentInUse(InstrumentID)
+    case valuesNotTyped(AccountID)
 
     var errorDescription: String? {
         switch self {
         case .unknownAccount(let id): "There's no account \"\(id)\"."
         case .unknownPlan(let id): "There's no plan \"\(id)\"."
         case .instrumentInUse(let id): "\"\(id)\" is held in an account, so it can't be deleted."
+        case .valuesNotTyped(let id): "\"\(id)\" takes its values from imported files, not typed ones."
         }
     }
 }

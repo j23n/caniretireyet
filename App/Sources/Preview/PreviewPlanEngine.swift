@@ -183,7 +183,7 @@ struct PreviewPlanEngine: PlanEngine {
             runs: request.mode == .fast ? 200 : plan.simulation.effectiveRuns, engine: version, headline: headline,
             successByAge: curve, portfolio: fan, markers: markers, income: income, taxes: taxes, spending: spendingLine,
             start: BaselineStart(date: today, value: start.total), accounts: accounts, years: years,
-            details: details, currency: library.settings.baseCurrency)
+            details: details, currency: library.settings.baseCurrency, latestCheckIn: library.latestCheckInDate)
     }
 
     private static func rounded(_ value: Double) -> Decimal {

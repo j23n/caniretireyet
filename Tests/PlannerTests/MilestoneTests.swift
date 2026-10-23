@@ -251,6 +251,30 @@ struct MilestoneTests {
         #expect(abs(share.progress - 0.93) < 1e-9)
     }
 
+    @Test func aMilestoneReachedBeforeIsntNextAgain() throws {
+        // 10 years of spending was reached, then plan assets fell below it.
+        let ladder = MilestoneLadder(spending: 36_000)
+        let next = try #require(ladder.next(after: 340_000, excluding: ["years-10"]))
+        #expect(next.milestone.id == "round-400000")
+        #expect(abs(next.progress - 340.0 / 400.0) < 1e-9)
+    }
+
+    @Test func planMilestonesSkipThoseReached() throws {
+        let library = try Fixtures.exampleLibrary()
+        let plan = try #require(library.plans["base"])
+        let valuator = Valuator(library: library)
+        let first = try #require(PlanMilestones(plan: plan, library: library, valuator: valuator,
+                                                asOf: "2026-09-30", results: nil).next)
+        // Reached once before, and plan assets fell below it since.
+        let reached = [ReachedMilestone(milestone: first.milestone, date: "2025-09-30")]
+        let milestones = PlanMilestones(plan: plan, library: library, valuator: valuator, asOf: "2026-09-30",
+                                        results: nil, reached: reached)
+        let next = try #require(milestones.next)
+        #expect(next.milestone.id != first.milestone.id)
+        #expect(next.milestone.amount >= first.milestone.amount)
+        #expect(!milestones.ahead.contains { $0.id == first.milestone.id })
+    }
+
     @Test func aShareTodaysReadinessMeetsIsBehindNotNext() throws {
         // At exactly 25%, retiring today needs 646.022 and a quarter of it
         // rounds to 161.506, above today's 161.505,60: it's reached all the

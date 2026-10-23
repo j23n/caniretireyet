@@ -1,12 +1,12 @@
+import Glance
 import Model
 import Planner
 import SwiftUI
 
 /// Trends' *Year by year* (UI.md, "Trends"): a row per calendar year, newest
 /// first, graded in words on what you control (*You saved*, *You spent*)
-/// and what markets did, never as a letter or a score. On the Mac and iPad
-/// a table with the amounts each word compares under it; on iPhone the
-/// words alone. A row opens its year on Progress.
+/// and what markets did, never as a letter or a score, with the amounts
+/// each word compares under it. A row opens its year on Progress.
 struct PlanYearGradesTable: View {
     let years: [PlanProgressYear]
     let onShowYear: (Int) -> Void
@@ -15,14 +15,20 @@ struct PlanYearGradesTable: View {
     @Environment(\.pageLayout) private var layout
     @Environment(\.locale) private var locale
 
-    /// The Mac and iPad: the amounts under the words.
+    /// The Mac and iPad: the amounts in full, on a line. On iPhone they're
+    /// short (`20,5K €`), a line each, in a smaller font, so they fit its
+    /// narrow columns.
     private var isWide: Bool { layout.isWide }
 
     private var yearWidth: CGFloat { isWide ? 84 : 56 }
 
+    private var columnSpacing: CGFloat { isWide ? Metrics.m : Metrics.s }
+
+    private var amountsFont: Font { isWide ? PlanProgressFont.caption : .caption2 }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            PlanYearColumns(yearWidth: yearWidth) {
+            PlanYearColumns(yearWidth: yearWidth, spacing: columnSpacing) {
                 Color.clear.frame(height: 0)
                 header("You saved")
                 header("You spent")
@@ -55,7 +61,7 @@ struct PlanYearGradesTable: View {
     }
 
     private func row(_ grade: PlanProgressYear) -> some View {
-        PlanYearColumns(yearWidth: yearWidth) {
+        PlanYearColumns(yearWidth: yearWidth, spacing: columnSpacing) {
             VStack(alignment: .leading, spacing: 1) {
                 Text(String(grade.year))
                     .font(PlanProgressFont.text.weight(.semibold))
@@ -82,50 +88,61 @@ struct PlanYearGradesTable: View {
         }
     }
 
-    /// A grade, "—" without one; on the Mac and iPad the amounts it
-    /// compares under it, which hide with the eye.
-    private func cell(_ words: String?, amounts: AmountSentence?) -> some View {
+    /// A grade, "—" without one, and the amounts it compares under it,
+    /// which hide with the eye: joined by " · " on the Mac and iPad, a line
+    /// each on iPhone.
+    private func cell(_ words: String?, amounts: [AmountSentence]) -> some View {
         VStack(alignment: .leading, spacing: 1) {
             Text(words ?? PlanProgressYear.ungraded)
                 .font(PlanProgressFont.text)
                 .foregroundStyle(words == nil ? Palette.secondaryInk : Palette.ink)
                 .fixedSize(horizontal: false, vertical: true)
                 .privacySensitiveInFeedback()
-            if isWide, let amounts {
-                AmountSentenceText(amounts)
-                    .font(PlanProgressFont.caption)
+            if !amounts.isEmpty {
+                AmountSentenceText(amounts.joined(separator: isWide ? " · " : "\n"))
+                    .font(amountsFont)
                     .foregroundStyle(Palette.secondaryInk)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
     }
 
-    private func amount(_ value: Decimal) -> AmountSentence {
-        .amount(AmountFormat.amount(value, currency: library.baseCurrency, locale: locale))
+    /// `20.486 €` on the Mac and iPad, `20,5K €` on iPhone.
+    private func amount(_ value: Decimal, signed: Bool = false) -> AmountSentence {
+        let currency = library.baseCurrency
+        if !isWide {
+            return .amount(ShortAmount.text(value, currency: currency, locale: locale, thousands: true,
+                                            signed: signed))
+        }
+        return .amount(signed
+            ? AmountFormat.signedAmount(value, currency: currency, locale: locale)
+            : AmountFormat.amount(value, currency: currency, locale: locale))
     }
 
-    /// "20.486 € · planned 13.463 €", "… by now" for the year still going.
-    private func savedAmounts(_ grade: PlanProgressYear) -> AmountSentence {
-        guard let planned = grade.plannedSaving else { return amount(grade.saved) }
-        let byNow = grade.isSoFar ? " by now" : ""
-        return "\(amount(grade.saved)) · planned \(amount(planned))\(byNow)"
+    /// "20.486 €", "planned 13.463 €", "… by now" for the year still going
+    /// on the Mac and iPad; on iPhone the year's "so far" says it.
+    private func savedAmounts(_ grade: PlanProgressYear) -> [AmountSentence] {
+        guard let planned = grade.plannedSaving else { return [amount(grade.saved)] }
+        let byNow = grade.isSoFar && isWide ? " by now" : ""
+        return [amount(grade.saved), "planned \(amount(planned))\(byNow)"]
     }
 
-    /// "31.600 € a year · planned 36.000 €"; `nil` without money in and out recorded.
-    private func spentAmounts(_ grade: PlanProgressYear) -> AmountSentence? {
-        guard let spent = grade.spentPerYear else { return nil }
-        guard let planned = grade.plannedSpending else { return "\(amount(spent)) a year" }
-        return "\(amount(spent)) a year · planned \(amount(planned))"
+    /// "31.600 € a year", "planned 36.000 €"; none without money in and out recorded.
+    private func spentAmounts(_ grade: PlanProgressYear) -> [AmountSentence] {
+        guard let spent = grade.spentPerYear else { return [] }
+        // On iPhone "a year" wraps as one, under the amount.
+        let aYear = isWide ? "a year" : "a\u{00A0}year"
+        let perYear: AmountSentence = "\(amount(spent)) \(aYear)"
+        guard let planned = grade.plannedSpending else { return [perYear] }
+        return [perYear, "planned \(amount(planned))"]
     }
 
-    /// "+12.400 € · +9%": what markets added, and its share of what you had going in.
-    private func marketAmounts(_ grade: PlanProgressYear) -> AmountSentence? {
-        guard grade.marketYear != nil else { return nil }
+    /// "+12.400 €", "+9%": what markets added, and its share of what you had going in.
+    private func marketAmounts(_ grade: PlanProgressYear) -> [AmountSentence] {
+        guard grade.marketYear != nil else { return [] }
         let markets = grade.change.market
-        let added = AmountSentence.amount(AmountFormat.signedAmount(markets, currency: library.baseCurrency,
-                                                                    locale: locale))
         let share = AmountFormat.percent(markets / grade.change.start, digits: 0, signed: true, locale: locale)
-        return "\(added) · \(share)"
+        return [amount(markets, signed: true), AmountSentence(share)]
     }
 }
 

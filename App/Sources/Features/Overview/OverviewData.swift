@@ -94,7 +94,7 @@ enum OverviewYearText {
 // MARK: - Can I retire yet?
 
 /// The main plan's answer in the Overview's header (UI.md, "Can I retire
-/// yet?"): the headline, what its ⓘ says, and what VoiceOver reads.
+/// yet?"): the headline, the line under it, and what VoiceOver reads.
 struct OverviewAnswerText {
     var headline: RetirementAnswer
     /// When the earliest age is reached: the headline's date, or for an
@@ -140,25 +140,16 @@ struct OverviewAnswerText {
     }
 
     /// The line under the headline in the *Can I retire yet?* tile: when
-    /// ("At 54 · March 2042"; "March 2042" when the headline is "At 54";
+    /// ("Age 54 · March 2042"; "March 2042" when the headline is "At 54";
     /// "Today" when you could retire today, "No age works" when none does).
     /// `nil` when the headline already says all of it.
     var whenLine: String? {
         if headline.canRetireNow { return "Today" }
         guard let age = headline.earliestAge else { return "No age works" }
         var parts: [String] = []
-        if countdown != nil { parts.append("At \(age)") }
+        if countdown != nil { parts.append("Age \(age)") }
         if let earliestDate { parts.append(GlanceText.monthAndYear(earliestDate, locale: locale)) }
         return parts.isEmpty ? nil : parts.joined(separator: " · ")
-    }
-
-    /// How sure, under ``whenLine``: "in 9 of 10 futures", "in at least 9 of
-    /// 10 futures" when you could retire today, "in 9 of 10 futures yet"
-    /// when no age works out.
-    var futuresLine: String {
-        let futures = GlanceText.futures(headline.confidence)
-        if headline.canRetireNow { return "in at least \(futures) futures" }
-        return headline.earliestAge == nil ? "in \(futures) futures yet" : "in \(futures) futures"
     }
 
     /// What the headline and the ring say to VoiceOver: "Not yet. In about
@@ -177,21 +168,6 @@ struct OverviewAnswerText {
             text += " \(readiness)."
         }
         return text
-    }
-
-    /// The ⓘ's paragraphs: when and how sure, the readiness and what it
-    /// compares, that the results are out of date, and the disclaimer.
-    func explanation(isOutOfDate: Bool) -> [String] {
-        var paragraphs = [when + "."]
-        if let readiness = PlanResultsText.readiness(headline, locale: locale) {
-            paragraphs.append(readiness + ". "
-                + PlanResultsText.readinessExplanation(confidence: headline.confidence, locale: locale))
-        }
-        if isOutOfDate {
-            paragraphs.append("Calculated before your latest changes.")
-        }
-        paragraphs.append(AboutText.disclaimer)
-        return paragraphs
     }
 }
 
@@ -212,8 +188,10 @@ struct OverviewOnTrack {
     /// and when you could retire today.
     var coastAge: Int?
 
-    /// - Parameter results: the main plan's latest results, for the coast
-    ///   age; without them, the one the latest check-in recorded.
+    /// - Parameter results: the results the coast age comes from (the main
+    ///   plan's latest on the Overview, the results shown on the plan);
+    ///   without them, or without a coast age in them, the one the latest
+    ///   check-in recorded.
     init(plan: PlanDocument, library: Library, valuator: Valuator, asOf: CalendarDate, results: PlanResults?,
          canRetireNow: Bool, locale: Locale = .current) {
         let onTrack = PlanOnTrack(plan: plan, library: library, valuator: valuator, asOf: asOf, results: results,
@@ -283,7 +261,9 @@ enum OverviewAttention {
             } else {
                 items.append(OverviewAttentionItem(
                     id: "stale.\(stale.account)", systemImage: "clock.badge.exclamationmark",
-                    title: "\(name): no value yet", detail: "Import a file with its values",
+                    title: "\(name): no value yet",
+                    detail: library.accounts[stale.account]?.acceptsTypedValues == true
+                        ? "Update its value" : "Import a file with its values",
                     target: .account(stale.account)))
             }
         }

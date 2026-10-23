@@ -4,10 +4,12 @@ import Planner
 import SwiftUI
 
 /// The way from your first record to the day you could retire, as a line
-/// with the milestones on it (UI.md, "Your way there"): solid up to today
-/// with the milestones reached as dots, dashed after it with those ahead as
-/// rings where the plan's median future typically reaches them, the next
-/// one larger and named, and a flag at your last Monday.
+/// with the milestones on it (UI.md, "Your way to retirement"): solid up
+/// to today with the milestones reached as dots, dashed after it with those
+/// ahead as rings where the plan's median future typically reaches them,
+/// the next one larger and named, the reached one the card shows larger and
+/// ringed, and a flag at your last Monday. Its ends
+/// are labeled with their years ("2018", "2031").
 struct MilestoneTrack: View {
     let start: CalendarDate
     let today: CalendarDate
@@ -18,8 +20,13 @@ struct MilestoneTrack: View {
     let ahead: [ProjectedMilestone]
     /// The next milestone and when it's typically reached.
     let next: (id: String, name: AmountSentence, date: CalendarDate)?
+    /// The id of the milestone reached that the card shows under the line,
+    /// drawn larger and ringed.
+    var shown: String?
 
     @Environment(\.locale) private var locale
+    /// The labels above the line, measured, so they can be kept apart.
+    @State private var labelWidths = MilestoneTrackLabels.Widths()
 
     private static let height: CGFloat = 122
     private static let lineY: CGFloat = 60
@@ -45,6 +52,11 @@ struct MilestoneTrack: View {
     private var end: CalendarDate {
         let last = ahead.last?.date ?? today.adding(years: 10)
         return max(retirement ?? last, today.adding(months: 6))
+    }
+
+    /// The milestones ahead that the line has room for: those by its end.
+    var drawnAhead: [ProjectedMilestone] {
+        ahead.filter { $0.date <= end }
     }
 
     private func x(_ date: CalendarDate, width: CGFloat) -> CGFloat {
@@ -73,7 +85,14 @@ struct MilestoneTrack: View {
         for milestone in reached {
             dot(in: &context, at: CGPoint(x: x(milestone.date, width: width), y: y), radius: 4.5, filled: true)
         }
-        for milestone in ahead where milestone.date <= end {
+        // The one shown last, over the dots beside it.
+        if let milestone = reached.last(where: { $0.id == shown }) {
+            let point = CGPoint(x: x(milestone.date, width: width), y: y)
+            dot(in: &context, at: point, radius: 6.5, filled: true)
+            let ring = CGRect(x: point.x - 10, y: point.y - 10, width: 20, height: 20)
+            context.stroke(Path(ellipseIn: ring), with: .color(Palette.accent), lineWidth: 1.5)
+        }
+        for milestone in drawnAhead {
             let isNext = milestone.id == next?.id
             dot(in: &context, at: CGPoint(x: x(milestone.date, width: width), y: y), radius: isNext ? 6.5 : 4.5,
                 filled: false)
@@ -117,21 +136,28 @@ struct MilestoneTrack: View {
     private func labels(width: CGFloat) -> some View {
         let now = x(today, width: width)
         let right = x(end, width: width)
+        let row = MilestoneTrackLabels(width: width, start: Self.inset, now: now,
+                                       flag: retirement == nil ? nil : right,
+                                       hasReached: !reached.isEmpty, widths: labelWidths)
         if !reached.isEmpty {
+            // Both forms are laid out, so both are measured; one is shown.
             caption(Wording.count(reached.count, "milestone") + " reached")
-                .position(x: max((Self.inset + now) / 2, 44), y: 24)
+                .measuringWidth($labelWidths.reached)
+                .position(x: (row.reached ?? 0) + labelWidths.reached / 2, y: 24)
+                .opacity(row.reached != nil && !row.reachedIsShort ? 1 : 0)
+            caption("\(reached.count) reached")
+                .measuringWidth($labelWidths.reachedShort)
+                .position(x: (row.reached ?? 0) + labelWidths.reachedShort / 2, y: 24)
+                .opacity(row.reached != nil && row.reachedIsShort ? 1 : 0)
         }
-        Text("Today")
-            .font(.caption.weight(.semibold))
-            .foregroundStyle(Palette.ink)
-            .fixedSize()
-            .position(x: min(max(now + 22, 22), width - 90), y: 24)
+        mark("Today")
+            .measuringWidth($labelWidths.today)
+            .position(x: row.today + labelWidths.today / 2, y: 24)
         if retirement != nil {
-            Text("Last Monday")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(Palette.ink)
-                .fixedSize()
-                .position(x: right - 38, y: 24)
+            mark("Last Monday")
+                .measuringWidth($labelWidths.lastMonday)
+                .position(x: (row.lastMonday ?? 0) + labelWidths.lastMonday / 2, y: 24)
+                .opacity(row.lastMonday == nil ? 0 : 1)
         }
         if let next {
             let nx = min(max(x(next.date, width: width), 70), width - 70)
@@ -144,12 +170,20 @@ struct MilestoneTrack: View {
             .fixedSize()
             .position(x: nx, y: 100)
         }
-        caption(yearLabel(start))
-            .position(x: Self.inset + 12, y: 100)
+        caption(String(start.year))
+            .position(x: Self.inset + 14, y: 100)
             .opacity(next.map { x($0.date, width: width) < 110 } == true ? 0 : 1)
         caption(String(end.year))
             .position(x: right - 14, y: 100)
             .opacity(next.map { x($0.date, width: width) > width - 110 } == true ? 0 : 1)
+    }
+
+    /// "Today" and "Last Monday" above the line.
+    private func mark(_ text: LocalizedStringKey) -> some View {
+        Text(text)
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(Palette.ink)
+            .fixedSize()
     }
 
     private func caption(_ text: String) -> some View {
@@ -157,11 +191,6 @@ struct MilestoneTrack: View {
             .font(.caption)
             .foregroundStyle(Palette.secondaryInk)
             .fixedSize()
-    }
-
-    /// "’21", short, as the line's start.
-    private func yearLabel(_ date: CalendarDate) -> String {
-        "\u{2019}" + String(format: "%02d", date.year % 100)
     }
 
     /// "Your milestones from October 2021 to your last Monday in 2042: 7

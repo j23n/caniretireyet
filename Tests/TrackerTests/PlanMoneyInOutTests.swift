@@ -97,14 +97,16 @@ struct PlanMoneyInOutTests {
 
     // MARK: The rate axis
 
-    /// A month of what came in and was spent, as the series counts it.
-    private func period(_ month: YearMonth, moneyIn: Decimal, spent: Decimal,
+    /// A month of what came in and was spent, as the series counts it, its
+    /// values covering the `covering` months that end with it.
+    private func period(_ month: YearMonth, moneyIn: Decimal, spent: Decimal, covering: Int = 1,
                         lastTwelveMonths: SavingsRate? = nil) -> MoneyInOutPeriod {
-        let money = MoneyInOutSummary(from: month.firstDay, through: month.lastDay, currency: .eur, moneyIn: moneyIn,
-                                      months: [month], measuredFrom: month.firstDay.adding(days: -1),
+        let first = month.adding(months: 1 - covering).firstDay
+        let money = MoneyInOutSummary(from: first, through: month.lastDay, currency: .eur, moneyIn: moneyIn,
+                                      months: [month], measuredFrom: first.adding(days: -1),
                                       lastCounted: month.lastDay)
         return MoneyInOutPeriod(from: month.firstDay, through: month.lastDay,
-                                savings: SavingsRate(moneyInOut: money, from: month.firstDay.adding(days: -1),
+                                savings: SavingsRate(moneyInOut: money, from: first.adding(days: -1),
                                                      through: month.lastDay, savedByAccount: ["bank": moneyIn - spent]),
                                 lastTwelveMonths: lastTwelveMonths)
     }
@@ -121,34 +123,216 @@ struct PlanMoneyInOutTests {
         values.map { Int(($0 * 100).rounded()) }
     }
 
-    @Test func theRateAxisFitsBarsWithinAHundredPercent() {
-        // July saves 30%, August 5 € in and 2.000 € spent: −39.900%.
+    @Test func theRateAxisFitsBarsAroundTheTypicalRate() {
+        // July saves 30%, August 25%, September 5 € in and 2.000 € spent: −39.900%.
         let money = series([period("2026-07", moneyIn: 3_000, spent: 2_100),
-                            period("2026-08", moneyIn: 5, spent: 2_000)])
+                            period("2026-08", moneyIn: 4_000, spent: 3_000),
+                            period("2026-09", moneyIn: 5, spent: 2_000)])
+        // Typically 25%, give or take 50 points, and 50 points below zero.
+        #expect(money.rateAxisBands.allSatisfy { $0 == -0.5...0.75 })
         let values = money.rateAxisValues(planRate: Decimal(string: "0.1"))
-        #expect(percents(values) == [30, -100, 10])
-        #expect(values.min() == -PlanMoneyInOut.rateAxisLimit)
+        #expect(percents(values) == [30, 25, -50, 10])
+        #expect(money.cutsRates(planRate: Decimal(string: "0.1")))
         // The bar is drawn to the axis's edge.
-        #expect(PlanMoneyInOut.clampedRate(-399, to: -105...35) == -105)
-        #expect(PlanMoneyInOut.clampedRate(30, to: -105...35) == 30)
+        let domain = money.rateScale(planRate: Decimal(string: "0.1")).domain
+        #expect(domain.lowerBound > -60)
+        #expect(PlanMoneyInOut.clamped(-39_900, to: domain) == domain.lowerBound)
+        #expect(PlanMoneyInOut.clamped(30, to: domain) == 30)
     }
 
-    @Test func theRateAxisAlwaysFitsTheLineAndThePlansRate() {
-        // A rate over the last 12 months below −100%, and a plan that spends more than its pay.
-        let rolling = SavingsRate(
-            moneyInOut: MoneyInOutSummary(from: "2025-10-01", through: "2026-09-30", currency: .eur, moneyIn: 1_000,
-                                          months: ["2026-09"], measuredFrom: "2025-09-30"),
-            from: "2025-09-30", through: "2026-09-30", savedByAccount: ["bank": -2_000])
-        let money = series([period("2026-09", moneyIn: 3_000, spent: 2_100, lastTwelveMonths: rolling)])
-        #expect(percents(money.rateAxisValues(planRate: Decimal(string: "-1.5"))) == [30, -200, -150])
-        #expect(percents(money.rateAxisValues(planRate: nil)) == [30, -200])
+    @Test func theRateAxisKeepsRatesThatVaryTogether() {
+        // A rate that swings from −40% to 70% month to month isn't cut.
+        let money = series([period("2026-05", moneyIn: 3_000, spent: 4_200),
+                            period("2026-06", moneyIn: 3_000, spent: 900),
+                            period("2026-07", moneyIn: 3_000, spent: 2_100),
+                            period("2026-08", moneyIn: 3_000, spent: 3_300)])
+        #expect(percents(money.rateAxisValues(planRate: nil)) == [-40, 70, 30, -10])
+        #expect(!money.cutsRates(planRate: nil))
     }
 
-    @Test func theHiddenAxisIsInMultiplesOfTheAverageCameIn() throws {
-        let money = self.money()
-        let base = try #require(money.relativeBase)
-        let average = money.counted.reduce(0.0) { $0 + $1.cameIn.doubleValue } / Double(money.counted.count)
-        #expect(abs(base - average) < 0.001)
+    // MARK: The 12-month line
+
+    /// 12 months ending on `through` with what came in and what was spent.
+    private func twelveMonths(through: CalendarDate, moneyIn: Decimal, spent: Decimal) -> SavingsRate {
+        let from = through.adding(years: -1)
+        let money = MoneyInOutSummary(from: from.adding(days: 1), through: through, currency: .eur,
+                                      moneyIn: moneyIn, months: [through.yearMonth], measuredFrom: from)
+        return SavingsRate(moneyInOut: money, from: from, through: through,
+                           savedByAccount: ["bank": moneyIn - spent])
+    }
+
+    @Test func theLineBreaksWhereTwelveMonthsHaveNoRate() {
+        // August's 12 months had nothing come in: no rate there. September's
+        // is far below its bar, but stands on its own.
+        let money = series([
+            period("2026-06", moneyIn: 3_000, spent: 2_100,
+                   lastTwelveMonths: twelveMonths(through: "2026-06-30", moneyIn: 30_000, spent: 24_000)),
+            period("2026-07", moneyIn: 3_000, spent: 2_100,
+                   lastTwelveMonths: twelveMonths(through: "2026-07-31", moneyIn: 27_000, spent: 24_000)),
+            period("2026-08", moneyIn: 0, spent: 2_000,
+                   lastTwelveMonths: twelveMonths(through: "2026-08-31", moneyIn: 0, spent: 24_000)),
+            period("2026-09", moneyIn: 3_000, spent: 2_100,
+                   lastTwelveMonths: twelveMonths(through: "2026-09-30", moneyIn: 3_000, spent: 24_000)),
+        ])
+        #expect(money.lastTwelveMonthsRuns.map { $0.map(\.from) }
+            == [["2026-06-01", "2026-07-01"], ["2026-09-01"]])
+        #expect(money.hasLastTwelveMonths)
+    }
+
+    @Test func theLineStartsAtTheTwelfthMonth() {
+        let money = series([
+            period("2026-08", moneyIn: 3_000, spent: 2_100),
+            period("2026-09", moneyIn: 3_000, spent: 2_100,
+                   lastTwelveMonths: twelveMonths(through: "2026-09-30", moneyIn: 30_000, spent: 24_000)),
+        ])
+        #expect(money.lastTwelveMonthsRuns.map { $0.map(\.from) } == [["2026-09-01"]])
+        #expect(series([period("2026-09", moneyIn: 3_000, spent: 2_100)]).lastTwelveMonthsRuns.isEmpty)
+    }
+
+    @Test func aMonthWithSpendingButNothingInHasNoBar() {
+        let empty = MoneyInOutPeriod(from: "2026-07-01", through: "2026-07-31", savings: nil)
+        let money = series([empty,
+                            period("2026-08", moneyIn: 0, spent: 2_000),
+                            period("2026-09", moneyIn: 3_000, spent: 2_100)])
+        // July has nothing counted, so nothing to show; August spent with nothing in.
+        #expect(money.countedWithoutRate.map(\.from) == ["2026-08-01"])
+        #expect(self.money().countedWithoutRate.isEmpty)
+    }
+
+    @Test func aPeriodWithoutARateSaysWhy() {
+        func savings(moneyIn: Decimal, taxes: Decimal = 0, pension: Decimal = 0) -> SavingsRate {
+            let money = MoneyInOutSummary(from: "2026-08-01", through: "2026-08-31", currency: .eur,
+                                          moneyIn: moneyIn, taxes: taxes, months: ["2026-08"],
+                                          measuredFrom: "2026-07-31")
+            return SavingsRate(moneyInOut: money, from: "2026-07-31", through: "2026-08-31",
+                               pensionContributions: pension, savedByAccount: ["bank": -2_000])
+        }
+        #expect(savings(moneyIn: 0).noRate == .nothingCameIn)
+        #expect(savings(moneyIn: -500).noRate == .lessThanNothingCameIn)
+        // Pension contributions count as came in.
+        #expect(savings(moneyIn: -500, pension: 400).noRate == .lessThanNothingCameIn)
+        #expect(savings(moneyIn: -500, pension: 500).noRate == .nothingCameIn)
+        #expect(savings(moneyIn: 3_000, taxes: 4_000).noRate == .moreTaxThanCameIn)
+        #expect(savings(moneyIn: 0, taxes: 100).noRate == .moreTaxThanCameIn)
+        #expect(savings(moneyIn: 3_000, taxes: 3_000).noRate == .moreTaxThanCameIn)
+        // With a rate, no reason.
+        #expect(savings(moneyIn: 3_000, taxes: 1_000).noRate == nil)
+        #expect(MoneyInOutPeriod(from: "2026-08-01", through: "2026-08-31", savings: nil).noRate == nil)
+    }
+
+    @Test func theRateAxisKeepsTheLineToTheBarsBandButAlwaysFitsThePlansRate() {
+        // Over the 12 months ending in September 1.000 € came in and 3.300 € was spent:
+        // −230%. August had nothing in, so no bar; what it spent pulls its 12 months to −150%.
+        // And a plan that spends more than its pay.
+        func rolling(through: CalendarDate, saved: Decimal) -> SavingsRate {
+            SavingsRate(moneyInOut: MoneyInOutSummary(from: through.adding(years: -1).adding(days: 1),
+                                                      through: through, currency: .eur, moneyIn: 1_000,
+                                                      months: [through.yearMonth],
+                                                      measuredFrom: through.adding(years: -1)),
+                        from: through.adding(years: -1), through: through, savedByAccount: ["bank": saved])
+        }
+        let money = series([
+            period("2026-07", moneyIn: 4_000, spent: 3_000),
+            period("2026-08", moneyIn: 0, spent: 2_000,
+                   lastTwelveMonths: rolling(through: "2026-08-31", saved: -1_500)),
+            period("2026-09", moneyIn: 4_000, spent: 3_000,
+                   lastTwelveMonths: rolling(through: "2026-09-30", saved: -2_300)),
+        ])
+        // Typically 25%, give or take 50 points; August takes July's band.
+        #expect(money.rateAxisBands == [-0.5...0.75, -0.5...0.75, -0.5...0.75])
+        #expect(percents(money.rateAxisValues(planRate: Decimal(string: "-1.5"))) == [25, 25, -50, -50, -150])
+        #expect(percents(money.rateAxisValues(planRate: nil)) == [25, 25, -50, -50])
+        #expect(money.cutsRates(planRate: nil))
+        // The plan's rate is in view, and the line beyond it still cut.
+        let domain = money.rateScale(planRate: Decimal(string: "-1.5")).domain
+        #expect(domain.contains(-150))
+        #expect(money.cutsRates(planRate: Decimal(string: "-1.5")))
+        // Without a rate anywhere, nothing is kept.
+        let none = series([period("2026-08", moneyIn: 0, spent: 2_000,
+                                  lastTwelveMonths: rolling(through: "2026-08-31", saved: -1_500))])
+        #expect(none.rateAxisBands == [nil])
+        #expect(percents(none.rateAxisValues(planRate: nil)) == [-150])
+    }
+
+    /// A month for each of `amounts`, what came in and what was spent, from January 2025.
+    private func months(_ amounts: [(moneyIn: Decimal, spent: Decimal)]) -> PlanMoneyInOut {
+        let january: YearMonth = "2025-01"
+        return series(amounts.enumerated().map { index, amount in
+            period(january.adding(months: index), moneyIn: amount.moneyIn, spent: amount.spent)
+        })
+    }
+
+    @Test func oneLargeMonthDoesNotStretchTheAmountAxis() {
+        // 4.000 € in and 2.800 € spent a month; in June an inheritance of 100.000 €, in
+        // September a car for 40.000 €.
+        var amounts = [(moneyIn: Decimal, spent: Decimal)](repeating: (4_000, 2_800), count: 12)
+        amounts[5] = (104_000, 2_800)
+        amounts[8] = (4_000, 40_000)
+        let money = months(amounts)
+        // Typically 4.000 € came in: the axis fits 2.5 times that either side of zero.
+        #expect(money.amountAxisLimits.allSatisfy { $0 == 10_000 })
+        let values = money.amountAxisValues(planSpending: 3_000)
+        #expect(values.max() == 10_000)
+        #expect(values.min() == -10_000)
+        // The plan's spending is always in view.
+        #expect(values.last == 3_000)
+        #expect(money.amountScale(planSpending: 3_000).domain.upperBound < 12_000)
+        #expect(money.cutsAmounts(planSpending: 3_000))
+        // Without them nothing is cut, and the axis fits the values themselves.
+        let usual = months([(moneyIn: Decimal, spent: Decimal)](repeating: (4_000, 2_800), count: 12))
+        #expect(!usual.cutsAmounts(planSpending: 3_000))
+        #expect(usual.amountAxisValues(planSpending: nil).max() == 4_000)
+    }
+
+    @Test func thePlansSpendingIsNeverCut() {
+        let money = months([(moneyIn: Decimal, spent: Decimal)](repeating: (4_000, 2_800), count: 3))
+        let values = money.amountAxisValues(planSpending: 50_000)
+        #expect(values.max() == 50_000)
+        #expect(money.amountScale(planSpending: 50_000).domain.contains(50_000))
+    }
+
+    @Test func theAmountAxisFollowsWhatsTypicalAroundEachMonth() {
+        // A year at 2.000 € in, then a year at 6.000 €; in the first month a bonus of 9.000 €.
+        var amounts = [(moneyIn: Decimal, spent: Decimal)](repeating: (2_000, 1_500), count: 12)
+            + [(moneyIn: Decimal, spent: Decimal)](repeating: (6_000, 4_500), count: 12)
+        amounts[0] = (9_000, 1_500)
+        let money = months(amounts)
+        let limits = money.amountAxisLimits
+        #expect(limits.first == 5_000)
+        #expect(limits.last == 15_000)
+        // The bonus and what it saved are kept to the first year's limit, so the axis
+        // fits the second year's months and the bonus is cut.
+        let values = money.amountAxisValues(planSpending: nil)
+        #expect(Array(values.prefix(3)) == [5_000, 1_500, 5_000])
+        #expect(values.max() == 6_000)
+        #expect(money.cutsAmounts(planSpending: nil))
+    }
+
+    @Test func aPeriodThatHoldsMoreIsComparedWithAsManyTypicalMonths() throws {
+        // 4.000 € in and 2.800 € spent a month through June, then a check-in each quarter:
+        // September and December each hold three months' money.
+        let january: YearMonth = "2025-01"
+        let money = series((0..<6).map { period(january.adding(months: $0), moneyIn: 4_000, spent: 2_800) }
+            + [period("2025-09", moneyIn: 12_000, spent: 8_400, covering: 3),
+               period("2025-12", moneyIn: 12_000, spent: 8_400, covering: 3)])
+        let december = try #require(money.counted.last)
+        #expect(money.coversMore(december))
+        #expect(abs(money.length(of: december) - 3) < 0.05)
+        #expect(money.length(of: money.counted[0]) == 1)
+        // Typically 4.000 € came in a month: a month fits 10.000 €, a quarter three times that.
+        let limits = money.amountAxisLimits
+        #expect(limits.first == 10_000)
+        #expect(abs((limits.last.flatMap { $0 } ?? 0) - 30_000) < 500)
+        #expect(!money.cutsAmounts(planSpending: nil))
+    }
+
+    @Test func theHiddenAxisIsInMultiplesOfTheMedianCameIn() throws {
+        // Twelve months of 4.000 € and one with an inheritance of 100.000 €.
+        var amounts = [(moneyIn: Decimal, spent: Decimal)](repeating: (4_000, 2_800), count: 13)
+        amounts[6] = (104_000, 2_800)
+        #expect(months(amounts).relativeBase == 4_000)
+        // Nothing came in: no base.
+        #expect(months([(moneyIn: 0, spent: 2_000)]).relativeBase == nil)
     }
 
     // MARK: Your last 12 months

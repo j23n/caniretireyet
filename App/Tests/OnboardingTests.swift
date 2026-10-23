@@ -33,7 +33,7 @@ struct OnboardingTests {
         let model = AppModel.preview(Library(settings: LibrarySettings()), defaults: "onboarding-back-tests")
         let tour = model.onboarding
         tour.currency = model.library.library.settings.baseCurrency
-        tour.birthDate = tour.pickedBirthDate
+        tour.age = 40
         tour.answers.cash = 10_000
         tour.answers.spendingPerMonth = 2_000
         tour.step = .later
@@ -48,7 +48,7 @@ struct OnboardingTests {
         tour.step = .later
         tour.answers.cash = 25_000
         tour.answers.investments = 5_000
-        tour.birthDate = Calendar.current.date(byAdding: .year, value: -1, to: tour.pickedBirthDate)
+        tour.age = 41
         tour.currency = tour.currency == "USD" ? "EUR" : "USD"
         await tour.seeAnswer(library: model.library, plans: model.plans, navigation: model.navigation,
                              preferences: model.preferences)
@@ -73,7 +73,7 @@ struct OnboardingTests {
         let model = AppModel.preview(Library(settings: LibrarySettings()), defaults: "onboarding-import-tests")
         let tour = model.onboarding
         tour.currency = model.library.library.settings.baseCurrency
-        tour.birthDate = tour.pickedBirthDate
+        tour.age = 40
         tour.answers.cash = 10_000
         tour.answers.spendingPerMonth = 2_000
         tour.step = .later
@@ -102,15 +102,30 @@ struct OnboardingTests {
         #expect(OnboardingStep.notes.number == 6)
     }
 
-    /// The answer is an age, so *About you* doesn't go on without a birth
-    /// date; the picker's suggestion doesn't count until it's chosen.
+    /// The answer is an age, so *About you* doesn't go on without one;
+    /// the picker starts unset.
     @MainActor
-    @Test func aboutYouWaitsForABirthDate() {
+    @Test func aboutYouWaitsForAnAge() {
         let model = OnboardingModel(locale: english)
         model.step = .you
+        #expect(model.age == nil)
         #expect(!model.canContinue)
-        model.birthDate = model.pickedBirthDate
+        model.age = 40
         #expect(model.canContinue)
+        #expect(model.currentAge == 40)
+    }
+
+    /// The age chosen is saved as a birth date half a year past the last
+    /// birthday, so it gives back the same age.
+    @Test func anAgeBecomesABirthDate() {
+        for today: CalendarDate in ["2026-10-17", "2026-08-31", "2028-02-29", "2026-01-01"] {
+            for age in [18, 40, 100] {
+                let birth = YouSettings.birthDate(forAge: age, today: today)
+                #expect(birth.wholeYears(to: today) == age)
+                #expect(birth.wholeYears(to: today.adding(months: 5)) == age)
+            }
+        }
+        #expect(YouSettings.birthDate(forAge: 40, today: "2026-10-17") == "1986-04-17")
     }
 
     @MainActor
@@ -183,7 +198,7 @@ struct OnboardingTests {
     @MainActor
     @Test func stoppingWorkDropsPayAndRetiresToday() {
         let model = OnboardingModel(locale: english)
-        model.birthDate = CalendarDate("1956-03-01").dateValue
+        model.age = 70
         model.answers.payPerMonth = 3_000
         model.answers.spendingPerMonth = 2_500
         model.answers.retiredSpendingPerMonth = 2_000

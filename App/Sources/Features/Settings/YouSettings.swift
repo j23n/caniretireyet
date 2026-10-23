@@ -24,6 +24,13 @@ enum YouSettings {
         setting(name: name, in: settings) != settings
     }
 
+    /// The birth date saved for an age chosen without one: half a year
+    /// past the last birthday, so you're `age` today and the age is right on
+    /// average until the exact date is set in Settings.
+    static func birthDate(forAge age: Int, today: CalendarDate = .today()) -> CalendarDate {
+        today.adding(years: -age).adding(months: -6)
+    }
+
     /// Where the birth date picker starts when no birth date is set. It's
     /// only shown; nothing is saved until a date is picked.
     static func suggestedBirthDate(today: CalendarDate = .today()) -> CalendarDate {

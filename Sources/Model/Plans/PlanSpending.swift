@@ -28,10 +28,16 @@ public struct PlanSpending: Hashable, Sendable, KnownKeysProviding {
         flexible.flatMap { $0.isEnabled ? $0 : nil }
     }
 
-    /// The factor in force at `age`: the latest phase starting at or before
-    /// it, or 1 before the first phase.
+    /// The index of the phase in force at `age`: the latest one starting at
+    /// or before it, or `nil` before the first phase.
+    public func phaseIndex(atAge age: Int) -> Int? {
+        phases.indices.filter { phases[$0].fromAge <= age }.max { phases[$0].fromAge < phases[$1].fromAge }
+    }
+
+    /// The factor in force at `age`: the phase's at ``phaseIndex(atAge:)``,
+    /// or 1 before the first phase.
     public func factor(atAge age: Int) -> Decimal {
-        phases.filter { $0.fromAge <= age }.max { $0.fromAge < $1.fromAge }?.factor ?? 1
+        phaseIndex(atAge: age).map { phases[$0].factor } ?? 1
     }
 }
 

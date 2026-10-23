@@ -49,8 +49,12 @@ public struct MoneyInOutPeriod: Hashable, Sendable {
     /// (``SavingsRate/spent``).
     public var spent: Decimal { savings?.spent ?? 0 }
 
-    /// The savings rate; `nil` when nothing came in.
+    /// The savings rate; `nil` when nothing came in after tax.
     public var rate: Decimal? { savings?.rate }
+
+    /// Why a period with money in and out has no savings rate
+    /// (``SavingsRate/noRate``); `nil` when it has one or none was counted.
+    public var noRate: SavingsRate.NoRate? { savings?.noRate }
 
     /// The days the pay counted in the period covers: from the day after
     /// the valuation the values of the account the most came into are

@@ -93,8 +93,9 @@ public struct StarterAnswers: Hashable, Sendable {
 /// - **The plan.** Pay and spending a month (`setMonthly`), the age to
 ///   retire at, the state pension and the tax rate.
 public enum StarterSetup {
-    /// The tag that marks an account as a starting estimate.
-    public static let estimateTag = "estimate"
+    /// The tag that marks an account as a starting estimate
+    /// (``Model/Account/startingEstimateTag``).
+    public static let estimateTag = Account.startingEstimateTag
 
     /// The state pension's name in a plan, and on the plan's cards.
     public static let statePensionName = "State pension"
@@ -215,12 +216,6 @@ public enum StarterSetup {
 }
 
 extension Account {
-    /// Whether first launch made it from a round amount
-    /// (``StarterSetup/estimateTag``).
-    public var isStartingEstimate: Bool {
-        tags.contains(StarterSetup.estimateTag)
-    }
-
     /// The kinds of real accounts that replace this starting estimate:
     /// current and savings accounts replace cash and savings; investment
     /// accounts the investments; pension funds and TFR the pension;

@@ -86,6 +86,17 @@ extension AccountKind {
         self == .brokerage || self == .crypto || self == .metals
     }
 
+    /// Whether a balance account of this kind can have its values typed by
+    /// hand (``Account/offersTypedValues``): every kind but current
+    /// accounts, credit cards and tax pots, whose money in and out, the
+    /// ground of Trends, comes only from their statements. Savings and
+    /// investments can be typed, which turns Trends off
+    /// (``Account/typedValuesTurnOffTrends``).
+    public var takesTypedValues: Bool {
+        [.savings, .brokerage, .crypto, .metals, .pensionFund, .tfr, .property, .belongings, .loan, .mortgage, .other]
+            .contains(self)
+    }
+
     /// Whether a drop in what the account owes is principal repaid: loans
     /// and mortgages, whose payments are money out of the account they
     /// leave. A credit card's drop isn't: it's paying for what was spent.
@@ -120,6 +131,20 @@ public struct ValuationMode: OpenEnum {
     public static let trades: ValuationMode = "trades"
 
     public static let knownValues: [ValuationMode] = [.balance, .trades]
+}
+
+/// Where an account's values come from (`values` in its file).
+public struct ValueEntry: OpenEnum {
+    public let rawValue: String
+    public init(rawValue: String) { self.rawValue = rawValue }
+
+    /// From imported files: statements, exports and spreadsheets. The default.
+    public static let imported: ValueEntry = "imported"
+    /// Typed by hand, a balance on a date. Only an account that
+    /// ``Account/offersTypedValues`` takes it; others read it as imported.
+    public static let typed: ValueEntry = "typed"
+
+    public static let knownValues: [ValueEntry] = [.imported, .typed]
 }
 
 /// How a valuation's `saved` is worked out, by account kind.

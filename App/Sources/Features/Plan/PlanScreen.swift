@@ -320,7 +320,7 @@ struct PlanContentView: View {
                     .pickerStyle(.segmented)
                     .labelsHidden()
                     .fixedSize()
-                    if part == .trends {
+                    if part == .trends, library.library.accountsTurningOffTrends.isEmpty {
                         PlanTrendsControls()
                             .fixedSize()
                     }

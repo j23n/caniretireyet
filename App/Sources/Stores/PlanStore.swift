@@ -371,8 +371,8 @@ final class PlanStore {
 
     /// `plan`'s years, answers and milestones reached (the Planner's
     /// `PlanProgress`) for `document`, worked out once for each state of
-    /// the library and the plan and shared by *Your way there*, *Your year*
-    /// and the widgets' snapshot: it reads every check-in.
+    /// the library and the plan and shared by *Your way to retirement*,
+    /// *Your year* and the widgets' snapshot: it reads every check-in.
     func planProgress(of plan: PlanID, document: PlanDocument) -> PlanProgress {
         progressMemo.progress(of: plan, plan: document, library: library)
     }
@@ -380,17 +380,27 @@ final class PlanStore {
     /// The main plan's latest answer itself (``mainAnswer``).
     var mainHeadline: RetirementAnswer? { mainAnswer?.answer }
 
-    /// `plan`'s latest answer: its results, unless a check-in recorded a
-    /// newer answer since they start, else its last recorded headline
-    /// (`LatestAnswer`).
+    /// `plan`'s latest answer: its results, unless they're out of date with
+    /// the library and a check-in they didn't see recorded its answer, else
+    /// its last recorded headline (`LatestAnswer`).
     func latestAnswer(of plan: PlanID) -> LatestAnswer? {
-        LatestAnswer(plan: plan, library: library.library, results: results(of: plan))
+        LatestAnswer(plan: plan, library: library.library, results: results(of: plan),
+                     upToDate: resultsSeeLibrary(of: plan))
     }
 
-    /// The plan's latest results, unless a check-in recorded a newer answer
-    /// since the date they start from (`LatestAnswer.latestResults`).
+    /// The plan's latest results, unless they're out of date with the
+    /// library and a check-in after the latest one they saw recorded an
+    /// answer (`LatestAnswer.latestResults`).
     func latestResults(of plan: PlanID) -> PlanResults? {
-        LatestAnswer.latestResults(results(of: plan), recorded: library.library.headlines(for: plan))
+        LatestAnswer.latestResults(results(of: plan), recorded: library.library.headlines(for: plan),
+                                   upToDate: resultsSeeLibrary(of: plan))
+    }
+
+    /// Whether `plan`'s results were calculated from the library as it is
+    /// now (no `.library` among their ``staleReasons(of:_:plan:)``), so they
+    /// saw every check-in it holds.
+    private func resultsSeeLibrary(of plan: PlanID) -> Bool {
+        !staleReasons(of: plan).contains(.library)
     }
 
     /// The headlines recorded at check-ins for `plan`, oldest first.

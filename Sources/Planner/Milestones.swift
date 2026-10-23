@@ -29,6 +29,11 @@ public struct Milestone: Hashable, Sendable, Identifiable {
     /// assets at the check-in that reached it.
     public var amount: Decimal
 
+    public init(kind: Kind, amount: Decimal) {
+        self.kind = kind
+        self.amount = amount
+    }
+
     /// The same at every check-in: "round-300000", "years-10", "share-1-2", "crossover".
     public var id: String {
         switch kind {
@@ -64,6 +69,11 @@ public struct ReachedMilestone: Hashable, Sendable, Identifiable {
     /// The day that reached it: a check-in, or the end of a month without
     /// one, valued from what you held and its prices.
     public var date: CalendarDate
+
+    public init(milestone: Milestone, date: CalendarDate) {
+        self.milestone = milestone
+        self.date = date
+    }
 
     public var id: String { milestone.id }
 }
@@ -272,11 +282,14 @@ public struct MilestoneLadder: Hashable, Sendable {
     ///   - current: today's plan assets.
     ///   - readiness: today's readiness, for the shares of what retiring
     ///     today needs (as in ``ahead(of:readiness:median:)``).
-    public func next(after current: Decimal, readiness: Decimal? = nil) -> NextMilestone? {
+    ///   - reached: the IDs of milestones already reached, which plan assets
+    ///     may have fallen below since: passing one again isn't a milestone.
+    public func next(after current: Decimal, readiness: Decimal? = nil,
+                     excluding reached: Set<String> = []) -> NextMilestone? {
         let ladder = matching(current: current, readiness: readiness)
         let upper = max(current, 0) * 2 + Self.roundFloor
         guard let milestone = ladder.milestones(in: current...upper)
-            .first(where: { Self.isAhead($0, of: current, readiness: readiness) }) else {
+            .first(where: { !reached.contains($0.id) && Self.isAhead($0, of: current, readiness: readiness) }) else {
             return nil
         }
         let progress: Double

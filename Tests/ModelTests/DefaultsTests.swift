@@ -17,6 +17,68 @@ struct AccountDefaultsTests {
         #expect(bank.isClosed)
     }
 
+    /// Values come from imports unless the file says `typed`, and every
+    /// balance account takes it but current accounts, credit cards and tax
+    /// pots.
+    @Test func typedValuesForBalanceAccountsButCurrentCardsAndTaxPots() {
+        let importOnly: [AccountKind] = [.cash, .creditCard, .taxPot]
+        for kind in AccountKind.knownValues {
+            var typed = account(kind)
+            typed.valuation = .balance
+            typed.values = .typed
+            #expect(account(kind).effectiveValues == .imported)
+            #expect(!account(kind).acceptsTypedValues)
+            #expect(typed.offersTypedValues == !importOnly.contains(kind), "\(kind)")
+            #expect(typed.acceptsTypedValues == !importOnly.contains(kind), "\(kind)")
+            let turnsOffTrends = kind == .savings || kind.isInvestment
+            #expect(typed.typedValuesTurnOffTrends == turnsOffTrends, "\(kind)")
+            var outOfNetWorth = typed
+            outOfNetWorth.includeIn = IncludeIn(netWorth: false)
+            #expect(!outOfNetWorth.typedValuesTurnOffTrends, "\(kind)")
+        }
+        // A kind this version doesn't know stays import-only.
+        var unknown = account(AccountKind(rawValue: "boat"))
+        unknown.values = .typed
+        #expect(!unknown.acceptsTypedValues)
+        // An eligible kind that records trades doesn't take them.
+        var trades = account(.brokerage)
+        trades.values = .typed
+        #expect(!trades.offersTypedValues)
+        #expect(!trades.acceptsTypedValues)
+        // Switched back, the values are imported again.
+        var pension = account(.pensionFund)
+        pension.values = .imported
+        #expect(!pension.acceptsTypedValues)
+    }
+
+    /// A starting estimate takes typed values, whatever its kind, until it's
+    /// closed.
+    @Test func openStartingEstimatesTakeTypedValues() {
+        var estimate = account(.savings)
+        estimate.tags = [Account.startingEstimateTag]
+        #expect(estimate.isStartingEstimate)
+        #expect(estimate.acceptsTypedValues)
+        var typed = estimate
+        typed.values = .typed
+        #expect(!typed.typedValuesTurnOffTrends)
+        estimate.closed = "2025-01-31"
+        #expect(!estimate.acceptsTypedValues)
+    }
+
+    @Test func valuesRoundTripAndStayOutWhenUnset() throws {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = .sortedKeys
+        let json = #"{"currency":"EUR","id":"a","kind":"property","name":"A","opened":"2024-01-01","values":"typed"}"#
+        let decoded = try JSONDecoder().decode(Account.self, from: Data(json.utf8))
+        #expect(decoded.values == .typed)
+        #expect(String(decoding: try encoder.encode(decoded), as: UTF8.self) == json)
+        let plain = String(decoding: try encoder.encode(account(.property)), as: UTF8.self)
+        #expect(!plain.contains("values"))
+        let newer = #"{"currency":"EUR","id":"a","kind":"property","name":"A","opened":"2024-01-01","values":"synced"}"#
+        let unknown = try JSONDecoder().decode(Account.self, from: Data(newer.utf8))
+        #expect(unknown.values?.rawValue == "synced")
+        #expect(!unknown.acceptsTypedValues)
+    }
 }
 
 /// What an instrument of each kind usually is: what the importer proposes

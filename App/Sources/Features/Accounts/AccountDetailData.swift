@@ -209,6 +209,34 @@ struct AccountDetailData: Hashable, Sendable {
             + "accounts."
     }
 
+    /// Whether a balance can be typed for the account (*Update Value…*):
+    /// it takes typed values (``Model/Account/acceptsTypedValues``) and is
+    /// open.
+    var offersUpdateValue: Bool { account.acceptsTypedValues && !account.isClosed }
+
+    /// Whether `row` can be changed in *Edit Value*: a value typed by hand,
+    /// of an account that takes typed values. Imported values are read-only.
+    func isEditable(_ row: AccountValuationRow) -> Bool {
+        TypedValueForm.canEdit(row.valuation, of: account)
+    }
+
+    /// Where the values come from, under them: "Values come from your
+    /// imports.", or with typed values "Values come from your imports and
+    /// from Update Value."
+    var valuesSource: String {
+        account.acceptsTypedValues
+            ? "Values come from your imports and from Update Value." : "Values come from your imports."
+    }
+
+    /// What the values list says without any: import a file, or for an
+    /// account that takes typed values, also type one.
+    var noValuesText: String {
+        account.acceptsTypedValues
+            ? "No values yet. Update the value, or import a file for this account."
+            : "No values yet. Import a file for this account: a bank statement, a broker's export, or a "
+                + "spreadsheet you keep for it."
+    }
+
     /// The page's sections between the chart and the details, in order:
     /// the same on iPhone and the Mac.
     var sections: [AccountDetailSection] {
