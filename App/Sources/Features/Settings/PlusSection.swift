@@ -10,13 +10,17 @@ struct PlusSection: View {
 
     var body: some View {
         Section {
-            LabeledContent("Plus", value: Self.status(plus.access))
-                // On a row that stays, not on the section, whose modifiers
-                // go to each row. Its own sheet: on iPhone and iPad Settings
-                // is a sheet itself, and on the Mac a window of its own.
-                .sheet(isPresented: $showsPaywall) {
-                    PlusPaywall()
-                }
+            LabeledContent("Plus") {
+                // The person's own subscription dates.
+                Text(Self.status(plus.access))
+                    .privacySensitiveInFeedback()
+            }
+            // On a row that stays, not on the section, whose modifiers go
+            // to each row. Its own sheet: on iPhone and iPad Settings is a
+            // sheet itself, and on the Mac a window of its own.
+            .sheet(isPresented: $showsPaywall) {
+                PlusPaywall()
+            }
             if !plus.hasPlus {
                 Button("Get Plus…") { showsPaywall = true }
             }
