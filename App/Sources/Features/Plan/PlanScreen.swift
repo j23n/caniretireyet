@@ -21,6 +21,11 @@ import SwiftUI
 /// The plan is calculated only on request: *Calculate* / *Recalculate* in
 /// the results, the toolbar and the Plan menu (⌘R), *Run What-If*.
 ///
+/// *New Plan* and *Duplicate*, What if, *Save Baseline…* and *Export
+/// Calculations…* come with Plus; without it they open the paywall
+/// (``PlusStore/unlock(_:then:)``, UI.md "Plus"). Every plan stays open to
+/// read, edit and calculate.
+///
 /// Created by the navigation as `PlanScreen(planID:)`; `nil` is the main plan.
 struct PlanScreen: View {
     let planID: PlanID?
@@ -104,6 +109,7 @@ struct PlanContentView: View {
 
     @Environment(LibraryStore.self) private var library
     @Environment(AppNavigation.self) private var navigation
+    @Environment(PlusStore.self) private var plus
     @Environment(\.pageLayout) private var layout
     @Environment(\.locale) private var locale
     @State private var session: PlanSession
@@ -202,7 +208,9 @@ struct PlanContentView: View {
         navigation.planRoute = nil
         part = route.part
         if route.opensWhatIf {
-            if isWide { showsInspector = true } else { showsWhatIf = true }
+            plus.unlock(.whatIf) {
+                if isWide { showsInspector = true } else { showsWhatIf = true }
+            }
         }
         if route.opensTargetMix { showsTargetMix = true }
     }
@@ -244,10 +252,10 @@ struct PlanContentView: View {
             }
     }
 
-    /// Opens the What-if sheet, on iPhone; `nil` on the Mac and iPad.
+    /// Opens the What-if sheet, on iPhone, with Plus; `nil` on the Mac and iPad.
     private var openWhatIfSheet: (() -> Void)? {
         guard !isWide else { return nil }
-        return { showsWhatIf = true }
+        return { plus.unlock(.whatIf) { showsWhatIf = true } }
     }
 
     /// The part shown. On iPhone *What if…* on the answer opens the
@@ -342,13 +350,15 @@ struct PlanContentView: View {
                 }
                 .disabled(!library.canEdit)
                 Button {
-                    withAnimation(.snappy) {
+                    if showsWhatIfColumn {
+                        withAnimation(.snappy) { showsInspector = false }
+                    } else {
                         // From Progress or Trends, What if opens with the plan.
-                        if part != .plan {
-                            part = .plan
-                            showsInspector = true
-                        } else {
-                            showsInspector.toggle()
+                        plus.unlock(.whatIf) {
+                            withAnimation(.snappy) {
+                                part = .plan
+                                showsInspector = true
+                            }
                         }
                     }
                 } label: {
@@ -444,7 +454,12 @@ struct PlanContentView: View {
 
     // MARK: Actions
 
+    /// *New Plan*: a second plan, and every one after it, comes with Plus.
     private func newPlan() {
+        plus.unlock(.morePlans) { createPlan() }
+    }
+
+    private func createPlan() {
         let name = PlanEditing.uniqueName("New plan", among: library.library.plans.values)
         let plan = PlanEditing.newPlan(id: library.newPlanID(for: name), name: name, library: library.library,
                                        asOf: library.asOfDate)
@@ -456,7 +471,12 @@ struct PlanContentView: View {
         }
     }
 
+    /// *Duplicate*: another plan, so it comes with Plus.
     private func duplicate() {
+        plus.unlock(.morePlans) { duplicatePlan() }
+    }
+
+    private func duplicatePlan() {
         session.saveNow()
         do {
             let copy = try library.duplicatePlan(planID)
@@ -497,17 +517,24 @@ struct PlanContentView: View {
         }
     }
 
+    /// *Save Baseline…*, with Plus. The yearly baselines check-ins save
+    /// for the main plan don't need it.
     private func startSavingBaseline() {
-        baselineLabel = ""
-        isSavingBaseline = true
+        plus.unlock(.baselines) {
+            baselineLabel = ""
+            isSavingBaseline = true
+        }
     }
 
     /// Export Calculations…: every calculation behind this plan's answer,
-    /// with its what-if, as a Markdown file. Pending edits are saved first.
+    /// with its what-if, as a Markdown file, with Plus. Pending edits are
+    /// saved first.
     private func exportCalculations() {
-        session.saveNow()
-        calculations = PlanCalculationsExport.source(session: session, library: library)
-            .map(PlanCalculationsExport.init(source:))
+        plus.unlock(.exportCalculations) {
+            session.saveNow()
+            calculations = PlanCalculationsExport.source(session: session, library: library)
+                .map(PlanCalculationsExport.init(source:))
+        }
     }
 
     private func saveBaseline() {

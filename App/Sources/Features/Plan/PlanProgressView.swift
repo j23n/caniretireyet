@@ -22,6 +22,7 @@ struct PlanProgressView: View {
     var openingYear: Binding<Int?> = .constant(nil)
 
     @Environment(LibraryStore.self) private var library
+    @Environment(PlusStore.self) private var plus
     @Environment(\.pageLayout) private var layout
     @Environment(\.redactionReasons) private var redactionReasons
     @Environment(\.hidesPersonalData) private var hidesPersonalData
@@ -361,8 +362,14 @@ struct PlanProgressView: View {
     /// first day; `nil` when the library or the plan can't take one.
     private var addPastBaseline: ((Int) -> Void)? {
         guard library.canEdit, session.plan != nil else { return nil }
-        return { year in
-            pastBaselineDay = CalendarDate.firstDay(ofYear: year)
+        return { year in startAddingPastBaseline(on: CalendarDate.firstDay(ofYear: year)) }
+    }
+
+    /// *Add Past Baseline…*, with Plus, on `day` or, for `nil`, the end of
+    /// the first month.
+    private func startAddingPastBaseline(on day: CalendarDate?) {
+        plus.unlock(.baselines) {
+            pastBaselineDay = day
             showsPastBaseline = true
         }
     }
@@ -414,8 +421,7 @@ struct PlanProgressView: View {
                 .foregroundStyle(Palette.secondaryInk)
                 .fixedSize(horizontal: false, vertical: true)
             Button("Add a Past Baseline…") {
-                pastBaselineDay = nil
-                showsPastBaseline = true
+                startAddingPastBaseline(on: nil)
             }
             .buttonStyle(.borderless)
             .font(PlanProgressFont.caption)
