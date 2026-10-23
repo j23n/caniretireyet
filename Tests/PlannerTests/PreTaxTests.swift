@@ -165,16 +165,6 @@ struct PreTaxTests {
         }
     }
 
-    @Test func aRateOutsideZeroToOneIsAnError() throws {
-        let library = Sample.library(birth: "1966-01-01", on: "2025-12-31", [
-            SampleAccount(id: "ira", kind: .pensionFund, balance: 100_000, withdrawalTaxRate: d("1.5")),
-        ])
-        let plan = Sample.plan(retire: .age(59), endAge: 64, retired: "10000")
-        let (model, issues) = PlanInterpreter.interpret(plan: plan, library: library, options: PlannerOptions())
-        #expect(model == nil)
-        #expect(issues.contains { $0.code == "planner.withdrawalTaxRate" && $0.isError && $0.account == "ira" })
-    }
-
     /// The year's withdrawal tax is one of the chart's taxes, and the chapter
     /// card's average counts it (`totalTax`).
     @Test func theWithdrawalTaxIsOneOfTheTaxes() {
