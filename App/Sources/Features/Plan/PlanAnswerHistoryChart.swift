@@ -152,11 +152,6 @@ struct PlanAnswerHistoryChart: View {
                     .font(.caption2)
                     .foregroundStyle(Palette.secondaryInk)
             }
-            if let readiness = point.readiness?.doubleValue {
-                Text(AmountFormat.percent(Readiness.shown(readiness), digits: 0) + " of what retiring today needed")
-                    .font(.caption2)
-                    .foregroundStyle(Palette.secondaryInk)
-            }
             if let marker = history.markers.first(where: { $0.date == point.date }) {
                 Text(marker.label)
                     .font(.caption2)

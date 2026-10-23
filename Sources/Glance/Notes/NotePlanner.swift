@@ -143,7 +143,7 @@ private struct Words {
         "Import \(monthName(month))'s files, then calculate your plan to see when you could retire."
     }
 
-    /// "You could retire at 54, 2 years sooner than in January, and you're 58% ready."
+    /// "You could retire at 54, 2 years sooner than in January."
     func answerSentence(_ answer: RetirementAnswer) -> String {
         var clauses: [String] = []
         if answer.canRetireNow {
@@ -154,11 +154,7 @@ private struct Words {
         } else {
             clauses.append("No retirement age works yet \(GlanceText.inFutures(answer.confidence))")
         }
-        var sentence = clauses.joined(separator: ", ")
-        if let figure = answer.readinessFigure.text(percent: { "\(Int(($0 * 100).rounded()))%" }) {
-            sentence += ", and you're \(figure == "<5%" ? "under 5%" : figure) ready"
-        }
-        return sentence + "."
+        return clauses.joined(separator: ", ") + "."
     }
 
     /// "2 years sooner than in January", "as in September": against the
@@ -200,19 +196,10 @@ private struct Words {
         return "\(name) is \(Int((milestone.progress * 100 + 1e-9).rounded(.down)))% there."
     }
 
-    /// "At your August check-in you could retire at 54 and were 58% ready."
+    /// "At your August check-in you could retire at 54."
     func lastCheckInSentence() -> String? {
-        guard let month = lastCheckInMonth, let point = journey.latest else { return nil }
-        var sentence = "At your \(monthName(month)) check-in "
-        if let age = point.earliestAge {
-            sentence += "you could retire at \(age)"
-            if let percent = point.readinessPercent { sentence += " and were \(percent)% ready" }
-        } else if let percent = point.readinessPercent {
-            sentence += "you were \(percent)% ready"
-        } else {
-            return nil
-        }
-        return sentence + "."
+        guard let month = lastCheckInMonth, let point = journey.latest, let age = point.earliestAge else { return nil }
+        return "At your \(monthName(month)) check-in you could retire at \(age)."
     }
 
     // MARK: Yearly
@@ -275,9 +262,6 @@ private struct Words {
            let from = start.earliestAge, let to = latest.earliestAge {
             var sentence = "Since \(monthAndYear(start.date)) the age you could retire at "
             sentence += from == to ? "stayed at \(to)" : "went from \(from) to \(to)"
-            if let fromPercent = start.readinessPercent, let toPercent = latest.readinessPercent {
-                sentence += ", and you went from \(fromPercent)% to \(toPercent)% of what retiring today needs"
-            }
             body = sentence + "."
         } else {
             body = "Your first record was in \(monthAndYear(first)). Every check-in since is part of the way there."

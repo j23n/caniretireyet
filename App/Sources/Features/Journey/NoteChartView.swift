@@ -26,9 +26,6 @@ struct NoteChartView: View {
                 }
                 AgeStepChart(points: points)
             }
-            if let readiness = snapshot.retirement?.answer.readiness.map(Readiness.shown) {
-                ShareBar(title: "Ready to retire today", share: readiness)
-            }
             if let milestone = snapshot.milestone, milestone.progress >= NotePlanner.milestoneShare,
                milestone.progress < 1 {
                 ShareBar(title: GlanceText.milestoneName(milestone) { _ in nil }, share: milestone.progress,

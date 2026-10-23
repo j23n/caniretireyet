@@ -4,7 +4,7 @@ import Planner
 import Testing
 @testable import CanIRetireYet
 
-/// First launch's order and words, *Getting started* on Today, and
+/// First launch's order and words, the starting estimates it leaves, and
 /// the answer after an import (UI.md, "Empty states and first launch",
 /// "Today", "Import").
 struct OnboardingTests {

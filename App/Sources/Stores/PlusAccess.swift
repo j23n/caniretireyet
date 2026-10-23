@@ -75,8 +75,6 @@ enum PlusFeature: String, Identifiable, Sendable {
     case morePlans
     /// The plan's levers, and *Save as Plan…* from them.
     case whatIf
-    /// *Save Baseline…* and *Add a Past Baseline…*.
-    case baselines
     /// *Export Calculations…*.
     case exportCalculations
 
@@ -87,7 +85,6 @@ enum PlusFeature: String, Identifiable, Sendable {
         switch self {
         case .morePlans: "More plans come with Plus"
         case .whatIf: "The levers come with Plus"
-        case .baselines: "Baselines come with Plus"
         case .exportCalculations: "Export Calculations comes with Plus"
         }
     }

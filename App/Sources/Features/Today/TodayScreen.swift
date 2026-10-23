@@ -280,30 +280,40 @@ struct TodayRowsCard: View {
         let netWorth = NetWorthGlance(valuator: library.valuator, asOf: today)
         VStack(alignment: .leading, spacing: 0) {
             if let answer, let target = answer.targetAge, let success = answer.successAtTarget {
-                row {
-                    Text(verbatim: "If you stop at \(target), as planned")
-                        .privacySensitiveInFeedback()
-                } value: {
-                    Text(verbatim: "\(GlanceText.futures(success)) futures last")
-                        .privacySensitiveInFeedback()
+                Button {
+                    navigation.showPlan()
+                } label: {
+                    row {
+                        Text(verbatim: "If you stop at \(target), as planned")
+                            .privacySensitiveInFeedback()
+                    } value: {
+                        Text(verbatim: "\(GlanceText.futures(success)) futures last")
+                            .privacySensitiveInFeedback()
+                    }
                 }
-                .onTapGesture { navigation.showPlan() }
+                .buttonStyle(.plain)
+                .accessibilityHint("Opens the plan")
                 Divider()
             }
             if let plan, let next = milestones(of: plan).next {
                 let text = PlanMilestoneText(currency: currency, locale: locale)
-                row {
-                    HStack(spacing: Metrics.xs) {
-                        Text("Next:")
-                        AmountSentenceText(text.name(next.milestone))
+                Button {
+                    navigation.showTimeline(.year)
+                } label: {
+                    row {
+                        HStack(spacing: Metrics.xs) {
+                            Text("Next:")
+                            AmountSentenceText(text.name(next.milestone))
+                        }
+                    } value: {
+                        Text(verbatim: text.progress(next))
+                            .privacySensitiveInFeedback()
+                    } below: {
+                        ShareBarTrack(share: next.progress)
                     }
-                } value: {
-                    Text(verbatim: text.progress(next))
-                        .privacySensitiveInFeedback()
-                } below: {
-                    ShareBarTrack(share: next.progress)
                 }
-                .onTapGesture { navigation.showTimeline(.year) }
+                .buttonStyle(.plain)
+                .accessibilityHint("Shows this year on the Timeline")
                 Divider()
             }
             Button {
