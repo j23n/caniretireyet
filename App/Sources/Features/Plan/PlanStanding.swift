@@ -2,7 +2,7 @@ import Planner
 import SwiftUI
 
 // Whether you're ahead of, on or behind plan, as the screens say it and
-// color it (UI.md, "Progress"; PROGRESS.md, "On track").
+// color it (UI.md, "Year"; PROGRESS.md, "On track").
 
 extension BaselineStanding {
     /// "Ahead of plan", "On plan", "Behind plan".

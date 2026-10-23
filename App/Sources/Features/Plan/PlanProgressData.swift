@@ -4,7 +4,7 @@ import Model
 import Planner
 import Tracker
 
-// The words of Progress (UI.md, "Progress"; PROGRESS.md): the answer
+// The words of Progress (UI.md, "Year"; PROGRESS.md): the answer
 // recorded at each check-in, each year's progress, and your actual numbers
 // against a baseline. The numbers are the Planner's `PlanProgress`.
 
@@ -166,7 +166,7 @@ extension PlanProgressYear {
 
 // MARK: - The years on a strip
 
-/// Progress as a strip of years (UI.md, "Progress"): a card per year with
+/// Progress as a strip of years (UI.md, "Year"): a card per year with
 /// your money through it against what January expected (the Planner's
 /// `PlanYearChart`), on a scale the cards on screen share, so December of
 /// one year meets January of the next; where the answer moved; and the
@@ -264,7 +264,7 @@ struct PlanProgressTimeline {
     }
 
     /// The money scale fitted to the money between the screen's edges
-    /// (UI.md, "Progress"): your money and what was expected, each card's
+    /// (UI.md, "Year"): your money and what was expected, each card's
     /// plot `inset` in from its edges. `nil` without values.
     func scale(fitting window: PlanStripWindow, inset: Double = 0) -> PlanStripScale? {
         PlanStripScale(values: window.values(of: cards, inset: inset) { card, plot in
@@ -301,7 +301,7 @@ struct PlanProgressTimeline {
     }
 }
 
-/// A year's words (UI.md, "Progress"): its change, where it stands against
+/// A year's words (UI.md, "Year"): its change, where it stands against
 /// January, its story and January's note. Amounts hide with the eye
 /// (``AmountSentence``).
 enum PlanProgressText {

@@ -2,7 +2,7 @@ import Foundation
 import Model
 
 // What Trends draws from money in and out and from where your money came
-// from (UI.md, "Trends"; PROGRESS.md, "Trends"), over its time span. Money
+// from (UI.md, "Look Back"; PROGRESS.md, "Trends"), over its time span. Money
 // in and out is the library's, the same under every plan; the plan only
 // adds reference lines (the Planner's `PlanMoneyReference`).
 

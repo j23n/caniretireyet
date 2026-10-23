@@ -6,8 +6,8 @@ import Tracker
 
 // Today's words and what needs attention. Its numbers come from the
 // package: the history chart (Tracker's `HistoryChartData`), the answer
-// (the Planner's `LatestAnswer`) and *On track?* (the Planner's
-// `PlanOnTrack`). The views in this folder only lay them out.
+// (the Planner's `LatestAnswer`, said as Glance's `LastMonday`). The views
+// in this folder only lay them out.
 
 extension HistoryRange {
     /// The label on the picker.
@@ -46,16 +46,14 @@ extension BreakdownDimension {
     }
 }
 
-// MARK: - Hero and change
+// MARK: - Net worth and change
 
-// The hero number and the *Net worth* tile, net worth today with the change
-// between the last two check-ins and since the end of last year, are
+// The *Net worth* row and the accounts' header, net worth today with the
+// change between the last two check-ins and since the end of last year, are
 // Glance's `NetWorthGlance`, as the widgets have it. *This year* splits that
 // change since the end of last year into markets, saved and other with
 // Tracker's `Valuator.changeThisYear(asOf:)`, from the same 31 December
-// (tested in TrackerTests, and against the hero in GlanceTests). The answer's
-// headline counts the time to go with Glance's `RetirementCountdown`, and its
-// ring shows Glance's `ReadinessFigure` (GlanceTests).
+// (tested in TrackerTests, and against `NetWorthGlance` in GlanceTests).
 
 // MARK: - This year
 

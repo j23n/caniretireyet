@@ -2,7 +2,7 @@ import Model
 import SwiftUI
 import Tracker
 
-/// Trends' *Your last 12 months* (UI.md, "Trends"): the savings rate, what
+/// Trends' *Your last 12 months* (UI.md, "Look Back"): the savings rate, what
 /// was saved, what came in and what was spent over the 12 months that end at
 /// the latest check-in, each with its change against the 12 months before,
 /// in four tiles, two by two on iPhone and in a row on the Mac and iPad.
@@ -134,7 +134,7 @@ struct PlanMoneyTile: View {
 }
 
 /// Trends' three cards on money in and out, folded into one while none is
-/// recorded (UI.md, "Trends"): what records it, with *Open Accounts*.
+/// recorded (UI.md, "Look Back"): what records it, with *Open Accounts*.
 struct PlanMoneyInOutEmptyCard: View {
     @Environment(LibraryStore.self) private var library
     @Environment(AppNavigation.self) private var navigation
@@ -188,7 +188,7 @@ struct PlanMoneyInOutEmptyCard: View {
 }
 
 /// Trends in place of its cards while a savings or investment account's
-/// values are typed (UI.md, "Trends"; `Library.accountsTurningOffTrends`):
+/// values are typed (UI.md, "Look Back"; `Library.accountsTurningOffTrends`):
 /// why it's off, and those accounts, each opening its page.
 struct PlanTrendsOffCard: View {
     let accounts: [Account]

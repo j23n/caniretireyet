@@ -4,7 +4,7 @@ import Testing
 import TestSupport
 import Tracker
 
-/// Trends' money in and out (UI.md, "Trends"), on the example library:
+/// Trends' money in and out (UI.md, "Look Back"), on the example library:
 /// money in and out from July to September 2026, measured from 30 June;
 /// the last 12 months against the plan; what markets did in a year.
 struct PlanMoneyInOutTests {

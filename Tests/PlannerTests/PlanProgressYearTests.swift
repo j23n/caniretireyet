@@ -6,7 +6,7 @@ import TestSupport
 import Tracker
 
 /// One calendar year of progress, as Progress and Trends' *Year by year*
-/// read it (UI.md, "Progress" and "Trends"; PROGRESS.md), from the example
+/// read it (UI.md, "Year" and "Trends"; PROGRESS.md), from the example
 /// library: check-ins from October 2025 to September 2026, the main plan's
 /// automatic baseline for 2026 starting 31 December 2025, which planned
 /// 18.000 € of saving a year and 36.000 € of spending while working.

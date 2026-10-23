@@ -12,7 +12,7 @@ import Tracker
 // MARK: - Since last check-in
 
 /// The change since the previous check-in (UI.md, "Since last check-in"),
-/// which the hero number above says ("▲ +5.730 € in September"): the
+/// which the *Net worth* row says ("▲ +5.730 € in September"): the
 /// totals before and after, and a bar each for markets, saved and
 /// other, from a shared zero line (``WaterfallChart``). Titled "What changed
 /// in September" when the check-in before was the end of the month before.
@@ -55,7 +55,7 @@ struct TodayChangeCard: View {
 /// year"), titled "What changed this year", split as *What changed*
 /// splits a check-in's change: markets, new
 /// money and other, so what you saved stands apart from what markets did.
-/// The hero says this year's change in per cent; this card leads with it
+/// The accounts' header says this year's change in per cent; this card leads with it
 /// in money ("▲ +18.240 € since 31 Dec 2025"), and in per cent while
 /// amounts are hidden. Under it, the savings rate over the money in and
 /// out recorded this year, when there is some (``TodayYearText``).
