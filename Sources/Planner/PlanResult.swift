@@ -54,8 +54,15 @@ public struct PlanStart: Hashable, Sendable {
     /// The value of the accounts the plan includes, exactly as the tracker
     /// computes it, in the base currency, less the tax paying off debts takes
     /// from pre-tax accounts and without the debts the money you can draw
-    /// can't pay off (PLANNER.md, "The portfolio").
+    /// can't pay off (PLANNER.md, "The portfolio"): what the groups hold,
+    /// which the readiness and the assets-needed search are measured against.
     public var planAssets: Decimal
+    /// The value of the accounts the plan includes, exactly as the tracker
+    /// computes it: a baseline's start, and the fan's, so they compare with
+    /// your history. It differs from ``planAssets`` only with debts the plan
+    /// counts: by the tax paying them takes from pre-tax accounts, which the
+    /// first year's tax on withdrawals counts, and by the part left unpaid.
+    public var trackedAssets: Decimal
     /// The accounts the plan includes, sorted.
     public var accounts: [AccountID]
     /// The accounts grouped by when they can be drawn: the money you can

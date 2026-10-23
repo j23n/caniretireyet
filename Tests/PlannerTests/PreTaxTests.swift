@@ -3,6 +3,7 @@ import Model
 @testable import Planner
 import Testing
 import TestSupport
+import Tracker
 
 /// Pre-tax accounts (`withdrawalTaxRate`, PLANNER.md, "The yearly step"):
 /// every amount taken from one pays its rate, in place of the investment
@@ -237,6 +238,24 @@ struct PreTaxTests {
         // The *Taxes* chart still counts it.
         #expect(close(PlanResultsMapping.taxes([first]).first { $0.source == "Tax on withdrawals" }?.amount,
                       first.withdrawalTax))
+    }
+
+    /// A baseline starts from the plan assets as the tracker values them that
+    /// day, as Progress compares them, not the lower amount the groups hold
+    /// after the tax paying off debts took from pre-tax money.
+    @Test func aBaselineStartsFromTheTrackersPlanAssets() async throws {
+        let library = Self.libraryWithDebt(card: 40_000)
+        let result = try await Sample.run(Sample.plan(retire: .age(59), endAge: 64, retired: "1000"), library)
+        let tracked = Valuator(library: library).total(on: "2025-12-31", in: .planAssets).total
+        // 10,000 + 100,000 + 50,000 − 40,000; the groups hold 10,000 less, the tax.
+        #expect(tracked == 120_000)
+        #expect(result.start.trackedAssets == tracked)
+        #expect(result.start.planAssets == 110_000)
+        let baseline = result.baseline(created: "2026-01-05", kind: .manual)
+        #expect(baseline.start == BaselineStart(date: "2025-12-31", value: tracked))
+        let results = PlanResults(result: result, mode: .fast, birthDate: "1966-01-01")
+        #expect(results.start == BaselineStart(date: "2025-12-31", value: tracked))
+        #expect(results.portfolio.first?.p50 == tracked.doubleValue)
     }
 
     /// The year's withdrawal tax is one of the chart's taxes, and the chapter

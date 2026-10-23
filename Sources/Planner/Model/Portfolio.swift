@@ -37,8 +37,12 @@ struct Portfolio: Sendable {
     /// The value of the included accounts, exactly as the tracker computes it,
     /// less the tax on what paying off the debts took from pre-tax buckets
     /// (``debtWithdrawalTax``) and without the debts left unpaid
-    /// (``debtUnpaid``), each to the cent: what the buckets hold.
+    /// (``debtUnpaid``), each to the cent: what the buckets hold, which the
+    /// readiness and the assets-needed search are measured against.
     let startAssets: Decimal
+    /// The value of the included accounts, exactly as the tracker computes
+    /// it: where a baseline and the fan start.
+    let trackedAssets: Decimal
     /// The included accounts, sorted.
     let accounts: [AccountID]
     /// Debts the plan counts, paid off at the start from the money you can
@@ -283,8 +287,8 @@ extension Portfolio {
         }
         // What the buckets hold: the debts left unpaid are left out.
         let startAssets = total - Decimal.rounded(debtTax, scale: 2) + Decimal.rounded(rest, scale: 2)
-        return Portfolio(buckets: buckets, classes: classes, startAssets: startAssets, accounts: included.sorted(),
-                         debtPaidOff: debt, debtWithdrawalTax: debtTax, debtUnpaid: rest)
+        return Portfolio(buckets: buckets, classes: classes, startAssets: startAssets, trackedAssets: total,
+                         accounts: included.sorted(), debtPaidOff: debt, debtWithdrawalTax: debtTax, debtUnpaid: rest)
     }
 
     /// A mix as `Double` shares summing to 1, or `nil` if it's empty.

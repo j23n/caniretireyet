@@ -236,7 +236,7 @@ extension PlanResults {
             income: PlanResultsMapping.income(medianRetired),
             taxes: PlanResultsMapping.taxes(medianRetired),
             spending: medianRetired.map { YearValue(year: $0.year, value: PlanResultsMapping.whole($0.spending, $0)) },
-            start: BaselineStart(date: result.start.date, value: result.start.planAssets),
+            start: BaselineStart(date: result.start.date, value: result.start.trackedAssets),
             accounts: result.start.accounts,
             years: baseline.years,
             details: details,

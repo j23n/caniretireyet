@@ -37,9 +37,10 @@ public enum PlanResultsMapping {
     /// The label of the taxes on top of retirement income.
     public static let taxesLabel = "Taxes"
 
-    /// The fan in today's money: the start value, then each year-end.
+    /// The fan in today's money: the start value, as the tracker computes it
+    /// (``PlanStart/trackedAssets``, as a baseline's), then each year-end.
     public static func fan(_ result: PlanResult) -> [FanPoint] {
-        let start = result.start.planAssets.doubleValue
+        let start = result.start.trackedAssets.doubleValue
         var points = [FanPoint(date: result.start.date.dateValue, p10: start, p25: start, p50: start, p75: start,
                                p90: start)]
         for year in result.fan {

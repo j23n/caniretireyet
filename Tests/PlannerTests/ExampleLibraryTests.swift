@@ -34,7 +34,7 @@ struct ExampleLibraryTests {
         #expect(PlanResults(result: result, mode: .fast, birthDate: "1988-04-12").latestCheckIn == "2026-09-30")
         let baseline = result.baseline(created: "2026-10-06", kind: .past, label: "What I planned in 2025")
         #expect(baseline.kind == .past && baseline.created == "2026-10-06")
-        #expect(baseline.start.date == "2025-12-31" && baseline.start.value == result.start.planAssets)
+        #expect(baseline.start.date == "2025-12-31" && baseline.start.value == result.start.trackedAssets)
         #expect(baseline.years.first?.year == 2026)
         let data = try JSONEncoder().encode(baseline)
         #expect(try JSONDecoder().decode(Baseline.self, from: data).kind == .past)

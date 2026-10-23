@@ -141,7 +141,8 @@ struct PlanAndHelpTests {
             targetAge: 55, successAtTarget: 0.93,
             sustainableSpending: SustainableSpending(age: 55, perYear: 38_412.4, success: 0.9), agesWithout: [])
         let start = PlanStart(
-            date: "2026-09-30", planAssets: d("148808.36"), accounts: ["conto-fineco"],
+            date: "2026-09-30", planAssets: d("148808.36"), trackedAssets: d("148808.36"),
+            accounts: ["conto-fineco"],
             buckets: [BucketSummary(name: "Money you can draw", availableFromAge: nil, value: 148_808.36,
                                     costBasis: 148_808.36, mix: [:], accounts: ["conto-fineco"])])
         return PlanResult(

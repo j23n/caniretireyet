@@ -40,7 +40,7 @@ extension PlanResult {
         return Baseline(
             created: created, kind: kind, label: label, engine: engine, accounts: start.accounts,
             headline: headlineSummary, plan: (try? JSONValue(encoding: plan)) ?? .object([:]),
-            start: BaselineStart(date: start.date, value: start.planAssets),
+            start: BaselineStart(date: start.date, value: start.trackedAssets),
             years: fan.map { year in
                 BaselineYear(
                     year: year.year, expected: .rounded(year.expected, scale: 0), p10: .rounded(year.p10, scale: 0),
