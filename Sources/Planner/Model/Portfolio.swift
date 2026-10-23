@@ -38,29 +38,42 @@ struct Portfolio: Sendable {
     let startAssets: Decimal
     /// The included accounts, sorted.
     let accounts: [AccountID]
-    /// Debts the plan counts, paid off from bucket 0 at the start.
+    /// Debts the plan counts, paid off at the start from the money you can
+    /// draw: bucket 0 first, then the open pre-tax buckets.
     let debtPaidOff: Double
+    /// The tax on withdrawals paid on what paying off the debts took from
+    /// pre-tax buckets.
+    var debtWithdrawalTax = 0.0
+    /// The part of the debts the money you can draw couldn't pay off, which
+    /// the plan leaves out.
+    var debtUnpaid = 0.0
 
     var totalValue: Double { buckets.reduce(0) { $0 + $1.value } }
-    /// The taxable money that can be drawn on the start date: bucket 0, the
-    /// money the assets-needed search adds to and takes from.
-    var accessibleValue: Double { buckets[0].value }
+    /// What can be drawn on the start date: bucket 0 and the pre-tax buckets
+    /// open from the start, the money the assets-needed search takes from.
+    var accessibleValue: Double { drawableNow.reduce(0) { $0 + buckets[$1].value } }
+
+    /// The buckets you can draw on the start date: bucket 0 and the pre-tax
+    /// buckets open from the start.
+    var drawableNow: [Int] { buckets.indices.filter { $0 == 0 || buckets[$0].opensAtAge == nil } }
 
     /// The portfolio with `extra` more money you can draw now (less, when
-    /// negative), the way the assets-needed search changes it: new money is
-    /// invested at `mix` and costs what it's worth; money taken out leaves
-    /// the mix and the share of gains as they were. Only the taxable money
-    /// (bucket 0) changes.
+    /// negative), the way the assets-needed search changes it: new money goes
+    /// into the taxable money (bucket 0), invested at `mix`, and costs what
+    /// it's worth; money taken out comes from every bucket you can draw now
+    /// in proportion, leaving their mixes and shares of gains as they were.
     func withExtra(_ extra: Double, mix: [Double]) -> Portfolio {
         var result = self
         if extra > 0 {
             for c in classes.indices { result.buckets[0].values[c] += extra * mix[c] }
             result.buckets[0].basis += extra
         } else if extra < 0 {
-            let value = buckets[0].value
+            let value = accessibleValue
             let keep = value > 0 ? max(0, 1 + extra / value) : 0
-            for c in classes.indices { result.buckets[0].values[c] *= keep }
-            result.buckets[0].basis *= keep
+            for b in drawableNow {
+                for c in classes.indices { result.buckets[b].values[c] *= keep }
+                result.buckets[b].basis *= keep
+            }
         }
         return result
     }
@@ -220,13 +233,12 @@ extension Portfolio {
                           basis: max(0, group.basis), accounts: group.accounts)
         }
 
-        // Debts are paid off from the money you can draw: cash first, then the rest proportionally.
+        // Debts are paid off from the money you can draw: the taxable money's
+        // cash first, then the rest of it proportionally, then the open
+        // pre-tax money, the same share of each group, after its tax.
+        var debtTax = 0.0
+        var rest = debt
         if debt > 0 {
-            issues.append(.warning("planner.debtIncluded",
-                                   "The plan includes debts of \(Int(debt.rounded())); it pays them off from the "
-                                       + "money you can draw at the start. Leave debts out of the plan if their "
-                                       + "payments are in your spending.", section: .portfolio))
-            var rest = debt
             if let cash = classes.firstIndex(of: .cash) {
                 let take = min(rest, buckets[0].values[cash])
                 buckets[0].values[cash] -= take
@@ -235,13 +247,35 @@ extension Portfolio {
             }
             let value = buckets[0].value
             if rest > 0, value > 0 {
-                let keep = max(0, 1 - rest / value)
+                let take = min(rest, value)
+                let keep = max(0, 1 - take / value)
                 for c in classes.indices { buckets[0].values[c] *= keep }
                 buckets[0].basis *= keep
+                rest -= take
             }
+            let preTax = buckets.indices.filter { $0 > 0 && buckets[$0].opensAtAge == nil }
+            let net = preTax.reduce(0) { $0 + buckets[$1].value * (1 - (buckets[$1].withdrawalRate ?? 0)) }
+            if rest > 0, net > 0 {
+                let share = min(1, rest / net)
+                for b in preTax {
+                    debtTax += share * buckets[b].value * (buckets[b].withdrawalRate ?? 0)
+                    for c in classes.indices { buckets[b].values[c] *= 1 - share }
+                    buckets[b].basis *= 1 - share
+                }
+                rest = max(0, rest - share * net)
+            }
+            var message = "The plan includes debts of \(Int(debt.rounded())); it pays them off from the money you "
+                + "can draw at the start"
+            if debtTax > 0 { message += ", paying the tax on what it takes from pre-tax accounts" }
+            if rest > 0.5 {
+                message += ". The money you can draw covers \(Int((debt - rest).rounded())) of them; the plan leaves "
+                    + "the rest out"
+            }
+            message += ". Leave debts out of the plan if their payments are in your spending."
+            issues.append(.warning("planner.debtIncluded", message, section: .portfolio))
         }
         return Portfolio(buckets: buckets, classes: classes, startAssets: total, accounts: included.sorted(),
-                         debtPaidOff: debt)
+                         debtPaidOff: debt, debtWithdrawalTax: debtTax, debtUnpaid: rest)
     }
 
     /// A mix as `Double` shares summing to 1, or `nil` if it's empty.

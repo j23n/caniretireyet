@@ -68,7 +68,43 @@ struct AssetsNeededAccessTests {
         #expect(engine.startPortfolio(extra: 0).buckets.map(\.values) == portfolio.buckets.map(\.values))
     }
 
+    @Test func openPreTaxMoneyIsTakenOutInProportionButGetsNoExtra() async throws {
+        let library = Sample.library(birth: "1986-01-01", on: "2025-12-31", [
+            SampleAccount(id: "broker", mix: [.equity: 0.8, .cash: 0.2], balance: 100_000),
+            SampleAccount(id: "ira", kind: .pensionFund, balance: 300_000, withdrawalTaxRate: d("0.25")),
+        ])
+        let (engine, _) = try await Self.engine(Self.plan(), library)
+        let portfolio = engine.model.portfolio
+        #expect(portfolio.buckets.map(\.withdrawalRate) == [nil, 0.25])
+        #expect(abs(portfolio.accessibleValue - 400_000) < 1e-6)
+
+        // New money goes into the taxable money only.
+        let more = engine.startPortfolio(extra: 50_000)
+        #expect(abs(more.buckets[0].value - 150_000) < 1e-6)
+        #expect(more.buckets[1].values == portfolio.buckets[1].values)
+        // Money taken out comes from both, a half of each.
+        let less = engine.startPortfolio(extra: -200_000)
+        #expect(abs(less.buckets[0].value - 50_000) < 1e-6)
+        #expect(abs(less.buckets[1].value - 150_000) < 1e-6)
+        #expect(abs(less.buckets[0].basis - portfolio.buckets[0].basis / 2) < 1e-6)
+    }
+
     // MARK: The search
+
+    @Test func moneyAllInAnOpenRothIsntLockedAway() async throws {
+        let library = Sample.library(birth: "1986-01-01", on: "2025-12-31", [
+            SampleAccount(id: "roth", kind: .pensionFund, balance: 1_500_000, withdrawalTaxRate: 0),
+        ])
+        let result = try await Planner.run(plan: Self.plan(), library: library, options: Self.options)
+        let needed = try #require(result.answer.assetsNeeded)
+        #expect(result.answer.canRetireNow && needed.outcome == .found && !needed.leavesOnlyLockedMoney)
+        #expect(abs(try #require(needed.accessible) - 1_500_000) < 1e-6)
+        let extra = try #require(needed.extra)
+        #expect(extra < 0 && extra > -1_500_000)
+        #expect(abs(try #require(needed.amount) - (1_500_000 + extra)) < 1e-6)
+        #expect(try #require(result.answer.readiness) > 1)
+        #expect(try #require(needed.success) >= 0.9)
+    }
 
     @Test func aLargeLockedFundNeedsLessThanScalingEverything() async throws {
         let library = Self.library(broker: 100_000, fund: 300_000)

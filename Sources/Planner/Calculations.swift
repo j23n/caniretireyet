@@ -180,10 +180,18 @@ struct CalculationsReport {
                 + "\(money(bucket.costBasis)) | \(describe(bucket.mix)) | "
                 + "\(bucket.withdrawalTaxRate.map { percent($0) } ?? "–") |")
         }
-        if model.portfolio.debtPaidOff > 0 {
+        let portfolio = model.portfolio
+        if portfolio.debtPaidOff > 0 {
+            var line = "Debts the plan counts, \(money(portfolio.debtPaidOff)), are paid off from the money you can "
+                + "draw at the start"
+            if portfolio.debtWithdrawalTax > 0 {
+                line += ", with \(money(portfolio.debtWithdrawalTax)) of tax on what's taken from pre-tax accounts"
+            }
+            if portfolio.debtUnpaid > 0.5 {
+                line += "; the \(money(portfolio.debtUnpaid)) it can't cover is left out"
+            }
             lines.append("")
-            lines.append("Debts the plan counts, \(money(model.portfolio.debtPaidOff)), are paid off from the money "
-                + "you can draw at the start.")
+            lines.append(line + ".")
         }
         return lines
     }

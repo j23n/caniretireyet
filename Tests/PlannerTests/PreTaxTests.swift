@@ -165,6 +165,35 @@ struct PreTaxTests {
         }
     }
 
+    /// Debts are paid from the taxable money first, then from open pre-tax
+    /// money after its tax; a locked account isn't touched.
+    @Test func debtsArePaidFromOpenPreTaxMoneyAfterItsTax() async throws {
+        func run(card: Decimal) async throws -> PlanResult {
+            let library = Sample.library(birth: "1966-01-01", on: "2025-12-31", [
+                SampleAccount(id: "broker", mix: [.cash: 1], balance: 10_000),
+                SampleAccount(id: "ira", kind: .pensionFund, balance: 100_000, withdrawalTaxRate: d("0.25")),
+                SampleAccount(id: "fund", kind: .pensionFund, balance: 50_000, availableFromAge: 62),
+                SampleAccount(id: "card", kind: .creditCard, mix: nil, balance: -card),
+            ])
+            return try await Sample.run(Sample.plan(retire: .age(59), endAge: 64, retired: "1000"), library)
+        }
+        // 10,000 from the broker, then 30,000 after a quarter's tax: 40,000 from the IRA.
+        let paid = try await run(card: 40_000)
+        #expect(paid.start.buckets.map(\.accounts) == [["broker", "card"], ["ira"], ["fund"]])
+        #expect(close(paid.start.buckets[0].value, 0))
+        #expect(close(paid.start.buckets[1].value, 60_000))
+        #expect(close(paid.start.buckets[2].value, 50_000))
+        let warning = try #require(paid.issues.first { $0.code == "planner.debtIncluded" })
+        #expect(warning.message.contains("pre-tax") && !warning.message.contains("covers"))
+
+        // 200,000 is more than the 10,000 and the IRA's 75,000 after tax: the rest is left out.
+        let unpaid = try await run(card: 200_000)
+        #expect(close(unpaid.start.buckets[0].value, 0) && close(unpaid.start.buckets[1].value, 0))
+        #expect(close(unpaid.start.buckets[2].value, 50_000))
+        let short = try #require(unpaid.issues.first { $0.code == "planner.debtIncluded" })
+        #expect(short.message.contains("covers 85000 of them"))
+    }
+
     /// The year's withdrawal tax is one of the chart's taxes, and the chapter
     /// card's average counts it (`totalTax`).
     @Test func theWithdrawalTaxIsOneOfTheTaxes() {

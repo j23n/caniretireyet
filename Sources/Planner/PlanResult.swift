@@ -197,7 +197,8 @@ public struct AssetsNeeded: Hashable, Sendable, Codable {
     /// ``Outcome/moreThanMaximum``. `nil` without plan assets.
     public var extra: Double?
     /// Today's value of the accessible buckets, the liquid ones that can be
-    /// drawn at any age: what the search adds to or takes from. The rest of
+    /// drawn at any age, pre-tax ones open today included: what the search
+    /// takes from (it adds only to the taxable ones). The rest of
     /// today's plan assets is locked away at today's age. `nil` without plan
     /// assets.
     public var accessible: Double?
