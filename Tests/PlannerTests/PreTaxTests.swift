@@ -166,7 +166,8 @@ struct PreTaxTests {
     }
 
     /// Debts are paid from the taxable money first, then from open pre-tax
-    /// money after its tax; a locked account isn't touched.
+    /// money after its tax; a locked account isn't touched. The tax counts in
+    /// the first year's tax on withdrawals and is taken off the plan assets.
     @Test func debtsArePaidFromOpenPreTaxMoneyAfterItsTax() async throws {
         func run(card: Decimal) async throws -> PlanResult {
             let library = Sample.library(birth: "1966-01-01", on: "2025-12-31", [
@@ -183,15 +184,26 @@ struct PreTaxTests {
         #expect(close(paid.start.buckets[0].value, 0))
         #expect(close(paid.start.buckets[1].value, 60_000))
         #expect(close(paid.start.buckets[2].value, 50_000))
+        // 10,000 of tax: 10,000 + 100,000 + 50,000 − 40,000 less it, what the groups hold.
+        #expect(paid.start.planAssets == 110_000)
+        // 2026 adds it to the year's 1,000 drawn from the IRA after a quarter's
+        // tax: 1,000 / 45,000 of 60,000 sold, a quarter of that tax.
+        let first = try #require(paid.expectedYear(2026))
+        #expect(close(first.withdrawalTax, 10_000 + 1_000 / 45_000.0 * 60_000 * 0.25))
+        #expect((paid.expectedYear(2027)?.withdrawalTax ?? 0) < 1_000)
         let warning = try #require(paid.issues.first { $0.code == "planner.debtIncluded" })
-        #expect(warning.message.contains("pre-tax") && !warning.message.contains("covers"))
+        #expect(warning.message.contains("the 10000 of tax") && !warning.message.contains("covers"))
 
         // 200,000 is more than the 10,000 and the IRA's 75,000 after tax: the rest is left out.
         let unpaid = try await run(card: 200_000)
         #expect(close(unpaid.start.buckets[0].value, 0) && close(unpaid.start.buckets[1].value, 0))
         #expect(close(unpaid.start.buckets[2].value, 50_000))
+        // All of the IRA goes, 25,000 of it tax: 10,000 + 100,000 + 50,000 − 200,000 less it.
+        #expect(unpaid.start.planAssets == -65_000)
+        // Nothing is left to draw in 2026, so the run fails then, with the tax in that year.
+        #expect(close(unpaid.expectedPath.years.first?.withdrawalTax, 25_000))
         let short = try #require(unpaid.issues.first { $0.code == "planner.debtIncluded" })
-        #expect(short.message.contains("covers 85000 of them"))
+        #expect(short.message.contains("the 25000 of tax") && short.message.contains("covers 85000 of them"))
     }
 
     /// The year's withdrawal tax is one of the chart's taxes, and the chapter

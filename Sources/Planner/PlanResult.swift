@@ -52,7 +52,8 @@ public struct PlanStart: Hashable, Sendable {
     /// The check-in the plan starts from.
     public var date: CalendarDate
     /// The value of the accounts the plan includes, exactly as the tracker
-    /// computes it, in the base currency.
+    /// computes it, in the base currency, less the tax paying off debts takes
+    /// from pre-tax accounts (PLANNER.md, "The portfolio").
     public var planAssets: Decimal
     /// The accounts the plan includes, sorted.
     public var accounts: [AccountID]

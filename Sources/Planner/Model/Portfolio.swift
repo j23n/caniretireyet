@@ -34,7 +34,9 @@ struct Portfolio: Sendable {
     var buckets: [Bucket]
     /// Every asset class a bucket can hold, in canonical order.
     let classes: [AssetClass]
-    /// The value of the included accounts, exactly as the tracker computes it.
+    /// The value of the included accounts, exactly as the tracker computes it,
+    /// less the tax on what paying off the debts took from pre-tax buckets
+    /// (``debtWithdrawalTax``, to the cent).
     let startAssets: Decimal
     /// The included accounts, sorted.
     let accounts: [AccountID]
@@ -42,7 +44,8 @@ struct Portfolio: Sendable {
     /// draw: bucket 0 first, then the open pre-tax buckets.
     let debtPaidOff: Double
     /// The tax on withdrawals paid on what paying off the debts took from
-    /// pre-tax buckets.
+    /// pre-tax buckets: part of the first year's tax on withdrawals, and
+    /// taken off ``startAssets``.
     var debtWithdrawalTax = 0.0
     /// The part of the debts the money you can draw couldn't pay off, which
     /// the plan leaves out.
@@ -266,7 +269,10 @@ extension Portfolio {
             }
             var message = "The plan includes debts of \(Int(debt.rounded())); it pays them off from the money you "
                 + "can draw at the start"
-            if debtTax > 0 { message += ", paying the tax on what it takes from pre-tax accounts" }
+            if debtTax > 0 {
+                message += ", and the \(Int(debtTax.rounded())) of tax on what it takes from pre-tax accounts, "
+                    + "counted in the first year's taxes and taken off the plan assets"
+            }
             if rest > 0.5 {
                 message += ". The money you can draw covers \(Int((debt - rest).rounded())) of them; the plan leaves "
                     + "the rest out"
@@ -274,7 +280,8 @@ extension Portfolio {
             message += ". Leave debts out of the plan if their payments are in your spending."
             issues.append(.warning("planner.debtIncluded", message, section: .portfolio))
         }
-        return Portfolio(buckets: buckets, classes: classes, startAssets: total, accounts: included.sorted(),
+        let startAssets = total - Decimal.rounded(debtTax, scale: 2)
+        return Portfolio(buckets: buckets, classes: classes, startAssets: startAssets, accounts: included.sorted(),
                          debtPaidOff: debt, debtWithdrawalTax: debtTax, debtUnpaid: rest)
     }
 
