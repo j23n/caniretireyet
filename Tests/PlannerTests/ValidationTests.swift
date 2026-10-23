@@ -65,6 +65,19 @@ struct ValidationTests {
         #expect(codes(plan) == [])
     }
 
+    /// An account's tax on withdrawals is a share of what's taken, from 0 to
+    /// 1; outside it is an error on the account.
+    @Test func aWithdrawalTaxRateOutOfRangeIsAnError() async {
+        var library = library
+        for (rate, valid) in [("-0.01", false), ("0", true), ("1", true), ("1.01", false)] {
+            library.accounts["broker"]?.withdrawalTaxRate = d(rate)
+            let errors = Planner.validate(plan: plan, library: library).filter(\.isError)
+            #expect(errors.map(\.code) == (valid ? [] : ["planner.withdrawalTaxRate"]), "rate \(rate)")
+            #expect(errors.allSatisfy { $0.section == .portfolio && $0.account == "broker" })
+        }
+        #expect(await self.errors(plan, library) == ["planner.withdrawalTaxRate"])
+    }
+
     @Test func workAndPensionsNeedTheirAmounts() async {
         var plan = plan
         plan.work = [
