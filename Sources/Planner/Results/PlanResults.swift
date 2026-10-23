@@ -54,12 +54,17 @@ public struct PlanResults: Hashable, Sendable, Codable {
     /// in the base currency as it is now: a change of base currency means
     /// calculating again.
     public var currency: CurrencyCode
+    /// The library's latest check-in when they were calculated
+    /// (`PlanResult.latestCheckIn`): an answer recorded at a later check-in
+    /// is one they didn't see (``LatestAnswer``). `nil` before the first
+    /// check-in, and in results kept on the device before they recorded it.
+    public var latestCheckIn: CalendarDate?
 
     public init(plan: PlanID, computedAt: Date, mode: PlanRunMode, runs: Int, engine: String,
                 headline: RetirementAnswer, successByAge: [SuccessPoint], portfolio: [FanPoint],
                 markers: [ChartMarker], income: [IncomeSegment], taxes: [IncomeSegment], spending: [YearValue],
                 start: BaselineStart, accounts: [AccountID], years: [BaselineYear], details: PlanResultDetails,
-                currency: CurrencyCode) {
+                currency: CurrencyCode, latestCheckIn: CalendarDate? = nil) {
         self.plan = plan
         self.computedAt = computedAt
         self.mode = mode
@@ -77,6 +82,7 @@ public struct PlanResults: Hashable, Sendable, Codable {
         self.years = years
         self.details = details
         self.currency = currency
+        self.latestCheckIn = latestCheckIn
     }
 }
 
@@ -233,7 +239,8 @@ extension PlanResults {
             accounts: result.start.accounts,
             years: baseline.years,
             details: details,
-            currency: result.currency)
+            currency: result.currency,
+            latestCheckIn: result.latestCheckIn)
     }
 
     /// These results with the charts and details of `focused`, a run of the

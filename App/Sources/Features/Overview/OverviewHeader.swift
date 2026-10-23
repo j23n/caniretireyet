@@ -40,15 +40,9 @@ struct OverviewHeader: View {
     @Environment(\.pageLayout) private var layout
     @Environment(\.locale) private var locale
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-    @Environment(\.redactionReasons) private var redactionReasons
-
-    private var hidesAmounts: Bool { redactionReasons.hidesAmounts }
 
     /// Out-of-date answers dim as the Plan screen dims its results.
-    private static let dimmedOpacity = 0.7
-    /// The ring's size, the same at every text size.
-    private static let ringSize: CGFloat = 144
-    private static let ringLineWidth: CGFloat = 12
+    static let dimmedOpacity = 0.7
 
     var body: some View {
         let words = OverviewAnswerText(headline: headline, earliestDate: headline.earliestDate, today: today,
@@ -158,98 +152,27 @@ struct OverviewHeader: View {
 
     // MARK: Ring and words
 
-    /// The ring at the leading edge and the answer's words at its right;
-    /// at the largest text sizes the words go under the ring. VoiceOver
-    /// reads the headline and the ring as one element.
+    /// The ring at the leading edge and the answer's words at its right
+    /// (``RetirementAnswerRow``), with the run status under them.
     private func answerRow(_ words: OverviewAnswerText, dims: Bool) -> some View {
-        let figure = headline.readinessFigure
-        let percent = figure.text { AmountFormat.percent($0, digits: 0, locale: locale) }
-        let layout = dynamicTypeSize.isAccessibilitySize
-            ? AnyLayout(VStackLayout(alignment: .leading, spacing: Metrics.m))
-            : AnyLayout(HStackLayout(alignment: .center, spacing: Metrics.l))
-        return layout {
-            if let percent {
-                ring(figure, percent: percent)
-                    .opacity(dims ? Self.dimmedOpacity : 1)
-            }
-            VStack(alignment: .leading, spacing: Metrics.s) {
-                answerWords(words, nextToRing: percent != nil)
-                    .opacity(dims ? Self.dimmedOpacity : 1)
-                runStatus
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
+        RetirementAnswerRow(headline: headline, words: words, yearMove: yearMove, dims: dims) {
+            runStatus
         }
-    }
-
-    /// The headline, then when; the headline in largeTitle when there's no
-    /// ring beside it.
-    private func answerWords(_ words: OverviewAnswerText, nextToRing: Bool) -> some View {
-        VStack(alignment: .leading, spacing: Metrics.xs) {
-            Text(words.title)
-                .font(nextToRing ? .title.bold() : .largeTitle.bold())
-                .foregroundStyle(Palette.ink)
-                .dynamicTypeSize(...DynamicTypeSize.accessibility2)
-            if let when = words.whenLine {
-                Text(verbatim: when)
-                    .foregroundStyle(Palette.ink)
-            }
-            if let move = yearMove {
-                VStack(alignment: .leading, spacing: 0) {
-                    Text(verbatim: move.lead)
-                        .fontWeight(.semibold)
-                        .foregroundStyle(move.isSooner ? Palette.positive : Palette.ink)
-                    Text(verbatim: move.detail)
-                        .font(.subheadline)
-                        .foregroundStyle(Palette.secondaryInk)
-                }
-                .padding(.top, Metrics.xs)
-            }
-        }
-        .fixedSize(horizontal: false, vertical: true)
-        .privacySensitiveInFeedback()
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(Text(verbatim: [words.spoken, yearMove.map { "\($0.lead) \($0.detail)." }]
-            .compactMap(\.self).joined(separator: " ")))
-        .accessibilityAddTraits(.isHeader)
     }
 
     /// How the age you could retire at moved in a year (UI.md, "Can I retire
     /// yet?"): "2 years sooner" over "than a year ago, at 56", against the
     /// answer recorded at the check-in a year ago; `nil` when it didn't
     /// move, or there's no answer from then.
-    private var yearMove: (lead: String, detail: String, isSooner: Bool)? {
+    private var yearMove: OverviewYearMove? {
         guard let age = headline.earliestAge, !headline.canRetireNow,
               let then = library.library.headlines(for: plan.id).last(where: { $0.date <= today.adding(years: -1) }),
               let before = then.earliestAge, before != age
         else { return nil }
         let years = abs(age - before)
         let count = years == 1 ? "A year" : "\(years) years"
-        return (count + (age < before ? " sooner" : " later"), "than a year ago, at \(before)", age < before)
-    }
-
-    /// The ring, with the percentage and "ready" inside it; it keeps its
-    /// size at every text size, and the percentage shrinks to fit.
-    private func ring(_ figure: ReadinessFigure, percent: String) -> some View {
-        ZStack {
-            ReadinessRing(fraction: figure.lappingFill, lineWidth: Self.ringLineWidth, laps: true)
-                .privacySensitiveInFeedback()
-            VStack(spacing: 0) {
-                Text(verbatim: percent)
-                    .font(.system(size: 32, weight: .bold))
-                    .monospacedDigit()
-                    .foregroundStyle(Palette.ink)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.5)
-                    .privacySensitiveInFeedback()
-                Text("ready")
-                    .foregroundStyle(Palette.secondaryInk)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
-            }
-            .padding(Self.ringLineWidth + Metrics.s)
-        }
-        .frame(width: Self.ringSize, height: Self.ringSize)
-        .accessibilityHidden(true)
+        return OverviewYearMove(lead: count + (age < before ? " sooner" : " later"),
+                                detail: "than a year ago, at \(before)", isSooner: age < before)
     }
 
     // MARK: Tiles
@@ -289,7 +212,7 @@ struct OverviewHeader: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
             if let change = netWorth.sinceLastCheckIn {
-                pair {
+                OverviewLinePair {
                     DeltaText(change.change)
                 } then: {
                     // "in September", "31 Jul – 15 Sep": the check-in's change, not one up to today.
@@ -315,83 +238,10 @@ struct OverviewHeader: View {
         .accessibilityElement(children: .combine)
     }
 
-    /// Where the latest check-in stands against its baseline, as Progress's
-    /// *Are you on track?* says it ("On plan", "12.400 € ahead of January"),
-    /// and the coast point line; opens Progress. While amounts are hidden,
-    /// VoiceOver reads the standing without the amount.
+    /// *On track?* (``OverviewOnTrackTile``), which opens the main plan's Progress.
     private func onTrackTile(_ onTrack: OverviewOnTrack, dims: Bool) -> some View {
-        Button {
+        OverviewOnTrackTile(onTrack: onTrack, currency: library.baseCurrency, dims: dims) {
             navigation.showPlan(at: PlanRoute(part: .progress))
-        } label: {
-            FigureTile(surface: .raised) {
-                HStack(alignment: .firstTextBaseline, spacing: Metrics.xs) {
-                    Text("On track?")
-                        .foregroundStyle(Palette.secondaryInk)
-                    Spacer(minLength: Metrics.xs)
-                    Image(systemName: "chevron.right")
-                        .fontWeight(.semibold)
-                        .foregroundStyle(Palette.mutedInk)
-                        .accessibilityHidden(true)
-                }
-                if let position = onTrack.position {
-                    let standing = position.standing
-                    Text(standing.shortLabel)
-                        .font(.title.bold())
-                        .foregroundStyle(standing.color)
-                        .privacySensitiveInFeedback()
-                        .accessibilityLabel(standing.label)
-                    pair {
-                        HStack(alignment: .firstTextBaseline, spacing: Metrics.xs) {
-                            AmountText(abs(position.gap), currency: library.baseCurrency, tabular: false)
-                            Text(position.gap >= 0 ? "ahead" : "behind")
-                                .privacySensitiveInFeedback()
-                        }
-                        .foregroundStyle(Palette.ink)
-                    } then: {
-                        // As Progress's years say it: "ahead of January", "behind January".
-                        Text(position.gap >= 0 ? "of \(onTrack.expectation)" : onTrack.expectation)
-                            .foregroundStyle(Palette.secondaryInk)
-                            .privacySensitiveInFeedback()
-                    }
-                    .accessibilityHidden(hidesAmounts)
-                } else {
-                    Text("Not measured yet")
-                        .font(.title.bold())
-                        .foregroundStyle(Palette.ink)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                if let coast = onTrack.coastAge {
-                    Text(OverviewOnTrack.coastLine(coast))
-                        .foregroundStyle(Palette.ink)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .opacity(dims ? Self.dimmedOpacity : 1)
-                        .privacySensitiveInFeedback()
-                        .accessibilityLabel(OverviewOnTrack.spokenCoastLine(coast))
-                }
-            }
-            .font(.subheadline)
-        }
-        .buttonStyle(.plain)
-        .accessibilityElement(children: .combine)
-        .accessibilityHint(Text("Shows your progress"))
-    }
-
-    /// Two parts of a line: on one row on the Mac and iPad, where every
-    /// line fits on one; on iPhone the second under the first, so the
-    /// tiles' rows line up.
-    @ViewBuilder
-    private func pair<First: View, Second: View>(@ViewBuilder _ first: () -> First,
-                                                 @ViewBuilder then second: () -> Second) -> some View {
-        if isWide {
-            HStack(alignment: .firstTextBaseline, spacing: Metrics.xs) {
-                first()
-                second()
-            }
-        } else {
-            VStack(alignment: .leading, spacing: 2) {
-                first()
-                second()
-            }
         }
     }
 

@@ -28,6 +28,10 @@ struct ExampleLibraryTests {
         // Not the latest check-in's.
         let latest = Valuator(library: library).total(on: "2026-09-30", in: .planAssets).total
         #expect(result.start.planAssets > 0 && result.start.planAssets.rounded(2) != latest.rounded(2))
+        // It still saw the latest check-in, which an answer recorded there
+        // is compared with (`LatestAnswer`).
+        #expect(result.latestCheckIn == "2026-09-30")
+        #expect(PlanResults(result: result, mode: .fast, birthDate: "1988-04-12").latestCheckIn == "2026-09-30")
         let baseline = result.baseline(created: "2026-10-06", kind: .past, label: "What I planned in 2025")
         #expect(baseline.kind == .past && baseline.created == "2026-10-06")
         #expect(baseline.start.date == "2025-12-31" && baseline.start.value == result.start.planAssets)

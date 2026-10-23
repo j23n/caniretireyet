@@ -23,6 +23,28 @@ struct ShortAmountTests {
         #expect(ShortAmount.text(amount, currency: dollars, locale: us) == text)
     }
 
+    /// With `thousands`, in full below a thousand, then three significant
+    /// digits in thousands, moving on to millions from the rounded amount.
+    @Test(arguments: [
+        ("0", "$0"), ("999.4", "$999"), ("999.6", "$1.00K"), ("1234.5", "$1.23K"), ("20486", "$20.5K"),
+        ("99960", "$100K"), ("999499", "$999K"), ("999600", "$1.00M"), ("12345678", "$12.3M"),
+        ("12345678901", "$12.3B"),
+    ])
+    func shortensFromThousands(value: String, text: String) throws {
+        let amount = try #require(Decimal(string: value))
+        #expect(ShortAmount.text(amount, currency: dollars, locale: us, thousands: true) == text)
+    }
+
+    @Test func aSignedAmountHasItsSignExceptZero() {
+        let space = "\u{00A0}"
+        #expect(ShortAmount.text(12_400, currency: euros, locale: germany, thousands: true, signed: true)
+            == "+12,4K\(space)€")
+        #expect(ShortAmount.text(-12_400, currency: euros, locale: germany, thousands: true, signed: true)
+            == "\u{2212}12,4K\(space)€")
+        #expect(ShortAmount.text(12_400, currency: dollars, locale: us, signed: true) == "+$12,400")
+        #expect(ShortAmount.text(Decimal(string: "-0.4")!, currency: dollars, locale: us, signed: true) == "$0")
+    }
+
     @Test func aNegativeAmountHasTheTypographicMinus() {
         #expect(ShortAmount.text(-300_000, currency: dollars, locale: us) == "\u{2212}$300,000")
         #expect(ShortAmount.text(-12_345_678, currency: dollars, locale: us) == "\u{2212}$12.3M")

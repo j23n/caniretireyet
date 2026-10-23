@@ -150,6 +150,76 @@ struct PlanMoneyInOutTests {
         #expect(!money.cutsRates(planRate: nil))
     }
 
+    // MARK: The 12-month line
+
+    /// 12 months ending on `through` with what came in and what was spent.
+    private func twelveMonths(through: CalendarDate, moneyIn: Decimal, spent: Decimal) -> SavingsRate {
+        let from = through.adding(years: -1)
+        let money = MoneyInOutSummary(from: from.adding(days: 1), through: through, currency: .eur,
+                                      moneyIn: moneyIn, months: [through.yearMonth], measuredFrom: from)
+        return SavingsRate(moneyInOut: money, from: from, through: through,
+                           savedByAccount: ["bank": moneyIn - spent])
+    }
+
+    @Test func theLineBreaksWhereTwelveMonthsHaveNoRate() {
+        // August's 12 months had nothing come in: no rate there. September's
+        // is far below its bar, but stands on its own.
+        let money = series([
+            period("2026-06", moneyIn: 3_000, spent: 2_100,
+                   lastTwelveMonths: twelveMonths(through: "2026-06-30", moneyIn: 30_000, spent: 24_000)),
+            period("2026-07", moneyIn: 3_000, spent: 2_100,
+                   lastTwelveMonths: twelveMonths(through: "2026-07-31", moneyIn: 27_000, spent: 24_000)),
+            period("2026-08", moneyIn: 0, spent: 2_000,
+                   lastTwelveMonths: twelveMonths(through: "2026-08-31", moneyIn: 0, spent: 24_000)),
+            period("2026-09", moneyIn: 3_000, spent: 2_100,
+                   lastTwelveMonths: twelveMonths(through: "2026-09-30", moneyIn: 3_000, spent: 24_000)),
+        ])
+        #expect(money.lastTwelveMonthsRuns.map { $0.map(\.from) }
+            == [["2026-06-01", "2026-07-01"], ["2026-09-01"]])
+        #expect(money.hasLastTwelveMonths)
+    }
+
+    @Test func theLineStartsAtTheTwelfthMonth() {
+        let money = series([
+            period("2026-08", moneyIn: 3_000, spent: 2_100),
+            period("2026-09", moneyIn: 3_000, spent: 2_100,
+                   lastTwelveMonths: twelveMonths(through: "2026-09-30", moneyIn: 30_000, spent: 24_000)),
+        ])
+        #expect(money.lastTwelveMonthsRuns.map { $0.map(\.from) } == [["2026-09-01"]])
+        #expect(series([period("2026-09", moneyIn: 3_000, spent: 2_100)]).lastTwelveMonthsRuns.isEmpty)
+    }
+
+    @Test func aMonthWithSpendingButNothingInHasNoBar() {
+        let empty = MoneyInOutPeriod(from: "2026-07-01", through: "2026-07-31", savings: nil)
+        let money = series([empty,
+                            period("2026-08", moneyIn: 0, spent: 2_000),
+                            period("2026-09", moneyIn: 3_000, spent: 2_100)])
+        // July has nothing counted, so nothing to show; August spent with nothing in.
+        #expect(money.countedWithoutRate.map(\.from) == ["2026-08-01"])
+        #expect(self.money().countedWithoutRate.isEmpty)
+    }
+
+    @Test func aPeriodWithoutARateSaysWhy() {
+        func savings(moneyIn: Decimal, taxes: Decimal = 0, pension: Decimal = 0) -> SavingsRate {
+            let money = MoneyInOutSummary(from: "2026-08-01", through: "2026-08-31", currency: .eur,
+                                          moneyIn: moneyIn, taxes: taxes, months: ["2026-08"],
+                                          measuredFrom: "2026-07-31")
+            return SavingsRate(moneyInOut: money, from: "2026-07-31", through: "2026-08-31",
+                               pensionContributions: pension, savedByAccount: ["bank": -2_000])
+        }
+        #expect(savings(moneyIn: 0).noRate == .nothingCameIn)
+        #expect(savings(moneyIn: -500).noRate == .lessThanNothingCameIn)
+        // Pension contributions count as came in.
+        #expect(savings(moneyIn: -500, pension: 400).noRate == .lessThanNothingCameIn)
+        #expect(savings(moneyIn: -500, pension: 500).noRate == .nothingCameIn)
+        #expect(savings(moneyIn: 3_000, taxes: 4_000).noRate == .moreTaxThanCameIn)
+        #expect(savings(moneyIn: 0, taxes: 100).noRate == .moreTaxThanCameIn)
+        #expect(savings(moneyIn: 3_000, taxes: 3_000).noRate == .moreTaxThanCameIn)
+        // With a rate, no reason.
+        #expect(savings(moneyIn: 3_000, taxes: 1_000).noRate == nil)
+        #expect(MoneyInOutPeriod(from: "2026-08-01", through: "2026-08-31", savings: nil).noRate == nil)
+    }
+
     @Test func theRateAxisKeepsTheLineToTheBarsBandButAlwaysFitsThePlansRate() {
         // Over the 12 months ending in September 1.000 € came in and 3.300 € was spent:
         // −230%. August had nothing in, so no bar; what it spent pulls its 12 months to −150%.
