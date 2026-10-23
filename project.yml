@@ -253,6 +253,9 @@ schemes:
         CanIRetireYet: all
     run:
       config: Debug
+      # Plus's products (UI.md, "Plus"), bought from Xcode's local App Store
+      # when the app runs from Xcode, without signing or App Store Connect.
+      storeKitConfiguration: App/Config/Plus.storekit
     test:
       config: Debug
       targets:
