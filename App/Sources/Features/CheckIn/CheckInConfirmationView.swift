@@ -1,17 +1,17 @@
+import Glance
 import Model
 import Planner
 import SwiftUI
 import Tracker
 
-/// The monthly moment (UI.md, "After saving"): what the check-in did to net
-/// worth, and this month's answer.
+/// The monthly moment (UI.md, "After saving"): the check-in ends on your
+/// date, moved.
 ///
-/// > Saved · Net worth 312.480 € (▲ 4.210)
-/// > Can I retire yet? Not yet. You could retire at **54**, in March 2042.
+/// > October saved · Net worth 312.480 € (▲ 4.210)
+/// > Your last Monday at work: ~~3 April 2051~~ 27 March 2051 · A year sooner
 ///
-/// Then how the age moved over the last 12 check-ins, what the month saved
-/// as time of expenses with the last 12 months as bars, and the
-/// next milestone (``CheckInJourneyCards``).
+/// Then what moved it, said as time of the life you plan, and the next
+/// milestone (``CheckInJourneyCards``).
 ///
 /// It shows as soon as the check-in is written. The main plan then runs to
 /// record the month's answer (`PlanStore.checkInAnswer`): its progress shows
@@ -46,8 +46,9 @@ struct CheckInConfirmationView: View {
                         .font(.system(size: 44))
                         .foregroundStyle(Palette.good)
                         .accessibilityHidden(true)
-                    Text("Saved")
+                    Text(verbatim: "\(AmountFormat.monthName(result.date, locale: locale)) saved")
                         .font(.title2.bold())
+                        .privacySensitiveInFeedback()
                     Text(verbatim: AmountFormat.longDate(result.date, locale: locale))
                         .foregroundStyle(Palette.secondaryInk)
                         .privacySensitiveInFeedback()
@@ -62,7 +63,7 @@ struct CheckInConfirmationView: View {
                         pastCheckIn
                     }
                 } else {
-                    Card("Can I retire yet?") {
+                    Card("Your last Monday at work") {
                         answer
                     }
                     CheckInJourneyCards(date: result.date)
@@ -159,18 +160,8 @@ struct CheckInConfirmationView: View {
     @ViewBuilder
     private var answer: some View {
         if let headline = answerRun?.headline {
-            let parts = CheckInAnswer.make(headline, previous: previousHeadline, locale: locale)
             VStack(alignment: .leading, spacing: Metrics.s) {
-                answerText(parts)
-                    .font(.title3)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .privacySensitiveInFeedback()
-                if let readiness = PlanResultsText.readiness(headline, locale: locale) {
-                    Text(verbatim: readiness)
-                        .font(.subheadline)
-                        .foregroundStyle(Palette.secondaryInk)
-                        .privacySensitiveInFeedback()
-                }
+                movedDate(headline)
                 Button("Open the plan") { openPlan() }
                     .buttonStyle(.borderless)
             }
@@ -185,7 +176,7 @@ struct CheckInConfirmationView: View {
             }
         } else if library.mainPlan == nil {
             VStack(alignment: .leading, spacing: Metrics.s) {
-                Text("Create a plan to see when you could retire. Every check-in will then end with this month's answer.")
+                Text("Create a plan to see your last Monday at work. Every check-in will then end with it, moved.")
                     .fixedSize(horizontal: false, vertical: true)
                 Button("Create a plan") { openPlan() }
                     .buttonStyle(.borderless)
@@ -206,19 +197,48 @@ struct CheckInConfirmationView: View {
         }
     }
 
-    /// The sentence with the age in bold.
-    private func answerText(_ parts: CheckInAnswer) -> Text {
-        if let emphasis = parts.emphasis {
-            return Text("\(parts.lead)\(Text(verbatim: emphasis).bold())\(parts.trail)")
+    /// The date before, struck through, the date now, how it moved, and
+    /// how sure: "Still at 63, in 9 of 10 futures."
+    @ViewBuilder
+    private func movedDate(_ headline: RetirementAnswer) -> some View {
+        let now = LastMonday(headline)
+        let before = previousHeadline.flatMap { previous in
+            LastMonday(RetirementAnswer(recorded: previous, birthDate: library.settings.person?.birthDate))
         }
-        return Text(verbatim: parts.text)
+        VStack(alignment: .leading, spacing: Metrics.xs) {
+            if let before, let now, before.date != now.date {
+                Text(verbatim: GlanceText.lastMonday(before.date, locale: locale))
+                    .font(.subheadline)
+                    .strikethrough()
+                    .foregroundStyle(Palette.secondaryInk)
+            }
+            Text(verbatim: now.map { GlanceText.lastMonday($0.date, locale: locale) }
+                 ?? (headline.canRetireNow ? "You could stop today" : "Not yet"))
+                .font(.largeTitle.bold())
+                .foregroundStyle(Palette.ink)
+                .lineLimit(1)
+                .minimumScaleFactor(0.5)
+            if let previous = previousHeadline,
+               let move = LastMondayMove(answer: headline,
+                                         history: [AnswerPoint(date: previous.date, earliestAge: previous.earliestAge)],
+                                         latestCheckIn: result.date) {
+                TodayMoveChip(move: move, words: CheckInAnswer.move(move))
+            }
+            Text(verbatim: CheckInAnswer.line(headline, previousAge: previousHeadline?.earliestAge))
+                .font(.subheadline)
+                .foregroundStyle(Palette.secondaryInk)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .privacySensitiveInFeedback()
+        .accessibilityElement(children: .combine)
     }
 
-    /// "Last answer (31 Aug): you could retire at 54."
+    /// "Last time (31 Aug): 27 March 2051."
     private func lastAnswer(_ headline: Headline) -> String {
         let date = AmountFormat.shortDate(headline.date, locale: locale)
-        guard let age = headline.earliestAge else { return "Last answer (\(date)): not yet." }
-        return "Last answer (\(date)): you could retire at \(age)."
+        let answer = RetirementAnswer(recorded: headline, birthDate: library.settings.person?.birthDate)
+        guard let lastMonday = LastMonday(answer) else { return "Last time (\(date)): not yet." }
+        return "Last time (\(date)): \(GlanceText.lastMonday(lastMonday.date, locale: locale))."
     }
 
     /// Why there's no answer this month, without alarm.
@@ -226,7 +246,7 @@ struct CheckInConfirmationView: View {
         if let error = answerRun?.error ?? library.settings.mainPlan.flatMap({ plans.errors[$0] }) {
             return "The plan couldn't run this time: \(error)"
         }
-        return "This month's answer isn't ready yet. Open the plan to calculate it."
+        return "This month's date isn't ready yet. The plan works it out when you open it."
     }
 
     // MARK: Helpers
