@@ -53,7 +53,8 @@ public struct PlanStart: Hashable, Sendable {
     public var date: CalendarDate
     /// The value of the accounts the plan includes, exactly as the tracker
     /// computes it, in the base currency, less the tax paying off debts takes
-    /// from pre-tax accounts (PLANNER.md, "The portfolio").
+    /// from pre-tax accounts and without the debts the money you can draw
+    /// can't pay off (PLANNER.md, "The portfolio").
     public var planAssets: Decimal
     /// The accounts the plan includes, sorted.
     public var accounts: [AccountID]

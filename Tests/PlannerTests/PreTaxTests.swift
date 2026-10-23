@@ -167,7 +167,8 @@ struct PreTaxTests {
 
     /// Debts are paid from the taxable money first, then from open pre-tax
     /// money after its tax; a locked account isn't touched. The tax counts in
-    /// the first year's tax on withdrawals and is taken off the plan assets.
+    /// the first year's tax on withdrawals and is taken off the plan assets;
+    /// what can't be paid is left out of them, so they're what the groups hold.
     @Test func debtsArePaidFromOpenPreTaxMoneyAfterItsTax() async throws {
         func run(card: Decimal) async throws -> PlanResult {
             let library = Sample.library(birth: "1966-01-01", on: "2025-12-31", [
@@ -198,12 +199,15 @@ struct PreTaxTests {
         let unpaid = try await run(card: 200_000)
         #expect(close(unpaid.start.buckets[0].value, 0) && close(unpaid.start.buckets[1].value, 0))
         #expect(close(unpaid.start.buckets[2].value, 50_000))
-        // All of the IRA goes, 25,000 of it tax: 10,000 + 100,000 + 50,000 − 200,000 less it.
-        #expect(unpaid.start.planAssets == -65_000)
+        // All of the IRA goes, 25,000 of it tax, and the 115,000 left unpaid is left out:
+        // 10,000 + 100,000 + 50,000 − 200,000 − 25,000 + 115,000, the locked fund the groups hold.
+        #expect(unpaid.start.planAssets == 50_000)
+        #expect(close(unpaid.start.buckets.reduce(0) { $0 + $1.value }, 50_000))
         // Nothing is left to draw in 2026, so the run fails then, with the tax in that year.
         #expect(close(unpaid.expectedPath.years.first?.withdrawalTax, 25_000))
         let short = try #require(unpaid.issues.first { $0.code == "planner.debtIncluded" })
-        #expect(short.message.contains("the 25000 of tax") && short.message.contains("covers 85000 of them"))
+        #expect(short.message.contains("the 25000 of tax") && short.message.contains("covers 85000 of them")
+            && short.message.contains("of the plan assets too"))
     }
 
     /// The year's withdrawal tax is one of the chart's taxes, and the chapter

@@ -189,7 +189,7 @@ struct CalculationsReport {
                     + "counted in the first year's tax on withdrawals and taken off the plan assets"
             }
             if portfolio.debtUnpaid > 0.5 {
-                line += "; the \(money(portfolio.debtUnpaid)) it can't cover is left out"
+                line += "; the \(money(portfolio.debtUnpaid)) it can't cover is left out, of the plan assets too"
             }
             lines.append("")
             lines.append(line + ".")

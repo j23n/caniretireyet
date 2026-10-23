@@ -36,7 +36,8 @@ struct Portfolio: Sendable {
     let classes: [AssetClass]
     /// The value of the included accounts, exactly as the tracker computes it,
     /// less the tax on what paying off the debts took from pre-tax buckets
-    /// (``debtWithdrawalTax``, to the cent).
+    /// (``debtWithdrawalTax``) and without the debts left unpaid
+    /// (``debtUnpaid``), each to the cent: what the buckets hold.
     let startAssets: Decimal
     /// The included accounts, sorted.
     let accounts: [AccountID]
@@ -48,7 +49,7 @@ struct Portfolio: Sendable {
     /// taken off ``startAssets``.
     var debtWithdrawalTax = 0.0
     /// The part of the debts the money you can draw couldn't pay off, which
-    /// the plan leaves out.
+    /// the plan leaves out, of ``startAssets`` too.
     var debtUnpaid = 0.0
 
     var totalValue: Double { buckets.reduce(0) { $0 + $1.value } }
@@ -275,12 +276,13 @@ extension Portfolio {
             }
             if rest > 0.5 {
                 message += ". The money you can draw covers \(Int((debt - rest).rounded())) of them; the plan leaves "
-                    + "the rest out"
+                    + "the rest out, of the plan assets too"
             }
             message += ". Leave debts out of the plan if their payments are in your spending."
             issues.append(.warning("planner.debtIncluded", message, section: .portfolio))
         }
-        let startAssets = total - Decimal.rounded(debtTax, scale: 2)
+        // What the buckets hold: the debts left unpaid are left out.
+        let startAssets = total - Decimal.rounded(debtTax, scale: 2) + Decimal.rounded(rest, scale: 2)
         return Portfolio(buckets: buckets, classes: classes, startAssets: startAssets, accounts: included.sorted(),
                          debtPaidOff: debt, debtWithdrawalTax: debtTax, debtUnpaid: rest)
     }
