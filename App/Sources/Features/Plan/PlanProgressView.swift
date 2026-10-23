@@ -4,17 +4,15 @@ import Planner
 import SwiftUI
 import Tracker
 
-/// Progress (UI.md, "Progress"; PROGRESS.md): whether you're on track; year
-/// by year on a strip that opens at today, each year's card with your money
-/// against what January expected, where the answer moved and the
-/// milestones reached; the year's words (under the strip on iPhone, in
-/// each card on the Mac and iPad); the milestones and what's next in the
-/// plan (beside the strip on the Mac and iPad); and, folded away, your
-/// money against any baseline. The answer at each check-in is on Trends.
+/// The Timeline at a year (UI.md, "Timeline"; PROGRESS.md): whether you're
+/// on track; year by year on a strip that opens at today, each year's card
+/// with your money against what you planned in January, where your date
+/// moved and the milestones reached; the year's words (under the strip on
+/// iPhone, in each card on the Mac and iPad); and the milestones and what's
+/// next in the plan (beside the strip on the Mac and iPad). Your date at
+/// each check-in is on *Look back*.
 struct PlanProgressView: View {
     let session: PlanSession
-    /// Asks for a label and saves a baseline (the screen owns the alert).
-    let onSaveBaseline: () -> Void
     /// Shows the plan.
     let onShowPlan: () -> Void
     /// A year to open on the strip, asked for elsewhere (a row of Trends'
@@ -26,16 +24,8 @@ struct PlanProgressView: View {
     @Environment(\.redactionReasons) private var redactionReasons
     @Environment(\.hidesPersonalData) private var hidesPersonalData
     @Environment(\.locale) private var locale
-    @State private var selectedBaseline: BaselineID?
     /// The year chosen on the strip; the latest when `nil`.
     @State private var selectedYear: Int?
-    @State private var showsMoreCharts = false
-    @State private var showsPastBaseline = false
-    /// The day *Add Past Baseline…* starts on, when a year asked for it.
-    @State private var pastBaselineDay: CalendarDate?
-    /// The baseline *Delete Baseline…* asks about.
-    @State private var deletingBaseline: PlanBaselineEntry?
-    @State private var confirmsBaselineDelete = false
 
     private var isWide: Bool { layout.isWide }
 
@@ -43,10 +33,6 @@ struct PlanProgressView: View {
 
     /// The column beside the strip on the Mac and iPad: the milestones and what's next.
     private static let sideWidth: CGFloat = 300
-
-    private var baselines: [PlanBaselineEntry] {
-        PlanBaselineComparison.baselines(for: session.planID, in: library.library)
-    }
 
     private var milestoneText: PlanMilestoneText {
         PlanMilestoneText(currency: library.baseCurrency, locale: locale)
@@ -81,51 +67,20 @@ struct PlanProgressView: View {
                     footer(derived.chapters)
                         .padding(.horizontal, gutter)
                 }
-                moreCharts
-                    .padding(.horizontal, gutter)
             }
             .padding(.vertical, gutter)
         }
         .background(Palette.page)
         .onAppear {
-            if selectedBaseline == nil { selectedBaseline = baselines.first?.id }
             if let year = openingYear.wrappedValue {
                 selectedYear = year
                 openingYear.wrappedValue = nil
             }
         }
-        .sheet(isPresented: $showsPastBaseline) {
-            if let plan = session.plan {
-                PlanPastBaselineSheet(session: session, plan: plan, startingOn: pastBaselineDay)
-            }
-        }
-        .confirmationDialog(deletionTitle, isPresented: $confirmsBaselineDelete, titleVisibility: .visible,
-                            presenting: deletingBaseline) { entry in
-            Button("Delete Baseline", role: .destructive) { delete(entry) }
-        } message: { entry in
-            Text(verbatim: PlanProgressYear.deletionNote(
-                of: entry, years: timeline.cards.map(\.year.year), baselines: baselines,
-                savingYear: library.settings.mainPlan == session.planID
-                    ? CheckInDates.suggested(today: .today(), lastCheckIn: library.latestCheckIn).year : nil,
-                locale: locale))
-        }
-    }
-
-    /// "Delete “Start of 2026 (automatic)”?"
-    private var deletionTitle: String {
-        guard let entry = deletingBaseline else { return "Delete this baseline?" }
-        return "Delete “\(PlanBaselineComparison.label(for: entry.baseline, locale: locale))”?"
-    }
-
-    /// Deletes a baseline; the picker then shows the newest left.
-    private func delete(_ entry: PlanBaselineEntry) {
-        Task {
-            do {
-                try await library.deleteBaseline(entry.id, of: session.planID)
-                if selectedBaseline == entry.id { selectedBaseline = nil }
-            } catch {
-                library.reportError("The baseline couldn't be deleted. \(LibraryStore.describe(error))")
-            }
+        .onChange(of: openingYear.wrappedValue) { _, year in
+            guard let year else { return }
+            selectedYear = year
+            openingYear.wrappedValue = nil
         }
     }
 
@@ -351,19 +306,9 @@ struct PlanProgressView: View {
             // points) past its trailing edge without one.
             PlanYearStrip(timeline: timeline, selection: selection, today: library.asOfDate)
             PlanYearDetails(card: cards[selected], index: selected, count: cards.count,
-                            onSelect: { selection.wrappedValue = $0 }, onAddPastBaseline: addPastBaseline)
+                            onSelect: { selection.wrappedValue = $0 }, onAddPastBaseline: nil)
                 .padding(.leading, gutter)
                 .padding(.trailing, isWide ? 0 : gutter)
-        }
-    }
-
-    /// *Add What You Planned in 2021…*: *Add Past Baseline…* on the year's
-    /// first day; `nil` when the library or the plan can't take one.
-    private var addPastBaseline: ((Int) -> Void)? {
-        guard library.canEdit, session.plan != nil else { return nil }
-        return { year in
-            pastBaselineDay = CalendarDate.firstDay(ofYear: year)
-            showsPastBaseline = true
         }
     }
 
@@ -377,13 +322,13 @@ struct PlanProgressView: View {
         }
     }
 
-    /// The next chapter of the plan, and *Save Baseline…*; *Add a Past
-    /// Baseline…* quietly under it.
+    /// The next chapter of the plan, when there is one.
+    @ViewBuilder
     private func footer(_ chapters: PlanChaptersModel?) -> some View {
-        let shape = RoundedRectangle(cornerRadius: Metrics.cardRadius, style: .continuous)
-        return VStack(alignment: .leading, spacing: Metrics.s) {
-            if let model = chapters, model.chapters.chapters.count > 1 {
-                let next = model.chapters.chapters[1]
+        if let model = chapters, model.chapters.chapters.count > 1 {
+            let next = model.chapters.chapters[1]
+            let shape = RoundedRectangle(cornerRadius: Metrics.cardRadius, style: .continuous)
+            VStack(alignment: .leading, spacing: Metrics.s) {
                 Text("Next in your plan")
                     .font(PlanProgressFont.caption)
                     .foregroundStyle(Palette.secondaryInk)
@@ -400,126 +345,10 @@ struct PlanProgressView: View {
                 }
                 .font(PlanProgressFont.text)
             }
-            Button {
-                onSaveBaseline()
-            } label: {
-                Label("Save Baseline…", systemImage: "bookmark")
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.borderedProminent)
-            .controlSize(isWide ? .regular : .large)
-            .disabled(!library.canEdit)
-            Text("Freeze what you expect now, to measure against it later.")
-                .font(PlanProgressFont.caption)
-                .foregroundStyle(Palette.secondaryInk)
-                .fixedSize(horizontal: false, vertical: true)
-            Button("Add a Past Baseline…") {
-                pastBaselineDay = nil
-                showsPastBaseline = true
-            }
-            .buttonStyle(.borderless)
-            .font(PlanProgressFont.caption)
-            .disabled(!library.canEdit || session.plan == nil)
-        }
-        .padding(Metrics.l)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Palette.card, in: shape)
-        .overlay { shape.strokeBorder(Palette.border, lineWidth: 1) }
-    }
-
-    // MARK: More charts
-
-    /// *Actual vs baseline*, folded away; the answer at each check-in is on Trends.
-    private var moreCharts: some View {
-        DisclosureGroup(isExpanded: $showsMoreCharts) {
-            baselineCard
-                .frame(maxWidth: isWide ? Metrics.readableWidth : .infinity, alignment: .leading)
-                .padding(.top, Metrics.s)
-        } label: {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("More charts")
-                    .font(.headline)
-                    .foregroundStyle(Palette.ink)
-                Text("Your money against any baseline.")
-                    .font(.footnote)
-                    .foregroundStyle(Palette.secondaryInk)
-            }
-        }
-    }
-
-    /// "ahead of the median" or "behind the median".
-    private static func side(of gap: Decimal) -> String {
-        gap >= 0 ? "ahead of the median" : "behind the median"
-    }
-
-    private var shownBaseline: PlanBaselineEntry? {
-        baselines.first { $0.id == selectedBaseline } ?? baselines.first
-    }
-
-    private var baselineCard: some View {
-        Card {
-            if let shown = shownBaseline {
-                let comparison = PlanBaselineComparison(baseline: shown.baseline, library: library.library,
-                                                        valuator: library.valuator, asOf: library.asOfDate)
-                ProjectionLegend()
-                FanChart(fan: comparison.fan, actual: comparison.actual, currency: library.baseCurrency)
-                if let position = comparison.position {
-                    VStack(alignment: .leading, spacing: 2) {
-                        HStack(spacing: Metrics.xs) {
-                            DeltaText(position.gap, currency: library.baseCurrency)
-                                .font(.subheadline.weight(.semibold))
-                            Text(Self.side(of: position.gap))
-                                .font(.subheadline)
-                                .privacySensitiveInFeedback()
-                        }
-                        Text(PlanBaselineComparison.percentileText(position))
-                            .font(.footnote)
-                            .foregroundStyle(Palette.secondaryInk)
-                            .privacySensitiveInFeedback()
-                    }
-                } else {
-                    Text("Your actual numbers appear here after the next check-in.")
-                        .font(.footnote)
-                        .foregroundStyle(Palette.secondaryInk)
-                }
-                Text(comparison.unitsNote(baseCurrency: library.baseCurrency, locale: locale))
-                    .font(.caption)
-                    .foregroundStyle(Palette.mutedInk)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .privacySensitiveInFeedback()
-                Button(role: .destructive) {
-                    deletingBaseline = shown
-                    confirmsBaselineDelete = true
-                } label: {
-                    Label("Delete Baseline…", systemImage: "trash")
-                }
-                .buttonStyle(.borderless)
-                .font(PlanProgressFont.caption)
-                .disabled(!library.canEdit)
-            } else {
-                Text("A baseline remembers what you expected. Save one now, and later see how reality compares. "
-                    + "One is also saved at the first check-in of each year.")
-                    .font(.subheadline)
-                    .foregroundStyle(Palette.secondaryInk)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        } header: {
-            SectionHeader("Actual vs baseline") {
-                if !baselines.isEmpty {
-                    // Never nil while there are baselines, nor a deleted one's: those have no tag.
-                    Picker("Baseline", selection: Binding(get: { shownBaseline?.id },
-                                                          set: { selectedBaseline = $0 })) {
-                        ForEach(baselines) { entry in
-                            Text(PlanBaselineComparison.label(for: entry.baseline, locale: locale))
-                                .tag(Optional(entry.id))
-                        }
-                    }
-                    .labelsHidden()
-                    .pickerStyle(.menu)
-                    .fixedSize()
-                    .personalControl()
-                }
-            }
+            .padding(Metrics.l)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Palette.card, in: shape)
+            .overlay { shape.strokeBorder(Palette.border, lineWidth: 1) }
         }
     }
 }
@@ -555,14 +384,14 @@ enum PlanProgressFont {
 
 #Preview("Progress") {
     PlanPreviewHost(model: AppModel.preview()) { session in
-        PlanProgressView(session: session, onSaveBaseline: {}, onShowPlan: {})
+        PlanProgressView(session: session, onShowPlan: {})
             .environment(\.pageLayout, PageLayout())
     }
 }
 
 #Preview("Progress · Mac") {
     PlanPreviewHost(model: AppModel.preview()) { session in
-        PlanProgressView(session: session, onSaveBaseline: {}, onShowPlan: {})
+        PlanProgressView(session: session, onShowPlan: {})
             .environment(\.pageLayout, PageLayout(isWide: true))
             .frame(width: 1_100, height: 1_000)
     }

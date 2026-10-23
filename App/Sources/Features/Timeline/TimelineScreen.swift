@@ -11,7 +11,7 @@ import SwiftUI
 ///   (``DecadesChart``).
 /// - **Look back**: your whole history by month, quarter or year: savings
 ///   rate, your date check-in by check-in, money in and out
-///   (``PlanTrendsView``). A year there opens it at *Year*.
+///   (``PlanTrendsView``).
 ///
 /// On iPhone the zoom is a segmented control under the title; on the Mac
 /// and iPad it's in the toolbar, with Look back's grain and span beside it.
@@ -115,7 +115,7 @@ private struct TimelineContentView: View {
         @Bindable var navigation = navigation
         switch navigation.timelineZoom {
         case .year:
-            PlanProgressView(session: session, onSaveBaseline: {}, onShowPlan: { navigation.showPlan(planID) },
+            PlanProgressView(session: session, onShowPlan: { navigation.showPlan(planID) },
                              openingYear: $navigation.timelineYear)
         case .decades:
             ScrollView {
@@ -132,9 +132,7 @@ private struct TimelineContentView: View {
             }
             .background(Palette.page)
         case .lookBack:
-            PlanTrendsView(session: session) { year in
-                navigation.showTimeline(.year, year: year)
-            }
+            PlanTrendsView(session: session)
         }
     }
 }

@@ -4,23 +4,19 @@ import Planner
 import SwiftUI
 import Tracker
 
-/// Trends (UI.md, "Trends"; PROGRESS.md, "Trends"): how you've actually
-/// been doing, from your own records, over the time span the Overview's
-/// history uses. *Your last 12 months*, *Savings rate* and *Money in and
-/// out* are built on money in and out, with the plan as reference lines,
-/// and fold into one card while none is recorded; *Where your money came
-/// from* splits plan assets into what you started with, what you saved
-/// and what markets added; *Time to retirement* is the plan's answer at
-/// each check-in; *Year by year* grades each calendar year in words. On
-/// iPhone the grain and the span are at the top of the page; on the Mac and
-/// iPad they're in the toolbar (``PlanTrendsControls``), the tiles are in a
-/// row, the charts in two columns and *Year by year* is a table across the
-/// page. While a savings or investment account's values are typed, one
-/// card says Trends is off instead (``PlanTrendsOffCard``).
+/// The Timeline looking back (UI.md, "Timeline"; PROGRESS.md, "Trends"):
+/// how you've actually been doing, from your own records, over the time
+/// span the decades chart uses. *Your last 12 months*, *Savings rate* and
+/// *Money in and out* are built on money in and out, with the plan as
+/// reference lines, and fold into one card while none is recorded; *Your
+/// last Monday, check-in by check-in* is the plan's answer at each
+/// check-in. The grain and the span are under the zoom on iPhone, and in
+/// the toolbar on the Mac and iPad (``PlanTrendsControls``), where the
+/// tiles are in a row and the charts in two columns. While a savings or
+/// investment account's values are typed, one card says looking back is
+/// off instead (``PlanTrendsOffCard``).
 struct PlanTrendsView: View {
     let session: PlanSession
-    /// Opens a year on Progress.
-    var onShowYear: (Int) -> Void = { _ in }
 
     @Environment(LibraryStore.self) private var library
     @Environment(\.pageLayout) private var layout
@@ -59,10 +55,7 @@ struct PlanTrendsView: View {
                 if isWide {
                     if model.money.isEmpty {
                         PlanMoneyInOutEmptyCard()
-                        EqualColumns(spacing: Metrics.l) {
-                            sourcesCard(model.sources)
-                            answerCard(model.history)
-                        }
+                        answerCard(model.history)
                     } else {
                         PlanLastTwelveMonthsCard(year: model.lastTwelveMonths,
                                                  plannedSpending: reference.spendingWhileWorking)
@@ -71,14 +64,10 @@ struct PlanTrendsView: View {
                                 savingsRateCard(model.money, planRate: reference.savingsRate)
                                 moneyCard(model.money, planSpending: reference.spending(per: model.money.grain))
                             }
-                            VStack(alignment: .leading, spacing: Metrics.l) {
-                                sourcesCard(model.sources)
-                                answerCard(model.history)
-                            }
+                            answerCard(model.history)
                         }
                     }
                 } else {
-                    PlanTrendsControls()
                     if model.money.isEmpty {
                         PlanMoneyInOutEmptyCard()
                     } else {
@@ -87,10 +76,8 @@ struct PlanTrendsView: View {
                         savingsRateCard(model.money, planRate: reference.savingsRate)
                         moneyCard(model.money, planSpending: reference.spending(per: model.money.grain))
                     }
-                    sourcesCard(model.sources)
                     answerCard(model.history)
                 }
-                yearsCard(model.years)
             }
             .padding(gutter)
         }
@@ -158,26 +145,7 @@ struct PlanTrendsView: View {
         }
     }
 
-    // MARK: Where your money came from
-
-    private func sourcesCard(_ sources: PlanMoneySources) -> some View {
-        Card {
-            if sources.hasEnoughData {
-                PlanMoneySourcesLegend(showsLoss: sources.hasLoss)
-                PlanMoneySourcesChart(sources: sources)
-                AmountSentenceText(sources.words(locale: locale))
-                    .font(PlanProgressFont.text)
-                    .foregroundStyle(Palette.ink)
-                    .fixedSize(horizontal: false, vertical: true)
-            } else {
-                notYet("Where your money came from shows from your second check-in.")
-            }
-        } header: {
-            SectionHeader("Where your money came from")
-        }
-    }
-
-    // MARK: Time to retirement
+    // MARK: Your date at each check-in
 
     private func answerCard(_ history: PlanAnswerHistory) -> some View {
         Card {
@@ -192,7 +160,7 @@ struct PlanTrendsView: View {
                 .font(PlanProgressFont.caption)
                 .disabled(!library.canEdit)
             } else if history.latestAge == nil {
-                notYet("Time to retirement shows from the first check-in that records your answer.")
+                notYet("Your date shows here from the first check-in that records it.")
             } else {
                 ChartLegendRow(items: answerLegend(history))
                 PlanAnswerHistoryChart(history: history)
@@ -216,7 +184,7 @@ struct PlanTrendsView: View {
                 }
             }
         } header: {
-            SectionHeader("Time to retirement")
+            SectionHeader("Your last Monday, check-in by check-in")
         }
     }
 
@@ -230,20 +198,6 @@ struct PlanTrendsView: View {
             items.append(ChartLegendItem(name: "Saving nothing more", swatch: .dottedLine(.neutral)))
         }
         return items
-    }
-
-    // MARK: Year by year
-
-    private func yearsCard(_ years: [PlanProgressYear]) -> some View {
-        Card {
-            if years.isEmpty {
-                notYet("Year by year shows from your first check-in.")
-            } else {
-                PlanYearGradesTable(years: years, onShowYear: onShowYear)
-            }
-        } header: {
-            SectionHeader("Year by year")
-        }
     }
 
     private func setMainPlan() {
@@ -265,7 +219,7 @@ struct PlanTrendsView: View {
 
 /// Trends' grain (*Months | Years*) and time span (the *History* half of
 /// the Overview's menu, sharing its choice): at the top of the page on
-/// iPhone, beside the part picker in the toolbar on the Mac and iPad. The
+/// iPhone under the Timeline's zoom, beside it in the toolbar on the Mac and iPad. The
 /// grain is remembered once chosen.
 struct PlanTrendsControls: View {
     @Environment(LibraryStore.self) private var library
