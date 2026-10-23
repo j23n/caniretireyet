@@ -80,9 +80,18 @@ struct ExampleLibraryTests {
 
     /// The pension fund's withdrawal tax applies once it opens, at 67. Without
     /// it, the fund is taxable money again, as every account without a rate is.
+    /// Retiring at 62, the deterministic run draws on the taxable money until
+    /// 67 and still has money then, so the fund is drawn.
     @Test func thePensionFundIsTaxedOnWithdrawalsOnceItOpens() async throws {
-        let options = PlannerOptions(mode: .fast(runs: 50), maxRetirementAge: 56, solveSustainableSpending: false)
+        let options = PlannerOptions(mode: .fast(runs: 50), focusAge: 62, maxRetirementAge: 56,
+                                     solveSustainableSpending: false)
         let result = try await Sample.run(plan, library, options: options)
+        #expect(result.focusAge == 62)
+        // A path that stops before 67 would never draw on the fund.
+        #expect((result.expectedPath.failure?.age ?? .max) > 67)
+        // Before it opens, the taxable money is sold, so the two runs below are compared on sales too.
+        let bridge = result.expectedPath.years.filter { $0.age > 62 && $0.age < 67 }
+        #expect(bridge.contains { year in year.income.contains { $0.kind == .withdrawal } })
         #expect(result.expectedPath.years.allSatisfy { $0.age >= 67 || $0.withdrawalTax == 0 })
         // From 67 the fund is drawn, and pays its 15%.
         #expect(result.expectedPath.years.contains { $0.age >= 67 && $0.withdrawalTax > 0 })
