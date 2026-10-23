@@ -85,18 +85,34 @@ struct PlanMonthBarView: View {
             }
             .frame(height: 12)
             .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
-            HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
-                AmountSentenceText(bar.leading)
-                    .foregroundStyle(Palette.ink)
-                Spacer(minLength: Metrics.s)
-                AmountSentenceText(bar.trailing)
-                    .fontWeight(.semibold)
-                    .foregroundStyle(bar.trailingRole.map(Self.textColor) ?? Palette.secondaryInk)
+            // Side by side when both fit on one line; else the trailing
+            // words go under the leading ones.
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
+                    leadingText
+                    Spacer(minLength: Metrics.s)
+                    trailingText
+                }
+                VStack(alignment: .leading, spacing: 2) {
+                    leadingText
+                    trailingText
+                }
             }
             .font(.footnote)
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text(verbatim: bar.label.spoken(hidesAmounts: redactionReasons.hidesAmounts)))
+    }
+
+    private var leadingText: some View {
+        AmountSentenceText(bar.leading)
+            .foregroundStyle(Palette.ink)
+    }
+
+    private var trailingText: some View {
+        AmountSentenceText(bar.trailing)
+            .fontWeight(.semibold)
+            .foregroundStyle(bar.trailingRole.map(Self.textColor) ?? Palette.secondaryInk)
     }
 
     private func share(_ value: Double) -> CGFloat {

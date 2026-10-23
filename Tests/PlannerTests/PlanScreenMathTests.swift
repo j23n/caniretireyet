@@ -120,6 +120,44 @@ struct PlanScreenMathTests {
                                                  birthYear: 1988) == 0)
     }
 
+    /// The tax a month is the median run's average over a chapter's retired
+    /// years, not its first year's: the tax grows as the gain share of
+    /// what's sold does.
+    @Test func theTaxAMonthIsTheChaptersAverage() throws {
+        let all = try chapters().chapters.chapters
+        // Retiring at 55 in 2043, both pensions from 67 in 2055.
+        let bridge = try #require(all.first { $0.kind == .bridge })
+        #expect(bridge.years == 2043...2054)
+        #expect(bridge.items.contains(.retirement))
+        let pensions = try #require(all.first { $0.kind == .pensions })
+        #expect(pensions.years.lowerBound == 2055)
+
+        func tax(_ year: Int, _ amount: Double, _ source: String = "Tax on investments") -> IncomeSegment {
+            IncomeSegment(year: year, source: source, amount: amount, color: .series(0))
+        }
+        // The retirement year pays a lot, and is left out; then 1.200 € more
+        // tax each year from 2044 to 2053, wealth tax in 2050, none in 2054.
+        var results = PlanResults.made(start: today)
+        results.spending = (2043...2056).map { YearValue(year: $0, value: 36_000) }
+        results.taxes = [tax(2043, 13_200)]
+        results.taxes += (2044...2053).map { year in tax(year, Double(year - 2043) * 1_200) }
+        results.taxes += [tax(2050, 1_320, "Wealth tax"), tax(2055, 2_400), tax(2056, 2_400)]
+        // 67.320 € over the 11 years from 2044 to 2054, against 100 € a month
+        // in 2044 alone.
+        #expect(PlanChapterMoney.monthlyTax(in: bridge, results: results) == 510)
+        // A chapter that starts after retirement counts its first year.
+        #expect(PlanChapterMoney.monthlyTax(in: pensions, results: results) == 200)
+
+        // Run out in 2054: the results keep the year the run fails in, with
+        // its spending and no tax (`Simulator.fail`), so it counts as a year
+        // without tax; the years after it aren't counted.
+        var ranOut = results
+        ranOut.spending.removeAll { $0.year >= 2055 }
+        #expect(PlanChapterMoney.monthlyTax(in: bridge, results: ranOut) == 510)
+        #expect(PlanChapterMoney.monthlyTax(in: pensions, results: ranOut) == nil)
+        #expect(PlanChapterMoney.monthlyTax(in: bridge, results: nil) == nil)
+    }
+
     // MARK: The strip's scale
 
     @Test func theStripScaleFitsTheValuesOnRoundSteps() throws {

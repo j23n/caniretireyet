@@ -3,7 +3,7 @@ import Model
 import Tracker
 
 /// The money of a chapter of the plan (UI.md, "Plan"): what pensions and
-/// other income pay a year at its start, the tax a month on what's sold,
+/// other income pay a year at its start, the average tax a month on what's sold,
 /// and where futures run out in it. The app writes it as the chapter's
 /// month and what can go wrong.
 public enum PlanChapterMoney {
@@ -31,15 +31,25 @@ public enum PlanChapterMoney {
         }
     }
 
-    /// The tax a month in the median run, in the chapter's first whole
-    /// year of retirement; `nil` without results for it.
+    /// The tax a month in the median run, on average over the chapter's
+    /// retired years from its first whole year of retirement (the year
+    /// after retirement in the chapter that holds it) to its last: every
+    /// tax of those years over their months. The years counted are those
+    /// the run has (one entry in `results.spending` each): a year without
+    /// taxes counts as none, and years after the run ran out aren't
+    /// counted. `nil` without results for any of them.
+    ///
+    /// An average, because the tax grows over a chapter: as the money you
+    /// can draw is drawn down, the share of gain in what's sold grows.
     public static func monthlyTax(in chapter: PlanChapter, results: PlanResults?) -> Double? {
         guard let results else { return nil }
-        let year = chapter.items.contains(.retirement) ? chapter.years.lowerBound + 1 : chapter.years.lowerBound
-        guard chapter.years.contains(year) else { return nil }
-        let taxes = results.taxes.filter { $0.year == year }
-        guard !taxes.isEmpty else { return nil }
-        return taxes.reduce(0) { $0 + $1.amount } / 12
+        let first = chapter.items.contains(.retirement) ? chapter.years.lowerBound + 1 : chapter.years.lowerBound
+        guard first <= chapter.years.upperBound else { return nil }
+        let years = first...chapter.years.upperBound
+        let counted = Set(results.spending.map(\.year).filter { years.contains($0) })
+        guard !counted.isEmpty else { return nil }
+        let taxes = results.taxes.filter { counted.contains($0.year) }.reduce(0) { $0 + $1.amount }
+        return taxes / Double(counted.count * 12)
     }
 
     /// In the bridge, the account opening after the chapter starts that the
