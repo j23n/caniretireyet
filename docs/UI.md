@@ -400,7 +400,7 @@ A brokerage, crypto or metals account records its **trades** ([TRADES.md](TRADES
 
 ## Plan
 
-A plan picker sits at the top (Base case ▾, with New Plan, Duplicate, Rename…, Set as Main Plan, Save Baseline…, *Export Calculations…* under how the answer shown was calculated, "Calculated at 09:41 with 2.000 runs", and Delete…), then three parts, **Plan**, **Progress** and **Trends**: a segmented control at the top on iPhone, in the toolbar on the Mac and iPad. *What if* is a sheet on iPhone and a column beside the plan on the Mac and iPad, opened from the toolbar, which also has *Recalculate* and *Save Baseline…*.
+A plan picker sits at the top (Base case ▾, with New Plan, Duplicate, Rename…, Set as Main Plan, Save Baseline…, *Export Calculations…* under how the answer shown was calculated, "Calculated at 09:41 with 2.000 runs", and Delete…), then three parts, **Plan**, **Progress** and **Trends**: a segmented control at the top on iPhone, in the toolbar on the Mac and iPad. *What if* is a sheet on iPhone and a column beside the plan on the Mac and iPad, opened from the toolbar, which also has *Recalculate* and *Save Baseline…*. *New Plan*, *Duplicate*, *What if*, *Save Baseline…*, *Add a Past Baseline…* and *Export Calculations…* come with [Plus](#plus); without it they open the paywall.
 
 ### Calculating
 
@@ -1072,8 +1072,21 @@ The iPhone takes the same steps as the Mac, for every kind of file: a file a sav
 | Prices | Price source per instrument kind: *Yahoo Finance (unofficial)* (so named wherever a price source is chosen or shown with an instrument; the footer says it has no official interface for apps and may stop working), also for crypto, gold-api.com, ECB via Frankfurter, and for inflation *Eurostat HICP, BLS (US), ONS (UK)*; fetch on check-in |
 | Notifications | A screen of its own, with its summary ("Monthly and yearly", "Monthly", "Yearly", "Off"): see [Notifications](#notifications). |
 | Privacy | Hide amounts, hide amounts when the app opens, and (iPhone and iPad) cover the app in the app switcher: the whole screen is covered while the app isn't active. The footer says only that. A Face ID lock is planned (M3), not built. |
+| Plus | Whether you have [Plus](#plus) and until when ("Lifetime", "Yearly, renews 3 Oct 2027", "Free month, until 3 Nov 2026", "Not yet"), *Get Plus…* (the paywall) without it, and *Restore Purchases*. |
 | Test profiles | Debug and TestFlight builds only, after tapping the version seven times, and while a profile is open: *Your library* and each test profile, the one open ticked (tapping one opens it), *New Profile…* (a name, then it opens at first launch), *Start “name” Over…* for the profile that's open (after a confirmation, its library and settings are deleted and it opens at first launch), *Delete* in a profile's context menu, and *Hide This Section*. A profile's library is on this device only, never in iCloud Drive, and its settings are its own; the widgets and notes stay the real library's. While one is open, a strip over the window says "Test profile “name”" with *Leave*. See [App/README.md](../App/README.md#test-profiles). |
 | About | The version and the library's format, and under them: "Results are estimates from a simplified model with the returns, taxes and pensions you enter. Plans take your income and pensions after tax, and tax your investments at the rates you set. They aren't financial, tax or legal advice: check important decisions with a professional." |
+
+## Plus
+
+The app is a free download with a paid tier, Plus, bought in the app with StoreKit 2.
+
+- **Free:** tracking, check-ins, import, widgets, and one plan with its answer, its Progress (against the yearly baselines check-ins save) and Trends.
+- **Plus:** more plans (*New Plan* and *Duplicate* when there's a plan already), *What if*, baselines of your own (*Save Baseline…*, *Add a Past Baseline…*), and *Export Calculations…*.
+- **Products:** *Yearly*, an auto-renewing subscription (about 35 EUR/USD) with the first month free for new subscribers, and *Lifetime*, a one-time purchase (about 100 EUR/USD). The trial is a month because the app's rhythm is the monthly check-in: a month lets you see Plus work once before you pay. The prices are the App Store's, in your storefront's currency.
+- **The paywall** opens only from an action that needs Plus, or from Settings' *Get Plus…*; never at first launch or during the tour. Its title names what was asked for ("What if comes with Plus"), then what's free, what Plus adds (a line each), *Yearly* ("First month free, then 34,99 € a year", or "34,99 € a year" once you've had the month) and *Lifetime* ("99,99 € once"), that the subscription renews until cancelled and that your plans and files stay yours either way, and *Restore Purchases*. *Not Now* closes it. Once Plus is bought, restored or approved, it closes and what was asked for goes on (the what-if opens, the plan is made).
+- **Who has Plus** is one answer (`PlusStore`, from `Transaction.currentEntitlements`): the lifetime purchase, or the yearly subscription, its free month included, until its period ends. A refund ends it. Screens never ask StoreKit themselves.
+- **When Plus ends,** every plan, baseline and file made with it stays: plans can still be opened, edited and calculated, and baselines measure as before. Only Plus's actions open the paywall again.
+- **Files stay free.** Nothing in the library's files depends on Plus, and the CLI has every feature.
 
 ## Notifications
 
