@@ -103,6 +103,15 @@ struct CalendarDateTests {
     }
 }
 
+extension CalendarDateTests {
+    @Test func theMondayIsOnOrBeforeTheDay() {
+        #expect(CalendarDate("2050-06-27").mondayOnOrBefore == "2050-06-27")
+        #expect(CalendarDate("2050-07-03").mondayOnOrBefore == "2050-06-27")
+        #expect(CalendarDate("1970-01-01").mondayOnOrBefore == "1969-12-29")
+        #expect(CalendarDate("1969-12-28").mondayOnOrBefore == "1969-12-22")
+    }
+}
+
 struct YearMonthTests {
     @Test func parsesAndFormats() {
         #expect(month("2026-09")?.description == "2026-09")

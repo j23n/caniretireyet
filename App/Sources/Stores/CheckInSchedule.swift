@@ -21,7 +21,7 @@ struct CheckInStatus: Hashable, Sendable {
     var isOpen: Bool { openDate != nil }
 
     /// Whether a check-in is due or under way: the tab bar's accessory and
-    /// the sidebar's dot show, and *Check In* leaves the Overview's toolbar.
+    /// the sidebar's dot show, and *Check In* leaves Today's toolbar.
     var isActive: Bool { isDue || isOpen }
 
     /// One line for the accessory: "Continue check-in · 31 Oct", "October

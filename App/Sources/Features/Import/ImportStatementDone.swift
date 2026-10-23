@@ -164,7 +164,7 @@ struct ImportStatementDone: View {
         } else {
             model.startOver()
         }
-        navigation.showPlan(at: PlanRoute(part: .trends))
+        navigation.showTimeline(.lookBack)
     }
 }
 

@@ -3,7 +3,7 @@ import Model
 import SwiftUI
 import Tracker
 
-/// Trends' *Savings rate* (UI.md, "Trends"): a bar per month or year, the
+/// Trends' *Savings rate* (UI.md, "Look Back"): a bar per month or year, the
 /// savings rate over the values of that period, below the zero line when
 /// more was spent than came in. With months, a line through the rate over
 /// the 12 months ending at each month, from the twelfth month recorded,
@@ -313,7 +313,7 @@ struct PlanSavingsRateLegend: View {
 }
 
 /// What a period of *Savings rate* reads where the pointer or a finger is
-/// (UI.md, "Trends"): its last day, with "so far" or what it covers; its
+/// (UI.md, "Look Back"): its last day, with "so far" or what it covers; its
 /// savings rate with what came in and what was saved, which it's worked out
 /// from ("Savings rate 34%", "Came in 4.100 €", "Saved 1.500 €"); then,
 /// where the line has a point, the rate over the 12 months ending there

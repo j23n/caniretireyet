@@ -93,7 +93,6 @@ enum WidgetEmpty {
     static let noSnapshot = "Open Can I Retire Yet? to see this here."
     static let noCheckIn = "Your net worth appears here after your first check-in."
     static let noAnswer = "Your main plan's answer appears here after your next check-in, or once you calculate it."
-    static let noChange = "The change appears here after your second check-in."
 }
 
 extension View {

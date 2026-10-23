@@ -3,7 +3,7 @@ import Model
 import SwiftUI
 import Tracker
 
-/// Net worth over time (UI.md, "History chart"); the Overview always
+/// Net worth over time (UI.md, "History chart"); Today always
 /// passes it stacked by asset class.
 ///
 /// - With `stacked` series (e.g. by asset class) it draws stacked areas,
@@ -47,10 +47,12 @@ struct NetWorthChart: View {
     var stacked: [ChartSeries] = []
     var projection: [FanPoint] = []
     var markers: [ChartMarker] = []
-    /// What the history is, for VoiceOver: "Net worth", or "Plan assets".
+    /// What the history is, for VoiceOver: "Net worth", or "Money in the plan".
     var title = "Net worth"
     /// A date read without dragging across the chart: for previews.
     var readsDate: Date?
+    /// The plot's height; the Timeline's *Decades* draws it taller.
+    var height: CGFloat = 220
 
     @State private var selectedDate: Date?
     @State private var width: CGFloat = ChartStyle.defaultWidth
@@ -58,20 +60,18 @@ struct NetWorthChart: View {
     @Environment(\.baseCurrency) private var baseCurrency
     @Environment(\.chartSurface) private var surface
 
-    private static let height: CGFloat = 220
-
     /// Whether amounts are hidden: the axis is relative, and VoiceOver doesn't read them.
     private var hidesAmounts: Bool { redactionReasons.hidesAmounts }
 
     var body: some View {
         if history.isEmpty && projection.isEmpty {
-            ChartPlaceholder(text: "Your net worth appears here after the first check-in.", height: Self.height)
+            ChartPlaceholder(text: "Your net worth appears here after the first check-in.", height: height)
         } else {
             let layout = self.layout
             VStack(alignment: .leading, spacing: Metrics.s) {
                 legend(layout)
                 chart(layout, stack: stacked.isEmpty ? nil : StackedAreaData(series: stacked))
-                    .frame(height: Self.height)
+                    .frame(height: height)
                     .measuringWidth($width)
                     .accessibilityChartDescriptor(summary)
             }
@@ -106,7 +106,7 @@ struct NetWorthChart: View {
     private var layout: ProjectionLayout {
         let dates = history.map(\.date) + projection.map(\.date) + stacked.flatMap { $0.points.map(\.date) }
         return ProjectionLayout(dates: dates, values: history.map(\.value) + stacked.stackedExtents, fan: projection,
-                                markers: markers, width: Double(width), height: Double(Self.height))
+                                markers: markers, width: Double(width), height: Double(height))
     }
 
     /// Today's value, the 1× of the axis while amounts are hidden.
@@ -351,7 +351,7 @@ struct ChartPlaceholder: View {
         ChartMarker(date: end.adding(years: 21).dateValue, label: "State pension 67", systemImage: "building.columns"),
         ChartMarker(date: end.adding(years: 22).dateValue, label: "BMW 60", systemImage: "building.columns"),
     ]
-    // As the Overview has them: net worth, and plan assets with the future.
+    // As Today has them: net worth, and plan assets with the future.
     let netWorth = HistoryChartData(valuator: valuator, through: end, range: .all)
     let planAssets = HistoryChartData(valuator: valuator, through: end, range: .all, projection: fan, markers: markers)
     // Made-up: a dollar account's rate is missing for the first five months, so equity is partly left out.
@@ -370,14 +370,14 @@ struct ChartPlaceholder: View {
             Card("By asset class") {
                 NetWorthChart(history: netWorth.points, stacked: netWorth.stacked)
             }
-            Card("Plan assets by asset class, with the future") {
+            Card("Money in the plan, with the future") {
                 NetWorthChart(history: planAssets.points, stacked: planAssets.stacked,
-                              projection: planAssets.projection, markers: planAssets.markers, title: "Plan assets")
+                              projection: planAssets.projection, markers: planAssets.markers, title: "Money in the plan")
             }
             // The callouts, as the strips' read-outs on Plan and Progress show theirs.
             Card("Reading the future") {
                 NetWorthChart(history: planAssets.points, stacked: planAssets.stacked,
-                              projection: planAssets.projection, markers: planAssets.markers, title: "Plan assets",
+                              projection: planAssets.projection, markers: planAssets.markers, title: "Money in the plan",
                               readsDate: end.adding(years: 8).dateValue)
             }
             Card("Reading the past") {
@@ -385,7 +385,7 @@ struct ChartPlaceholder: View {
             }
             Card("With the future, amounts hidden") {
                 NetWorthChart(history: planAssets.points, stacked: planAssets.stacked,
-                              projection: planAssets.projection, markers: planAssets.markers, title: "Plan assets")
+                              projection: planAssets.projection, markers: planAssets.markers, title: "Money in the plan")
                     .redacted(reason: .privacy)
             }
             Card("By asset class, some values missing") {

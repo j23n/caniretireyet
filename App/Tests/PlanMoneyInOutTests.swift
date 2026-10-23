@@ -4,7 +4,7 @@ import Testing
 import Tracker
 @testable import CanIRetireYet
 
-/// Trends' *Your last 12 months* (UI.md, "Trends"): the tiles and their
+/// Trends' *Your last 12 months* (UI.md, "Look Back"): the tiles and their
 /// changes against the 12 months before, on the example library
 /// (``PreviewLibrary``: money in and out from July to September 2026,
 /// measured from 30 June). What they draw is Tracker's, tested in

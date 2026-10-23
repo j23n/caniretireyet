@@ -221,9 +221,9 @@ extension PlanChapterStory {
     }
 
     /// "without it, your earliest age would be 56", "without it, your
-    /// earliest age stays 54", "without it, no age reaches your bar".
+    /// earliest age stays 54", "without it, no age works out".
     static func withoutSentence(_ without: AgeWithout, earliest: Int?) -> String {
-        guard let age = without.earliestAge else { return "without it, no age reaches your bar" }
+        guard let age = without.earliestAge else { return "without it, no age works out" }
         return age == earliest ? "without it, your earliest age stays \(age)"
             : "without it, your earliest age would be \(age)"
     }

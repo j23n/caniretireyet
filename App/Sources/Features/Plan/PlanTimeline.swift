@@ -225,7 +225,7 @@ enum PlanTimelineText {
     /// "Not yet. Stop at 54, in March 2042.", "Yes. You could stop working today."
     static func headline(_ headline: RetirementAnswer, locale: Locale = .current) -> String {
         if headline.canRetireNow { return "Yes. You could stop working today." }
-        guard let age = headline.earliestAge else { return "Not yet. No age reaches your bar yet." }
+        guard let age = headline.earliestAge else { return "Not yet. No age works out yet." }
         guard let date = headline.earliestDate else { return "Not yet. Stop at \(age)." }
         return "Not yet. Stop at \(age), in \(GlanceText.monthAndYear(date, locale: locale))."
     }

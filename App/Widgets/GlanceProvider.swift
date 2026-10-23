@@ -52,9 +52,9 @@ struct GlanceProvider: TimelineProvider {
 
 extension GlanceSnapshot {
     /// Made-up numbers, for the widget gallery and while a widget loads:
-    /// the mockups' (and UI.md's) 312.480 €, retiring at 54 in 15 years and
-    /// 6 months, 58% of what retiring today would need. The dates are around
-    /// `today`, so the countdowns read as they would.
+    /// the mockups' 312.480 €, and a last Monday at 54, 15 years and 6
+    /// months away, a year sooner than at the check-in before. The dates
+    /// are around `today`, so the countdowns read as they would.
     static func placeholder(today: CalendarDate = .today()) -> GlanceSnapshot {
         let last = today.startOfMonth.adding(days: -1)
         let values: [Decimal] = [271_300, 268_900, 266_200, 273_600, 279_100, 276_400, 270_800, 281_500, 288_000,
@@ -71,7 +71,7 @@ extension GlanceSnapshot {
         let allocation = owned.map { key, name, value in
             AllocationSlice(key: key, name: name, value: value, share: value.doubleValue / 312_480)
         }
-        let ages = [55, 55, 55, 55, 55, 54, 54, 54, 54]
+        let ages = [55, 55, 55, 55, 55, 55, 55, 55, 54]
         let answers = ages.enumerated().map { index, age in
             AnswerPoint(date: last.adding(months: index - (ages.count - 1)).endOfMonth, earliestAge: age)
         }

@@ -65,52 +65,23 @@ extension CheckInSummary {
 
 // MARK: - The answer
 
-/// This month's answer after saving (UI.md, "After saving"): "Not yet. You
-/// could retire at **54**, in March 2042.", or with a move since the
-/// check-in before, "Not yet. You could retire at **55**, a year later than
-/// in February."
-struct CheckInAnswer: Hashable, Sendable {
-    /// The words before the emphasised part.
-    var lead: String
-    /// The emphasised part, e.g. the age.
-    var emphasis: String?
-    /// The words after it.
-    var trail: String
-
-    /// The whole sentence.
-    var text: String { lead + (emphasis ?? "") + trail }
-
-    /// The answer for `headline`, compared with the answer recorded at the
-    /// check-in before (`previous`), if any.
-    static func make(_ headline: RetirementAnswer, previous: Headline?, locale: Locale = .current) -> CheckInAnswer {
-        if headline.canRetireNow {
-            return CheckInAnswer(
-                lead: "Yes. You could retire today, in ", emphasis: GlanceText.futures(headline.confidence),
-                trail: " simulated futures.")
-        }
-        guard let age = headline.earliestAge else {
-            return CheckInAnswer(
-                lead: "Not yet. No retirement age in the plan works in \(GlanceText.futures(headline.confidence)) "
-                    + "simulated futures yet.", emphasis: nil, trail: "")
-        }
-        return CheckInAnswer(lead: "Not yet. You could retire at ", emphasis: "\(age)",
-                             trail: comparison(age: age, previous: previous, date: headline.earliestDate,
-                                               locale: locale))
+/// The words of the check-in's end (UI.md, "After saving"): how the date
+/// moved, "A year sooner", and how sure, "Still at 63, in 9 of 10 futures."
+enum CheckInAnswer {
+    /// "A year sooner", "2 years later", "The same date".
+    static func move(_ move: LastMondayMove) -> String {
+        guard move.years != 0 else { return "The same date" }
+        let years = abs(move.years)
+        return "\(years == 1 ? "A year" : "\(years) years") \(move.isSooner ? "sooner" : "later")"
     }
 
-    /// ", 2 years sooner than in August.", ", a year later than in August.",
-    /// ", as in August."; without an age before, ", in March 2042." (when
-    /// you could retire), else ".".
-    static func comparison(age: Int, previous: Headline?, date: CalendarDate?, locale: Locale = .current) -> String {
-        if let previous, let before = previous.earliestAge {
-            let month = AmountFormat.monthName(previous.date, locale: locale)
-            guard before != age else { return ", as in \(month)." }
-            let years = abs(age - before)
-            let span = years == 1 ? "a year" : "\(years) years"
-            return ", \(span) \(age < before ? "sooner" : "later") than in \(month)."
-        }
-        if let date { return ", in \(GlanceText.monthAndYear(date, locale: locale))." }
-        return "."
+    /// "Still at 63, in 9 of 10 futures." when the age stayed, "At 62, in 9
+    /// of 10 futures." when it moved or there's none before.
+    static func line(_ answer: RetirementAnswer, previousAge: Int?) -> String {
+        let futures = GlanceText.futures(answer.confidence)
+        if answer.canRetireNow { return "You could stop today, in \(futures) futures." }
+        guard let age = answer.earliestAge else { return "No age works out in \(futures) futures yet." }
+        return "\(previousAge == age ? "Still at" : "At") \(age), in \(futures) futures."
     }
 
     /// The answer recorded at the check-in before `date` for the main plan.

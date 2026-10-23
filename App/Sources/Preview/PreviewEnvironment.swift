@@ -9,8 +9,8 @@ extension View {
     /// model set up first (e.g. with a check-in in progress), use
     /// `.appEnvironment(model)`.
     ///
-    ///     #Preview { OverviewScreen().previewEnvironment() }
-    ///     #Preview("Empty") { OverviewScreen().previewEnvironment(PreviewLibrary.empty) }
+    ///     #Preview { TodayScreen().previewEnvironment() }
+    ///     #Preview("Empty") { TodayScreen().previewEnvironment(PreviewLibrary.empty) }
     func previewEnvironment(_ library: Library = PreviewLibrary.library) -> some View {
         appEnvironment(AppModel.preview(library))
     }

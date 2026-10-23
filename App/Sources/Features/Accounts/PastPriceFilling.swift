@@ -308,7 +308,7 @@ final class PastPriceFiller {
 
 /// The note under a chart some of whose values couldn't be worked out
 /// because a price or an exchange rate is missing (UI.md, "Account detail"
-/// and "Overview"), with *Fill In Past Prices…*.
+/// and "Today"), with *Fill In Past Prices…*.
 enum MissingValueNote {
     /// Under an account's chart, in its own currency: "Some values can't be
     /// shown: exchange rates for US$ are missing for Jun 2018 – Dec 2021."
@@ -331,7 +331,7 @@ enum MissingValueNote {
         return sentences.isEmpty ? nil : sentences.joined(separator: " ")
     }
 
-    /// Under the Overview's chart: "Where lines are dashed, the total is
+    /// Under Today's chart: "Where lines are dashed, the total is
     /// partial: exchange rates for US$ are missing for Jun 2018 – Dec 2021
     /// (Brokerage), and 3 accounts have no value yet for Mar 2024 – Sep
     /// 2025 (Home, Mutuo casa and Old bank)." (Stacked by asset class, every
@@ -389,7 +389,7 @@ enum MissingValueNote {
     }
 }
 
-/// The note under a chart whose values use old prices (UI.md, "Overview" and
+/// The note under a chart whose values use old prices (UI.md, "Today" and
 /// "Account detail").
 enum OldPriceNote {
     /// "10 values in the chart use a price more than 31 days older than

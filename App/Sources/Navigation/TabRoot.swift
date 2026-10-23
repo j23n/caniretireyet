@@ -3,8 +3,8 @@ import SwiftUI
 
 /// iPhone (and iPad in compact width): three tabs, with the check-in in the
 /// tab bar's bottom accessory while one is due or under way, so it's one
-/// tap from anywhere (UI.md, "Navigation"). Settings opens from the gear in
-/// the Overview's toolbar.
+/// tap from anywhere (UI.md, "Navigation"). The accounts open from Today's
+/// net worth row, on its stack; Settings from the gear in Today's toolbar.
 struct TabRoot: View {
     @Environment(AppNavigation.self) private var navigation
     @Environment(CheckInStore.self) private var checkIn
@@ -27,16 +27,16 @@ struct TabRoot: View {
     private var tabs: some View {
         @Bindable var navigation = navigation
         return TabView(selection: $navigation.tab) {
-            Tab("Overview", systemImage: AppSymbol.overview, value: AppTab.overview) {
-                NavigationStack {
-                    OverviewScreen()
-                        .overviewToolbar()
+            Tab("Today", systemImage: AppSymbol.today, value: AppTab.today) {
+                NavigationStack(path: $navigation.todayPath) {
+                    TodayScreen()
+                        .todayToolbar()
                         .appDestinations()
                 }
             }
-            Tab("Accounts", systemImage: AppSymbol.accounts, value: AppTab.accounts) {
-                NavigationStack(path: $navigation.accountsPath) {
-                    AccountsScreen()
+            Tab("Timeline", systemImage: AppSymbol.timeline, value: AppTab.timeline) {
+                NavigationStack {
+                    TimelineScreen()
                         .appDestinations()
                 }
             }

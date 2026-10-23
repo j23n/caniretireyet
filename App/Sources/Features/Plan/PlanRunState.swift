@@ -59,6 +59,13 @@ struct PlanResultsState: Hashable, Sendable {
     }
 
     /// Whether the results shown are out of date.
+    /// The answer recorded at the last check-in, shown until the plan has
+    /// results of its own.
+    var recorded: RetirementAnswer? {
+        if case .recorded(let answer, _) = content { return answer }
+        return nil
+    }
+
     var isOutOfDate: Bool { results != nil && !staleReasons.isEmpty }
 
     /// Whether the results are shown dimmed: while a run replaces them, and
@@ -81,7 +88,7 @@ struct PlanResultsState: Hashable, Sendable {
 enum PlanRunText {
     // MARK: Out of date
 
-    static let outOfDateTitle = "Out of date"
+    static let outOfDateTitle = "Not up to date"
 
     /// "Inputs changed since this was calculated." For the plan, the
     /// library and the what-if; another focus age has its own sentence.
@@ -143,7 +150,7 @@ enum PlanRunText {
             when = "on \(formatted(date, day, calendar: calendar, locale: locale)) at \(time)"
         }
         let runs = AmountFormat.number(Decimal(results.runs), locale: locale)
-        let quick = results.mode == .fast ? ", a quick estimate" : ""
+        let quick = results.mode == .fast ? ", with fewer runs" : ""
         return "Calculated \(when) with \(runs) runs\(quick)"
     }
 
@@ -160,11 +167,11 @@ enum PlanRunText {
 
     // MARK: Progress
 
-    /// "Calculating…", "Quick estimate…", or a check-in's "Working out this
+    /// "Calculating…", "Estimating…", or a check-in's "Working out this
     /// month's answer…".
     static func title(_ progress: PlanRunProgress, isCheckIn: Bool = false) -> String {
         if isCheckIn { return "Working out this month's answer…" }
-        return progress.mode == .fast ? "Quick estimate…" : "Calculating…"
+        return progress.mode == .fast ? "Estimating…" : "Calculating…"
     }
 
     /// "Simulating 1.234 / 2.000 runs", "Earliest age · ages 41–75: 12 / 35",

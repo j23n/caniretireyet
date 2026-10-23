@@ -10,8 +10,8 @@ import Testing
 @MainActor
 @Suite(.serialized)
 struct ScreenshotTests {
-    @Test func overview() async throws {
-        try await keep("overview", .example, .overview)
+    @Test func today() async throws {
+        try await keep("today", .example, .today)
     }
 
     @Test func plan() async throws {
@@ -35,18 +35,29 @@ struct ScreenshotTests {
         try await keep("target-mix", .example, .targetMix)
     }
 
-    @Test func progress() async throws {
-        try await keep("progress", .example, .progress)
+    /// The Timeline at a year: this year's check-ins against January's plan.
+    @Test func timelineYear() async throws {
+        try await keep("timeline-year", .example, .year)
     }
 
     /// A savings plan since 2018 and check-ins from October 2025: the years
     /// before are valued from prices.
-    @Test func progressWithALongHistory() async throws {
-        try await keep("progress-long", .longHistory, .progress)
+    @Test func timelineYearWithALongHistory() async throws {
+        try await keep("timeline-year-long", .longHistory, .year)
     }
 
-    @Test func trends() async throws {
-        try await keep("trends", .example, .trends)
+    /// The Timeline at decades: your records, then the plan's futures.
+    @Test func timelineDecades() async throws {
+        try await keep("timeline-decades", .example, .decades)
+    }
+
+    @Test func timelineLookBack() async throws {
+        try await keep("timeline-look-back", .example, .lookBack)
+    }
+
+    /// The accounts, with the net worth chart and the allocation.
+    @Test func accounts() async throws {
+        try await keep("accounts", .example, .accounts)
     }
 
     /// A trades account's details: its holdings, its trades by month in
@@ -63,8 +74,8 @@ struct ScreenshotTests {
 
     /// An account whose name and institution are longer than fit beside
     /// its value: they truncate to a line each, and its value stays on one
-    /// line in the column of the others'. On iPhone the Accounts list; on
-    /// the Mac the sidebar's accounts.
+    /// line in the column of the others'. On iPhone the accounts list; on
+    /// the Mac *All Accounts* and the sidebar's accounts.
     @Test func accountsWithALongName() async throws {
         try await keep("accounts-long-name", .longAccountName, .accounts)
     }
@@ -90,29 +101,24 @@ struct ScreenshotTests {
         }
     }
 
-    /// The Overview on the tour's day: the first sketch, *Getting started*,
-    /// and the round amounts as accounts.
-    @Test func overviewOnDayOne() async throws {
-        try await keep("overview-day-one", .dayOne, .overview)
+    /// Today on the tour's day: the starting estimates as accounts.
+    @Test func todayOnDayOne() async throws {
+        try await keep("today-day-one", .dayOne, .today)
     }
 
     // With the eye on (UI.md, "Privacy"): amounts are placeholders, words
     // stay, and charts keep their shape with a relative value axis.
 
-    @Test func overviewWithAmountsHidden() async throws {
-        try await keep("overview-hidden", .example, .overview, hidesAmounts: true)
+    @Test func todayWithAmountsHidden() async throws {
+        try await keep("today-hidden", .example, .today, hidesAmounts: true)
     }
 
     @Test func planWithAmountsHidden() async throws {
         try await keep("plan-hidden", .example, .plan, hidesAmounts: true)
     }
 
-    @Test func progressWithAmountsHidden() async throws {
-        try await keep("progress-hidden", .example, .progress, hidesAmounts: true)
-    }
-
-    @Test func trendsWithAmountsHidden() async throws {
-        try await keep("trends-hidden", .example, .trends, hidesAmounts: true)
+    @Test func timelineYearWithAmountsHidden() async throws {
+        try await keep("timeline-year-hidden", .example, .year, hidesAmounts: true)
     }
 
     private func keep(_ name: String, _ sample: ScreenLaunch.Sample, _ screen: ScreenLaunch.Screen,

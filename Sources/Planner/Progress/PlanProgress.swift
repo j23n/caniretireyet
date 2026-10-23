@@ -3,7 +3,7 @@ import Model
 import Tracker
 
 /// What Progress and Trends work out from the library for one plan
-/// (UI.md, "Progress" and "Trends"; PROGRESS.md): the answers recorded, one
+/// (UI.md, "Year" and "Trends"; PROGRESS.md): the answers recorded, one
 /// ``PlanProgressYear`` per calendar year, the milestones reached and each
 /// year's lines on Progress's strip. Both pages read this one value, which
 /// the app works out once for each state of the library and the plan.
@@ -311,7 +311,7 @@ public struct PlanYearEvent: Hashable, Sendable {
     }
 }
 
-/// What Trends works out for one grain and span (UI.md, "Trends"): money
+/// What Trends works out for one grain and span (UI.md, "Look Back"): money
 /// in and out, plan assets split by where they came from, and, from the
 /// plan's ``PlanProgress``, its answers and its years in the span.
 public struct PlanTrends: Sendable {

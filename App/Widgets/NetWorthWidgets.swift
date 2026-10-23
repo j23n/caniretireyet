@@ -3,11 +3,11 @@ import Model
 import SwiftUI
 import WidgetKit
 
-// Net worth today, as the Overview has it (UI.md, "Widgets"): the total and
-// the change at the latest check-in with a year's line, the change split into markets, saved and
-// the rest, and the asset mix. Each opens the Overview. While the device is
-// locked, amounts draw as placeholders (AmountRedaction.swift) and changes
-// show in per cent; lock screen widgets never show amounts.
+// Net worth today, as Today has it (UI.md, "Widgets"): the total, this
+// year's change and the change at the latest check-in, with a year's line.
+// It opens Today. While the device is locked, amounts draw as placeholders
+// (AmountRedaction.swift) and changes show in per cent; lock screen widgets
+// never show amounts.
 
 /// Net worth's words for a snapshot.
 struct NetWorthWords {
@@ -83,7 +83,7 @@ struct NetWorthWidget: Widget {
     var body: some WidgetConfiguration {
         glance(kind: Self.kind, name: "Net worth",
                description: "Your net worth at the latest check-in, and how it changed.",
-               families: [.small, .medium, .large, .rectangular, .circular], link: .overview) { entry, family in
+               families: [.small, .medium, .large, .rectangular, .circular], link: .today) { entry, family in
             switch family {
             case .rectangular: NetWorthRectangular(entry: entry)
             case .circular: NetWorthCircular(entry: entry)
@@ -118,7 +118,8 @@ struct NetWorthCard<Content: View>: View {
     }
 }
 
-/// The total, its change since the last check-in, and the year's line.
+/// The total, its change this year (or since the last check-in), and the
+/// year's line.
 struct NetWorthSmall: View {
     var entry: GlanceEntry
 
@@ -138,7 +139,17 @@ struct NetWorthSmall: View {
                 .minimumScaleFactor(0.6)
                 .privacySensitiveAmount()
                 .padding(.top, 6)
-            if let change = words.change, let since = words.since {
+            if let thisYear = words.thisYear {
+                Text(verbatim: thisYear.text)
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(thisYear.color)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                    .padding(.top, 3)
+                Text("this year")
+                    .font(.caption)
+                    .foregroundStyle(Palette.secondaryInk)
+            } else if let change = words.change, let since = words.since {
                 Text(verbatim: change.text)
                     .font(.footnote.weight(.semibold))
                     .foregroundStyle(change.color)
@@ -164,18 +175,19 @@ struct NetWorthSmall: View {
     }
 }
 
-/// The total and its changes beside the year's line, with the retirement
-/// answer underneath.
+/// The total and its changes beside the year's line, with the last Monday
+/// underneath.
 struct NetWorthMedium: View {
     var entry: GlanceEntry
+    @Environment(\.locale) private var locale
 
     var body: some View {
-        NetWorthCard(entry: entry) { words, snapshot in
-            content(words, retirement: snapshot.retirement)
+        NetWorthCard(entry: entry) { words, _ in
+            content(words, lastMonday: entry.lastMondayWords(locale: locale))
         }
     }
 
-    private func content(_ words: NetWorthWords, retirement: RetirementGlance?) -> some View {
+    private func content(_ words: NetWorthWords, lastMonday: LastMondayWords?) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .top, spacing: 14) {
                 VStack(alignment: .leading, spacing: 0) {
@@ -210,7 +222,7 @@ struct NetWorthMedium: View {
             Divider()
                 .overlay(Palette.gridline)
                 .padding(.vertical, 8)
-            RetirementLine(retirement: retirement, today: entry.today)
+            LastMondayLine(words: lastMonday)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
@@ -235,37 +247,32 @@ struct DeltaLine: View {
     }
 }
 
-/// "Earliest retirement 54 · in 15 y 6 m", under net worth.
-struct RetirementLine: View {
-    var retirement: RetirementGlance?
-    var today: CalendarDate
+/// "Last Monday 27 Mar 2051 · at 63", under net worth.
+struct LastMondayLine: View {
+    var words: LastMondayWords?
 
     var body: some View {
         HStack(spacing: 4) {
             Image(systemName: "sun.horizon")
                 .foregroundStyle(Palette.yellowStroke)
                 .padding(.trailing, 1)
-            if let answer = retirement?.answer {
-                if answer.canRetireNow {
-                    Text("You could retire today")
-                        .fontWeight(.semibold)
-                        .foregroundStyle(Palette.ink)
-                } else if let age = answer.earliestAge {
-                    Text("Earliest retirement")
+            if let words {
+                if words.lastMonday != nil, let age = words.answer.earliestAge {
+                    Text("Last Monday")
                         .foregroundStyle(Palette.secondaryInk)
-                    Text(verbatim: "\(age)")
+                    Text(verbatim: words.title)
                         .fontWeight(.semibold)
                         .foregroundStyle(Palette.ink)
-                    if let countdown = answer.earliestDate.flatMap({ RetirementCountdown(from: today, to: $0) }) {
-                        Text(verbatim: "· in \(countdown.text)")
-                            .foregroundStyle(Palette.secondaryInk)
-                    }
+                    Text(verbatim: "· at \(age)")
+                        .foregroundStyle(Palette.secondaryInk)
                 } else {
-                    Text("No retirement age works out yet")
-                        .foregroundStyle(Palette.secondaryInk)
+                    // "You could stop today", "Not yet", or "At 63" without a date.
+                    Text(verbatim: words.title)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(Palette.ink)
                 }
             } else {
-                Text("Can I retire yet? Your plan's answer appears here.")
+                Text("Your last Monday at work appears here.")
                     .foregroundStyle(Palette.secondaryInk)
             }
         }
@@ -275,19 +282,19 @@ struct RetirementLine: View {
     }
 }
 
-/// Everything at once: net worth with its year, and the answer with how
-/// close retiring today is.
+/// Everything at once: net worth with its year, and the last Monday with
+/// how it moved.
 struct NetWorthLarge: View {
     var entry: GlanceEntry
     @Environment(\.locale) private var locale
 
     var body: some View {
-        NetWorthCard(entry: entry) { words, snapshot in
-            content(words, retirement: snapshot.retirement)
+        NetWorthCard(entry: entry) { words, _ in
+            content(words, lastMonday: entry.lastMondayWords(locale: locale))
         }
     }
 
-    private func content(_ words: NetWorthWords, retirement: RetirementGlance?) -> some View {
+    private func content(_ words: NetWorthWords, lastMonday: LastMondayWords?) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
                 NetWorthLabel(netWorth: words.netWorth)
@@ -332,51 +339,40 @@ struct NetWorthLarge: View {
             Divider()
                 .overlay(Palette.gridline)
                 .padding(.vertical, 12)
-            RetirementSection(retirement: retirement, today: entry.today, money: words.money)
+            LastMondaySection(words: lastMonday)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 }
 
-/// "Can I retire yet? Not yet · retire at 54", with the readiness bar.
-struct RetirementSection: View {
-    var retirement: RetirementGlance?
-    var today: CalendarDate
-    var money: WidgetMoney
+/// "Last Monday · 27 March 2051 · At 63, in 9 of 10 futures", and how it moved.
+struct LastMondaySection: View {
+    var words: LastMondayWords?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
-                WidgetLabel(title: "Can I retire yet?", systemImage: "sun.horizon", iconColor: Palette.yellowStroke)
+                WidgetLabel(title: "Last Monday", systemImage: "sun.horizon", iconColor: Palette.yellowStroke)
                 Spacer(minLength: 0)
                 Image(systemName: "chevron.right")
                     .font(.caption2.weight(.semibold))
                     .foregroundStyle(Palette.mutedInk)
             }
-            if let answer = retirement?.answer {
-                Text(verbatim: headline(answer))
+            if let words {
+                Text(verbatim: words.longTitle)
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(Palette.ink)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
                     .padding(.top, 4)
-                Text(verbatim: detail(answer))
+                Text(verbatim: words.ageAndFutures)
                     .font(.caption)
                     .foregroundStyle(Palette.secondaryInk)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
                     .padding(.top, 2)
-                let readiness = ReadinessWords(answer: answer, money: money)
-                if let percent = readiness.percent {
-                    ReadinessBar(fraction: readiness.fraction)
-                        .padding(.top, 10)
-                    Text(verbatim: "\(percent) \(readiness.caption)")
-                        .font(.caption)
-                        .foregroundStyle(Palette.secondaryInk)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.8)
-                        .padding(.top, 6)
-                }
+                LastMondayMoveText(words: words)
+                    .padding(.top, 6)
             } else {
                 Text(verbatim: WidgetEmpty.noAnswer)
                     .font(.caption)
@@ -384,20 +380,6 @@ struct RetirementSection: View {
                     .padding(.top, 4)
             }
         }
-    }
-
-    /// "Not yet · retire at 54", "Yes. You could retire today".
-    private func headline(_ answer: RetirementAnswer) -> String {
-        if answer.canRetireNow { return "Yes. You could retire today" }
-        guard let age = answer.earliestAge else { return "Not yet · no age works out yet" }
-        return "Not yet · retire at \(age)"
-    }
-
-    /// "April 2042, in 9 of 10 simulated futures".
-    private func detail(_ answer: RetirementAnswer) -> String {
-        let futures = GlanceText.inSimulatedFutures(answer.confidence)
-        guard !answer.canRetireNow, let date = answer.earliestDate else { return futures.capitalizedFirst }
-        return "\(GlanceText.monthAndYear(date, locale: money.locale)), \(futures)"
     }
 }
 
@@ -466,190 +448,5 @@ struct NetWorthCircular: View {
             return nil
         }
         return WidgetMoney(currency: snapshot.currency, locale: locale).percentChange(fraction).text
-    }
-}
-
-// MARK: - Since last check-in
-
-/// The change since the last check-in split into markets, saved and
-/// the rest (UI.md, "Since last check-in"): what you saved apart from what
-/// markets did.
-struct SinceCheckInWidget: Widget {
-    static let kind = "SinceCheckIn"
-
-    var body: some WidgetConfiguration {
-        glance(kind: Self.kind, name: "Since last check-in",
-               description: "What changed since your last check-in: what you saved, and what markets did.",
-               families: [.medium], link: .overview) { entry, _ in
-            SinceCheckInView(entry: entry)
-        }
-    }
-}
-
-struct SinceCheckInView: View {
-    var entry: GlanceEntry
-    @Environment(\.locale) private var locale
-    @Environment(\.redactionReasons) private var redactionReasons
-
-    var body: some View {
-        Group {
-            if let snapshot = entry.snapshot, let netWorth = snapshot.netWorth, let change = netWorth.sinceLastCheckIn {
-                content(change, money: WidgetMoney(currency: snapshot.currency, locale: locale))
-            } else {
-                WidgetMessage(title: "Since last check-in", systemImage: "calendar",
-                              message: entry.snapshot == nil
-                                  ? WidgetEmpty.noSnapshot
-                                  : entry.snapshot?.netWorth == nil ? WidgetEmpty.noCheckIn : WidgetEmpty.noChange)
-            }
-        }
-        .cardBackground()
-    }
-
-    private func content(_ change: NetWorthChange, money: WidgetMoney) -> some View {
-        let hides = redactionReasons.hidesAmounts
-        let rows = [ChangeRow(name: "Markets", value: change.markets), ChangeRow(name: "Saved", value: change.saved),
-                    ChangeRow(name: "Other", value: change.other)]
-        let scale = ChangeBarScale(rows.map { $0.value.doubleValue })
-        let headline: WidgetDelta? = hides ? change.fraction.map(money.percentChange) : money.change(change.change)
-        return VStack(alignment: .leading, spacing: 0) {
-            HStack {
-                WidgetLabel(title: "Since last check-in", systemImage: "calendar")
-                Spacer(minLength: 0)
-                Text(verbatim: "\(AmountFormat.shortDate(change.from, relativeTo: change.to, locale: locale)) → "
-                    + AmountFormat.shortDate(change.to, locale: locale))
-                    .font(.caption)
-                    .foregroundStyle(Palette.mutedInk)
-                    .lineLimit(1)
-            }
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                if let headline {
-                    Text(verbatim: headline.text)
-                        .font(.system(size: 24, weight: .semibold))
-                        .foregroundStyle(headline.color)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.6)
-                }
-                AmountSentenceText("\(amount: money.amount(change.start)) → \(amount: money.amount(change.end))")
-                    .font(.caption)
-                    .foregroundStyle(Palette.secondaryInk)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
-            }
-            .padding(.top, 4)
-            Spacer(minLength: 6)
-            VStack(spacing: 6) {
-                ForEach(rows) { row in
-                    HStack(spacing: 8) {
-                        Text(verbatim: row.name)
-                            .foregroundStyle(Palette.secondaryInk)
-                            .frame(width: 78, alignment: .leading)
-                        ChangeBar(value: row.value.doubleValue,
-                                  direction: DeltaFormat.direction(of: row.value, precision: .whole), scale: scale)
-                        Text(verbatim: money.signed(row.value))
-                            .monospacedDigit()
-                            .foregroundStyle(Palette.ink)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.7)
-                            .privacySensitiveAmount()
-                            .frame(width: 70, alignment: .trailing)
-                    }
-                    .frame(height: 18)
-                }
-            }
-            .font(.footnote)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-    }
-}
-
-/// One bar of the change since the last check-in.
-struct ChangeRow: Identifiable {
-    var name: String
-    var value: Decimal
-
-    var id: String { name }
-}
-
-// MARK: - Allocation
-
-/// What you own by asset class (UI.md, "Allocation"): one bar in the asset
-/// classes' colours, and their shares.
-struct AllocationWidget: Widget {
-    static let kind = "Allocation"
-
-    var body: some WidgetConfiguration {
-        glance(kind: Self.kind, name: "Allocation",
-               description: "What you own by asset class, at the latest check-in.",
-               families: [.medium], link: .overview) { entry, _ in
-            AllocationView(entry: entry)
-        }
-    }
-}
-
-struct AllocationView: View {
-    var entry: GlanceEntry
-    @Environment(\.locale) private var locale
-
-    var body: some View {
-        Group {
-            if let snapshot = entry.snapshot, snapshot.allocation.contains(where: { $0.value > 0 }) {
-                content(snapshot.allocation.filter { $0.value > 0 },
-                        money: WidgetMoney(currency: snapshot.currency, locale: locale))
-            } else {
-                WidgetMessage(title: "Allocation", systemImage: "rectangle.split.3x1",
-                              message: entry.snapshot == nil ? WidgetEmpty.noSnapshot : WidgetEmpty.noCheckIn)
-            }
-        }
-        .cardBackground()
-    }
-
-    private func content(_ slices: [AllocationSlice], money: WidgetMoney) -> some View {
-        let rows = stride(from: 0, to: slices.count, by: 2).map { Array(slices[$0..<min($0 + 2, slices.count)]) }
-        return VStack(alignment: .leading, spacing: 0) {
-            HStack {
-                WidgetLabel(title: "Allocation", systemImage: "rectangle.split.3x1")
-                Spacer(minLength: 0)
-                Text("By asset class")
-                    .font(.caption)
-                    .foregroundStyle(Palette.mutedInk)
-            }
-            AllocationBar(slices: slices)
-                .frame(height: 14)
-                .padding(.top, 12)
-            Spacer(minLength: 8)
-            Grid(alignment: .leading, horizontalSpacing: 20, verticalSpacing: 4) {
-                ForEach(rows.indices, id: \.self) { index in
-                    GridRow {
-                        ForEach(rows[index], id: \.key) { slice in
-                            AllocationLegendItem(slice: slice, money: money)
-                        }
-                    }
-                }
-            }
-            .font(.footnote)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-    }
-}
-
-/// A swatch, the asset class's name and its share: "■ Equity 58%".
-struct AllocationLegendItem: View {
-    var slice: AllocationSlice
-    var money: WidgetMoney
-
-    var body: some View {
-        HStack(spacing: 7) {
-            RoundedRectangle(cornerRadius: 2.5)
-                .fill(slice.color)
-                .frame(width: 9, height: 9)
-            Text(verbatim: slice.name)
-                .foregroundStyle(Palette.ink)
-                .lineLimit(1)
-            Spacer(minLength: 4)
-            Text(verbatim: slice.share.map(money.percent) ?? "")
-                .monospacedDigit()
-                .foregroundStyle(Palette.secondaryInk)
-        }
-        .frame(maxWidth: .infinity)
     }
 }

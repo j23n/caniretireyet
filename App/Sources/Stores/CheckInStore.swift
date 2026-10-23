@@ -42,7 +42,7 @@ final class CheckInStore {
 
     // MARK: Status
 
-    /// Whether a check-in is open (the Overview's attention list).
+    /// Whether a check-in is open (Today's attention list).
     var hasDraft: Bool { date != nil }
 
     /// Where the monthly check-in stands, for the accessory and the sidebar.

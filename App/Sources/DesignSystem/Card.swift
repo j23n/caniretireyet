@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// A titled group of content on a plain surface (the Overview's "Since last
+/// A titled group of content on a plain surface (Today's "Since last
 /// check-in", "Allocation", …). Content sits on plain surfaces; glass is for
 /// floating controls only.
 ///

@@ -3,13 +3,13 @@ import Planner
 import SwiftUI
 import Tracker
 
-// The chosen year in words (UI.md, "Progress"), said once, under the strip:
+// The chosen year in words (UI.md, "Year"), said once, under the strip:
 // its figures, why it's ahead or behind, and what happened. Everything but
 // what happened keeps its size from year to year, so stepping through the
 // years moves nothing above it; on the Mac and iPad they're columns when
 // there's room.
 
-/// The chosen year under the strip (UI.md, "Progress"): its title, change
+/// The chosen year under the strip (UI.md, "Year"): its title, change
 /// and where it stands against January, the year in a line, then its
 /// figures, why it's ahead or behind, and what happened. On iPhone one
 /// after the other with *‹ ›* in the title; on the Mac and iPad in
@@ -363,7 +363,7 @@ struct PlanYearSavingBar: View {
 }
 
 /// Why the year is ahead of or behind its baseline (PROGRESS.md, *Why*;
-/// UI.md, "Progress"), in the same four rows every year, so stepping
+/// UI.md, "Year"), in the same four rows every year, so stepping
 /// through the years moves nothing under it: the gap going into the year,
 /// saving against the plan, markets against what was expected, and the
 /// rest (inflation, values without what was saved, exchange rates). Each with a
@@ -400,7 +400,7 @@ struct PlanYearWhy: View {
     }
 
     private func rows(_ explanation: GapExplanation) -> [Row] {
-        [Row(title: "Going in", value: explanation.start),
+        [Row(title: "At the start", value: explanation.start),
          Row(title: "Saving", value: explanation.saving),
          Row(title: "Markets", value: explanation.markets),
          Row(title: "Other", value: (explanation.inflation ?? 0) + explanation.other)]

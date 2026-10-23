@@ -8,9 +8,7 @@ import SwiftUI
 /// | New Account | ⌘N |
 /// | New Check-in | ⌘K |
 /// | Import… | ⌘⇧I |
-/// | Save Baseline | ⌘⇧B |
 /// | Hide Amounts | ⌘⇧H |
-/// | Show Future | ⌘⇧F |
 /// | Duplicate Plan | ⌘D |
 /// | Recalculate | ⌘R |
 /// | Export Calculations… | — |
@@ -41,8 +39,6 @@ struct AppCommands: Commands {
         CommandGroup(after: .toolbar) {
             Toggle("Hide Amounts", isOn: $preferences.hidesAmounts)
                 .keyboardShortcut("h", modifiers: [.command, .shift])
-            Toggle("Show Future", isOn: $navigation.showsFuture)
-                .keyboardShortcut("f", modifiers: [.command, .shift])
             Divider()
         }
 
@@ -51,9 +47,6 @@ struct AppCommands: Commands {
                 .keyboardShortcut("r", modifiers: .command)
                 .disabled(planActions == nil)
             Divider()
-            Button("Save Baseline…") { planActions?.saveBaseline() }
-                .keyboardShortcut("b", modifiers: [.command, .shift])
-                .disabled(planActions == nil)
             Button("Duplicate Plan") { planActions?.duplicate() }
                 .keyboardShortcut("d", modifiers: .command)
                 .disabled(planActions == nil)
@@ -67,8 +60,6 @@ struct AppCommands: Commands {
 /// What the plan menu commands do for the plan on screen. The Plan screen
 /// publishes it with `.focusedSceneValue(\.planActions, PlanCommandActions(…))`.
 struct PlanCommandActions {
-    /// Save Baseline… (⌘⇧B): ask for a label and save one.
-    var saveBaseline: @MainActor () -> Void
     /// Duplicate Plan (⌘D).
     var duplicate: @MainActor () -> Void
     /// Recalculate (⌘R): calculate what's out of date on screen. Plans only

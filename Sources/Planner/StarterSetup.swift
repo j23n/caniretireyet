@@ -197,15 +197,6 @@ public enum StarterSetup {
         return plan
     }
 
-    /// The Monday on or before `date`: the last Monday at work, for an
-    /// answer whose earliest date is `date`, as first launch's calendar page
-    /// shows it.
-    public static func lastMonday(onOrBefore date: CalendarDate) -> CalendarDate {
-        // 1970-01-01 was a Thursday, three days after a Monday.
-        let sinceMonday = ((date.daysSinceEpoch + 3) % 7 + 7) % 7
-        return date.adding(days: -sinceMonday)
-    }
-
     /// `amount` to two significant figures: 420 → 420, 1234 → 1200; for
     /// round amounts in sentences ("you save about 1.400 € a month").
     public static func roundedToTwoFigures(_ amount: Decimal) -> Decimal {

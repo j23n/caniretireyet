@@ -25,7 +25,7 @@ struct WaterfallChart: View {
     var from: String
     var to: String
     /// Whether the change leads, "▲ +5.730 € since 31 Aug", over the totals
-    /// before and after; off where the screen says it already (the Overview).
+    /// before and after; off where the screen says it already (Today).
     var showsChange = true
 
     @Environment(\.redactionReasons) private var redactionReasons

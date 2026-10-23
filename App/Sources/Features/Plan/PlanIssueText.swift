@@ -30,7 +30,7 @@ enum PlanIssueText {
             }
         case "planner.unknownCostBasis":
             return issue.message.replacingOccurrences(
-                of: "in the plan (portfolio.unrealizedGainShare)", with: "under Assumptions (Unrealised gains, estimate)")
+                of: "in the plan (portfolio.unrealizedGainShare)", with: "under Assumptions (Unrealized gains, estimate)")
         case "planner.noInvestmentRate":
             return noInvestmentRateMessage
         case "planner.noBirthDate":

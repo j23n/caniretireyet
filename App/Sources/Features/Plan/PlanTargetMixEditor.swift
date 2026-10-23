@@ -158,7 +158,7 @@ private struct PlanTargetMixClassRow: View {
         let ordinary = row.ordinaryShare.map { AmountFormat.percent($0, digits: 0, locale: locale) } ?? "–"
         let all = row.allShare.map { AmountFormat.percent($0, digits: 0, locale: locale) } ?? "–"
         return Text("Today \(ordinary) · \(all) of all")
-            .accessibilityLabel("\(row.name) today: \(ordinary) of the money you can draw, \(all) of all plan assets")
+            .accessibilityLabel("\(row.name) today: \(ordinary) of the money you can draw, \(all) of all the money in the plan")
     }
 
     /// "Median 5.0% a year".

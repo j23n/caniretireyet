@@ -42,7 +42,7 @@ struct NotePlannerMonthlyTests {
         #expect(first.kind == .monthly)
         #expect(first.time == NoteTime(date: "2026-10-31", hour: 19, minute: 0))
         #expect(first.title == "October check-in")
-        #expect(first.body == "You could retire at 54, 2 years sooner than in January, and you're 58% ready. "
+        #expect(first.body == "You could retire at 54, 2 years sooner than in January. "
             + "5 years of spending is 80% there. Import October's files to see where you stand.")
         #expect(first.link == .checkIn)
         #expect(first.showsChart)
@@ -70,7 +70,7 @@ struct NotePlannerMonthlyTests {
         let notes = NotePlanner.notes(for: snapshot(checkIns: still, answer: answer(age: 54, readiness: 0.58)),
                                       settings: .standard, now: now, locale: english)
         #expect(notes.first?.body
-            == "You could retire at 54, as in January, and you're 58% ready. Import October's files to see where you stand.")
+            == "You could retire at 54, as in January. Import October's files to see where you stand.")
     }
 
     @Test func withoutAnAnswerItAsksToCalculate() throws {
@@ -90,14 +90,14 @@ struct NotePlannerMonthlyTests {
         let october = try #require(notes.first)
         #expect(october.kind == .catchUp)
         #expect(october.title == "October check-in")
-        #expect(october.body == "At your August check-in you could retire at 54 and were 56% ready. "
+        #expect(october.body == "At your August check-in you could retire at 54. "
             + "Catch up by importing September's and October's files together.")
         #expect(notes[1].kind == .catchUp)
         #expect(notes[1].body.hasSuffix("importing September's, October's and November's files together."))
         // Three months missed: every third month from December.
         #expect(notes[2].kind == .quarterly)
         #expect(notes[2].title == "December check-in")
-        #expect(notes[2].body == "At your August check-in you could retire at 54 and were 56% ready. "
+        #expect(notes[2].body == "At your August check-in you could retire at 54. "
             + "The months since then import together, whenever it suits you.")
         #expect(notes.dropFirst(2).map(\.time.date)
             == ["2026-12-31", "2027-03-31", "2027-06-30", "2027-09-30"])
@@ -212,8 +212,7 @@ struct NotePlannerYearlyTests {
         // Its day has the monthly note: it moves to the next.
         #expect(note.time == NoteTime(date: "2026-11-01", hour: 10, minute: 0))
         #expect(note.title == "Five years of records")
-        #expect(note.body == "Since December 2025 the age you could retire at went from 56 to 54, "
-            + "and you went from 46% to 58% of what retiring today needs.")
+        #expect(note.body == "Since December 2025 the age you could retire at went from 56 to 54.")
     }
 
     @Test func thePlanCheckUpComesAYearAfterItChanged() throws {

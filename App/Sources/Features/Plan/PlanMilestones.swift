@@ -74,7 +74,7 @@ struct PlanMilestoneText {
             let span = years == 1 ? "a year" : "\(years) years"
             return "Enough to pay for \(span) of the spending you plan for retirement: \(amount(milestone.amount))."
         case .shareOfNeeded:
-            return "Your plan assets against what retiring today would need."
+            return "The money in your plan against what retiring today would need."
         case .crossover:
             return "From about \(amount(milestone.amount)), a typical year's growth adds as much as you save."
         case .coastPoint(let age):
@@ -95,7 +95,7 @@ struct PlanMilestoneText {
     }
 
     /// What a kind means and why it matters, under its heading in *All
-    /// Milestones*: "Your plan assets passing 10.000 €, 15.000 €, 20.000 €,
+    /// Milestones*: "The money in your plan passing 10.000 €, 15.000 €, 20.000 €,
     /// 25.000 € and on, each about a quarter above the last: simple marks of
     /// the money growing."
     func meaning(of kind: PlanMilestoneKind, in milestones: PlanMilestones) -> AmountSentence {
@@ -104,7 +104,7 @@ struct PlanMilestoneText {
             let lowest = MilestoneLadder.roundFloor
             let first = MilestoneLadder.roundAmounts(in: lowest...(lowest * 5 / 2))
             let amounts = first.map { amount($0) }.joined(separator: ", ")
-            return "Your plan assets passing \(amounts) and on, each about a quarter above the last: "
+            return "The money in your plan passing \(amounts) and on, each about a quarter above the last: "
                 + "simple marks of the money growing."
         case .yearsOfSpending:
             guard let spending = milestones.ladder.spending else {
@@ -113,7 +113,7 @@ struct PlanMilestoneText {
             return "What you have, counted in years of the \(amount(spending)) a year "
                 + "you plan to spend in retirement."
         case .shareOfNeeded:
-            return "Your plan assets against what retiring today would need. All of it means you could stop now."
+            return "The money in your plan against what retiring today would need. All of it means you could stop now."
         case .crossover:
             let growth = "a typical year's growth adds as much as you save: "
                 + "from there, markets do more than your saving."
@@ -185,7 +185,7 @@ struct PlanMilestoneText {
     /// "If you stopped saving today, you could still retire at 63; the coast
     /// point is 67, when your first pension starts."
     static func coast(_ age: Int?, target: Int?) -> String {
-        guard let age else { return "If you stopped saving today, no age would reach your bar yet." }
+        guard let age else { return "If you stopped saving today, no age would work out yet." }
         let could = "If you stopped saving today, you could still retire at \(age)"
         guard let target else { return could + "." }
         if age <= target {
@@ -201,7 +201,7 @@ struct PlanMilestoneText {
     /// "The coast point is 67, when your first pension starts."
     static func coastCaption(_ age: Int?, target: Int?, reached: ReachedMilestone?,
                              asOf: CalendarDate, locale: Locale = .current) -> String {
-        guard let age else { return "If you stopped saving today, no age would reach your bar yet." }
+        guard let age else { return "If you stopped saving today, no age would work out yet." }
         guard let target else { return "If you stopped saving today, you could still retire at \(age)." }
         if age <= target { return "You're past the coast point: your first pension starts at \(target)." }
         if let reached, case .coastPoint(let then) = reached.milestone.kind {

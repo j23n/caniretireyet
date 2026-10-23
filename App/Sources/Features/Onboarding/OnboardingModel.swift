@@ -238,9 +238,6 @@ final class OnboardingModel {
             }
         }
         await addStarterRecords(library: library, settings: settings)
-        if !openedExistingLibrary {
-            preferences.gettingStartedSince = preferences.gettingStartedSince ?? library.asOfDate
-        }
         step = .answer
         startedAnswer = false
         lever = nil

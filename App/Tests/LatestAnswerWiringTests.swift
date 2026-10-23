@@ -3,7 +3,7 @@ import Model
 import Testing
 @testable import CanIRetireYet
 
-/// The answer the Overview, Progress and the widgets show (`PlanStore.mainAnswer`):
+/// The answer Today, Progress and the widgets show (`PlanStore.mainAnswer`):
 /// the main plan's results, unless they're out of date with the library and
 /// a check-in they didn't see recorded its answer, as the other device does
 /// (UI.md, "Results are kept on the device").

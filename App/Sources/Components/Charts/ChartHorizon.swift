@@ -4,7 +4,7 @@ import Tracker
 
 // The words of a chart's time span, history continued into a projection:
 // how far back (Tracker's `HistoryRange`) and how far ahead (its
-// `FutureHorizon`), chosen together in one control (UI.md, "Overview",
+// `FutureHorizon`), chosen together in one control (UI.md, "Today",
 // "Your money over time").
 
 extension FutureHorizon {

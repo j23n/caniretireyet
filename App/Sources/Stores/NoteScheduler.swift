@@ -16,7 +16,7 @@ enum NoteScheduler {
     static let legacyPrefix = "check-in-reminder-"
 
     /// The notes that ask for a check-in: they offer *Import Files* and
-    /// *Open Overview* when touched and held.
+    /// *Open Today* when touched and held.
     static let checkInCategory = "check-in"
     static let importAction = "import-files"
     static let overviewAction = "open-overview"
@@ -94,7 +94,7 @@ enum NoteScheduler {
                 identifier: checkInCategory,
                 actions: [
                     UNNotificationAction(identifier: importAction, title: "Import Files", options: [.foreground]),
-                    UNNotificationAction(identifier: overviewAction, title: "Open Overview", options: [.foreground]),
+                    UNNotificationAction(identifier: overviewAction, title: "Open Today", options: [.foreground]),
                 ],
                 intentIdentifiers: [])
         ])
@@ -117,10 +117,10 @@ final class NoteDelegate: NSObject, UNUserNotificationCenterDelegate, Sendable {
         case NoteScheduler.importAction:
             link = .checkIn
         case NoteScheduler.overviewAction:
-            link = .overview
+            link = .today
         default:
             let raw = response.notification.request.content.userInfo[NoteScheduler.linkKey] as? String
-            link = raw.flatMap(GlanceLink.init(rawValue:))
+            link = raw.flatMap(GlanceLink.init(stored:))
         }
         guard let link else { return }
         await open(link)

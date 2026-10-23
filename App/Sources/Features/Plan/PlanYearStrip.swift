@@ -3,7 +3,7 @@ import Planner
 import SwiftUI
 import Tracker
 
-// Progress year by year (UI.md, "Progress"): the strip of years, each a
+// Progress year by year (UI.md, "Year"): the strip of years, each a
 // card with your money through the year against what January expected.
 
 // MARK: - The strip of years
@@ -375,7 +375,7 @@ struct PlanYearCardView: View {
         return card.actual.min { abs($0.date.timeIntervalSince(day)) < abs($1.date.timeIntervalSince(day)) }
     }
 
-    /// The year at the pointer (UI.md, "Progress"): a rule at the nearest
+    /// The year at the pointer (UI.md, "Year"): a rule at the nearest
     /// value, and a callout like the net-worth chart's over its history.
     @ViewBuilder
     private func readout(at pointerX: CGFloat) -> some View {
@@ -445,7 +445,7 @@ struct PlanYearCardView: View {
         plot.point(point.date, point.value, scale)
     }
 
-    /// Your money (UI.md, "Progress"): solid into each check-in, lighter
+    /// Your money (UI.md, "Year"): solid into each check-in, lighter
     /// where it's valued from what you held and its prices, dotted where a
     /// price or a rate is missing (those holdings count as zero); a small
     /// dot at each check-in and a larger one at the last point.
@@ -570,9 +570,9 @@ struct PlanYearCardView: View {
                     PlanYearCardView(card: latest, scale: scale, height: height, pointerX: width * 0.55)
                         .background(Palette.card, in: shape)
                 }
-                Card("Plan assets") {
+                Card("Money in the plan") {
                     NetWorthChart(history: PreviewLibrary.valuator.series(.planAssets, through: asOf).chartPoints,
-                                  title: "Plan assets", readsDate: asOf.adding(months: -3).dateValue)
+                                  title: "Money in the plan", readsDate: asOf.adding(months: -3).dateValue)
                 }
                 .frame(width: 380)
             }

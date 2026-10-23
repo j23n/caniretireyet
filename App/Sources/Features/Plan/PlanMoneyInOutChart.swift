@@ -3,7 +3,7 @@ import Model
 import SwiftUI
 import Tracker
 
-/// Trends' *Money in and out* (UI.md, "Trends"): per month or year, what
+/// Trends' *Money in and out* (UI.md, "Look Back"): per month or year, what
 /// came in and what was spent as a pair of bars from zero, and what was saved
 /// as a dot, counted as the savings rate counts them (came in and saved
 /// include the pension contributions), in the base currency at each value's
@@ -273,7 +273,7 @@ struct PlanMoneyInOutLegend: View {
 }
 
 /// What a period of *Money in and out* reads where the
-/// pointer or a finger is (UI.md, "Trends"): its last day, with "so far"
+/// pointer or a finger is (UI.md, "Look Back"): its last day, with "so far"
 /// or what it covers, then its rows: "Savings rate 34%", "Rate over 12
 /// months 31%", "Came in 4.100 €", "Spent 2.600 €", "Saved 1.500 €". Rates
 /// stay with the eye; amounts hide.

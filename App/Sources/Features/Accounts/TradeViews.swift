@@ -24,7 +24,7 @@ struct TradeTypeIcon: View {
 // MARK: - Holdings
 
 /// A trades account's holdings in the iPhone list: each position with its
-/// quantity × price, average cost, unrealised gain and share, then the
+/// quantity × price, average cost, unrealized gain and share, then the
 /// cash and the total.
 struct TradeHoldingsRows: View {
     let holdings: TradeHoldings
@@ -68,7 +68,7 @@ struct TradeHoldingsRows: View {
         }
         if let gain = holdings.totalGain {
             HStack {
-                Text("Unrealised gain")
+                Text("Unrealized gain")
                     .foregroundStyle(Palette.secondaryInk)
                 Spacer(minLength: Metrics.s)
                 DeltaText(gain, currency: currency)
@@ -126,7 +126,7 @@ struct TradeHoldingsRows: View {
 
 #if os(macOS)
 /// A trades account's holdings as a grid on the Mac: instrument, quantity,
-/// average cost, price, value, unrealised gain and share; then cash and the total.
+/// average cost, price, value, unrealized gain and share; then cash and the total.
 struct TradeHoldingsGrid: View {
     let holdings: TradeHoldings
     let currency: CurrencyCode
@@ -142,7 +142,7 @@ struct TradeHoldingsGrid: View {
                 Text("Average cost")
                 Text("Price")
                 Text("Value")
-                Text("Unrealised gain")
+                Text("Unrealized gain")
                 Text("Share")
             }
             .font(.caption.weight(.semibold))
@@ -453,7 +453,7 @@ private struct TradeTableAmountCell: View {
 
 // MARK: - Income and gains
 
-/// One year of income and gains: realised gains, dividends, interest, fees
+/// One year of income and gains: realized gains, dividends, interest, fees
 /// and taxes, and the net.
 struct TradeIncomeYearView: View {
     let year: TradeIncomeYear

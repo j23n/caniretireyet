@@ -4,11 +4,10 @@ import Planner
 import SwiftUI
 import Tracker
 
-/// The check-in's ending after the answer (UI.md, "After saving"): the age
-/// you could retire at over the last 12 check-ins and how it moved in a
-/// year; what this month saved, said as time of expenses, with
-/// the last 12 months' saving and markets as bars, and a word of
-/// perspective when markets took 5% or more; then the next milestone.
+/// The check-in's ending after the date (UI.md, "After saving"): what
+/// moved it, what you saved and what markets did, said as time of the life
+/// you plan, and a word of perspective when markets took 5% or more; then
+/// the next milestone.
 struct CheckInJourneyCards: View {
     /// The check-in's date: the library's latest.
     let date: CalendarDate
@@ -19,26 +18,6 @@ struct CheckInJourneyCards: View {
     @Environment(\.baseCurrency) private var currency
 
     var body: some View {
-        // The last 12 check-ins.
-        let points = Array(answers.suffix(12))
-        if points.count >= 2 {
-            Card {
-                VStack(alignment: .leading, spacing: Metrics.s) {
-                    if let move = yearMove(points) {
-                        Text(verbatim: move)
-                            .font(.title3.weight(.semibold))
-                            .foregroundStyle(Palette.ink)
-                            .privacySensitiveInFeedback()
-                    }
-                    AgeStepChart(points: points)
-                }
-            } header: {
-                SectionHeader("The age you could retire at") {
-                    Text("last 12 check-ins")
-                        .foregroundStyle(Palette.secondaryInk)
-                }
-            }
-        }
         if let split = monthSplit {
             Card {
                 VStack(alignment: .leading, spacing: Metrics.m) {
@@ -52,16 +31,9 @@ struct CheckInJourneyCards: View {
                             .foregroundStyle(Palette.ink)
                             .fixedSize(horizontal: false, vertical: true)
                     }
-                    let months = library.valuator.monthlyChanges(last: 12, through: date)
-                    if months.count >= 2 {
-                        MonthlyMovesChart(months: months, highlighted: date.yearMonth)
-                    }
                 }
             } header: {
-                SectionHeader("This month") {
-                    Text("the last 12 months")
-                        .foregroundStyle(Palette.secondaryInk)
-                }
+                SectionHeader("What moved it")
             }
         }
         if let next = nextMilestone {
@@ -77,36 +49,10 @@ struct CheckInJourneyCards: View {
         }
     }
 
-    // MARK: The age
-
-    /// The main plan's answers with an age recorded at check-ins through this one.
-    private var answers: [JourneyPoint] {
-        guard let main = library.settings.mainPlan else { return [] }
-        return library.library.headlines(for: main)
-            .filter { $0.date <= date && $0.earliestAge != nil }
-            .map { JourneyPoint(date: $0.date, earliestAge: $0.earliestAge, readiness: $0.readiness?.doubleValue) }
-    }
-
-    /// "2 years sooner than a year ago", against the answer a year before,
-    /// else the first of `points`, the chart's: "A year later than in March
-    /// 2026", "The same as a year ago".
-    private func yearMove(_ points: [JourneyPoint]) -> String? {
-        guard let now = points.last?.earliestAge else { return nil }
-        let yearAgo = answers.last { $0.date <= date.adding(years: -1) }
-        guard let reference = yearAgo ?? points.first, let before = reference.earliestAge,
-              reference.date < date
-        else { return nil }
-        let when = yearAgo != nil ? "a year ago" : "in \(GlanceText.monthAndYear(reference.date, locale: locale))"
-        guard before != now else { return "The same as \(when)" }
-        let years = abs(now - before)
-        let span = years == 1 ? "A year" : "\(years) years"
-        return "\(span) \(now < before ? "sooner" : "later") than \(when)"
-    }
-
     // MARK: The month
 
     /// The change since the check-in before, with new money as what was
-    /// saved, as the Overview's *What changed* splits it.
+    /// saved, as Today's *What changed* splits it.
     private var monthSplit: ValueChange? {
         let valuator = library.valuator
         guard let previous = valuator.previousCheckIn(before: date) else { return nil }

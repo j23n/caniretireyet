@@ -71,11 +71,15 @@ struct CheckInGlanceTests {
 }
 
 struct GlanceLinkTests {
-    @Test func roundTrips() {
+    @Test func roundTrips() throws {
         for link in GlanceLink.allCases {
             #expect(GlanceLink(url: link.url) == link)
         }
         #expect(GlanceLink.checkIn.url.absoluteString == "caniretireyet://check-in")
+        #expect(GlanceLink(url: try #require(URL(string: "caniretireyet://overview"))) == .today)
+        #expect(GlanceLink(stored: "overview") == .today)
+        #expect(GlanceLink(stored: "check-in") == .checkIn)
+        #expect(GlanceLink(stored: "elsewhere") == nil)
     }
 
     @Test func otherURLsAreNotLinks() throws {

@@ -77,7 +77,7 @@ struct MilestoneSmall: View {
                 .foregroundStyle(Palette.ink)
                 .lineLimit(3)
                 .minimumScaleFactor(0.7)
-            ReadinessBar(fraction: words.progress, height: 6)
+            WidgetProgressBar(fraction: words.progress, height: 6)
                 .accessibilityHidden(true)
             Text(words.there)
                 .font(.caption.weight(.semibold))

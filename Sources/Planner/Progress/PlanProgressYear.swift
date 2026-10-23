@@ -3,7 +3,7 @@ import Model
 import Tracker
 
 /// One calendar year of progress, the one record per year that Progress
-/// and Trends both read (UI.md, "Progress" and "Trends"; PROGRESS.md):
+/// and Trends both read (UI.md, "Year" and "Trends"; PROGRESS.md):
 ///
 /// - how your plan assets moved from the end of the year before to its own
 ///   end (this year's to the latest check-in), split into what you saved

@@ -24,7 +24,7 @@ extension PlanTargetMixModel {
         + "until then."
 
     /// Under the table: what "Today" counts.
-    static let todayNote = "Today: the share of the money you can draw, then of all plan assets."
+    static let todayNote = "Today: the share of the money you can draw, then of all the money in the plan."
 
     /// What a mix's total needs, or `nil` when it's 100%: "Adds up to 95%:
     /// add 5%.", "Adds up to 110%: take off 10%."

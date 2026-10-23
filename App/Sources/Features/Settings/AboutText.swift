@@ -1,7 +1,7 @@
 import Foundation
 
 /// What the app's answers are and aren't: a line under every answer to
-/// "Can I retire yet?" (the Overview, the plan's results and timeline), and
+/// "Can I retire yet?" (Today, the plan's results and timeline), and
 /// the whole of it on first launch's last page and in Settings' About
 /// section.
 enum AboutText {

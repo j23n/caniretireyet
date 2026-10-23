@@ -37,7 +37,7 @@ enum Palette {
 
     // MARK: Line steps
     //
-    // Charts sit on the card (#fcfcfb) or, like the Overview's history, on
+    // Charts sit on the card (#fcfcfb) or, like Today's history, on
     // the page (#f4f4f1). On the card aqua, yellow and magenta reach only
     // 2.7, 2.1 and 2.6:1, and on the page orange only 2.9:1 too, so their
     // lines take a darker step of the same hue: orange, aqua and magenta
@@ -61,7 +61,7 @@ enum Palette {
     /// The one hue for single-series charts, fan charts and success curves.
     static let accent = blue
     /// A deeper step of ``accent`` that stands out on it: the second lap of
-    /// the Overview's readiness ring, past 100%. Darker in light mode,
+    /// Today's readiness ring, past 100%. Darker in light mode,
     /// brighter in dark mode.
     static let accentDeep = Color("AccentDeep")
     /// Actual history, and primary text.
@@ -88,7 +88,7 @@ enum Palette {
 
     // MARK: Surfaces
 
-    /// Behind cards on the Overview and other scrolling pages.
+    /// Behind cards on Today and other scrolling pages.
     static let page = Color("SurfacePage")
     /// Cards and charts: content sits on plain surfaces.
     static let card = Color("SurfaceCard")
@@ -153,4 +153,9 @@ enum Metrics {
     static let barRadius: CGFloat = 4
     /// The largest a readable page gets on a wide window.
     static let readableWidth: CGFloat = 760
+    /// The largest a page of cards side by side gets on a wide window
+    /// (Today on the Mac and iPad).
+    static let wideReadableWidth: CGFloat = 1120
+    /// The opacity of an answer from out-of-date results.
+    static let dimmedOpacity = 0.7
 }

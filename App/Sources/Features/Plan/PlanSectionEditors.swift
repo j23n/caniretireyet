@@ -186,7 +186,7 @@ struct PlanAssumptionsEditor: View {
                 .foregroundStyle(Palette.mutedInk)
                 .fixedSize(horizontal: false, vertical: true)
             Divider()
-            PlanNumberRow("Unrealised gains, estimate", value: $plan.portfolio.unrealizedGainShare, kind: .percent,
+            PlanNumberRow("Unrealized gains, estimate", value: $plan.portfolio.unrealizedGainShare, kind: .percent,
                           unit: "%", prompt: "–")
             Text("For holdings with no purchase cost recorded: the share of their value that's gain.")
                 .font(.caption)

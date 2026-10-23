@@ -4,6 +4,8 @@ import Tracker
 
 /// The account list, grouped, with subtotals (UI.md, "Accounts").
 ///
+/// - Header: net worth today with its changes, the history chart and the
+///   allocation (``AccountsHeader``).
 /// - Groups: Cash, Investments, Crypto & gold, Pension, Property, Debts,
 ///   each with its subtotal.
 /// - Rows: kind icon, name, institution, a 12-month sparkline, the value,
@@ -32,6 +34,7 @@ struct AccountsScreen: View {
     @State private var action: AccountAction?
     @State private var errorMessage = ""
     @State private var showsError = false
+    @State private var showsInstruments = false
 
     init() {}
 
@@ -44,7 +47,9 @@ struct AccountsScreen: View {
         List {
             if query.isEmpty && list.openCount > 0 {
                 Section {
-                    summary(list)
+                    AccountsHeader()
+                } footer: {
+                    Text(Wording.count(list.openCount, "open account"))
                 }
             }
             ForEach(list.sections) { section in
@@ -77,6 +82,28 @@ struct AccountsScreen: View {
                 }
                 .disabled(!library.canEdit)
             }
+            if navigation.layout == .tabs {
+                ToolbarItem(placement: .primaryAction) {
+                    Menu {
+                        Button {
+                            navigation.startImport()
+                        } label: {
+                            Label("Import Files…", systemImage: AppSymbol.importData)
+                        }
+                        .disabled(!library.canEdit)
+                        Button {
+                            showsInstruments = true
+                        } label: {
+                            Label("Instruments", systemImage: AppSymbol.instruments)
+                        }
+                    } label: {
+                        Label("More", systemImage: "ellipsis.circle")
+                    }
+                }
+            }
+        }
+        .navigationDestination(isPresented: $showsInstruments) {
+            InstrumentsScreen()
         }
         .sheet(item: $action) { action in
             AccountActionSheet(action: action)
@@ -89,18 +116,6 @@ struct AccountsScreen: View {
     }
 
     // MARK: Rows
-
-    private func summary(_ list: AccountList) -> some View {
-        HStack(spacing: Metrics.xs) {
-            Text(Wording.count(list.openCount, "account"))
-            Text(verbatim: "·")
-            Text("Net worth")
-            AmountText(library.valuator.netWorth(on: .today()).total)
-        }
-        .font(.subheadline)
-        .foregroundStyle(Palette.secondaryInk)
-        .accessibilityElement(children: .combine)
-    }
 
     private func openRow(_ item: AccountListItem, widestValue: Decimal?) -> some View {
         let id = item.account.id

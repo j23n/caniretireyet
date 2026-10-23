@@ -29,7 +29,7 @@ struct PlusSection: View {
         } header: {
             Text("Plus")
         } footer: {
-            Text(message ?? "Plus adds more plans, What if, baselines and Export Calculations. "
+            Text(message ?? "Plus adds more plans, the levers and Export Calculations. "
                 + "Your library's files never depend on it.")
         }
     }

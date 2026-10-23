@@ -2,7 +2,7 @@ import Planner
 import SwiftUI
 
 // Whether you're ahead of, on or behind plan, as the screens say it and
-// color it (UI.md, "Progress"; PROGRESS.md, "On track").
+// color it (UI.md, "Year"; PROGRESS.md, "On track").
 
 extension BaselineStanding {
     /// "Ahead of plan", "On plan", "Behind plan".
@@ -14,7 +14,7 @@ extension BaselineStanding {
         }
     }
 
-    /// "Ahead", "On plan", "Behind": short, for the Overview's *On track?*,
+    /// "Ahead", "On plan", "Behind": short, for Today's *On track?*,
     /// where VoiceOver reads ``label``.
     var shortLabel: String {
         switch self {

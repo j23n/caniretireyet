@@ -158,11 +158,9 @@ private struct PlusFeatureLine: Identifiable {
         PlusFeatureLine(symbol: "square.stack.3d.up", title: "More plans",
                         detail: "Keep other lives next to your main plan, such as part-time from 50, "
                             + "and duplicate one to change a thing."),
-        PlusFeatureLine(symbol: "slider.horizontal.3", title: "What if",
-                        detail: "Try a change before you make it in the plan."),
-        PlusFeatureLine(symbol: "bookmark", title: "Baselines",
-                        detail: "Save what you expect now, or what you planned years ago, "
-                            + "and measure your progress against it."),
+        PlusFeatureLine(symbol: "slider.horizontal.3", title: "The levers",
+                        detail: "Move when you stop, what you spend and what you save, and watch your date "
+                            + "follow."),
         PlusFeatureLine(symbol: "function", title: "Export Calculations",
                         detail: "Every calculation behind an answer, to check it or give to someone else."),
     ]

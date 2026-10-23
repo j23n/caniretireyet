@@ -9,7 +9,7 @@ import SwiftUI
 
 /// Settings (UI.md, "Settings"): the library, you, prices, notifications,
 /// privacy and Plus. The Mac shows it in the Settings window (⌘,);
-/// iPhone and iPad in a sheet from the Overview's gear.
+/// iPhone and iPad in a sheet from Today's gear.
 ///
 /// "You" is saved in the library (`library.json`); everything else belongs
 /// to this device. Present it inside a `NavigationStack`.

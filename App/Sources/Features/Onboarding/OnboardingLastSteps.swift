@@ -56,7 +56,7 @@ struct OnboardingFilesStep: View {
 /// Reminders: the monthly note, shown with your own answer before
 /// it's turned on, and *Your year*; the widget, suggested once; and the
 /// disclaimer in a line, with the whole text a tap away. *Start* turns on
-/// the notes ticked and opens the Overview.
+/// the notes ticked and opens Today.
 struct OnboardingNotesStep: View {
     @Environment(OnboardingModel.self) private var model
     @Environment(WidgetStore.self) private var widgets
@@ -108,7 +108,7 @@ struct OnboardingNotesStep: View {
 
     private func notePreview(_ note: EngagementNote) -> some View {
         HStack(alignment: .top, spacing: Metrics.m) {
-            Image(systemName: AppSymbol.overview)
+            Image(systemName: AppSymbol.today)
                 .font(.title3)
                 .foregroundStyle(.white)
                 .frame(width: 36, height: 36)
@@ -168,7 +168,7 @@ struct OnboardingNotesStep: View {
 }
 
 /// *Start*: turns on the notes ticked (asking to allow notifications), and
-/// opens the Overview.
+/// opens Today.
 struct OnboardingStartButton: View {
     @Environment(OnboardingModel.self) private var model
     @Environment(AppNavigation.self) private var navigation
@@ -186,7 +186,7 @@ struct OnboardingStartButton: View {
             let settings = NoteSettings(monthly: model.monthlyNote, yourYear: model.yourYearNote)
             Task { await notes.apply(settings) }
         }
-        navigation.showOverview()
+        navigation.showToday()
         navigation.finishesOnboarding = false
     }
 }

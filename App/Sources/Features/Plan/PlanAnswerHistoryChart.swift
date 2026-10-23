@@ -3,7 +3,7 @@ import Model
 import Planner
 import SwiftUI
 
-/// Trends' *Time to retirement* (UI.md, "Trends"): the earliest retirement
+/// Trends' *Time to retirement* (UI.md, "Look Back"): the earliest retirement
 /// age at each check-in as a step line, the pace age (saving at your pace
 /// of the last 12 months) as a dashed one and the coast age (saving nothing
 /// more) as a dotted one where check-ins recorded them, with a mark where
@@ -149,11 +149,6 @@ struct PlanAnswerHistoryChart: View {
             }
             if let coast = point.coastAge {
                 Text("Saving nothing more \(coast)")
-                    .font(.caption2)
-                    .foregroundStyle(Palette.secondaryInk)
-            }
-            if let readiness = point.readiness?.doubleValue {
-                Text(AmountFormat.percent(Readiness.shown(readiness), digits: 0) + " of what retiring today needed")
                     .font(.caption2)
                     .foregroundStyle(Palette.secondaryInk)
             }

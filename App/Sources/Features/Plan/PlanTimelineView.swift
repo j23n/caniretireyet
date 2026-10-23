@@ -2,31 +2,26 @@ import Model
 import Planner
 import SwiftUI
 
-/// The plan (UI.md, "Plan"): the answer; your life as a strip of chapters
-/// with one graph running through them; the chosen chapter below, in words
-/// and with its settings, where the plan changes; what every chapter
-/// assumes; and, folded away, the charts behind the answer.
+/// The plan (UI.md, "Plan"): your date, the levers that move it, and
+/// below them your life as chapters, each with its settings, where the
+/// plan changes; then the key numbers and what every chapter assumes. On
+/// the Mac and iPad the chance by retirement age sits beside the levers.
 ///
-/// Nothing runs on its own (UI.md, "Calculating"): before the first
-/// calculation the answer recorded at the last check-in shows with
-/// *Calculate*, and the strip has its chapters without the money; when the
-/// plan or the library changed, an *Out of date* banner offers *Recalculate*.
+/// The plan calculates on its own: when it or the library changes, its
+/// results run again in the background, and the levers' what-if runs as
+/// they come to rest. Recalculate stays a Plan menu command (⌘R).
 struct PlanTimelineView: View {
     let session: PlanSession
     /// The Target mix sheet, which the plan's screen opens too (``PlanRoute``).
     @Binding var showsTargetMix: Bool
-    /// Opens the What-if sheet (iPhone); on the Mac and iPad What if is in the toolbar.
-    var onWhatIf: (() -> Void)?
-    /// Shows Progress.
-    var onShowProgress: (() -> Void)?
     /// Export Calculations…
     var onExport: (() -> Void)?
 
     @Environment(\.pageLayout) private var layout
     @Environment(\.locale) private var locale
+    @Environment(LibraryStore.self) private var library
     @State private var editing: PlanEditTarget?
     @State private var showsAssumptions = false
-    @State private var showsMoreCharts = false
 
     private var gutter: CGFloat { layout.gutter }
 
@@ -34,35 +29,62 @@ struct PlanTimelineView: View {
         PlanMilestoneText(currency: session.currency, locale: locale)
     }
 
+    /// What decides whether the plan needs calculating.
+    private struct AutoRun: Equatable {
+        var revision: Int
+        var upToDate: Bool
+        var running: Bool
+    }
+
     var body: some View {
         @Bindable var session = session
-        // Without the progress: only the progress card follows every update.
+        // Without the progress: only the progress view follows every update.
         let state = session.state
         let derived = session.derived(locale: locale)
         ScrollView {
             VStack(alignment: .leading, spacing: Metrics.l) {
                 VStack(alignment: .leading, spacing: Metrics.m) {
                     PlanResultsBanners(session: session)
-                    if state.isRunning {
-                        PlanRunProgressCard(session: session)
-                    } else {
-                        PlanOutOfDateBanner(state: state) { session.perform($0) }
+                    PlanDateHeader(session: session)
+                    if session.runError != nil, !state.isRunning {
+                        Button("Try Again") { session.calculate() }
+                            .buttonStyle(.bordered)
+                            .disabled(!session.canEdit)
                     }
-                    headline(state, onTrack: derived.onTrack)
                     PlanResultWarnings(session: session)
                 }
                 .padding(.horizontal, gutter)
                 if session.plan != nil {
-                    chapters($session.editablePlan, state: state, derived: derived)
-                    PlanAssumptionsFooter(onShowAll: { showsAssumptions = true }, onExport: onExport)
+                    if layout.isRoomy, let results = state.results {
+                        EqualColumns(spacing: Metrics.l) {
+                            PlanLeversCard(session: session)
+                            PlanSuccessCard(session: session, results: results)
+                        }
                         .padding(.horizontal, gutter)
-                    moreCharts(state.results)
+                    } else {
+                        PlanLeversCard(session: session)
+                            .padding(.horizontal, gutter)
+                    }
+                    chapters($session.editablePlan, state: state, derived: derived)
+                    if let results = state.results {
+                        PlanKeyNumbersCard(results: results)
+                            .padding(.horizontal, gutter)
+                    }
+                    PlanAssumptionsFooter(onShowAll: { showsAssumptions = true }, onExport: onExport)
                         .padding(.horizontal, gutter)
                 }
             }
             .padding(.vertical, gutter)
+            .frame(maxWidth: layout.isWide ? Metrics.wideReadableWidth : .infinity, alignment: .leading)
+            .frame(maxWidth: .infinity)
         }
         .background(Palette.page)
+        .task(id: AutoRun(revision: library.revision, upToDate: session.baseIsUpToDate, running: state.isRunning)) {
+            // A moment's pause, so a burst of edits runs once.
+            try? await Task.sleep(for: .milliseconds(600))
+            guard !Task.isCancelled else { return }
+            session.calculateIfNeeded()
+        }
         .sheet(item: $editing) { target in
             PlanItemSheet(session: session, target: target, issues: session.inputIssues)
         }
@@ -79,27 +101,10 @@ struct PlanTimelineView: View {
         PlanWords(currency: session.currency, locale: locale)
     }
 
-    // MARK: The answer
-
-    @ViewBuilder
-    private func headline(_ state: PlanResultsState, onTrack: OverviewOnTrack?) -> some View {
-        if let results = state.results {
-            // On iPhone the ring and its words dim as on the Overview; the tiles stay.
-            PlanTimelineHeadline(session: session, results: results, onTrack: onTrack, dims: state.dimsResults,
-                                 onShowProgress: onShowProgress, onWhatIf: onWhatIf)
-                .opacity(layout.isWide && state.isRunning ? 0.5 : 1)
-                .accessibilityElement(children: .contain)
-                .accessibilityIdentifier("plan.answer")
-        } else if !state.isRunning {
-            PlanCalculatePrompt(state: state,
-                                runs: session.plan?.simulation.effectiveRuns ?? PlanSimulation.defaultRuns) {
-                session.calculate()
-            }
-        }
-    }
-
     // MARK: The chapters
 
+    /// "Your life in four chapters": a row each; the chosen one's words
+    /// and settings below the list.
     @ViewBuilder
     private func chapters(_ plan: Binding<PlanDocument>, state: PlanResultsState, derived: PlanDerived)
         -> some View {
@@ -115,14 +120,8 @@ struct PlanTimelineView: View {
                 let selected = min(session.selectedChapter(in: model) ?? 0, count - 1)
                 let selection = Binding<Int>(get: { selected },
                                              set: { session.selectChapter($0, in: model) })
-                PlanStripHeader(
-                    title: PlanTimelineText.chapters(count),
-                    hint: layout.isWide ? "Scroll sideways, or use the arrows." : "Scroll sideways; tap a chapter.",
-                    steps: layout.isWide ? PlanStepButtons(index: selected, count: count, today: 0,
-                                                    select: { selection.wrappedValue = $0 }) : nil)
+                PlanChapterList(timeline: timeline, model: model, selection: selection)
                     .padding(.horizontal, gutter)
-                PlanChapterStrip(timeline: timeline, selection: selection)
-                    .opacity(state.dimsResults ? 0.7 : 1)
                 PlanChapterDetails(
                     model: model, index: selected,
                     story: PlanChapterStory(chapterAt: selected, in: model, results: state.results, words: words),
@@ -145,7 +144,7 @@ struct PlanTimelineView: View {
         }
     }
 
-    /// Opens a setting's sheet: spending's, an item's, or the target mix's.
+/// Opens a setting's sheet: spending's, an item's, or the target mix's.
     private func show(_ sheet: PlanSettingSheet) {
         guard let plan = session.plan else { return }
         switch sheet {
@@ -173,291 +172,61 @@ struct PlanTimelineView: View {
             break
         }
     }
-
-    // MARK: More charts
-
-    @ViewBuilder
-    private func moreCharts(_ results: PlanResults?) -> some View {
-        if let results {
-            DisclosureGroup(isExpanded: $showsMoreCharts) {
-                VStack(alignment: .leading, spacing: Metrics.l) {
-                    PlanFanCard(results: results)
-                    if layout.isRoomy {
-                        EqualColumns(spacing: Metrics.l) {
-                            PlanSuccessCard(session: session, results: results)
-                            PlanIncomeCard(results: results)
-                        }
-                        EqualColumns(spacing: Metrics.l) {
-                            PlanKeyNumbersCard(results: results)
-                            Color.clear
-                                .frame(height: 1)
-                        }
-                    } else {
-                        PlanSuccessCard(session: session, results: results)
-                        PlanIncomeCard(results: results)
-                        PlanKeyNumbersCard(results: results)
-                    }
-                }
-                .padding(.top, Metrics.s)
-            } label: {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("More charts")
-                        .font(.headline)
-                        .foregroundStyle(Palette.ink)
-                    Text("Your money over time, chance by retirement age, income and taxes, key numbers.")
-                        .font(.footnote)
-                        .foregroundStyle(Palette.secondaryInk)
-                }
-            }
-        }
-    }
 }
 
-// MARK: - The answer
+// MARK: - The chapters
 
-/// The plan's answer (UI.md, "The plan").
-///
-/// - **iPhone:** the Overview's *Can I retire yet?* tile, the ring and its
-///   words (``RetirementAnswerRow``); under it *What if* (``PlanWhatIfTile``)
-///   beside *On track?* (``OverviewOnTrackTile``), which opens Progress; then
-///   why, in a quiet line ("At 55, as planned, 4 in 10 futures last to 95.
-///   Your bar is 9 in 10.").
-/// - **Mac and iPad:** a header: "Not yet. Stop at 63, in April 2051.", why,
-///   as ten dots and in words, and where you stand against this year's
-///   baseline, which opens Progress. What if is in the toolbar.
-struct PlanTimelineHeadline: View {
-    let session: PlanSession
-    let results: PlanResults
-    /// Where the latest check-in stands, as the Overview's *On track?* has it.
-    var onTrack: OverviewOnTrack?
-    /// Whether the answer dims: the results are out of date or being recalculated.
-    var dims = false
-    var onShowProgress: (() -> Void)?
-    var onWhatIf: (() -> Void)?
-
-    @Environment(\.pageLayout) private var layout
-    @Environment(\.locale) private var locale
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-
-    private var focusAge: Int { results.details.focus.age }
-
-    private var success: Double? { results.details.focus.success ?? results.headline.successAtTarget }
-
-    private var endAge: Int { results.details.endAge }
-
-    private var progress: PlanBaselineComparison.Position? { onTrack?.position }
+/// The chapters as a list (UI.md, "Plan"): each one's number, name and
+/// span, the chosen one marked; choosing one shows its words and settings
+/// under the list.
+struct PlanChapterList: View {
+    let timeline: PlanTimeline
+    let model: PlanChaptersModel
+    @Binding var selection: Int
 
     var body: some View {
-        let title = PlanTimelineText.headline(results.headline, locale: locale)
-        // On the Mac and iPad, the pill goes under the words rather than
-        // beside them when What if narrows the page.
-        if layout.isWide && layout.besideWhatIf {
-            VStack(alignment: .leading, spacing: 6) {
-                Text(title)
-                    .font(Self.wideTitleFont)
+        Card {
+            VStack(alignment: .leading, spacing: 0) {
+                ForEach(timeline.cards) { card in
+                    if card.index > 0 {
+                        Divider()
+                    }
+                    Button {
+                        withAnimation(.snappy) { selection = card.index }
+                    } label: {
+                        row(card)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityAddTraits(card.index == selection ? .isSelected : [])
+                }
+            }
+        } header: {
+            SectionHeader(PlanTimelineText.chapters(timeline.cards.count))
+        }
+    }
+
+    private func row(_ card: PlanTimeline.Card) -> some View {
+        let isSelected = card.index == selection
+        return HStack(alignment: .center, spacing: Metrics.m) {
+            PlanChapterBadge(number: card.index + 1, style: card.style, isSelected: isSelected)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(card.title)
+                    .font(.body.weight(.semibold))
                     .foregroundStyle(Palette.ink)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .privacySensitiveInFeedback()
-                    .accessibilityAddTraits(.isHeader)
-                reason
-                    .foregroundStyle(Palette.secondaryInk)
-                progressPill
-                    .padding(.top, Metrics.xs)
-            }
-        } else if layout.isWide {
-            HStack(alignment: .top, spacing: Metrics.l) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(title)
-                        .font(Self.wideTitleFont)
-                        .foregroundStyle(Palette.ink)
-                        .privacySensitiveInFeedback()
-                        .accessibilityAddTraits(.isHeader)
-                    reason
-                        .foregroundStyle(Palette.secondaryInk)
-                }
-                Spacer(minLength: Metrics.l)
-                progressPill
-            }
-        } else {
-            VStack(alignment: .leading, spacing: Metrics.m) {
-                answerTile
-                tiles
-                if let success {
-                    Text(reasonText(success))
-                        .font(.subheadline)
-                        .foregroundStyle(Palette.secondaryInk)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .opacity(dims ? OverviewHeader.dimmedOpacity : 1)
-                        .privacySensitiveInFeedback()
-                }
-            }
-        }
-    }
-
-    // MARK: iPhone
-
-    /// The Overview's answer tile without its chevron and run status: the
-    /// banners above say when the results are out of date or calculating.
-    private var answerTile: some View {
-        let headline = results.headline
-        let words = OverviewAnswerText(headline: headline, earliestDate: headline.earliestDate,
-                                       today: CalendarDate.today(), locale: locale)
-        return FigureTile(surface: .raised) {
-            Text("Can I retire yet?")
-                .font(.title2.bold())
-                .foregroundStyle(Palette.ink)
-                .fixedSize(horizontal: false, vertical: true)
-                .accessibilityAddTraits(.isHeader)
-            RetirementAnswerRow(headline: headline, words: words, dims: dims)
-                .padding(.top, Metrics.m)
-        }
-        .font(.subheadline)
-        .accessibilityElement(children: .contain)
-    }
-
-    /// *What if* and *On track?*, side by side and as tall as each other, 12
-    /// points apart as on the Overview; stacked at the largest text sizes.
-    @ViewBuilder
-    private var tiles: some View {
-        if dynamicTypeSize.isAccessibilitySize {
-            VStack(alignment: .leading, spacing: Metrics.m) {
-                tileContent
-            }
-        } else {
-            EqualColumns(spacing: Metrics.m, equalHeights: true) {
-                tileContent
-            }
-        }
-    }
-
-    @ViewBuilder
-    private var tileContent: some View {
-        if let onWhatIf {
-            PlanWhatIfTile(session: session, action: onWhatIf)
-        }
-        if let onTrack, let onShowProgress {
-            OverviewOnTrackTile(onTrack: onTrack, currency: session.currency, dims: dimsCoastLine,
-                                action: onShowProgress)
-        }
-    }
-
-    /// Whether *On track?*'s coast point line dims: with the rest of the
-    /// results, and while they're a quick estimate, which doesn't solve the
-    /// coast age, so the line is the one the latest check-in recorded.
-    private var dimsCoastLine: Bool { dims || results.mode == .fast }
-
-    // MARK: Mac and iPad
-
-    /// The answer's title on the Mac and iPad: 22 points on the Mac.
-    private static var wideTitleFont: Font {
-        #if os(macOS)
-        Font.title.weight(.bold)
-        #else
-        Font.title2.weight(.bold)
-        #endif
-    }
-
-    /// Why: the futures that last at the age shown, as dots and in words, against your bar.
-    @ViewBuilder
-    private var reason: some View {
-        if let success {
-            HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
-                PlanTenthsView(filled: PlanTimelineText.tenths(success))
-                    .alignmentGuide(.firstTextBaseline) { $0[VerticalAlignment.center] + 4 }
-                Text(reasonText(success))
+                Text(card.span)
                     .font(.subheadline)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .privacySensitiveInFeedback()
+                    .monospacedDigit()
+                    .foregroundStyle(Palette.secondaryInk)
             }
+            .privacySensitiveInFeedback()
+            Spacer(minLength: Metrics.s)
+            Image(systemName: isSelected ? "chevron.down" : "chevron.right")
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(isSelected ? Palette.accent : Palette.mutedInk)
+                .accessibilityHidden(true)
         }
-    }
-
-    /// "At 55, as planned, 4 in 10 futures last to 95. Your bar is 9 in 10."
-    private func reasonText(_ success: Double) -> String {
-        let isPlanned = !session.hasWhatIf && focusAge == results.headline.targetAge
-        return PlanTimelineText.reason(success, endAge: endAge, age: focusAge, isPlanned: isPlanned,
-                                       bar: results.headline.confidence)
-    }
-
-    /// "On plan · 18.400 € ahead ›": the amount against the baseline's
-    /// median, in orange only when behind plan
-    /// (``PlanBaselineComparison/Standing``).
-    @ViewBuilder
-    private var progressPill: some View {
-        if let progress, let onShowProgress {
-            let standing = progress.standing
-            Button(action: onShowProgress) {
-                HStack(spacing: 4) {
-                    Text(verbatim: "\(standing.label) ·")
-                        .privacySensitiveInFeedback()
-                    AmountText(abs(progress.gap), currency: session.currency, tabular: false)
-                    Text(verbatim: progress.gap >= 0 ? "ahead" : "behind")
-                        .privacySensitiveInFeedback()
-                    Image(systemName: "chevron.right")
-                        .font(.caption.weight(.semibold))
-                        .accessibilityHidden(true)
-                }
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(standing.color)
-                .padding(.horizontal, Metrics.m)
-                .padding(.vertical, 6)
-                .background(standing.tint.opacity(0.14), in: Capsule())
-            }
-            .buttonStyle(.plain)
-            .fixedSize()
-            .accessibilityHint(Text("Shows your progress"))
-        }
-    }
-}
-
-/// *What if* on iPhone (UI.md, "The plan"): a tile tinted in the accent
-/// beside *On track?*, which opens the sliders in a sheet. Without a change
-/// it says what it's for; with one, what's changed ("Stop at 52", "Spend
-/// 2.800 € a month") and, once it has run, how the earliest age moved
-/// ("Earliest 54 → 53").
-struct PlanWhatIfTile: View {
-    let session: PlanSession
-    let action: () -> Void
-
-    @Environment(\.locale) private var locale
-
-    var body: some View {
-        let words = PlanWords(currency: session.currency, locale: locale)
-        let changes = session.whatIfModel.map { PlanWhatIfText.changes($0, words: words) } ?? []
-        Button(action: action) {
-            FigureTile(surface: .accent) {
-                HStack(alignment: .firstTextBaseline, spacing: Metrics.xs) {
-                    Text("What if…")
-                        .fontWeight(.semibold)
-                    Spacer(minLength: Metrics.xs)
-                    Image(systemName: "slider.horizontal.3")
-                        .accessibilityHidden(true)
-                }
-                .foregroundStyle(Palette.accent)
-                if changes.isEmpty {
-                    Text("Try a change before you make it in the plan.")
-                        .foregroundStyle(Palette.ink)
-                        .fixedSize(horizontal: false, vertical: true)
-                } else {
-                    ForEach(Array(changes.enumerated()), id: \.offset) { _, change in
-                        AmountSentenceText(change)
-                            .foregroundStyle(Palette.ink)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    if let change = PlanWhatIfPanel.change(in: session) {
-                        Text("Earliest \(change)")
-                            .fontWeight(.semibold)
-                            .monospacedDigit()
-                            .foregroundStyle(Palette.accent)
-                            .privacySensitiveInFeedback()
-                    }
-                }
-            }
-            .font(.subheadline)
-        }
-        .buttonStyle(.plain)
-        .accessibilityElement(children: .combine)
-        .accessibilityHint(Text("Opens What if"))
+        .padding(.vertical, Metrics.s)
+        .contentShape(Rectangle())
     }
 }
 
@@ -740,15 +509,14 @@ struct PlanAssumptionsFooter: View {
 
 #Preview("Plan · iPhone") {
     PlanPreviewHost(model: AppModel.preview()) { session in
-        PlanTimelineView(session: session, showsTargetMix: .constant(false), onWhatIf: {}, onShowProgress: {},
-                         onExport: {})
+        PlanTimelineView(session: session, showsTargetMix: .constant(false), onExport: {})
             .environment(\.pageLayout, PageLayout())
     }
 }
 
 #Preview("Plan · Mac") {
     PlanPreviewHost(model: AppModel.preview()) { session in
-        PlanTimelineView(session: session, showsTargetMix: .constant(false), onShowProgress: {}, onExport: {})
+        PlanTimelineView(session: session, showsTargetMix: .constant(false), onExport: {})
             .environment(\.pageLayout, PageLayout(isWide: true))
             .frame(width: 1_100, height: 1_000)
     }
