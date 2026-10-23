@@ -300,9 +300,10 @@ extension PlanChapterStory {
                 return Bar(segments: [Bar.Segment(value: fromSavings, role: .fromSavings),
                                       Bar.Segment(value: tax, role: .tax)],
                            leading: "\(words.amount(monthly: fromSavings + tax)) from savings",
-                           trailing: "\(words.amount(monthly: tax)) of it tax", trailingRole: .tax,
+                           trailing: "\(words.amount(monthly: tax)) of it tax, on average", trailingRole: .tax,
                            label: "\(words.amount(monthly: fromSavings + tax)) a month from your savings: "
-                               + "\(words.monthly(spend)) to spend and \(words.amount(monthly: tax)) of tax")
+                               + "\(words.monthly(spend)) to spend and \(words.amount(monthly: tax)) of tax "
+                               + "a month on average")
             }
             let paid = words.monthlyValue(pensions)
             let spent = words.monthlyValue(spend)
