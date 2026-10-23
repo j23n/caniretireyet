@@ -162,7 +162,9 @@ struct PlanDateHeader: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.5)
                     .dynamicTypeSize(...DynamicTypeSize.accessibility2)
-                    .opacity(state.dimsResults ? Metrics.dimmedOpacity : 1)
+                    // Dimmed while it's an older answer: the results are
+                    // out of date, or only the recorded answer is there.
+                    .opacity(state.dimsResults || state.results == nil ? Metrics.dimmedOpacity : 1)
                     .privacySensitiveInFeedback()
                 Text(verbatim: line(answer))
                     .font(.subheadline)

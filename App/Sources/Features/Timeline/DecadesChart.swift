@@ -21,6 +21,8 @@ struct DecadesChart: View {
     let plan: PlanDocument
     let results: PlanResults?
     let today: CalendarDate
+    /// The plot's height: taller on the Timeline, where it's the page.
+    var chartHeight: CGFloat = 220
     @AppStorage("overview.range") private var range: HistoryRange = .threeYears
     @Environment(LibraryStore.self) private var library
     @Environment(AppPreferences.self) private var preferences
@@ -57,7 +59,8 @@ struct DecadesChart: View {
                 futureStatus(planID)
             }
             NetWorthChart(history: history.points, stacked: history.stacked, projection: history.projection,
-                          markers: history.markers, title: history.scope == .planAssets ? "Money in the plan" : "Net worth")
+                          markers: history.markers, title: history.scope == .planAssets ? "Money in the plan" : "Net worth",
+                          height: chartHeight)
             if future {
                 ChartCaption(text: futureCaption, detail: futureDetail)
                     .privacySensitiveInFeedback()

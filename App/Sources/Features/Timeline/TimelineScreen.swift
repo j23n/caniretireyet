@@ -81,14 +81,15 @@ private struct TimelineContentView: View {
             .toolbar {
                 if layout.isWide {
                     ToolbarItem(placement: .principal) {
-                        HStack(spacing: Metrics.m) {
-                            zoomPicker
+                        zoomPicker
+                            .fixedSize()
+                    }
+                    // Look Back's grain apart from the zoom, so the two
+                    // don't read as one row of five.
+                    if navigation.timelineZoom == .lookBack, library.library.accountsTurningOffTrends.isEmpty {
+                        ToolbarItem(placement: .primaryAction) {
+                            PlanTrendsControls()
                                 .fixedSize()
-                            if navigation.timelineZoom == .lookBack,
-                               library.library.accountsTurningOffTrends.isEmpty {
-                                PlanTrendsControls()
-                                    .fixedSize()
-                            }
                         }
                     }
                 }
@@ -121,7 +122,8 @@ private struct TimelineContentView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: Metrics.l) {
                     if let plan = session.plan {
-                        DecadesChart(plan: plan, results: session.shownResults, today: .today())
+                        DecadesChart(plan: plan, results: session.shownResults, today: .today(),
+                                     chartHeight: layout.isWide ? 420 : 320)
                             .environment(\.chartSurface, Palette.page)
                     }
                 }

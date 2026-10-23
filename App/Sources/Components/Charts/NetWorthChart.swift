@@ -51,6 +51,8 @@ struct NetWorthChart: View {
     var title = "Net worth"
     /// A date read without dragging across the chart: for previews.
     var readsDate: Date?
+    /// The plot's height; the Timeline's *Decades* draws it taller.
+    var height: CGFloat = 220
 
     @State private var selectedDate: Date?
     @State private var width: CGFloat = ChartStyle.defaultWidth
@@ -58,20 +60,18 @@ struct NetWorthChart: View {
     @Environment(\.baseCurrency) private var baseCurrency
     @Environment(\.chartSurface) private var surface
 
-    private static let height: CGFloat = 220
-
     /// Whether amounts are hidden: the axis is relative, and VoiceOver doesn't read them.
     private var hidesAmounts: Bool { redactionReasons.hidesAmounts }
 
     var body: some View {
         if history.isEmpty && projection.isEmpty {
-            ChartPlaceholder(text: "Your net worth appears here after the first check-in.", height: Self.height)
+            ChartPlaceholder(text: "Your net worth appears here after the first check-in.", height: height)
         } else {
             let layout = self.layout
             VStack(alignment: .leading, spacing: Metrics.s) {
                 legend(layout)
                 chart(layout, stack: stacked.isEmpty ? nil : StackedAreaData(series: stacked))
-                    .frame(height: Self.height)
+                    .frame(height: height)
                     .measuringWidth($width)
                     .accessibilityChartDescriptor(summary)
             }
@@ -106,7 +106,7 @@ struct NetWorthChart: View {
     private var layout: ProjectionLayout {
         let dates = history.map(\.date) + projection.map(\.date) + stacked.flatMap { $0.points.map(\.date) }
         return ProjectionLayout(dates: dates, values: history.map(\.value) + stacked.stackedExtents, fan: projection,
-                                markers: markers, width: Double(width), height: Double(Self.height))
+                                markers: markers, width: Double(width), height: Double(height))
     }
 
     /// Today's value, the 1× of the axis while amounts are hidden.

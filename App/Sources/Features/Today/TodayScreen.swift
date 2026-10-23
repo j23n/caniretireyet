@@ -48,25 +48,19 @@ struct TodayScreen: View {
         return ScrollView {
             VStack(alignment: .leading, spacing: Metrics.l) {
                 if layout.isWide {
+                    // The date is the hero: a row of its own, then the rows
+                    // beside what changed, then the timeline.
+                    answerCard(answer, plan: mainPlan)
                     EqualColumns(spacing: Metrics.l) {
-                        answerCard(answer, plan: mainPlan)
-                        TodayRowsCard(answer: answer, plan: mainPlan, results: latest?.results, today: today)
-                    }
-                    if let mainPlan {
-                        Card("Your timeline") {
-                            DecadesChart(plan: mainPlan, results: latest?.results, today: today)
+                        VStack(alignment: .leading, spacing: Metrics.l) {
+                            TodayRowsCard(answer: answer, plan: mainPlan, results: latest?.results, today: today)
+                            TodayAttentionCard(today: today)
                         }
-                    }
-                    EqualColumns(spacing: Metrics.l) {
                         VStack(alignment: .leading, spacing: Metrics.l) {
                             if let change {
                                 TodayChangeCard(report: change, split: valuator.savedSplit(of: change),
                                                    yearlySpending: spending)
                             }
-                            notesAndFirstValues(hasAnswer: answer != nil)
-                        }
-                        VStack(alignment: .leading, spacing: Metrics.l) {
-                            TodayAttentionCard(today: today)
                             if let report = valuator.changeThisYear(asOf: today) {
                                 TodayYearCard(
                                     report: report, split: valuator.savedSplit(of: report),
@@ -77,6 +71,12 @@ struct TodayScreen: View {
                             }
                         }
                     }
+                    if let mainPlan {
+                        Card("Your timeline") {
+                            DecadesChart(plan: mainPlan, results: latest?.results, today: today)
+                        }
+                    }
+                    notesAndFirstValues(hasAnswer: answer != nil)
                 } else {
                     answerCard(answer, plan: mainPlan)
                     if let change {
@@ -140,6 +140,7 @@ struct TodayAnswerCard: View {
     @Environment(LibraryStore.self) private var library
     @Environment(PlanStore.self) private var plans
     @Environment(AppNavigation.self) private var navigation
+    @Environment(\.pageLayout) private var layout
     @Environment(\.locale) private var locale
 
     var body: some View {
@@ -160,13 +161,13 @@ struct TodayAnswerCard: View {
                 }
                 VStack(alignment: .leading, spacing: Metrics.xs) {
                     Text(verbatim: headline(lastMonday))
-                        .font(.largeTitle.bold())
+                        .font(layout.isWide ? .system(size: 48, weight: .bold) : .largeTitle.bold())
                         .foregroundStyle(Palette.ink)
                         .lineLimit(1)
                         .minimumScaleFactor(0.5)
                         .dynamicTypeSize(...DynamicTypeSize.accessibility2)
                     Text(verbatim: line(lastMonday))
-                        .font(.subheadline)
+                        .font(layout.isWide ? .title3 : .subheadline)
                         .foregroundStyle(Palette.secondaryInk)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -280,10 +281,10 @@ struct TodayRowsCard: View {
         VStack(alignment: .leading, spacing: 0) {
             if let answer, let target = answer.targetAge, let success = answer.successAtTarget {
                 row {
-                    Text(verbatim: "At \(target), as planned")
+                    Text(verbatim: "If you stop at \(target), as planned")
                         .privacySensitiveInFeedback()
                 } value: {
-                    Text(verbatim: "\(GlanceText.futures(success)) futures")
+                    Text(verbatim: "\(GlanceText.futures(success)) futures last")
                         .privacySensitiveInFeedback()
                 }
                 .onTapGesture { navigation.showPlan() }
