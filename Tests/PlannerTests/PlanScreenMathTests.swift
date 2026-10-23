@@ -148,11 +148,12 @@ struct PlanScreenMathTests {
         // A chapter that starts after retirement counts its first year.
         #expect(PlanChapterMoney.monthlyTax(in: pensions, results: results) == 200)
 
-        // Run out by 2054: the year isn't counted, so the average is higher
-        // than with 2054 as a year without tax.
+        // Run out in 2054: the results keep the year the run fails in, with
+        // its spending and no tax (`Simulator.fail`), so it counts as a year
+        // without tax; the years after it aren't counted.
         var ranOut = results
-        ranOut.spending.removeAll { $0.year >= 2054 }
-        #expect(PlanChapterMoney.monthlyTax(in: bridge, results: ranOut) == 561)
+        ranOut.spending.removeAll { $0.year >= 2055 }
+        #expect(PlanChapterMoney.monthlyTax(in: bridge, results: ranOut) == 510)
         #expect(PlanChapterMoney.monthlyTax(in: pensions, results: ranOut) == nil)
         #expect(PlanChapterMoney.monthlyTax(in: bridge, results: nil) == nil)
     }
