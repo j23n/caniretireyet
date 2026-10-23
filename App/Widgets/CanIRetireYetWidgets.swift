@@ -7,14 +7,9 @@ import WidgetKit
 @main
 struct CanIRetireYetWidgets: WidgetBundle {
     var body: some Widget {
-        RetireInWidget()
+        LastMondayWidget()
         NetWorthWidget()
-        SinceCheckInWidget()
-        ReadinessWidget()
-        MilestoneWidget()
         CheckInWidget()
-        EarliestAgeWidget()
-        SpendingWidget()
-        AllocationWidget()
+        MilestoneWidget()
     }
 }

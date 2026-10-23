@@ -35,6 +35,12 @@ struct CheckInWords {
         checkIn.last == nil ? "First check-in" : AmountFormat.monthName(checkIn.next, locale: locale)
     }
 
+    /// "October, due 31 Oct": the month the next check-in is for, and its day.
+    var dueDate: String {
+        let month = AmountFormat.monthName(checkIn.next, locale: locale)
+        return "\(month), due \(AmountFormat.shortDate(checkIn.next, locale: locale))"
+    }
+
     /// "Due in 2 days · about 5 min", "Due today · about 5 min", "Ready when you are".
     var dueText: String {
         guard checkIn.last != nil else { return "Ready when you are" }
@@ -96,29 +102,29 @@ struct CheckInSmall: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
-    /// "Next check-in · 26 days · Saturday 31 October", with how much of the month has passed.
+    /// "Check-in · 8 days to go · October, due 31 Oct", with how much of the month has passed.
     private func countdown(_ words: CheckInWords) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            WidgetLabel(title: "Next check-in", systemImage: "calendar")
+            WidgetLabel(title: "Check-in", systemImage: "calendar")
             HStack(alignment: .firstTextBaseline, spacing: 5) {
                 Text(verbatim: "\(words.days)")
                     .font(.system(size: 40, weight: .semibold))
                     .foregroundStyle(Palette.ink)
-                Text(words.days == 1 ? "day" : "days")
+                Text(words.days == 1 ? "day to go" : "days to go")
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(Palette.secondaryInk)
             }
             .lineLimit(1)
             .minimumScaleFactor(0.7)
             .padding(.top, 6)
-            Text(verbatim: GlanceText.weekdayAndDate(words.checkIn.next, locale: locale))
+            Text(verbatim: words.dueDate)
                 .font(.caption)
                 .foregroundStyle(Palette.secondaryInk)
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
                 .padding(.top, 6)
             Spacer(minLength: 6)
-            ReadinessBar(fraction: words.checkIn.elapsed(on: words.today), height: 6)
+            WidgetProgressBar(fraction: words.checkIn.elapsed(on: words.today), height: 6)
             if let last = words.checkIn.last {
                 Text(verbatim: "Last one \(AmountFormat.shortDate(last, relativeTo: words.today, locale: locale))")
                     .font(.caption2)
