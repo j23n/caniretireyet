@@ -77,6 +77,9 @@ struct GlanceLinkTests {
         }
         #expect(GlanceLink.checkIn.url.absoluteString == "caniretireyet://check-in")
         #expect(GlanceLink(url: try #require(URL(string: "caniretireyet://overview"))) == .today)
+        #expect(GlanceLink(stored: "overview") == .today)
+        #expect(GlanceLink(stored: "check-in") == .checkIn)
+        #expect(GlanceLink(stored: "elsewhere") == nil)
     }
 
     @Test func otherURLsAreNotLinks() throws {

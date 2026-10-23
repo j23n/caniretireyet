@@ -120,7 +120,7 @@ final class NoteDelegate: NSObject, UNUserNotificationCenterDelegate, Sendable {
             link = .today
         default:
             let raw = response.notification.request.content.userInfo[NoteScheduler.linkKey] as? String
-            link = raw.flatMap(GlanceLink.init(rawValue:))
+            link = raw.flatMap(GlanceLink.init(stored:))
         }
         guard let link else { return }
         await open(link)

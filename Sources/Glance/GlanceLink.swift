@@ -27,7 +27,12 @@ public enum GlanceLink: String, Hashable, Sendable, CaseIterable {
         guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
               components.scheme?.lowercased() == Self.scheme, let host = components.host?.lowercased()
         else { return nil }
-        // Widgets and notes from before Today was the Overview.
-        self.init(rawValue: host == "overview" ? Self.today.rawValue : host)
+        self.init(stored: host)
+    }
+
+    /// The link a stored name stands for: a URL's host, or a note's
+    /// `userInfo`. Widgets and notes from before Today say `overview`.
+    public init?(stored name: String) {
+        self.init(rawValue: name == "overview" ? Self.today.rawValue : name)
     }
 }
