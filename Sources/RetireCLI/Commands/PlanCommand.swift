@@ -30,8 +30,8 @@ struct PlanCommand: RetireSubcommand {
             and any issues, in the library's base currency. The plan starts from the \
             latest check-in. --fast uses \(PlannerOptions.defaultFastRuns) runs instead of the plan's \
             own number (2,000 by default), with the same random draws. --years adds the median run \
-            year by year: income after tax, investments sold, taxes on investments and wealth, spending \
-            and what's left. --save-baseline <label> saves the result as a \
+            year by year: income after tax, investments sold, taxes on investments, wealth and \
+            withdrawals from pre-tax accounts, spending and what's left. --save-baseline <label> saves the result as a \
             baseline in projections/<plan>/baselines/, to compare your actual numbers against later.
             """)
 
@@ -155,7 +155,8 @@ struct PlanReport: CommandReport {
     var currency: CurrencyCode { result.currency }
 
     /// One year of the median run: income after tax, investments sold,
-    /// taxes on investments and wealth, spending and what's left.
+    /// taxes on investments, wealth and withdrawals from pre-tax accounts,
+    /// spending and what's left.
     struct YearRow: Equatable {
         var year: Int
         var age: Int
@@ -329,7 +330,8 @@ struct PlanReport: CommandReport {
             }
             lines += table.lines()
             lines.append((hasOther ? "Work, pensions and other income after tax." : "Work and pensions after tax.")
-                + " Sold: investments sold to cover the year. Taxes: on investments and on wealth. The first year "
+                + " Sold: investments sold to cover the year. Taxes: on investments, on wealth and on "
+                + "withdrawals from pre-tax accounts. The first year "
                 + "is the part after the check-in.")
         }
         lines.append("")
