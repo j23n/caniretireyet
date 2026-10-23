@@ -8,6 +8,11 @@ import SwiftUI
 ///
 /// The levers sit on top of the plan, on iPhone, the Mac and iPad alike.
 ///
+/// *New Plan* and *Duplicate*, moving the levers and *Save as Plan…*, and
+/// *Export Calculations…* come with Plus; without it they open the paywall
+/// (``PlusStore/unlock(_:then:)``, UI.md "Plus"). Every plan stays open to
+/// read, edit and calculate.
+///
 /// Created by the navigation as `PlanScreen(planID:)`; `nil` is the main plan.
 struct PlanScreen: View {
     let planID: PlanID?
@@ -74,6 +79,7 @@ struct PlanContentView: View {
 
     @Environment(LibraryStore.self) private var library
     @Environment(AppNavigation.self) private var navigation
+    @Environment(PlusStore.self) private var plus
     @Environment(\.pageLayout) private var layout
     @Environment(\.locale) private var locale
     @State private var session: PlanSession
@@ -274,7 +280,12 @@ struct PlanContentView: View {
 
     // MARK: Actions
 
+    /// *New Plan*: a second plan, and every one after it, comes with Plus.
     private func newPlan() {
+        plus.unlock(.morePlans) { createPlan() }
+    }
+
+    private func createPlan() {
         let name = PlanEditing.uniqueName("New plan", among: library.library.plans.values)
         let plan = PlanEditing.newPlan(id: library.newPlanID(for: name), name: name, library: library.library,
                                        asOf: library.asOfDate)
@@ -286,7 +297,12 @@ struct PlanContentView: View {
         }
     }
 
+    /// *Duplicate*: another plan, so it comes with Plus.
     private func duplicate() {
+        plus.unlock(.morePlans) { duplicatePlan() }
+    }
+
+    private func duplicatePlan() {
         session.saveNow()
         do {
             let copy = try library.duplicatePlan(planID)
@@ -328,11 +344,14 @@ struct PlanContentView: View {
     }
 
     /// Export Calculations…: every calculation behind this plan's answer,
-    /// with its what-if, as a Markdown file. Pending edits are saved first.
+    /// with its what-if, as a Markdown file, with Plus. Pending edits are
+    /// saved first.
     private func exportCalculations() {
-        session.saveNow()
-        calculations = PlanCalculationsExport.source(session: session, library: library)
-            .map(PlanCalculationsExport.init(source:))
+        plus.unlock(.exportCalculations) {
+            session.saveNow()
+            calculations = PlanCalculationsExport.source(session: session, library: library)
+                .map(PlanCalculationsExport.init(source:))
+        }
     }
 }
 

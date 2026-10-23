@@ -11,6 +11,7 @@ struct RootView: View {
     @Environment(AppNavigation.self) private var navigation
     @Environment(AppPreferences.self) private var preferences
     @Environment(NoteStore.self) private var notes
+    @Environment(PlusStore.self) private var plus
     @Environment(\.scenePhase) private var scenePhase
     #if os(iOS)
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
@@ -24,7 +25,10 @@ struct RootView: View {
                 }
             }
             .onChange(of: scenePhase) { _, phase in
-                if phase == .active { Task { await library.refreshFromDisk() } }
+                guard phase == .active else { return }
+                Task { await library.refreshFromDisk() }
+                // A free month or a year may have ended while the app was away.
+                Task { await plus.refresh() }
             }
             .onChange(of: notes.pendingLink, initial: true) { _, link in
                 // A tapped note (UI.md, "Notifications").
@@ -142,9 +146,13 @@ private struct LayoutFromSizeClass: ViewModifier {
 
 /// Sheets and covers over the whole app, and dropping a CSV file anywhere
 /// to import it.
+///
+/// Plus's paywall shows here, over the main navigation only, so never
+/// during first launch (UI.md, "Plus").
 private struct AppPresentation: ViewModifier {
     @Environment(AppNavigation.self) private var navigation
     @Environment(LibraryStore.self) private var library
+    @Environment(PlusStore.self) private var plus
 
     /// Whether the library has an error to show (a failed save, which is
     /// undone, shows wherever the user is); dismissing clears it, also from
@@ -155,6 +163,7 @@ private struct AppPresentation: ViewModifier {
 
     func body(content: Content) -> some View {
         @Bindable var navigation = navigation
+        @Bindable var plus = plus
         content
             .alert("Something went wrong with the library", isPresented: showsLibraryError) {
                 Button("OK", role: .cancel) {}
@@ -163,6 +172,9 @@ private struct AppPresentation: ViewModifier {
             }
             .sheet(item: $navigation.sheet) { sheet in
                 AppSheetView(sheet: sheet)
+            }
+            .sheet(item: $plus.offer, onDismiss: { self.plus.offerClosed() }) { offer in
+                PlusPaywall(feature: offer.feature)
             }
             #if os(iOS)
             .fullScreenCover(isPresented: $navigation.isCheckInPresented) {

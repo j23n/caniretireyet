@@ -22,13 +22,16 @@ final class AppModel {
     let notes: NoteStore
     /// First launch's answers and step, while the tour shows.
     let onboarding: OnboardingModel
+    /// Plus, the paid tier: whether this person has it, and the paywall.
+    let plus: PlusStore
     #if FEEDBACK
     /// In-app feedback, in Debug builds (`Feedback.swift`).
     let feedback: FeedbackCenter
     #endif
 
     init(preferences: AppPreferences, library: LibraryStore, prices: PriceStore, planEngine: any PlanEngine,
-         planResults: PlanResultsArchive? = nil, widgetSnapshotURL: URL? = nil, schedulesNotes: Bool = false) {
+         plus: PlusStore, planResults: PlanResultsArchive? = nil, widgetSnapshotURL: URL? = nil,
+         schedulesNotes: Bool = false) {
         self.preferences = preferences
         navigation = AppNavigation()
         self.library = library
@@ -38,14 +41,15 @@ final class AppModel {
         widgets = WidgetStore(library: library, plans: plans, snapshotURL: widgetSnapshotURL)
         notes = NoteStore(preferences: preferences, widgets: widgets, schedules: schedulesNotes)
         onboarding = OnboardingModel()
+        self.plus = plus
         #if FEEDBACK
         feedback = .caniretireyet(navigation: navigation)
         #endif
     }
 
     /// The real app: the library in iCloud Drive or on this device, prices
-    /// from the network, each plan's latest results in the app's caches, and
-    /// the widgets' snapshot in the App Group's container.
+    /// from the network, each plan's latest results in the app's caches, the
+    /// widgets' snapshot in the App Group's container, and Plus from the App Store.
     static func live() -> AppModel {
         let preferences = AppPreferences()
         return AppModel(
@@ -53,6 +57,7 @@ final class AppModel {
             library: LibraryStore(locator: LibraryLocator(), preferences: preferences),
             prices: PriceStore(service: .standard()),
             planEngine: PlannerPlanEngine(),
+            plus: .live,
             planResults: PlanResultsArchive.standard(),
             widgetSnapshotURL: AppGroup.snapshotURL, schedulesNotes: true)
     }
@@ -61,7 +66,7 @@ final class AppModel {
     /// library is in the profile's folder on this device, never in iCloud
     /// Drive, this device's settings are the profile's, and it neither
     /// writes the widgets' snapshot nor schedules notes, which stay the
-    /// real library's.
+    /// real library's. Plus is the Apple Account's, as in the real app.
     static func live(in profile: TestProfile, root: URL) -> AppModel {
         let preferences = AppPreferences(defaults: profile.defaults)
         let locator = LibraryLocator(localFolder: profile.libraryFolder(in: root), usesICloud: false)
@@ -70,20 +75,25 @@ final class AppModel {
             library: LibraryStore(locator: locator, preferences: preferences),
             prices: PriceStore(service: .standard()),
             planEngine: PlannerPlanEngine(),
+            plus: .live,
             planResults: PlanResultsArchive.standard())
     }
 
     /// Previews, the screen tests and ``ScreenLaunch``: `library` in memory (by default
     /// the made-up example library), no network, no files (not even the
     /// widgets' snapshot, nor the plans' results without `planResults`),
-    /// plans run on `planEngine` (made-up results by default), and this
-    /// device's settings in the `UserDefaults` suite named `defaults`.
+    /// plans run on `planEngine` (made-up results by default), this
+    /// device's settings in the `UserDefaults` suite named `defaults`, and
+    /// Plus as `plus` says, without the App Store (lifetime by default, so
+    /// every screen shows as it does with Plus; the paywall shows made-up prices).
     static func preview(_ library: Library = PreviewLibrary.library, planEngine: any PlanEngine = PreviewPlanEngine(),
-                        planResults: PlanResultsArchive? = nil, defaults suite: String = "preview") -> AppModel {
+                        planResults: PlanResultsArchive? = nil, defaults suite: String = "preview",
+                        plus: PlusAccess = .lifetime) -> AppModel {
         let defaults = UserDefaults(suiteName: suite) ?? .standard
         return AppModel(
             preferences: AppPreferences(defaults: defaults), library: .inMemory(library),
-            prices: PriceStore(service: nil), planEngine: planEngine, planResults: planResults)
+            prices: PriceStore(service: nil), planEngine: planEngine, plus: PlusStore(access: plus, prices: .sample),
+            planResults: planResults)
     }
 
     /// Whether ``keepInStep()`` runs.
@@ -93,9 +103,10 @@ final class AppModel {
     /// The widgets' inputs their snapshot was last written for.
     private var widgetInputs: WidgetStore.Inputs?
 
-    /// Launch work: find and load the library, and keep the stores in
-    /// step from then on.
+    /// Launch work: ask the App Store about Plus, find and load the
+    /// library, and keep the stores in step from then on.
     func start() async {
+        plus.start()
         if !keepsInStep {
             keepsInStep = true
             keepInStep()

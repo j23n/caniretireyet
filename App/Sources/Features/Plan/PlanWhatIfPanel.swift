@@ -8,11 +8,14 @@ import SwiftUI
 /// Moving one moves your date: once the levers rest, a quick estimate runs,
 /// then every run, and the date above them follows. *Save as Plan…* keeps
 /// the levers where they are as a plan of its own; *Reset* puts them back.
+/// The levers and *Save as Plan…* come with Plus: without it the sliders
+/// rest, and *Move the Levers…* opens the paywall (UI.md, "Plus").
 struct PlanLeversCard: View {
     let session: PlanSession
 
     @Environment(LibraryStore.self) private var library
     @Environment(AppNavigation.self) private var navigation
+    @Environment(PlusStore.self) private var plus
     @Environment(\.locale) private var locale
     @State private var isNaming = false
     @State private var newName = ""
@@ -65,14 +68,27 @@ struct PlanLeversCard: View {
                     .buttonStyle(.borderless)
                 Spacer(minLength: 0)
                 Button("Save as Plan…") {
-                    newName = ""
-                    error = nil
-                    isNaming = true
+                    plus.unlock(.morePlans) {
+                        newName = ""
+                        error = nil
+                        isNaming = true
+                    }
                 }
                 .buttonStyle(.bordered)
                 .disabled(!session.canEdit)
             }
             .font(.subheadline)
+        } else if !plus.hasPlus {
+            HStack(alignment: .firstTextBaseline, spacing: Metrics.m) {
+                Text("Move a lever and your date follows.")
+                    .font(.footnote)
+                    .foregroundStyle(Palette.secondaryInk)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 0)
+                Button("Move the Levers…") { plus.unlock(.whatIf) {} }
+                    .buttonStyle(.bordered)
+                    .font(.subheadline)
+            }
         } else {
             Text("Move a lever and your date follows.")
                 .font(.footnote)
@@ -109,7 +125,7 @@ struct PlanLeversCard: View {
                     .foregroundStyle(model.isChanged(slider) ? Palette.accent : Palette.ink)
             }
             Slider(value: binding, in: model.range(slider), step: slider.step)
-                .disabled(!model.isAvailable(slider) || !session.canEdit)
+                .disabled(!model.isAvailable(slider) || !session.canEdit || !plus.hasPlus)
                 .accessibilityLabel(Text(slider.title))
         }
     }

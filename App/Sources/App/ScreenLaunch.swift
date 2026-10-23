@@ -21,8 +21,10 @@ import SwiftUI
 /// `answer`, `files` or `notes`), with made-up answers
 /// (``sampleAnswers``). `-screenLibrary dayOne` opens the library the tour
 /// leaves, on its first day. With
-/// `-screenHidesAmounts`, amounts are hidden, as with the eye button.
-/// Debug builds only.
+/// `-screenHidesAmounts`, amounts are hidden, as with the eye button. The
+/// person has Plus, without the App Store; with `-screenWithoutPlus` they
+/// don't, and Plus's actions open the paywall (UI.md, "Plus"), with made-up
+/// prices and nothing to buy. Debug builds only.
 struct ScreenLaunch {
     /// The made-up libraries: ``PreviewLibrary/library``,
     /// ``PreviewLibrary/withLongHistory`` and
@@ -91,6 +93,9 @@ struct ScreenLaunch {
     var onboardingStep: OnboardingStep?
     /// Whether it's the tour's day, as with ``Sample/dayOne``.
     var isFirstDay = false
+    /// Whether the person has Plus; without it, Plus's actions open the
+    /// paywall, with made-up prices.
+    var hasPlus = true
 
     /// `sample` on `screen`; ``Sample/empty`` opens first launch's welcome.
     init(_ sample: Sample, screen: Screen, calculates: Bool = true, hidesAmounts: Bool = false) {
@@ -132,6 +137,7 @@ struct ScreenLaunch {
         self.init(sample, screen: value(of: "-screen").flatMap(Screen.init(rawValue:)) ?? .today,
                   calculates: !arguments.contains("-screenNoRun"),
                   hidesAmounts: arguments.contains("-screenHidesAmounts"))
+        hasPlus = !arguments.contains("-screenWithoutPlus")
     }
 
     /// Made-up answers to the tour's questions: some cash, investments
@@ -172,7 +178,8 @@ struct ScreenLaunch {
         if let onboardingStep {
             return firstLaunchModel(on: onboardingStep, defaults: suite)
         }
-        let model = AppModel.preview(library, planEngine: PlannerPlanEngine(), defaults: suite)
+        let model = AppModel.preview(library, planEngine: PlannerPlanEngine(), defaults: suite,
+                                     plus: hasPlus ? .lifetime : .free)
         model.preferences.hidesAmounts = hidesAmounts
         let navigation = model.navigation
         let main = library.settings.mainPlan
@@ -243,7 +250,8 @@ struct ScreenLaunch {
             let folder = FileManager.default.temporaryDirectory
                 .appendingPathComponent("screen-launch-\(UUID().uuidString)", isDirectory: true)
             model = AppModel(preferences: preferences, library: .needingSetup(in: folder, preferences: preferences),
-                             prices: PriceStore(service: nil), planEngine: PlannerPlanEngine())
+                             prices: PriceStore(service: nil), planEngine: PlannerPlanEngine(),
+                             plus: PlusStore(access: .lifetime))
         }
         let onboarding = model.onboarding
         onboarding.age = (library.settings.person?.birthDate ?? PreviewLibrary.library.settings.person?.birthDate)
