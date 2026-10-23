@@ -81,21 +81,28 @@ final class PlusStore {
         access = PlusAccess(purchases: purchases, at: .now)
     }
 
-    /// Asks the App Store for the products and their prices, and whether this
-    /// person may have the yearly subscription's free trial, until it answers.
+    /// Asks the App Store for the products and their prices, until it
+    /// answers, and each time whether this person may still have the yearly
+    /// subscription's free trial: a free month can end while the app is open.
+    /// The paywall calls it each time it opens.
     func loadPrices() async {
-        guard usesAppStore, prices == nil,
-              let found = try? await Product.products(for: PlusProduct.allCases.map(\.id)) else { return }
-        for product in found {
-            if let kind = PlusProduct(rawValue: product.id) { products[kind] = product }
+        guard usesAppStore else { return }
+        if products[.yearly] == nil || products[.lifetime] == nil,
+           let found = try? await Product.products(for: PlusProduct.allCases.map(\.id)) {
+            for product in found {
+                if let kind = PlusProduct(rawValue: product.id) { products[kind] = product }
+            }
         }
         guard let yearly = products[.yearly], let lifetime = products[.lifetime] else { return }
-        var freeTrial: String?
-        if let subscription = yearly.subscription, let intro = subscription.introductoryOffer,
-           intro.paymentMode == .freeTrial, await subscription.isEligibleForIntroOffer {
-            freeTrial = Self.length(of: intro.period)
-        }
+        let freeTrial = await Self.freeTrial(of: yearly)
         prices = PlusPrices(yearly: yearly.displayPrice, lifetime: lifetime.displayPrice, freeTrial: freeTrial)
+    }
+
+    /// How long `yearly`'s free trial is, when this person may have it.
+    private static func freeTrial(of yearly: Product) async -> String? {
+        guard let subscription = yearly.subscription, let intro = subscription.introductoryOffer,
+              intro.paymentMode == .freeTrial, await subscription.isEligibleForIntroOffer else { return nil }
+        return length(of: intro.period)
     }
 
     /// The product to buy, once the App Store has answered.
