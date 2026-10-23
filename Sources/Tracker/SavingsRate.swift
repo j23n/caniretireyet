@@ -80,9 +80,28 @@ public struct SavingsRate: Hashable, Sendable {
     }
 
     /// ``saved`` over ``income``; negative when more was spent than came in.
-    /// `nil` when nothing came in.
+    /// `nil` when nothing came in after tax (``noRate`` says why).
     public var rate: Decimal? {
         income > 0 ? saved / income : nil
+    }
+
+    /// Why there's no ``rate``: what came in after tax isn't above zero.
+    public enum NoRate: Hashable, Sendable {
+        /// Nothing came in, and no tax.
+        case nothingCameIn
+        /// Money in and the pension contributions add up to less than zero.
+        case lessThanNothingCameIn
+        /// Tax took as much as came in, or more.
+        case moreTaxThanCameIn
+    }
+
+    /// Why there's no ``rate``; `nil` when there's one.
+    public var noRate: NoRate? {
+        guard income <= 0 else { return nil }
+        let beforeTax = moneyInOut.moneyIn + pensionContributions
+        if beforeTax < 0 { return .lessThanNothingCameIn }
+        if tax > 0 { return .moreTaxThanCameIn }
+        return .nothingCameIn
     }
 }
 

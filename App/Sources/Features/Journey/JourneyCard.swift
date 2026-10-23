@@ -5,8 +5,8 @@ import SwiftUI
 
 /// *Your way to retirement* on the Overview (UI.md, "Your way to
 /// retirement"): the milestones from your first record to your last Monday
-/// on one line, the next with how far there, the last one reached, and how
-/// far you've come since you started.
+/// on one line, the next with how far there, the milestones reached, newest
+/// first, one at a time, and how far you've come since you started.
 struct JourneyCard: View {
     let plan: PlanDocument
     /// The main plan's latest answer, as the header shows it.
@@ -20,6 +20,21 @@ struct JourneyCard: View {
     @Environment(PlanStore.self) private var plans
     @Environment(\.baseCurrency) private var currency
     @Environment(\.locale) private var locale
+    @Environment(\.pageLayout) private var layout
+
+    /// The milestone reached that's shown; `nil` shows the newest.
+    @State private var shownReached: String?
+    /// The last step's direction, so the milestone shown slides in from
+    /// that side: older from the leading edge.
+    @State private var steppedOlder = true
+    /// A step waiting for its direction to reach the milestone shown: the
+    /// one going out slides with the transition it was last drawn with.
+    @State private var pendingStep: Step?
+
+    /// The milestone reached a step shows; `nil` the newest.
+    private struct Step: Equatable {
+        var shownID: String?
+    }
 
     var body: some View {
         let progress = plans.planProgress(of: plan.id, document: plan)
@@ -27,6 +42,7 @@ struct JourneyCard: View {
                                         asOf: library.asOfDate, results: results, reached: progress.reached)
         let text = PlanMilestoneText(currency: currency, locale: locale)
         let next = milestones.next
+        let pager = ReachedMilestonePager(reached: milestones.reached, shownID: shownReached)
         if let start = library.valuator.firstValuationDate(in: .planAssets) {
             let track = MilestoneTrack(
                 start: start, today: today, retirement: answer.canRetireNow ? nil : answer.earliestDate,
@@ -35,7 +51,8 @@ struct JourneyCard: View {
                     milestones.nextDate.map { date in
                         (id: next.milestone.id, name: text.label(next.milestone), date: date)
                     }
-                })
+                },
+                shown: pager.shown?.id)
             Card {
                 VStack(alignment: .leading, spacing: Metrics.m) {
                     track
@@ -44,9 +61,9 @@ struct JourneyCard: View {
                         Divider()
                         nextMilestone(next, date: milestones.nextDate, text: text)
                     }
-                    if let last = milestones.reached.last {
+                    if let shown = pager.shown {
                         Divider()
-                        lastReached(last, text: text)
+                        reachedMilestone(shown, pager: pager, text: text)
                     }
                     if let since = SinceYouStarted(history: progress.history, answer: answer,
                                                    reached: milestones.reached.count) {
@@ -108,22 +125,72 @@ struct JourneyCard: View {
         .accessibilityElement(children: .combine)
     }
 
-    /// "⚑ Last reached · August" over "Halfway to what retiring today needs."
-    private func lastReached(_ milestone: ReachedMilestone, text: PlanMilestoneText) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Label {
-                Text(verbatim: "Last reached · " + GlanceText.month(milestone.date, relativeTo: today, locale: locale))
-                    .privacySensitiveInFeedback()
-            } icon: {
-                Image(systemName: "flag.fill")
+    /// "⚑ Last reached · August · 21 of 21" over "Halfway to what retiring
+    /// today needs.", or "⚑ Reached · March 2025 · 3 of 21" for one from an
+    /// older check-in: a swipe, ‹ › on the Mac and iPad, or VoiceOver's
+    /// adjustable action steps to an older or a newer one.
+    private func reachedMilestone(_ milestone: ReachedMilestone, pager: ReachedMilestonePager,
+                                  text: PlanMilestoneText) -> some View {
+        HStack(alignment: .top, spacing: Metrics.s) {
+            ZStack(alignment: .topLeading) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Label {
+                        Text(verbatim: pager.label(relativeTo: today, locale: locale) ?? "")
+                            .privacySensitiveInFeedback()
+                    } icon: {
+                        Image(systemName: "flag.fill")
+                    }
+                    .font(.footnote)
+                    .foregroundStyle(Palette.secondaryInk)
+                    AmountSentenceText(text.reached(milestone.milestone))
+                        .foregroundStyle(Palette.ink)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .id(milestone.id)
+                .transition(.push(from: steppedOlder ? .leading : .trailing))
             }
-            .font(.footnote)
-            .foregroundStyle(Palette.secondaryInk)
-            AmountSentenceText(text.reached(milestone.milestone))
-                .foregroundStyle(Palette.ink)
-                .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .clipped()
+            .contentShape(Rectangle())
+            // A swipe to the right shows an older one, to the left a newer one.
+            .simultaneousGesture(DragGesture(minimumDistance: 24).onEnded { drag in
+                let across = drag.translation.width
+                guard abs(across) > 44, abs(across) > 2 * abs(drag.translation.height) else { return }
+                step(pager, by: across > 0 ? -1 : 1)
+            })
+            .accessibilityElement(children: .combine)
+            .accessibilityAdjustableAction { direction in
+                switch direction {
+                case .increment: step(pager, by: 1)
+                case .decrement: step(pager, by: -1)
+                @unknown default: break
+                }
+            }
+            if layout.isWide, let index = pager.index, pager.reached.count > 1 {
+                PlanStepButtons(index: index, count: pager.reached.count, hasShortcuts: false) { chosen in
+                    step(pager, by: chosen - index)
+                }
+                .controlSize(.small)
+            }
         }
-        .accessibilityElement(children: .combine)
+        // Runs after the update that gave the milestone shown the step's
+        // direction, so the one going out slides that way too.
+        .onChange(of: pendingStep) { _, pending in
+            guard let pending else { return }
+            pendingStep = nil
+            withAnimation(.snappy) { shownReached = pending.shownID }
+        }
+    }
+
+    /// Shows the milestone reached `offset` steps newer than the one shown
+    /// (older when negative), sliding it in from that side and the one
+    /// going out to the other.
+    private func step(_ pager: ReachedMilestonePager, by offset: Int) {
+        var stepped = pager
+        stepped.step(by: offset)
+        guard stepped.index != pager.index else { return }
+        steppedOlder = offset < 0
+        pendingStep = Step(shownID: stepped.shownID)
     }
 
     /// "Since you started · October 2021", "Your retirement moved 4 years

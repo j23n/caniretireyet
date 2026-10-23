@@ -29,12 +29,61 @@ extension PlanMoneyInOut {
         }
     }
 
+    /// What a callout says after a period's last day: "so far", "covers Sep
+    /// – Oct", or both; `nil` for neither.
+    func calloutDetail(_ period: MoneyInOutPeriod, locale: Locale = .current) -> String? {
+        let parts = [isSoFar(period) ? "so far" : nil, coverWords(period, locale: locale)].compactMap { $0 }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+    }
+
+    /// *Savings rate*'s line, for its summary: "A line shows the rate over
+    /// the 12 months ending at each month.", adding "with a gap where those
+    /// 12 months have no rate" when it breaks; `nil` without a line.
+    func lineWords() -> String? {
+        guard hasLastTwelveMonths else { return nil }
+        let gap = lastTwelveMonthsRuns.count > 1 ? ", with a gap where those 12 months have no rate" : ""
+        return "A line shows the rate over the 12 months ending at each month\(gap)."
+    }
+
+    /// *Savings rate*'s periods without a bar, for its summary, each with
+    /// why: "No rate in Aug 2026 (nothing came in), so it has no bar; what
+    /// was spent then counts in the rate over 12 months."; `nil` without
+    /// any. The part after the semicolon only when the line is drawn.
+    func withoutRateWords(locale: Locale = .current) -> String? {
+        let periods = countedWithoutRate
+        guard !periods.isEmpty else { return nil }
+        let names = periods.map { period -> String in
+            let name = switch grain {
+            case .months: GlanceText.shortMonthAndYear(period.from, locale: locale)
+            case .years: String(period.from.year)
+            }
+            guard let why = period.noRate else { return name }
+            return "\(name) (\(why.words.lowercased()))"
+        }
+        let bar = periods.count == 1 ? "it has no bar" : "they have no bar"
+        let line = hasLastTwelveMonths ? "; what was spent then counts in the rate over 12 months" : ""
+        return "No rate in \(Wording.list(names)), so \(bar)\(line)."
+    }
+
     /// "Money in and out is recorded since 30 Jun 2026: 3 months so far.";
     /// `nil` when it was recorded before the span, or not at all.
     func whereItStarts(locale: Locale = .current) -> String? {
         guard startsInSpan, let since = recordedSince else { return nil }
         return "Money in and out is recorded since \(AmountFormat.mediumDate(since, locale: locale)): "
             + "\(Wording.count(recordedMonths, "month")) so far."
+    }
+}
+
+extension SavingsRate.NoRate {
+    /// Why there's no savings rate, as *Savings rate*'s callout says it:
+    /// "Nothing came in", "Less than nothing came in", "More tax than came
+    /// in".
+    var words: String {
+        switch self {
+        case .nothingCameIn: "Nothing came in"
+        case .lessThanNothingCameIn: "Less than nothing came in"
+        case .moreTaxThanCameIn: "More tax than came in"
+        }
     }
 }
 

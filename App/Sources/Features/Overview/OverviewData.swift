@@ -188,8 +188,10 @@ struct OverviewOnTrack {
     /// and when you could retire today.
     var coastAge: Int?
 
-    /// - Parameter results: the main plan's latest results, for the coast
-    ///   age; without them, the one the latest check-in recorded.
+    /// - Parameter results: the results the coast age comes from (the main
+    ///   plan's latest on the Overview, the results shown on the plan);
+    ///   without them, or without a coast age in them, the one the latest
+    ///   check-in recorded.
     init(plan: PlanDocument, library: Library, valuator: Valuator, asOf: CalendarDate, results: PlanResults?,
          canRetireNow: Bool, locale: Locale = .current) {
         let onTrack = PlanOnTrack(plan: plan, library: library, valuator: valuator, asOf: asOf, results: results,

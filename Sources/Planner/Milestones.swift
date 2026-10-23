@@ -29,6 +29,11 @@ public struct Milestone: Hashable, Sendable, Identifiable {
     /// assets at the check-in that reached it.
     public var amount: Decimal
 
+    public init(kind: Kind, amount: Decimal) {
+        self.kind = kind
+        self.amount = amount
+    }
+
     /// The same at every check-in: "round-300000", "years-10", "share-1-2", "crossover".
     public var id: String {
         switch kind {
@@ -64,6 +69,11 @@ public struct ReachedMilestone: Hashable, Sendable, Identifiable {
     /// The day that reached it: a check-in, or the end of a month without
     /// one, valued from what you held and its prices.
     public var date: CalendarDate
+
+    public init(milestone: Milestone, date: CalendarDate) {
+        self.milestone = milestone
+        self.date = date
+    }
 
     public var id: String { milestone.id }
 }

@@ -7,7 +7,8 @@ import SwiftUI
 /// with the milestones on it (UI.md, "Your way to retirement"): solid up
 /// to today with the milestones reached as dots, dashed after it with those
 /// ahead as rings where the plan's median future typically reaches them,
-/// the next one larger and named, and a flag at your last Monday. Its ends
+/// the next one larger and named, the reached one the card shows larger and
+/// ringed, and a flag at your last Monday. Its ends
 /// are labeled with their years ("2018", "2031").
 struct MilestoneTrack: View {
     let start: CalendarDate
@@ -19,6 +20,9 @@ struct MilestoneTrack: View {
     let ahead: [ProjectedMilestone]
     /// The next milestone and when it's typically reached.
     let next: (id: String, name: AmountSentence, date: CalendarDate)?
+    /// The id of the milestone reached that the card shows under the line,
+    /// drawn larger and ringed.
+    var shown: String?
 
     @Environment(\.locale) private var locale
     /// The labels above the line, measured, so they can be kept apart.
@@ -80,6 +84,13 @@ struct MilestoneTrack: View {
 
         for milestone in reached {
             dot(in: &context, at: CGPoint(x: x(milestone.date, width: width), y: y), radius: 4.5, filled: true)
+        }
+        // The one shown last, over the dots beside it.
+        if let milestone = reached.last(where: { $0.id == shown }) {
+            let point = CGPoint(x: x(milestone.date, width: width), y: y)
+            dot(in: &context, at: point, radius: 6.5, filled: true)
+            let ring = CGRect(x: point.x - 10, y: point.y - 10, width: 20, height: 20)
+            context.stroke(Path(ellipseIn: ring), with: .color(Palette.accent), lineWidth: 1.5)
         }
         for milestone in drawnAhead {
             let isNext = milestone.id == next?.id
