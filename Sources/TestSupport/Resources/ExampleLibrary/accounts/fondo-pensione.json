@@ -7,5 +7,6 @@
   "institution": "Fondo Esempio",
   "kind": "pensionFund",
   "name": "Fondo pensione",
-  "opened": "2022-01-01"
+  "opened": "2022-01-01",
+  "withdrawalTaxRate": "0.15"
 }

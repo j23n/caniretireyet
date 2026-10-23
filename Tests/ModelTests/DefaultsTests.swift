@@ -79,6 +79,22 @@ struct AccountDefaultsTests {
         #expect(unknown.values?.rawValue == "synced")
         #expect(!unknown.acceptsTypedValues)
     }
+
+    /// A withdrawal tax rate is read from a string or a number, written as a
+    /// string, and left out when it isn't set.
+    @Test func withdrawalTaxRateRoundTrips() throws {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = .sortedKeys
+        let json = #"{"currency":"USD","id":"a","kind":"pensionFund","name":"A","opened":"2024-01-01","withdrawalTaxRate":"0.25"}"#
+        let decoded = try JSONDecoder().decode(Account.self, from: Data(json.utf8))
+        #expect(decoded.withdrawalTaxRate == Decimal(string: "0.25"))
+        #expect(String(decoding: try encoder.encode(decoded), as: UTF8.self) == json)
+        let number = #"{"currency":"USD","id":"a","kind":"pensionFund","name":"A","opened":"2024-01-01","withdrawalTaxRate":0}"#
+        #expect(try JSONDecoder().decode(Account.self, from: Data(number.utf8)).withdrawalTaxRate == 0)
+        let plain = String(decoding: try encoder.encode(account(.pensionFund)), as: UTF8.self)
+        #expect(!plain.contains("withdrawalTaxRate"))
+        #expect(account(.pensionFund).withdrawalTaxRate == nil)
+    }
 }
 
 /// What an instrument of each kind usually is: what the importer proposes

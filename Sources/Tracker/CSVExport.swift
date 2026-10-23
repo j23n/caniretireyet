@@ -85,13 +85,14 @@ public enum CSVExport {
             [account.id.rawValue, account.name, account.kind.rawValue, account.currency.rawValue,
              account.institution ?? "", account.country?.rawValue ?? "", account.opened.description,
              account.closed?.description ?? "", account.valuationMode.rawValue,
-             account.availableFromAge.map(String.init) ?? "", yesNo(account.includedInNetWorth),
-             yesNo(account.includedInPlan), mix(account.assetClasses),
+             account.availableFromAge.map(String.init) ?? "", account.withdrawalTaxRate?.fileString ?? "",
+             yesNo(account.includedInNetWorth), yesNo(account.includedInPlan), mix(account.assetClasses),
              account.successor?.rawValue ?? "",
              account.tags.joined(separator: "; "), account.notes ?? ""]
         }
         return table("accounts.csv", ["id", "name", "kind", "currency", "institution", "country", "opened", "closed",
-                                      "valuation", "available_from_age", "in_net_worth", "in_plans",
+                                      "valuation", "available_from_age", "withdrawal_tax_rate", "in_net_worth",
+                                      "in_plans",
                                       "asset_classes", "successor", "tags", "notes"], rows)
     }
 

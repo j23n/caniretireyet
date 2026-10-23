@@ -124,7 +124,7 @@ To open the library in a spreadsheet or take it to another app, Settings › Lib
 | --- | --- | --- |
 | `net-worth.csv` | month end | `date`, `currency` (the base currency), `net_worth`, `plan_assets`, `complete` |
 | `account-values.csv` | account and month end, while it's open | `date`, `account`, `name`, `currency`, `value` (in the account's currency), `base_currency`, `value_in_base_currency`, `complete` |
-| `accounts.csv` | account | `id`, `name`, `kind`, `currency`, `institution`, `country`, `opened`, `closed`, `valuation`, `available_from_age`, `in_net_worth`, `in_plans`, `asset_classes`, `successor`, `tags`, `notes` |
+| `accounts.csv` | account | `id`, `name`, `kind`, `currency`, `institution`, `country`, `opened`, `closed`, `valuation`, `available_from_age`, `withdrawal_tax_rate`, `in_net_worth`, `in_plans`, `asset_classes`, `successor`, `tags`, `notes` |
 | `instruments.csv` | instrument | `id`, `name`, `kind`, `currency`, `unit`, `isin`, `ticker`, `asset_classes`, `price_provider`, `price_symbol` |
 | `valuations.csv` | valuation | `date`, `account`, `balance`, `cash`, `positions` (how many, in `positions.csv`), `saved` (as recorded), `money_in`, `money_out`, `one_off`, `tax`, `interest`, `note`, `source` |
 | `positions.csv` | position in a valuation | `date`, `account`, `instrument`, `quantity`, `cost_basis` |
