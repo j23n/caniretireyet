@@ -256,7 +256,8 @@ private struct AccountSectionHeader: View {
 }
 
 /// One account in a list: kind icon, name, institution (or closing date),
-/// a "Stale" badge, a 12-month sparkline and the value.
+/// a "Stale" badge, a 12-month sparkline and the value. The sparkline and
+/// the value keep their width; a long name or institution truncates.
 struct AccountListRow: View {
     let item: AccountListItem
     /// The list's widest value: the amount reserves its width, so amounts
@@ -282,14 +283,15 @@ struct AccountListRow: View {
                     }
                     if item.stale != nil {
                         AccountStaleBadge()
+                            .fixedSize()
                     }
                 }
                 .font(.caption)
                 .foregroundStyle(Palette.secondaryInk)
             }
-            .layoutPriority(1)
             Spacer(minLength: Metrics.s)
             Sparkline(points: item.sparkline)
+            // Offered its width first, so a long name truncates instead.
             ZStack(alignment: .trailing) {
                 if let widestValue {
                     AmountText(widestValue)
@@ -299,6 +301,8 @@ struct AccountListRow: View {
                 AmountText(item.value)
                     .foregroundStyle(Palette.ink)
             }
+            .lineLimit(1)
+            .layoutPriority(1)
         }
         .accessibilityElement(children: .combine)
     }

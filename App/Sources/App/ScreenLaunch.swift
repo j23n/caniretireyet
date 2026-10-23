@@ -5,11 +5,12 @@ import Planner
 
 /// A screen of the app with a made-up library, for its screenshots
 /// (App/ScreenTests, `make screenshots`) and for opening a screen by hand:
-/// `-screenLibrary example` (or `longHistory`) opens a made-up library in
-/// memory, with the real planner, no network and settings of its own, and
-/// `-screen` the screen to start on (`overview`, `plan`, `progress`,
-/// `trends` or `whatIf`; `targetMix`, the Target mix sheet of the first plan
-/// with changes with age; `tradesAccount` or `cashAccount`, an account's
+/// `-screenLibrary example` (or `longHistory` or `longAccountName`) opens a
+/// made-up library in memory, with the real planner, no network and settings
+/// of its own, and `-screen` the screen to start on (`overview`, `plan`,
+/// `progress`, `trends` or `whatIf`; `targetMix`, the Target mix sheet of
+/// the first plan with changes with age; `accounts`, the Accounts list;
+/// `tradesAccount` or `cashAccount`, an account's
 /// details; `checkIn`, the October check-in under way, from
 /// `CheckInPreviewData`). The main plan is calculated at once, with fewer runs than it
 /// says, so the plan's screens fill in quickly; not with `-screenNoRun`.
@@ -21,11 +22,13 @@ import Planner
 /// `-screenHidesAmounts`, amounts are hidden, as with the eye button.
 /// Debug builds only.
 struct ScreenLaunch {
-    /// The made-up libraries: ``PreviewLibrary/library`` and
-    /// ``PreviewLibrary/withLongHistory``; or none, for first launch.
+    /// The made-up libraries: ``PreviewLibrary/library``,
+    /// ``PreviewLibrary/withLongHistory`` and
+    /// ``PreviewLibrary/withLongAccountName``; or none, for first launch.
     enum Sample: String, CaseIterable {
         case example
         case longHistory
+        case longAccountName
         /// No library yet: first launch, on ``ScreenLaunch/onboardingStep``.
         case empty
         /// The library the tour leaves (``ScreenLaunch/createdLibrary``),
@@ -36,6 +39,7 @@ struct ScreenLaunch {
             switch self {
             case .example: PreviewLibrary.library
             case .longHistory: PreviewLibrary.withLongHistory
+            case .longAccountName: PreviewLibrary.withLongAccountName
             case .empty: Library()
             case .dayOne: ScreenLaunch.createdLibrary
             }
@@ -49,6 +53,9 @@ struct ScreenLaunch {
         case trends
         case whatIf
         case targetMix
+        /// The Accounts tab's list on iPhone; the sidebar's accounts on the
+        /// Mac, which show on every screen there.
+        case accounts
         /// Directa's details: a trades account's holdings, trades and statements.
         case tradesAccount
         /// Conto Fineco's details: a current account's values with money in,
@@ -181,6 +188,8 @@ struct ScreenLaunch {
             let plans = library.plans.values.sorted { $0.id.rawValue < $1.id.rawValue }
             navigation.showPlan(plans.first { !$0.portfolio.targetMixByAge.isEmpty }?.id ?? main,
                                 at: PlanRoute(opensTargetMix: true))
+        case .accounts:
+            navigation.tab = .accounts
         case .tradesAccount, .cashAccount:
             // Both layouts', since the root view sets the layout once it appears.
             if let account = screen.account {

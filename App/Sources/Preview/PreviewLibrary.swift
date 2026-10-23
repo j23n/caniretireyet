@@ -64,6 +64,17 @@ enum PreviewLibrary {
         return copy
     }()
 
+    /// ``library`` with Conto deposito's name and institution longer than
+    /// fit beside its value in a row of the Accounts list or the sidebar,
+    /// so they truncate.
+    static let withLongAccountName: Library = {
+        var copy = PreviewLibrary.library
+        copy.accounts["conto-deposito"]?.name =
+            "Conto deposito (emergency fund: six months of spending, kept apart from everyday money)"
+        copy.accounts["conto-deposito"]?.institution = "Banca Esempio, the branch on the main square of the old town"
+        return copy
+    }()
+
     /// The dollar account of ``withForeignAccount``.
     static let foreignAccount: AccountID = "us-brokerage"
 
