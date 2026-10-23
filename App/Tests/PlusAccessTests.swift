@@ -34,14 +34,24 @@ struct PlusAccessTests {
         let access = PlusAccess(purchases: [yearly(expires: end)], at: now)
         #expect(access == .yearly(renewsAt: end))
         #expect(access.hasPlus)
+        #expect(PlusSection.status(access, at: now).hasPrefix("Yearly, renews "))
     }
 
-    /// A lapsed subscription locks Plus's actions again; nothing else.
-    @Test func anExpiredYearlyIsFree() {
-        let purchases = [yearly(expires: now.addingTimeInterval(-day), trial: true),
-                         yearly(expires: now.addingTimeInterval(-2 * day))]
-        #expect(PlusAccess(purchases: purchases, at: now) == .free)
-        #expect(PlusAccess(purchases: [yearly(expires: now)], at: now) == .free)
+    /// The App Store lists a subscription in its Billing Grace Period, after
+    /// its period has ended, while it retries the renewal: it keeps Plus.
+    /// Once the subscription lapses it isn't listed, and that's free
+    /// (`noPurchaseIsFree`).
+    @Test func aYearlyInItsGracePeriodIsPlus() {
+        let ended = now.addingTimeInterval(-3 * day)
+        let access = PlusAccess(purchases: [yearly(expires: ended)], at: now)
+        #expect(access == .yearly(renewsAt: ended))
+        #expect(access.hasPlus)
+        #expect(PlusSection.status(access, at: now) == "Yearly, renewal pending")
+
+        let trialEnded = PlusAccess(purchases: [yearly(expires: ended, trial: true)], at: now)
+        #expect(trialEnded == .trial(endsAt: ended))
+        #expect(trialEnded.hasPlus)
+        #expect(PlusSection.status(trialEnded, at: now) == "Yearly, renewal pending")
     }
 
     @Test func lifetimeIsPlus() {

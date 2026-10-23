@@ -30,10 +30,12 @@ struct PlusSection: View {
         }
     }
 
-    /// "Lifetime", "Yearly, renews 3 Oct 2027", "Free month, until 3 Nov 2026", "Not yet".
-    static func status(_ access: PlusAccess) -> String {
+    /// "Lifetime", "Yearly, renews 3 Oct 2027", "Free month, until 3 Nov 2026", "Not yet";
+    /// "Yearly, renewal pending" in a Billing Grace Period, whose period has ended.
+    static func status(_ access: PlusAccess, at now: Date = .now) -> String {
         switch access {
         case .free: "Not yet"
+        case let .trial(end) where end <= now, let .yearly(end) where end <= now: "Yearly, renewal pending"
         case let .trial(endsAt): "Free month, until \(endsAt.formatted(date: .abbreviated, time: .omitted))"
         case let .yearly(renewsAt): "Yearly, renews \(renewsAt.formatted(date: .abbreviated, time: .omitted))"
         case .lifetime: "Lifetime"

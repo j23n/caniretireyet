@@ -15,7 +15,8 @@ enum PlusProduct: String, CaseIterable, Sendable {
 /// so ``PlusAccess`` can be worked out and tested from plain values.
 struct PlusPurchase: Equatable, Sendable {
     var productID: String
-    /// When a subscription's period ends; `nil` for the lifetime purchase.
+    /// When a subscription's period ends, or ended if it's in its Billing
+    /// Grace Period; `nil` for the lifetime purchase.
     var expiresAt: Date?
     /// When the App Store refunded or revoked it.
     var revokedAt: Date?
@@ -31,18 +32,25 @@ struct PlusPurchase: Equatable, Sendable {
 enum PlusAccess: Equatable, Sendable {
     /// No Plus: tracking, check-ins, import, widgets and one plan with its answer.
     case free
-    /// The yearly subscription's free month, until `endsAt`.
+    /// The yearly subscription's free month, until `endsAt`; in the past
+    /// during a Billing Grace Period.
     case trial(endsAt: Date)
-    /// The yearly subscription, paid up to `renewsAt`.
+    /// The yearly subscription, paid up to `renewsAt`; in the past during a
+    /// Billing Grace Period.
     case yearly(renewsAt: Date)
     /// The lifetime purchase.
     case lifetime
 
     var hasPlus: Bool { self != .free }
 
-    /// The access `purchases` give at `now`: the lifetime purchase, else a
-    /// yearly subscription whose period hasn't ended (the one that runs
-    /// longest), else none. Revoked purchases and other products don't count.
+    /// The access `purchases` give at `now`: the lifetime purchase, else the
+    /// yearly subscription (the period that runs longest), else none.
+    /// Revoked purchases and other products don't count.
+    ///
+    /// `purchases` are the App Store's current entitlements, which list a
+    /// subscription only while it's active. That includes its Billing Grace
+    /// Period, after its period has ended, so a period's end isn't checked
+    /// here: a subscriber whose renewal is being retried keeps Plus.
     init(purchases: [PlusPurchase], at now: Date) {
         let valid = purchases.filter { $0.revokedAt.map { $0 > now } ?? true }
         if valid.contains(where: { $0.productID == PlusProduct.lifetime.id }) {
@@ -52,7 +60,6 @@ enum PlusAccess: Equatable, Sendable {
         let yearly = valid
             .filter { $0.productID == PlusProduct.yearly.id }
             .compactMap { purchase in purchase.expiresAt.map { (purchase, $0) } }
-            .filter { $0.1 > now }
             .max { $0.1 < $1.1 }
         if case let (purchase, end)? = yearly {
             self = purchase.isFreeTrial ? .trial(endsAt: end) : .yearly(renewsAt: end)
