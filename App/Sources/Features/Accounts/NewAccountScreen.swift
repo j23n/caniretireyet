@@ -212,6 +212,18 @@ struct AccountPlanFields: View {
         } footer: {
             Text(plansFooter)
         }
+        if form.takesWithdrawalTaxRate {
+            Section {
+                AccountsNumberField(title: "Tax on withdrawals", text: $form.withdrawalTaxRate, prompt: "None",
+                                    suffix: "%", allowsNegative: false)
+            } header: {
+                Text("Taxes")
+            } footer: {
+                Text("The share of every amount plans take from this account that goes to tax, in place of the tax "
+                    + "on investments, such as for a pension fund taxed when it pays out. Leave it empty for an "
+                    + "account taxed only on its gains.")
+            }
+        }
         if form.takesDepreciation {
             Section {
                 AccountsNumberField(title: "Loses a year", text: $form.depreciation, prompt: "None", suffix: "%",

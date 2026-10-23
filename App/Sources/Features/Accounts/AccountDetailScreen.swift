@@ -1256,6 +1256,12 @@ private struct AccountInfoRows: View {
                 Text(availability)
                     .privacySensitiveInFeedback()
             }
+            if account.includedInPlan, let rate = account.withdrawalTaxRate {
+                AccountInfoRow(title: "Tax on withdrawals") {
+                    Text(AmountFormat.percent(rate, locale: locale))
+                        .privacySensitiveInFeedback()
+                }
+            }
             AccountInfoRow(title: "Recorded as", text: recordedAs)
             if let mix = assetMix {
                 AccountInfoRow(title: "Asset mix") {
