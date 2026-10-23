@@ -65,39 +65,29 @@ enum OnboardingText {
 
     // MARK: The answer
 
-    /// The answer's first words: "Not yet." or "Yes."
-    static func revealTitle(_ headline: RetirementAnswer) -> String {
-        headline.canRetireNow ? "Yes." : "Not yet."
+    /// Over the answer: "Your last Monday at work could be" when there's a
+    /// date, else "Your first answer" (or "Your answer", for a library that
+    /// was already there).
+    static func revealLead(_ headline: RetirementAnswer, openedExistingLibrary: Bool = false) -> String {
+        if LastMonday(headline) != nil { return "Your last Monday at work could be" }
+        return openedExistingLibrary ? "Your answer" : "Your first answer"
     }
 
-    /// The answer in a sentence: "You could retire at 58, in about 24
-    /// years.", "You could retire today, in at least 9 of 10 futures.", or
-    /// "No age up to 85 works in 9 of 10 futures yet."
-    static func revealLine(_ headline: RetirementAnswer, today: CalendarDate) -> String {
+    /// The answer, big: the last Monday at work, "14 May 2052", else "Yes."
+    /// or "Not yet."
+    static func revealTitle(_ headline: RetirementAnswer, locale: Locale = .current) -> String {
+        if let lastMonday = LastMonday(headline) { return GlanceText.lastMonday(lastMonday.date, locale: locale) }
+        return headline.canRetireNow ? "Yes." : "Not yet."
+    }
+
+    /// Under it, the age and how sure: "At 58, in 9 of 10 futures.", "You
+    /// could retire today, in at least 9 of 10 futures.", or "No age works
+    /// in 9 of 10 futures yet."
+    static func revealLine(_ headline: RetirementAnswer) -> String {
         let futures = GlanceText.futures(headline.confidence)
         if headline.canRetireNow { return "You could retire today, in at least \(futures) futures." }
         guard let age = headline.earliestAge else { return "No age works in \(futures) futures yet." }
-        guard let date = headline.earliestDate, let countdown = RetirementCountdown(from: today, to: date) else {
-            return "You could retire at \(age)."
-        }
-        return "You could retire at \(age), \(lowercasedFirst(countdown.spokenHeadlineText))."
-    }
-
-    /// Under the ring: how ready, and how sure. "You have 13% of what
-    /// retiring today would need. At 58, your money lasts to 95 in 9 of
-    /// 10 futures."
-    /// Once you've stopped working, only how ready.
-    static func readinessLine(_ headline: RetirementAnswer, endAge: Int, hasStoppedWorking: Bool = false,
-                              locale: Locale = .current) -> String {
-        var sentences: [String] = []
-        if let readiness = PlanResultsText.readiness(headline, locale: locale) {
-            sentences.append("You have \(readiness).")
-        }
-        let futures = GlanceText.futures(headline.confidence)
-        if let age = headline.earliestAge, !headline.canRetireNow, !hasStoppedWorking {
-            sentences.append("At \(age), your money lasts to \(endAge) in \(futures) futures.")
-        }
-        return sentences.joined(separator: " ")
+        return "At \(age), in \(futures) futures."
     }
 
     // MARK: The answer, once you've stopped working
@@ -142,16 +132,12 @@ enum OnboardingText {
         return bands + " The answer is the earliest age that works in \(GlanceText.futures(confidence))."
     }
 
-    /// The lever: "Save 340 € more a month" over "about 2 years sooner".
+    /// The lever: "Save 340 € more a month" over "and it could be 2 years
+    /// sooner".
     static func lever(perMonth: Decimal, years: Int, currency: CurrencyCode,
                       locale: Locale = .current) -> (action: AmountSentence, effect: String) {
         let amount = AmountFormat.amount(perMonth, currency: currency, locale: locale)
-        let effect = years == 1 ? "about a year sooner" : "about \(years) years sooner"
+        let effect = years == 1 ? "and it could be a year sooner" : "and it could be \(years) years sooner"
         return ("Save \(amount: amount) more a month", effect)
-    }
-
-    private static func lowercasedFirst(_ text: String) -> String {
-        guard let first = text.first else { return text }
-        return first.lowercased() + text.dropFirst()
     }
 }

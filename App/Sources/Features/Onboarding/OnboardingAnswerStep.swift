@@ -5,10 +5,10 @@ import SwiftUI
 
 /// The answer, inside the tour (UI.md, "Empty states and first launch"):
 /// the main plan runs here, with its progress, as a check-in's does, and
-/// records the first answer. Then the calendar page of the last Monday at
-/// work, the answer in words, how ready (the ring) and how sure (a small
-/// fan of futures), each explained once, the one lever worked out, and
-/// "First sketch": it stands on rough amounts until files replace them.
+/// records the first answer. Then the answer as a date, "Your last Monday
+/// at work could be 14 May 2052", how sure ("At 64, in 9 of 10 futures.",
+/// with a small fan of futures), the one lever worked out, and that it's a
+/// first sketch: it stands on rough amounts until files replace them.
 /// Once you've stopped working, the answer is whether your money lasts,
 /// and what you could spend, with no calendar page and no lever.
 ///
@@ -80,7 +80,7 @@ struct OnboardingAnswerStep: View {
             OnboardingTitle("Your plan couldn't be calculated", detail: error)
             Button("Try Again") { model.retryAnswer(library: library, plans: plans) }
                 .buttonStyle(.bordered)
-            Text("You can continue and calculate your plan later with *Calculate* on the Overview.")
+            Text("You can continue: Today calculates your plan once it can.")
                 .font(.footnote)
                 .foregroundStyle(Palette.secondaryInk)
         }
@@ -140,28 +140,27 @@ struct OnboardingAnswerStep: View {
         let endAge = library.mainPlan?.effectiveEndAge ?? 95
         let retired = model.hasStoppedWorking && !model.openedExistingLibrary
         return VStack(alignment: .leading, spacing: Metrics.l) {
-            Text(model.openedExistingLibrary ? "Your answer" : "Your first answer")
-                .font(.footnote.weight(.semibold))
-                .textCase(.uppercase)
-                .foregroundStyle(Palette.secondaryInk)
-            HStack(alignment: .center, spacing: Metrics.l) {
-                if !retired, !headline.canRetireNow, let date = headline.earliestDate {
-                    OnboardingCalendarPage(date: date.mondayOnOrBefore)
-                }
-                VStack(alignment: .leading, spacing: Metrics.xs) {
-                    Text(retired ? OnboardingText.retiredTitle(headline) : OnboardingText.revealTitle(headline))
-                        .font(.largeTitle.bold())
-                        .foregroundStyle(Palette.ink)
-                    Text(retired ? OnboardingText.retiredLine(headline, endAge: endAge)
-                         : OnboardingText.revealLine(headline, today: today))
-                        .font(.title3)
-                        .foregroundStyle(Palette.ink)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .privacySensitiveInFeedback()
-                }
-                .accessibilityElement(children: .combine)
-                .accessibilityAddTraits(.isHeader)
+            VStack(alignment: .leading, spacing: Metrics.xs) {
+                Text(retired ? (model.openedExistingLibrary ? "Your answer" : "Your first answer")
+                     : OnboardingText.revealLead(headline, openedExistingLibrary: model.openedExistingLibrary))
+                    .font(.headline)
+                    .foregroundStyle(Palette.secondaryInk)
+                Text(verbatim: retired ? OnboardingText.retiredTitle(headline)
+                     : OnboardingText.revealTitle(headline, locale: locale))
+                    .font(.largeTitle.bold())
+                    .foregroundStyle(Palette.ink)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.5)
+                    .privacySensitiveInFeedback()
+                Text(retired ? OnboardingText.retiredLine(headline, endAge: endAge)
+                     : OnboardingText.revealLine(headline))
+                    .font(.title3)
+                    .foregroundStyle(Palette.ink)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .privacySensitiveInFeedback()
             }
+            .accessibilityElement(children: .combine)
+            .accessibilityAddTraits(.isHeader)
             if retired, let spending = OnboardingText.retiredSpendingLine(headline, currency: library.baseCurrency,
                                                                          locale: locale) {
                 AmountSentenceText(spending)
@@ -169,7 +168,6 @@ struct OnboardingAnswerStep: View {
                     .foregroundStyle(Palette.ink)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            readiness(headline, endAge: endAge, hasStoppedWorking: retired)
             if let results, !results.portfolio.isEmpty {
                 VStack(alignment: .leading, spacing: Metrics.s) {
                     FanChart(fan: results.portfolio, markers: results.markers)
@@ -188,42 +186,8 @@ struct OnboardingAnswerStep: View {
         }
     }
 
-    /// The ring, with what it compares in a sentence beside it.
-    @ViewBuilder
-    private func readiness(_ headline: RetirementAnswer, endAge: Int, hasStoppedWorking: Bool) -> some View {
-        let figure = headline.readinessFigure
-        HStack(alignment: .center, spacing: Metrics.l) {
-            if let percent = figure.text(percent: { AmountFormat.percent($0, digits: 0, locale: locale) }) {
-                ZStack {
-                    ReadinessRing(fraction: figure.lappingFill, lineWidth: 10, laps: true)
-                        .privacySensitiveInFeedback()
-                    VStack(spacing: 0) {
-                        Text(verbatim: percent)
-                            .font(.title2.bold())
-                            .monospacedDigit()
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.5)
-                            .privacySensitiveInFeedback()
-                        Text("ready")
-                            .font(.footnote)
-                            .foregroundStyle(Palette.secondaryInk)
-                    }
-                    .padding(Metrics.l)
-                }
-                .frame(width: 104, height: 104)
-                .accessibilityHidden(true)
-            }
-            Text(OnboardingText.readinessLine(headline, endAge: endAge, hasStoppedWorking: hasStoppedWorking,
-                                              locale: locale))
-                .font(.callout)
-                .foregroundStyle(Palette.ink)
-                .fixedSize(horizontal: false, vertical: true)
-                .privacySensitiveInFeedback()
-        }
-    }
-
-    /// "Save 340 € more a month" over "about 2 years sooner": what the plan can
-    /// do, worked out already. The What if on the Plan screen tries more.
+    /// "Save 340 € more a month" over "and it could be 2 years sooner": what
+    /// the plan can do, worked out already. The Plan's levers try more.
     private func leverRow(_ lever: OnboardingModel.Lever) -> some View {
         let words = OnboardingText.lever(perMonth: lever.perMonth, years: lever.yearsSooner,
                                          currency: library.baseCurrency, locale: locale)
@@ -237,7 +201,7 @@ struct OnboardingAnswerStep: View {
                     .foregroundStyle(Palette.ink)
                 Text(words.effect)
                     .foregroundStyle(Palette.positive)
-                Text("You can try other changes in your plan's What if.")
+                Text("The Plan's levers try other changes.")
                     .font(.footnote)
                     .foregroundStyle(Palette.secondaryInk)
             }
@@ -247,27 +211,26 @@ struct OnboardingAnswerStep: View {
     }
 }
 
-/// "First sketch": the answer stands on rough amounts. The tour shows it
-/// under the answer, the Overview beside "Can I retire yet?" while any
-/// starting estimate is open, with a tap explaining it.
+/// "It's a first sketch": the answer stands on rough amounts. The tour
+/// shows it under the answer, with a tap on ⓘ explaining it.
 struct OnboardingSketchChip: View {
-    var showsDisclaimer = true
     @State private var explains = false
 
     var body: some View {
-        HStack(spacing: Metrics.s) {
+        HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
+            Text("It's a first sketch from rough amounts, not advice. Add your accounts and it gets sharper.")
+                .font(.footnote)
+                .foregroundStyle(Palette.secondaryInk)
+                .fixedSize(horizontal: false, vertical: true)
             Button {
                 explains = true
             } label: {
-                Label("First sketch", systemImage: "pencil.and.scribble")
-                    .font(.footnote.weight(.semibold))
-                    .padding(.horizontal, Metrics.s)
-                    .padding(.vertical, Metrics.xs)
-                    .background(Palette.warning.opacity(0.15), in: Capsule())
-                    .foregroundStyle(Palette.ink)
+                Image(systemName: "info.circle")
+                    .font(.footnote)
+                    .foregroundStyle(Palette.accent)
             }
             .buttonStyle(.plain)
-            .accessibilityHint(Text("Explains what the answer stands on"))
+            .accessibilityLabel(Text("What the answer stands on"))
             .popover(isPresented: $explains) {
                 Text(Self.explanation)
                     .font(.callout)
@@ -276,11 +239,6 @@ struct OnboardingSketchChip: View {
                     .padding(Metrics.l)
                     .frame(idealWidth: 320, maxWidth: 360, alignment: .leading)
                     .presentationCompactAdaptation(.popover)
-            }
-            if showsDisclaimer {
-                Text("An estimate from rough amounts, not advice.")
-                    .font(.footnote)
-                    .foregroundStyle(Palette.secondaryInk)
             }
         }
     }

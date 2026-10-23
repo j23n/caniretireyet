@@ -156,18 +156,22 @@ struct OnboardingTests {
 
     // MARK: Words
 
-    @Test func theRevealSaysYesOrNotYet() {
+    @Test func theRevealIsTheLastMondayAtWork() {
+        let british = Locale(identifier: "en_GB")
+        let answer = RetirementAnswer(confidence: 0.9, earliestAge: 64, earliestDate: "2052-05-16")
+        #expect(OnboardingText.revealLead(answer) == "Your last Monday at work could be")
+        #expect(OnboardingText.revealTitle(answer, locale: british) == "13 May 2052")
         #expect(OnboardingText.revealTitle(RetirementAnswer(confidence: 0.9, canRetireNow: true)) == "Yes.")
         #expect(OnboardingText.revealTitle(RetirementAnswer(confidence: 0.9, earliestAge: 58)) == "Not yet.")
+        #expect(OnboardingText.revealLead(RetirementAnswer(confidence: 0.9, earliestAge: 58)) == "Your first answer")
     }
 
     @Test func theRevealLineSaysTheAgeAndHowSure() {
-        let today: CalendarDate = "2026-10-15"
-        #expect(OnboardingText.revealLine(RetirementAnswer(confidence: 0.9, earliestAge: 58), today: today)
-            == "You could retire at 58.")
-        #expect(OnboardingText.revealLine(RetirementAnswer(confidence: 0.9, canRetireNow: true), today: today)
+        #expect(OnboardingText.revealLine(RetirementAnswer(confidence: 0.9, earliestAge: 58))
+            == "At 58, in 9 of 10 futures.")
+        #expect(OnboardingText.revealLine(RetirementAnswer(confidence: 0.9, canRetireNow: true))
             == "You could retire today, in at least 9 of 10 futures.")
-        #expect(OnboardingText.revealLine(RetirementAnswer(confidence: 0.9), today: today)
+        #expect(OnboardingText.revealLine(RetirementAnswer(confidence: 0.9))
             == "No age works in 9 of 10 futures yet.")
     }
 

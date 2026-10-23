@@ -24,6 +24,7 @@ struct ImportAnswerFollowUp: View {
     @Environment(PlanStore.self) private var plans
     @Environment(AppNavigation.self) private var navigation
     @Environment(\.importClose) private var close
+    @Environment(\.locale) private var locale
     @State private var unticked: Set<AccountID> = []
     @State private var isReplacing = false
     @State private var error: String?
@@ -186,8 +187,12 @@ struct ImportAnswerFollowUp: View {
     private var answer: some View {
         if let run = plans.checkInAnswer, let headline = run.headline {
             VStack(alignment: .leading, spacing: Metrics.xs) {
-                Text(OnboardingText.revealLine(headline, today: library.asOfDate))
+                Text(verbatim: OnboardingText.revealLead(headline) + " "
+                     + OnboardingText.revealTitle(headline, locale: locale))
                     .font(.headline)
+                    .foregroundStyle(Palette.ink)
+                Text(OnboardingText.revealLine(headline))
+                    .font(.callout)
                     .foregroundStyle(Palette.ink)
                 if let change = Self.change(from: before, to: headline) {
                     Text(change)
@@ -197,7 +202,7 @@ struct ImportAnswerFollowUp: View {
             }
             .fixedSize(horizontal: false, vertical: true)
             .privacySensitiveInFeedback()
-            // Inside the tour, the Overview comes after its last step.
+            // Inside the tour, Today comes after its last step.
             if !navigation.finishesOnboarding {
                 Button("Open Plan", action: openPlan)
                     .buttonStyle(.bordered)
