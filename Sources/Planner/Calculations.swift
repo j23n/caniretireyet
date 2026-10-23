@@ -174,7 +174,7 @@ struct CalculationsReport {
                      "| Accounts | Available from | Value | Purchase cost | Mix | Tax on withdrawals |",
                      "|---|---:|---:|---:|---|---:|"]
         for (n, bucket) in result.start.buckets.enumerated() {
-            let generic = bucket.withdrawalTaxRate == nil ? "Accounts available later \(n)" : "Pre-tax accounts \(n)"
+            let generic = bucket.availableFromAge == nil ? "Pre-tax accounts \(n)" : "Accounts available later \(n)"
             let label = n == 0 ? "Money you can draw" : name(bucket.name, generic: generic)
             lines.append("| \(label) | \(bucket.availableFromAge.map(String.init) ?? "now") | \(money(bucket.value)) | "
                 + "\(money(bucket.costBasis)) | \(describe(bucket.mix)) | "
