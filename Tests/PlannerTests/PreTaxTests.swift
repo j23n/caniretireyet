@@ -171,13 +171,8 @@ struct PreTaxTests {
     /// what can't be paid is left out of them, so they're what the groups hold.
     @Test func debtsArePaidFromOpenPreTaxMoneyAfterItsTax() async throws {
         func run(card: Decimal) async throws -> PlanResult {
-            let library = Sample.library(birth: "1966-01-01", on: "2025-12-31", [
-                SampleAccount(id: "broker", mix: [.cash: 1], balance: 10_000),
-                SampleAccount(id: "ira", kind: .pensionFund, balance: 100_000, withdrawalTaxRate: d("0.25")),
-                SampleAccount(id: "fund", kind: .pensionFund, balance: 50_000, availableFromAge: 62),
-                SampleAccount(id: "card", kind: .creditCard, mix: nil, balance: -card),
-            ])
-            return try await Sample.run(Sample.plan(retire: .age(59), endAge: 64, retired: "1000"), library)
+            try await Sample.run(Sample.plan(retire: .age(59), endAge: 64, retired: "1000"),
+                                 Self.libraryWithDebt(card: card))
         }
         // 10,000 from the broker, then 30,000 after a quarter's tax: 40,000 from the IRA.
         let paid = try await run(card: 40_000)
@@ -208,6 +203,40 @@ struct PreTaxTests {
         let short = try #require(unpaid.issues.first { $0.code == "planner.debtIncluded" })
         #expect(short.message.contains("the 25000 of tax") && short.message.contains("covers 85000 of them")
             && short.message.contains("of the plan assets too"))
+    }
+
+    /// A broker with 10,000 of cash, an open IRA at 25%, a fund locked until
+    /// 62 and a credit card owing `card`, for a 59-year-old.
+    private static func libraryWithDebt(card: Decimal) -> Library {
+        Sample.library(birth: "1966-01-01", on: "2025-12-31", [
+            SampleAccount(id: "broker", mix: [.cash: 1], balance: 10_000),
+            SampleAccount(id: "ira", kind: .pensionFund, balance: 100_000, withdrawalTaxRate: d("0.25")),
+            SampleAccount(id: "fund", kind: .pensionFund, balance: 50_000, availableFromAge: 62),
+            SampleAccount(id: "card", kind: .creditCard, mix: nil, balance: -card),
+        ])
+    }
+
+    /// The tax on what paying off debts took from pre-tax money was paid at
+    /// the start, not from the first year's income: the income chart's
+    /// sources still reach that year's spending, and its taxes are the year's own.
+    @Test func theDebtsTaxIsntPaidFromTheFirstYearsIncome() async throws {
+        let library = Self.libraryWithDebt(card: 40_000)
+        let result = try await Sample.run(Sample.plan(retire: .age(59), endAge: 64, retired: "1000"), library)
+        let first = try #require(result.expectedYear(2026))
+        #expect(close(first.debtWithdrawalTax, 10_000))
+        #expect(close(first.totalTax, 10_000 + 1_000 / 45_000.0 * 60_000 * 0.25))
+        #expect(result.expectedYear(2027)?.debtWithdrawalTax == 0)
+
+        // 1,333.33 sold for 1,000 of spending and 333.33 of tax.
+        let segments = PlanResultsMapping.income([first])
+        let sources = segments.filter { $0.source != PlanResultsMapping.taxesLabel }
+        #expect(close(sources.reduce(0) { $0 + $1.amount }, first.spending))
+        #expect(close(first.spending, 1_000))
+        let taxes = segments.first { $0.source == PlanResultsMapping.taxesLabel }
+        #expect(close(taxes?.amount, 1_000 / 3.0))
+        // The *Taxes* chart still counts it.
+        #expect(close(PlanResultsMapping.taxes([first]).first { $0.source == "Tax on withdrawals" }?.amount,
+                      first.withdrawalTax))
     }
 
     /// The year's withdrawal tax is one of the chart's taxes, and the chapter

@@ -153,7 +153,9 @@ public enum PlanResultsMapping {
     /// shown after its share of the year's taxes (`totalTax`, shared in
     /// proportion to the amounts), and the taxes are a segment of their own
     /// on top: the sources add up to spending, expenses and what's saved,
-    /// and the stack to that plus taxes.
+    /// and the stack to that plus taxes. The tax on what paying off debts
+    /// took from pre-tax accounts (``YearDetail/debtWithdrawalTax``) was paid
+    /// at the start, not from the year's income, so it's left out here.
     public static func income(_ years: [YearDetail]) -> [IncomeSegment] {
         func category(_ item: IncomeItem) -> IncomeCategory { self.category(of: item) }
         // The names behind each category over all the years, so a category
@@ -172,7 +174,7 @@ public enum PlanResultsMapping {
             }
             let total = gross.values.reduce(0, +)
             guard total > 0.5 else { continue }
-            let taxes = min(total, whole(year.totalTax, year))
+            let taxes = min(total, whole(max(0, year.totalTax - year.debtWithdrawalTax), year))
             let share = (total - taxes) / total
             for category in gross.keys.sorted(by: { $0.sortKey < $1.sortKey }) {
                 guard let amount = gross[category], amount * share > 0.5 else { continue }

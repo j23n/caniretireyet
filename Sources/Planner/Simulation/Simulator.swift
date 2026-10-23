@@ -256,7 +256,7 @@ struct PathSimulator: Sendable {
                     workingShare: schedule.workingShare[t], endAssets: endAssets,
                     spending: paid, expenses: expenses, income: income,
                     investmentTax: gainTax + incomeTax, wealthTax: wealthTax, withdrawalTax: withdrawalTax + debtTax,
-                    savings: contributed + max(0, cash) - sold,
+                    debtWithdrawalTax: debtTax, savings: contributed + max(0, cash) - sold,
                     plannedSpending: flexible == nil ? nil : schedule.workingSpending[t] + retiredSpending,
                     spendingLevel: flexible != nil && retiredSpending > 0 ? paidLevel : nil))
             }
@@ -282,10 +282,11 @@ struct PathSimulator: Sendable {
             }
         }
         if details != nil {
+            let debtTax = t == 0 ? start.debtWithdrawalTax : 0
             details!.append(YearDetail(
                 year: frame.year, age: frame.age, fraction: frame.fraction, workingShare: schedule.workingShare[t],
                 endAssets: remaining, spending: spending,
-                income: schedule.income[t], withdrawalTax: t == 0 ? start.debtWithdrawalTax : 0,
+                income: schedule.income[t], withdrawalTax: debtTax, debtWithdrawalTax: debtTax,
                 plannedSpending: flexible == nil ? nil : schedule.workingSpending[t] + retiredSpending,
                 spendingLevel: flexible != nil && retiredSpending > 0 ? level : nil))
         }

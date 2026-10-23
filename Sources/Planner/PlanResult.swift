@@ -398,8 +398,12 @@ public struct YearDetail: Hashable, Sendable {
     /// The wealth tax.
     public var wealthTax: Double
     /// The tax on what's taken from pre-tax accounts, at their own rates
-    /// (`withdrawalTaxRate`).
+    /// (`withdrawalTaxRate`), with ``debtWithdrawalTax``.
     public var withdrawalTax: Double
+    /// The part of ``withdrawalTax`` on what paying off the debts took from
+    /// pre-tax accounts at the start: in the first year only, and paid from
+    /// those accounts, not from the year's income.
+    public var debtWithdrawalTax: Double
     /// Net new money into the plan's accounts: positive when saving,
     /// negative when drawing down.
     public var savings: Double
@@ -413,7 +417,8 @@ public struct YearDetail: Hashable, Sendable {
 
     public init(year: Int, age: Int, fraction: Double = 1, workingShare: Double = 0,
                 endAssets: Double, spending: Double, expenses: Double = 0, income: [IncomeItem] = [],
-                investmentTax: Double = 0, wealthTax: Double = 0, withdrawalTax: Double = 0, savings: Double = 0,
+                investmentTax: Double = 0, wealthTax: Double = 0, withdrawalTax: Double = 0,
+                debtWithdrawalTax: Double = 0, savings: Double = 0,
                 plannedSpending: Double? = nil, spendingLevel: Double? = nil) {
         self.year = year
         self.age = age
@@ -426,6 +431,7 @@ public struct YearDetail: Hashable, Sendable {
         self.investmentTax = investmentTax
         self.wealthTax = wealthTax
         self.withdrawalTax = withdrawalTax
+        self.debtWithdrawalTax = debtWithdrawalTax
         self.savings = savings
         self.plannedSpending = plannedSpending
         self.spendingLevel = spendingLevel
