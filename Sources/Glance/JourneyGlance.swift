@@ -85,11 +85,6 @@ public struct JourneyPoint: Hashable, Sendable, Codable {
         self.earliestAge = earliestAge
         self.readiness = readiness
     }
-
-    /// Readiness in whole percent: 58.
-    public var readinessPercent: Int? {
-        readiness.map { Int((Readiness.shown($0) * 100).rounded()) }
-    }
 }
 
 /// What one calendar year added to net worth, from 31 December before it

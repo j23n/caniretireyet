@@ -97,8 +97,8 @@ struct AgeStepChart: View {
     }
 }
 
-/// A share as a labelled bar: "Ready to retire today 58%" (UI.md,
-/// "Notifications" and "Check-in"). Percentages only.
+/// A share as a labelled bar, such as a milestone's progress: "Emergency
+/// fund 80%" (UI.md, "Notifications"). Percentages only.
 struct ShareBar: View {
     let title: String
     /// 0 to 1; more draws a full bar.
