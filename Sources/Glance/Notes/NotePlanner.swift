@@ -283,7 +283,7 @@ private struct Words {
             body = "Your first record was in \(monthAndYear(first)). Every check-in since is part of the way there."
         }
         return EngagementNote(kind: .recordsAnniversary, time: next.time, title: title, body: body,
-                              link: .overview)
+                              link: .today)
     }
 
     /// A year after the main plan last changed, a nudge to look it over.

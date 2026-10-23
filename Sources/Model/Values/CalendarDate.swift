@@ -115,6 +115,14 @@ extension CalendarDate {
         adding(months: years * 12)
     }
 
+    /// The Monday on or before this date: the last Monday at work for an
+    /// answer whose earliest date this is.
+    public var mondayOnOrBefore: CalendarDate {
+        // 1970-01-01 was a Thursday, three days after a Monday.
+        let sinceMonday = ((daysSinceEpoch + 3) % 7 + 7) % 7
+        return adding(days: -sinceMonday)
+    }
+
     /// The number of days from this date to `other`: positive when `other` is later.
     public func days(to other: CalendarDate) -> Int {
         other.daysSinceEpoch - daysSinceEpoch
