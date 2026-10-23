@@ -23,18 +23,22 @@ struct RunOutcome: Sendable {
 /// and reuses it for all its runs.
 ///
 /// Each year:
-/// 1. Money that becomes available at this age joins the money you can draw.
+/// 1. Money that becomes available at this age joins the money you can draw
+///    (pre-tax money as a group of its own, keeping its rate).
 /// 2. Income from work and pensions and the year's windfalls come in;
 ///    spending, one-off expenses, contributions into accounts, the wealth
 ///    tax and last year's tax on investment income go out.
-/// 3. What's left is invested in the money you can draw, at its target mix;
-///    a shortfall is sold from it, more by the tax on the gain part of what's
-///    sold. With flexible spending, a shortfall first cuts spending, as far
-///    as the floor. When it can't be covered, the run fails.
+/// 3. What's left is invested in the taxable money you can draw, at its
+///    target mix; a shortfall is sold from the money you can draw, the same
+///    share of each group, more by the tax on what's sold: on the gain part
+///    of taxable money, on all of pre-tax money at its rate. With flexible
+///    spending, a shortfall first cuts spending, as far as the floor. When it
+///    can't be covered, the run fails.
 /// 4. Every bucket is rebalanced to its mix (the money you can draw to the
 ///    target mix at this year's age, without tax); the year's income on
-///    investments is taxed next year; the markets move every class; purchase
-///    costs lose the year's inflation (gains are taxed in money of the day).
+///    taxable investments is taxed next year; the markets move every class;
+///    purchase costs lose the year's inflation (gains are taxed in money of
+///    the day).
 struct PathSimulator: Sendable {
     let model: PlanModel
     let schedule: AgeSchedule
@@ -53,6 +57,13 @@ struct PathSimulator: Sendable {
     private var basis: [Double]
     /// Each bucket's own mix, kept while it's locked.
     private let ownMix: [[Double]?]
+    /// Each bucket's withdrawal tax rate; `nil` for taxable money.
+    private let withdrawalRates: [Double?]
+    /// The pre-tax buckets (``Portfolio/Bucket/withdrawalRate``), in order.
+    private let preTax: [Int]
+    /// Per bucket: whether a pre-tax bucket can be drawn in this run yet.
+    /// Taxable buckets join bucket 0 when they open instead.
+    private var isOpen: [Bool]
     private let classCount: Int
 
     static let tolerance = 1.0
@@ -68,6 +79,9 @@ struct PathSimulator: Sendable {
         values = start.buckets.map(\.values)
         basis = start.buckets.map(\.basis)
         ownMix = start.buckets.map { AgeSchedule.shares(of: $0.values) }
+        withdrawalRates = start.buckets.map(\.withdrawalRate)
+        preTax = start.buckets.indices.filter { start.buckets[$0].isPreTax }
+        isOpen = start.buckets.map { $0.opensAtAge == nil }
         yearValues = Array(repeating: 0, count: model.frames.count)
         yearSpending = Array(repeating: 0, count: model.frames.count)
     }
@@ -96,6 +110,7 @@ struct PathSimulator: Sendable {
         for b in values.indices {
             values[b] = start.buckets[b].values
             basis[b] = start.buckets[b].basis
+            isOpen[b] = start.buckets[b].opensAtAge == nil
         }
         let mask = run.map { scenarios.eventMasks[$0] } ?? scenarios.expectedEvents
         let taxes = model.taxes
@@ -112,7 +127,7 @@ struct PathSimulator: Sendable {
 
             // Taxes due: the wealth tax on the money you can draw, and last
             // year's tax on investment income.
-            let wealthTax = taxes.wealthRate * max(0, value(0) - taxes.wealthAllowance) * frame.fraction
+            let wealthTax = taxes.wealthRate * max(0, drawable() - taxes.wealthAllowance) * frame.fraction
             let incomeTax = carriedTax
             carriedTax = 0
 
@@ -163,11 +178,12 @@ struct PathSimulator: Sendable {
             }
             var sold = 0.0
             var gainTax = 0.0
+            var withdrawalTax = 0.0
             var shortfall = 0.0
             if cash >= 0 {
                 deposit(cash, into: 0, mix: schedule.accessibleMix[t])
             } else {
-                (sold, gainTax, shortfall) = withdraw(-cash, rate: taxes.investmentRate)
+                (sold, gainTax, withdrawalTax, shortfall) = withdraw(-cash, rate: taxes.investmentRate)
             }
 
             // With flexible spending, money that runs short is spending forced
@@ -197,7 +213,11 @@ struct PathSimulator: Sendable {
             // Rebalancing, income on investments (taxed next year), then the markets.
             rebalance(0, to: schedule.accessibleMix[t])
             for b in values.indices.dropFirst() {
-                if let mix = ownMix[b] { rebalance(b, to: mix) }
+                if withdrawalRates[b] != nil, isOpen[b] {
+                    rebalance(b, to: schedule.accessibleMix[t])
+                } else if let mix = ownMix[b] {
+                    rebalance(b, to: mix)
+                }
             }
             var investmentIncome = 0.0
             for c in 0..<classCount { investmentIncome += values[0][c] * model.incomeYields[c] * frame.fraction }
@@ -233,7 +253,7 @@ struct PathSimulator: Sendable {
                     year: frame.year, age: frame.age, fraction: frame.fraction,
                     workingShare: schedule.workingShare[t], endAssets: endAssets,
                     spending: paid, expenses: expenses, income: income,
-                    investmentTax: gainTax + incomeTax, wealthTax: wealthTax,
+                    investmentTax: gainTax + incomeTax, wealthTax: wealthTax, withdrawalTax: withdrawalTax,
                     savings: contributed + max(0, cash) - sold,
                     plannedSpending: flexible == nil ? nil : schedule.workingSpending[t] + retiredSpending,
                     spendingLevel: flexible != nil && retiredSpending > 0 ? paidLevel : nil))
@@ -279,11 +299,11 @@ struct PathSimulator: Sendable {
     /// Why a run that can't cover year `t` fails: it's a bridging problem
     /// when money still locked away opens within the plan and would have
     /// covered what's missing until then (the shortfall, and the later
-    /// years' spending beyond income, in today's money). Of such buckets,
-    /// the one that opens first is named.
+    /// years' spending beyond income, in today's money; pre-tax money after
+    /// its tax). Of such buckets, the one that opens first is named.
     private func failureReason(year t: Int, shortfall: Double, spending: Double, level: Double) -> FailureReason {
         var bridge: (bucket: Int, opens: Int)?
-        for b in values.indices.dropFirst() where value(b) > Self.tolerance {
+        for b in values.indices.dropFirst() where !isOpen[b] && value(b) > Self.tolerance {
             guard let opens = schedule.opens.indices.dropFirst(t + 1).first(where: { schedule.opens[$0].contains(b) })
             else { continue }
             var need = shortfall
@@ -291,7 +311,8 @@ struct PathSimulator: Sendable {
                 need += max(0, schedule.workingSpending[later] + schedule.retiredUnit[later] * spending * level
                     - schedule.regularIncome[later])
             }
-            if value(b) >= need, opens < bridge?.opens ?? .max { bridge = (b, opens) }
+            let net = withdrawalRates[b].map { value(b) * (1 - $0) } ?? value(b)
+            if net >= need, opens < bridge?.opens ?? .max { bridge = (b, opens) }
         }
         guard let bridge else { return .depleted }
         let bucket = start.buckets[bridge.bucket]
@@ -312,8 +333,19 @@ struct PathSimulator: Sendable {
         return sum
     }
 
-    /// Moves bucket `b` into the money you can draw.
+    /// The money you can draw: bucket 0 and the open pre-tax buckets.
+    private func drawable() -> Double {
+        var sum = value(0)
+        for b in preTax where isOpen[b] { sum += value(b) }
+        return sum
+    }
+
+    /// Moves bucket `b` into the money you can draw: a taxable bucket into
+    /// bucket 0; a pre-tax one stays apart, with its rate, and is drawn
+    /// alongside it.
     private mutating func open(_ b: Int) {
+        isOpen[b] = true
+        guard withdrawalRates[b] == nil else { return }
         for c in 0..<classCount {
             values[0][c] += values[b][c]
             values[b][c] = 0
@@ -322,32 +354,62 @@ struct PathSimulator: Sendable {
         basis[b] = 0
     }
 
-    /// Invests `amount` in bucket `b`: the money you can draw at `mix`, a
-    /// locked bucket at its own mix. New money costs what was paid for it.
+    /// Invests `amount` in bucket `b`: the money you can draw (bucket 0, an
+    /// open pre-tax bucket) at `mix`, a locked bucket at its own mix. New
+    /// money costs what was paid for it.
     private mutating func deposit(_ amount: Double, into b: Int, mix: [Double]) {
         guard amount > 0 else { return }
-        let shares = b == 0 ? mix : (ownMix[b] ?? mix)
+        let shares = b == 0 || (withdrawalRates[b] != nil && isOpen[b]) ? mix : (ownMix[b] ?? mix)
         for c in 0..<classCount { values[b][c] += amount * shares[c] }
         basis[b] += amount
     }
 
-    /// Sells enough of the money you can draw to pay `need` after the tax
-    /// on the gain part of what's sold, across its classes in proportion.
-    /// Returns what was sold, that tax, and what couldn't be covered.
+    /// Sells enough of the money you can draw to pay `need` after tax,
+    /// across its classes in proportion: the same share s of bucket 0 and
+    /// of every open pre-tax bucket. Bucket 0 pays `rate` on the gain part
+    /// of what's sold from it; a pre-tax bucket pays its own rate on all of
+    /// it. So s × Σ Vᵢ × (1 − tᵢ) = `need`, as far as there's money.
+    /// Returns what was sold, the tax on gains, the tax on withdrawals, and
+    /// what couldn't be covered.
     private mutating func withdraw(_ need: Double, rate: Double)
-        -> (sold: Double, tax: Double, shortfall: Double) {
+        -> (sold: Double, gainTax: Double, withdrawalTax: Double, shortfall: Double) {
         let available = value(0)
-        guard available > 0 else { return (0, 0, need) }
-        let gainShare = min(1, max(0, 1 - basis[0] / available))
-        let kept = 1 - rate * gainShare
-        guard kept > 0 else { return (0, 0, need) }
-        let gross = need / kept
-        let sold = min(gross, available)
-        let remaining = 1 - sold / available
+        let gainShare = available > 0 ? min(1, max(0, 1 - basis[0] / available)) : 0
+        guard preTax.contains(where: { isOpen[$0] }) else {
+            guard available > 0 else { return (0, 0, 0, need) }
+            let kept = 1 - rate * gainShare
+            guard kept > 0 else { return (0, 0, 0, need) }
+            let gross = need / kept
+            let sold = min(gross, available)
+            let remaining = 1 - sold / available
+            for c in 0..<classCount { values[0][c] *= remaining }
+            basis[0] *= remaining
+            let tax = rate * gainShare * sold
+            return (sold, tax, 0, max(0, need - (sold - tax)))
+        }
+
+        // What all of it would sell for, and bring in after tax.
+        var gross = available
+        var net = available * (1 - rate * gainShare)
+        for b in preTax where isOpen[b] {
+            let amount = value(b)
+            gross += amount
+            net += amount * (1 - (withdrawalRates[b] ?? 0))
+        }
+        guard net > 0 else { return (0, 0, 0, need) }
+        let share = min(1, need / net)
+        let remaining = 1 - share
+        let gainTax = rate * gainShare * share * available
+        var withdrawalTax = 0.0
         for c in 0..<classCount { values[0][c] *= remaining }
         basis[0] *= remaining
-        let tax = rate * gainShare * sold
-        return (sold, tax, max(0, need - (sold - tax)))
+        for b in preTax where isOpen[b] {
+            withdrawalTax += (withdrawalRates[b] ?? 0) * share * value(b)
+            for c in 0..<classCount { values[b][c] *= remaining }
+            basis[b] *= remaining
+        }
+        let sold = share * gross
+        return (sold, gainTax, withdrawalTax, max(0, need - (sold - gainTax - withdrawalTax)))
     }
 
     /// Rebalances bucket `b` to `mix`, without tax.

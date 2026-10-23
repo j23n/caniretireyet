@@ -442,7 +442,8 @@ public enum Planner {
                 }
             }
             return BucketSummary(name: bucket.name, availableFromAge: bucket.opensAtAge, value: value,
-                                 costBasis: bucket.basis, mix: mix, accounts: bucket.accounts)
+                                 costBasis: bucket.basis, mix: mix, accounts: bucket.accounts,
+                                 withdrawalTaxRate: bucket.withdrawalRate)
         }
     }
 

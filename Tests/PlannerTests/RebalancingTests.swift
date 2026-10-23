@@ -2,6 +2,7 @@ import Foundation
 import Model
 @testable import Planner
 import Testing
+import TestSupport
 
 /// Every year, before the markets move, the money you can draw is
 /// rebalanced to its target mix and money still locked away to its own
@@ -41,6 +42,22 @@ struct RebalancingTests {
         #expect(close(try await firstYearTax([.equity: 0.5, .cash: 0.5]), expected))
         #expect(close(try await firstYearTax([.equity: 0.85, .cash: 0.15]), expected))
         #expect(close(try await firstYearTax([.equity: 1]), expected))
+    }
+
+    /// Open pre-tax money is part of the money you can draw: it goes to the
+    /// target mix too, keeping its own rate.
+    @Test func openPreTaxMoneyGoesToTheTargetMix() async throws {
+        let library = Sample.library(birth: "1966-01-01", on: "2025-12-31", [
+            SampleAccount(id: "ira", kind: .pensionFund, mix: [.equity: 0.5, .cash: 0.5], balance: 100_000,
+                          withdrawalTaxRate: d("0.2")),
+        ])
+        var plan = Sample.plan(retire: .age(59), endAge: 62, retired: "0", equityReturn: "0.1", inflation: "0")
+        plan.portfolio.targetMix = [.equity: 1]
+        let result = try await Sample.run(plan, library)
+        // All in equity from the first year, as the money you can draw: 10% a year, untaxed.
+        #expect(close(result.expectedValue(in: 2026), 110_000))
+        #expect(close(result.expectedValue(in: 2027), 121_000))
+        #expect(result.expectedPath.years.allSatisfy { $0.totalTax == 0 })
     }
 
     @Test func aTargetMixChangesTheMixFromTheFirstYear() async throws {

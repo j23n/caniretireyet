@@ -60,6 +60,8 @@ struct ExampleLibraryTests {
         #expect(fund.accounts == ["fondo-pensione"] && fund.name == "Fondo pensione")
         #expect(close(fund.mix[.bonds], 0.4) && close(fund.mix[.equity], 0.6))
         #expect(fund.costBasis == fund.value)
+        // A made-up 15% on what's taken from it, once it opens; the rest is taxable.
+        #expect(close(fund.withdrawalTaxRate, 0.15) && drawable.withdrawalTaxRate == nil)
         #expect(drawable.accounts == ["conto-deposito", "conto-fineco", "directa", "gold-coins", "ledger-wallet", "tfr"])
         // Recorded purchase costs are used (the ETF's 48,200, the gold's 8,236.03 and the
         // bitcoin's 40,660.43); cash (the TFR, which has no asset mix, counts as cash) has no gain.
@@ -74,6 +76,25 @@ struct ExampleLibraryTests {
         #expect(result.markers.contains { $0.kind == .windfall && $0.label == "Inheritance" })
         #expect(result.markers.contains { $0.kind == .accessible && $0.age == 67 && $0.label == "Fondo pensione" })
         #expect(result.markers.filter { $0.kind == .pensionStart }.map(\.age) == [67, 67])
+    }
+
+    /// The pension fund's withdrawal tax applies once it opens, at 67. Without
+    /// it, the fund is taxable money again, as every account without a rate is.
+    @Test func thePensionFundIsTaxedOnWithdrawalsOnceItOpens() async throws {
+        let options = PlannerOptions(mode: .fast(runs: 50), maxRetirementAge: 56, solveSustainableSpending: false)
+        let result = try await Sample.run(plan, library, options: options)
+        #expect(result.expectedPath.years.allSatisfy { $0.age >= 67 || $0.withdrawalTax == 0 })
+
+        var taxable = library
+        for id in taxable.accounts.keys { taxable.accounts[id]?.withdrawalTaxRate = nil }
+        let plain = try await Sample.run(plan, taxable, options: options)
+        #expect(plain.start.buckets.map(\.availableFromAge) == [nil, 67])
+        #expect(plain.start.buckets.allSatisfy { $0.withdrawalTaxRate == nil })
+        #expect(plain.expectedPath.years.allSatisfy { $0.withdrawalTax == 0 })
+        // Until the fund opens, the two run alike.
+        for (a, b) in zip(result.expectedPath.years, plain.expectedPath.years) where a.age < 67 {
+            #expect(close(a.endAssets, b.endAssets, 1e-9))
+        }
     }
 
     @Test func thePartTimePlanRuns() async throws {

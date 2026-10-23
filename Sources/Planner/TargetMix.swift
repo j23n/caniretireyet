@@ -56,10 +56,10 @@ extension Planner {
                                         extraClasses: [], issues: &issues)
         var accessible: [AssetClass: Double] = [:]
         var all: [AssetClass: Double] = [:]
-        for (b, bucket) in portfolio.buckets.enumerated() {
+        for bucket in portfolio.buckets {
             for (c, assetClass) in portfolio.classes.enumerated() where bucket.values[c] > 0 {
                 all[assetClass, default: 0] += bucket.values[c]
-                if b == 0 { accessible[assetClass, default: 0] += bucket.values[c] }
+                if bucket.opensAtAge == nil { accessible[assetClass, default: 0] += bucket.values[c] }
             }
         }
         return StartingMix(date: date, currency: library.settings.baseCurrency, accessible: accessible, all: all)

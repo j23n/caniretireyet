@@ -173,8 +173,8 @@ struct Engine: Sendable {
     /// The plan assets at the start that make retiring at `age` reach the
     /// confidence level (PLANNER.md, "Assets needed to retire today").
     ///
-    /// It adds extra money X to the buckets that can be drawn at any age,
-    /// the liquid ones (``startPortfolio(extra:)``: split by the target mix
+    /// It adds extra money X to the taxable money that can be drawn at any
+    /// age, the liquid one, not to pre-tax accounts (``startPortfolio(extra:)``: split by the target mix
     /// in force at today's age, with no unrealised gain), or takes money out of them (X < 0,
     /// never below zero), and searches the plan assets S + X as a multiple
     /// of today's S: from 1 it doubles (or halves) until the confidence

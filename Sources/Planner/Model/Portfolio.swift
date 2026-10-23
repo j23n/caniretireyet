@@ -4,22 +4,31 @@ import Tracker
 
 /// The money a plan starts with (PLANNER.md, "The portfolio"): the accounts it
 /// counts, valued on the start date in the base currency, grouped by when
-/// they can be drawn. Bucket 0 is the money you can draw now; each other
-/// bucket holds the accounts available from one later age
-/// (`availableFromAge`), and joins bucket 0 when that age is reached.
+/// they can be drawn and how what's taken from them is taxed. Bucket 0 is
+/// the taxable money you can draw now; each other bucket holds the accounts
+/// available from one later age (`availableFromAge`), or pre-tax accounts
+/// with one withdrawal tax rate (`withdrawalTaxRate`), or both. A taxable
+/// bucket joins bucket 0 when its age is reached; a pre-tax bucket stays a
+/// group of its own, drawn alongside bucket 0 from that age (now, without one).
 struct Portfolio: Sendable {
     struct Bucket: Sendable {
         let name: String
-        /// The age from which it can be drawn; `nil` for bucket 0.
+        /// The age from which it can be drawn; `nil` when it can be drawn now.
         let opensAtAge: Int?
+        /// The share of every amount sold from it that goes to tax, in place
+        /// of the plan's rate on investments; `nil` for taxable money.
+        var withdrawalRate: Double? = nil
         /// Value per class (``Portfolio/classes``).
         var values: [Double]
         /// What was paid for what it holds, in today's money: what a sale
-        /// counts as gain is the rest.
+        /// counts as gain is the rest. Pre-tax money's is its value: its
+        /// gains aren't taxed.
         var basis: Double
         let accounts: [AccountID]
 
         var value: Double { values.reduce(0, +) }
+        /// Whether it's pre-tax money (``withdrawalRate``).
+        var isPreTax: Bool { withdrawalRate != nil }
     }
 
     var buckets: [Bucket]
@@ -33,13 +42,15 @@ struct Portfolio: Sendable {
     let debtPaidOff: Double
 
     var totalValue: Double { buckets.reduce(0) { $0 + $1.value } }
-    /// What can be drawn on the start date: bucket 0.
+    /// The taxable money that can be drawn on the start date: bucket 0, the
+    /// money the assets-needed search adds to and takes from.
     var accessibleValue: Double { buckets[0].value }
 
     /// The portfolio with `extra` more money you can draw now (less, when
     /// negative), the way the assets-needed search changes it: new money is
     /// invested at `mix` and costs what it's worth; money taken out leaves
-    /// the mix and the share of gains as they were.
+    /// the mix and the share of gains as they were. Only the taxable money
+    /// (bucket 0) changes.
     func withExtra(_ extra: Double, mix: [Double]) -> Portfolio {
         var result = self
         if extra > 0 {
@@ -54,11 +65,17 @@ struct Portfolio: Sendable {
         return result
     }
 
-    /// Bucket 0's mix as shares of its value; `nil` when it's empty.
+    /// The mix of the money you can draw now (bucket 0 and the pre-tax
+    /// buckets open from the start) as shares of its value; `nil` when it's
+    /// empty.
     var accessibleShares: [Double]? {
-        let value = buckets[0].value
+        var values = buckets[0].values
+        for bucket in buckets.dropFirst() where bucket.opensAtAge == nil {
+            for c in values.indices { values[c] += bucket.values[c] }
+        }
+        let value = values.reduce(0, +)
         guard value > 0 else { return nil }
-        return buckets[0].values.map { $0 / value }
+        return values.map { $0 / value }
     }
 }
 
@@ -83,7 +100,13 @@ extension Portfolio {
             var basis = 0.0
             var accounts: [AccountID] = []
         }
-        var groups: [Int?: Group] = [nil: Group()]
+        /// When a group can be drawn and how it's taxed.
+        struct Key: Hashable {
+            var opensAt: Int?
+            var withdrawalRate: Double?
+        }
+        let drawable = Key(opensAt: nil, withdrawalRate: nil)
+        var groups: [Key: Group] = [drawable: Group()]
         var debt = 0.0
         var undocumented: [String] = []
         var included: [AccountID] = []
@@ -108,8 +131,11 @@ extension Portfolio {
             included.append(account.id)
             total += value.knownValue
             let opensAt = account.availableFromAge.flatMap { $0 > currentAge ? $0 : nil }
-            let locked = opensAt != nil
-            var group = groups[opensAt] ?? Group()
+            let withdrawalRate = account.withdrawalTaxRate.map { min(1, max(0, $0.doubleValue)) }
+            // Locked money's gains aren't taxed until it opens, pre-tax money's never.
+            let locked = opensAt != nil || withdrawalRate != nil
+            let key = Key(opensAt: opensAt, withdrawalRate: withdrawalRate)
+            var group = groups[key] ?? Group()
             // The holdings and what was paid for them; `nil` when nobody knows.
             var parts: [(assetClass: AssetClass, value: Double, basis: Double?)] = []
             func add(_ assetClass: AssetClass, _ amount: Double, basis: Double?) {
@@ -164,7 +190,7 @@ extension Portfolio {
             }
             group.name.append(account.name)
             group.accounts.append(account.id)
-            groups[opensAt] = group
+            groups[key] = group
         }
 
         if !undocumented.isEmpty {
@@ -182,11 +208,15 @@ extension Portfolio {
         var held = Set(groups.values.flatMap { $0.values.filter { $0.value > 0 }.keys }).union(extraClasses)
         if held.isEmpty { held = [.cash] }
         let classes = AssetClass.knownValues.filter(held.contains) + held.subtracting(AssetClass.knownValues).sorted()
-        let order = groups.keys.sorted { ($0 ?? .min) < ($1 ?? .min) }
+        // The money you can draw first, then by age and by rate; taxable money first at an age.
+        let order = groups.keys.sorted {
+            ($0.opensAt ?? .min, $0.withdrawalRate ?? -1) < ($1.opensAt ?? .min, $1.withdrawalRate ?? -1)
+        }
         var buckets = order.map { key -> Bucket in
             let group = groups[key]!
-            return Bucket(name: key == nil ? "Money you can draw" : group.name.joined(separator: ", "),
-                          opensAtAge: key, values: classes.map { max(0, group.values[$0] ?? 0) },
+            return Bucket(name: key == drawable ? "Money you can draw" : group.name.joined(separator: ", "),
+                          opensAtAge: key.opensAt, withdrawalRate: key.withdrawalRate,
+                          values: classes.map { max(0, group.values[$0] ?? 0) },
                           basis: max(0, group.basis), accounts: group.accounts)
         }
 

@@ -62,7 +62,9 @@ public struct PlanStart: Hashable, Sendable {
 }
 
 /// The accounts the plan can draw from one age: the money you can draw now
-/// (``availableFromAge`` `nil`), or accounts available from a later age.
+/// (``availableFromAge`` `nil`), or accounts available from a later age;
+/// pre-tax accounts with one rate (``withdrawalTaxRate``) are a group of
+/// their own.
 public struct BucketSummary: Hashable, Sendable {
     /// "Money you can draw", or the accounts' names.
     public var name: String
@@ -76,6 +78,9 @@ public struct BucketSummary: Hashable, Sendable {
     /// The mix it starts with, as shares by class.
     public var mix: [AssetClass: Double]
     public var accounts: [AccountID]
+    /// The share of what's taken from it that goes to tax, for pre-tax
+    /// accounts (`withdrawalTaxRate`); `nil` for taxable money.
+    public var withdrawalTaxRate: Double? = nil
 }
 
 /// The simulation settings a result was computed with.
@@ -389,6 +394,9 @@ public struct YearDetail: Hashable, Sendable {
     public var investmentTax: Double
     /// The wealth tax.
     public var wealthTax: Double
+    /// The tax on what's taken from pre-tax accounts, at their own rates
+    /// (`withdrawalTaxRate`).
+    public var withdrawalTax: Double
     /// Net new money into the plan's accounts: positive when saving,
     /// negative when drawing down.
     public var savings: Double
@@ -402,7 +410,7 @@ public struct YearDetail: Hashable, Sendable {
 
     public init(year: Int, age: Int, fraction: Double = 1, workingShare: Double = 0,
                 endAssets: Double, spending: Double, expenses: Double = 0, income: [IncomeItem] = [],
-                investmentTax: Double = 0, wealthTax: Double = 0, savings: Double = 0,
+                investmentTax: Double = 0, wealthTax: Double = 0, withdrawalTax: Double = 0, savings: Double = 0,
                 plannedSpending: Double? = nil, spendingLevel: Double? = nil) {
         self.year = year
         self.age = age
@@ -414,13 +422,14 @@ public struct YearDetail: Hashable, Sendable {
         self.income = income
         self.investmentTax = investmentTax
         self.wealthTax = wealthTax
+        self.withdrawalTax = withdrawalTax
         self.savings = savings
         self.plannedSpending = plannedSpending
         self.spendingLevel = spendingLevel
     }
 
     /// All taxes in the year.
-    public var totalTax: Double { investmentTax + wealthTax }
+    public var totalTax: Double { investmentTax + wealthTax + withdrawalTax }
 }
 
 /// Where income came from.
@@ -438,7 +447,7 @@ public struct IncomeKind: RawRepresentable, Hashable, Sendable, ExpressibleByStr
     public static let other: IncomeKind = "other"
     /// A one-off amount received.
     public static let windfall: IncomeKind = "windfall"
-    /// Investments sold, before the tax on their gains.
+    /// Investments sold, before the tax on their gains or on withdrawals.
     public static let withdrawal: IncomeKind = "withdrawal"
 }
 

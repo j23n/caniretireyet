@@ -12,6 +12,8 @@ struct SampleAccount {
     var includeInPlan = true
     /// The age from which plans can draw on it (`availableFromAge`).
     var availableFromAge: Int?
+    /// The tax on what's taken from it, for a pre-tax account (`withdrawalTaxRate`).
+    var withdrawalTaxRate: Decimal?
 }
 
 /// Made-up libraries and plans for the planner's tests.
@@ -24,7 +26,8 @@ enum Sample {
                 Account(id: account.id, name: account.id.rawValue, kind: account.kind, currency: .eur,
                         opened: "2020-01-01", valuation: .balance, assetClasses: account.mix,
                         availableFromAge: account.availableFromAge,
-                        includeIn: account.includeInPlan ? nil : IncludeIn(plan: false))
+                        includeIn: account.includeInPlan ? nil : IncludeIn(plan: false),
+                        withdrawalTaxRate: account.withdrawalTaxRate)
             })
         for account in accounts {
             library.upsert(Valuation(account: account.id, date: date, balance: account.balance))

@@ -187,11 +187,13 @@ public enum PlanResultsMapping {
         return segments
     }
 
-    /// Taxes per year by tax: on investments and on wealth. The larger over
-    /// all the years takes the first colour slot.
+    /// Taxes per year by tax: on investments, on wealth and on withdrawals
+    /// from pre-tax accounts. The largest over all the years takes the first
+    /// colour slot.
     public static func taxes(_ years: [YearDetail]) -> [IncomeSegment] {
         let taxes: [(label: String, amount: KeyPath<YearDetail, Double>)] = [
             ("Tax on investments", \.investmentTax), ("Wealth tax", \.wealthTax),
+            ("Tax on withdrawals", \.withdrawalTax),
         ]
         let totals: [Double] = taxes.map { tax in
             years.reduce(0.0) { total, year in
