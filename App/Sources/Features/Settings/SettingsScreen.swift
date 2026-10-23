@@ -7,8 +7,8 @@ import Prices
 import Storage
 import SwiftUI
 
-/// Settings (UI.md, "Settings"): the library, you, prices, notifications
-/// and privacy. The Mac shows it in the Settings window (⌘,);
+/// Settings (UI.md, "Settings"): the library, you, prices, notifications,
+/// privacy and Plus. The Mac shows it in the Settings window (⌘,);
 /// iPhone and iPad in a sheet from the Overview's gear.
 ///
 /// "You" is saved in the library (`library.json`); everything else belongs
@@ -45,6 +45,7 @@ struct SettingsScreen: View {
             PricesSection()
             NotesSection()
             PrivacySection()
+            PlusSection()
             #if FEEDBACK
             FeedbackSection()
             #endif
