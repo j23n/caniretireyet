@@ -226,7 +226,7 @@ struct TypedValuesTests {
                                            opened: "2026-01-01", values: .typed)
         library.accounts["second-bank"] = Account(id: "second-bank", name: "Second bank", kind: .cash,
                                                   currency: .eur, opened: "2026-01-01")
-        let items = OverviewAttention.items(library: library, valuator: Valuator(library: library),
+        let items = TodayAttention.items(library: library, valuator: Valuator(library: library),
                                             on: PreviewLibrary.latestCheckIn, stalenessThreshold: 45)
         #expect(items.first { $0.id == "stale.boat" }?.detail == "Update its value")
         #expect(items.first { $0.id == "stale.second-bank" }?.detail == "Import a file with its values")

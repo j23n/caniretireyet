@@ -22,7 +22,7 @@ import SwiftUI
 ///    Mac (``OnboardingFilesStep``); *Import Files…* pushes the import on
 ///    the tour's own stack.
 /// 7. Reminders: the monthly note, the widget and the disclaimer
-///    (``OnboardingNotesStep``); *Start* opens the Overview.
+///    (``OnboardingNotesStep``); *Start* opens Today.
 ///
 /// On the Mac and iPad the money and pension steps have a quick
 /// estimate beside them (``OnboardingEstimatePanel``). What's typed lives

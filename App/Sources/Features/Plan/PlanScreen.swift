@@ -132,7 +132,7 @@ struct PlanContentView: View {
             .confirmationDialog("Delete “\(name)”?", isPresented: $isDeleting, titleVisibility: .visible) {
                 Button("Delete Plan", role: .destructive) { delete() }
             } message: {
-                Text("Its saved baselines and recorded answers stay in the library.")
+                Text("The dates it worked out at your check-ins stay in the library.")
             }
             .sheet(item: $calculations) { export in
                 PlanCalculationsSheet(export: export)

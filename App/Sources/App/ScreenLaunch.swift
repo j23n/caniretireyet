@@ -174,9 +174,6 @@ struct ScreenLaunch {
         }
         let model = AppModel.preview(library, planEngine: PlannerPlanEngine(), defaults: suite)
         model.preferences.hidesAmounts = hidesAmounts
-        if isFirstDay {
-            model.preferences.gettingStartedSince = PreviewLibrary.latestCheckIn
-        }
         let navigation = model.navigation
         let main = library.settings.mainPlan
         switch screen {
@@ -241,7 +238,6 @@ struct ScreenLaunch {
         if step.comesAfterCreating {
             model = AppModel.preview(library, planEngine: PlannerPlanEngine(), defaults: suite)
             model.navigation.finishesOnboarding = true
-            model.preferences.gettingStartedSince = PreviewLibrary.latestCheckIn
         } else {
             let preferences = AppPreferences(defaults: UserDefaults(suiteName: suite) ?? .standard)
             let folder = FileManager.default.temporaryDirectory

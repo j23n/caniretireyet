@@ -8,7 +8,7 @@ import Tracker
 /// it at the last check-in, and where you stand.
 ///
 /// Top to bottom: the answer as a date (``TodayAnswerCard``), or before
-/// there's one the next step (``OverviewAnswerCard``); *What changed* at
+/// there's one the next step (``TodayPlanCard``); *What changed* at
 /// the last check-in; a card of rows (the plan's target age, the next
 /// milestone, net worth, which opens the accounts); and *Needs attention*
 /// only while something does. On the Mac and iPad the rows sit beside the
@@ -60,15 +60,15 @@ struct TodayScreen: View {
                     EqualColumns(spacing: Metrics.l) {
                         VStack(alignment: .leading, spacing: Metrics.l) {
                             if let change {
-                                OverviewChangeCard(report: change, split: valuator.savedSplit(of: change),
+                                TodayChangeCard(report: change, split: valuator.savedSplit(of: change),
                                                    yearlySpending: spending)
                             }
                             notesAndFirstValues(hasAnswer: answer != nil)
                         }
                         VStack(alignment: .leading, spacing: Metrics.l) {
-                            OverviewAttentionCard(today: today)
+                            TodayAttentionCard(today: today)
                             if let report = valuator.changeThisYear(asOf: today) {
-                                OverviewYearCard(
+                                TodayYearCard(
                                     report: report, split: valuator.savedSplit(of: report),
                                     savings: library.library.accountsTurningOffTrends.isEmpty
                                         ? valuator.savingsRate(from: report.from.adding(days: 1), through: today)
@@ -80,11 +80,11 @@ struct TodayScreen: View {
                 } else {
                     answerCard(answer, plan: mainPlan)
                     if let change {
-                        OverviewChangeCard(report: change, split: valuator.savedSplit(of: change),
+                        TodayChangeCard(report: change, split: valuator.savedSplit(of: change),
                                            yearlySpending: spending)
                     }
                     TodayRowsCard(answer: answer, plan: mainPlan, results: latest?.results, today: today)
-                    OverviewAttentionCard(today: today)
+                    TodayAttentionCard(today: today)
                     notesAndFirstValues(hasAnswer: answer != nil)
                 }
             }
@@ -101,7 +101,7 @@ struct TodayScreen: View {
         if let answer, let plan {
             TodayAnswerCard(answer: answer, plan: plan)
         } else {
-            OverviewAnswerCard()
+            TodayPlanCard()
         }
     }
 

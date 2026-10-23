@@ -57,7 +57,7 @@ struct DecadesChart: View {
                 futureStatus(planID)
             }
             NetWorthChart(history: history.points, stacked: history.stacked, projection: history.projection,
-                          markers: history.markers, title: history.scope == .planAssets ? "Plan assets" : "Net worth")
+                          markers: history.markers, title: history.scope == .planAssets ? "Money in the plan" : "Net worth")
             if future {
                 ChartCaption(text: futureCaption, detail: futureDetail)
                     .privacySensitiveInFeedback()
@@ -153,12 +153,12 @@ struct DecadesChart: View {
 
     /// The short caption under the chart while the future is shown.
     private var futureCaption: String {
-        "Plan assets by asset class, then \(planTitle)'s projection, in today's money."
+        "The money in the plan by asset class, then \(planTitle)'s projection, in today's money."
     }
 
     /// The full explanation, in the ⓘ popover.
     private var futureDetail: String {
-        "The past shows your plan assets: the accounts your plans count, e.g. without your "
+        "The past shows the money in your plan: the accounts your plans count, e.g. without your "
             + "home. That's what the projection is of, so the two meet at today; your accounts show your "
             + "whole net worth. After today the chart continues with \(planTitle)'s projection, in today's "
             + "money: the dashed line is the middle of the simulated futures, the darker band holds half of them "

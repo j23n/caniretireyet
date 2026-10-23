@@ -40,18 +40,10 @@ final class AppPreferences {
         }
     }
 
-    /// Whether the Overview has offered the yearly notes once
-    /// (UI.md, "Overview", "Keep your goal in view").
+    /// Whether Today has offered the yearly notes once
+    /// (UI.md, "Today", "Keep your goal in view").
     var notesOffered: Bool {
         didSet { defaults.set(notesOffered, forKey: Keys.notesOffered) }
-    }
-
-    /// The day first launch's tour created the library on this device: the
-    /// Overview shows its *Getting started* list from then until it's done
-    /// or hidden, which clear it (UI.md, "Overview", "Getting started");
-    /// `nil` otherwise, as for a library opened from elsewhere.
-    var gettingStartedSince: CalendarDate? {
-        didSet { defaults.set(gettingStartedSince?.description, forKey: Keys.gettingStartedSince) }
     }
 
     /// The account groups (and *Closed*) that are collapsed on this device,
@@ -68,7 +60,7 @@ final class AppPreferences {
     /// The groups start expanded, *Closed* collapsed.
     static let defaultCollapsedAccountFolders: Set<String> = [SidebarAccountFolder.closed.key]
 
-    /// How far ahead charts show a plan's projection: the Overview's net
+    /// How far ahead charts show a plan's projection: Today's net
     /// worth with *Future* on, and the plan's "Your money over time"
     /// (UI.md, "Charts"). Retirement and 10 years after it until changed,
     /// or when the stored choice is no longer offered.
@@ -120,7 +112,6 @@ final class AppPreferences {
             recordsAnniversary: defaults.bool(forKey: Keys.notesRecordsAnniversary),
             planCheckUp: defaults.bool(forKey: Keys.notesPlanCheckUp))
         notesOffered = defaults.bool(forKey: Keys.notesOffered)
-        gettingStartedSince = defaults.string(forKey: Keys.gettingStartedSince).flatMap { CalendarDate($0) }
         hideAmountsOnLaunch = defaults.bool(forKey: Keys.hideAmountsOnLaunch)
         hideInAppSwitcher = defaults.bool(forKey: Keys.hideInAppSwitcher)
         hidesAmounts = defaults.bool(forKey: Keys.hideAmountsOnLaunch)
@@ -132,7 +123,6 @@ final class AppPreferences {
 
     private enum Keys {
         static let libraryLocation = "libraryLocation"
-        static let gettingStartedSince = "gettingStarted.since"
         static let stalenessThreshold = "stalenessThreshold"
         static let fetchPricesOnCheckIn = "fetchPricesOnCheckIn"
         static let reminderEnabled = "checkInReminder.enabled"

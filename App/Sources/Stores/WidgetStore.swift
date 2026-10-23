@@ -45,12 +45,12 @@ final class WidgetStore {
 
     /// The snapshot of the library as it is; `nil` until it's loaded. The
     /// answer is the main plan's latest (``PlanStore/mainAnswer``), as on
-    /// the Overview, with its amounts in the base currency, as the snapshot's.
+    /// Today, with its amounts in the base currency, as the snapshot's.
     func snapshot(today: CalendarDate = .today()) -> GlanceSnapshot? {
         guard library.phase == .ready else { return nil }
         let checkIn = CheckInGlance(last: library.latestCheckIn, today: today)
         let answer = plans.mainHeadline
-        // Net worth today, as the Overview has it.
+        // Net worth today, as Today has it.
         var snapshot = GlanceSnapshot(library: library.library, valuator: library.valuator, asOf: today,
                                       answer: answer, checkIn: checkIn)
         snapshot.milestone = nextMilestone()

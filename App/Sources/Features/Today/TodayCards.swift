@@ -5,10 +5,9 @@ import Storage
 import SwiftUI
 import Tracker
 
-// The Overview's cards below the chart (UI.md, "Overview"): since the last
-// check-in, this year, the answer before there is one, what needs
-// attention, and the allocation. The header above the chart is
-// `OverviewHeader`.
+// Today's cards (UI.md, "Today"): since the last check-in, this year, the
+// plan before there is an answer, and what needs attention. The answer
+// itself is `TodayAnswerCard`.
 
 // MARK: - Since last check-in
 
@@ -17,7 +16,7 @@ import Tracker
 /// totals before and after, and a bar each for markets, saved and
 /// other, from a shared zero line (``WaterfallChart``). Titled "What changed
 /// in September" when the check-in before was the end of the month before.
-struct OverviewChangeCard: View {
+struct TodayChangeCard: View {
     let report: ChangeReport
     /// Its split with saved as the savings rate counts it (Tracker's
     /// `Valuator.savedSplit(of:)`).
@@ -59,8 +58,8 @@ struct OverviewChangeCard: View {
 /// The hero says this year's change in per cent; this card leads with it
 /// in money ("▲ +18.240 € since 31 Dec 2025"), and in per cent while
 /// amounts are hidden. Under it, the savings rate over the money in and
-/// out recorded this year, when there is some (``OverviewYearText``).
-struct OverviewYearCard: View {
+/// out recorded this year, when there is some (``TodayYearText``).
+struct TodayYearCard: View {
     /// Tracker's `Valuator.changeThisYear(asOf:)`.
     let report: ChangeReport
     /// Its split with saved as the savings rate counts it (Tracker's
@@ -80,7 +79,7 @@ struct OverviewYearCard: View {
                                from: AmountFormat.shortDate(report.from, relativeTo: .today(), locale: locale),
                                to: AmountFormat.shortDate(report.to, relativeTo: .today(), locale: locale))
                 SavingAsTimeText(saved: split.saved, markets: split.market, yearlySpending: yearlySpending)
-                if let savings, let text = OverviewYearText.savings(savings, today: report.to, locale: locale) {
+                if let savings, let text = TodayYearText.savings(savings, today: report.to, locale: locale) {
                     AmountSentenceText(text)
                         .font(.subheadline)
                         .foregroundStyle(Palette.ink)
@@ -93,11 +92,10 @@ struct OverviewYearCard: View {
 
 // MARK: - Can I retire yet?
 
-/// "Can I retire yet?" before the main plan has an answer (UI.md,
-/// "Overview"): a card below the chart with the next step, *Create a plan*
-/// or *Calculate* the main plan. With an answer, the header
-/// (``OverviewHeader``) says it instead.
-struct OverviewAnswerCard: View {
+/// Before the main plan has an answer (UI.md, "Today"): a card with the
+/// next step, *Create a plan* or *Calculate* the main plan. With an answer,
+/// ``TodayAnswerCard`` says it instead.
+struct TodayPlanCard: View {
     @Environment(LibraryStore.self) private var library
     @Environment(PlanStore.self) private var plans
     @Environment(AppNavigation.self) private var navigation
@@ -105,7 +103,7 @@ struct OverviewAnswerCard: View {
     @State private var error: String?
 
     var body: some View {
-        Card("Can I retire yet?") {
+        Card("Your last Monday at work") {
             Group {
                 if let plan = library.mainPlan {
                     waiting(for: plan)
@@ -235,8 +233,8 @@ struct OverviewAnswerCard: View {
 /// or couldn't be fetched, past prices and exchange rates the history is
 /// missing (opening *Fill In Past Prices*), the library's own state (merged
 /// sync conflicts, save errors, unreadable files) and plan warnings.
-struct OverviewAttentionCard: View {
-    /// The day the Overview reports on.
+struct TodayAttentionCard: View {
+    /// The day Today reports on.
     let today: CalendarDate
 
     @Environment(LibraryStore.self) private var library
@@ -265,18 +263,18 @@ struct OverviewAttentionCard: View {
         }
     }
 
-    private var items: [OverviewAttentionItem] {
-        var items = OverviewAttention.items(
+    private var items: [TodayAttentionItem] {
+        var items = TodayAttention.items(
             library: library.library, valuator: library.valuator, on: today,
             stalenessThreshold: preferences.stalenessThreshold, locale: locale)
         if checkIn.hasDraft, let failures = checkIn.priceList?.failures, !failures.isEmpty {
-            items.append(OverviewAttentionItem(
+            items.append(TodayAttentionItem(
                 id: "checkin.prices", systemImage: "tag.slash",
                 title: failures.count == 1 ? "A price couldn't be fetched" : "\(failures.count) prices couldn't be fetched",
                 detail: "Type them in under Instruments.", target: .instruments))
         }
         if let main = library.settings.mainPlan, let error = plans.errors[main] {
-            items.append(OverviewAttentionItem(
+            items.append(TodayAttentionItem(
                 id: "plan.error", systemImage: "exclamationmark.triangle",
                 title: "\(library.mainPlan?.name ?? "Your plan") couldn't run", detail: error, target: .plan))
         }
@@ -284,7 +282,7 @@ struct OverviewAttentionCard: View {
            bridge.share >= 0.05 {
             let futures = Int(wholeNumber: bridge.share * 100)
             let age = bridge.accessibleFromAge.map { " at \($0)" } ?? ""
-            items.append(OverviewAttentionItem(
+            items.append(TodayAttentionItem(
                 id: "plan.bridge", systemImage: "lock",
                 title: "Money could run short before locked money opens",
                 detail: "In \(futures) of 100 simulated futures, it runs out before your pension money becomes "
@@ -295,39 +293,39 @@ struct OverviewAttentionCard: View {
     }
 
     @ViewBuilder
-    private func row(for item: OverviewAttentionItem) -> some View {
+    private func row(for item: TodayAttentionItem) -> some View {
         switch item.target {
         case .account(let id):
             NavigationLink(value: id) {
-                OverviewAttentionRow(item: item)
+                TodayAttentionRow(item: item)
             }
             .buttonStyle(.plain)
         case .instrument(let id):
             NavigationLink {
                 InstrumentEditor(instrumentID: id)
             } label: {
-                OverviewAttentionRow(item: item)
+                TodayAttentionRow(item: item)
             }
             .buttonStyle(.plain)
         case .instruments:
             NavigationLink {
                 InstrumentsScreen()
             } label: {
-                OverviewAttentionRow(item: item)
+                TodayAttentionRow(item: item)
             }
             .buttonStyle(.plain)
         case .plan:
             Button {
                 navigation.showPlan()
             } label: {
-                OverviewAttentionRow(item: item)
+                TodayAttentionRow(item: item)
             }
             .buttonStyle(.plain)
         case .fillPastPrices:
             Button {
                 fillsPastPrices = true
             } label: {
-                OverviewAttentionRow(item: item)
+                TodayAttentionRow(item: item)
             }
             .buttonStyle(.plain)
         }
@@ -335,8 +333,8 @@ struct OverviewAttentionCard: View {
 }
 
 /// One item: a warning icon, what it is, what to do, and a chevron.
-private struct OverviewAttentionRow: View {
-    let item: OverviewAttentionItem
+private struct TodayAttentionRow: View {
+    let item: TodayAttentionItem
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: Metrics.m) {
@@ -367,31 +365,6 @@ private struct OverviewAttentionRow: View {
     }
 }
 
-// MARK: - Allocation
-
-/// Horizontal bars with values and shares, grouped by the chosen dimension.
-struct OverviewAllocationCard: View {
-    let breakdown: Breakdown
-    @Binding var dimension: BreakdownDimension
-
-    var body: some View {
-        Card {
-            BreakdownBars(rows: breakdown.rows, limit: dimension.limit)
-        } header: {
-            SectionHeader("Allocation") {
-                Picker("Group by", selection: $dimension) {
-                    ForEach(BreakdownDimension.allCases, id: \.self) { option in
-                        Text(option.title).tag(option)
-                    }
-                }
-                .pickerStyle(.menu)
-                .labelsHidden()
-                .fixedSize()
-            }
-        }
-    }
-}
-
 #Preview("Cards") {
     let valuator = PreviewLibrary.valuator
     let date = PreviewLibrary.latestCheckIn
@@ -399,17 +372,15 @@ struct OverviewAllocationCard: View {
         ScrollView {
             VStack(spacing: Metrics.l) {
                 if let report = valuator.changeSinceLastCheckIn(asOf: date) {
-                    OverviewChangeCard(report: report, split: valuator.savedSplit(of: report))
+                    TodayChangeCard(report: report, split: valuator.savedSplit(of: report))
                 }
                 if let report = valuator.changeThisYear(asOf: date) {
-                    OverviewYearCard(report: report, split: valuator.savedSplit(of: report),
+                    TodayYearCard(report: report, split: valuator.savedSplit(of: report),
                                      savings: valuator.savingsRate(from: report.from.adding(days: 1), through: date))
                 }
                 // Before the main plan's first calculation.
-                OverviewAnswerCard()
-                OverviewAttentionCard(today: date)
-                OverviewAllocationCard(breakdown: valuator.breakdown(by: .assetClass, on: date),
-                                       dimension: .constant(.assetClass))
+                TodayPlanCard()
+                TodayAttentionCard(today: date)
             }
             .padding()
         }

@@ -4,7 +4,7 @@ import Planner
 import Tracker
 
 /// A made-up plan engine for previews: plausible, smooth numbers from a few
-/// formulas, so the Plan and Overview screens can be designed without
+/// formulas, so the Plan and Today screens can be designed without
 /// running the Planner (a full run takes about a minute in a Debug build).
 /// Not a simulation; never used in the app itself.
 ///

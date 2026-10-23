@@ -4,7 +4,7 @@ import SwiftUI
 /// needs, the row as tall as the tallest, aligned at the top: the Mac's and
 /// iPad's two columns of plan results. With `equalHeights`, each child is
 /// offered the row's height, so cards that fill it are as tall as each
-/// other (the Overview's tiles).
+/// other (Today's tiles).
 ///
 /// Unlike `Grid` or `HStack`, the columns never depend on what the children
 /// would like to be. Charts fit their ticks and legends to the width they

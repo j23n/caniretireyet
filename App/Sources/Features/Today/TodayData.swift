@@ -4,7 +4,7 @@ import Model
 import Planner
 import Tracker
 
-// The Overview's words and what needs attention. Its numbers come from the
+// Today's words and what needs attention. Its numbers come from the
 // package: the history chart (Tracker's `HistoryChartData`), the answer
 // (the Planner's `LatestAnswer`) and *On track?* (the Planner's
 // `PlanOnTrack`). The views in this folder only lay them out.
@@ -24,7 +24,7 @@ extension HistoryRange {
     }
 }
 
-/// What the Overview's allocation bars group by (UI.md, "Allocation"),
+/// What Today's allocation bars group by (UI.md, "Allocation"),
 /// remembered by its raw value.
 extension BreakdownDimension {
     var title: String {
@@ -59,8 +59,8 @@ extension BreakdownDimension {
 
 // MARK: - This year
 
-/// The words of the Overview's *This year* card (UI.md, "This year").
-enum OverviewYearText {
+/// The words of Today's *This year* card (UI.md, "This year").
+enum TodayYearText {
     /// "Savings rate 17%: you saved 1.956 € of the 11.525 € that came in
     /// since 30 Jun, 1.325 € of it paid into pensions, and spent 9.569 €."
     /// With tax recorded, from a current account or a tax pot, what came in
@@ -91,133 +91,10 @@ enum OverviewYearText {
     }
 }
 
-// MARK: - Can I retire yet?
-
-/// The main plan's answer in the Overview's header (UI.md, "Can I retire
-/// yet?"): the headline, the line under it, and what VoiceOver reads.
-struct OverviewAnswerText {
-    var headline: RetirementAnswer
-    /// When the earliest age is reached: the headline's date, or for an
-    /// answer recorded at a check-in the birthday of that age; `nil`
-    /// without a birth date.
-    var earliestDate: CalendarDate?
-    /// The day the Overview reports on.
-    var today: CalendarDate
-    var locale: Locale = .current
-
-    /// How long until the earliest age (Glance's ``RetirementCountdown``);
-    /// `nil` when you could retire today, no age works out, there's no date,
-    /// or its month has passed.
-    var countdown: RetirementCountdown? {
-        guard !headline.canRetireNow, headline.earliestAge != nil, let earliestDate else { return nil }
-        return RetirementCountdown(from: today, to: earliestDate)
-    }
-
-    /// "In 15 years", "In 18 months", "Yes", "Not yet" when no age works
-    /// out, or "At 54" without a time to go.
-    var title: String {
-        if headline.canRetireNow { return "Yes" }
-        guard let age = headline.earliestAge else { return "Not yet" }
-        return countdown?.headlineText ?? "At \(age)"
-    }
-
-    /// "At 54, in March 2042, in 9 of 10 futures"; "You could retire today,
-    /// in at least 9 of 10 futures"; "No age works in 9 of 10 futures yet".
-    var when: String {
-        whenWords.capitalizedFirst
-    }
-
-    private var whenWords: String {
-        let futures = GlanceText.futures(headline.confidence)
-        if headline.canRetireNow { return "you could retire today, in at least \(futures) futures" }
-        guard let age = headline.earliestAge else { return "no age works in \(futures) futures yet" }
-        var parts = ["at \(age)"]
-        if let earliestDate {
-            parts.append("in \(GlanceText.monthAndYear(earliestDate, locale: locale))")
-        }
-        parts.append("in \(futures) futures")
-        return parts.joined(separator: ", ")
-    }
-
-    /// The line under the headline in the *Can I retire yet?* tile: when
-    /// ("Age 54 · March 2042"; "March 2042" when the headline is "At 54";
-    /// "Today" when you could retire today, "No age works" when none does).
-    /// `nil` when the headline already says all of it.
-    var whenLine: String? {
-        if headline.canRetireNow { return "Today" }
-        guard let age = headline.earliestAge else { return "No age works" }
-        var parts: [String] = []
-        if countdown != nil { parts.append("Age \(age)") }
-        if let earliestDate { parts.append(GlanceText.monthAndYear(earliestDate, locale: locale)) }
-        return parts.isEmpty ? nil : parts.joined(separator: " · ")
-    }
-
-    /// What the headline and the ring say to VoiceOver: "Not yet. In about
-    /// 15 years, at 54, in March 2042, in 9 of 10 futures. 58% of what
-    /// you'd need to retire today."
-    var spoken: String {
-        var text: String
-        if headline.canRetireNow {
-            text = "Yes. \(when)."
-        } else if let countdown {
-            text = "Not yet. \(countdown.spokenHeadlineText), \(whenWords)."
-        } else {
-            text = "Not yet. \(when)."
-        }
-        if let readiness = PlanResultsText.readiness(headline, locale: locale) {
-            text += " \(readiness)."
-        }
-        return text
-    }
-}
-
-// MARK: - On track?
-
-/// The Overview's *On track?* (UI.md, "On track?") in words: the Planner's
-/// `PlanOnTrack`, with its baseline named as Progress's years name it.
-struct OverviewOnTrack {
-    /// Where the latest check-in stands; `nil` without a baseline to
-    /// measure it against ("Not measured yet").
-    var position: PlanBaselineComparison.Position?
-    /// What the baseline is in words, as Progress's years name it:
-    /// "January", "October", "your 2021 plan".
-    var expectation = "January"
-    /// The coast age (PLANNER.md, "Ages without") while it's at or under
-    /// the age the first pension starts, as Progress's Milestones card has
-    /// it (``MilestoneLadder/isPastCoastPoint(_:plan:)``); `nil` otherwise,
-    /// and when you could retire today.
-    var coastAge: Int?
-
-    /// - Parameter results: the results the coast age comes from (the main
-    ///   plan's latest on the Overview, the results shown on the plan);
-    ///   without them, or without a coast age in them, the one the latest
-    ///   check-in recorded.
-    init(plan: PlanDocument, library: Library, valuator: Valuator, asOf: CalendarDate, results: PlanResults?,
-         canRetireNow: Bool, locale: Locale = .current) {
-        let onTrack = PlanOnTrack(plan: plan, library: library, valuator: valuator, asOf: asOf, results: results,
-                                  canRetireNow: canRetireNow)
-        position = onTrack.position
-        if let entry = onTrack.baseline, let checkIn = onTrack.checkIn {
-            expectation = PlanProgressYear.expectation(entry.baseline, year: checkIn.year, locale: locale)
-        }
-        coastAge = onTrack.coastAge
-    }
-
-    /// "Past the coast point: 63 without saving".
-    static func coastLine(_ age: Int) -> String {
-        "Past the coast point: \(age) without saving"
-    }
-
-    /// The coast point line for VoiceOver, in full.
-    static func spokenCoastLine(_ age: Int) -> String {
-        "You're past the coast point: saving nothing more, you could still retire at \(age)."
-    }
-}
-
 // MARK: - Needs attention
 
-/// One thing on the Overview that needs you (UI.md, "Needs attention").
-struct OverviewAttentionItem: Hashable, Sendable, Identifiable {
+/// One thing on Today that needs you (UI.md, "Needs attention").
+struct TodayAttentionItem: Hashable, Sendable, Identifiable {
     /// Where tapping the item goes.
     enum Target: Hashable, Sendable {
         case account(AccountID)
@@ -241,25 +118,25 @@ struct OverviewAttentionItem: Hashable, Sendable, Identifiable {
 /// missing exchange rates, and past prices and rates the net-worth history
 /// is missing (with *Fill In Past Prices*). The screen adds the library's
 /// own state (sync conflicts, save errors) and plan warnings.
-enum OverviewAttention {
+enum TodayAttention {
     static func items(library: Library, valuator: Valuator, on today: CalendarDate, stalenessThreshold: Int,
-                      locale: Locale = .current) -> [OverviewAttentionItem] {
+                      locale: Locale = .current) -> [TodayAttentionItem] {
         func accountName(_ id: AccountID) -> String { library.accounts[id]?.name ?? id.rawValue }
         func instrumentName(_ id: InstrumentID) -> String { library.instruments[id]?.name ?? id.rawValue }
 
-        var items: [OverviewAttentionItem] = []
+        var items: [TodayAttentionItem] = []
 
         // An account that holds nothing has nothing to check in (AccountStaleness).
         for stale in valuator.staleAccounts(on: today, threshold: stalenessThreshold, in: .netWorth)
         where valuator.emptySince(of: stale.account, on: today) == nil {
             let name = accountName(stale.account)
             if let last = stale.lastValuation {
-                items.append(OverviewAttentionItem(
+                items.append(TodayAttentionItem(
                     id: "stale.\(stale.account)", systemImage: "clock.badge.exclamationmark",
                     title: "\(name): last value \(GlanceText.month(last, relativeTo: today, locale: locale))",
                     detail: "Update it in your next check-in", target: .account(stale.account)))
             } else {
-                items.append(OverviewAttentionItem(
+                items.append(TodayAttentionItem(
                     id: "stale.\(stale.account)", systemImage: "clock.badge.exclamationmark",
                     title: "\(name): no value yet",
                     detail: library.accounts[stale.account]?.acceptsTypedValues == true
@@ -275,7 +152,7 @@ enum OverviewAttention {
         for gap in gaps {
             guard case .price(let instrument) = gap.item else { continue }
             missingPrices.insert(instrument)
-            items.append(OverviewAttentionItem(
+            items.append(TodayAttentionItem(
                 id: "price.\(instrument)", systemImage: "tag.slash",
                 title: "No price for \(instrumentName(instrument))",
                 detail: "\(Wording.names(gap.accounts.map(accountName))) "
@@ -285,7 +162,7 @@ enum OverviewAttention {
         }
         for gap in gaps {
             guard case .rate(let from, let to) = gap.item else { continue }
-            items.append(OverviewAttentionItem(
+            items.append(TodayAttentionItem(
                 id: "fx.\(from)-\(to)", systemImage: "arrow.left.arrow.right",
                 title: "No \(from) to \(to) exchange rate",
                 detail: "\(Wording.names(gap.accounts.map(accountName))) "
@@ -296,7 +173,7 @@ enum OverviewAttention {
 
         for (instrument, date) in valuator.outdatedPrices(in: library, asOf: today)
         where !missingPrices.contains(instrument) {
-            items.append(OverviewAttentionItem(
+            items.append(TodayAttentionItem(
                 id: "outdated.\(instrument)", systemImage: "tag",
                 title: "\(instrumentName(instrument)): last price \(AmountFormat.shortDate(date, locale: locale))",
                 detail: "Older than the account's latest value. Fetch or type in a price under Instruments.",
@@ -314,7 +191,7 @@ enum OverviewAttention {
     /// than held, an opening without a cost, a statement that differs from
     /// the trades, and the rest. Sorted by account name.
     static func tradeProblems(library: Library, valuator: Valuator,
-                              locale: Locale = .current) -> [OverviewAttentionItem] {
+                              locale: Locale = .current) -> [TodayAttentionItem] {
         let affected = Set(valuator.tradeIssues().map(\.account)).compactMap { library.accounts[$0] }
         return affected.sorted { ($0.name, $0.id.rawValue) < ($1.name, $1.id.rawValue) }.compactMap { account in
             let notes = TradeIssueNote.notes(for: account.id, library: library, valuator: valuator, locale: locale)
@@ -325,7 +202,7 @@ enum OverviewAttention {
             }
             let shown = kinds.prefix(2).joined(separator: " · ")
             let more = kinds.count > 2 ? " · \(kinds.count - 2) more" : ""
-            return OverviewAttentionItem(
+            return TodayAttentionItem(
                 id: "trades.\(account.id)", systemImage: "exclamationmark.triangle",
                 title: "\(account.name): \(Wording.count(notes.count, "problem")) with trades",
                 detail: "\(shown)\(more). Open the account to fix \(notes.count == 1 ? "it" : "them").",
@@ -339,7 +216,7 @@ enum OverviewAttention {
     /// (more are one item, so they don't crowd the card). The latest
     /// check-in's own gaps are the items above, typed in under Instruments.
     static func pastGaps(library: Library, valuator: Valuator, asOf: CalendarDate,
-                         locale: Locale = .current) -> [OverviewAttentionItem] {
+                         locale: Locale = .current) -> [TodayAttentionItem] {
         let dates = valuator.dates(.monthEnds, in: .netWorth, through: asOf).filter { $0 < asOf }
         guard let missing = valuator.missingValues(in: .netWorth, on: dates)?.filter({ $0.item.isPriceOrRate })
         else { return [] }
@@ -348,12 +225,12 @@ enum OverviewAttention {
             return "\(MissingValueNote.shortList(names)) \(names.count == 1 ? "isn't" : "aren't") fully counted in "
                 + "your net worth \(MissingValueNote.when(dates, locale: locale))"
         }
-        var items: [OverviewAttentionItem] = []
+        var items: [TodayAttentionItem] = []
         var prices: [(InstrumentID, MissingValues.Gap)] = []
         for gap in missing.gaps {
             switch gap.item {
             case .rate(let from, let to):
-                items.append(OverviewAttentionItem(
+                items.append(TodayAttentionItem(
                     id: "past.fx.\(from)-\(to)", systemImage: "arrow.left.arrow.right",
                     title: "Past exchange rates for \(AmountFormat.symbol(for: from, locale: locale)) are missing",
                     detail: counted(gap.accounts, gap.dates) + ". Fill in past prices to fetch them.",
@@ -368,7 +245,7 @@ enum OverviewAttention {
         let fetchOrType = ". Fill in past prices to fetch them, or type them in."
         if prices.count > 2 {
             let gaps = prices.map(\.1)
-            items.append(OverviewAttentionItem(
+            items.append(TodayAttentionItem(
                 id: "past.prices", systemImage: "tag.slash",
                 title: "Past prices for \(prices.count) instruments are missing",
                 detail: "\(MissingValueNote.shortList(prices.map { name($0.0) })): "
@@ -376,7 +253,7 @@ enum OverviewAttention {
                 target: .fillPastPrices))
         } else {
             for (instrument, gap) in prices {
-                items.append(OverviewAttentionItem(
+                items.append(TodayAttentionItem(
                     id: "past.price.\(instrument)", systemImage: "tag.slash",
                     title: "Past prices for \(name(instrument)) are missing",
                     detail: counted(gap.accounts, gap.dates) + fetchOrType, target: .fillPastPrices))

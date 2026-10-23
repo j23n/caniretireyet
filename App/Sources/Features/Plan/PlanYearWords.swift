@@ -400,7 +400,7 @@ struct PlanYearWhy: View {
     }
 
     private func rows(_ explanation: GapExplanation) -> [Row] {
-        [Row(title: "Going in", value: explanation.start),
+        [Row(title: "At the start", value: explanation.start),
          Row(title: "Saving", value: explanation.saving),
          Row(title: "Markets", value: explanation.markets),
          Row(title: "Other", value: (explanation.inflation ?? 0) + explanation.other)]

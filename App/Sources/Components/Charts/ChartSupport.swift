@@ -486,7 +486,7 @@ struct ChartLegendLabel: View {
 /// bands, with a cue when the 10–90% band runs off the top.
 struct ProjectionLegend: View {
     var showsActual = true
-    /// The Overview draws the projected median dashed after a solid history.
+    /// Today draws the projected median dashed after a solid history.
     var dashedMedian = false
     var clipsBand = false
 
@@ -546,7 +546,7 @@ struct ChartCaption: View {
 
 // MARK: - Time span
 
-/// One control for a chart's time span (UI.md, "Overview"): how far back
+/// One control for a chart's time span (UI.md, "Today"): how far back
 /// (1Y, 3Y, 5Y, All) and, while the future is shown, how far ahead (to
 /// retirement, or retirement + 5, 10, 20 or 30 years; once retirement is
 /// behind, 5, 10, 20 or 30 years from today).

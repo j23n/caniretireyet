@@ -76,7 +76,7 @@ extension LibraryStore {
         return library.plans.values.sorted { (rank($0), $0.name, $0.id) < (rank($1), $1.name, $1.id) }
     }
 
-    /// The plan shown on the Overview (`mainPlan` in `library.json`).
+    /// The plan shown on Today (`mainPlan` in `library.json`).
     var mainPlan: PlanDocument? {
         library.settings.mainPlan.flatMap { library.plans[$0] }
     }

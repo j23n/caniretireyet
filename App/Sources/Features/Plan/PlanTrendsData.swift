@@ -6,7 +6,7 @@ import Tracker
 
 // The words of Trends (UI.md, "Trends"; PROGRESS.md, "Trends"): money in
 // and out, where your money came from, and the answer at each check-in,
-// over the time span the Overview's history uses. What it shows is the
+// over the time span Today's history uses. What it shows is the
 // Planner's `PlanTrends`, worked out from the plan's `PlanProgress`.
 
 extension PeriodGrain {

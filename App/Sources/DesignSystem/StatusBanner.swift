@@ -104,7 +104,7 @@ struct StatusBanner: View {
 /// a failed save, files that couldn't be read, conflicts that were merged or
 /// failed, and files a save copied to backups or kept because they changed
 /// elsewhere. Shows nothing when all is well. Screens put it at the top of
-/// their content; the Overview shows it in "Needs attention".
+/// their content; Today shows it in "Needs attention".
 struct LibraryStatusBanners: View {
     @Environment(LibraryStore.self) private var library
     @Environment(AppNavigation.self) private var navigation
@@ -112,7 +112,7 @@ struct LibraryStatusBanners: View {
     @State private var shownUpgrade: LibraryUpgrade?
 
     /// Whether there's a banner to show: the body's conditions, for a
-    /// screen that shows the banners in a card of its own (the Overview's
+    /// screen that shows the banners in a card of its own (Today's
     /// "Needs attention").
     static func showsAny(for library: LibraryStore) -> Bool {
         library.upgrade != nil || library.isReadOnly || library.lastError != nil

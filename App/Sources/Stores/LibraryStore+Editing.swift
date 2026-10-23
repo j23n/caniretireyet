@@ -238,7 +238,7 @@ extension LibraryStore {
         return plan.id
     }
 
-    /// Makes a plan the one shown on the Overview.
+    /// Makes a plan the one shown on Today.
     func setMainPlan(_ id: PlanID?) throws {
         try update { $0.settings.mainPlan = id }
     }

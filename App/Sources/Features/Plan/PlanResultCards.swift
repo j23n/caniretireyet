@@ -180,7 +180,7 @@ struct PlanSuccessCard: View {
 /// Your money over time (UI.md, "More charts"): the fan in one hue, your
 /// actual history in ink, and markers for retirement, pensions, locked
 /// money and events. One control sets the time span, how far back and how
-/// far ahead (shared with the Overview's chart and remembered on the
+/// far ahead (shared with Today's chart and remembered on the
 /// device), so the years that matter aren't a sliver of a chart running to 95.
 struct PlanFanCard: View {
     let results: PlanResults
@@ -215,7 +215,7 @@ struct PlanFanCard: View {
                      markers: window.markers(results.markers, from: history.first?.date ?? now), showsLegend: true)
             ChartCaption(
                 text: "In \(money).",
-                detail: "Your plan assets in \(money): your actual values in ink, then the plan's projection. "
+                detail: "The money in your plan in \(money): your actual values in ink, then the plan's projection. "
                     + "The line is the median of the simulated futures, the darker band holds half of them and the "
                     + "lighter band 8 in 10; the lighter band can run off the top, so the rest stays readable. "
                     + "Markers show retirement, pensions starting, locked money becoming accessible, windfalls and "

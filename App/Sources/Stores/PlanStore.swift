@@ -361,7 +361,7 @@ final class PlanStore {
 
     // MARK: Headlines
 
-    /// The main plan's latest answer, for the Overview's "Can I retire
+    /// The main plan's latest answer, for Today's "Can I retire
     /// yet?" card, Progress and the widgets: the Planner's `LatestAnswer`
     /// of its latest results and its recorded headlines. Never starts a run.
     var mainAnswer: LatestAnswer? {

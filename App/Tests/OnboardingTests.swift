@@ -4,9 +4,9 @@ import Planner
 import Testing
 @testable import CanIRetireYet
 
-/// First launch's order and words, *Getting started* on the Overview, and
+/// First launch's order and words, *Getting started* on Today, and
 /// the answer after an import (UI.md, "Empty states and first launch",
-/// "Overview", "Import").
+/// "Today", "Import").
 struct OnboardingTests {
     private let english = Locale(identifier: "en_US")
 

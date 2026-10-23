@@ -218,7 +218,7 @@ struct PlanTrendsView: View {
 }
 
 /// Trends' grain (*Months | Years*) and time span (the *History* half of
-/// the Overview's menu, sharing its choice): at the top of the page on
+/// Today's menu, sharing its choice): at the top of the page on
 /// iPhone under the Timeline's zoom, beside it in the toolbar on the Mac and iPad. The
 /// grain is remembered once chosen.
 struct PlanTrendsControls: View {

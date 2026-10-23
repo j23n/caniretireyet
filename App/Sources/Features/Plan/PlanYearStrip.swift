@@ -570,9 +570,9 @@ struct PlanYearCardView: View {
                     PlanYearCardView(card: latest, scale: scale, height: height, pointerX: width * 0.55)
                         .background(Palette.card, in: shape)
                 }
-                Card("Plan assets") {
+                Card("Money in the plan") {
                     NetWorthChart(history: PreviewLibrary.valuator.series(.planAssets, through: asOf).chartPoints,
-                                  title: "Plan assets", readsDate: asOf.adding(months: -3).dateValue)
+                                  title: "Money in the plan", readsDate: asOf.adding(months: -3).dateValue)
                 }
                 .frame(width: 380)
             }

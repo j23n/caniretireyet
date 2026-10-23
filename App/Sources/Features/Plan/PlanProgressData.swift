@@ -86,26 +86,26 @@ extension PlanProgressYear {
     /// "2026 so far", "2025".
     var title: String { isLatest ? "\(year) so far" : "\(year)" }
 
-    /// What the year is measured against, in words: "January" (its own
-    /// automatic baseline, saved at its first check-in), the month it was
-    /// saved in when that was later ("October"), "your 2021 plan" (a past
-    /// baseline).
+    /// What the year is measured against, in words: "your January plan"
+    /// (its own automatic baseline, saved at its first check-in), the month
+    /// it was saved in when that was later ("your October plan"), "your
+    /// 2021 plan" (a past baseline).
     func expectation(locale: Locale = .current) -> String {
-        guard let baseline else { return "January" }
+        guard let baseline else { return "your January plan" }
         return Self.expectation(baseline.baseline, year: year, locale: locale)
     }
 
     /// What `baseline` is in words for `year` measured against it, as
-    /// ``expectation(locale:)`` says it: "January", "October", "your 2021
-    /// plan". The Overview's *On track?* names it so too.
+    /// ``expectation(locale:)`` says it: "your January plan", "your October
+    /// plan", "your 2021 plan". The plan's *On track?* names it so too.
     static func expectation(_ baseline: Baseline, year: Int, locale: Locale = .current) -> String {
         let start = baseline.start.date
         if baseline.kind == .past { return "your \(start.year) plan" }
-        guard start.year == year, start.month > 1 else { return "January" }
-        return AmountFormat.monthName(start, locale: locale)
+        guard start.year == year, start.month > 1 else { return "your January plan" }
+        return "your \(AmountFormat.monthName(start, locale: locale)) plan"
     }
 
-    /// ``expectation(locale:)`` starting a sentence: "January", "Your 2021 plan".
+    /// ``expectation(locale:)`` starting a sentence: "Your January plan".
     func expectationTitle(locale: Locale = .current) -> String {
         let words = expectation(locale: locale)
         return words.capitalizedFirst
@@ -289,7 +289,7 @@ struct PlanProgressTimeline {
         case .changed(let changes):
             words = AmountSentence("\(changes.map(\.label).joined(separator: " · ")).")
         case .noAge:
-            words = "No age reached your bar."
+            words = "No age worked out."
         case .savedMore(let saved):
             words = "You saved \(money.unsigned(saved)), more than usual."
         case let .markets(markets, share):
@@ -312,7 +312,7 @@ enum PlanProgressText {
         return .amount(AmountFormat.signedAmount(year.change.change, currency: currency, locale: locale))
     }
 
-    /// "18.400 € ahead of January", "3.000 € behind your 2021 plan"; `nil` without a baseline.
+    /// "18.400 € ahead of your January plan", "3.000 € behind your 2021 plan"; `nil` without a baseline.
     static func againstJanuary(_ year: PlanProgressYear, currency: CurrencyCode,
                                locale: Locale = .current) -> AmountSentence? {
         guard let position = year.position else { return nil }
@@ -352,7 +352,7 @@ enum PlanProgressText {
             + "prices."
     }
 
-    /// "January expected 298.000 € by now", "… by 31 Dec", with `amount`'s
+    /// "Your January plan expected 298.000 € by now", "… by 31 Dec", with `amount`'s
     /// words; `nil` without a position.
     static func expected(_ year: PlanProgressYear, amount: (Decimal) -> AmountSentence,
                          locale: Locale = .current) -> AmountSentence? {
@@ -361,7 +361,7 @@ enum PlanProgressText {
         return "\(year.expectationTitle(locale: locale)) expected \(amount(position.median)) \(when)"
     }
 
-    /// "January expected 298.000 € by now. You're 18.400 € ahead, more than
+    /// "Your January plan expected 298.000 € by now. You're 18.400 € ahead, more than
     /// in 68 of its 100 futures."
     static func january(_ year: PlanProgressYear, currency: CurrencyCode,
                         locale: Locale = .current) -> AmountSentence? {
@@ -433,10 +433,10 @@ enum PlanProgressText {
 
     /// A year's card without a position against a baseline: "No check-ins ·
     /// from prices", "Measured from your next check-in" (its baseline starts
-    /// at its latest one), "No January baseline".
+    /// at its latest one), "No plan kept in January".
     static func unmeasured(_ year: PlanProgressYear) -> String {
         if year.checkIns == 0 { return "No check-ins · from prices" }
-        guard year.baseline != nil else { return "No January baseline" }
+        guard year.baseline != nil else { return "No plan kept in January" }
         return year.isLatest ? "Measured from your next check-in" : "Baseline saved at its last check-in"
     }
 
@@ -456,7 +456,7 @@ enum PlanProgressText {
                 return "This year's baseline starts at your latest check-in, so your next check-in is the first "
                     + "measured against it."
             }
-            return "A baseline is saved at the first check-in of each year. Save one now to measure against it."
+            return "Your plan is kept at the first check-in of each year, and the year is measured against it."
         }
         let gap = PlanWords(currency: currency, locale: locale).unsigned(position.gap)
         let expectation = year.expectation(locale: locale)

@@ -65,7 +65,7 @@ enum PlanResultsText {
     /// retiring today, so it isn't shown.
     static func readiness(_ headline: RetirementAnswer, locale: Locale = .current) -> String? {
         if headline.needsMoreThanSearched {
-            return "Retiring today would need more than \(searchedScale) times your plan assets"
+            return "Retiring today would need more than \(searchedScale) times the money in your plan"
         }
         guard let readiness = headline.readiness else { return nil }
         if readiness >= AssetsNeeded.maximumScale {
@@ -87,9 +87,9 @@ enum PlanResultsText {
             return needed.amount.map { .amount(whole($0), unit: nil) }
         case .atMost:
             return needed.leavesOnlyLockedMoney ? .text("At most what's locked away")
-                : .text("Under 1/\(searchedScale) of your plan assets")
+                : .text("Under 1/\(searchedScale) of the money in your plan")
         case .moreThanMaximum:
-            return .text("Over \(searchedScale)× your plan assets")
+            return .text("Over \(searchedScale)× the money in your plan")
         case .noPlanAssets:
             return needed.amount == 0 ? .text("None") : nil
         }

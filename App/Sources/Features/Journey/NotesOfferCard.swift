@@ -2,8 +2,8 @@ import Glance
 import Model
 import SwiftUI
 
-/// The yearly notes offered once on the Overview, after the first answer,
-/// while any of them is off (UI.md, "Overview", "Keep your goal in view").
+/// The yearly notes offered once on Today, after the first answer,
+/// while any of them is off (UI.md, "Today", "Keep your goal in view").
 /// It lists only the ones that are off; *Turn On* asks for permission and
 /// turns on the ones ticked. Either button puts the card away for good.
 struct NotesOfferCard: View {

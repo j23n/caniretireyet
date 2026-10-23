@@ -18,7 +18,7 @@ enum OnboardingStep: String, CaseIterable, Sendable {
     /// Importing your accounts: *Import Files…* or *Later*.
     case files
     /// The monthly note and *Your year*, the widget, and the disclaimer;
-    /// *Start* opens the Overview.
+    /// *Start* opens Today.
     case notes
 
     /// Whether the step comes once *See My Answer* has created the library.
