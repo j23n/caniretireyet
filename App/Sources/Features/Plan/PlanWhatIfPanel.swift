@@ -1,130 +1,96 @@
+import Glance
 import Model
 import Planner
 import SwiftUI
 
-/// What if… (UI.md, "What if"): try a change before making it in the
-/// plan. The plan's answer now, then sliders for when you stop working,
-/// spending and saving a month, and what shares make above inflation.
-/// Moving one runs nothing: the answer says it's from before the change
-/// until *Run What If* runs a quick estimate with fewer runs, then every
-/// run. The answer then shows the difference ("Earliest 54 → 53"); *Keep*
-/// writes the change into the plan, *Reset* throws it away. On iPhone it's
-/// a bottom sheet; on the Mac and iPad, a column beside the plan.
-struct PlanWhatIfPanel: View {
+/// The levers (UI.md, "Plan"): when you stop working, spending and saving
+/// a month, and what shares make above inflation, on top of the plan.
+/// Moving one moves your date: once the levers rest, a quick estimate runs,
+/// then every run, and the date above them follows. *Save as Plan…* keeps
+/// the levers where they are as a plan of its own; *Reset* puts them back.
+struct PlanLeversCard: View {
     let session: PlanSession
 
+    @Environment(LibraryStore.self) private var library
+    @Environment(AppNavigation.self) private var navigation
     @Environment(\.locale) private var locale
+    @State private var isNaming = false
+    @State private var newName = ""
+    @State private var error: String?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Metrics.l) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("What if")
-                    .font(.headline)
-                    .foregroundStyle(Palette.ink)
-                    .accessibilityAddTraits(.isHeader)
-                Text("Try a change before you make it in the plan.")
-                    .font(.subheadline)
-                    .foregroundStyle(Palette.secondaryInk)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            answer
-            if let model = session.whatIfModel {
-                ForEach(PlanWhatIfSlider.allCases) { slider in
-                    sliderRow(slider, model: model, value: binding(slider))
+        Card {
+            VStack(alignment: .leading, spacing: Metrics.m) {
+                if let model = session.whatIfModel {
+                    ForEach(PlanWhatIfSlider.allCases) { slider in
+                        sliderRow(slider, model: model, value: binding(slider))
+                    }
+                }
+                actions
+                if let error {
+                    Text(error)
+                        .font(.footnote)
+                        .foregroundStyle(Palette.critical)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
-            actions
-            Text("A quick estimate first, then the full answer.")
+        } header: {
+            SectionHeader("Levers") {
+                if session.isRunningWhatIf {
+                    ProgressView()
+                        .controlSize(.small)
+                        .accessibilityLabel("Updating your date")
+                }
+            }
+        }
+        #if os(iOS)
+        // A light tap when the levers move the earliest age (UI.md, "Haptics").
+        .sensoryFeedback(.selection, trigger: session.shownResults?.headline.earliestAge)
+        #endif
+        .alert("Save as plan", isPresented: $isNaming) {
+            TextField("Name", text: $newName)
+            Button("Save") { saveAsPlan() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("A new plan with the levers where they are. This plan stays as it was.")
+        }
+    }
+
+    /// *Reset* and *Save as Plan…*, once a lever has moved.
+    @ViewBuilder
+    private var actions: some View {
+        if session.hasWhatIf {
+            HStack(spacing: Metrics.m) {
+                Button("Reset") { session.reset() }
+                    .buttonStyle(.borderless)
+                Spacer(minLength: 0)
+                Button("Save as Plan…") {
+                    newName = ""
+                    error = nil
+                    isNaming = true
+                }
+                .buttonStyle(.bordered)
+                .disabled(!session.canEdit)
+            }
+            .font(.subheadline)
+        } else {
+            Text("Move a lever and your date follows.")
                 .font(.footnote)
                 .foregroundStyle(Palette.secondaryInk)
                 .fixedSize(horizontal: false, vertical: true)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        #if os(iOS)
-        // A light tap when a what-if run moves the earliest age (UI.md, "Haptics").
-        .sensoryFeedback(.selection, trigger: session.shownResults?.headline.earliestAge)
-        #endif
     }
 
-    /// *Run What If* and *Reset*, and *Keep* once there's a change; the
-    /// run's progress while it runs.
-    @ViewBuilder
-    private var actions: some View {
-        if session.isRunningWhatIf, let progress = session.runProgress {
-            PlanRunProgressView(progress: progress, onCancel: { session.cancel() })
-        } else {
-            HStack(spacing: Metrics.m) {
-                Button("Run What If") { session.runWhatIf() }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(!session.whatIfIsOutOfDate || session.isRunning)
-                Button("Reset") { session.reset() }
-                    .buttonStyle(.borderless)
-                    .disabled(!session.hasWhatIf)
-                Spacer(minLength: 0)
-                if session.hasWhatIf {
-                    Button("Keep") { session.keep() }
-                        .buttonStyle(.bordered)
-                        .disabled(!session.canEdit)
-                }
-            }
+    private func saveAsPlan() {
+        do {
+            let id = try session.saveAsPlan(named: newName)
+            navigation.showPlan(id)
+        } catch {
+            self.error = LibraryStore.describe(error)
         }
     }
 
-    /// "Your plan now · Not yet. Stop at 63.", or with the what-if's
-    /// difference once it has run.
-    private var answer: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(answerTitle)
-                .font(.caption)
-                .foregroundStyle(Palette.secondaryInk)
-            if let results = session.shownResults {
-                Text(Self.answerText(results.headline))
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Palette.ink)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .privacySensitiveInFeedback()
-                if let change = Self.change(in: session) {
-                    Text("Earliest \(change)")
-                        .font(.subheadline.weight(.semibold))
-                        .monospacedDigit()
-                        .foregroundStyle(Palette.accent)
-                        .privacySensitiveInFeedback()
-                }
-            } else {
-                Text("No answer yet")
-                    .font(.subheadline)
-                    .foregroundStyle(Palette.secondaryInk)
-            }
-        }
-        .padding(.horizontal, Metrics.m)
-        .padding(.vertical, 10)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Palette.page, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-        .accessibilityElement(children: .combine)
-    }
-
-    /// What the answer is: the plan's own, the what-if's, or from before its changes.
-    private var answerTitle: String {
-        guard session.hasWhatIf else { return "Your plan now" }
-        return session.whatIfIsOutOfDate ? PlanRunText.beforeWhatIf : "With your changes"
-    }
-
-    /// "Not yet. Stop at 63.", "Yes. You could stop today."
-    static func answerText(_ headline: RetirementAnswer) -> String {
-        if headline.canRetireNow { return "Yes. You could stop today." }
-        guard let age = headline.earliestAge else { return "Not yet. No age reaches your bar yet." }
-        return "Not yet. Stop at \(age)."
-    }
-
-    /// "54 → 53" when the what-if's own results move the earliest age; the
-    /// plan's *What if* tile says it too.
-    static func change(in session: PlanSession) -> String? {
-        guard session.hasWhatIf, !session.whatIfIsOutOfDate, session.baseIsUpToDate,
-              let base = session.baseResults, let results = session.shownResults else { return nil }
-        return PlanResultsText.change(from: base.headline.earliestAge, to: results.headline.earliestAge)
-    }
-
-    /// The slider's value in the session: the value shown, and moving it
+    /// The lever's value in the session: the value shown, and moving it
     /// moves the what-if (``PlanSession/set(_:to:)``).
     private func binding(_ slider: PlanWhatIfSlider) -> Binding<Double> {
         Binding(get: { session.whatIfModel?.value(slider) ?? 0 }, set: { session.set(slider, to: $0) })
@@ -143,7 +109,7 @@ struct PlanWhatIfPanel: View {
                     .foregroundStyle(model.isChanged(slider) ? Palette.accent : Palette.ink)
             }
             Slider(value: binding, in: model.range(slider), step: slider.step)
-                .disabled(!model.isAvailable(slider))
+                .disabled(!model.isAvailable(slider) || !session.canEdit)
                 .accessibilityLabel(Text(slider.title))
         }
     }
@@ -163,7 +129,7 @@ struct PlanWhatIfPanel: View {
                     Text("a month")
                 }
             } else {
-                Text("After Calculate")
+                Text("Once calculated")
                     .foregroundStyle(Palette.secondaryInk)
             }
         case .equityReturn:
@@ -174,11 +140,95 @@ struct PlanWhatIfPanel: View {
     }
 }
 
-#Preview("What if") {
+/// The plan's date on top of its levers: "27 March 2051, at 63", how sure,
+/// and while the levers have moved, where the date was and how far it
+/// moved ("A year sooner than the plan").
+struct PlanDateHeader: View {
+    let session: PlanSession
+
+    @Environment(\.locale) private var locale
+
+    var body: some View {
+        let state = session.state
+        VStack(alignment: .leading, spacing: Metrics.xs) {
+            if let answer = state.results?.headline ?? state.recorded {
+                let lastMonday = LastMonday(answer)
+                Text(session.hasWhatIf ? "With your levers" : "Your last Monday at work")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(session.hasWhatIf ? Palette.accent : Palette.secondaryInk)
+                Text(verbatim: headline(answer, lastMonday: lastMonday))
+                    .font(.largeTitle.bold())
+                    .foregroundStyle(Palette.ink)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.5)
+                    .dynamicTypeSize(...DynamicTypeSize.accessibility2)
+                    .opacity(state.dimsResults ? Metrics.dimmedOpacity : 1)
+                    .privacySensitiveInFeedback()
+                Text(verbatim: line(answer))
+                    .font(.subheadline)
+                    .foregroundStyle(Palette.secondaryInk)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .privacySensitiveInFeedback()
+                if let move = leverMove(answer) {
+                    TodayMoveChip(move: move, words: move.years == 0
+                                  ? "The same as the plan"
+                                  : "\(Self.years(abs(move.years))) \(move.isSooner ? "sooner" : "later") than the plan")
+                }
+            } else if state.isRunning {
+                Text("Working out your date…")
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(Palette.secondaryInk)
+            } else {
+                Text("Your date shows here once the plan is calculated.")
+                    .font(.subheadline)
+                    .foregroundStyle(Palette.secondaryInk)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            if state.isRunning, !session.isRunningWhatIf, let progress = session.runProgress {
+                PlanRunProgressView(progress: progress, isCheckIn: session.isCheckInRun,
+                                    onCancel: session.isCheckInRun ? nil : { session.cancel() })
+                    .padding(.top, Metrics.xs)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .combine)
+    }
+
+    /// "27 March 2051, at 63", "You could stop today", "Not yet".
+    private func headline(_ answer: RetirementAnswer, lastMonday: LastMonday?) -> String {
+        if let lastMonday {
+            return "\(GlanceText.lastMonday(lastMonday.date, locale: locale)), at \(lastMonday.age)"
+        }
+        return answer.canRetireNow ? "You could stop today" : "Not yet"
+    }
+
+    /// "In 9 of 10 futures.", or why there's no date yet.
+    private func line(_ answer: RetirementAnswer) -> String {
+        let futures = GlanceText.futures(answer.confidence)
+        if answer.canRetireNow || answer.earliestAge != nil { return "In \(futures) futures." }
+        return "No age works out in \(futures) futures yet. Try the levers."
+    }
+
+    /// How far the levers moved the earliest age from the plan's own.
+    private func leverMove(_ answer: RetirementAnswer) -> LastMondayMove? {
+        guard session.hasWhatIf, !session.whatIfIsOutOfDate, session.baseIsUpToDate,
+              let base = session.baseResults?.headline.earliestAge, let now = answer.earliestAge else { return nil }
+        return LastMondayMove(since: .today(), years: now - base)
+    }
+
+    private static func years(_ count: Int) -> String {
+        count == 1 ? "A year" : "\(count) years"
+    }
+}
+
+#Preview("Levers") {
     PlanPreviewHost(model: AppModel.preview()) { session in
         ScrollView {
-            PlanWhatIfPanel(session: session)
-                .padding()
+            VStack(spacing: Metrics.l) {
+                PlanDateHeader(session: session)
+                PlanLeversCard(session: session)
+            }
+            .padding()
         }
     }
 }

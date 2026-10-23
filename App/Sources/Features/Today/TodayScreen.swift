@@ -238,12 +238,14 @@ struct TodayAnswerCard: View {
 /// grey when it stayed.
 struct TodayMoveChip: View {
     let move: LastMondayMove
+    /// What it says, when not since when (the plan's levers).
+    var words: String?
     @Environment(\.locale) private var locale
 
     var body: some View {
         let color = move.years == 0 ? Palette.secondaryInk : move.isSooner ? Palette.positive : Palette.warning
         Label {
-            Text(verbatim: GlanceText.move(move, relativeTo: .today(), locale: locale))
+            Text(verbatim: words ?? GlanceText.move(move, relativeTo: .today(), locale: locale))
         } icon: {
             Image(systemName: move.years == 0 ? "equal" : move.isSooner ? "arrow.left" : "arrow.right")
         }

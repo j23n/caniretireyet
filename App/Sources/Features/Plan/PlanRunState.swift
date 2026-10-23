@@ -59,6 +59,13 @@ struct PlanResultsState: Hashable, Sendable {
     }
 
     /// Whether the results shown are out of date.
+    /// The answer recorded at the last check-in, shown until the plan has
+    /// results of its own.
+    var recorded: RetirementAnswer? {
+        if case .recorded(let answer, _) = content { return answer }
+        return nil
+    }
+
     var isOutOfDate: Bool { results != nil && !staleReasons.isEmpty }
 
     /// Whether the results are shown dimmed: while a run replaces them, and

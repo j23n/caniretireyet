@@ -191,7 +191,7 @@ struct ScreenLaunch {
         case .lookBack:
             navigation.showTimeline(.lookBack)
         case .whatIf:
-            navigation.showPlan(main, at: PlanRoute(opensWhatIf: true))
+            navigation.showPlan(main)
         case .targetMix:
             let plans = library.plans.values.sorted { $0.id.rawValue < $1.id.rawValue }
             navigation.showPlan(plans.first { !$0.portfolio.targetMixByAge.isEmpty }?.id ?? main,
@@ -217,8 +217,15 @@ struct ScreenLaunch {
         }
         if calculates, let main {
             // As the root view does once a library is open; a library in
-            // memory is open from the start.
-            Task { _ = await model.plans.run(main) }
+            // memory is open from the start. What if then moves the age
+            // lever two years sooner and runs it, as letting go of it does.
+            let movesLever = screen == .whatIf
+            Task {
+                guard let results = await model.plans.run(main), movesLever,
+                      let age = results.headline.earliestAge else { return }
+                model.plans.setWhatIf(PlanWhatIf(retirementAge: age - 2), for: main)
+                _ = await model.plans.run(main, .whatIf)
+            }
         }
         return model
     }

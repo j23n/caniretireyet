@@ -56,9 +56,12 @@ final class PlanSession {
     @ObservationIgnored private var validateTask: Task<Void, Never>?
     @ObservationIgnored private var runTask: Task<Void, Never>?
     @ObservationIgnored private var lookupTask: Task<Void, Never>?
+    @ObservationIgnored private var leverTask: Task<Void, Never>?
 
     /// How long edits wait before they're saved.
     private let saveDelay: Duration = .milliseconds(700)
+    /// How long a lever waits, after it last moved, before its what-if runs.
+    private let leverDelay: Duration = .milliseconds(350)
 
     init(planID: PlanID, library: LibraryStore, plans: PlanStore) {
         self.planID = planID
@@ -471,8 +474,10 @@ final class PlanSession {
         plan.map { PlanWhatIfModel(plan: $0, results: baseResults, whatIf: whatIf) }
     }
 
-    /// Moves a slider. Nothing runs: the what-if shows as out of date until
-    /// *Run What-If*. Moving every slider back to the plan's value resets it.
+    /// Moves a lever. Once the levers rest for a moment, the what-if runs:
+    /// a quick estimate, then every run (``runWhatIf()``), so the date
+    /// follows as you drag. Moving every lever back to the plan's value
+    /// resets it.
     func set(_ slider: PlanWhatIfSlider, to value: Double) {
         guard let model = whatIfModel else { return }
         let changed = model.setting(slider, to: value)
@@ -482,29 +487,55 @@ final class PlanSession {
         } else {
             plans.setWhatIf(changed, for: planID)
             lookUpCachedDetails()
+            scheduleWhatIf()
+        }
+    }
+
+    /// Runs the what-if once the levers have rested for ``leverDelay``.
+    private func scheduleWhatIf() {
+        leverTask?.cancel()
+        leverTask = Task { [weak self, leverDelay] in
+            try? await Task.sleep(for: leverDelay)
+            guard !Task.isCancelled, let self, self.whatIfIsOutOfDate else { return }
+            self.runWhatIf()
         }
     }
 
     /// Throws the what-if away ("Reset").
     func reset() {
+        leverTask?.cancel()
         runTask?.cancel()
         plans.setWhatIf(PlanWhatIf(), for: planID)
         lookUpCachedDetails()
     }
 
-    /// Writes the what-if into the plan ("Keep"). Its full results are the
-    /// plan's own from then on, when they were calculated.
-    func keep() {
-        guard let model = whatIfModel, !whatIf.isEmpty else { return }
-        let kept = model.kept
+    /// Saves the plan with the levers where they are as a new plan named
+    /// `name` ("Save as Plan…"), and puts this plan's levers back. Returns
+    /// the new plan's ID.
+    func saveAsPlan(named name: String) throws -> PlanID {
+        guard let model = whatIfModel, !whatIf.isEmpty else { throw LibraryEditError.unknownPlan(planID) }
+        saveNow()
+        var copy = model.kept
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        copy.name = PlanEditing.uniqueName(trimmed.isEmpty ? "\(copy.name), changed" : trimmed,
+                                           among: library.library.plans.values)
+        copy.id = library.newPlanID(for: copy.name)
+        try library.save(copy)
+        leverTask?.cancel()
         runTask?.cancel()
         plans.setWhatIf(PlanWhatIf(), for: planID)
         plans.setFocusAge(nil, for: planID)
-        update(kept)
-        saveNow()
-        Task { [plans, planID] in
-            await plans.lookUp(planID)
-        }
+        lookUpCachedDetails()
+        return copy.id
+    }
+
+    /// Calculates the plan when its own results are missing or out of
+    /// date and nothing runs: the plan screen does it on its own, in the
+    /// background, so there's no *Calculate* to press. A plan whose last
+    /// run failed waits for *Try Again*.
+    func calculateIfNeeded() {
+        guard canEdit, !isRunning, runError == nil, plan != nil, !baseIsUpToDate else { return }
+        calculate()
     }
 
     // MARK: Bindings
@@ -517,19 +548,5 @@ final class PlanSession {
                                  spending: PlanSpending(working: 0, retired: 0))
         }
         set { update(newValue) }
-    }
-
-    // MARK: Baselines
-
-    /// Saves the plan's full results as a manual baseline, calculating the
-    /// plan first if they're missing or out of date (the user asked for it).
-    func saveBaseline(label: String) async throws -> BaselineID {
-        saveNow()
-        let trimmed = label.trimmingCharacters(in: .whitespacesAndNewlines)
-        let name = trimmed.isEmpty ? nil : trimmed
-        if !baseIsUpToDate || baseResults?.mode != .full {
-            await plans.run(planID)
-        }
-        return try plans.saveBaseline(for: planID, label: name, kind: .manual, on: .today())
     }
 }

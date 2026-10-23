@@ -6,8 +6,7 @@ import SwiftUI
 /// life as chapters, and *Assumptions…*, what every chapter shares. How
 /// you've been doing is on the Timeline.
 ///
-/// On iPhone (tabs) What-if is a bottom sheet; on the Mac and iPad
-/// (sidebar) What-if is a column beside the plan.
+/// The levers sit on top of the plan, on iPhone, the Mac and iPad alike.
 ///
 /// Created by the navigation as `PlanScreen(planID:)`; `nil` is the main plan.
 struct PlanScreen: View {
@@ -78,8 +77,6 @@ struct PlanContentView: View {
     @Environment(\.pageLayout) private var layout
     @Environment(\.locale) private var locale
     @State private var session: PlanSession
-    @State private var showsInspector = false
-    @State private var showsWhatIf = false
     @State private var showsTargetMix = false
     @State private var isRenaming = false
     @State private var isDeleting = false
@@ -92,16 +89,10 @@ struct PlanContentView: View {
         _session = State(initialValue: PlanSession(planID: planID, library: library, plans: plans))
     }
 
-    /// The sidebar layout (Mac, iPad): What-if in the inspector.
+    /// The sidebar layout (Mac, iPad).
     private var isWide: Bool { layout.isWide }
 
     private var name: String { session.plan?.name ?? "Plan" }
-
-    private var inspectorTitle: String { showsWhatIfColumn ? "Hide What If" : "Show What If" }
-
-    /// What if beside the plan (the Mac and iPad): only with the plan, whose
-    /// answer it changes.
-    private var showsWhatIfColumn: Bool { showsInspector }
 
     var body: some View {
         planLayout
@@ -154,80 +145,31 @@ struct PlanContentView: View {
     }
 
     /// Opens where ``AppNavigation/planRoute`` asks, once, when it's for
-    /// this plan: e.g. What if from a screenshot's launch.
+    /// this plan: e.g. the Target mix sheet from a screenshot's launch.
     private func takeRoute() {
         guard let route = navigation.planRoute, planID == route.plan ?? library.settings.mainPlan else { return }
         navigation.planRoute = nil
-        if route.opensWhatIf {
-            if isWide { showsInspector = true } else { showsWhatIf = true }
-        }
         if route.opensTargetMix { showsTargetMix = true }
     }
 
     // MARK: Layouts
 
+    /// The plan. On the Mac the page has a fixed minimum
+    /// (``FixedMinimumSize``), as the window's root has: measured through
+    /// the page, its minimum moved as the page laid out for the width it
+    /// got, and never settled ("needing another Update Constraints in
+    /// Window pass").
     @ViewBuilder
     private var planLayout: some View {
+        let page = PlanTimelineView(session: session, showsTargetMix: $showsTargetMix,
+                                    onExport: { exportCalculations() })
+            .environment(\.pageLayout, PageLayout(isWide: isWide))
         if isWide {
-            wideLayout
-        } else {
-            compactLayout
-        }
-    }
-
-    /// iPhone: the plan, with What if as a sheet.
-    private var compactLayout: some View {
-        partView
-            .sheet(isPresented: $showsWhatIf) {
-                ScrollView {
-                    PlanWhatIfPanel(session: session)
-                        .padding(Metrics.l)
-                }
-                .presentationDetents([.medium, .large])
-                .presentationBackgroundInteraction(.enabled(upThrough: .medium))
-                .presentationDragIndicator(.visible)
-            }
-    }
-
-    /// Opens the What-if sheet, on iPhone; `nil` on the Mac and iPad.
-    private var openWhatIfSheet: (() -> Void)? {
-        guard !isWide else { return nil }
-        return { showsWhatIf = true }
-    }
-
-    /// The part shown. On iPhone *What if…* on the answer opens the
-    /// What-if sheet; on the Mac and iPad What if is in the toolbar, and
-    /// takes a column beside the plan, which narrows its page.
-    private var partView: some View {
-        PlanTimelineView(session: session, showsTargetMix: $showsTargetMix,
-                         onWhatIf: openWhatIfSheet, onShowProgress: { navigation.showTimeline(.year) },
-                         onExport: { exportCalculations() })
-            .environment(\.pageLayout, PageLayout(isWide: isWide, besideWhatIf: showsWhatIfColumn))
-    }
-
-    /// Mac and iPad: the plan, with What if in a column beside it.
-    ///
-    /// On the Mac the page has a fixed minimum (``FixedMinimumSize``), as
-    /// the window's root has: measured through the page, its minimum moved
-    /// as the page laid out for the width it got (a strip, a row that
-    /// wraps), and switching to Progress while the plan calculated never
-    /// settled ("needing another Update Constraints in Window pass"). What
-    /// if is a column of its own width beside it, not an inspector: the
-    /// window's split view wouldn't narrow the page for the inspector,
-    /// which then ran past the window's edge. The column scrolls, so its
-    /// content doesn't move the minimum either.
-    private var wideLayout: some View {
-        HStack(spacing: 0) {
-            partView
+            page
                 .fixedMinimumSize(width: 320, height: 300)
-                // Flexible, so the page takes what the column leaves.
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            if showsWhatIfColumn {
-                Divider()
-                PlanInspector(session: session)
-                    .frame(width: PlanInspector.width)
-                    .transition(.move(edge: .trailing))
-            }
+        } else {
+            page
         }
     }
 
@@ -248,12 +190,6 @@ struct PlanContentView: View {
                 }
                 .help("Calculate the plan with its inputs and your latest data (⌘R)")
                 .disabled(session.isRunning)
-                Button {
-                    withAnimation(.snappy) { showsInspector.toggle() }
-                } label: {
-                    Label(inspectorTitle, systemImage: "slider.horizontal.3")
-                }
-                .help("What if: try a change before you make it in the plan")
             }
         }
     }
@@ -397,22 +333,6 @@ struct PlanContentView: View {
         session.saveNow()
         calculations = PlanCalculationsExport.source(session: session, library: library)
             .map(PlanCalculationsExport.init(source:))
-    }
-}
-
-/// What if beside the plan on the Mac and iPad: its sliders and the answer they give.
-struct PlanInspector: View {
-    let session: PlanSession
-
-    /// The column's width.
-    static let width: CGFloat = 340
-
-    var body: some View {
-        ScrollView {
-            PlanWhatIfPanel(session: session)
-                .padding(Metrics.l)
-        }
-        .background(Palette.card)
     }
 }
 

@@ -85,7 +85,6 @@ enum TimelineZoom: String, Hashable, Sendable, CaseIterable, Identifiable {
 struct PlanRoute: Hashable, Sendable {
     /// The plan that takes it; `nil` is the main plan.
     var plan: PlanID?
-    var opensWhatIf = false
     var opensTargetMix = false
 }
 
