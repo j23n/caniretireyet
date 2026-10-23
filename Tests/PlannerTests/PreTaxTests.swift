@@ -217,6 +217,24 @@ struct PreTaxTests {
         ])
     }
 
+    /// A debt isn't pre-tax money: a rate a file gives one is ignored, even
+    /// outside 0–100%, so it neither makes a group of its own nor joins the
+    /// group of pre-tax accounts with that rate.
+    @Test func aDebtsTaxOnWithdrawalsIsIgnored() async throws {
+        let plan = Sample.plan(retire: .age(59), endAge: 64, retired: "1000")
+        let plain = try await Sample.run(plan, Self.libraryWithDebt(card: 40_000))
+        for rate in [d("0.25"), d("0.4"), d("1.5")] {
+            var library = Self.libraryWithDebt(card: 40_000)
+            library.accounts["card"]?.withdrawalTaxRate = rate
+            let result = try await Sample.run(plan, library)
+            #expect(result.start.buckets.map(\.accounts) == [["broker", "card"], ["ira"], ["fund"]])
+            #expect(result.start.buckets.map(\.name) == plain.start.buckets.map(\.name))
+            #expect(result.start.buckets.map(\.withdrawalTaxRate) == [nil, 0.25, nil])
+            #expect(result.start.planAssets == plain.start.planAssets)
+            #expect(!result.issues.contains { $0.code == "planner.withdrawalTaxRate" })
+        }
+    }
+
     /// The tax on what paying off debts took from pre-tax money was paid at
     /// the start, not from the first year's income: the income by source
     /// still reaches that year's spending, and its taxes are the year's own.

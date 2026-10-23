@@ -297,7 +297,8 @@ enum PlanInterpreter {
         let portfolio = Portfolio.build(library: library, date: startDate, plan: plan, currentAge: currentAge,
                                         extraClasses: mixClasses, issues: &issues)
         for id in portfolio.accounts {
-            guard let account = library.accounts[id], let rate = account.withdrawalTaxRate, rate < 0 || rate > 1
+            guard let account = library.accounts[id], !account.kind.isLiability,
+                  let rate = account.withdrawalTaxRate, rate < 0 || rate > 1
             else { continue }
             error("planner.withdrawalTaxRate",
                   "\(account.name)'s tax on withdrawals has to be between 0% and 100%.", .portfolio, account: id)

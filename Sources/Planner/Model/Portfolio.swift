@@ -152,7 +152,9 @@ extension Portfolio {
             included.append(account.id)
             total += value.knownValue
             let opensAt = account.availableFromAge.flatMap { $0 > currentAge ? $0 : nil }
-            let withdrawalRate = account.withdrawalTaxRate.map { min(1, max(0, $0.doubleValue)) }
+            // A debt isn't drawn from, so a rate on one is ignored.
+            let withdrawalRate = account.kind.isLiability
+                ? nil : account.withdrawalTaxRate.map { min(1, max(0, $0.doubleValue)) }
             // Locked money's gains aren't taxed until it opens, pre-tax money's never.
             let locked = opensAt != nil || withdrawalRate != nil
             let key = Key(opensAt: opensAt, withdrawalRate: withdrawalRate)
