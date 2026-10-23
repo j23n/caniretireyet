@@ -84,6 +84,8 @@ struct ExampleLibraryTests {
         let options = PlannerOptions(mode: .fast(runs: 50), maxRetirementAge: 56, solveSustainableSpending: false)
         let result = try await Sample.run(plan, library, options: options)
         #expect(result.expectedPath.years.allSatisfy { $0.age >= 67 || $0.withdrawalTax == 0 })
+        // From 67 the fund is drawn, and pays its 15%.
+        #expect(result.expectedPath.years.contains { $0.age >= 67 && $0.withdrawalTax > 0 })
 
         var taxable = library
         for id in taxable.accounts.keys { taxable.accounts[id]?.withdrawalTaxRate = nil }
