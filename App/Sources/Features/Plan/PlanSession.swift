@@ -51,6 +51,7 @@ final class PlanSession {
     @ObservationIgnored private let progressMemo = Memo<ProgressKey, PlanProgress>()
     @ObservationIgnored private let trendsMemo = Memo<TrendsKey, PlanTrends>()
     @ObservationIgnored private let derivedMemo = Memo<DerivedKey, PlanDerived>()
+    @ObservationIgnored private let baseDerivedMemo = Memo<DerivedKey, PlanDerived>()
 
     @ObservationIgnored private var saveTask: Task<Void, Never>?
     @ObservationIgnored private var validateTask: Task<Void, Never>?
@@ -411,11 +412,21 @@ final class PlanSession {
     func derived(locale: Locale) -> PlanDerived {
         let key = DerivedKey(revision: library.revision, document: plan, results: shownResults, focusAge: focusAge,
                              whatIfAge: whatIf.retirementAge, asOf: library.asOfDate, locale: locale)
-        return derivedMemo.value(for: key) {
-            PlanDerived(plan: key.document, library: library.library, valuator: library.valuator,
-                        results: key.results, chosenAge: key.focusAge, whatIfAge: key.whatIfAge,
-                        asOf: key.asOf, reached: progress.reached, locale: locale)
-        }
+        return derivedMemo.value(for: key) { derived(for: key) }
+    }
+
+    /// The same, for the plan as it is and its own results, without the
+    /// what-if or a chosen age: what the Timeline shows.
+    func baseDerived(locale: Locale) -> PlanDerived {
+        let key = DerivedKey(revision: library.revision, document: plan, results: baseResults, focusAge: nil,
+                             whatIfAge: nil, asOf: library.asOfDate, locale: locale)
+        return baseDerivedMemo.value(for: key) { derived(for: key) }
+    }
+
+    private func derived(for key: DerivedKey) -> PlanDerived {
+        PlanDerived(plan: key.document, library: library.library, valuator: library.valuator,
+                    results: key.results, chosenAge: key.focusAge, whatIfAge: key.whatIfAge,
+                    asOf: key.asOf, reached: progress.reached, locale: key.locale)
     }
 
     // MARK: Chapters

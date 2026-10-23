@@ -122,7 +122,7 @@ private struct TimelineContentView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: Metrics.l) {
                     if let plan = session.plan {
-                        DecadesChart(plan: plan, results: session.shownResults, today: .today(),
+                        DecadesChart(plan: plan, results: session.baseResults, today: .today(),
                                      chartHeight: layout.isWide ? 420 : 320)
                             .environment(\.chartSurface, Palette.page)
                     }

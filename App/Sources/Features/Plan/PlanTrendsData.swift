@@ -24,19 +24,6 @@ extension PlanTrends {
     static let grainKey = "trends.grain"
 }
 
-extension PlanMoneySources {
-    /// "You saved 164.000 € and markets added 98.000 €. In 2025 they added
-    /// more than you did, for the first time."
-    func words(locale: Locale) -> AmountSentence {
-        var sentence = PlanWords(currency: currency, locale: locale)
-            .savedAndMarkets(saved: saved, markets: markets).capitalizedFirst
-        if let year = firstYearMarketsAddedMore {
-            sentence += " In \(String(year)) they added more than you did, for the first time."
-        }
-        return sentence
-    }
-}
-
 extension Library {
     /// The accounts whose typed values turn Trends off (UI.md, "Look Back";
     /// ``Model/Account/typedValuesTurnOffTrends``), by name: open savings

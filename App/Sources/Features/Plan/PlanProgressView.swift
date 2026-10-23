@@ -41,7 +41,7 @@ struct PlanProgressView: View {
     var body: some View {
         let progress = session.progress
         let timeline = PlanProgressTimeline(progress, text: milestoneText)
-        let derived = session.derived(locale: locale)
+        let derived = session.baseDerived(locale: locale)
         let milestones = derived.milestones
         ScrollView {
             VStack(alignment: .leading, spacing: Metrics.l) {
@@ -318,7 +318,7 @@ struct PlanProgressView: View {
     private func milestonesCard(_ milestones: PlanMilestones?) -> some View {
         if let milestones {
             PlanProgressMilestones(milestones: milestones, text: milestoneText, asOf: library.asOfDate,
-                                   hasResults: session.shownResults != nil)
+                                   hasResults: session.baseResults != nil)
         }
     }
 
