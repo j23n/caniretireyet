@@ -37,6 +37,28 @@ extension PlanChaptersModel {
         return "\(fromAge) to \(toAge) · \(chapter.years.lowerBound) to \(toYear)"
     }
 
+    /// "now to 41", "41 to 55", "67 on": the ages it runs between, the last
+    /// chapter's from its first; "from now" for a plan of one chapter.
+    func ages(ofChapterAt index: Int) -> String {
+        let all = chapters.chapters
+        guard all.indices.contains(index) else { return "" }
+        let from = index == 0 ? "now" : "\(all[index].ages.lowerBound)"
+        guard all.indices.contains(index + 1) else { return index == 0 ? "from now" : "\(from) on" }
+        return "\(from) to \(all[index + 1].ages.lowerBound)"
+    }
+
+    /// "41 to 55, 2029 to 2043": the ages and the years it runs between.
+    func agesAndYears(ofChapterAt index: Int) -> String {
+        let all = chapters.chapters
+        guard all.indices.contains(index) else { return "" }
+        let chapter = all[index]
+        let next = all.indices.contains(index + 1) ? all[index + 1] : nil
+        let fromAge = index == 0 ? "Now" : "\(chapter.ages.lowerBound)"
+        let toAge = next.map { "\($0.ages.lowerBound)" } ?? "\(chapter.ages.upperBound)"
+        let toYear = next?.years.lowerBound ?? chapter.years.upperBound
+        return "\(fromAge) to \(toAge), \(chapter.years.lowerBound) to \(toYear)"
+    }
+
     /// "16½ years", to the nearest half year.
     func length(ofChapterAt index: Int) -> String {
         let halves = Int(halfYears(ofChapterAt: index) * 2)

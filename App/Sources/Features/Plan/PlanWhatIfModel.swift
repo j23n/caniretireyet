@@ -6,9 +6,9 @@ extension PlanWhatIfSlider {
     var title: String {
         switch self {
         case .retirementAge: "Stop working at"
-        case .spending: "Spending"
-        case .saving: "Saving"
-        case .equityReturn: "Shares, above inflation"
+        case .spending: "Spend a month"
+        case .saving: "Save a month"
+        case .equityReturn: "Shares above inflation"
         }
     }
 }

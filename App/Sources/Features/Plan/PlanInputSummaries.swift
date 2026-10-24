@@ -173,6 +173,56 @@ struct PlanInputSummaries {
         let runs = AmountFormat.number(Decimal(plan.simulation.effectiveRuns), locale: locale)
         return "\(runs) runs · \(percent(plan.simulation.effectiveConfidence, digits: 0)) confidence"
     }
+
+    // MARK: In short
+
+    /// Equity's return above inflation, as the plan gives it: its typical
+    /// year (median) or its average.
+    var equityReturn: Decimal? {
+        plan.assumptions.returnAssumption(for: .equity).map { $0.isGivenByMedian ? $0.impliedMedianReal : $0.real }
+    }
+
+    /// "5% shares, 2% inflation", for the Assumptions row under the key
+    /// numbers.
+    var shortAssumptions: String {
+        let words = PlanWords(currency: currency, locale: locale)
+        let inflation = words.percent(plan.assumptions.effectiveInflation)
+        guard let equity = equityReturn else { return "\(inflation) inflation" }
+        return "\(words.percent(equity)) shares, \(inflation) inflation"
+    }
+
+    /// The assumptions as rows, for the Mac's and iPad's column: inflation,
+    /// shares above inflation, the tax on investments, the target mix, the
+    /// plan's end and the simulation.
+    var rows: [PlanAssumptionRow] {
+        let words = PlanWords(currency: currency, locale: locale)
+        let tax = plan.tax.investmentRate.map { words.percent($0) } ?? "Not set"
+        var rows = [PlanAssumptionRow(label: "Inflation", value: "\(words.percent(plan.assumptions.effectiveInflation)) a year",
+                                      section: .assumptions)]
+        if let equity = equityReturn {
+            rows.append(PlanAssumptionRow(label: "Shares above inflation", value: "\(words.percent(equity)) a year",
+                                          section: .assumptions))
+        }
+        rows += [
+            PlanAssumptionRow(label: "Tax on investments", value: AmountSentence(tax), section: .taxes),
+            PlanAssumptionRow(label: "Target mix",
+                              value: AmountSentence(PlanTargetMixModel.summary(plan.portfolio, locale: locale)),
+                              section: .targetMix),
+            PlanAssumptionRow(label: "Plan to age", value: AmountSentence("\(plan.effectiveEndAge)"), section: .you),
+            PlanAssumptionRow(label: "Simulation", value: AmountSentence(simulation), section: .simulation),
+        ]
+        return rows
+    }
+}
+
+/// One assumption as a row: "Inflation · 2% a year". Its section says what
+/// it opens: the target mix its sheet, the rest *Assumptions…*.
+struct PlanAssumptionRow: Hashable, Identifiable {
+    var label: String
+    var value: AmountSentence
+    var section: PlanInputSection
+
+    var id: String { label }
 }
 
 /// How work phases read in rows.

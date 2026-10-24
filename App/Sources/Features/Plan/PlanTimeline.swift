@@ -264,10 +264,10 @@ enum PlanTimelineText {
         return perHundred < 1 ? "Fewer than 1 in 100 run out here" : "\(perHundred) in 100 futures run out here"
     }
 
-    /// "Your life in four chapters", "Your life in 12 chapters".
+    /// "Your four chapters", "Your 12 chapters", "Your one chapter".
     static func chapters(_ count: Int) -> String {
         let words = ["one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"]
-        if count == 1 { return "Your life in one chapter" }
-        return "Your life in \(words.indices.contains(count - 1) ? words[count - 1] : String(count)) chapters"
+        if count == 1 { return "Your one chapter" }
+        return "Your \(words.indices.contains(count - 1) ? words[count - 1] : String(count)) chapters"
     }
 }

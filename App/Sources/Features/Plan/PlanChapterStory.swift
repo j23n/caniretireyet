@@ -46,15 +46,32 @@ struct PlanChapterStory: Hashable, Sendable {
         }
 
         var segments: [Segment]
-        /// The words under it: "Pay 4.500 € · spend 3.000 €" on the left,
-        /// "save 1.500 €" on the right in the colour of `trailingRole`.
+        /// The words under it: "Spent 3.000 €" on the left, "Saved 1.500 €"
+        /// on the right, which is about `trailingRole`.
         var leading: AmountSentence
         var trailing: AmountSentence
         var trailingRole: Role?
         /// What it shows, for VoiceOver.
         var label: AmountSentence
+        /// The month in one line, under the chapter's row: "4.500 €
+        /// take-home, 3.000 € spent, 1.500 € saved a month", "3.000 € a
+        /// month from your savings", "1.900 € from pensions, 1.100 € from
+        /// savings".
+        var summary = AmountSentence()
 
         var total: Double { segments.reduce(0) { $0 + $1.value } }
+
+        /// What comes in a month: pay, or what pensions and other income pay.
+        var takeHome: Double { value(of: [.spent, .saved, .pay, .pensions, .spare]) }
+        /// What's spent a month.
+        var spending: Double { value(of: [.spent, .pay, .fromSavings, .pensions]) }
+        /// What's saved a month; below zero when it comes from savings,
+        /// the tax on what's sold included.
+        var saved: Double { value(of: [.saved, .spare]) - value(of: [.fromSavings, .tax]) }
+
+        private func value(of roles: Set<Role>) -> Double {
+            segments.filter { roles.contains($0.role) }.reduce(0) { $0 + $1.value }
+        }
     }
 
     var story: [Run]
@@ -263,21 +280,25 @@ extension PlanChapterStory {
             let spent = words.monthlyValue(spend)
             if net >= spend {
                 return Bar(segments: [Bar.Segment(value: spent, role: .spent), Bar.Segment(value: pay - spent, role: .saved)],
-                           leading: "Pay \(words.monthly(net)) · spend \(words.monthly(spend))",
-                           trailing: "save \(words.monthly(net - spend))", trailingRole: .saved,
+                           leading: "Spent \(words.monthly(spend))",
+                           trailing: "Saved \(words.monthly(net - spend))", trailingRole: .saved,
                            label: "Pay of \(words.monthly(net)) a month: \(words.monthly(spend)) spent, "
-                               + "\(words.monthly(net - spend)) saved")
+                               + "\(words.monthly(net - spend)) saved",
+                           summary: "\(words.monthly(net)) take-home, \(words.monthly(spend)) spent, "
+                               + "\(words.monthly(net - spend)) saved a month")
             }
             return Bar(segments: [Bar.Segment(value: pay, role: .pay), Bar.Segment(value: spent - pay, role: .fromSavings)],
-                       leading: "Spend \(words.monthly(spend)) · pay \(words.monthly(net))",
+                       leading: "Pay \(words.monthly(net))",
                        trailing: "\(words.monthly(spend - net)) from savings", trailingRole: .fromSavings,
                        label: "You spend \(words.monthly(spend)) a month: your pay covers \(words.monthly(net)), "
-                           + "your savings \(words.monthly(spend - net))")
+                           + "your savings \(words.monthly(spend - net))",
+                       summary: "\(words.monthly(net)) take-home, \(words.monthly(spend - net)) a month from savings")
         case .betweenWork:
             let spend = plan.spending.working
             return Bar(segments: [Bar.Segment(value: words.monthlyValue(spend), role: .fromSavings)],
-                       leading: "Spend \(words.monthly(spend))", trailing: "all from savings", trailingRole: .fromSavings,
-                       label: "\(words.monthly(spend)) a month, all from your savings")
+                       leading: "Spent \(words.monthly(spend))", trailing: "All from savings", trailingRole: .fromSavings,
+                       label: "\(words.monthly(spend)) a month, all from your savings",
+                       summary: "\(words.monthly(spend)) a month from your savings")
         case .bridge, .pensions:
             let spend = plan.spending.retired * (chapter.spendingFactor ?? 1)
             let paidPensions = PlanChapterMoney.pensionsPaid(at: chapter.years.lowerBound, plan: plan,
@@ -295,7 +316,8 @@ extension PlanChapterStory {
                 guard let tax, tax >= 1 else {
                     return Bar(segments: [Bar.Segment(value: fromSavings, role: .fromSavings)],
                                leading: "\(words.monthly(spend)) from savings", trailing: "", trailingRole: nil,
-                               label: "\(words.monthly(spend)) a month from your savings")
+                               label: "\(words.monthly(spend)) a month from your savings",
+                               summary: "\(words.monthly(spend)) a month from your savings")
                 }
                 return Bar(segments: [Bar.Segment(value: fromSavings, role: .fromSavings),
                                       Bar.Segment(value: tax, role: .tax)],
@@ -303,7 +325,9 @@ extension PlanChapterStory {
                            trailing: "\(words.amount(monthly: tax)) of it tax, on average", trailingRole: .tax,
                            label: "\(words.amount(monthly: fromSavings + tax)) a month from your savings: "
                                + "\(words.monthly(spend)) to spend and \(words.amount(monthly: tax)) of tax "
-                               + "a month on average")
+                               + "a month on average",
+                           summary: "\(words.amount(monthly: fromSavings + tax)) a month from your savings, "
+                               + "\(words.amount(monthly: tax)) of it tax")
             }
             let paid = words.monthlyValue(pensions)
             let spent = words.monthlyValue(spend)
@@ -313,14 +337,18 @@ extension PlanChapterStory {
                            leading: "\(source) \(words.monthly(pensions))",
                            trailing: "\(words.monthly(pensions - spend)) to spare", trailingRole: .spare,
                            label: "\(source) \(pays) \(words.monthly(pensions)) a month, "
-                               + "\(words.monthly(pensions - spend)) more than you spend")
+                               + "\(words.monthly(pensions - spend)) more than you spend",
+                           summary: "\(words.monthly(pensions)) from \(source.lowercased()), "
+                               + "\(words.monthly(pensions - spend)) to spare")
             }
             return Bar(segments: [Bar.Segment(value: paid, role: .pensions),
                                   Bar.Segment(value: spent - paid, role: .fromSavings)],
                        leading: "\(source) \(words.monthly(pensions))",
                        trailing: "\(words.monthly(spend - pensions)) from savings", trailingRole: .fromSavings,
                        label: "Of the \(words.monthly(spend)) you spend a month, \(source.lowercased()) \(pays) "
-                           + "\(words.monthly(pensions)) and your savings \(words.monthly(spend - pensions))")
+                           + "\(words.monthly(pensions)) and your savings \(words.monthly(spend - pensions))",
+                       summary: "\(words.monthly(pensions)) from \(source.lowercased()), "
+                           + "\(words.monthly(spend - pensions)) from savings")
         }
     }
 
