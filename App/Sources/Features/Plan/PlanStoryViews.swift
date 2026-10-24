@@ -83,6 +83,8 @@ struct PlanChapterMoneyBar: View {
         }
         .frame(height: height)
         .clipShape(Capsule())
+        // How the person's pay splits: their data, like a chart.
+        .privacySensitiveInFeedback()
         .accessibilityHidden(true)
     }
 

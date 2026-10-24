@@ -71,10 +71,13 @@ struct PlanYearChartCard: View {
                 Text(verdict)
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(PlanBaselineComparison.Standing.color(of: card.year.position))
+                    // It names the plan's month or year: "…in January".
+                    .privacySensitiveInFeedback()
             } else {
                 Text(PlanProgressText.unmeasured(card.year))
                     .font(.subheadline)
                     .foregroundStyle(Palette.mutedInk)
+                    .privacySensitiveInFeedback()
             }
         }
         .lineLimit(1)
