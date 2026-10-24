@@ -44,32 +44,34 @@ Plus the glance: "how am I doing?" in a widget or on Today.
 ```
 Today
 Timeline
+Plan                                 ← the main plan
 Check-in                       •     ← while due or under way; dot when due
 Accounts                  97.330     ← the total of the open accounts
-  All Accounts                       ← the list, with net worth and allocation
-  ▾ Cash                  12.990     ← a group, with its subtotal
+  All Accounts                 9     ← the list, with net worth and allocation
+  ▾ ● Cash                12.990     ← a group: its color dot and subtotal
       Conto deposito       8.200
       Conto Fineco      ◷  4.790     ← ◷ when the value is stale
-  ▸ Investments           71.300     ← collapsed
-  ▾ Crypto & gold         13.040
+  ▸ ● Investments         71.300     ← collapsed
+  ▾ ● Crypto & gold       13.040
       Gold coins           9.640
       Ledger wallet        3.400
   ▸ Pension · Property · Debts
-  ▸ Closed (1)                       ← collapsed at first
+  ▸ Closed                     1     ← collapsed at first
 Plans
-  Base case
-  Part-time from 50
+  Base case                   63     ← the age of its latest answer
+  Part-time from 50           62
 Library
   Import…
   Instruments
   Sync & backups
 ```
 
+- **Plan** opens the main plan, or "create your first plan" when there are none; the plan's own row under *Plans* is then selected. *Plans* lists every plan with the age of its latest answer, once there is one.
 - **Check-in** is a row while a check-in is due or under way, with a dot, and while it's selected. *New Check-in* (⌘K) starts one at any time.
 - **Accounts in the sidebar.** The accounts are in the sidebar itself, so an account is one click away and a group of one doesn't need a page of its own.
   - The *Accounts* header shows the total of the open accounts on the right: the groups' subtotals added up.
-  - *All Accounts* opens the accounts list ([Accounts](#accounts)), with net worth, its chart and the allocation at its top.
-  - Under it, a row per group that has open accounts (Cash, Investments, Crypto & gold, Pension, Property, Debts), with its subtotal on the right. It expands to the group's accounts: kind icon, name and value, with a small clock when the latest value is stale. Values and staleness are the same as in the list. *Closed (n)* expands to the closed accounts. Amounts are placeholders while they're hidden.
+  - *All Accounts* opens the accounts list ([Accounts](#accounts)), with net worth, its chart and the allocation at its top, and shows how many accounts are open.
+  - Under it, a row per group that has open accounts (Cash, Investments, Crypto & gold, Pension, Property, Debts), with its color dot and its subtotal on the right, on one line. It expands to the group's accounts: name and value, with a small clock when the latest value is stale; a long name is cut short. Values and staleness are the same as in the list. *Closed*, with its count, expands to the closed accounts. Amounts are placeholders while they're hidden.
   - Clicking a group, or its disclosure triangle, expands or collapses it; groups aren't pages. They start expanded and *Closed* collapsed, and the device remembers which are collapsed, here and in the iPhone's accounts list alike ([Accounts](#accounts)).
   - Selecting an account shows its detail in the content area; the arrow keys move from account to account. Opening an account from elsewhere in the app selects its row and expands its group.
   - The sidebar follows the library, also when it changes on the other device: a new account appears under its group, a selected account that's closed moves under *Closed* and stays selected, and one that's deleted gives way to *All Accounts*.
