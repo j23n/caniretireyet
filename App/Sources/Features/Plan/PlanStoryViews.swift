@@ -44,7 +44,8 @@ struct PlanStoryText: View {
     }
 }
 
-/// A part's name in a chapter's words: "What happens", "A month".
+/// A group's name above its card, as grouped lists write it: "ALONG THE
+/// WAY, TYPICALLY", "IN THIS CHAPTER".
 struct PlanPartLabel: View {
     let title: String
 
@@ -54,91 +55,114 @@ struct PlanPartLabel: View {
 
     var body: some View {
         Text(title)
-            .font(.caption.weight(.semibold))
+            .font(.footnote)
             .foregroundStyle(Palette.secondaryInk)
             .textCase(.uppercase)
+            .lineLimit(1)
+            .padding(.horizontal, Metrics.xs)
             .accessibilityAddTraits(.isHeader)
     }
 }
 
-/// A month's money as one bar, with its words under it ("Pay 4.500 € ·
-/// spend 3.000 €" and "save 1.500 €"). Bars share `maximum`, so a month
-/// in one chapter reads against another's.
-struct PlanMonthBarView: View {
+/// A month's money as one bar of parts, each as wide as its share of the
+/// month: spent and saved while working, what pensions pay and what comes
+/// from savings once retired, striped. The chapters' rows draw it thin; a
+/// chapter's own card draws it with its words (``PlanMonthBarView``).
+struct PlanChapterMoneyBar: View {
     let bar: PlanChapterStory.Bar
-    /// The largest total of the bars shown together.
-    let maximum: Double
-
-    @Environment(\.redactionReasons) private var redactionReasons
+    var height: CGFloat = 8
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Metrics.xs) {
-            PlanPartLabel("A month")
-            GeometryReader { proxy in
-                HStack(spacing: 2) {
-                    ForEach(Array(bar.segments.enumerated()), id: \.offset) { _, segment in
-                        Rectangle()
-                            .fill(Self.color(segment.role))
-                            .frame(width: max(2, proxy.size.width * share(segment.value)))
-                    }
+        GeometryReader { proxy in
+            HStack(spacing: 0) {
+                ForEach(Array(bar.segments.enumerated()), id: \.offset) { _, segment in
+                    Self.fill(segment.role)
+                        .frame(width: max(0, proxy.size.width * share(segment.value)))
                 }
             }
-            .frame(height: 12)
-            .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
-            // Side by side when both fit on one line; else the trailing
-            // words go under the leading ones.
-            ViewThatFits(in: .horizontal) {
-                HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
-                    leadingText
-                    Spacer(minLength: Metrics.s)
-                    trailingText
-                }
-                VStack(alignment: .leading, spacing: 2) {
-                    leadingText
-                    trailingText
-                }
-            }
-            .font(.footnote)
         }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(Text(verbatim: bar.label.spoken(hidesAmounts: redactionReasons.hidesAmounts)))
-    }
-
-    private var leadingText: some View {
-        AmountSentenceText(bar.leading)
-            .foregroundStyle(Palette.ink)
-    }
-
-    private var trailingText: some View {
-        AmountSentenceText(bar.trailing)
-            .fontWeight(.semibold)
-            .foregroundStyle(bar.trailingRole.map(Self.textColor) ?? Palette.secondaryInk)
+        .frame(height: height)
+        .clipShape(Capsule())
+        .accessibilityHidden(true)
     }
 
     private func share(_ value: Double) -> CGFloat {
-        guard maximum > 0 else { return 0 }
-        return CGFloat(min(1, max(0, value / maximum)))
+        let total = bar.total
+        guard total > 0 else { return 0 }
+        return CGFloat(min(1, max(0, value / total)))
+    }
+
+    /// A part's fill: what comes from savings is striped in orange.
+    @ViewBuilder
+    static func fill(_ role: PlanChapterStory.Bar.Role) -> some View {
+        switch role {
+        case .fromSavings:
+            Rectangle()
+                .fill(Palette.orange.opacity(0.3))
+                .overlay { PlanStripes().fill(Palette.orange.opacity(0.75)) }
+                .clipped()
+        default:
+            Rectangle()
+                .fill(color(role))
+        }
     }
 
     static func color(_ role: PlanChapterStory.Bar.Role) -> Color {
         switch role {
-        case .spent, .pay: Palette.gridline
+        case .spent, .pay: Palette.accent.opacity(0.45)
         case .saved: Palette.accent
-        case .fromSavings: Palette.orange
+        case .fromSavings: Palette.orange.opacity(0.6)
         case .tax: Palette.orangeStroke
-        case .pensions: Palette.violet
+        case .pensions: Palette.violet.opacity(0.55)
         case .spare: Palette.green
         }
     }
+}
 
-    static func textColor(_ role: PlanChapterStory.Bar.Role) -> Color {
-        switch role {
-        case .spent, .pay: Palette.secondaryInk
-        case .saved: Palette.accent
-        case .fromSavings, .tax: Palette.orangeStroke
-        case .pensions: Palette.violet
-        case .spare: Palette.positive
+/// Diagonal stripes, for what comes from savings.
+struct PlanStripes: Shape {
+    /// From one stripe to the next.
+    var spacing: CGFloat = 8
+
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let rise = rect.height
+        var x = rect.minX - rise
+        while x < rect.maxX {
+            path.move(to: CGPoint(x: x, y: rect.maxY))
+            path.addLine(to: CGPoint(x: x + rise, y: rect.minY))
+            path.addLine(to: CGPoint(x: x + rise + spacing / 2, y: rect.minY))
+            path.addLine(to: CGPoint(x: x + spacing / 2, y: rect.maxY))
+            path.closeSubpath()
+            x += spacing
         }
+        return path
+    }
+}
+
+/// A month's money as a bar with its words under it, each on one line:
+/// "Spent 3.000 €" on the left, "Saved 2.100 €" on the right.
+struct PlanMonthBarView: View {
+    let bar: PlanChapterStory.Bar
+
+    @Environment(\.redactionReasons) private var redactionReasons
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            PlanChapterMoneyBar(bar: bar, height: 10)
+            HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
+                AmountSentenceText(bar.leading)
+                    .lineLimit(1)
+                Spacer(minLength: Metrics.s)
+                AmountSentenceText(bar.trailing)
+                    .lineLimit(1)
+                    .layoutPriority(1)
+            }
+            .font(.footnote)
+            .foregroundStyle(Palette.secondaryInk)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text(verbatim: bar.label.spoken(hidesAmounts: redactionReasons.hidesAmounts)))
     }
 }
 
@@ -168,14 +192,15 @@ enum PlanChapterColors {
         switch style {
         case .working: Palette.mutedInk
         case .notWorking: Palette.secondaryInk
-        case .bridge: Palette.orange
+        case .bridge: Palette.orangeStroke
         case .pensions: Palette.violet
-        case .later: Palette.violet.opacity(0.55)
+        case .later: Palette.violet.opacity(0.6)
         }
     }
 }
 
-/// A chapter's number in a circle of its colour.
+/// A chapter's number, white in a circle of its colour; in the accent when
+/// it's the chosen one.
 struct PlanChapterBadge: View {
     let number: Int
     let style: PlanChaptersModel.Style
@@ -183,11 +208,11 @@ struct PlanChapterBadge: View {
 
     var body: some View {
         Text(verbatim: "\(number)")
-            .font(.caption.weight(.bold))
+            .font(.footnote.weight(.semibold))
             .monospacedDigit()
-            .foregroundStyle(isSelected ? Color.white : Palette.ink)
-            .frame(width: 22, height: 22)
-            .background(isSelected ? Palette.accent : PlanChapterColors.color(style).opacity(0.3), in: Circle())
+            .foregroundStyle(Color.white)
+            .frame(width: 24, height: 24)
+            .background(isSelected ? Palette.accent : PlanChapterColors.color(style), in: Circle())
             .accessibilityHidden(true)
     }
 }
