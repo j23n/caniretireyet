@@ -68,7 +68,8 @@ struct OnboardingScreen: View {
             }
             .scrollBounceBehavior(.basedOnSize)
             .background(Palette.page)
-            .safeAreaInset(edge: .bottom) { buttons }
+            .safeAreaInset(edge: .top, spacing: 0) { stepCount }
+            .safeAreaInset(edge: .bottom, spacing: 0) { buttons }
             .navigationDestination(for: Destination.self) { destination in
                 switch destination {
                 case .importFile:
@@ -130,6 +131,29 @@ struct OnboardingScreen: View {
 
     // MARK: Buttons
 
+    /// "Step 4 of 6" over a thin bar, at the top of every step after the
+    /// welcome.
+    @ViewBuilder
+    private var stepCount: some View {
+        if let number = model.step.number {
+            VStack(alignment: .leading, spacing: Metrics.xs) {
+                Text("Step \(number) of \(OnboardingStep.count)")
+                    .font(.footnote)
+                    .foregroundStyle(Palette.secondaryInk)
+                    .monospacedDigit()
+                ProgressView(value: Double(number), total: Double(OnboardingStep.count))
+                    .tint(Palette.accent)
+                    .accessibilityHidden(true)
+            }
+            .padding(.horizontal, Metrics.xl)
+            .padding(.vertical, Metrics.s)
+            .frame(maxWidth: showsEstimate ? 900 : 560, alignment: .leading)
+            .frame(maxWidth: .infinity)
+            .background(Palette.page)
+        }
+    }
+
+    /// *Back* and the step's primary button, along the bottom.
     private var buttons: some View {
         HStack(spacing: Metrics.m) {
             if let previous = model.previousStep(in: library.library,
@@ -137,20 +161,18 @@ struct OnboardingScreen: View {
                 Button("Back") {
                     withAnimation { model.step = previous }
                 }
+                .buttonStyle(.bordered)
                 .disabled(model.isCreating)
-            }
-            Spacer()
-            if let number = model.step.number {
-                Text("Step \(number) of \(OnboardingStep.count)")
-                    .font(.footnote)
-                    .foregroundStyle(Palette.secondaryInk)
-                    .monospacedDigit()
             }
             Spacer()
             primaryButton
         }
-        .padding(Metrics.l)
-        .background(.bar)
+        .controlSize(.large)
+        .padding(.horizontal, Metrics.xl)
+        .padding(.vertical, Metrics.m)
+        .frame(maxWidth: showsEstimate ? 900 : 560)
+        .frame(maxWidth: .infinity)
+        .background(Palette.page)
     }
 
     @ViewBuilder
@@ -181,7 +203,7 @@ struct OnboardingScreen: View {
             .keyboardShortcut(.defaultAction)
             .disabled(model.isCreating || !model.canContinue)
         case .answer:
-            Button("Continue") { advance() }
+            Button(model.openedExistingLibrary ? "Continue" : "Add Your Accounts") { advance() }
                 .buttonStyle(.borderedProminent)
                 .keyboardShortcut(.defaultAction)
         case .files:
@@ -215,11 +237,7 @@ extension View {
     func onboardingCard() -> some View {
         padding(Metrics.l)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Palette.card, in: RoundedRectangle(cornerRadius: Metrics.cardRadius, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: Metrics.cardRadius, style: .continuous)
-                    .strokeBorder(Palette.border, lineWidth: 1)
-            }
+            .cardSurface()
     }
 }
 

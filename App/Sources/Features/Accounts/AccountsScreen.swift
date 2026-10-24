@@ -4,32 +4,31 @@ import Tracker
 
 /// The account list, grouped, with subtotals (UI.md, "Accounts").
 ///
-/// - Header: net worth today with its changes, the history chart and the
-///   allocation (``AccountsHeader``).
-/// - Groups: Cash, Investments, Crypto & gold, Pension, Property, Debts,
-///   each with its subtotal.
-/// - Rows: kind icon, name, institution, a 12-month sparkline, the value,
-///   and a "Stale" badge when the latest value is too old (not for an
-///   account that holds nothing: ``AccountStaleness``).
-/// - Swipe: *Close*; right-click also *Edit Account…*. Closed accounts sit
-///   in a "Closed (n)" section at the bottom.
-/// - Tapping a section's header collapses or expands it, chevron turning.
-///   The groups start expanded and *Closed* collapsed; the device remembers
-///   which are collapsed, shared with the sidebar's groups
+/// - Header: one card with net worth today, its changes, its chart and
+///   what you own (``AccountsHeader``).
+/// - Groups: Cash, Investments, Crypto & gold, Pension, Property, Debts.
+///   An expanded group is a card of its own, its name and subtotal at the
+///   top; collapsed groups next to each other share one card, a row each
+///   with the subtotal (``AccountList/cards(isExpanded:)``).
+/// - Rows: the name and the institution on one line, a clock when the
+///   latest value is too old (not for an account that holds nothing:
+///   ``AccountStaleness``), and the value on the right, on one line.
+/// - Swipe (iPhone): *Close*; the context menu also has *Edit Account…*.
+///   Closed accounts sit under *Closed* at the bottom.
+/// - Tapping a group's name collapses it, and tapping a collapsed group's
+///   row expands it. The groups start expanded and *Closed* collapsed; the
+///   device remembers which are collapsed, shared with the sidebar's groups
 ///   (`AppPreferences.collapsedAccountFolders`).
 /// - Search by name, institution, kind, tags or notes. While searching every
-///   section is expanded, so no result is hidden.
+///   group is expanded, so no result is hidden.
 ///
-/// A header `Button` collapses a section rather than `Section(isExpanded:)`,
-/// which only draws its disclosure in the `.sidebar` list style: that style
-/// would restyle the list (and on the Mac, where this is the content column,
-/// make it a second sidebar), while the button works the same in any list
-/// style, keeps the subtotal header, and lets a search show everything.
+/// On iPhone and iPad it's a grouped `List`, whose sections are the cards
+/// and which gives the rows their swipe actions; on the Mac, where a list
+/// draws no cards, it's a scrolling page of cards.
 struct AccountsScreen: View {
     @Environment(LibraryStore.self) private var library
     @Environment(AppNavigation.self) private var navigation
     @Environment(AppPreferences.self) private var preferences
-    @Environment(\.locale) private var locale
     @State private var query = ""
     @State private var action: AccountAction?
     @State private var errorMessage = ""
@@ -40,88 +39,180 @@ struct AccountsScreen: View {
 
     var body: some View {
         let list = AccountList(library: library.library, valuator: library.valuator, query: query, today: .today(),
-                               stalenessThreshold: preferences.stalenessThreshold)
-        let widest = list.widestValue(currency: library.baseCurrency, locale: locale)
-        // While searching, every section is expanded and none collapses, so no result is hidden.
+                               stalenessThreshold: preferences.stalenessThreshold, includesSparklines: false)
+        // While searching, every group is expanded and none collapses, so no result is hidden.
         let isCollapsible = !AccountList.isSearching(query)
+        let cards = list.cards { folder in !isCollapsible || preferences.isExpanded(folder) }
+        content(cards, showsHeader: query.isEmpty && list.openCount > 0, isCollapsible: isCollapsible)
+            .searchable(text: $query, prompt: "Search accounts")
+            .overlay {
+                emptyState(list)
+            }
+            .navigationTitle("Accounts")
+            .toolbar {
+                if navigation.layout == .tabs {
+                    ToolbarItem(placement: .primaryAction) {
+                        Menu {
+                            Button {
+                                navigation.startImport()
+                            } label: {
+                                Label("Import Files…", systemImage: AppSymbol.importData)
+                            }
+                            .disabled(!library.canEdit)
+                            Button {
+                                showsInstruments = true
+                            } label: {
+                                Label("Instruments", systemImage: AppSymbol.instruments)
+                            }
+                        } label: {
+                            Label("More", systemImage: "ellipsis")
+                        }
+                    }
+                }
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        navigation.newAccount()
+                    } label: {
+                        Label("New Account", systemImage: "plus")
+                    }
+                    .disabled(!library.canEdit)
+                }
+            }
+            .navigationDestination(isPresented: $showsInstruments) {
+                InstrumentsScreen()
+            }
+            .sheet(item: $action) { action in
+                AccountActionSheet(action: action)
+            }
+            .alert("Couldn't change the account", isPresented: $showsError) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(errorMessage)
+            }
+    }
+
+    // MARK: Layouts
+
+    @ViewBuilder
+    private func content(_ cards: [AccountListCard], showsHeader: Bool, isCollapsible: Bool) -> some View {
+        #if os(macOS)
+        ScrollView {
+            VStack(alignment: .leading, spacing: Metrics.l) {
+                if showsHeader {
+                    AccountsHeader()
+                        .padding(.horizontal, Metrics.l)
+                        .padding(.vertical, Metrics.m)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .cardSurface()
+                }
+                ForEach(cards) { card in
+                    pageCard(card, isCollapsible: isCollapsible)
+                }
+            }
+            .padding(Metrics.xl)
+            .frame(maxWidth: Metrics.readableWidth, alignment: .leading)
+            .frame(maxWidth: .infinity)
+        }
+        .background(Palette.page)
+        #else
         List {
-            if query.isEmpty && list.openCount > 0 {
+            if showsHeader {
                 Section {
                     AccountsHeader()
-                } footer: {
-                    Text(Wording.count(list.openCount, "open account"))
                 }
             }
-            ForEach(list.sections) { section in
-                let folder = SidebarAccountFolder.group(section.group)
-                let isExpanded = !isCollapsible || preferences.isExpanded(folder)
-                Section {
-                    if isExpanded {
-                        ForEach(section.items) { item in
-                            openRow(item, widestValue: widest)
-                        }
-                    }
-                } header: {
-                    AccountSectionHeader(title: section.group.description, subtotal: section.subtotal,
-                                         isExpanded: isExpanded, toggle: isCollapsible ? { toggle(folder) } : nil)
-                }
-            }
-            closedSection(list, isCollapsible: isCollapsible, widestValue: widest)
-        }
-        .searchable(text: $query, prompt: "Search accounts")
-        .overlay {
-            emptyState(list)
-        }
-        .navigationTitle("Accounts")
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button {
-                    navigation.newAccount()
-                } label: {
-                    Label("New Account", systemImage: "plus")
-                }
-                .disabled(!library.canEdit)
-            }
-            if navigation.layout == .tabs {
-                ToolbarItem(placement: .primaryAction) {
-                    Menu {
-                        Button {
-                            navigation.startImport()
-                        } label: {
-                            Label("Import Files…", systemImage: AppSymbol.importData)
-                        }
-                        .disabled(!library.canEdit)
-                        Button {
-                            showsInstruments = true
-                        } label: {
-                            Label("Instruments", systemImage: AppSymbol.instruments)
-                        }
-                    } label: {
-                        Label("More", systemImage: "ellipsis.circle")
-                    }
-                }
+            ForEach(cards) { card in
+                listSection(card, isCollapsible: isCollapsible)
             }
         }
-        .navigationDestination(isPresented: $showsInstruments) {
-            InstrumentsScreen()
-        }
-        .sheet(item: $action) { action in
-            AccountActionSheet(action: action)
-        }
-        .alert("Couldn't change the account", isPresented: $showsError) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text(errorMessage)
+        .listSectionSpacing(.compact)
+        .environment(\.defaultMinListRowHeight, 28)
+        #endif
+    }
+
+    #if os(macOS)
+    /// A card on the Mac's page: the rows with a hairline between them.
+    @ViewBuilder
+    private func pageCard(_ card: AccountListCard, isCollapsible: Bool) -> some View {
+        switch card {
+        case .group(let section):
+            let folder = SidebarAccountFolder.group(section.group)
+            AccountsCard {
+                AccountCardHeader(title: section.group.description, subtotal: section.subtotal,
+                                  toggle: isCollapsible ? { toggle(folder) } : nil)
+                    .padding(.top, Metrics.m)
+                    .padding(.bottom, Metrics.xs)
+            } rows: {
+                ForEach(section.items) { item in
+                    openRow(item)
+                }
+            }
+        case .collapsed(let rows):
+            AccountsCard {
+                EmptyView()
+            } rows: {
+                ForEach(rows) { row in
+                    folderRow(row)
+                        .padding(.vertical, Metrics.m)
+                }
+            }
+        case .closed(let items):
+            AccountsCard {
+                AccountCardHeader(title: "Closed", count: items.count,
+                                  toggle: isCollapsible ? { toggle(.closed) } : nil)
+                    .padding(.top, Metrics.m)
+                    .padding(.bottom, Metrics.xs)
+            } rows: {
+                ForEach(items) { item in
+                    closedRow(item)
+                }
+            }
         }
     }
+    #else
+    /// A section of the iPhone's list, which draws it as a card.
+    @ViewBuilder
+    private func listSection(_ card: AccountListCard, isCollapsible: Bool) -> some View {
+        switch card {
+        case .group(let section):
+            let folder = SidebarAccountFolder.group(section.group)
+            Section {
+                AccountCardHeader(title: section.group.description, subtotal: section.subtotal,
+                                  toggle: isCollapsible ? { toggle(folder) } : nil)
+                    .listRowSeparator(.hidden, edges: .bottom)
+                ForEach(section.items) { item in
+                    openRow(item)
+                }
+            }
+        case .collapsed(let rows):
+            Section {
+                ForEach(rows) { row in
+                    folderRow(row)
+                }
+            }
+        case .closed(let items):
+            Section {
+                AccountCardHeader(title: "Closed", count: items.count,
+                                  toggle: isCollapsible ? { toggle(.closed) } : nil)
+                    .listRowSeparator(.hidden, edges: .bottom)
+                ForEach(items) { item in
+                    closedRow(item)
+                }
+            }
+        }
+    }
+    #endif
 
     // MARK: Rows
 
-    private func openRow(_ item: AccountListItem, widestValue: Decimal?) -> some View {
+    private func openRow(_ item: AccountListItem) -> some View {
         let id = item.account.id
         return NavigationLink(value: id) {
-            AccountListRow(item: item, widestValue: widestValue)
+            accountRow(item)
         }
+        #if os(macOS)
+        .buttonStyle(.plain)
+        #else
         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
             Button {
                 action = AccountAction(.close, id)
@@ -130,6 +221,7 @@ struct AccountsScreen: View {
             }
             .tint(Palette.mutedInk)
         }
+        #endif
         .contextMenu {
             Button {
                 action = AccountAction(.edit, id)
@@ -144,11 +236,14 @@ struct AccountsScreen: View {
         }
     }
 
-    private func closedRow(_ item: AccountListItem, widestValue: Decimal?) -> some View {
+    private func closedRow(_ item: AccountListItem) -> some View {
         let id = item.account.id
         return NavigationLink(value: id) {
-            AccountListRow(item: item, widestValue: widestValue)
+            accountRow(item)
         }
+        #if os(macOS)
+        .buttonStyle(.plain)
+        #else
         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
             Button {
                 reopen(id)
@@ -157,6 +252,7 @@ struct AccountsScreen: View {
             }
             .tint(Palette.accent)
         }
+        #endif
         .contextMenu {
             Button {
                 reopen(id)
@@ -166,22 +262,30 @@ struct AccountsScreen: View {
         }
     }
 
-    /// The closed accounts, under a collapsible *Closed (n)* header.
+    /// An account's row: on the Mac with its chevron and the card's row
+    /// height, as a plain button; the iPhone's list adds those itself.
     @ViewBuilder
-    private func closedSection(_ list: AccountList, isCollapsible: Bool, widestValue: Decimal?) -> some View {
-        if !list.closed.isEmpty {
-            let isExpanded = !isCollapsible || preferences.isExpanded(.closed)
-            Section {
-                if isExpanded {
-                    ForEach(list.closed) { item in
-                        closedRow(item, widestValue: widestValue)
-                    }
-                }
-            } header: {
-                AccountSectionHeader(title: list.closedTitle, isExpanded: isExpanded,
-                                     toggle: isCollapsible ? { toggle(.closed) } : nil)
-            }
+    private func accountRow(_ item: AccountListItem) -> some View {
+        #if os(macOS)
+        AccountListRow(item: item, showsChevron: true)
+            .padding(.vertical, Metrics.m)
+            .frame(minHeight: 44)
+            .contentShape(Rectangle())
+        #else
+        AccountListRow(item: item)
+        #endif
+    }
+
+    /// A collapsed group's row, or *Closed*'s: tapping it expands it.
+    private func folderRow(_ row: AccountListFolderRow) -> some View {
+        Button {
+            toggle(row.folder)
+        } label: {
+            AccountFolderRow(row: row)
         }
+        .buttonStyle(.plain)
+        .accessibilityValue("Collapsed")
+        .accessibilityHint("Shows its accounts")
     }
 
     /// Expands or collapses a group, or *Closed*: here, in the sidebar, and
@@ -221,103 +325,157 @@ struct AccountsScreen: View {
 
 // MARK: - Rows
 
-/// A section's header: a group's name and subtotal, or *Closed (n)*. With
-/// `toggle`, a tap anywhere on it expands or collapses the section, and a
-/// chevron on the right points down while it's expanded, in the column of
-/// the rows' disclosure chevrons on iPhone, so the subtotal stays over the
-/// amounts.
-private struct AccountSectionHeader: View {
+/// The Mac's card of rows: an optional header, then the rows with a
+/// hairline between them.
+private struct AccountsCard<Header: View, Rows: View>: View {
+    @ViewBuilder var header: Header
+    @ViewBuilder var rows: Rows
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            header
+            Group(subviews: rows) { subviews in
+                ForEach(subviews) { row in
+                    if row.id != subviews.first?.id {
+                        Divider()
+                    }
+                    row
+                }
+            }
+        }
+        .padding(.horizontal, Metrics.l)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .cardSurface()
+    }
+}
+
+/// The top of an expanded group's card: its name in small capitals and its
+/// subtotal, or *Closed* and its count. With `toggle`, tapping it
+/// collapses the group.
+private struct AccountCardHeader: View {
     let title: String
     var subtotal: Decimal?
-    let isExpanded: Bool
-    /// Expands or collapses the section; `nil` when it doesn't collapse
-    /// (while searching).
+    var count: Int?
+    /// Collapses the group; `nil` when it doesn't collapse (while searching).
     var toggle: (() -> Void)?
 
     var body: some View {
         if let toggle {
             Button(action: toggle) {
-                titleAndSubtotal
+                titleAndTotal
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .accessibilityAddTraits(.isHeader)
-            .accessibilityValue(isExpanded ? "Expanded" : "Collapsed")
+            .accessibilityValue("Expanded")
+            .accessibilityHint("Hides its accounts")
         } else {
-            titleAndSubtotal
-                .accessibilityElement(children: .combine)
+            titleAndTotal
                 .accessibilityAddTraits(.isHeader)
         }
     }
 
-    private var titleAndSubtotal: some View {
-        HStack(spacing: Metrics.s) {
+    private var titleAndTotal: some View {
+        HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
             Text(title)
+                .textCase(.uppercase)
+                .lineLimit(1)
             Spacer(minLength: Metrics.s)
             if let subtotal {
                 AmountText(subtotal)
-            }
-            if toggle != nil {
-                Image(systemName: "chevron.right")
-                    .font(.footnote.weight(.semibold))
-                    .rotationEffect(.degrees(isExpanded ? 90 : 0))
-                    .frame(width: 16)
-                    .accessibilityHidden(true)
+                    .lineLimit(1)
+                    .fixedSize()
+            } else if let count {
+                Text(count, format: .number)
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    .fixedSize()
             }
         }
-        .font(.subheadline.weight(.semibold))
-        .textCase(nil)
+        .font(.footnote)
+        .foregroundStyle(Palette.secondaryInk)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .combine)
     }
 }
 
-/// One account in a list: kind icon, name, institution (or closing date),
-/// a "Stale" badge, a 12-month sparkline and the value. The sparkline and
-/// the value keep their width; a long name or institution truncates.
-struct AccountListRow: View {
-    let item: AccountListItem
-    /// The list's widest value: the amount reserves its width, so amounts
-    /// and sparklines line up from row to row.
-    var widestValue: Decimal?
+/// A collapsed group's row, or *Closed*'s: its name, a clock when one of
+/// its accounts is stale, then its subtotal (or count) in gray and a
+/// chevron, on one line.
+private struct AccountFolderRow: View {
+    let row: AccountListFolderRow
 
     var body: some View {
-        HStack(spacing: Metrics.m) {
-            Image(systemName: item.account.kind.systemImage)
-                .foregroundStyle(Palette.accent)
-                .frame(width: 28)
-                .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(item.account.name)
-                    .foregroundStyle(Palette.ink)
-                    .lineLimit(1)
-                    .privacySensitiveInFeedback()
-                HStack(spacing: Metrics.xs) {
-                    if let subtitle {
-                        Text(subtitle)
-                            .lineLimit(1)
-                            .privacySensitiveInFeedback()
-                    }
-                    if item.stale != nil {
-                        AccountStaleBadge()
-                            .fixedSize()
-                    }
-                }
-                .font(.caption)
-                .foregroundStyle(Palette.secondaryInk)
+        HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
+            Text(row.title)
+                .foregroundStyle(Palette.ink)
+                .lineLimit(1)
+            if row.isStale {
+                AccountStaleClock()
             }
             Spacer(minLength: Metrics.s)
-            Sparkline(points: item.sparkline)
-            // Offered its width first, so a long name truncates instead.
-            ZStack(alignment: .trailing) {
-                if let widestValue {
-                    AmountText(widestValue)
-                        .hidden()
-                        .accessibilityHidden(true)
+            Group {
+                if let subtotal = row.subtotal {
+                    AmountText(subtotal)
+                } else {
+                    Text(row.count, format: .number)
+                        .monospacedDigit()
                 }
-                AmountText(item.value)
-                    .foregroundStyle(Palette.ink)
             }
+            .foregroundStyle(Palette.secondaryInk)
             .lineLimit(1)
+            .fixedSize()
             .layoutPriority(1)
+            Image(systemName: "chevron.right")
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(Palette.mutedInk)
+                .accessibilityHidden(true)
+        }
+        .frame(maxWidth: .infinity, minHeight: 28, alignment: .leading)
+        .contentShape(Rectangle())
+        .accessibilityElement(children: .combine)
+    }
+}
+
+/// One account in a list: its name and its institution (or closing date)
+/// on one line, a clock when the latest value is stale, and its value on
+/// the right. The value keeps its width and never wraps; the institution
+/// gives way first, then the name.
+struct AccountListRow: View {
+    let item: AccountListItem
+    /// Draws a chevron after the value: on the Mac, where the row isn't a
+    /// list's.
+    var showsChevron = false
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
+            Text(item.account.name)
+                .foregroundStyle(Palette.ink)
+                .lineLimit(1)
+                .layoutPriority(1)
+                .privacySensitiveInFeedback()
+            if item.stale != nil {
+                AccountStaleClock()
+            }
+            if let subtitle {
+                Text(subtitle)
+                    .font(.subheadline)
+                    .foregroundStyle(Palette.secondaryInk)
+                    .lineLimit(1)
+                    .privacySensitiveInFeedback()
+            }
+            Spacer(minLength: Metrics.s)
+            AmountText(item.value)
+                .foregroundStyle(Palette.ink)
+                .lineLimit(1)
+                .fixedSize()
+                .layoutPriority(2)
+            if showsChevron {
+                Image(systemName: "chevron.right")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(Palette.mutedInk)
+                    .accessibilityHidden(true)
+            }
         }
         .accessibilityElement(children: .combine)
     }
@@ -327,6 +485,18 @@ struct AccountListRow: View {
             return "Closed \(AmountFormat.mediumDate(closed))"
         }
         return item.account.institution
+    }
+}
+
+/// The small clock after a name whose latest value is older than the
+/// staleness threshold.
+struct AccountStaleClock: View {
+    var body: some View {
+        Image(systemName: "clock")
+            .font(.footnote)
+            .foregroundStyle(Palette.warning)
+            .help("Stale: the latest value is too old")
+            .accessibilityLabel("Stale")
     }
 }
 

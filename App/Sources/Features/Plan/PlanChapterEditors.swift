@@ -22,19 +22,10 @@ struct PlanOutsideCard: View {
     @Environment(LibraryStore.self) private var library
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Metrics.s) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Outside the plan's years")
-                    .font(.headline)
-                    .foregroundStyle(Palette.ink)
-                    .accessibilityAddTraits(.isHeader)
-                Text("These apply in no year the plan runs: before it starts, after it ends, or without an age.")
-                    .font(.footnote)
-                    .foregroundStyle(Palette.mutedInk)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
+        VStack(alignment: .leading, spacing: 6) {
+            PlanPartLabel("Outside the plan's years")
             PlanSettingsList(rows: PlanChapterSettings.rows(for: model.chapters.outside, model: model, issues: issues,
-                                                            words: words),
+                                                            words: words, namesWork: true),
                              plan: $plan, model: model, canEdit: library.canEdit, onSheet: onOpen)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -55,9 +46,9 @@ struct PlanNoChapters: View {
                 .font(.subheadline)
                 .personalControl()
         }
-        .padding(Metrics.m)
+        .padding(Metrics.l)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Palette.card, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .cardSurface()
     }
 }
 
@@ -74,9 +65,9 @@ struct PlanChaptersNeedBirthDate: View {
                 .fixedSize(horizontal: false, vertical: true)
             PlanBirthDateEditor()
         }
-        .padding(Metrics.m)
+        .padding(Metrics.l)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Palette.card, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .cardSurface()
     }
 }
 
@@ -99,9 +90,9 @@ struct PlanUnplacedIssues: View {
                     PlanIssueLine(issue)
                 }
             }
-            .padding(Metrics.m)
+            .padding(Metrics.l)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Palette.card, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .cardSurface()
         }
     }
 }
@@ -147,10 +138,71 @@ struct PlanChapterAddMenu: View {
                 editing = .event(index: plan.events.count, event: model.newEvent(in: chapter))
             }
         } label: {
-            Label("Add to this chapter", systemImage: "plus")
-                .font(.subheadline)
+            Text("Add to This Chapter")
+                .font(.body)
+                .foregroundStyle(Palette.accent)
+                .lineLimit(1)
+                .frame(maxWidth: .infinity, minHeight: 44)
+                .background(Palette.card, in: Capsule())
+                .contentShape(Capsule())
         }
-        .fixedSize()
+        .menuStyle(.button)
+        .buttonStyle(.plain)
+        .menuIndicator(.hidden)
+    }
+}
+
+/// *Add* beside the chapters' title: something new in the chapter it
+/// starts in. A work phase in the last chapter you work in, a pension or a
+/// later phase of spending in the first retired one, a contribution and an
+/// event in the first, other income from when work stops. Each opens its
+/// sheet, which adds nothing until *Done*.
+struct PlanAddMenu<MenuLabel: View>: View {
+    let model: PlanChaptersModel
+    let plan: PlanDocument
+    @Binding var editing: PlanEditTarget?
+    @ViewBuilder var label: MenuLabel
+
+    @Environment(LibraryStore.self) private var library
+
+    var body: some View {
+        let chapters = model.chapters.chapters
+        let working = chapters.last { !$0.isRetired }
+        let retired = chapters.first { $0.isRetired }
+        Menu {
+            if let working {
+                Button("Work Phase") {
+                    editing = .work(index: plan.work.count, phase: model.newWorkPhase(in: working))
+                }
+            }
+            if let retired {
+                Button("Pension") {
+                    editing = .pension(index: plan.pensions.count, pension: model.newPension(in: retired))
+                }
+                Button("Later Spending") {
+                    editing = .spendingPhase(index: plan.spending.phases.count,
+                                             phase: model.newSpendingPhase(in: retired))
+                }
+            }
+            if let first = chapters.first {
+                Button("Other Income") {
+                    editing = .income(index: plan.income.count, income: model.newIncome(in: retired ?? first))
+                }
+                Button("Contribution") {
+                    if let contribution = model.newContribution(in: first, library: library.library) {
+                        editing = .contribution(index: plan.contributions.count, contribution: contribution)
+                    }
+                }
+                .disabled(first.isRetired || PlanEditing.contributionAccounts(in: library.library).isEmpty)
+                Button("Event") {
+                    editing = .event(index: plan.events.count, event: model.newEvent(in: first))
+                }
+            }
+        } label: {
+            label
+        }
+        .menuIndicator(.hidden)
+        .disabled(chapters.isEmpty || !library.canEdit)
     }
 }
 

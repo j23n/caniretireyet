@@ -407,8 +407,7 @@ struct ChartLegendRow: View {
             }
             .fixedSize()
             VStack(alignment: .leading, spacing: Metrics.xs) {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 104), spacing: Metrics.m, alignment: .leading)],
-                          alignment: .leading, spacing: Metrics.xs) {
+                FlowRows {
                     ForEach(items) { item in
                         ChartLegendLabel(item: item)
                     }

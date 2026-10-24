@@ -7,25 +7,26 @@ import Tracker
 ///
 ///     Today
 ///     Timeline
+///     Plan                                ← the main plan, or "create a plan"
 ///     Check-in                      •     ← only while one is due or under way
-///     Accounts             97.330     ← the total of the open accounts; All Accounts
-///       ▾ Cash                 12.990     ← a group and its subtotal
+///     Accounts             97.330     ← the total of the open accounts
+///       All Accounts            9         ← how many are open
+///       ▾ ● Cash               12.990     ← a group's dot and subtotal
 ///           Conto deposito      8.200
 ///           Conto Fineco     ◷  4.790     ← ◷ when the value is stale
-///       ▸ Investments          71.300     ← collapsed
-///       ▾ Crypto & gold        13.040
-///           Gold coins          9.640
-///           Ledger wallet       3.400
+///       ▸ ● Investments        71.300     ← collapsed
 ///       …
-///       ▸ Closed (1)                      ← collapsed at first
-///     Plans
-///       Base case …                       ← "Create a plan" when there are none
+///       ▸ Closed                    1     ← collapsed at first
+///     Plans                               ← when there are plans
+///       Base case                  63     ← the age of its latest answer
 ///     Library
 ///       Import… · Instruments · Sync & backups
 ///
 /// - Selecting an account shows its detail in the content area, in a stack
 ///   of its own (`SidebarItem.account`). *All Accounts* is the list with
 ///   the net-worth chart and the allocation (`SidebarItem.accounts`).
+/// - *Plan* opens the main plan (`SidebarItem.plans`), which then selects
+///   that plan's row under *Plans*.
 /// - A group's row expands or collapses it (click it, or its disclosure
 ///   triangle); which ones are collapsed is remembered on the device
 ///   (`AppPreferences.collapsedAccountFolders`). Showing an account
@@ -41,6 +42,7 @@ struct SidebarRoot: View {
     @Environment(LibraryStore.self) private var library
     @Environment(CheckInStore.self) private var checkIn
     @Environment(AppPreferences.self) private var preferences
+    @Environment(PlanStore.self) private var plans
 
     var body: some View {
         NavigationSplitView {
@@ -49,6 +51,8 @@ struct SidebarRoot: View {
                     .tag(SidebarItem.today)
                 Label("Timeline", systemImage: AppSymbol.timeline)
                     .tag(SidebarItem.timeline)
+                Label("Plan", systemImage: AppSymbol.plan)
+                    .tag(SidebarItem.plans)
                 if checkIn.status.isActive || navigation.sidebarSelection == .checkIn {
                     checkInRow
                         .tag(SidebarItem.checkIn)
@@ -56,24 +60,21 @@ struct SidebarRoot: View {
 
                 SidebarAccountsSection()
 
-                Section("Plans") {
-                    if library.sortedPlans.isEmpty {
-                        Label("Create a plan", systemImage: "plus")
-                            .tag(SidebarItem.plans)
-                    }
-                    ForEach(library.sortedPlans) { plan in
-                        Label(plan.name, systemImage: AppSymbol.plan)
-                            .privacySensitiveInFeedback()
-                            .tag(SidebarItem.plan(plan.id))
+                if !library.sortedPlans.isEmpty {
+                    Section("Plans") {
+                        ForEach(library.sortedPlans) { plan in
+                            SidebarPlanRow(name: plan.name, age: plans.latestAnswer(of: plan.id)?.answer.earliestAge)
+                                .tag(SidebarItem.plan(plan.id))
+                        }
                     }
                 }
 
                 Section("Library") {
-                    Label("Import…", systemImage: AppSymbol.importData)
+                    Text("Import…")
                         .tag(SidebarItem.importData)
-                    Label("Instruments", systemImage: AppSymbol.instruments)
+                    Text("Instruments")
                         .tag(SidebarItem.instruments)
-                    Label("Sync & backups", systemImage: AppSymbol.sync)
+                    Text("Sync & backups")
                         .tag(SidebarItem.sync)
                 }
             }
@@ -129,9 +130,10 @@ struct SidebarRoot: View {
 }
 
 /// The sidebar's Accounts section: the total of the open accounts on its
-/// header, a collapsible row per group that has open accounts, with its
-/// subtotal and its accounts, then *Closed (n)*. The values and staleness
-/// are the Accounts list's (`AccountList`, without sparklines); amounts are
+/// header, *All Accounts* with how many are open, a collapsible row per
+/// group that has open accounts, with its color dot, its subtotal and its
+/// accounts, then *Closed* with its count. The values and staleness are
+/// the Accounts list's (`AccountList`, without sparklines); amounts are
 /// left out while they're hidden.
 private struct SidebarAccountsSection: View {
     @Environment(LibraryStore.self) private var library
@@ -141,7 +143,7 @@ private struct SidebarAccountsSection: View {
         let accounts = AccountList(library: library.library, valuator: library.valuator, today: .today(),
                                    stalenessThreshold: preferences.stalenessThreshold, includesSparklines: false)
         Section {
-            Label("All Accounts", systemImage: AppSymbol.accounts)
+            SidebarCountRow(title: "All Accounts", count: accounts.openCount)
                 .tag(SidebarItem.accounts)
             ForEach(accounts.sections) { section in
                 let isExpanded = expansion(of: .group(section.group))
@@ -151,8 +153,10 @@ private struct SidebarAccountsSection: View {
                             .tag(SidebarItem.account(item.id))
                     }
                 } label: {
-                    SidebarFolderLabel(title: section.group.description, systemImage: section.group.systemImage,
-                                       subtotal: section.subtotal, isExpanded: isExpanded)
+                    SidebarFolderLabel(title: section.group.description, dot: section.group.color,
+                                       isExpanded: isExpanded) {
+                        AmountText(section.subtotal)
+                    }
                 }
             }
             if !accounts.closed.isEmpty {
@@ -163,8 +167,10 @@ private struct SidebarAccountsSection: View {
                             .tag(SidebarItem.account(item.id))
                     }
                 } label: {
-                    SidebarFolderLabel(title: accounts.closedTitle, systemImage: AppSymbol.closed,
-                                       isExpanded: isExpanded)
+                    SidebarFolderLabel(title: "Closed", isExpanded: isExpanded) {
+                        Text(accounts.closed.count, format: .number)
+                    }
+                    .accessibilityLabel(accounts.closedTitle)
                 }
             }
         } header: {
@@ -191,6 +197,7 @@ private struct SidebarAccountsHeader: View {
             if let total {
                 AmountText(total)
                     .lineLimit(1)
+                    .fixedSize()
                     .layoutPriority(1)
             }
         }
@@ -198,26 +205,82 @@ private struct SidebarAccountsHeader: View {
     }
 }
 
-/// A group's row, or *Closed*'s: icon, name and, for a group, its subtotal
-/// on the right. On the Mac, clicking it expands or collapses it like its
-/// disclosure triangle (on iPad, tapping the row does that already).
-private struct SidebarFolderLabel: View {
+/// A row with a count on the right, in gray: *All Accounts* and how many
+/// accounts are open.
+private struct SidebarCountRow: View {
     let title: String
-    let systemImage: String
-    var subtotal: Decimal?
-    @Binding var isExpanded: Bool
+    let count: Int
 
     var body: some View {
         HStack(spacing: Metrics.s) {
-            Label(title, systemImage: systemImage)
+            Text(title)
                 .lineLimit(1)
             Spacer(minLength: Metrics.xs)
-            if let subtotal {
-                AmountText(subtotal)
+            if count > 0 {
+                Text(count, format: .number)
+                    .monospacedDigit()
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
-                    .layoutPriority(1)
+                    .fixedSize()
             }
+        }
+        .accessibilityElement(children: .combine)
+    }
+}
+
+/// A plan's row: its name and, on the right, the age of its latest answer
+/// (left out without one).
+private struct SidebarPlanRow: View {
+    let name: String
+    let age: Int?
+
+    var body: some View {
+        HStack(spacing: Metrics.s) {
+            Text(name)
+                .lineLimit(1)
+                .privacySensitiveInFeedback()
+            Spacer(minLength: Metrics.xs)
+            if let age {
+                Text(age, format: .number)
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .fixedSize()
+                    .privacySensitiveInFeedback()
+                    .accessibilityLabel("At \(age)")
+            }
+        }
+        .accessibilityElement(children: .combine)
+    }
+}
+
+/// A group's row, or *Closed*'s: a color dot for a group, the name, and
+/// on the right what it adds up to (a group's subtotal, *Closed*'s count),
+/// on one line. On the Mac, clicking it expands or collapses it like its
+/// disclosure triangle (on iPad, tapping the row does that already).
+private struct SidebarFolderLabel<Trailing: View>: View {
+    let title: String
+    var dot: Color?
+    @Binding var isExpanded: Bool
+    @ViewBuilder var trailing: Trailing
+
+    var body: some View {
+        HStack(spacing: Metrics.s) {
+            if let dot {
+                Circle()
+                    .fill(dot)
+                    .frame(width: 8, height: 8)
+                    .accessibilityHidden(true)
+            }
+            Text(title)
+                .lineLimit(1)
+            Spacer(minLength: Metrics.xs)
+            trailing
+                .monospacedDigit()
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .fixedSize()
+                .layoutPriority(1)
         }
         .accessibilityElement(children: .combine)
         #if os(macOS)
@@ -229,21 +292,18 @@ private struct SidebarFolderLabel: View {
     }
 }
 
-/// An account under its group (or *Closed*): kind icon, name, a clock when
-/// its latest value is stale, and its value on the right (open accounts).
+/// An account under its group (or *Closed*): its name, a clock when its
+/// latest value is stale, and its value on the right (open accounts), on
+/// one line; a long name is cut short first.
 private struct SidebarAccountRow: View {
     let item: AccountListItem
     var showsValue = true
 
     var body: some View {
         HStack(spacing: Metrics.s) {
-            Label {
-                Text(item.account.name)
-                    .lineLimit(1)
-                    .privacySensitiveInFeedback()
-            } icon: {
-                Image(systemName: item.account.kind.systemImage)
-            }
+            Text(item.account.name)
+                .lineLimit(1)
+                .privacySensitiveInFeedback()
             Spacer(minLength: Metrics.xs)
             if item.stale != nil {
                 Image(systemName: "clock")
@@ -256,6 +316,7 @@ private struct SidebarAccountRow: View {
                 AmountText(item.value)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
+                    .fixedSize()
                     .layoutPriority(1)
             }
         }

@@ -44,32 +44,34 @@ Plus the glance: "how am I doing?" in a widget or on Today.
 ```
 Today
 Timeline
+Plan                                 ← the main plan
 Check-in                       •     ← while due or under way; dot when due
 Accounts                  97.330     ← the total of the open accounts
-  All Accounts                       ← the list, with net worth and allocation
-  ▾ Cash                  12.990     ← a group, with its subtotal
+  All Accounts                 9     ← the list, with net worth and allocation
+  ▾ ● Cash                12.990     ← a group: its color dot and subtotal
       Conto deposito       8.200
       Conto Fineco      ◷  4.790     ← ◷ when the value is stale
-  ▸ Investments           71.300     ← collapsed
-  ▾ Crypto & gold         13.040
+  ▸ ● Investments         71.300     ← collapsed
+  ▾ ● Crypto & gold       13.040
       Gold coins           9.640
       Ledger wallet        3.400
   ▸ Pension · Property · Debts
-  ▸ Closed (1)                       ← collapsed at first
+  ▸ Closed                     1     ← collapsed at first
 Plans
-  Base case
-  Part-time from 50
+  Base case                   63     ← the age of its latest answer
+  Part-time from 50           62
 Library
   Import…
   Instruments
   Sync & backups
 ```
 
+- **Plan** opens the main plan, or "create your first plan" when there are none; the plan's own row under *Plans* is then selected. *Plans* lists every plan with the age of its latest answer, once there is one.
 - **Check-in** is a row while a check-in is due or under way, with a dot, and while it's selected. *New Check-in* (⌘K) starts one at any time.
 - **Accounts in the sidebar.** The accounts are in the sidebar itself, so an account is one click away and a group of one doesn't need a page of its own.
   - The *Accounts* header shows the total of the open accounts on the right: the groups' subtotals added up.
-  - *All Accounts* opens the accounts list ([Accounts](#accounts)), with net worth, its chart and the allocation at its top.
-  - Under it, a row per group that has open accounts (Cash, Investments, Crypto & gold, Pension, Property, Debts), with its subtotal on the right. It expands to the group's accounts: kind icon, name and value, with a small clock when the latest value is stale. Values and staleness are the same as in the list. *Closed (n)* expands to the closed accounts. Amounts are placeholders while they're hidden.
+  - *All Accounts* opens the accounts list ([Accounts](#accounts)), with net worth, its chart and the allocation at its top, and shows how many accounts are open.
+  - Under it, a row per group that has open accounts (Cash, Investments, Crypto & gold, Pension, Property, Debts), with its color dot and its subtotal on the right, on one line. It expands to the group's accounts: name and value, with a small clock when the latest value is stale; a long name is cut short. Values and staleness are the same as in the list. *Closed*, with its count, expands to the closed accounts. Amounts are placeholders while they're hidden.
   - Clicking a group, or its disclosure triangle, expands or collapses it; groups aren't pages. They start expanded and *Closed* collapsed, and the device remembers which are collapsed, here and in the iPhone's accounts list alike ([Accounts](#accounts)).
   - Selecting an account shows its detail in the content area; the arrow keys move from account to account. Opening an account from elsewhere in the app selects its row and expands its group.
   - The sidebar follows the library, also when it changes on the other device: a new account appears under its group, a selected account that's closed moves under *Closed* and stays selected, and one that's deleted gives way to *All Accounts*.
@@ -97,59 +99,61 @@ The home screen. It answers the app's question with a date, your last Monday at 
 ┌──────────────────────────────────────────┐
 │ Today                    Check In  👁  ⚙︎ │
 │ ╭──────────────────────────────────────╮ │
-│ │ Your last Monday at work           › │ │
+│ │ Your last Monday at work             │ │
 │ │ 27 March 2051                        │ │
-│ │ At 63, in 9 of 10 futures.           │ │
+│ │ At 63, about 25 years from now, in 9 │ │
+│ │ of 10 futures.                       │ │
 │ │ (← A year sooner since September)    │ │
 │ ╰──────────────────────────────────────╯ │
-│ ┌ What changed in September ───────────┐ │
-│ │ 308.270 € → 312.480 €                │ │
-│ │ Markets    │▇▇▇▇▇▇▇▇▇      +2.950 €  │ │
-│ │ Saved      │▇▇▇▇▇          +1.500 €  │ │
-│ │ Other     ▇│                 −240 €  │ │
-│ │ You saved about 2½ weeks of expenses…│ │
-│ └──────────────────────────────────────┘ │
+│ ╭ What moved it in September ──────────╮ │
+│ │ You saved  ▇▇▇▇▇▇▇▇           1.500 €│ │
+│ │ Markets    ▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇    2.950 €│ │
+│ │ You saved about 2½ weeks of the life │ │
+│ │ you plan.                            │ │
+│ ╰──────────────────────────────────────╯ │
 │ ╭──────────────────────────────────────╮ │
 │ │ At 63, as planned     9 of 10 futures│ │
 │ │ ──────────────────────────────────── │ │
 │ │ Next: 5 years of spending  80% there │ │
-│ │ ▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇░░░░░░ │ │
 │ │ ──────────────────────────────────── │ │
 │ │ Net worth              312.480 €   › │ │
-│ │ ▲ 4.210 € in September               │ │
 │ ╰──────────────────────────────────────╯ │
-│ ┌ Needs attention ─────────────────────┐ │
-│ │ ⚠︎ Fondo pensione: last value May     │ │
-│ └──────────────────────────────────────┘ │
+│ ╭──────────────────────────────────────╮ │
+│ │ ◷ Fondo pensione            (Update) │ │
+│ │   Last value in May                  │ │
+│ ╰──────────────────────────────────────╯ │
 └──────────────────────────────────────────┘
 ```
 
-Then the offer of the yearly notes, once there's an answer, and *Import your first values* before the first check-in. On the Mac and iPad the page is wider: the answer and the rows side by side, as tall as each other; then *Your timeline*, the Timeline's decades chart ([Decades](#decades)); then two columns, *What changed* with the offer and *Import your first values* on the left, *Needs attention* and *This year* on the right.
+Then the offer of the yearly notes, once there's an answer, and *Import your first values* before the first check-in. The check-in itself is the tab bar's accessory while one is due ([Navigation](#navigation)).
 
-- **The answer.** The main plan's latest results, or else the answer recorded at the last check-in, in a card. A tap anywhere on it opens the plan; VoiceOver reads it as one, with "Opens the plan".
-  - "Your last Monday at work" with a chevron at the trailing edge, then the date in large type ("27 March 2051": the Monday on or before the day the earliest age is reached, Glance's `LastMonday`), then how sure: "At 63, in 9 of 10 futures." (`GlanceText.lastMondayLine`). No ⓘ: the plan explains the answer, and carries the disclaimer.
+On the Mac and iPad the answer card holds the date and its line on the left and four figures on the right: *Net worth* with its change at the last check-in, the chance at the plan's target age ("At 55, as planned · 4 of 10 · futures last to 95"), *Saved this year* with the savings rate, and the next milestone with how far there. Each figure opens where it's explained (the accounts, the plan, the Timeline's year). Under it two columns: on the left *Your timeline*, the Timeline's decades chart ([Decades](#decades)) on a card with the Timeline's zooms, which open it there, then what moved at the last check-in as a table, then the offer and *Import your first values*; on the right *Needs attention*, *This year so far* and *Coming up*. On the Mac, *Check In* is in the toolbar.
+
+- **The answer.** The main plan's latest results, or else the answer recorded at the last check-in, in a card. On iPhone a tap anywhere on it opens the plan; on the Mac and iPad, a tap on the date. VoiceOver reads it as one, with "Opens the plan".
+  - "Your last Monday at work", then the date as the one big number ("27 March 2051", 52 pt bold on iPhone, on one line, smaller only when it must: the Monday on or before the day the earliest age is reached, Glance's `LastMonday`), then how sure. On iPhone with how far away: "At 63, about 25 years from now, in 9 of 10 futures." (`TodayText.line`, rounded to the nearest year from two years on, else in months); on the Mac and iPad "At 63, in 9 of 10 futures." (`GlanceText.lastMondayLine`) with how it moved after it, in the accent. No ⓘ: the plan explains the answer, and carries the disclaimer.
   - Without a date (you could retire today, or no age works out) the card asks "Can I retire yet?" and answers "Yes", with "You could stop working today, in 9 of 10 futures.", or "Not yet", with "No age works out in 9 of 10 futures yet. The plan shows what would change that."
-  - **How it moved:** a chip under it with how the earliest age moved since the check-in before the latest, against the age recorded there (Glance's `LastMondayMove`): "A year sooner since September" in green, "2 years later since September 2025" in orange, "The same as in September" in grey. Not shown without an answer recorded at an earlier check-in.
+  - **How it moved:** on iPhone a chip under it with how the earliest age moved since the check-in before the latest, against the age recorded there (Glance's `LastMondayMove`): "A year sooner since September" in blue, "2 years later since September 2025" in orange, "The same as in September" in grey. Not shown without an answer recorded at an earlier check-in.
   - **Status:** while the main plan calculates (a check-in's run, or Today's own), "Updating 34%" with a bar under the chip; when it can't run, "Can't be calculated: …". The date stays meanwhile.
   - **Before there's an answer** the card is titled "Your last Monday at work" and has one next step. Without a main plan: "Make a plan to see when you could retire." with *Create a plan*, which creates "Base case" from the latest check-in, makes it the main plan and opens it, as the Plan screen's *Create your first plan* does (when there are plans but none is the main one: "Choose a main plan to see when you could retire." with *Open Plan*, where *Set as Main Plan* chooses it; when the main plan's file couldn't be read: "Your main plan's file couldn't be read, so it has no answer." with *Show Details*, which opens Sync). Why *Create a plan* failed shows under it until the plans change. With a main plan not yet calculated: "Calculate Base case to see when you could retire. Each check-in then records its answer." with *Calculate*; while it runs, "Working out Base case… 34%"; a plan that can't run says why, with *Try Again* and *Open Plan*.
 - **Calculating on its own.** Today calculates the main plan when it has no results, or when they no longer fit the plan or your data (after a check-in, an import or new prices), so the date shown is the latest ([Calculating](#calculating)). A plan that couldn't run isn't tried again here: it waits for *Try Again*.
-- **Rows.** Where you stand, a row each, in one card:
+- **Rows.** On iPhone, where you stand, a row each, in one card (`CardRows`), each on one line:
   - "At 63, as planned" with "9 of 10 futures": the chance of retiring at the plan's target age. It opens the plan. Only with an answer that has a target age.
-  - "Next: 5 years of spending" with "80% there" and its bar: the main plan's next milestone ([Milestones](#milestones)). It opens the Timeline at *Year*.
-  - "Net worth" with the amount and a chevron, and under it the change at the last check-in: "▲ 4.210 € in September" when the check-in before was the end of August, else between the two check-ins, "31 Jul – 15 Sep" (not "since 31 Jul", which would read as up to today). It opens the accounts. Net worth is today's, as the accounts list has it: each account's latest value, what it holds at the latest prices, so a value imported or a trade added since the last check-in, or prices fetched since, count. It animates when it changes (`.contentTransition(.numericText())`).
-- **Since last check-in.** "What changed in September" (or "Since last check-in" when the check-in before wasn't the end of the month before): the totals before and after in words, and a bar each for markets, saved (as the savings rate counts it, `Valuator.savedSplit(of:)`: money moved between your accounts cancels out, and what a new account already held when its records start, and a one-off, are in *Other*) and other, from a shared zero line and to the same scale: gains go right in the positive colour, losses left in the negative one, with their signed amounts in a column of their own. The change itself is the *Net worth* row's, said once; the check-in's review leads with it ("▲ +4.210 € since 31 Aug", in per cent while amounts are hidden). It's the most useful split after the total, because it separates "I saved" from "markets moved". While amounts are hidden, the bars keep their proportions. No footnote explains the bars: their names say enough.
-- **This year.** On the Mac and iPad, "What changed this year": the same split for the year so far: how net worth changed from 31 December of last year to today, in markets, saved and other (`Valuator.changeThisYear(asOf:)`, in Tracker), so what you saved stands apart from what markets did. Its *Saved* bar is what was saved as the savings rate counts it (`Valuator.savedSplit(of:)`): what a new account already held when its records start, and a value's one-off (an inheritance, say), move to *Other*, as on *What changed*. It leads with the change in money, "▲ +18.240 € since 31 Dec 2025"; while amounts are hidden, in per cent, and the bars keep their proportions. Under the bars, when this year's values record money in and out, the savings rate ([PROGRESS.md](PROGRESS.md#money-in-and-out)): "Savings rate 17%: you saved 1.956 € of the 11.525 € that came in since 30 Jun, 1.325 € of it paid into pensions, and spent 9.569 €." It's since the value the money in of the account the most came into is measured from, usually 31 December; the pensions part only when something was paid into them. With money put into a tax pot, what came in is after it: "… that came in since 30 Jun after 3.000 € in tax, …", whether it was paid from a current account or put into a tax pot. When more was saved than came in, it says "More was saved than came in: some income may not be recorded." in place of what was spent. While amounts are hidden, its amounts are placeholders and the rate stays. Not shown when net worth has no value by 31 December (a library started this year).
-- **Saving as time.** *What changed* and *This year* end with what was saved said as time of expenses, the main plan's retirement spending a year (`SavingAsTime`, in Glance): "You saved 1.500 €, about 2½ weeks of expenses. Markets added about 7 more." (or "Markets took about a week."). Days below a week, then weeks, months and years, in halves below 3¾ and whole above, all "about". What markets added is counted in the saving's unit and said only when it rounds to at least a half of it; what they took is said in its own unit, from a day. Nothing without a main plan with spending, or when nothing was saved. The amount hides with the eye and the time stays, which doesn't give it away on its own; in a feedback screenshot the sentence hides as a whole.
+  - "Next: 5 years of spending" with "80% there": the main plan's next milestone ([Milestones](#milestones)). It opens the Timeline at *Year*.
+  - "Net worth" with the amount and a chevron. It opens the accounts, whose header has its change. Net worth is today's, as the accounts list has it: each account's latest value, what it holds at the latest prices, so a value imported or a trade added since the last check-in, or prices fetched since, count. It animates when it changes (`.contentTransition(.numericText())`).
+- **What moved it.** On iPhone, "What moved it in September" (or "What moved it since 15 Aug" when the check-in before wasn't the end of the month before): a bar each for *You saved* and *Markets*, to the larger of the two, with its amount, then one sentence with what was saved as time (*Saving as time*, below). Saved is as the savings rate counts it (`Valuator.savedSplit(of:)`): money moved between your accounts cancels out, and what a new account already held when its records start, and a one-off, don't count. While amounts are hidden, the bars keep their proportions. On the Mac and iPad, "What moved in September" with the change ("▲ +4.210 €"), then a table: a row per account with its value, what was put in and what markets did (a dash for none), and the total.
+- **This year so far.** On the Mac and iPad, rows: *Net worth* with its change since 31 December of last year in money and per cent ("+18.240 €, 6%"; the per cent stays while amounts are hidden), *You saved* (as the savings rate counts it), *Markets*, and *Your date*: how the date moved since the last check-in of last year ("A year sooner", "The same"). Then *Open 2026 in Timeline*. From `Valuator.changeThisYear(asOf:)`, in Tracker. Not shown when net worth has no value by 31 December (a library started this year). The savings rate over this year's money in and out ([PROGRESS.md](PROGRESS.md#money-in-and-out)) is *Saved this year*'s caption: "Savings rate 17%".
+- **Coming up.** On the Mac and iPad, what's ahead, a line each with when: the next check-in ("30 Nov · November check-in", or the one under way), then the main plan's milestones its median future reaches ("Late 2028 · 5 years of spending, now 93%"), five at most.
+- **Saving as time.** What was saved, said as time of the main plan's retirement spending a year (`SavingAsTime`, in Glance). *What moved* ends with it, short: "You saved about 2½ weeks of the life you plan." The check-in's ending says it with the amount and what markets did: "You saved 1.500 €, about 2½ weeks of expenses. Markets added about 7 more." (or "Markets took about a week."). Days below a week, then weeks, months and years, in halves below 3¾ and whole above, all "about". What markets added is counted in the saving's unit and said only when it rounds to at least a half of it; what they took is said in its own unit, from a day. Nothing without a main plan with spending, or when nothing was saved. An amount hides with the eye and the time stays, which doesn't give it away on its own; in a feedback screenshot the sentence hides as a whole.
 - **Keep your goal in view.** Once there's an answer, once, while any of the yearly notes is off: "Retiring is years away. A few times a year, a short note can show how far you've come. Never amounts, never about markets." with the yearly notes that are off ticked (of *Your year*, *Birthday*, *Records anniversary* and *Plan check-up*; after onboarding, *Your year* is already on), *Turn On* and *Not Now*, and "Shown once. Settings › Notifications changes them later." *Turn On* asks for permission and turns on the ones ticked, leaving the others as they are. Either button puts the card away for good. See [Notifications](#notifications).
 - **Import your first values.** Before the first check-in: "Your accounts get their values from the files you import: bank statements, broker exports or a spreadsheet. Your history starts with them." with *Import Files…*. A library without accounts shows "No accounts yet" in place of the page, with *Import Files…* and *Add an Account*.
-- **Needs attention.** Only shown when something needs you: stale accounts (not one that holds nothing: see [Accounts](#accounts)), accounts with problems in their trades, prices and exchange rates that are missing, old or couldn't be fetched (each opens Instruments, or the instrument, where they're fetched or typed in), sync conflicts that were merged, and plan warnings. An account whose trades have problems (more sold than held, an opening without a cost, a statement that differs from the trades: the notes its page shows) gets one item that opens it: "Directa: 2 problems with trades · More sold than held · VWCE differs from the statement. Open the account to fix them." Prices and exchange rates missing on past month ends get an item each, which opens *Fill In Past Prices*: "Past exchange rates for US$ are missing · US brokerage isn't fully counted in your net worth for Jun 2018 – Dec 2021. Fill in past prices to fetch them."
-- **Hidden amounts:** amounts hide as they do everywhere else (`AmountText`, `DeltaText`): the *Net worth* row's amount is a placeholder and its change is in per cent. The date, the ages and the futures have no amounts; in a feedback screenshot they hide.
+- **Needs attention.** Only shown when something needs you: stale accounts (not one that holds nothing: see [Accounts](#accounts)), accounts with problems in their trades, prices and exchange rates that are missing, old or couldn't be fetched (each opens Instruments, or the instrument, where they're fetched or typed in), sync conflicts that were merged, and plan warnings. Each is a compact row: what ("Fondo pensione"), why in a short line ("Last value in May"), and its action ("Update", "Fix", "Add Price", "Fill In"); the whole row opens it. On iPhone a warning icon leads and the action is at the trailing edge, in a card without a title; on the Mac and iPad the card is titled "Needs attention" with an orange edge, and the action is under each. The first three show, then *2 More*. An account whose trades have problems (more sold than held, an opening without a cost, a statement that differs from the trades: the notes its page shows) gets one item that opens it: "Directa · 2 problems with trades: More sold than held · VWCE differs from the statement". Prices and exchange rates missing on past month ends get an item each, which opens *Fill In Past Prices*: "Past exchange rates for US$ are missing · US brokerage isn't fully counted in your net worth for Jun 2018 – Dec 2021".
+- **Hidden amounts:** amounts hide as they do everywhere else (`AmountText`, `DeltaText`): the *Net worth* row's amount is a placeholder, and the bars of *What moved it* keep their proportions. The date, the ages and the futures have no amounts; in a feedback screenshot they hide.
 
 ## Timeline
 
 Your money and your date over time, always for the main plan (or the first plan, when none is the main one), at three zooms: **Year**, one year against what you planned in January; **Decades**, your records to now, then the plan's futures to its end; **Look Back**, your whole history from your own records. See [PROGRESS.md](PROGRESS.md).
 
-- **The zoom** is a segmented *Year | Decades | Look Back*: under the inline title on iPhone, with looking back's grain and span under it, and in the middle of the toolbar on the Mac and iPad, with the grain and span beside it. It opens at *Year* and stays where you leave it while the app runs; Today's *Next* row opens *Year*, the import's *Open Trends* opens *Look Back*, and the *Your year* note opens last year at *Year*.
+- **The zoom** is a segmented *Year | Decades | Look Back*: under the large title on iPhone, with looking back's grain and span under it, and in the middle of the toolbar on the Mac and iPad, with the grain and span beside it. It opens at *Year* and stays where you leave it while the app runs; Today's *Next* row opens *Year*, the import's *Open Trends* opens *Look Back*, and the *Your year* note opens last year at *Year*.
 - **Nothing to show yet:** without a check-in, "Your timeline starts with your first values. Import a file to add them."; without a plan, "Your timeline follows your main plan. Create one on the Plan tab."
 
 ### Year
@@ -159,168 +163,126 @@ Your money and your date over time, always for the main plan (or the first plan,
 │ Timeline                                 │
 │   [ Year ]   Decades   Look Back         │
 │ ╭──────────────────────────────────────╮ │
-│ │ Are you on track?                    │ │
-│ │ Ahead of plan.                       │ │
-│ │ You have 21.572 € more than your     │ │
-│ │ January plan expected, more than in  │ │
-│ │ 9 of its 10 futures.                 │ │
-│ │ ╭ To go ──────────╮╭ Since Jan 2026 ╮│ │
-│ │ │ 24½ years       ││ A year sooner  ││ │
-│ │ ╰─────────────────╯╰────────────────╯│ │
-│ │ September: you saved 1.532 € and     │ │
-│ │ markets added 3.236 €.               │ │
+│ │ (‹)        2026 so far           (›) │ │
+│ │  Ahead of what you planned in January│ │
+│ │                                160k €│ │
+│ │                ⚑     ▅▆▇●           │ │
+│ │ ▁▂▃▄▅▆▇▇┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅ │ │
+│ │ planned in January           120k € │ │
+│ │ J F M A M J J A S O N D              │ │
 │ ╰──────────────────────────────────────╯ │
-│ Year by year                             │
-│ Scroll back through the years; tap one.  │
-│ ╭──────╮╭──────────────────────────────╮ │
-│ │2025  ││ 2026 so far                  │ │
-│ │132k →││ 21.572 € ahead of your       │ │
-│ │134k  ││ January plan         160k €  │ │
-│ │      ││                ⚑    ┃Today ░ │ │
-│ │      ││         ⚑      ▅▆▇● ┃░░░░░░░ │ │
-│ │      ││ ▁▂▃▄▅▆▇▇            ┃░░░░░░░ │ │
-│ │      ││ ┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┅┃┅┅┅┅┅┅┅ │ │
-│ │      ││ Your January plan…  ┃ 120k € │ │
-│ │Show  ││ J F M A M J J A S O N D      │ │
-│ ╰──────╯╰──────────────────────────────╯ │
+│ ╭ You saved ──────╮╭ Markets added ────╮ │
+│ │ 20.486 €        ││ 6.628 €           │ │
+│ │ planned 13.463 €││ expected 1.982 €  │ │
+│ ╰─────────────────╯╰───────────────────╯ │
+│ What happened                            │
 │ ╭──────────────────────────────────────╮ │
-│ │ 2026 so far                   ‹  ›   │ │
-│ │ 21.572 € ahead of your January plan  │ │
-│ │ A year sooner, and past 150.000 €.   │ │
-│ │ ╭─────────────────┬────────────────╮ │ │
-│ │ │ You saved       │ Markets added  │ │ │
-│ │ │ 20.486 €        │ 6.628 €        │ │ │
-│ │ │ planned 13.463 €│ expected 1.982 │ │ │
-│ │ ├─────────────────┼────────────────┤ │ │
-│ │ │ Earliest age    │ Its futures    │ │ │
-│ │ │ 55 → 54         │ 92 in 100      │ │ │
-│ │ │ a year sooner   │ are below you  │ │ │
-│ │ ╰─────────────────┴────────────────╯ │ │
-│ │ Why you're ahead                     │ │
-│ │ At the start ▇▇▇▇▇▇▇▇▇▇▇   +12.557 € │ │
-│ │ Saving       ▇▇▇▇▇▇▇        +7.023 € │ │
-│ │ Markets      ▇▇▇▇           +4.646 € │ │
-│ │ Other        ▇▇             −2.654 € │ │
-│ │ ──────────────────────────────────── │ │
-│ │ Ahead                      +21.572 € │ │
-│ │ Your January plan expected 137.280 € │ │
-│ │ by now.                              │ │
-│ │ What happened                        │ │
-│ │ Mar    You saved 9.121 €, more than  │ │
-│ │        usual.                        │ │
-│ │ May  ⚑ Plan changed. Passed          │ │
-│ │        150.000 €.                    │ │
-│ │ Jun    54, a year sooner.            │ │
-│ │ Aug  ⚑ Passed the coast point: 67.   │ │
+│ │ Earliest age                 56 → 55 │ │
+│ │ August   ⚑ Passed the coast point: 67│ │
+│ │ May      ⚑ Plan changed. Passed 150…│ │
+│ │ March    You saved 9.121 €, more th…│ │
+│ │ Why you're ahead                   › │ │
 │ ╰──────────────────────────────────────╯ │
+│ Milestones                               │
 │ ╭──────────────────────────────────────╮ │
-│ │ ⚑ Next milestone                     │ │
-│ │ 5 years of spending        90% there │ │
-│ │ ▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇░░░░ │ │
-│ │ 180.000 € · typically by late 2028   │ │
-│ │ ──────────────────────────────────── │ │
+│ │ ○ 5 years of spending                │ │
+│ │   93% there, typically late 2028     │ │
 │ │ Saving nothing more     retire at 71 │ │
-│ │ In August it was 67, when your first │ │
-│ │ pension starts: the coast point.     │ │
-│ │ ──────────────────────────────────── │ │
 │ │ All Milestones                     › │ │
-│ ╰──────────────────────────────────────╯ │
-│ ╭──────────────────────────────────────╮ │
-│ │ Next in your plan                    │ │
-│ │ ② Self-employed, from 41 in 2029 Open│ │
 │ ╰──────────────────────────────────────╯ │
 └──────────────────────────────────────────┘
 ```
 
 Each year is measured against **your January plan**: the plan as it was at the year's first check-in, which the check-in keeps as the year's automatic baseline ([PROGRESS.md](PROGRESS.md#actual-vs-a-baseline)). It's named for the month it was kept in: "your October plan" when the year's first check-in came in October. A year without one is measured against a past baseline the library holds that starts before the year ends: "your 2021 plan".
 
-- **Are you on track?** Where the latest check-in stands against this year's plan: "Ahead of plan.", "On plan." or "Behind plan.": where you are among its futures, not against its median, which you'd be below in half of them. Above its 75th percentile is ahead, below its 25th behind, and between them, or within 1% of its median, on plan ([PROGRESS.md](PROGRESS.md#actual-vs-a-baseline), "On track"). Then "You have 21.572 € more than your January plan expected, more than in 9 of its 10 futures." Without a plan kept for the year, "Not measured yet." and "Your plan is kept at the first check-in of each year, and the year is measured against it."; while this year's starts at the latest check-in, "This year's baseline starts at your latest check-in, so your next check-in is the first measured against it." Then two figures, the time to go until the earliest date ("To go · 24½ years") and how the answer moved since the first check-in that recorded one ("Since Jan 2026 · A year sooner"), and the last check-in's month in a sentence ("September: you saved 1.532 € and markets added 3.236 €."). On iPhone it's a card; on the Mac and iPad the words, with the three as tiles, as wide as their figures ("September · Saved 1.532 € · markets +3.236 €"), beside the words when there's room for both, else under them. To go comes from the plan's results, else from the answer recorded at the latest check-in.
-- **Year by year.** "Scroll back through the years; tap one." ("Scroll back, or use the arrows." on the Mac and iPad, with ‹ › and *Today* beside it). A card per calendar year from your first record of an account the plan counts (a value, or a trade) through the latest check-in, oldest on the left. A year without a check-in is valued from what you held and its prices ("No check-ins · from prices"), and the line runs through each check-in and the end of every month without one, to 31 December (this year's to the latest check-in), so what only a check-in can tell, like a bank balance, shows as a step at the next one; the strip opens at today, on the right. Each card is a year wide (26 points a month on the Mac and iPad, 21 on iPhone), and the cards on screen share one money scale fitted to your money and what was expected between the screen's edges, rather than from zero, so the movement in view shows however far its money is from other years', and December of one year meets January of the next; when the strip comes to rest after scrolling, and when a year is chosen and scrolled into view, the scale refits to what's then on screen, the lines fading to their new places. The cards name their own lines, so there's no key:
-  - its year and change ("2025 +41.200 €", "2026 so far"), and where it ended against its plan, in orange when behind plan, as *Are you on track?* puts it ("3.000 € behind your January plan"), else in green ("21.572 € ahead of your January plan", "2.100 € ahead of your October plan"), or "Measured from your next check-in" while its plan starts at the latest check-in, or "No plan kept in January";
-  - your money through it, an ink line from January: solid into each check-in, with a small dot there, lighter where it's valued from what you held and its prices, dotted where a price or a rate is missing (those holdings count as zero), with a larger dot at the last; against what your January plan expected: its median, dashed, from its start to the year's end, labelled where it starts ("Your January plan expected"), on the side away from your line; between the two, green where you're ahead and orange where behind. The line is the money in the plan as it was, in the base currency, as the milestones flagged on it and the year's change count it. What the plan expected is in the same money: its median in the base currency on each day (from money of its start where an inflation index allows), with the accounts it doesn't compare (an account added since with an older history, one its plan leaves out) at their value, so the space between the two is the gap it measures (*Why*, below, says it in the plan's money). Before a plan kept later in the year nothing is shaded. On this year's card *Today* is a line down the graph, the rest of the year shaded after it;
-  - a flag on the line where a milestone was reached; their names are in the year's words;
-  - the gridlines' amounts at the card's edge where nothing is drawn: the right, where the rest of this year is still to come, unless your line ends there, with the decimals they need to read apart ("1,1M €", "1,15M €"; placeholders while amounts are hidden);
-  - the months' initials along its bottom. How the answer moved is in the year's words.
-  - On the Mac and iPad, under the graph, its figures in a line: "Saved 20.486 € · Markets +20.714 € · Age 55". The cards are all the same height.
-  - **Reading the line.** The pointer over a card (the Mac, an iPad with a pointer), or a finger touched and held on it (a light tap of haptics), then dragged (iPhone; the strip stays put until it lifts), reads the line at the nearest check-in or month end: a rule, a dot and a callout that reads as the History chart's does over its history: the date and where the value comes from ("31 Mar 2026 · check-in", "30 Apr 2026 · from prices"), the money as the headline ("312.480 €"), "Not every price is known" when a price or a rate was missing, what the plan expected and the gap, from its start, as rows ("Your January plan expected 305.000 €", "Ahead 7.480 €"), all in the History chart's short amounts (`1,23M €` from a million), then at the bottom a milestone reached there, with its flag ("Passed 300.000 €."), and what changed that day ("55, a year sooner."). It stays inside the card. A tap or a click still chooses the year. Amounts hide with the eye.
-  - Choosing a card selects it, outlined in the accent; ‹ › (⌘[ and ⌘] with a keyboard) step through the years, and on the Mac and iPad *Today* goes back to this year's.
-  - **VoiceOver and text size.** Each card is read as its year, change, where it stands and the year in a line, and as a chart: its audio graph and chart details give your money at each point and what was expected. The cards' graphs and labels grow with the text size up to the third-largest standard size, with room above and below the graph; past it they stop growing, and the year's words carry them at any size.
-  - The years before your first recorded answer are folded into one card at the strip's start ("2021–2023", "148.000 € → 205.000 €", "Before your first answer.", "⚑ 3 milestones") with *Show*, which lays them out as the others; choosing one of them with the arrows shows them too, and they stay laid out. On iPhone it's narrow, beside this year's card: the years, the amounts in short and *Show*.
-- **The year's words**, said once, for the chosen year, under the strip: on iPhone one part after the other, its title with ‹ ›; on the Mac and iPad in columns beside each other (three when there's room, else the figures over why, beside what happened; one after the other, as on iPhone, when the page is too narrow for two), the arrows being above the strip. Everything but what happened keeps its size from year to year, so stepping through the years moves nothing above it, and what happened comes last.
-  - Its title, change and where it stands against its plan ("2025 +41.200 €", "21.572 € ahead of your January plan"), and the year in a line, always one line: how the answer moved, the milestone it passed and what markets did, at most two of them ("A year sooner, and past 150.000 €.", "A strong year for markets, and a year sooner."), else "A quiet year." ("A quiet year so far.").
-  - Its figures, two by two, each a title, the figure and a line under it: **You saved** "20.486 €", "planned 13.463 €" ("by now" this year); **Markets added** "20.714 €", "expected 5.982 €"; **Earliest age** "56 → 55", "a year sooner"; **Its futures** "92 in 100", "ended below you" ("are below you now" this year). On the Mac and iPad, above them, saving and markets as one bar with a mark where the plan had your saving by now ("planned by now"; "planned" for a past year).
-  - Why ([PROGRESS.md](PROGRESS.md#actual-vs-a-baseline)): "Why you're ahead" ("Why you ended behind" for a past year), the same four rows every year, each with a bar on the largest's scale and its amount, signed, in green or orange, "0 €" in grey: **At the start** (the gap going into the year, or at the plan's own start later in it), **Saving** (what you saved less what the plan had you save), **Markets** (what they did less what it expected) and **Other** (inflation, values without what was saved entered, exchange rates). Then the total ("Ahead +21.572 €") and what the plan expected, in one line ("Your January plan expected 141.463 € by 31 Dec.", "… by now."). In whole units, so the rows add up to the total. Without the split, the part is titled "Against your January plan" and says what it expected and where you stand ("Your January plan expected 298.000 € by now. You're 18.400 € ahead, more than in 68 of its 100 futures."), or, for a year not measured, how the year is measured.
-  - What happened, a row a month, a month with a milestone flagged and the milestone in bold ("Mar · You saved 9.121 €, more than usual.", "May · ⚑ Plan changed. **Passed 150.000 €.**", "Jun · 55 again.", "Aug · ⚑ **Passed the coast point: 67.**", "Calculations updated."); "Nothing to note." without any. Keeping the year's plan isn't a row: which plan the year is measured against shows in its words ("ahead of your January plan", "ahead of your 2021 plan").
-  - A year whose check-ins stop early says so ("No check-ins after June: what you held is valued at its prices."), and one with missing prices or rates that those holdings count as zero and the line is dotted there, with *Fill In Past Prices…*.
-- **Milestones**, after the year's words on iPhone, beside the strip on the Mac and iPad ([Milestones](#milestones)): the next, how far there and when it typically comes; saving nothing more, when you could still retire, and when you reached the coast point; *All Milestones*, what each kind means and every milestone reached and ahead, in a sheet.
-- **Next in your plan.** The plan's second chapter ("② Bridge, from 54 in 2042") with *Open*, which opens the plan. Not shown for a plan of one chapter. On the Mac and iPad under the milestones, beside the strip.
+The years run from your first record of an account the plan counts (a value, or a trade) through the latest check-in. *Year* opens at this one.
+
+- **The year's card.** Its title ("2026 so far", "2025") and its verdict, each on one line: "Ahead of what you planned in January", "On track with …" or "Behind …", in orange when behind ("Ended ahead of what you planned in January" for a past year), as [PROGRESS.md](PROGRESS.md#actual-vs-a-baseline) ("On track") puts it; left out while the year has no plan kept. ‹ › step through the years (⌘[ and ⌘] with a keyboard): on iPhone round buttons either side of the title, on the Mac and iPad at the card's right with *Today*, which goes back to this year. Then the year's chart across the card:
+  - your money through it, an ink line from January: solid into each check-in, with a small dot there, lighter where it's valued from what you held and its prices, dotted where a price or a rate is missing (those holdings count as zero), with a larger blue dot at the last. A year without a check-in is valued from what you held and its prices, and the line runs through each check-in and the end of every month without one, so what only a check-in can tell, like a bank balance, shows as a step at the next one. The line is the money in the plan as it was, in the base currency, as the milestones flagged on it and the year's change count it;
+  - what you planned in January: its median, dashed in blue, from its start to the year's end, labelled "planned in January" on the side away from your line. It's in the same money: its median in the base currency on each day (from money of its start where an inflation index allows), with the accounts it doesn't compare (an account added since with an older history, one its plan leaves out) at their value. Between the two, a blue wash where you're ahead and orange where behind. Before a plan kept later in the year nothing is washed. This year's line ends at the latest check-in, and what was planned runs on to December;
+  - a flag on the line where a milestone was reached;
+  - the gridlines' amounts at the card's edge where nothing is drawn, with the decimals they need to read apart ("1,1M €", "1,15M €"; placeholders while amounts are hidden), on a scale fitted to the year's money and what was planned, not from zero;
+  - the months' initials along its bottom.
+  - **Reading the line.** The pointer over the chart (the Mac, an iPad with a pointer), or a finger touched and held on it (a light tap of haptics), then dragged, reads the line at the nearest check-in or month end: a rule, a dot and a callout that reads as the History chart's does over its history: the date and where the value comes from ("31 Mar 2026 · check-in", "30 Apr 2026 · from prices"), the money as the headline ("312.480 €"), "Not every price is known" when a price or a rate was missing, what was planned and the gap as rows, all in short amounts, then a milestone reached there, with its flag ("Passed 300.000 €."), and what changed that day ("55, a year sooner."). It stays inside the card. Amounts hide with the eye.
+  - **VoiceOver** reads the card as its year and verdict, and the chart as a chart: its audio graph and chart details give your money at each point and what was planned.
+- **Two figures** under the card, side by side: **You saved** ("20.486 €", "planned 13.463 € by now" this year, "planned 13.463 €" for a past one) and **Markets added** ("6.628 €", "expected 1.982 €"), "You took out" and "Markets took" when they're below zero.
+- **What happened**, a card of rows: how the earliest age moved over the year ("Earliest age · 56 → 55"); then a row a month, newest first, the month in grey, a milestone's month flagged ("August · ⚑ Passed the coast point: 67", "May · ⚑ Plan changed. Passed 150.000 €", "March · You saved 9.121 €, more than usual"), each on one line; "Nothing to note yet" without any. Keeping the year's plan isn't a row. Last, *Why you're ahead* ("Why you ended behind" for a past year; "Against your January plan" without the split), which opens why in a sheet ([PROGRESS.md](PROGRESS.md#actual-vs-a-baseline)): the same four rows every year, each with a bar on the largest's scale and its amount, signed, in green or orange, "0 €" in grey: **At the start** (the gap going into the year, or at the plan's own start later in it), **Saving** (what you saved less what the plan had you save), **Markets** (what they did less what it expected) and **Other** (inflation, values without what was saved entered, exchange rates). Then the total ("Ahead +21.572 €") and what the plan expected, in one line ("Your January plan expected 141.463 € by 31 Dec.", "… by now."). In whole units, so the rows add up to the total. Without the split it says what the plan expected and where you stand, or, for a year not measured, how the year is measured. Under the card, a year whose check-ins stop early says so ("No check-ins after June: what you held is valued at its prices."), and one with missing prices or rates that those holdings count as zero and the line is dotted there, with *Fill In Past Prices…*.
+- **Milestones**, a card of rows ([Milestones](#milestones)): the next, with how far there and when it typically comes; saving nothing more, when you could still retire; *All Milestones*, what each kind means and every milestone reached and ahead, in a sheet.
+- **Mac and iPad.** The chart's card on the left, with the year's check-ins under it as a table (*Month*, *Money*, *You saved*, *Markets*, *Age*, *Moved*). Beside it a column of the year's figures as rows (*Started at*, *You saved*, *Markets*, *Now* or *Ended at*, *Planned to save*, *Earliest age*), *What happened* and *Milestones*.
+- Without a check-in, "Your year shows here from your first check-in."
 
 ### Decades
 
-Your records to now, then the main plan's futures to its end, on one chart (`DecadesChart`). Today shows it too on the Mac and iPad, as *Your timeline*.
+Your records to now, then the main plan's futures to its end, on one chart across your ages (`DecadesChart`). Today shows the chart too on the Mac and iPad, as *Your timeline*.
 
-- **History chart.**
-  - **Time span.** A menu above it sets how far back and how far ahead: *History* last year, 3 or 5 years, or all of it; *Future* to retirement, or retirement + 5, 10 (the default), 20 or 30 years, never past the plan's end. Once retirement is behind you, *To retirement* is gone and the others count from today: +5, +10, +20 or +30 years. The menu's label says both ("3Y · retirement +10"); where it doesn't fit (an iPhone at larger text sizes), it gets shorter words ("3Y → ret. +10"). The choice is remembered on the device; the *History* half is shared with the accounts list's chart and with looking back.
-  - Stacked by asset class, with debts below the zero line, and a legend in its own row above. Each class is a light wash of its colour with a 2-point line along its edge (the top, or the bottom for debts) and a 2-point gap between neighbours, never a solid block. Only when there's nothing to stack (every value zero) is it a single line.
-  - Drag across it to read any month: a vertical rule with a callout showing the date, the total and the breakdown. Over the projection it reads the same way, with three single amounts and no ranges: the median as the headline, with a small *Median* label so it doesn't read as an actual total, then *Top 10%* (the 90th percentile) and *Bottom 10%* (the 10th), each with the 10–90% band's swatch. The chart still draws both bands. The callout's amounts are short: below 1.000.000 in full (`300.000 €`, `999.999 €`), from there in millions with three significant digits (`1,00M €`, `12,3M €`, `999M €`), and from 1.000.000.000 in billions the same way (`1,00B €`, `12,3B €`), staying in billions past 999 of them (`1.234B €`). They're rounded to what they show, and the step is chosen from the rounded amount, so 999.999.600 reads `1,00B €`. VoiceOver reads the full amount. The read-outs on the years of [Year](#year) are callouts like it.
-  - **The future** continues the chart into the main plan's projection: a dashed median with a darker 25–75% band and a lighter 10–90% band, plus markers for retirement, pension starts and the like. See [PROGRESS.md](PROGRESS.md#past-and-future-m2).
-    - When the main plan has no results, the chart calculates it, with "Calculating Base case's projection… 34%" and a bar above the chart until the projection is there; until then it shows net worth through today, titled *Net worth*. A plan that can't run says why ("Base case can't be calculated: …"), with *Try Again* and *Open Plan*, and isn't tried again on its own. Otherwise, while nothing runs, "Calculate Base case to see its projection." with *Calculate*.
-    - **The past shows the money in the plan, still by asset class.** The projection is of what the plan counts (e.g. without your home and its mortgage), so the past covers the same accounts, through the latest check-in, where the plan starts, and its total meets the projection's median there; the chart is titled *Money in the plan*. The alternatives mislead: net worth up to today and then a projection of less would look like a fall at today, and carrying the home on at its last value would invent a forecast the plan doesn't make. The projection is one total, so where the plan counts a debt, the median starts below the top of the stack, at what's left after it.
-    - The legend gets a second row for the projection: the median and the two bands (the asset classes stand for the past, so there's no "Actual" line).
-    - The value axis fits the history, the median and the 25–75% band. The 10–90% band may run off the top, and the legend says "↑ 10–90% continues above".
-    - A short caption under the chart ("The money in the plan by asset class, then Base case's projection, in today's money.") with an ⓘ that opens the full explanation: why the past is the money in the plan, and that the accounts show your whole net worth.
+```
+┌──────────────────────────────────────────┐
+│ Timeline                                 │
+│    Year   [ Decades ]   Look Back        │
+│ ╭──────────────────────────────────────╮ │
+│ │ Now to 95                            │ │
+│ │ Money lasts in 9 of 10 futures       │ │
+│ │ ━ Typical  ▇ Half of futures  ░ 8 in 10│
+│ │        ┃Now, 38    ┃27 Mar 2051, at 63 │
+│ │        ┃      ░░░░░░░░░░░░░░░   1M € │ │
+│ │        ┃  ▒▒▒▒▒▒━━━━━━━━━━━━░░       │ │
+│ │  ▁▂▃▄▅▆●━━━━▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒   500k │ │
+│ │ 30    40    50    60    70    80  90 │ │
+│ │ [ Working   ][Self-empl.][ Retired  ]│ │
+│ ╰──────────────────────────────────────╯ │
+│ Along the way                            │
+│ ╭──────────────────────────────────────╮ │
+│ │ 41  Self-employed          520.000 € │ │
+│ │ 63  Retired                910.000 € │ │
+│ │ 95  Money left             350.000 € │ │
+│ ╰──────────────────────────────────────╯ │
+└──────────────────────────────────────────┘
+```
+
+- **The card.** Titled by the span ("Now to 95", the plan's last age; "Your money, now to 95" on the Mac and iPad), with how sure in a line under it: "Money lasts in 9 of 10 futures" when you stop at the plan's answer, "At 55, money lasts in 4 of 10 futures" at another age you planned, "Your records to now" without results.
+- **The legend**, one row: *Typical* (the median, a blue line), *Half of futures* (the 25–75% band) and *8 in 10* (the 10–90% band). Above the chart on iPhone, beside the title on the Mac and iPad.
+- **The chart.** Your money to now in ink, then the futures from now: the typical one as a blue line, half of them in the darker band and 8 in 10 in the lighter one. The value axis fits the past, the median and the 25–75% band; the 10–90% band may run off the top, cut at the edge. The gridlines' amounts are at the right (multiples of today's value while amounts are hidden).
+  - A rule at *Now* ("Now, 38"), and one at the day you stop, with its date and age in a blue label ("27 Mar 2051, at 63").
+  - Your ages along the bottom (every 1, 2, 5, 10 or 20 years, as many as fit; years without a birth date), and the plan's chapters as a band under them, each in its colour and named where its name fits.
+  - The past reaches back as far as the accounts' time span (*History* in the accounts list's chart).
+  - **The past shows the money in the plan.** The projection is of what the plan counts (e.g. without your home and its mortgage), so the past covers the same accounts, through the latest check-in, where the plan starts, and its total meets the projection's median there. The alternatives mislead: net worth up to today and then a projection of less would look like a fall at today, and carrying the home on at its last value would invent a forecast the plan doesn't make.
+  - When the main plan has no results, the chart calculates it, with "Calculating Base case's projection… 34%" and a bar above the chart until the projection is there; until then it shows net worth through today. A plan that can't run says why ("Base case can't be calculated: …"), with *Try Again* and *Open Plan*, and isn't tried again on its own. Otherwise, while nothing runs, "Calculate Base case to see its futures." with *Calculate*.
+  - **Reading it.** The pointer, or a finger touched and held then dragged, reads the money there: a rule, a dot and a callout with the date and your age, then your value, or over the futures the median as the headline with *Top 10%* and *Bottom 10%*. The callout's amounts are short: below 1.000.000 in full (`300.000 €`), from there in millions with three significant digits (`1,00M €`, `12,3M €`), and from 1.000.000.000 in billions the same way (`1,00B €`). VoiceOver reads the chart with its audio graph and chart details, and the full amounts.
   - **Old prices.** When a value in the chart uses a price more than 31 days older than its date, a note under it says so: "10 values in the chart use a price more than 31 days older than their date (Gold coins)." with *Fill In Past Prices…* (see [Instruments](#accounts)).
-  - **Partial totals.** Net worth adds up what can be valued. Where a total misses something (a price or an exchange rate, or an account with no value yet), every class's line is dashed (as a partial total's line is elsewhere, so it doesn't look like a fall), the callout says "Partial: some values are missing", and a note under the chart says what and when: "Where lines are dashed, the total is partial: exchange rates for US$ are missing for Jun 2018 – Dec 2021 (US brokerage) and 3 accounts have no value yet for Jun 2018 – Sep 2025 (Directa, Fondo pensione and Old bank)." with *Fill In Past Prices…* when some of it is prices or rates.
+  - **Partial totals.** Where a total misses something (a price or an exchange rate, or an account with no value yet), the line is dashed and grey there, and a note under the chart says what and when, with *Fill In Past Prices…* when some of it is prices or rates.
+- **Along the way**, a card of rows under the chart: the money typically there as each chapter after the first starts, and what's typically left at the end, each the age in grey, the chapter and the amount ("41 · Self-employed · 520.000 €", "95 · Money left · 350.000 €").
+- **Mac and iPad.** The chart's card on the left; beside it *How sure* ("9 in 10", "futures last to 95, stopping at 63", and at the age you planned when that's another one), then *Along the way*, titled, with the plan's other events in a line under its rows ("New car 2031 · Inheritance 62").
 
 ### Look Back
 
 How you've actually been doing, from your own records: what came in, what you saved and spent, and how your date moved. *Year* measures this year against your January plan; *Look Back* looks back over the whole history. The plan appears only as a dashed reference line ("your plan's 28%"), never as what's measured, so editing the plan doesn't change the past, only the lines it's set against. Money in and out is the library's, the same under every plan; *Your last Monday, check-in by check-in* is the plan's answer.
 
-**Off while savings or investments are typed.** While an open savings or investment account in net worth has its values typed ([ACCOUNTS.md](ACCOUNTS.md#typed-values)), looking back shows one card, **Trends is off**, in place of the others and without the grain and span: "Trends is built on the money in and out and the money invested that statements record. A typed value is a balance only, so Trends is off while a savings or investment account's values are typed.", those accounts by name, each opening its page, and "To turn it on, set their Values to From imported files in Edit Account and import their statements." Today's *This year* card leaves out its savings rate then, and the plan form leaves out "You spent … a month", which stand on the same records.
+**Off while savings or investments are typed.** While an open savings or investment account in net worth has its values typed ([ACCOUNTS.md](ACCOUNTS.md#typed-values)), looking back shows one card, **Trends is off**, in place of the others and without the grain and span: "Trends is built on the money in and out and the money invested that statements record. A typed value is a balance only, so Trends is off while a savings or investment account's values are typed.", those accounts by name, each opening its page, and "To turn it on, set their Values to From imported files in Edit Account and import their statements." Today's *Saved this year* leaves out its savings rate then, and the plan form leaves out "You spent … a month", which stand on the same records.
 
 ```
 ┌──────────────────────────────────────────┐
 │ Timeline                                 │
 │    Year   Decades  [ Look Back ]         │
 │ [ Months | Years ]               All ▾   │
+│ LAST 12 MONTHS                           │
+│ ╭ Savings rate ───╮╭ Saved ────────────╮ │
+│ │ 31%             ││ 14.200 €          │ │
+│ │ 4 points more   ││ of 45.800 € that  │ │
+│ │ than before     ││ came in           │ │
+│ ╰─────────────────╯╰───────────────────╯ │
+│ Savings rate by month                    │
 │ ╭──────────────────────────────────────╮ │
-│ │ Your last 12 months                  │ │
-│ │ ╭ Savings rate ───╮╭ Saved ─────────╮│ │
-│ │ │ 31%             ││ 14.200 €       ││ │
-│ │ │ ▲ 4 points      ││ ▲ 2.100 €      ││ │
-│ │ ╰─────────────────╯╰────────────────╯│ │
-│ │ ╭ Came in ────────╮╭ Spent ─────────╮│ │
-│ │ │ 45.800 €        ││ 31.600 €       ││ │
-│ │ │ ▲ 3%            ││ ▼ 2%           ││ │
-│ │ ╰─────────────────╯╰────────────────╯│ │
-│ │ Against the 12 months before. Your   │ │
-│ │ plan spends 36.000 € a year while    │ │
-│ │ you work: you spent 12% less.        │ │
-│ ╰──────────────────────────────────────╯ │
-│ Savings rate                             │
-│ ╭──────────────────────────────────────╮ │
+│ │ ━ rate over 12 months ┄ your plan's  │ │
 │ │ 40% ┤          ▆                     │ │
 │ │     ┤ ▅     ▅  █  ▅     ▆      ━━━━━ │ │
 │ │ 30% ┤ █  ▃  █  █  █  ▄  █  ▅  ▆      │ │
 │ │ ┄┄┄┄┼┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄ │ │
 │ │ 20% ┤ █  █  █  █  █  █  █  █  █      │ │
 │ │       J  A  S  O  N  D  J  F  M      │ │
-│ │ ━ rate over 12 months ┄ your plan's  │ │
-│ ╰──────────────────────────────────────╯ │
-│ Money in and out                         │
-│ ╭──────────────────────────────────────╮ │
-│ │ ▇ came in   ▇ spent      ● saved     │ │
-│ │ 4k ┤ ▇     ▇  ▇     ▇  ▇             │ │
-│ │    ┤ ▇▇ ▇▇ ▇▇ ▇▇ ▇▇ ▇▇ ▇▇ ▇▇         │ │
-│ │ ┄┄┄┼┄▇▇┄▇▇┄▇▇┄▇▇┄▇▇┄▇▇┄▇▇┄▇▇┄┄┄┄┄┄┄┄ │ │
-│ │ 2k ┤ ▇▇ ▇▇ ▇▇ ▇▇ ▇▇ ▇▇ ▇▇ ▇▇         │ │
-│ │      J  A  S  O  N  D  J  F          │ │
-│ │ ┄ your plan's spending while working │ │
 │ ╰──────────────────────────────────────╯ │
 │ Your last Monday, check-in by check-in   │
 │ ╭──────────────────────────────────────╮ │
 │ │ ━ Earliest age  ┄ At your pace       │ │
-│ │ ┈ Saving nothing more                │ │
 │ │ 58 ┤━━━┓                             │ │
 │ │    ┤   ┗━━━━━┓      ┄┄┄┄┄┄┄┄┄┄┄┄┄    │ │
 │ │ 55 ┤         ┗━━━━━━━━━━━━┓          │ │
@@ -329,20 +291,25 @@ How you've actually been doing, from your own records: what came in, what you sa
 │ │ 54 now: 4 years sooner since         │ │
 │ │ Jan 2026.                            │ │
 │ ╰──────────────────────────────────────╯ │
+│ ╭──────────────────────────────────────╮ │
+│ │ Money in and out                   › │ │
+│ ╰──────────────────────────────────────╯ │
 └──────────────────────────────────────────┘
 ```
 
-- **Grain and span.** A segmented *Months | Years* and the time span menu under the zoom on iPhone, in the toolbar beside it on the Mac and iPad. The span is the *History* half of the decades chart's menu (last year, 3 or 5 years, all of it) and shares its choice; looking back has no future. The grain starts on *Months* until money in and out has been recorded for two whole calendar years, then on *Years*. The year of the first value with money in and out isn't one of them: a first value covers no time before it. Once chosen, the device remembers it. *Your last 12 months* and *Your last Monday, check-in by check-in* don't follow the grain: the first is always 12 months, the second has a point at each check-in. The current month or year is drawn lighter and called "so far".
-- **Your last 12 months.** The 12 months that end at the latest check-in, as the savings rate counts them ([PROGRESS.md](PROGRESS.md#money-in-and-out)), in four tiles, two by two on iPhone and in a row on the Mac and iPad: **Savings rate** ("31%"), **Saved** (what every account saved, worked out from balances and trades), **Came in** (money in plus pension contributions) and **Spent** (came in less saved). Under each, the change against the 12 months before: "▲ 4 points" for the rate, the amount for saved, a percentage for the other two, in green when it's good news (more saved, less spent) and orange when not; with less than two years recorded, no change. Then one sentence against the plan: its spending while working a year against what was spent a year ("Your plan spends 36.000 € a year while you work: you spent 12% less."; "… 8% more."; "… about the same." within 2%), left out when the plan is past working. With less than 12 months recorded, the card covers what there is, titled by the start of what its values cover, the date of the value the first is measured from ("Since 30 Jun 2026"), and what was spent a year is scaled from it as `retire spending` scales it.
-- **Savings rate.** A bar per month or year: the savings rate over the values of that period, a bar below the zero line when more was spent than came in. With *Months*, a line through the rate over the 12 months ending at each month (from the twelfth month recorded), since a single month's rate is noisy; the legend calls it *Rate over 12 months*. A rate needs something to have come in after tax, so a month, year or 12 months has none when nothing came in, less than nothing came in (money in and pension contributions add up to less than zero), or more tax than came in. The line breaks where the 12 months have no rate, so it doesn't join the months on either side. A month or year with money in and out but no rate has no bar, yet what it spent counts in the rate over the 12 months that hold it and can pull the line far below every bar: a dot in spent's colour at the value axis's bottom edge marks it, the legend adds *No rate*, and its callout says why. A dashed rule at the plan's own savings rate while working: a year's saving as the crossover counts it (the take-home pay of the work phase in force less spending while working), over that pay ("your plan's 28%"), left out without a work phase in force. The value axis fits the rule, the bars and the line, each bar's rate and the line's rate at it kept within a band around the typical rate of its 12 periods with a rate (those that end at it, or the first 12 while fewer come before it): their median, give or take three times how far their rates typically stray from it (their median distance from it), and at least 50 points either side of it and of zero. A month without a rate takes the band of the last one with a rate before it, or of the first. So a month with almost nothing in, whose rate can be −40.000%, doesn't flatten the others, nor do the 12 months that hold it, and a rate that swings from month to month isn't cut. A bar beyond the axis is drawn to its edge with a gap across it, the line runs along the edge with a triangle at each month beyond it pointing past it, the legend says "Cut at the edge", and the callout and VoiceOver read the real rates.
-- **Money in and out.** Per month or year, *came in* and *spent* as a pair of bars from zero, and *saved* as a dot between them, counted as the tiles and the savings rate count them (came in and saved include pension contributions), in the base currency at each value's date. A dashed rule at the plan's spending while working, for a month or a year, left out when the plan is past working. A value is counted in the period of its date, so after a skipped check-in its month holds two months' money: when the values of the account the most came into cover more than one and a half months (or years), the period's bars are hatched, the legend says so, and the callout says what they cover ("31 Oct · covers Sep – Oct"). The value axis fits what's typical, not the extremes, so a month with an inheritance or a car doesn't flatten the others: each period's came in, spent and saved are kept within 2.5 times its typical amount either side of zero, the larger of the medians of came in and of spent over its 12 periods (as on *Savings rate*), so a rising income moves the limit along. Those medians are of what came in and was spent a month (or year) of what each period holds, and a period that holds more after a skipped check-in has its typical amount times the months (or years) it holds: a quarter's money after quarterly check-ins isn't cut. The plan's rule is always in view. A bar beyond the axis is drawn to its edge with a gap across it, a dot as a triangle at the edge pointing past it, the legend says "Cut at the edge", and the callout and VoiceOver read the real amounts.
+- **Grain and span.** A segmented *Months | Years* and the time span menu under the zoom on iPhone, in the toolbar beside it on the Mac and iPad. The span is the *History* of the accounts list's chart (last year, 3 or 5 years, all of it) and shares its choice, as *Decades* does; looking back has no future. The grain starts on *Months* until money in and out has been recorded for two whole calendar years, then on *Years*. The year of the first value with money in and out isn't one of them: a first value covers no time before it. Once chosen, the device remembers it. *Your last 12 months* and *Your last Monday, check-in by check-in* don't follow the grain: the first is always 12 months, the second has a point at each check-in. The current month or year is drawn lighter and called "so far".
+- **Last 12 months**, at the top: the 12 months that end at the latest check-in, as the savings rate counts them ([PROGRESS.md](PROGRESS.md#money-in-and-out)), in two small cards side by side: **Savings rate** ("31%", and under it "4 points more than before", in green when it's good news and orange when not; "Same as before"; nothing with less than two years recorded) and **Saved** ("14.200 €", "of 45.800 € that came in"; *Took out* when below zero). With less than 12 months recorded, titled by where they start ("Since 30 Jun 2026").
+- **Money in and out**, a row at the bottom that opens it in a sheet: the 12 months in full, then the chart (below).
+- **Your last 12 months**, in the sheet. The 12 months in four tiles, two by two on iPhone and in a row on the Mac and iPad: **Savings rate** ("31%"), **Saved** (what every account saved, worked out from balances and trades), **Came in** (money in plus pension contributions) and **Spent** (came in less saved). Under each, the change against the 12 months before: "▲ 4 points" for the rate, the amount for saved, a percentage for the other two, in green when it's good news (more saved, less spent) and orange when not; with less than two years recorded, no change. Then one sentence against the plan: its spending while working a year against what was spent a year ("Your plan spends 36.000 € a year while you work: you spent 12% less."; "… 8% more."; "… about the same." within 2%), left out when the plan is past working. With less than 12 months recorded, the card covers what there is, titled by the start of what its values cover, the date of the value the first is measured from ("Since 30 Jun 2026"), and what was spent a year is scaled from it as `retire spending` scales it.
+- **Savings rate** (titled *Savings rate by month* or *by year*). A bar per month or year: the savings rate over the values of that period, a bar below the zero line when more was spent than came in. With *Months*, a line through the rate over the 12 months ending at each month (from the twelfth month recorded), since a single month's rate is noisy; the legend calls it *Rate over 12 months*. A rate needs something to have come in after tax, so a month, year or 12 months has none when nothing came in, less than nothing came in (money in and pension contributions add up to less than zero), or more tax than came in. The line breaks where the 12 months have no rate, so it doesn't join the months on either side. A month or year with money in and out but no rate has no bar, yet what it spent counts in the rate over the 12 months that hold it and can pull the line far below every bar: a dot in spent's colour at the value axis's bottom edge marks it, the legend adds *No rate*, and its callout says why. A dashed rule at the plan's own savings rate while working: a year's saving as the crossover counts it (the take-home pay of the work phase in force less spending while working), over that pay ("your plan's 28%"), left out without a work phase in force. The value axis fits the rule, the bars and the line, each bar's rate and the line's rate at it kept within a band around the typical rate of its 12 periods with a rate (those that end at it, or the first 12 while fewer come before it): their median, give or take three times how far their rates typically stray from it (their median distance from it), and at least 50 points either side of it and of zero. A month without a rate takes the band of the last one with a rate before it, or of the first. So a month with almost nothing in, whose rate can be −40.000%, doesn't flatten the others, nor do the 12 months that hold it, and a rate that swings from month to month isn't cut. A bar beyond the axis is drawn to its edge with a gap across it, the line runs along the edge with a triangle at each month beyond it pointing past it, the legend says "Cut at the edge", and the callout and VoiceOver read the real rates.
+- **Money in and out**, the chart in the sheet. Per month or year, *came in* and *spent* as a pair of bars from zero, and *saved* as a dot between them, counted as the tiles and the savings rate count them (came in and saved include pension contributions), in the base currency at each value's date. A dashed rule at the plan's spending while working, for a month or a year, left out when the plan is past working. A value is counted in the period of its date, so after a skipped check-in its month holds two months' money: when the values of the account the most came into cover more than one and a half months (or years), the period's bars are hatched, the legend says so, and the callout says what they cover ("31 Oct · covers Sep – Oct"). The value axis fits what's typical, not the extremes, so a month with an inheritance or a car doesn't flatten the others: each period's came in, spent and saved are kept within 2.5 times its typical amount either side of zero, the larger of the medians of came in and of spent over its 12 periods (as on *Savings rate*), so a rising income moves the limit along. Those medians are of what came in and was spent a month (or year) of what each period holds, and a period that holds more after a skipped check-in has its typical amount times the months (or years) it holds: a quarter's money after quarterly check-ins isn't cut. The plan's rule is always in view. A bar beyond the axis is drawn to its edge with a gap across it, a dot as a triangle at the edge pointing past it, the legend says "Cut at the edge", and the callout and VoiceOver read the real amounts.
 - **Reading the charts.** The pointer, or a finger touched and held then dragged, reads a period as the History chart's callout does: the month or year, then its rows. On *Money in and out*: "Savings rate 34%", "Rate over 12 months 31%", "Came in 4.100 €", "Spent 2.600 €", "Saved 1.500 €". On *Savings rate*, each rate with what it's worked out from, so a point of the line can be checked against the bars: the period's "Savings rate 34%" with its "Came in 4.100 €" and "Saved 1.500 €", then, where the line has a point, "Rate over 12 months 31%" with the 12 months' "Came in 45.800 €" and "Saved 14.200 €". A rate reads "–" when there's none, with why under it: "Nothing came in", "Less than nothing came in" or "More tax than came in". Rates stay with the eye; amounts hide.
 - **Accessibility.** *Savings rate*'s summary says what the bars and the line are, that the line has a gap where the 12 months have no rate (only when it has one), and names the months or years without a bar, each with why: "No rate in Aug 2026 (nothing came in) and Oct 2026 (more tax than came in), so they have no bar; what was spent then counts in the rate over 12 months."
-- **Your last Monday, check-in by check-in.** The earliest retirement age at each check-in, as a step line, with a legend over it: *Earliest age*, and *At your pace* and *Saving nothing more* when they're drawn. Markers show where you changed the plan or where the app's calculations changed, and the legend under the chart names the kinds it shows. A dashed line shows the pace age where check-ins recorded one: the earliest age if you kept saving at your pace of the last 12 months ([PLANNER.md](PLANNER.md#ages-without)). The gap between the lines shows whether the plan's saving is realistic; the callout adds it ("At your pace 57"). A dotted line shows the coast age where check-ins recorded one ("Saving nothing more 63"). Under it, the latest age and how it moved over the span: "54 now: 4 years sooner since Jan 2026."
-- **Not enough data.** Money in and out start at the first check-in that records them, so *Savings rate* and *Money in and out* say where their data starts when the span reaches back before it: "Money in and out is recorded since 30 Jun 2026: 3 months so far." (the date the first counted value is measured from; *Your last 12 months* says it in its title). Without any recorded, those three cards fold into one that says what records them, with *Open Accounts*. *Your last Monday, check-in by check-in* needs a recorded answer: until then, "Your date shows here from the first check-in that records it." Check-ins record answers only for the main plan, so for any other plan it says "Only your main plan records an answer at each check-in." with *Set as Main Plan*.
-- **Mac and iPad.** The tiles in one row across the page, then two columns: *Savings rate* over *Money in and out* on the left, *Your last Monday, check-in by check-in* on the right.
+- **Your last Monday, check-in by check-in.** The earliest retirement age at each check-in, as a step line, with a legend over it when there's more than one line: *Earliest age*, and *At your pace* and *Saving nothing more* when they're drawn. Markers show where you changed the plan or where the app's calculations changed, and the legend under the chart names the kinds it shows. A dashed line shows the pace age where check-ins recorded one: the earliest age if you kept saving at your pace of the last 12 months ([PLANNER.md](PLANNER.md#ages-without)). The gap between the lines shows whether the plan's saving is realistic; the callout adds it ("At your pace 57"). A dotted line shows the coast age where check-ins recorded one ("Saving nothing more 63"). Under it, the latest age and how it moved over the span: "54 now: 4 years sooner since Jan 2026."
+- **Not enough data.** Money in and out start at the first check-in that records them, so *Savings rate* and *Money in and out* say where their data starts when the span reaches back before it: "Money in and out is recorded since 30 Jun 2026: 3 months so far." (the date the first counted value is measured from; *Your last 12 months* says it in its title). Without any recorded, the figures, *Savings rate* and the *Money in and out* row fold into one card that says what records them, with *Open Accounts*. *Your last Monday, check-in by check-in* needs a recorded answer: until then, "Your date shows here from the first check-in that records it." Check-ins record answers only for the main plan, so for any other plan it says "Only your main plan records an answer at each check-in." with *Set as Main Plan*.
+- **Mac and iPad.** The two figures across the page, then *Savings rate* and *Your last Monday, check-in by check-in* side by side, then the *Money in and out* row.
 - **Hidden amounts.** Rates, words, ages and the charts' shapes stay. Amounts are placeholders, and the value axis of *Money in and out* switches to relative labels (*Privacy* under [Design system](#design-system)): multiples of what typically came in in a period (the median, so one month with an inheritance doesn't move it).
-- **VoiceOver** reads each tile as its title, figure and change, and each chart as a chart with its audio graph and chart details.
+- **VoiceOver** reads each figure and tile as its title, figure and change, and each chart as a chart with its audio graph and chart details.
 
 ### Milestones
 
@@ -412,11 +379,11 @@ The points you pass on the way ([PROGRESS.md](PROGRESS.md#milestones)): round am
 └──────────────────────────────────────────┘
 ```
 
-- **Year.** A card after the year's words (beside the strip on the Mac and iPad): the next milestone ("⚑ Next milestone", "5 years of spending · 90% there") with how far there as a bar, and what its name doesn't say and when the median future typically reaches it ("180.000 € · typically by late 2028"); saving nothing more (below); and *All Milestones*, a sheet with the next and saving nothing more; *What they mean*, each kind of milestone the plan has, explained, with the latest of it reached and the next ahead (below); then what's been reached, newest first, and what's ahead, soonest first (five of each, *Show All* for the rest). On a year's card, a filled flag on the line at the check-in or the month end that reached one (in the years before your first check-in too), its name in the year's words; and in those words, the month's row flagged, the milestone in bold ("Jun · ⚑ **Passed 300.000 €.**"). Notable check-ins join the rows too: "You saved 3.200 €, more than usual.", "Markets fell 24.500 €, 8%.".
+- **Year.** A card of rows after *What happened* (beside the chart on the Mac and iPad): the next milestone with an open circle, its name, and how far there and when the median future typically reaches it ("5 years of spending", "93% there, typically late 2028"); saving nothing more (below); and *All Milestones*, a sheet with the next and saving nothing more; *What they mean*, each kind of milestone the plan has, explained, with the latest of it reached and the next ahead (below); then what's been reached, newest first, and what's ahead, soonest first (five of each, *Show All* for the rest). On a year's chart, a filled flag on the line at the check-in or the month end that reached one (in the years before your first check-in too); and in *What happened*, the month's row flagged ("June · ⚑ Passed 300.000 €"). Notable check-ins join the rows too: "You saved 3.200 €, more than usual.", "Markets fell 24.500 €, 8%.".
 - **Today.** The *Next* row: the next milestone with how far there and its bar ("Next: 5 years of spending", "80% there"), which opens the Timeline at *Year*.
 - **Plan.** In the chosen chapter, *Along the way, typically*: the milestones the median future reaches in it, each with its flag and when ("400.000 €", "mid 2027").
 - **Check-in.** After saving, the milestones passed since the check-in before, at this one or at a month end between them, each a line with a flag ("Passed 300.000 €."), and the next with how far there ("Next: 5 years of spending, 80% there."). The shares of what retiring today needs and the coast point come with the month's answer, and show at *Year*.
-- **The coast age.** On *Year*'s Milestones card, once a calculation or a check-in has worked it out ([PLANNER.md](PLANNER.md#ages-without)): "Saving nothing more · retire at 71", in green once it's at or under the coast point, and under it where it stands against the coast point: "In August it was 67, when your first pension starts: the coast point." once you'd reached it and the age has moved since, "The coast point is 67, when your first pension starts.", or "You're past the coast point: your first pension starts at 67." The *All Milestones* sheet says it in full ("If you stopped saving today, you could still retire at 63; the coast point is 67, when your first pension starts."), and so do the plan's key numbers. The coast point is a milestone: the first check-in whose recorded coast age is at or under the age the first pension starts, the first check-in that recorded one included ("Passed the coast point: saving nothing more, you could still retire at 67."). It stays under *Reached* when the age rises again.
+- **The coast age.** On *Year*'s Milestones card, once a calculation or a check-in has worked it out ([PLANNER.md](PLANNER.md#ages-without)): "Saving nothing more · retire at 71", in green once it's at or under the coast point. The *All Milestones* sheet says it in full ("If you stopped saving today, you could still retire at 63; the coast point is 67, when your first pension starts."), and so do the plan's key numbers. The coast point is a milestone: the first check-in whose recorded coast age is at or under the age the first pension starts, the first check-in that recorded one included ("Passed the coast point: saving nothing more, you could still retire at 67."). It stays under *Reached* when the age rises again.
 - **The widget.** *Next milestone* shows the next one, its bar and when it typically comes ([Widgets](#widgets)).
 - **What they mean.** In the *All Milestones* sheet, between saving nothing more and the lists, a block for each kind the plan has, in this order: its name, what it means and why it matters, then the latest of it reached (a filled flag, "None yet." without one) and the next of it ahead (an outlined flag; "No more before the plan's end." without one, nothing without results). Round amounts are always there: "The money in your plan passing 10.000 €, 15.000 €, 20.000 €, 25.000 € and on, each about a quarter above the last: simple marks of the money growing." (its amounts placeholders while amounts are hidden). Years of spending need the plan's retirement spending: "What you have, counted in years of the 36.000 € a year you plan to spend in retirement." What retiring today needs: "The money in your plan against what retiring today would need. All of it means you could stop now." The crossover needs saving and growth: "From about 380.000 €, a typical year's growth adds as much as you save: from there, markets do more than your saving." The coast point needs a pension, and has nothing ahead: "When you could stop saving and still retire when your first pension starts, at 67." A kind with none on the ladder and none reached is left out.
 - **Words.** A round amount is its amount (a placeholder while amounts are hidden; "A round amount" on the lock screen); "10 years of spending" ("Enough for 10 years of the spending you plan for retirement."); "Half of what retiring today needs" ("Halfway to what retiring today needs."), and all of it "All that retiring today needs: you could stop."; "The crossover" ("A typical year now adds more than you save."). Dates ahead are a part of a year, "early", "mid" or "late 2028", since they're the median of many futures.
@@ -427,48 +394,44 @@ Once a month: import the month's files, update the values you type, look at what
 
 ```
 ┌──────────────────────────────────────────┐
-│ Cancel          Check-in            Save │
-│ 31 October 2026           Change Date    │
-│ Import this month's statements and       │
-│ exports. …                               │
-│ [        ⤓ Import Files…              ]  │
-│ ✓ Prices and FX updated (4)           ▸  │
-│ NET WORTH                                │
-│ 312.480 €                                │
-│ ▲ +4.210 € since 30 Sep                  │
-│ Markets ▬▬▬  Saved ▬▬  Other ▬           │
-│ TYPED BY YOU (1)                         │
-│ Home                 312.000  [Update]   │
-│ Last value 30 Jun                        │
-│ UPDATED (3)                              │
-│ Conto Fineco                     6.012   │
-│ Conto deposito                  17.901   │
-│ Directa                         59.448   │
-│ NOT UPDATED (3)                          │
-│ Fondo pensione                  24.300   │
-│ …                                        │
-│ No file this month covered these         │
-│ accounts: they keep their last values.   │
+│ Cancel    October check-in          Save │
+│           31 Oct 2026 ▾                  │
+│ ╭ ⤓ Import Files ───╮╭ ✓ Prices updated ╮ │
+│ TO CONFIRM · 2                           │
+│ ╭──────────────────────────────────────╮ │
+│ │ Home                  € [ 312.000 ]  │ │  ← typed: a field
+│ │ Last value 30 Jun                    │ │
+│ │ Fondo pensione             24.300    │ │  ← no file this month
+│ │ Last value 31 May                    │ │
+│ ╰──────────────────────────────────────╯ │
+│ UPDATED · 5                              │
+│ ╭──────────────────────────────────────╮ │
+│ │ Conto Fineco                6.012    │ │
+│ │ Conto deposito             17.901    │ │
+│ │ Directa                    59.448    │ │
+│ │ 2 more                           ›   │ │
+│ ╰──────────────────────────────────────╯ │
+│ Net worth so far     312.480 € ▲ +4.210  │  ← pinned to the bottom
 └──────────────────────────────────────────┘
 ```
 
-- **Date.** Defaults to today. In the first days of a month it suggests the end of the previous month (`CheckInDates.suggested(today:lastCheckIn:)`). *Change Date* picks another; an earlier date fills in history: see [Adding history](#adding-history).
-- ***Import Files…*** opens the import ([Import](#import-mac-first)) in a sheet for the check-in's date: bank statements are read through that date ([IMPORT.md](IMPORT.md#bank-statements)), and broker exports, pension spreadsheets and any other file import as they do anywhere. Each import is written when you tap *Import*, with its own backup, and undone from its Done step or with `retire import --undo`. Import as many files as the month has; the page follows each one.
-- **Prices.** Fetched for the date as soon as the check-in opens, and again after each import, for what the accounts hold then (Settings can turn this off). The status row opens the price list, read-only: each price, rate and inflation value with its source and time, or why it couldn't be fetched. A price that couldn't be fetched uses the latest one known. An instrument without a price source gets its price on the Instruments screen.
-- **Net worth** on the date, with the fetched prices, and the change since the previous check-in: a headline and a bar each for markets, saved and other.
-- **Typed by you:** the open accounts whose values you type (`Account.acceptsTypedValues`: those set to *Typed by you*, and starting estimates), each with the date of its latest value, its value on the date and *Update*, which opens *Update Value* ([Accounts](#accounts)) dated the check-in's date. Saving it writes the value with its own backup, and the page follows.
-- **Updated:** the other open accounts with a value, or for a trades account a trade, in the date's month on or before the date, with their value. **Not updated:** the rest, which keep their last values; an account that holds nothing isn't listed. Imported values aren't edited here: a wrong one comes from a file, so fix the file and import it again, or delete the value on the account's page.
+- **Date.** Defaults to today. In the first days of a month it suggests the end of the previous month (`CheckInDates.suggested(today:lastCheckIn:)`). The title says the month, with the date under it ("October check-in", "31 Oct 2026"); tapping the date picks another; an earlier date fills in history: see [Adding history](#adding-history).
+- ***Import Files*** opens the import ([Import](#import-mac-first)) in a sheet for the check-in's date: bank statements are read through that date ([IMPORT.md](IMPORT.md#bank-statements)), and broker exports, pension spreadsheets and any other file import as they do anywhere. Each import is written when you tap *Import*, with its own backup, and undone from its Done step or with `retire import --undo`. Import as many files as the month has; the page follows each one.
+- **Prices.** Fetched for the date as soon as the check-in opens, and again after each import, for what the accounts hold then (Settings can turn this off). The button beside *Import Files* says their status in a few words ("Prices updated", "Check prices") and opens the price list, read-only: each price, rate and inflation value with its source and time, or why it couldn't be fetched. A price that couldn't be fetched uses the latest one known. An instrument without a price source gets its price on the Instruments screen.
+- **Net worth so far**, on the date with the fetched prices, and its change since the previous check-in, in a bar pinned to the bottom.
+- **To confirm:** first the open accounts whose values you type (`Account.acceptsTypedValues`: those set to *Typed by you*, and starting estimates), each with the date of its latest value and its balance on the check-in's date in a field, prefilled from that value. Changing it and pressing Return, or leaving the field, saves it as a typed value on the check-in's date with its own backup, as *Update Value* does ([Accounts](#accounts)), which the row's context menu also opens; a balance that can't be read says so under the name. Then the accounts no file this month covered, which keep their last values (an account that holds nothing isn't listed), in gray, the date of the last value in the warning color when it's stale.
+- **Updated:** the other open accounts with a value, or for a trades account a trade, in the date's month on or before the date, with their value; past three, the rest behind "2 more". Imported values aren't edited here: a wrong one comes from a file, so fix the file and import it again, or delete the value on the account's page.
 - **Save** writes the fetched prices, FX rates and inflation values (a price you set by hand for the date stays) and records this month's answer. *Cancel* drops the fetched prices; what the imports wrote stays. Nothing is kept on the device: an open check-in is its date and its prices.
-- **After saving.** The confirmation shows as soon as the prices are written: "October saved", the check-in's date, and net worth with its change ("▲ +4.210 € since 31 Aug"); then the milestones passed since the check-in before ([Milestones](#milestones)). The main plan then runs to record this month's answer (only for the latest check-in: see [Adding history](#adding-history)), and the card *Your last Monday at work* shows its progress ([Calculating](#calculating)) in the meantime, the same as on the Plan screen, without a Cancel button, and "You can close this now: the answer is recorded when it's ready." Then it ends with your date, moved:
+- **After saving.** The confirmation shows as soon as the prices are written, titled "October saved": a card with your date, then the milestones passed since the check-in before ([Milestones](#milestones)), then *What moved it* with net worth and its change, and *Done* pinned to the bottom. The main plan then runs to record this month's answer (only for the latest check-in: see [Adding history](#adding-history)), and the card *Your last Monday at work* shows its progress ([Calculating](#calculating)) in the meantime, the same as on the Plan screen, without a Cancel button, and "You can close this now: the answer is recorded when it's ready." Then it ends with your date, moved:
 
   > October saved · Net worth 312.480 € (▲ 4.210)
   > Your last Monday at work: ~~3 April 2051~~ **27 March 2051** · A year sooner
   > At 62, in 9 of 10 futures.
 
-  The date before is struck through when it differs. The chip says how the earliest age moved since the check-in before: "A year sooner", "2 years later", "The same date". The line under it says the age and how sure: "Still at 63, in 9 of 10 futures." when it didn't move, "At 62, in 9 of 10 futures." when it moved or there's no answer before, "You could stop today, in 9 of 10 futures.", or "No age works out in 9 of 10 futures yet." *Open the plan* follows. Without a main plan: "Create a plan to see your last Monday at work. Every check-in will then end with it, moved." with *Create a plan*. When there's no answer for the month, the last one ("Last time (31 Aug): 27 March 2051.") and why: "The plan couldn't run this time: …", or "This month's date isn't ready yet. The plan works it out when you open it."
+  The date is the screen's hero, centered on its card under "Your last Monday at work"; the date before is struck through above it, with an arrow down, when it differs. The chip says how the earliest age moved since the check-in before: "A year sooner", "2 years later", "The same date". The line under it says the age and how sure: "Still at 63, in 9 of 10 futures." when it didn't move, "At 62, in 9 of 10 futures." when it moved or there's no answer before, "You could stop today, in 9 of 10 futures.", or "No age works out in 9 of 10 futures yet." *Open the plan* follows. Without a main plan: "Create a plan to see your last Monday at work. Every check-in will then end with it, moved." with *Create a plan*. When there's no answer for the month, the last one ("Last time (31 Aug): 27 March 2051.") and why: "The plan couldn't run this time: …", or "This month's date isn't ready yet. The plan works it out when you open it."
 
   This is the monthly moment the app is built around: recording the month's answer is what the check-in is for. *Done* can close the confirmation while it runs; the answer is still recorded.
-- **The ending.** Under the date, *What moved it*: what was saved as time ("You saved 1.500 €, about 2½ weeks of expenses. Markets added about 7 more.", see [Today](#today), *Saving as time*), and when markets took 5% or more of net worth, a word of perspective, "Markets took 8%. Months like this are part of the 9 in 10 futures your plan already counts." (`MarketPerspective`). Then the next milestone: "⚑ Next: 5 years of spending, 80% there."
+- **The ending.** Under the date, *What moved it*: net worth and its change ("312.480 € ▲ +4.210 €"), a bar each for what you saved and what markets did, what was saved as time ("You saved 1.500 €, about 2½ weeks of expenses. Markets added about 7 more.", see [Today](#today), *Saving as time*), and when markets took 5% or more of net worth, a word of perspective, "Markets took 8%. Months like this are part of the 9 in 10 futures your plan already counts." (`MarketPerspective`). Then the next milestone, on a card of its own: "⚑ Next: 5 years of spending, 80% there."
 - **Notes.** Saving schedules the notes again ([Notifications](#notifications)): the month's note is answered, and the next one counts from this check-in.
 - ⌘S saves on the Mac and iPad.
 
@@ -478,39 +441,42 @@ Once a month: import the month's files, update the values you type, look at what
 
   ```
   Accounts                              ⋯   +
-  Net worth                             3Y ▾
-  312.480 €
-  ▲ +4.210 € in September   ▲ 14% this year
-  ┌ net worth by asset class ────────────┐
-  Allocation                  Asset class ▾
-  Equity    ▇▇▇▇▇▇▇▇▇▇▇▇  182.400  58%
-  Cash      ▇▇▇▇           53.100  17%
-  …
-  9 open accounts
-  Cash                         12.990  ⌄         ← tap a header to collapse it
-    Conto deposito    ╱‾╲_╱     8.200  ›
-    Conto Fineco  ◷   _╱‾‾      4.790  ›         ← ◷ "Stale"
-  Investments                  71.300  ›         ← collapsed: the header alone
-  Crypto & gold                13.040  ⌄
-    Gold coins        ‾‾╲_      9.640  ›
-    Ledger wallet     _╱‾╲      3.400  ›
-  …
-  Closed (1)                           ›         ← collapsed at first
+  ╭──────────────────────────────────────╮
+  │ Net worth               Last 3 years ▾│
+  │ 312.480 €                             │
+  │ ▲ +4.210 € in September  ▲ 14% this year
+  │ ╱‾‾‾‾‾‾‾‾‾‾‾‾‾‾  net worth            │
+  │ ▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇   │
+  │ ● Real estate 66%  ● Equity 14%  …    │
+  │ Allocation                         ›  │
+  ╰──────────────────────────────────────╯
+  ╭──────────────────────────────────────╮
+  │ CASH                         12.990   │  ← tap the name to collapse it
+  │ Conto deposito  Fineco        8.200 › │
+  │ Conto Fineco ◷  Fineco        4.790 › │  ← ◷ stale
+  ╰──────────────────────────────────────╯
+  ╭──────────────────────────────────────╮
+  │ Investments                  71.300 › │  ← collapsed groups share a card
+  │ Pension ◷                    24.300 › │
+  │ Closed                            1 › │  ← collapsed at first
+  ╰──────────────────────────────────────╯
   ```
 
-  - **Net worth** heads the list: net worth today, as Today's *Net worth* row has it, in large type, animating when it changes; under it the change at the last check-in ("▲ +4.210 € in September") and this year's ("▲ 14% this year"); a compact time span menu (the *History* half of the decades chart's, sharing its choice); and the history chart of net worth by asset class, with debts below the zero line, drawn and read as the decades chart's past is ([Decades](#decades)). Under the header, "9 open accounts". Not shown while searching.
-  - **Allocation.** Under the chart: horizontal bars with values and percentages; a donut would be harder to read. *Group by* switches the dimension between asset class, account group, currency, institution, and liquid vs locked, and the device remembers it.
+  - **Net worth** heads the list, on one card: net worth today, as Today's *Net worth* row has it, animating when it changes; under it the change at the last check-in ("▲ +4.210 € in September") and this year's ("▲ 14% this year"); a menu of the chart's span (the *History* half of the decades chart's, sharing its choice); the chart of net worth over that span, a single line, read by dragging across it; and a strip of what you own by asset class, with its shares as a legend ("Equity 14%"). Not shown while searching.
+  - **Allocation.** Under the strip, collapsed at first: horizontal bars with values and percentages; a donut would be harder to read. *Group by* switches the dimension between asset class, account group, currency, institution, and liquid vs locked, and the device remembers it.
     - *Asset class* splits holdings by their instrument's mix and balances by the account's mix, and shows debts as their own bar.
     - *Currency* is where each part is priced; bitcoin in a euro wallet counts as dollars.
     - *Locked* is pension funds, TFR, property and belongings, and the mortgage secured on the property.
-  - Each group's header shows its name and subtotal.
-  - Each row shows a kind icon, the name, the institution, the value, a sparkline of the last 12 months (in the account's own currency, with gaps where a value can't be worked out), and a "stale" badge when needed.
+  - Each expanded group is a card: its name and subtotal at the top, then its accounts.
+  - Each row shows the name and the institution on one line, a clock when the value is stale, and the value on the right, on one line. A long name is cut short; the institution gives way first.
   - **Stale** means the latest value is older than the threshold (45 days by default). An account that holds nothing (a zero balance, or no cash and no quantity) has nothing to check in, so it's never stale: not in the list, the sidebar, its detail or *Needs attention*.
-  - Swipe actions: *Close*. The context menu adds *Edit Account…*. Values are typed on the account's page, for an account that takes them.
-  - Closed accounts sit in a "Closed (3)" section at the bottom.
-  - On iPhone the toolbar has *New Account* and *More*, with *Import Files…* and *Instruments*.
-  - **Collapsing.** Tapping a group's header, or *Closed*'s, collapses the group to its header (name and subtotal) or expands it again, with an animation; the chevron at the right of the header points down while it's expanded. The groups start expanded and *Closed* collapsed. The device remembers which are collapsed, and the sidebar shares them: collapsing Cash in the accounts list collapses it in the sidebar too (on an iPad that switches layouts), and the other way round.
+  - Swipe actions (iPhone): *Close*. The context menu adds *Edit Account…*. Values are typed on the account's page, for an account that takes them.
+  - Closed accounts sit under *Closed* at the bottom.
+  - On iPhone the toolbar has *More*, with *Import Files…* and *Instruments*, and *New Account*.
+  - **Collapsing.** Tapping a group's name, or *Closed*'s, collapses it to a row (name, subtotal or count, and a clock when one of its accounts is stale); collapsed groups next to each other share one card, and tapping a row expands its group again, with an animation. The groups start expanded and *Closed* collapsed. The device remembers which are collapsed, and the sidebar shares them: collapsing Cash in the accounts list collapses it in the sidebar too (on an iPad that switches layouts), and the other way round.
+  - On the Mac the cards are a scrolling page; on iPhone and iPad they're a grouped list.
 - **Account detail.**
+  - **Layout.** Under the account's name, a line with its group and its institution ("Cash, FinecoBank"), or for an account that records trades "Investments, from your trades" (on the Mac, the window's subtitle). Then one card with the value, its change and the chart; then the rest, a card each. On iPhone a trades account's holdings, trades, income and statements are behind a segmented control, one at a time.
   - **In the account's own currency.** The value, its change, the chart and the values list are in the account's currency, which needs no exchange rate: a dollar account in a euro library shows `0,00 US$`. Under the value, its value in the base currency at the day's rate, or "Value in EUR: rate missing".
   - The value and its change since the value before, with the year when it isn't this one: "▼ −123.959,00 US$ since 30 Nov 2021", then its parts (markets, saved, other). A change that shows as zero has no arrow and no sign.
   - A history chart. New-money events are small ticks in a lane along the bottom, pointing up for money added and down for money taken out, coloured by sign, so jumps you caused are distinguishable from market moves; they never stretch the value axis, and the callout gives their amount. The value axis always includes zero, with round ticks that read apart, even for an account that's been at zero. The callout stays inside the chart.
@@ -600,7 +566,7 @@ A brokerage, crypto or metals account records its **trades** ([TRADES.md](TRADES
 └──────────────────────────────────────────┘
 ```
 
-- **Holdings**: per instrument, the quantity, average cost (*costo medio*: what was paid per unit, fees included), value, unrealised gain (amount and %) and its share of the account; then the cash and the total. Each position is three lines: the name and value; "0,10383916 BTC × 73.785,11 €" and "95 % of the account" (when they don't fit on one line, the quantity and the share share it and "at 73.785,11 €" goes on the next; at the largest text sizes each is a line of its own); "Average cost 101.437,74 €" and the gain ("▼ −2.871 € −27,3 %"), the gain under the cost when they don't fit. A label and its value are one piece of text, so they never wrap apart. On the Mac, a grid with those columns.
+- **Holdings**: per instrument, the quantity, price, average cost (*costo medio*: what was paid per unit, fees included), value and unrealised gain; then the cash and the unrealised gain of them all. On iPhone each position is two lines: the name, cut short, and the value; "412,5 sh at 138,42 €, paid 116,85 € each" and the gain ("▲ +8.898 €"), the gain under it when they don't fit. On the Mac, a grid with those columns, its share of the account and the total.
 - **Trades**: grouped by month, newest first; each row shows the type's icon, what it was ("Buy 0,10383916 BTC") over its price, date and note ("at 101.437,76 € · 1 Oct 2025", the price in its own currency), and on the other side the cash it moved, with a sale's realised gain. A trade paid from outside the account shows what was paid or received, marked "paid from outside" (a sale: "proceeds paid out"); on the Mac the mark leads its note. At the largest text sizes the amount goes under the description. *Filter* shows one instrument or one type. Swipe or long-press a trade to delete it (the confirmation says what deleting brings in, e.g. a later sale now selling more than is held). On the Mac, a table (date, type, instrument, quantity, price, amount, note) as long as its trades, which scrolls with the page: right-click deletes.
 - **Income & gains**, by year: realised gains, dividends, interest, fees and taxes, and the net; a sale whose cost is unknown is left out and said so. In the account's currency.
 - **What needs a look**, as banners with the fix: a trade missing a price or amount, a sale of more than was held, an opening without cost, a missing exchange rate, a trade outside the account's dates, a value with a balance (which isn't used), and a statement that differs from the trades ("The statement on 30 Jun shows 12 VWCE; your trades give 10. Import the missing trade."). The fix is in the file: correct it and import it again, or delete the trade. A trade outside the account's dates offers *Edit Account…*. Today's *Needs attention* points to an account with any of these ("Directa: 2 problems with trades").
@@ -608,7 +574,7 @@ A brokerage, crypto or metals account records its **trades** ([TRADES.md](TRADES
 
 ## Plan
 
-A plan picker sits at the top (Base case ▾: the plans, then New Plan, Duplicate, Rename…, Set as Main Plan, *Export Calculations…* under how the results shown were calculated, "Calculated at 09:41 with 2.000 runs" or "Not calculated yet", and Delete…, whose confirmation says "The dates it worked out at your check-ins stay in the library."). Then one page: your date, the levers that move it, your life in chapters, the chosen chapter with its settings, the key numbers, and what every chapter assumes. On the Mac and iPad the toolbar also has *Calculate* (*Recalculate* once there are results). *New Plan*, *Duplicate*, moving the levers, *Save as Plan…* and *Export Calculations…* come with [Plus](#plus); without it they open the paywall.
+The plan's name is its menu (Base case ▾: the plans, then New Plan, Duplicate, Rename…, Set as Main Plan, *Export Calculations…* under how the results shown were calculated, "Calculated at 09:41 with 2.000 runs" or "Not calculated yet", and Delete…, whose confirmation says "The dates it worked out at your check-ins stay in the library."). Then one page: your date and the levers that move it, your chapters, and the key numbers with what every chapter assumes. On iPhone the page has no navigation bar: the header card names the plan. On the Mac and iPad a header row holds the name, how the results were calculated and *Assumptions…*, *Target Mix…*, *Duplicate* and *Save as Plan…*; the toolbar has *Calculate* (*Recalculate* once there are results). *New Plan*, *Duplicate*, moving the levers, *Save as Plan…* and *Export Calculations…* come with [Plus](#plus); without it they open the paywall.
 
 ### Calculating
 
@@ -637,92 +603,63 @@ A plan calculates on its own, in the background. The Plan screen runs it 600 ms 
 
 ### The plan
 
-The plan reads as a life ([PLANNER.md](PLANNER.md#chapters)): your date first, then the levers that move it, then your life as a list of **chapters**, then the chosen chapter: what happens in it, in words, and its settings, where the plan changes. A chapter starts in the year the work you do changes, work stops, the first pension is paid, or retirement spending moves to another phase; everything else (another pension, a contribution, an event, a change of the target mix) belongs to the chapter it starts or happens in.
+The plan reads as a life ([PLANNER.md](PLANNER.md#chapters)): your date first, with the levers that move it, then your life as **chapters**, each with what happens in it, in words, and its settings, where the plan changes. A chapter starts in the year the work you do changes, work stops, the first pension is paid, or retirement spending moves to another phase; everything else (another pension, a contribution, an event, a change of the target mix) belongs to the chapter it starts or happens in.
+
+On iPhone:
 
 ```
 ┌──────────────────────────────────────────┐
-│ Base case ▾                          ⋯   │
-│ Your last Monday at work                 │
-│ 27 March 2051, at 63                     │
-│ In 9 of 10 futures.                      │
+│ ╭──────────────────────────────────────╮ │
+│ │ Base case ▾                 Levers ⌄ │ │
+│ │ 27 March 2051, at 63                 │ │
+│ ╰──────────────────────────────────────╯ │
 │ ⓘ TFR counts as cash: it has no mix of   │
 │   investments set. Set one…              │
-│ ╭ Levers ──────────────────────────────╮ │
-│ │ Stop working at                   63 │ │
-│ │ ────────────────●─────────────────── │ │
-│ │ Spending              3.000 € a month│ │
-│ │ ──────────●───────────────────────── │ │
-│ │ Saving                  333 € a month│ │
-│ │ ───────────────●──────────────────── │ │
-│ │ Shares, above inflation  3.14% a year│ │
-│ │ ─────────●────────────────────────── │ │
-│ │ Move a lever and your date follows.  │ │
-│ ╰──────────────────────────────────────╯ │
-│ Your life in four chapters               │
+│ Your four chapters                  Add  │
 │ ╭──────────────────────────────────────╮ │
-│ │ ① Employee                         › │ │
-│ │   Now to 54 · 2026 to 2042           │ │
-│ │ ② Bridge                           ⌄ │ │
-│ │   54 to 67 · 2042 to 2055            │ │
-│ │ ③ Pension                          › │ │
-│ │   67 to 85 · 2055 to 2073            │ │
-│ │ ④ Slowing down                     › │ │
-│ │   85 to 95 · 2073 to 2083            │ │
+│ │ ① Employee                 now to 41 │ │
+│ │   ▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇   │ │
+│ │   4.200 € take-home, 3.000 € spent,  │ │
+│ │   1.200 € saved a month              │ │
+│ │ ③ Bridge years              55 to 67 │ │
+│ │   ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱   │ │
+│ │   3.000 € a month from your savings  │ │
+│ │ ④ Pensions                     67 on │ │
+│ │   ▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇╱╱╱╱╱╱╱╱╱╱╱╱╱   │ │
+│ │   1.900 € from pensions, 1.100 € …   │ │
 │ ╰──────────────────────────────────────╯ │
-│ ╭──────────────────────────────────────╮ │
-│ │ ② Bridge                      ‹  ›   │ │
-│ │   54 to 67 · 2042 to 2055 · 13 years │ │
-│ │ WHAT HAPPENS                         │ │
-│ │ You stop working as early as you     │ │
-│ │ can, at 54 in 2042, and spend        │ │
-│ │ 3.000 € a month, all from your       │ │
-│ │ savings.                             │ │
-│ │ ▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇ │ │
-│ │ 3.400 € from savings                 │ │
-│ │          400 € of it tax, on average │ │
-│ │ WHAT CAN GO WRONG                    │ │
-│ │ ⚠ In 4 in 100 futures, the money     │ │
-│ │   you can draw runs out before       │ │
-│ │   Fondo pensione opens at 67.        │ │
-│ ╰──────────────────────────────────────╯ │
-│ Settings         A month, in today's EUR │
-│ ╭──────────────────────────────────────╮ │
-│ │ ▣ Stop working As early as you can › │ │
-│ │   At 54, in 2042                     │ │
-│ │ ▣ Spending                 3.000 € › │ │
-│ │ ▣ Flexible spending            Off › │ │
-│ │ ▣ Inheritance           +150.000 € › │ │
-│ │   At 62 · 80% likely                 │ │
-│ ╰──────────────────────────────────────╯ │
-│ + Add to this chapter                    │
 │ Key numbers                              │
-│ …                                        │
-│ Assumptions…   Export Calculations…      │
+│ ╭──────────────────────────────────────╮ │
+│ │ You could spend from 55      2.350 € │ │
+│ │ If you stopped saving now stop at 71 │ │
+│ │ Assumptions    5% shares, 2% infl. › │ │
+│ ╰──────────────────────────────────────╯ │
 └──────────────────────────────────────────┘
 ```
 
-- **Your date.** The plan's answer as Today says it ([Today](#today)): "Your last Monday at work", then "27 March 2051, at 63" in large type ("You could stop today" or "Not yet" without a date), then "In 9 of 10 futures." ("No age works out in 9 of 10 futures yet. Try the levers."). Once a lever has moved, the label reads "With your levers" in the accent and the date is the what-if's, with a chip for how far the levers moved it: "A year sooner than the plan", "The same as the plan". The date dims while the results are being recalculated or no longer fit. Before the first calculation it's the answer recorded at the last check-in. A calculation's progress shows under it ([Calculating](#calculating)).
-  - What stops the plan from answering (it can't run, a change wasn't saved) shows above it as a banner, with *Try Again* under the date after a failed run; what it assumed that you may want to change shows under it, quietly, a line each with the way to fix it: "TFR counts as cash: it has no mix of investments set. *Set one…*", which opens the account (two at most; the rest with the inputs they concern).
+On the Mac and iPad the levers sit beside the answer's card (the date large, "at 63", "Stop at 55: 4 in 10", and the chance by retirement age), the chapters are a table ("Chapter", "Ages", "Take-home", "Spending", "Saved", "Where it goes", and "One-offs" when there's room) with the chosen chapter's words and settings under it, and when the page is wide the key numbers and the assumptions take a column on the right.
+
+- **Your date.** On iPhone, in the header card: the plan menu, small and grey, over "27 March 2051, at 63" ("You could stop today" or "Not yet" without a date; "No age works out in 9 of 10 futures yet. Try the levers." under it), with *Levers* on the right. On the Mac and iPad, the answer's card: "Earliest last Monday, in 9 of 10 futures", then the date in large type, "at 63", and how sure stopping at the plan's own age is ("Stop at 55: 4 in 10") when that isn't the earliest age. Once a lever has moved, the date is the what-if's, with a chip for how far the levers moved it: "A year sooner than the plan", "The same as the plan" (on the Mac the label reads "With your levers, in 9 of 10 futures" in the accent). The date dims while the results are being recalculated or no longer fit. Before the first calculation it's the answer recorded at the last check-in. A calculation's progress shows under it ([Calculating](#calculating)).
+  - What stops the plan from answering (it can't run, a change wasn't saved) shows above it as a banner, with *Try Again* after a failed run; what it assumed that you may want to change shows under it, quietly, a line each with the way to fix it: "TFR counts as cash: it has no mix of investments set. *Set one…*", which opens the account (two at most; the rest with the inputs they concern).
   - **Feedback screenshots** hide the date, the age, the futures and the levers' values; amounts are amounts.
-- **Levers.** A card under the date: sliders, their values in words: **Stop working at** ("55"), **Spending** ("3.000 € a month", in retirement; the plan keeps it a year), **Saving** ("333 € a month", while working; "Once calculated" until the plan has run) and **Shares, above inflation** ("3.14% a year": equity's typical year, its median real return, as the defaults are given; the mean follows from the plan's volatility). Spending and saving move 50 a month at a time (`PlanWhatIfModel`).
-  - Before a move it says "Move a lever and your date follows." The what-if runs 350 ms after the last move: a first pass with fewer runs, then all 2,000, with the same random draws, while a spinner beside *Levers* says "Updating your date". A position calculated before shows again at once. The date above follows ("With your levers").
-  - After a move: *Reset* puts the levers back, and *Save as Plan…* asks for a name ("Save as plan": "A new plan with the levers where they are. This plan stays as it was."; left empty, "Base case, changed", made unique). The new plan opens, and this plan's levers reset.
-- **Chance of success by retirement age.** Beside the levers on the Mac and iPad, once there are results ([Charts](#design-system)):
+- **Levers.** On iPhone *Levers* in the header shows them in a card under it (filled in the accent once one has moved, and shown while they have); on the Mac and iPad they're a card beside the answer. Sliders, each with its name and value on one line: **Stop working at** ("55"), **Spend a month** ("3.000 €", in retirement; the plan keeps it a year), **Save a month** ("333 €", while working; "Once calculated" until the plan has run) and **Shares above inflation** ("3.14%" a year: equity's typical year, its median real return, as the defaults are given; the mean follows from the plan's volatility). On the Mac the values sit in field-like boxes. Spending and saving move 50 a month at a time (`PlanWhatIfModel`).
+  - Before a move it says "Move a lever and your date follows." The what-if runs 350 ms after the last move: a first pass with fewer runs, then all 2,000, with the same random draws, while a spinner beside *Levers* says "Updating your date". A position calculated before shows again at once. The date follows.
+  - After a move: *Reset* (beside *Levers*) puts the levers back, and *Save as Plan…* (under the levers on iPhone, in the header row on the Mac and iPad) asks for a name ("Save as plan": "A new plan with the levers where they are. This plan stays as it was."; left empty, "Base case, changed", made unique). The new plan opens, and this plan's levers reset.
+- **Chance of success by retirement age.** In the answer's card on the Mac and iPad, once there are results ([Charts](#design-system)):
   - One line; a dotted rule at your confidence level, labelled at its right end, below the rule where the curve ends above it; the earliest age marked where they cross.
   - The age axis runs from today's age to the last age simulated, labelled every 5 years (every 10 when narrow), never from 0.
-  - Tapping (or clicking) another age makes it the age the charts and the chapters are for ("Charts for retiring at 57 · 62%", with *Plan's age* to go back); dragging across the curve, or hovering over it on the Mac, only shows the chance at each age. Charts calculated before for that age show at once; otherwise they come with *Recalculate*.
+  - Tapping (or clicking) another age makes it the age the chapters are cut at ("Chapters for stopping at 57 · 6 in 10", with *Plan's age* to go back); dragging across the curve, or hovering over it on the Mac, only shows the chance at each age.
   - Steps where a pension starts or an account opens show as steps.
-- **Your life in chapters.** "Your life in four chapters": a card with a row per chapter: its number in the colour of its kind of life (grey while working or between jobs, orange for the bridge before the pensions, violet with them, a lighter violet for a later phase of spending), its name ("Employee", "Not working", "Bridge", "Retired" when no pension is ever paid, "Pension" or "Pensions", "Slowing down" or "Spending more" for a later phase) and its span ("Now to 54 · 2026 to 2042"), with a chevron. Tapping a row chooses the chapter: its number filled, its chevron pointing down in the accent. The choice follows the chapter's first year, so it stays put while an edit moves the chapters.
-- **The chosen chapter.** Under the list, at the page's full width: its number, name, span and length ("54 to 67 · 2042 to 2055 · 13 years"), with ‹ › on iPhone (⌘[ and ⌘] with a keyboard) to step through the chapters. Then two parts, one to read and one to change: side by side when there's room (the settings 380 points wide), the settings under the words otherwise. Each value has one place where it changes.
-  - **What happens**, in words that only read, their values in bold: "You take home **4.500 €** a month and spend **3.000 €**, so you save about 1.500 €.", "You stop working **as early as you can**, at 54 in 2042, and spend **3.000 €** a month, all from your savings.", "**State pension** pays **1.100 €** a month from **67**.", "In **2031** you spend **25.000 €** on **New car**." Amounts are a month's, from the plan's yearly ones, in today's money. An uncertain windfall says what it's worth to the answer: "At **62** you may receive **150.000 €** from **Inheritance**, **80%** likely; without it, your earliest age would be 56." ([PLANNER.md](PLANNER.md#ages-without)).
-  - **A month**: a month's money as one bar, every chapter's on the same scale. While working, pay spent and saved ("Pay 4.500 € · spend 3.000 €", "save 1.500 €"), or, when pay falls short, what your savings add; retired, what comes from your savings and, once calculated, the tax on what's sold, as the chapter's average a month in the median run ("400 € of it tax, on average"; from its first whole year of retirement to its last, the years the run reaches, a year without tax counting as none). An average, not the first year's: the share of gain in what's sold grows over the years, as what was paid for what's left shrinks with each sale and with inflation while its value keeps its returns, so the first year pays the least. With pensions or other income, what they pay ("Pensions", "Other income", or "Income" for both) and what's left to draw or to spare.
-  - **Along the way, typically**: the milestones the median future reaches in the chapter, a flag, the name and when ("400.000 €", "mid 2027"), four at most, then "And 2 more ahead." ([Milestones](#milestones)).
+- **Your chapters.** "Your four chapters", with *Add* (a work phase, a pension, a later phase of spending, other income, a contribution or an event, each in the chapter it starts in). On iPhone a card with a row per chapter: its number, white in a circle of the colour of its kind of life (grey while working or between jobs, orange for the bridge before the pensions, violet with them, a lighter violet for a later phase of spending), its name ("Employee", "Not working", "Bridge", "Retired" when no pension is ever paid, "Pension" or "Pensions", "Slowing down" or "Spending more" for a later phase) and its ages on the right ("now to 41", "41 to 55", "67 on"); under them a thin bar of where a month's money goes (pay spent in light blue and saved in blue, pensions in violet, what comes from savings striped in orange) and one line of figures: "4.200 € take-home, 3.000 € spent, 1.200 € saved a month", "3.000 € a month from your savings", "1.900 € from pensions, 1.100 € from savings". Tapping a row opens the chapter in a sheet, titled with its name and "41 to 55, 2029 to 2043", with *Done*. On the Mac and iPad the chapters are a table, a line each with a month's take-home pay, spending and saving (below zero in orange when it comes from savings), the bar and the one-offs ("New car 2031, 25.000 €"), then *Add*, *Flexible Spending…* and *Taxes…*; clicking a line chooses the chapter, whose number, name, span and length ("41 to 55, 2029 to 2043 · 14 years", with ‹ ›, ⌘[ and ⌘]) and words and settings follow the table, side by side when there's room. The choice follows the chapter's first year, so it stays put while an edit moves the chapters. Each value has one place where it changes.
+  - **What happens**, on a card, in words that only read, their values in bold: "You take home **4.500 €** a month and spend **3.000 €**, so you save about 1.500 €.", "You stop working **as early as you can**, at 54 in 2042, and spend **3.000 €** a month, all from your savings.", "**State pension** pays **1.100 €** a month from **67**.", "In **2031** you spend **25.000 €** on **New car**." Amounts are a month's, from the plan's yearly ones, in today's money. An uncertain windfall says what it's worth to the answer: "At **62** you may receive **150.000 €** from **Inheritance**, **80%** likely; without it, your earliest age would be 56." ([PLANNER.md](PLANNER.md#ages-without)).
+  - Under the words, a month's money as a bar, with a line under it: while working, "Spent 3.000 €" and "Saved 1.500 €", or, when pay falls short, what your savings add; retired, what comes from your savings and, once calculated, the tax on what's sold, as the chapter's average a month in the median run ("400 € of it tax, on average"; from its first whole year of retirement to its last, the years the run reaches, a year without tax counting as none). An average, not the first year's: the share of gain in what's sold grows over the years, as what was paid for what's left shrinks with each sale and with inflation while its value keeps its returns, so the first year pays the least. With pensions or other income, what they pay ("Pensions", "Other income", or "Income" for both) and what's left to draw or to spare.
+  - **Along the way, typically**: the milestones the median future reaches in the chapter, as rows, the name and when ("400.000 €", "mid 2027"), four at most, then "And 2 more ahead." ([Milestones](#milestones)).
   - **What can go wrong**, once calculated: in the bridge, "In 3 in 100 futures, the money you can draw runs out before Fondo pensione opens at 67."; in a chapter where futures run out, "Most of the futures that run out here do so before 85."
-  - **Settings** ("A month, in today's EUR"): every input that starts in the chapter, once, as a row with an icon, its name and second line, and its value: when work stops ("As early as you can", "At 54, in 2042"), spending while working or in retirement and flexible spending ("Never below 80%", "Off"), a later phase of spending ("Spending from 75", "90% of spending in retirement"), work phases ("Employee", "2026–42 · take-home pay · grows 1% a year"), pensions ("From 67, after tax"), other income ("From when you stop working until 60, after tax"), contributions ("Into Fondo pensione", "Until you stop working", or "Once, in 2031" with its amount), events ("At 62 · 80% likely", "+150.000 €"), the target mix and its changes with age ("Your savings from 60", "60% in shares") and the plan's end in the last chapter; "Nothing starts in this chapter." without any. When work stops and the plan's end open their small editor (a popover pointing at the row on the Mac and iPad, a sheet on iPhone): its stepper or switch, applied as you change it. Spending (while working, in retirement, flexible, and each later phase) and an item open a sheet, the target mix its own. A sheet has a grouped form with an inline title, *Cancel* and *Done*: it edits a copy, which *Done* writes into the plan, and while it has changes, swiping it down does nothing. An input's problems show on its row. Under the rows, what carries on from earlier chapters ("Continuing: Spending while working · Saving into Fondo pensione · Target mix"), and **Add to this chapter**: before retirement, a work phase (from the chapter's first day) or a contribution (in a later chapter, a one-off in its first year); in retirement, a pension from the chapter's first age or a later spending phase from its middle; in any, other income (from when work stops in the chapter it stops in, else from the chapter's first age) and an event in its first year. Each opens its sheet, titled for a new one ("New later spending"), and adds nothing until *Done*.
+  - **In this chapter** ("A month, in today's EUR"): every input that starts in the chapter, once, as a row with its name and its value, each on one line, and a chevron: when work stops ("As early as you can"), spending while working or in retirement and flexible spending ("Never below 80%", "Off"), a later phase of spending ("Spending from 75"), take-home pay, pensions, other income, contributions ("Into Fondo pensione", or a one-off's amount), events ("2031, −25.000 €"), the target mix and its changes with age ("Your savings from 60", "60% in shares") and the plan's end in the last chapter; "Nothing starts in this chapter." without any. VoiceOver adds each row's details ("At 54, in 2042", "From 67, after tax"). When work stops and the plan's end open their small editor (a popover pointing at the row on the Mac and iPad, a sheet on iPhone): its stepper or switch, applied as you change it. Spending (while working, in retirement, flexible, and each later phase) and an item open a sheet, the target mix its own. A sheet has a grouped form with an inline title, *Cancel* and *Done*: it edits a copy, which *Done* writes into the plan, and while it has changes, swiping it down does nothing. An input's problems show on its row. Under the rows, what carries on from earlier chapters ("Continuing: Spending while working · Saving into Fondo pensione · Target mix"), and **Add to This Chapter**: before retirement, a work phase (from the chapter's first day) or a contribution (in a later chapter, a one-off in its first year); in retirement, a pension from the chapter's first age or a later spending phase from its middle; in any, other income (from when work stops in the chapter it stops in, else from the chapter's first age) and an event in its first year. Each opens its sheet, titled for a new one ("New later spending"), and adds nothing until *Done*.
 - **The age they're cut at.** Work stops at the age the charts are for: one chosen on the chance-by-age chart, else the levers', else the plan's own, else the earliest age the plan found, else the one recorded at the last check-in. A plan asking for the earliest age with none of these yet assumes 65 until it's calculated, and says so where work stops. When the charts are for an age chosen on the chart, it says that, with *Plan's age*.
-- **Outside the plan's years.** Inputs that apply in no year the plan runs (an event after its end, a work phase over before it starts, a pension without an age) are listed after the chapter as settings, like the rest. Without a birth date there are no chapters: a card asks for it instead.
-- **Key numbers.** Once there are results, a card after the chapters: earliest retirement and its date, the chance at the target age and what you could spend then (the engine's solver for the highest spending that still meets your confidence level), what retiring today would need ([PLANNER.md](PLANNER.md#assets-needed-to-retire-today)): "Needed to retire today", "Extra in accounts you can draw now" and "You have 58%", or "At most what's locked away" when retiring today works even with the money you can draw emptied; the median at retirement and at the end, lifetime taxes, and how often the money runs out before a locked account opens; after a full calculation, the earliest age saving nothing more ("Saving nothing more, retire at") and saving at your pace of the last 12 months ("Saving at your pace of the last 12 months, retire at", left out without a pace; [PLANNER.md](PLANNER.md#ages-without)). In today's money, in the library's base currency.
-- **Assumptions.** At the page's end, *Assumptions…*, *Export Calculations…* and the disclaimer. *Assumptions…* opens what every chapter shares, a sheet of collapsible cards with a one-line summary each: **You** (the birth date, as in Settings), **Taxes**, **Assumptions**, **Target mix** and **Simulation**.
+- **Outside the plan's years.** Inputs that apply in no year the plan runs (an event after its end, a work phase over before it starts, a pension without an age) are listed after the chapters as settings, like the rest. Without a birth date there are no chapters: a card asks for it instead.
+- **Key numbers.** Once there are results, rows on one card after the chapters: what you could spend from the age the chapters are cut at ("You could spend from 55", "2.350 € a month": the engine's solver for the highest spending that still meets your confidence level) and, after a full calculation, the earliest age saving nothing more ("If you stopped saving now", "stop at 71"; [PLANNER.md](PLANNER.md#ages-without)); then **Assumptions** ("5% shares, 2% inflation"), a row that opens them. On the Mac and iPad, in the column beside the chapters, also the earliest age saving at your pace of the last 12 months ("Saving at last year's pace", left out without a pace), what retiring today would need ([PLANNER.md](PLANNER.md#assets-needed-to-retire-today)), or "At most what's locked away" when retiring today works even with the money you can draw emptied, the money at the plan's end and the taxes over a lifetime, typically, and how often the money runs out before a locked account opens. In today's money, in the library's base currency. The rest is in *Export Calculations…*.
+- **Assumptions.** On the Mac and iPad a card of rows under the key numbers (inflation, shares above inflation, the tax on investments, the target mix, the plan's end and the simulation), each opening *Assumptions…*, the target mix its own sheet. *Assumptions…* opens what every chapter shares, a sheet of collapsible cards with a one-line summary each: **You** (the birth date, as in Settings), **Taxes**, **Assumptions**, **Target mix** and **Simulation**. The disclaimer ends the page.
 - **Problems** are worded for the screen: accounts by their names, not their IDs ("A contribution goes into Fondo pensione, which the plan doesn't count; it's left out.").
 
 #### The editors
@@ -983,6 +920,11 @@ At most one note a day: the monthly note keeps its day, and a yearly note that f
 
 - System components and Liquid Glass on iOS 26 and macOS 26: a floating tab bar and toolbars, sheets with detents, and the sidebar.
 - Glass is only for controls that float above content (the tab bar accessory, floating buttons). Content (numbers, charts, forms) sits on plain surfaces, where it's most legible.
+- **Surfaces.** White cards on a light grey page (`#f2f2f7`), as the system's grouped lists draw them; black and `#1c1c1e` in dark mode. Cards have large corners (22 pt) and no border on iPhone and iPad, and smaller corners (12 pt) with a hairline edge on the Mac (`cardSurface()`). Everything on a screen sits on a card, a chart included; nothing floats on the page except the screen's title and its picker.
+- **Rows before tiles.** Figures are rows on a card (`CardRows`, `CardRow`): the label on the left in ink, the value on the right in grey, a hairline between rows. No grids of figure tiles. A card holds one idea; a screen has few cards.
+- **One line.** A row's label, a value, a chip, a legend and a chart's labels stay on one line: a label gives way (it's cut short) before a value. Only sentences wrap, and a card keeps them to one or two.
+- **Columns that give way.** On the Mac and iPad a page's side column (Timeline's *Year* and *Decades*) sits beside the main one only when the main one keeps at least 560 points (`WideColumns`); in a narrower window its cards go under the main column's, so a chart or a table is never squeezed. Today's figures beside the date go two by two when four don't fit on one line each, and a legend's items wrap onto more rows at their own widths (`FlowRows`).
+- **Type.** The screen's title is a large title. The answer's date is the one hero: about 52 pt bold on iPhone, larger on the Mac. A card's title is a headline (17 pt semibold); rows are body text; secondary text is grey (`#55555e`), captions and axis labels lighter (`#8e8e96`). The accent is one blue (`#0a64d8`).
 
 **Numbers.**
 
@@ -1074,13 +1016,13 @@ If nothing moves for 20 seconds, the screen says why it may be stuck and what to
 - **Keep Waiting** asks iCloud again for the missing files and gives it another 20 seconds.
 - **Open Settings** opens the app's page in Settings. The Mac names System Settings in the reasons and has no cellular reason.
 
-**Empty states and first launch.** Every empty screen has one clear next step. First launch is a short tour, full screen from start to finish, that ends on an answer: a few rough questions, the main plan calculated in the tour, and only then files, as the way to sharpen it. *Back* and the primary button sit along the bottom, with "Step 2 of 6" on every step after the welcome. Every question after your age can be left empty, and the app opens on a usable library either way:
+**Empty states and first launch.** Every empty screen has one clear next step. First launch is a short tour, full screen from start to finish, that ends on an answer: a few rough questions, the main plan calculated in the tour, and only then files, as the way to sharpen it. *Back* and the primary button sit along the bottom; "Step 2 of 6", over a thin bar, sits at the top of every step after the welcome. Every question after your age can be left empty, and the app opens on a usable library either way:
 
 1. **Welcome**: a blank calendar page, "When could your last Monday at work be?", and three lines with icons: *Your retirement age* (the earliest age, and how likely it is to work), *A monthly check-in* (import your statements to see how the answer changes), *Your data stays with you* (files in iCloud Drive or on the device, no account, no server). *Get Started*.
 2. **About you**: your age ("The answer is an age, so the app needs yours."), a menu from 18 to 90 (below the plan's default end age, 95) that starts unset (none is made up), and *Continue* waits for it; the tour saves it as a birth date half a year past your last birthday, and "You can set your exact birth date later in Settings."; the country and currency, starting from the device's region, with what they set ("Totals in Euro, adjusted for inflation with Italy's prices."); and *Keep in iCloud Drive*, on when iCloud is available.
 3. **Your money**: rough amounts of what you have today (cash and savings, investments, a pension you can't access yet with the age it's available from, and optionally the home's value, with the mortgage still owed on it once a value is entered; a mortgage without a home value is left out), and take-home pay and spending a month, with the saving worked out as you type ("You save about 1.200 € a month, a third of your pay."). *I've already stopped working* hides the pay: spending is then what you live on now. Each amount is a filled field with the currency inside it ("0 €"), so it reads as a place to type. A negative amount says "Amounts can't be negative." and keeps *See My Answer* off.
 4. **Pension and retirement**: the state pension a month and from what age, empty for none (the more cautious plan); when to retire, *As early as possible* or *At a set age* (30 to 85), and spending in retirement a month, empty to spend what you spend now (its placeholder); neither once you've stopped working; and the tax on investment gains, prefilled for the country (`CountryDefaults`) and changeable, empty for none. A negative amount says "Amounts can't be negative." and keeps *See My Answer* off. *See My Answer* creates the library with the settings chosen, the starting amounts as estimates and the main plan, then shows the answer.
-5. **The answer**: the main plan runs here, with its progress ("Calculating thousands of simulated futures…") under a blank calendar page, and records the first answer as a check-in does. Then "Your last Monday at work could be", the date in large type ("14 May 2052") and how sure ("At 64, in 9 of 10 futures."), or without a date "Your first answer" with "Yes." or "Not yet." and the answer in a sentence; a small fan of futures with what its bands are; and one lever worked out already ("Save 340 € more a month" over "and it could be 2 years sooner", two quick runs of the plan as it is and saving more), with "The Plan's levers try other changes." A chip says "It's a first sketch from rough amounts, not advice. Add your accounts and it gets sharper.", with an ⓘ that explains the estimates and replacing them. Once you've stopped working, the plan retires at your age today and the answer is whether your money lasts: "Yes." or "Not quite.", "Your money lasts to 95 in at least 9 of 10 futures." (or "in 7 of 10 futures. Your plan aims for 9 of 10."), and what you could spend ("Spending up to 2.300 € a month lasts in 9 of 10 futures."), with no lever. A plan that can't be calculated says why, and "You can continue: Today calculates your plan once it can." *Continue* goes on. Once the answer is there, *Back* returns to the questions while the library holds only what the tour added (no files imported yet); *See My Answer* then replaces those estimates and the plan, and *Keep in iCloud Drive* can no longer change. A library already in iCloud Drive without a birth date asks for your age here, the same menu, and without amounts or a plan it says what's missing.
+5. **The answer**: the main plan runs here, with its progress ("Calculating thousands of simulated futures…") under a blank calendar page, and records the first answer as a check-in does. Then "Your last Monday at work could be", the date as the screen's hero ("14 May 2052") and how sure, with that it's a sketch ("At 64, in 9 of 10 futures. It's a first sketch from the numbers you gave; adding your accounts makes it exact."), or without a date "Your first answer" with "Yes." or "Not yet." and the answer in a sentence. Under it one card: a small fan of futures marked at the age, and one lever worked out already ("Saving 340 € more a month would make it 2050.", two quick runs of the plan as it is and saving more). A small *What the answer stands on* (ⓘ) explains what the fan's bands are, the estimates and replacing them. Once you've stopped working, the plan retires at your age today and the answer is whether your money lasts: "Yes." or "Not quite.", "Your money lasts to 95 in at least 9 of 10 futures." (or "in 7 of 10 futures. Your plan aims for 9 of 10."), and what you could spend ("Spending up to 2.300 € a month lasts in 9 of 10 futures."), with no lever. A plan that can't be calculated says why, and "You can continue: Today calculates your plan once it can." *Add Your Accounts* (*Continue* for a library that was already there) goes on. Once the answer is there, *Back* returns to the questions while the library holds only what the tour added (no files imported yet); *See My Answer* then replaces those estimates and the plan, and *Keep in iCloud Drive* can no longer change. A library already in iCloud Drive without a birth date asks for your age here, the same menu, and without amounts or a plan it says what's missing.
 6. **Import your accounts**: which files work and where they come from (bank statements, broker exports), the starter spreadsheet for a home, pension and debts that have no export (*Save Starter Spreadsheet…*, a CSV with today's row and the home, mortgage and pension estimates' amounts, the mortgage's as owed), and on the iPhone and iPad that importing is easier on the Mac, where an iCloud library already is. *Import Files…* pushes the import on the tour's own stack; *Later* is a real choice.
 7. **Reminders**: this month's note as it would come, with the answer in it, and the *Monthly note* and *Your year* toggles, both on ([Notifications](#notifications)); where to add the widget; and the disclaimer in a line, with *Read More* showing the whole text. *Start* turns on the notes ticked and opens Today.
 

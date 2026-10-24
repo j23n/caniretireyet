@@ -23,9 +23,11 @@ struct TradeTypeIcon: View {
 
 // MARK: - Holdings
 
-/// A trades account's holdings in the iPhone list: each position with its
-/// quantity × price, average cost, unrealized gain and share, then the
-/// cash and the total.
+/// A trades account's holdings in the iPhone list: each position in two
+/// lines, its name and value, then its quantity, price and average cost
+/// with its unrealized gain; then the cash, and the unrealized gain of
+/// them all. The account's value is at the top of its page, so there's no
+/// total row.
 struct TradeHoldingsRows: View {
     let holdings: TradeHoldings
     let currency: CurrencyCode
@@ -45,63 +47,63 @@ struct TradeHoldingsRows: View {
             }
         }
         if let cash = holdings.cash {
-            HStack {
+            HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
                 Text("Cash")
                     .foregroundStyle(Palette.ink)
+                    .lineLimit(1)
                 Spacer(minLength: Metrics.s)
-                if let share = holdings.cashShare {
-                    Text(verbatim: AmountFormat.percent(share, digits: 0, locale: locale))
-                        .font(.footnote)
-                        .foregroundStyle(Palette.secondaryInk)
-                        .privacySensitiveInFeedback()
-                }
                 AmountText(cash, currency: currency, precision: .cents)
                     .foregroundStyle(Palette.ink)
+                    .lineLimit(1)
+                    .fixedSize()
             }
-        }
-        HStack {
-            Text("Total")
-                .fontWeight(.semibold)
-            Spacer(minLength: Metrics.s)
-            AmountText(holdings.total, currency: currency, precision: .cents)
-                .fontWeight(.semibold)
+            .accessibilityElement(children: .combine)
         }
         if let gain = holdings.totalGain {
-            HStack {
+            HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
                 Text("Unrealized gain")
-                    .foregroundStyle(Palette.secondaryInk)
+                    .foregroundStyle(Palette.ink)
+                    .lineLimit(1)
                 Spacer(minLength: Metrics.s)
-                DeltaText(gain, currency: currency)
-                if let fraction = holdings.totalGainFraction {
-                    DeltaText(percent: fraction, showsArrow: false)
-                }
+                AccountPositionGain(gain: gain, fraction: holdings.totalGainFraction, currency: currency)
             }
-            .font(.footnote)
+            .accessibilityElement(children: .combine)
         }
     }
 
-    /// "Bitcoin   7.661,78 €" / "0,10383916 BTC × 73.785,11 €   95 % of the
-    /// account" / "Average cost 101.437,74 €   ▼ −2.871 € −27,3 %". Lines
-    /// that don't fit break between their parts, never inside a label.
+    /// "Vanguard FTSE All-World   57.098,25 €" / "412,5 sh at 138,42 €,
+    /// paid 116,85 € each   ▲ +8.898 €". The name is cut short before the
+    /// value; the second line goes under the first when both don't fit.
     private func positionRow(_ row: AccountHoldingRow) -> some View {
-        VStack(alignment: .leading, spacing: Metrics.xs) {
-            AccountPositionNameLine(row: row, currency: currency)
-            AccountPositionQuantityLine(row: row) {
-                if let share = AccountPositionText.share(row, locale: locale) {
-                    Text(verbatim: share)
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
+                Text(row.name)
+                    .foregroundStyle(Palette.ink)
+                    .lineLimit(1)
+                    .privacySensitiveInFeedback()
+                Spacer(minLength: Metrics.s)
+                if let amount = row.amount {
+                    AmountText(amount, currency: currency, precision: .cents)
+                        .foregroundStyle(Palette.ink)
                         .lineLimit(1)
-                        .privacySensitiveInFeedback()
+                        .fixedSize()
+                        .layoutPriority(1)
+                } else {
+                    Text("No price")
+                        .foregroundStyle(Palette.secondaryInk)
+                        .lineLimit(1)
+                        .fixedSize()
                 }
             }
             ViewThatFits(in: .horizontal) {
                 HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
-                    averageCost(row)
+                    summary(row)
                         .lineLimit(1)
                     Spacer(minLength: Metrics.s)
                     gain(row)
                 }
                 VStack(alignment: .leading, spacing: 2) {
-                    averageCost(row)
+                    summary(row)
                     gain(row)
                 }
             }
@@ -109,17 +111,20 @@ struct TradeHoldingsRows: View {
             .foregroundStyle(Palette.secondaryInk)
         }
         .padding(.vertical, 2)
+        .accessibilityElement(children: .combine)
     }
 
-    /// "Average cost 101.437,74 €", label and value in one text.
-    private func averageCost(_ row: AccountHoldingRow) -> some View {
-        AmountSentenceText(AccountPositionText.averageCost(row, currency: currency, locale: locale))
+    /// "412,5 sh at 138,42 €, paid 116,85 € each".
+    private func summary(_ row: AccountHoldingRow) -> some View {
+        AmountSentenceText(AccountPositionText.summary(row, currency: currency, locale: locale))
     }
 
     @ViewBuilder
     private func gain(_ row: AccountHoldingRow) -> some View {
         if let gain = row.gain {
-            AccountPositionGain(gain: gain, fraction: row.gainFraction, currency: currency)
+            DeltaText(gain, currency: currency)
+                .lineLimit(1)
+                .fixedSize()
         }
     }
 }

@@ -228,7 +228,8 @@ struct TypedValuesTests {
                                                   currency: .eur, opened: "2026-01-01")
         let items = TodayAttention.items(library: library, valuator: Valuator(library: library),
                                             on: PreviewLibrary.latestCheckIn, stalenessThreshold: 45)
-        #expect(items.first { $0.id == "stale.boat" }?.detail == "Update its value")
-        #expect(items.first { $0.id == "stale.second-bank" }?.detail == "Import a file with its values")
+        #expect(items.first { $0.id == "stale.boat" }?.detail == "No value yet")
+        #expect(items.first { $0.id == "stale.boat" }?.action == "Update")
+        #expect(items.first { $0.id == "stale.second-bank" }?.action == "Import")
     }
 }

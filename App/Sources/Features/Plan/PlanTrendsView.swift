@@ -4,17 +4,18 @@ import Planner
 import SwiftUI
 import Tracker
 
-/// The Timeline looking back (UI.md, "Timeline"; PROGRESS.md, "Trends"):
-/// how you've actually been doing, from your own records, over the time
-/// span the decades chart uses. *Your last 12 months*, *Savings rate* and
-/// *Money in and out* are built on money in and out, with the plan as
-/// reference lines, and fold into one card while none is recorded; *Your
-/// last Monday, check-in by check-in* is the plan's answer at each
-/// check-in. The grain and the span are under the zoom on iPhone, and in
-/// the toolbar on the Mac and iPad (``PlanTrendsControls``), where the
-/// tiles are in a row and the charts in two columns. While a savings or
-/// investment account's values are typed, one card says looking back is
-/// off instead (``PlanTrendsOffCard``).
+/// The Timeline looking back (UI.md, "Look Back"; PROGRESS.md, "Trends"):
+/// how you've actually been doing, from your own records, over the
+/// accounts' time span. *Last 12 months* (the savings rate and what was
+/// saved, two small cards), *Savings rate by month* and *Money in and out*
+/// (a row that opens it, with the rest of the 12 months) are built on
+/// money in and out, with the plan as reference lines, and fold into one
+/// card while none is recorded; *Your last Monday, check-in by check-in* is
+/// the plan's answer at each check-in. The grain and the span are under the
+/// zoom on iPhone, and in the toolbar on the Mac and iPad
+/// (``PlanTrendsControls``), where the two charts are side by side. While
+/// a savings or investment account's values are typed, one card says
+/// looking back is off instead (``PlanTrendsOffCard``).
 struct PlanTrendsView: View {
     let session: PlanSession
 
@@ -23,6 +24,7 @@ struct PlanTrendsView: View {
     @Environment(\.locale) private var locale
     @AppStorage("overview.range") private var range: HistoryRange = .threeYears
     @AppStorage(PlanTrends.grainKey) private var storedGrain: PeriodGrain?
+    @State private var showsMoney = false
 
     private var isWide: Bool { layout.isWide }
 
@@ -51,37 +53,66 @@ struct PlanTrendsView: View {
         let model = trendsModel
         let reference = moneyReference(on: model.money.end)
         return ScrollView {
-            VStack(alignment: .leading, spacing: Metrics.l) {
-                if isWide {
-                    if model.money.isEmpty {
-                        PlanMoneyInOutEmptyCard()
-                        answerCard(model.history)
-                    } else {
-                        PlanLastTwelveMonthsCard(year: model.lastTwelveMonths,
-                                                 plannedSpending: reference.spendingWhileWorking)
+            VStack(alignment: .leading, spacing: Metrics.m) {
+                if model.money.isEmpty {
+                    PlanMoneyInOutEmptyCard()
+                    answerCard(model.history)
+                } else {
+                    PlanLastTwelveMonthsFigures(year: model.lastTwelveMonths)
+                    if isWide {
                         EqualColumns(spacing: Metrics.l) {
-                            VStack(alignment: .leading, spacing: Metrics.l) {
-                                savingsRateCard(model.money, planRate: reference.savingsRate)
-                                moneyCard(model.money, planSpending: reference.spending(per: model.money.grain))
-                            }
+                            savingsRateCard(model.money, planRate: reference.savingsRate)
                             answerCard(model.history)
                         }
-                    }
-                } else {
-                    if model.money.isEmpty {
-                        PlanMoneyInOutEmptyCard()
                     } else {
-                        PlanLastTwelveMonthsCard(year: model.lastTwelveMonths,
-                                                 plannedSpending: reference.spendingWhileWorking)
                         savingsRateCard(model.money, planRate: reference.savingsRate)
-                        moneyCard(model.money, planSpending: reference.spending(per: model.money.grain))
+                        answerCard(model.history)
                     }
-                    answerCard(model.history)
+                    moneyRow
                 }
             }
             .padding(gutter)
+            .frame(maxWidth: isWide ? Metrics.wideReadableWidth : Metrics.readableWidth, alignment: .leading)
+            .frame(maxWidth: .infinity)
         }
         .background(Palette.page)
+        .sheet(isPresented: $showsMoney) {
+            moneySheet(model, reference: reference)
+        }
+    }
+
+    /// *Money in and out*, a row that opens it.
+    private var moneyRow: some View {
+        CardRows {
+            Button {
+                showsMoney = true
+            } label: {
+                CardRow("Money in and out", opens: true) {
+                    EmptyView()
+                }
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    /// Money in and out in full: the last 12 months' four figures against
+    /// the 12 before and the plan's spending, then the chart.
+    private func moneySheet(_ model: PlanTrends, reference: PlanMoneyReference) -> some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: Metrics.l) {
+                    PlanLastTwelveMonthsCard(year: model.lastTwelveMonths,
+                                             plannedSpending: reference.spendingWhileWorking)
+                    moneyCard(model.money, planSpending: reference.spending(per: model.money.grain))
+                }
+                .padding(Metrics.l)
+            }
+            .background(Palette.page)
+            .sheetTitle("Money in and out") { showsMoney = false }
+        }
+        #if os(macOS)
+        .frame(minWidth: 560, minHeight: 600)
+        #endif
     }
 
     /// The plan's references for money in and out on the latest check-in:
@@ -113,7 +144,7 @@ struct PlanTrendsView: View {
             }
             whereItStarts(money)
         } header: {
-            SectionHeader("Savings rate")
+            SectionHeader(money.grain == .years ? "Savings rate by year" : "Savings rate by month")
         }
     }
 
@@ -162,7 +193,11 @@ struct PlanTrendsView: View {
             } else if history.latestAge == nil {
                 notYet("Your date shows here from the first check-in that records it.")
             } else {
-                ChartLegendRow(items: answerLegend(history))
+                // A key only when there's more than the earliest age to tell apart.
+                let legend = answerLegend(history)
+                if legend.count > 1 {
+                    ChartLegendRow(items: legend)
+                }
                 PlanAnswerHistoryChart(history: history)
                 if let line = history.nowLine(locale: locale) {
                     Text(line)

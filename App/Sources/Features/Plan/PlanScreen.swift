@@ -1,12 +1,10 @@
 import Model
 import SwiftUI
 
-/// One plan (UI.md, "Plan"): a plan picker (New, Duplicate, Rename, Delete,
-/// Set as main plan, Export Calculations), then the plan: the answer, your
-/// life as chapters, and *Assumptions…*, what every chapter shares. How
-/// you've been doing is on the Timeline.
-///
-/// The levers sit on top of the plan, on iPhone, the Mac and iPad alike.
+/// One plan (UI.md, "Plan"): its name, which is the plan menu (New,
+/// Duplicate, Rename, Set as main plan, Export Calculations, Delete), your
+/// date and the levers, your chapters, the key numbers and *Assumptions*,
+/// what every chapter shares. How you've been doing is on the Timeline.
 ///
 /// *New Plan* and *Duplicate*, moving the levers and *Save as Plan…*, and
 /// *Export Calculations…* come with Plus; without it they open the paywall
@@ -81,7 +79,6 @@ struct PlanContentView: View {
     @Environment(AppNavigation.self) private var navigation
     @Environment(PlusStore.self) private var plus
     @Environment(\.pageLayout) private var layout
-    @Environment(\.locale) private var locale
     @State private var session: PlanSession
     @State private var showsTargetMix = false
     @State private var isRenaming = false
@@ -105,6 +102,8 @@ struct PlanContentView: View {
             .personalNavigationTitle(name, hidden: "Plan")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
+            // On iPhone the header card names the plan and holds its menu.
+            .toolbar(isWide ? .automatic : .hidden, for: .navigationBar)
             #endif
             .toolbar { planToolbar }
             .task(id: library.revision) {
@@ -167,8 +166,7 @@ struct PlanContentView: View {
     /// Window pass").
     @ViewBuilder
     private var planLayout: some View {
-        let page = PlanTimelineView(session: session, showsTargetMix: $showsTargetMix,
-                                    onExport: { exportCalculations() })
+        let page = PlanTimelineView(session: session, showsTargetMix: $showsTargetMix, actions: planActions)
             .environment(\.pageLayout, PageLayout(isWide: isWide))
         if isWide {
             page
@@ -181,11 +179,10 @@ struct PlanContentView: View {
 
     // MARK: Toolbar
 
+    /// *Calculate* or *Recalculate* on the Mac and iPad. The plan menu is the
+    /// page's title (``PlanMenu``); on iPhone the page has no bar.
     @ToolbarContentBuilder
     private var planToolbar: some ToolbarContent {
-        ToolbarItem(placement: isWide ? .navigation : .principal) {
-            planMenu
-        }
         if isWide {
             ToolbarItemGroup(placement: .primaryAction) {
                 Button {
@@ -200,82 +197,18 @@ struct PlanContentView: View {
         }
     }
 
-    /// "Base case ▾": the plans, and what you can do with this one.
-    private var planMenu: some View {
-        Menu {
-            Section("Plans") {
-                ForEach(library.sortedPlans) { plan in
-                    Button {
-                        navigation.showPlan(plan.id)
-                    } label: {
-                        if plan.id == planID {
-                            Label(plan.name, systemImage: "checkmark")
-                        } else {
-                            Text(plan.name)
-                        }
-                    }
-                }
-            }
-            Section {
-                Button {
-                    newPlan()
-                } label: {
-                    Label("New Plan", systemImage: "plus")
-                }
-                Button {
-                    duplicate()
-                } label: {
-                    Label("Duplicate", systemImage: "plus.square.on.square")
-                }
-                Button {
-                    newName = name
-                    isRenaming = true
-                } label: {
-                    Label("Rename…", systemImage: "pencil")
-                }
-                Button {
-                    setMain()
-                } label: {
-                    Label("Set as Main Plan", systemImage: "star")
-                }
-                .disabled(library.settings.mainPlan == planID)
-            }
-            .disabled(!library.canEdit)
-            // How the answer shown was calculated, above what's behind it.
-            Section(session.shownResults.map { PlanRunText.calculated($0, locale: locale) } ?? "Not calculated yet") {
-                Button {
-                    exportCalculations()
-                } label: {
-                    Label("Export Calculations…", systemImage: "function")
-                }
-            }
-            Section {
-                Button(role: .destructive) {
-                    isDeleting = true
-                } label: {
-                    Label("Delete…", systemImage: "trash")
-                }
-                .disabled(!library.canEdit)
-            }
-        } label: {
-            HStack(spacing: Metrics.xs) {
-                if library.settings.mainPlan == planID {
-                    Image(systemName: "star.fill")
-                        .font(.caption)
-                        .foregroundStyle(Palette.accent)
-                        .accessibilityLabel("Main plan")
-                }
-                Text(name)
-                    .font(.headline)
-                Image(systemName: "chevron.down")
-                    .font(.caption.weight(.semibold))
-                    .accessibilityHidden(true)
-            }
-        }
-        // The label draws its own chevron; the toolbar would add a second one.
-        .menuIndicator(.hidden)
-        .personalControl()
-        .accessibilityLabel(Text("Plan: \(name)"))
+    /// What the plan menu (Base case ▾) and the header's buttons do.
+    private var planActions: PlanActions {
+        PlanActions(
+            newPlan: { newPlan() },
+            duplicate: { duplicate() },
+            rename: {
+                newName = name
+                isRenaming = true
+            },
+            setMain: { setMain() },
+            exportCalculations: { exportCalculations() },
+            delete: { isDeleting = true })
     }
 
     // MARK: Actions

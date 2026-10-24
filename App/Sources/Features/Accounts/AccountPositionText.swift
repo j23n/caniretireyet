@@ -19,6 +19,22 @@ enum AccountPositionText {
         QuantityFormat.quantitySentence(row.quantity, unit: row.unit.map { QuantityFormat.unit($0) }, locale: locale)
     }
 
+    /// "412,5 sh at 138,42 €, paid 116,85 € each": the quantity, the price
+    /// and the average cost per unit, as an account's holding reads on
+    /// iPhone. The quantity and the average cost hide with the eye; the
+    /// price isn't an amount of yours.
+    static func summary(_ row: AccountHoldingRow, currency: CurrencyCode,
+                        locale: Locale = .current) -> AmountSentence {
+        var text = quantity(row, locale: locale)
+        if let atPrice = Self.price(row, locale: locale) {
+            text += AmountSentence(" " + atPrice)
+        }
+        if let average = row.averageCost {
+            text += ", paid \(amount: QuantityFormat.unitPrice(average, currency: currency, locale: locale)) each"
+        }
+        return text
+    }
+
     /// "at 73.785,11 €", for the line under the quantity when both don't
     /// fit on one; `nil` without a price.
     static func price(_ row: AccountHoldingRow, locale: Locale = .current) -> String? {

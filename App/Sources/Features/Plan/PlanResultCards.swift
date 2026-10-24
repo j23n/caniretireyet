@@ -106,11 +106,11 @@ struct PlanRunProgressCard: View {
 
 // MARK: - Charts
 
-/// Chance of success by retirement age. Tapping or clicking an age shows
-/// the charts below for retiring then; dragging across the curve, or on
-/// the Mac hovering over it, only reads it. The stepper chooses an age
-/// without the chart.
-struct PlanSuccessCard: View {
+/// Chance of success by retirement age, inside the answer's card on the
+/// Mac and iPad. Tapping or clicking an age cuts the chapters at it;
+/// dragging across the curve, or on the Mac hovering over it, only reads
+/// it. The stepper chooses an age without the chart.
+struct PlanSuccessChart: View {
     let session: PlanSession
     let results: PlanResults
 
@@ -131,7 +131,7 @@ struct PlanSuccessCard: View {
     }
 
     var body: some View {
-        Card {
+        VStack(alignment: .leading, spacing: Metrics.s) {
             SuccessCurveChart(points: results.successByAge, threshold: results.headline.confidence,
                               highlightedAge: results.headline.earliestAge, selectedAge: $chartSelection)
             .onChange(of: chartSelection) { oldValue, newValue in
@@ -144,25 +144,27 @@ struct PlanSuccessCard: View {
             .contentShape(Rectangle())
             .simultaneousGesture(TapGesture().onEnded { chooseTappedAge() })
             if let focus, let ages {
-                Stepper(value: Binding(get: { session.shownFocusAge ?? 55 }, set: { session.selectFocus($0) }),
-                        in: ages) {
-                    HStack(spacing: Metrics.xs) {
-                        Text("Charts for retiring at \(focus)")
-                            .font(.subheadline)
-                        if let success = results.successByAge.first(where: { $0.age == focus })?.success {
-                            Text("· \(AmountFormat.percent(success, digits: 0))")
-                                .font(.subheadline)
-                                .foregroundStyle(Palette.secondaryInk)
+                HStack(spacing: Metrics.m) {
+                    Stepper(value: Binding(get: { session.shownFocusAge ?? 55 }, set: { session.selectFocus($0) }),
+                            in: ages) {
+                        HStack(spacing: Metrics.xs) {
+                            Text("Chapters for stopping at \(focus)")
+                                .lineLimit(1)
+                            if let success = results.successByAge.first(where: { $0.age == focus })?.success {
+                                Text(verbatim: "· \(PlanTimelineText.tenths(success)) in 10")
+                                    .foregroundStyle(Palette.secondaryInk)
+                                    .lineLimit(1)
+                            }
                         }
+                        .font(.subheadline)
                     }
-                }
-                .personalControl()
-            }
-        } header: {
-            SectionHeader("Chance of success by retirement age") {
-                if session.focusAge != nil {
-                    Button("Plan's age") { session.selectFocus(nil) }
-                        .buttonStyle(.borderless)
+                    .personalControl()
+                    if session.focusAge != nil {
+                        Button("Plan's age") { session.selectFocus(nil) }
+                            .buttonStyle(.borderless)
+                            .font(.subheadline)
+                            .fixedSize()
+                    }
                 }
             }
         }
@@ -177,51 +179,156 @@ struct PlanSuccessCard: View {
     }
 }
 
-/// The key numbers beside the charts (Mac and iPad).
+// MARK: - Key numbers
+
+/// "Key numbers" on iPhone (UI.md, "The plan"): two rows on one card, what
+/// you could spend from the age the chapters are cut at and when you could
+/// stop saving nothing more, then *Assumptions*, a row that opens them.
 struct PlanKeyNumbersCard: View {
-    let results: PlanResults
+    let session: PlanSession
+    var onAssumptions: () -> Void = {}
+
+    @Environment(LibraryStore.self) private var library
     @Environment(\.locale) private var locale
 
     var body: some View {
-        Card("Key numbers") {
-            Grid(alignment: .leading, horizontalSpacing: Metrics.m, verticalSpacing: Metrics.s) {
-                ForEach(PlanResultsText.keyNumbers(results, locale: locale)) { row in
-                    GridRow {
-                        Text(row.label)
-                            .foregroundStyle(Palette.secondaryInk)
-                            .privacySensitiveInFeedback()
-                        PlanFigureText(figure: row.value)
-                            .fontWeight(row.isEmphasized ? .semibold : .regular)
-                            .gridColumnAlignment(.trailing)
-                    }
+        let words = PlanWords(currency: session.currency, locale: locale)
+        let rows = session.state.results.map { PlanResultsText.keyNumbers($0, words: words) } ?? []
+        CardRows {
+            ForEach(rows) { row in
+                CardRow {
+                    Text(row.label)
+                        .privacySensitiveInFeedback(row.personalLabel)
+                } value: {
+                    AmountSentenceText(row.value)
+                        .monospacedDigit()
                 }
             }
-            .font(.subheadline)
+            if let plan = session.plan {
+                Button(action: onAssumptions) {
+                    CardRow("Assumptions", opens: true) {
+                        Text(PlanInputSummaries(plan: plan, library: library.library, currency: session.currency,
+                                                locale: locale).shortAssumptions)
+                            .privacySensitiveInFeedback()
+                    }
+                }
+                .buttonStyle(.plain)
+                .accessibilityHint("Shows what every chapter assumes")
+            }
         }
     }
 }
 
-/// A figure: amounts go through `AmountText`, so they hide with the others.
-struct PlanFigureText: View {
-    let figure: PlanFigure
+/// The Mac's and iPad's column beside the chapters: the key numbers, then
+/// the assumptions, each a card of rows. An assumption opens
+/// *Assumptions…*, the target mix its own sheet.
+struct PlanInspector: View {
+    let session: PlanSession
+    var onAssumptions: () -> Void = {}
+    var onTargetMix: () -> Void = {}
+
+    @Environment(LibraryStore.self) private var library
     @Environment(\.locale) private var locale
 
     var body: some View {
-        switch figure {
-        case .amount(let amount, let unit):
-            HStack(spacing: 2) {
-                AmountText(amount)
-                if let unit { Text(unit) }
+        let words = PlanWords(currency: session.currency, locale: locale)
+        VStack(alignment: .leading, spacing: Metrics.m) {
+            if let results = session.state.results {
+                Card("Key numbers") {
+                    PlanTableRows {
+                        ForEach(PlanResultsText.keyNumbers(results, words: words, more: true)) { row in
+                            PlanTableRow(row.label, personalLabel: row.personalLabel) {
+                                AmountSentenceText(row.value)
+                                    .monospacedDigit()
+                            }
+                        }
+                    }
+                }
             }
-        case .percent(let share):
-            Text(AmountFormat.percent(share, digits: 0, locale: locale))
-                .monospacedDigit()
-                .privacySensitiveInFeedback()
-        case .text(let text):
-            Text(text)
-                .monospacedDigit()
-                .privacySensitiveInFeedback()
+            if let plan = session.plan {
+                let summaries = PlanInputSummaries(plan: plan, library: library.library, currency: session.currency,
+                                                   locale: locale)
+                Card {
+                    PlanTableRows {
+                        ForEach(summaries.rows) { row in
+                            Button {
+                                if row.section == .targetMix { onTargetMix() } else { onAssumptions() }
+                            } label: {
+                                PlanTableRow(row.label, personalLabel: false, opens: true) {
+                                    AmountSentenceText(row.value)
+                                        .monospacedDigit()
+                                }
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                } header: {
+                    SectionHeader("Assumptions") {
+                        Button("Edit…", action: onAssumptions)
+                            .buttonStyle(.borderless)
+                    }
+                }
+            }
         }
+    }
+}
+
+/// Rows of a table on a card, a hairline between them (the Mac's denser
+/// ``CardRows``).
+struct PlanTableRows<Content: View>: View {
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Group(subviews: content) { rows in
+                ForEach(rows) { row in
+                    if row.id != rows.first?.id {
+                        Divider()
+                    }
+                    row
+                }
+            }
+        }
+    }
+}
+
+/// A row of a table: its label on the left in grey, its value on the right,
+/// each on one line; the label gives way first.
+struct PlanTableRow<Value: View>: View {
+    let label: String
+    var personalLabel = false
+    var opens = false
+    private let value: Value
+
+    init(_ label: String, personalLabel: Bool = false, opens: Bool = false, @ViewBuilder value: () -> Value) {
+        self.label = label
+        self.personalLabel = personalLabel
+        self.opens = opens
+        self.value = value()
+    }
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
+            Text(label)
+                .foregroundStyle(Palette.secondaryInk)
+                .lineLimit(1)
+                .privacySensitiveInFeedback(personalLabel)
+            Spacer(minLength: Metrics.s)
+            value
+                .foregroundStyle(Palette.ink)
+                .lineLimit(1)
+                .layoutPriority(1)
+            if opens {
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Palette.mutedInk)
+                    .accessibilityHidden(true)
+            }
+        }
+        .padding(.vertical, 6)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(Rectangle())
+        .accessibilityElement(children: .combine)
     }
 }
 

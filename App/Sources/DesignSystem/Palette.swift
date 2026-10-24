@@ -37,8 +37,8 @@ enum Palette {
 
     // MARK: Line steps
     //
-    // Charts sit on the card (#fcfcfb) or, like Today's history, on
-    // the page (#f4f4f1). On the card aqua, yellow and magenta reach only
+    // Charts sit on the card (#ffffff) or, like Today's history, on
+    // the page (#f2f2f7). On the card aqua, yellow and magenta reach only
     // 2.7, 2.1 and 2.6:1, and on the page orange only 2.9:1 too, so their
     // lines take a darker step of the same hue: orange, aqua and magenta
     // the palette's dark-mode steps (3.5, 3.1 and 3.6:1 on the page);
@@ -143,8 +143,13 @@ enum Metrics {
     static let l: CGFloat = 16
     /// 24 pt.
     static let xl: CGFloat = 24
-    /// Card corners.
-    static let cardRadius: CGFloat = 16
+    /// Card corners: large on iPhone and iPad, as grouped lists draw them,
+    /// smaller on the Mac.
+    #if os(macOS)
+    static let cardRadius: CGFloat = 12
+    #else
+    static let cardRadius: CGFloat = 22
+    #endif
     /// The corners of a tile inside a card (``FigureTile``).
     static let tileRadius: CGFloat = 12
     /// Chart lines (UI.md: 2 pt).

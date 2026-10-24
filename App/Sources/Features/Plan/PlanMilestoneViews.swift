@@ -247,10 +247,12 @@ struct PlanMilestonesCard: View {
     }
 }
 
-/// Progress's milestones (UI.md, "Milestones"): the next, with how far
-/// there and when it typically comes; when you could retire saving nothing
-/// more, against the coast point; and *All Milestones*, the full list, on a
-/// tap.
+/// The Timeline's milestones at *Year* (UI.md, "Milestones"), as rows on a
+/// card: the next, with how far there and when it typically comes ("5
+/// years of spending", "93% there, typically late 2028"); when you could
+/// retire saving nothing more ("retire at 71", green once past the coast
+/// point); and *All Milestones*, what each kind means and every milestone
+/// reached and ahead, in a sheet.
 struct PlanProgressMilestones: View {
     let milestones: PlanMilestones
     let text: PlanMilestoneText
@@ -258,33 +260,27 @@ struct PlanProgressMilestones: View {
     /// Whether the plan has results: without them nothing is ahead yet.
     var hasResults = true
 
-    @Environment(\.locale) private var locale
     @State private var showsAll = false
 
     var body: some View {
-        Card {
+        TimelineTitledRows(title: "Milestones") {
             if let next = milestones.next {
                 nextMilestone(next)
-                Divider()
             }
             if milestones.knowsCoastAge {
-                coast
-                Divider()
+                CardRow("Saving nothing more") {
+                    Text(milestones.coastAge.map { "retire at \($0)" } ?? "no age yet")
+                        .monospacedDigit()
+                        .foregroundStyle(isPastCoastPoint ? Palette.positive : Palette.secondaryInk)
+                        .privacySensitiveInFeedback()
+                }
             }
             Button {
                 showsAll = true
             } label: {
-                HStack(spacing: Metrics.s) {
-                    Text("All Milestones")
-                    Spacer(minLength: Metrics.s)
-                    Image(systemName: "chevron.right")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(Palette.mutedInk)
-                        .accessibilityHidden(true)
+                CardRow("All Milestones", opens: true) {
+                    EmptyView()
                 }
-                .font(PlanProgressFont.text)
-                .foregroundStyle(Palette.accent)
-                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
         }
@@ -293,58 +289,37 @@ struct PlanProgressMilestones: View {
         }
     }
 
+    /// The next milestone: an open circle, its name, and how far there and
+    /// when under it.
     private func nextMilestone(_ next: NextMilestone) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Label("Next milestone", systemImage: "flag")
-                .font(PlanProgressFont.caption)
-                .foregroundStyle(Palette.secondaryInk)
-            HStack(alignment: .firstTextBaseline, spacing: Metrics.m) {
+        HStack(alignment: .firstTextBaseline, spacing: Metrics.m) {
+            Image(systemName: "circle")
+                .font(.body)
+                .foregroundStyle(Palette.accent)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 2) {
                 AmountSentenceText(text.name(next.milestone))
-                    .fontWeight(.semibold)
                     .foregroundStyle(Palette.ink)
-                    .fixedSize(horizontal: false, vertical: true)
-                Spacer(minLength: Metrics.s)
-                Text(text.progress(next))
-                    .fontWeight(.semibold)
-                    .monospacedDigit()
-                    .foregroundStyle(Palette.accent)
+                    .lineLimit(1)
+                Text(nextCaption(next))
+                    .font(.subheadline)
+                    .foregroundStyle(Palette.secondaryInk)
+                    .lineLimit(1)
                     .privacySensitiveInFeedback()
             }
-            .font(PlanProgressFont.text)
-            PlanMilestoneBar(progress: next.progress)
-            if let caption = text.caption(next, date: milestones.nextDate) {
-                AmountSentenceText(caption)
-                    .font(PlanProgressFont.caption)
-                    .foregroundStyle(Palette.secondaryInk)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
+            Spacer(minLength: 0)
         }
+        .font(.body)
+        .padding(.vertical, Metrics.m)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
     }
 
-    /// "Saving nothing more · retire at 71", and what it was at the coast point.
-    private var coast: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            HStack(alignment: .firstTextBaseline, spacing: Metrics.m) {
-                Text("Saving nothing more")
-                    .foregroundStyle(Palette.ink)
-                Spacer(minLength: Metrics.s)
-                Text(milestones.coastAge.map { "retire at \($0)" } ?? "no age yet")
-                    .fontWeight(.semibold)
-                    .monospacedDigit()
-                    .foregroundStyle(isPastCoastPoint ? Palette.positive : Palette.ink)
-                    .privacySensitiveInFeedback()
-            }
-            .font(PlanProgressFont.text)
-            Text(PlanMilestoneText.coastCaption(milestones.coastAge, target: milestones.ladder.coastTarget,
-                                                reached: milestones.coastPointReached, asOf: asOf,
-                                                locale: locale))
-                .font(PlanProgressFont.caption)
-                .foregroundStyle(Palette.secondaryInk)
-                .fixedSize(horizontal: false, vertical: true)
-                .privacySensitiveInFeedback()
-        }
-        .accessibilityElement(children: .combine)
+    /// "93% there, typically late 2028", "93% there".
+    private func nextCaption(_ next: NextMilestone) -> String {
+        let progress = text.progress(next)
+        guard let date = milestones.nextDate else { return progress }
+        return "\(progress), typically \(PlanMilestoneText.when(date))"
     }
 
     private var isPastCoastPoint: Bool {
