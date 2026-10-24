@@ -132,12 +132,19 @@ enum OnboardingText {
         return bands + " The answer is the earliest age that works in \(GlanceText.futures(confidence))."
     }
 
-    /// The lever: "Save 340 € more a month" over "and it could be 2 years
-    /// sooner".
-    static func lever(perMonth: Decimal, years: Int, currency: CurrencyCode,
-                      locale: Locale = .current) -> (action: AmountSentence, effect: String) {
+    /// After the line: the answer stands on the rough amounts of first launch.
+    static let sketch = "It's a first sketch from the numbers you gave; adding your accounts makes it exact."
+
+    /// The lever: "Saving 340 € more a month would make it 2050." with the
+    /// year the last Monday at work would move to, else "would make it 2
+    /// years sooner".
+    static func leverSentence(perMonth: Decimal, years: Int, lastMonday: CalendarDate?, currency: CurrencyCode,
+                              locale: Locale = .current) -> AmountSentence {
         let amount = AmountFormat.amount(perMonth, currency: currency, locale: locale)
-        let effect = years == 1 ? "and it could be a year sooner" : "and it could be \(years) years sooner"
-        return ("Save \(amount: amount) more a month", effect)
+        if let lastMonday {
+            return "Saving \(amount: amount) more a month would make it \(String(lastMonday.year - years))."
+        }
+        let sooner = years == 1 ? "a year sooner" : "\(years) years sooner"
+        return "Saving \(amount: amount) more a month would make it \(sooner)."
     }
 }

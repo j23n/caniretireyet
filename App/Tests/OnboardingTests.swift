@@ -175,6 +175,15 @@ struct OnboardingTests {
             == "No age works in 9 of 10 futures yet.")
     }
 
+    @Test func theLeverSaysTheYearItWouldMakeIt() {
+        let lever = OnboardingText.leverSentence(perMonth: 340, years: 2, lastMonday: "2052-05-13", currency: "EUR",
+                                                 locale: english)
+        #expect(lever.text.hasPrefix("Saving "))
+        #expect(lever.text.hasSuffix(" more a month would make it 2050."))
+        #expect(OnboardingText.leverSentence(perMonth: 340, years: 1, lastMonday: nil, currency: "EUR",
+                                             locale: english).text.hasSuffix("would make it a year sooner."))
+    }
+
     @Test func sharesOfPayAreWordsWhenClose() {
         #expect(OnboardingText.share(0.5, locale: english) == "half")
         #expect(OnboardingText.share(0.34, locale: english) == "a third")

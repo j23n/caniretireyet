@@ -134,26 +134,36 @@ struct OnboardingAnswerStep: View {
 
     // MARK: The answer
 
+    /// The size of the date: the screen's one hero (UI.md, "Type").
+    #if os(macOS)
+    private static let heroSize: CGFloat = 60
+    #else
+    private static let heroSize: CGFloat = 52
+    #endif
+
+    /// "Your last Monday at work could be" over the date, the hero, and
+    /// "At 64, in 9 of 10 futures." with that it's a first sketch; then one
+    /// card with the fan of futures, marked at the age, and the lever.
     private func reveal(_ headline: RetirementAnswer) -> some View {
-        let today = library.asOfDate
         let results = library.mainPlan.flatMap { plans.results(of: $0.id) }
         let endAge = library.mainPlan?.effectiveEndAge ?? 95
         let retired = model.hasStoppedWorking && !model.openedExistingLibrary
-        return VStack(alignment: .leading, spacing: Metrics.l) {
-            VStack(alignment: .leading, spacing: Metrics.xs) {
+        let line = retired ? OnboardingText.retiredLine(headline, endAge: endAge) : OnboardingText.revealLine(headline)
+        let fan = results.map(\.portfolio) ?? []
+        return VStack(alignment: .leading, spacing: Metrics.xl) {
+            VStack(alignment: .leading, spacing: Metrics.s) {
                 Text(retired ? (model.openedExistingLibrary ? "Your answer" : "Your first answer")
                      : OnboardingText.revealLead(headline, openedExistingLibrary: model.openedExistingLibrary))
-                    .font(.headline)
+                    .font(.title3)
                     .foregroundStyle(Palette.secondaryInk)
                 Text(verbatim: retired ? OnboardingText.retiredTitle(headline)
                      : OnboardingText.revealTitle(headline, locale: locale))
-                    .font(.largeTitle.bold())
+                    .font(.system(size: Self.heroSize, weight: .bold))
                     .foregroundStyle(Palette.ink)
                     .lineLimit(1)
                     .minimumScaleFactor(0.5)
                     .privacySensitiveInFeedback()
-                Text(retired ? OnboardingText.retiredLine(headline, endAge: endAge)
-                     : OnboardingText.revealLine(headline))
+                Text(verbatim: model.openedExistingLibrary ? line : line + " " + OnboardingText.sketch)
                     .font(.title3)
                     .foregroundStyle(Palette.ink)
                     .fixedSize(horizontal: false, vertical: true)
@@ -168,84 +178,72 @@ struct OnboardingAnswerStep: View {
                     .foregroundStyle(Palette.ink)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            if let results, !results.portfolio.isEmpty {
-                VStack(alignment: .leading, spacing: Metrics.s) {
-                    FanChart(fan: results.portfolio, markers: results.markers)
-                        .privacySensitiveInFeedback()
-                    Text(OnboardingText.fanLine(confidence: headline.confidence, hasStoppedWorking: retired))
-                        .font(.footnote)
-                        .foregroundStyle(Palette.secondaryInk)
-                        .fixedSize(horizontal: false, vertical: true)
+            if !fan.isEmpty || model.lever != nil {
+                VStack(alignment: .leading, spacing: Metrics.m) {
+                    if let results, !fan.isEmpty {
+                        FanChart(fan: fan, markers: results.markers.filter { $0.kind == .retirement })
+                            .privacySensitiveInFeedback()
+                    }
+                    if let lever = model.lever {
+                        leverRow(lever, lastMonday: LastMonday(headline)?.date)
+                    }
                 }
                 .onboardingCard()
             }
-            if let lever = model.lever {
-                leverRow(lever)
-            }
-            OnboardingSketchChip()
+            OnboardingSketchInfo(
+                explanation: OnboardingText.fanLine(confidence: headline.confidence, hasStoppedWorking: retired)
+                    + " " + OnboardingSketchInfo.estimates)
         }
     }
 
-    /// "Save 340 € more a month" over "and it could be 2 years sooner": what
-    /// the plan can do, worked out already. The Plan's levers try more.
-    private func leverRow(_ lever: OnboardingModel.Lever) -> some View {
-        let words = OnboardingText.lever(perMonth: lever.perMonth, years: lever.yearsSooner,
-                                         currency: library.baseCurrency, locale: locale)
-        return HStack(alignment: .firstTextBaseline, spacing: Metrics.m) {
-            Image(systemName: "arrow.left.circle")
-                .foregroundStyle(Palette.positive)
+    /// "Saving 340 € more a month would make it 2050.": what the plan can
+    /// do, worked out already. The Plan's levers try more.
+    private func leverRow(_ lever: OnboardingModel.Lever, lastMonday: CalendarDate?) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: Metrics.m) {
+            Image(systemName: AppSymbol.plan)
+                .foregroundStyle(Palette.accent)
                 .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 2) {
-                AmountSentenceText(words.action)
-                    .font(.headline)
-                    .foregroundStyle(Palette.ink)
-                Text(words.effect)
-                    .foregroundStyle(Palette.positive)
-                Text("The Plan's levers try other changes.")
-                    .font(.footnote)
-                    .foregroundStyle(Palette.secondaryInk)
-            }
+            AmountSentenceText(OnboardingText.leverSentence(perMonth: lever.perMonth, years: lever.yearsSooner,
+                                                            lastMonday: lastMonday,
+                                                            currency: library.baseCurrency, locale: locale))
+                .foregroundStyle(Palette.ink)
+                .fixedSize(horizontal: false, vertical: true)
         }
-        .onboardingCard()
         .accessibilityElement(children: .combine)
     }
 }
 
-/// "It's a first sketch": the answer stands on rough amounts. The tour
-/// shows it under the answer, with a tap on ⓘ explaining it.
-struct OnboardingSketchChip: View {
+/// "What the answer stands on", a small link under the answer whose
+/// popover says how the fan reads and that the answer stands on the rough
+/// amounts of first launch.
+struct OnboardingSketchInfo: View {
+    let explanation: String
+
     @State private var explains = false
 
     var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
-            Text("It's a first sketch from rough amounts, not advice. Add your accounts and it gets sharper.")
+        Button {
+            explains = true
+        } label: {
+            Label("What the answer stands on", systemImage: "info.circle")
                 .font(.footnote)
-                .foregroundStyle(Palette.secondaryInk)
+                .foregroundStyle(Palette.accent)
+        }
+        .buttonStyle(.plain)
+        .popover(isPresented: $explains) {
+            Text(explanation)
+                .font(.callout)
+                .foregroundStyle(Palette.ink)
                 .fixedSize(horizontal: false, vertical: true)
-            Button {
-                explains = true
-            } label: {
-                Image(systemName: "info.circle")
-                    .font(.footnote)
-                    .foregroundStyle(Palette.accent)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel(Text("What the answer stands on"))
-            .popover(isPresented: $explains) {
-                Text(Self.explanation)
-                    .font(.callout)
-                    .foregroundStyle(Palette.ink)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(Metrics.l)
-                    .frame(idealWidth: 320, maxWidth: 360, alignment: .leading)
-                    .presentationCompactAdaptation(.popover)
-            }
+                .padding(Metrics.l)
+                .frame(idealWidth: 320, maxWidth: 360, alignment: .leading)
+                .presentationCompactAdaptation(.popover)
         }
     }
 
-    static let explanation = "This answer is based on the rough amounts you entered at first launch, which are "
+    static let estimates = "This answer is based on the rough amounts you entered at first launch, which are "
         + "kept as accounts named \"(estimate)\". After you import your statements or the starter spreadsheet, you "
-        + "can replace the estimates with your real accounts, and the answer is calculated again."
+        + "can replace the estimates with your real accounts, and the answer is calculated again. It isn't advice."
 }
 
 /// A calendar page: the weekday over the day and the month, for the last
