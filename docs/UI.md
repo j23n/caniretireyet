@@ -983,6 +983,10 @@ At most one note a day: the monthly note keeps its day, and a yearly note that f
 
 - System components and Liquid Glass on iOS 26 and macOS 26: a floating tab bar and toolbars, sheets with detents, and the sidebar.
 - Glass is only for controls that float above content (the tab bar accessory, floating buttons). Content (numbers, charts, forms) sits on plain surfaces, where it's most legible.
+- **Surfaces.** White cards on a light grey page (`#f2f2f7`), as the system's grouped lists draw them; black and `#1c1c1e` in dark mode. Cards have large corners (22 pt) and no border on iPhone and iPad, and smaller corners (12 pt) with a hairline edge on the Mac (`cardSurface()`). Everything on a screen sits on a card, a chart included; nothing floats on the page except the screen's title and its picker.
+- **Rows before tiles.** Figures are rows on a card (`CardRows`, `CardRow`): the label on the left in ink, the value on the right in grey, a hairline between rows. No grids of figure tiles. A card holds one idea; a screen has few cards.
+- **One line.** A row's label, a value, a chip, a legend and a chart's labels stay on one line: a label gives way (it's cut short) before a value. Only sentences wrap, and a card keeps them to one or two.
+- **Type.** The screen's title is a large title. The answer's date is the one hero: about 52 pt bold on iPhone, larger on the Mac. A card's title is a headline (17 pt semibold); rows are body text; secondary text is grey (`#55555e`), captions and axis labels lighter (`#8e8e96`). The accent is one blue (`#0a64d8`).
 
 **Numbers.**
 

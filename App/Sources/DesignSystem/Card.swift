@@ -23,11 +23,21 @@ struct Card<Header: View, Content: View>: View {
         }
         .padding(Metrics.l)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Palette.card, in: RoundedRectangle(cornerRadius: Metrics.cardRadius, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: Metrics.cardRadius, style: .continuous)
-                .strokeBorder(Palette.border, lineWidth: 1)
-        }
+        .cardSurface()
+    }
+}
+
+extension View {
+    /// A card's surface: plain white on the grey page, with large corners
+    /// on iPhone and iPad and a hairline edge on the Mac, as the system's
+    /// grouped lists draw them.
+    func cardSurface(radius: CGFloat = Metrics.cardRadius) -> some View {
+        let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
+        return background(Palette.card, in: shape)
+        #if os(macOS)
+            .overlay { shape.strokeBorder(Palette.border.opacity(0.7), lineWidth: 0.5) }
+            .shadow(color: .black.opacity(0.04), radius: 1, y: 1)
+        #endif
     }
 }
 

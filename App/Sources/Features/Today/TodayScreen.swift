@@ -179,11 +179,7 @@ struct TodayAnswerCard: View {
             }
             .padding(Metrics.l)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Palette.card, in: RoundedRectangle(cornerRadius: Metrics.cardRadius, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: Metrics.cardRadius, style: .continuous)
-                    .strokeBorder(Palette.border, lineWidth: 1)
-            }
+            .cardSurface()
             .contentShape(RoundedRectangle(cornerRadius: Metrics.cardRadius, style: .continuous))
         }
         .buttonStyle(.plain)
@@ -348,11 +344,7 @@ struct TodayRowsCard: View {
         }
         .padding(.horizontal, Metrics.l)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Palette.card, in: RoundedRectangle(cornerRadius: Metrics.cardRadius, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: Metrics.cardRadius, style: .continuous)
-                .strokeBorder(Palette.border, lineWidth: 1)
-        }
+        .cardSurface()
     }
 
     private func milestones(of plan: PlanDocument) -> PlanMilestones {

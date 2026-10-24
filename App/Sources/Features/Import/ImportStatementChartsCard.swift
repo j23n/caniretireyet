@@ -90,11 +90,7 @@ private struct ImportChartCard<Key: View, Chart: View>: View {
         }
         .padding(isCompact ? Metrics.m : Metrics.l)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Palette.card, in: RoundedRectangle(cornerRadius: Metrics.cardRadius, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: Metrics.cardRadius, style: .continuous)
-                .strokeBorder(Palette.border, lineWidth: 1)
-        }
+        .cardSurface()
     }
 }
 
