@@ -61,11 +61,21 @@ private struct TimelineContentView: View {
     }
 
     var body: some View {
-        // A large title on iPhone, as on Today, with the zoom under it.
+        // A large title on iPhone, as on Today, with the zoom under it. The
+        // title is drawn here: the system's large title doesn't show above
+        // a pinned inset.
         zoomView
+            #if os(iOS)
+            .toolbar(layout.isWide ? .automatic : .hidden, for: .navigationBar)
+            #endif
             .safeAreaInset(edge: .top, spacing: 0) {
                 if !layout.isWide {
-                    VStack(spacing: Metrics.s) {
+                    VStack(alignment: .leading, spacing: Metrics.s) {
+                        Text("Timeline")
+                            .font(.largeTitle.bold())
+                            .foregroundStyle(Palette.ink)
+                            .accessibilityAddTraits(.isHeader)
+                            .padding(.top, Metrics.s)
                         zoomPicker
                         if navigation.timelineZoom == .lookBack, library.library.accountsTurningOffTrends.isEmpty {
                             PlanTrendsControls()
