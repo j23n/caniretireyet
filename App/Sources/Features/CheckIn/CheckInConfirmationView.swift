@@ -5,13 +5,15 @@ import SwiftUI
 import Tracker
 
 /// The monthly moment (UI.md, "After saving"): the check-in ends on your
-/// date, moved.
+/// date, moved, as the hero of its card.
 ///
-/// > October saved · Net worth 312.480 € (▲ 4.210)
-/// > Your last Monday at work: ~~3 April 2051~~ 27 March 2051 · A year sooner
+/// > Your last Monday at work
+/// > ~~3 April 2051~~ ↓ **27 March 2051**
+/// > A year sooner · Still at 63, in 9 of 10 futures.
 ///
-/// Then what moved it, said as time of the life you plan, and the next
-/// milestone (``CheckInJourneyCards``).
+/// Then what moved it, net worth and what you saved and markets did, said
+/// as time of the life you plan, and the next milestone
+/// (``CheckInJourneyCards``); *Done* is pinned to the bottom.
 ///
 /// It shows as soon as the check-in is written. The main plan then runs to
 /// record the month's answer (`PlanStore.checkInAnswer`): its progress shows
@@ -40,74 +42,60 @@ struct CheckInConfirmationView: View {
 
     var body: some View {
         ScrollView {
-            VStack(spacing: Metrics.xl) {
-                VStack(spacing: Metrics.s) {
-                    Image(systemName: "checkmark.circle")
-                        .font(.system(size: 44))
-                        .foregroundStyle(Palette.good)
-                        .accessibilityHidden(true)
-                    Text(verbatim: "\(AmountFormat.monthName(result.date, locale: locale)) saved")
-                        .font(.title2.bold())
-                        .privacySensitiveInFeedback()
-                    Text(verbatim: AmountFormat.longDate(result.date, locale: locale))
-                        .foregroundStyle(Palette.secondaryInk)
-                        .privacySensitiveInFeedback()
-                }
-                netWorth
-                let reached = result.isPast ? [] : reachedMilestones
-                if !reached.isEmpty {
-                    milestones(reached)
-                }
+            VStack(alignment: .leading, spacing: Metrics.l) {
                 if result.isPast {
                     Card {
                         pastCheckIn
                     }
                 } else {
-                    Card("Your last Monday at work") {
-                        answer
-                    }
-                    CheckInJourneyCards(date: result.date)
+                    answerCard
                 }
+                let reached = result.isPast ? [] : reachedMilestones
+                if !reached.isEmpty {
+                    milestones(reached)
+                }
+                CheckInJourneyCards(result: result)
                 LibraryStatusBanners()
-                Button {
-                    done()
-                } label: {
-                    Text("Done")
-                        .fontWeight(.semibold)
-                        .frame(maxWidth: 280)
-                }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
-                .keyboardShortcut(.defaultAction)
             }
-            .padding(Metrics.xl)
+            .padding(Metrics.l)
             .frame(maxWidth: Metrics.readableWidth)
             .frame(maxWidth: .infinity)
         }
         .background(Palette.page)
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            Button {
+                done()
+            } label: {
+                Text("Done")
+                    .fontWeight(.semibold)
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
+            .keyboardShortcut(.defaultAction)
+            .frame(maxWidth: Metrics.readableWidth)
+            .padding(.horizontal, Metrics.l)
+            .padding(.vertical, Metrics.s)
+            .frame(maxWidth: .infinity)
+            .background(Palette.page)
+        }
     }
 
-    /// "Net worth 312.480 € ▲ +4.210 € since 31 Aug".
-    private var netWorth: some View {
-        VStack(spacing: Metrics.xs) {
-            Text("Net worth")
+    /// Your last Monday at work, centered on its card: the date before,
+    /// struck through, the date now as the hero, how it moved and how sure;
+    /// or the plan's progress while it works the answer out.
+    private var answerCard: some View {
+        VStack(spacing: Metrics.s) {
+            Text("Your last Monday at work")
                 .font(.subheadline)
                 .foregroundStyle(Palette.secondaryInk)
-            AmountText(result.netWorth, tabular: false)
-                .font(.largeTitle.bold())
-            if let change = result.change {
-                HStack(spacing: Metrics.xs) {
-                    DeltaText(change.change)
-                    if let previous = previousCheckIn {
-                        Text(verbatim: "since " + AmountFormat.shortDate(previous, locale: locale))
-                            .foregroundStyle(Palette.secondaryInk)
-                            .privacySensitiveInFeedback()
-                    }
-                }
-                .font(.subheadline)
-            }
+            answer
         }
-        .accessibilityElement(children: .combine)
+        .multilineTextAlignment(.center)
+        .padding(.horizontal, Metrics.l)
+        .padding(.vertical, Metrics.xl)
+        .frame(maxWidth: .infinity)
+        .cardSurface()
     }
 
     // MARK: Milestones
@@ -160,13 +148,13 @@ struct CheckInConfirmationView: View {
     @ViewBuilder
     private var answer: some View {
         if let headline = answerRun?.headline {
-            VStack(alignment: .leading, spacing: Metrics.s) {
+            VStack(spacing: Metrics.s) {
                 movedDate(headline)
                 Button("Open the plan") { openPlan() }
                     .buttonStyle(.borderless)
             }
         } else if let run = answerRun, run.isRunning {
-            VStack(alignment: .leading, spacing: Metrics.s) {
+            VStack(spacing: Metrics.s) {
                 PlanRunProgressView(progress: plans.progress(of: run.plan, .checkIn) ?? .starting(.full),
                                     isCheckIn: true)
                 Text("You can close this now: the answer is recorded when it's ready.")
@@ -175,14 +163,14 @@ struct CheckInConfirmationView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
         } else if library.mainPlan == nil {
-            VStack(alignment: .leading, spacing: Metrics.s) {
+            VStack(spacing: Metrics.s) {
                 Text("Create a plan to see your last Monday at work. Every check-in will then end with it, moved.")
                     .fixedSize(horizontal: false, vertical: true)
                 Button("Create a plan") { openPlan() }
                     .buttonStyle(.borderless)
             }
         } else {
-            VStack(alignment: .leading, spacing: Metrics.s) {
+            VStack(spacing: Metrics.s) {
                 if let last = previousHeadline {
                     Text(verbatim: lastAnswer(last))
                         .fixedSize(horizontal: false, vertical: true)
@@ -205,16 +193,21 @@ struct CheckInConfirmationView: View {
         let before = previousHeadline.flatMap { previous in
             LastMonday(RetirementAnswer(recorded: previous, birthDate: library.settings.person?.birthDate))
         }
-        VStack(alignment: .leading, spacing: Metrics.xs) {
+        VStack(spacing: Metrics.s) {
             if let before, let now, before.date != now.date {
                 Text(verbatim: GlanceText.lastMonday(before.date, locale: locale))
-                    .font(.subheadline)
+                    .font(.title3)
                     .strikethrough()
-                    .foregroundStyle(Palette.secondaryInk)
+                    .foregroundStyle(Palette.mutedInk)
+                    .lineLimit(1)
+                Image(systemName: "arrow.down")
+                    .font(.title3)
+                    .foregroundStyle(Palette.mutedInk)
+                    .accessibilityHidden(true)
             }
             Text(verbatim: now.map { GlanceText.lastMonday($0.date, locale: locale) }
                  ?? (headline.canRetireNow ? "You could stop today" : "Not yet"))
-                .font(.largeTitle.bold())
+                .font(.system(size: Self.heroSize, weight: .bold))
                 .foregroundStyle(Palette.ink)
                 .lineLimit(1)
                 .minimumScaleFactor(0.5)
@@ -222,7 +215,7 @@ struct CheckInConfirmationView: View {
                let move = LastMondayMove(answer: headline,
                                          history: [AnswerPoint(date: previous.date, earliestAge: previous.earliestAge)],
                                          latestCheckIn: result.date) {
-                TodayMoveChip(move: move, words: CheckInAnswer.move(move))
+                CheckInMoveChip(move: move)
             }
             Text(verbatim: CheckInAnswer.line(headline, previousAge: previousHeadline?.earliestAge))
                 .font(.subheadline)
@@ -232,6 +225,13 @@ struct CheckInConfirmationView: View {
         .privacySensitiveInFeedback()
         .accessibilityElement(children: .combine)
     }
+
+    /// The size of the date: the screen's one hero (UI.md, "Type").
+    #if os(macOS)
+    private static let heroSize: CGFloat = 60
+    #else
+    private static let heroSize: CGFloat = 52
+    #endif
 
     /// "Last time (31 Aug): 27 March 2051."
     private func lastAnswer(_ headline: Headline) -> String {
@@ -261,11 +261,6 @@ struct CheckInConfirmationView: View {
     /// The answer recorded at the check-in before this one.
     private var previousHeadline: Headline? {
         CheckInAnswer.previousHeadline(before: result.date, in: library.library)
-    }
-
-    /// The check-in before this one, where the change starts.
-    private var previousCheckIn: CalendarDate? {
-        library.valuator.previousCheckIn(before: result.date)
     }
 
     /// Closes the check-in, then shows the main plan.

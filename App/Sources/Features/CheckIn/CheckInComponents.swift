@@ -1,3 +1,4 @@
+import Glance
 import Model
 import SwiftUI
 import Tracker
@@ -30,6 +31,31 @@ struct CheckInPriceStatusIcon: View {
                 .foregroundStyle(Palette.mutedInk)
                 .accessibilityHidden(true)
         }
+    }
+}
+
+// MARK: - The date, moved
+
+/// How the date moved since the check-in before, as a chip under it: "A
+/// year sooner" in the accent, "2 years later" in the warning color, "The
+/// same date" in gray, each with an arrow.
+struct CheckInMoveChip: View {
+    let move: LastMondayMove
+
+    var body: some View {
+        let color = move.years == 0 ? Palette.secondaryInk : move.isSooner ? Palette.accent : Palette.warning
+        Label {
+            Text(verbatim: CheckInAnswer.move(move))
+        } icon: {
+            Image(systemName: move.years == 0 ? "equal" : move.isSooner ? "arrow.left" : "arrow.right")
+        }
+        .font(.subheadline.weight(.semibold))
+        .foregroundStyle(color)
+        .lineLimit(1)
+        .padding(.horizontal, Metrics.m)
+        .padding(.vertical, 6)
+        .background(color.opacity(0.12), in: Capsule())
+        .privacySensitiveInFeedback()
     }
 }
 

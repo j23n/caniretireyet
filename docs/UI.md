@@ -429,48 +429,44 @@ Once a month: import the month's files, update the values you type, look at what
 
 ```
 ┌──────────────────────────────────────────┐
-│ Cancel          Check-in            Save │
-│ 31 October 2026           Change Date    │
-│ Import this month's statements and       │
-│ exports. …                               │
-│ [        ⤓ Import Files…              ]  │
-│ ✓ Prices and FX updated (4)           ▸  │
-│ NET WORTH                                │
-│ 312.480 €                                │
-│ ▲ +4.210 € since 30 Sep                  │
-│ Markets ▬▬▬  Saved ▬▬  Other ▬           │
-│ TYPED BY YOU (1)                         │
-│ Home                 312.000  [Update]   │
-│ Last value 30 Jun                        │
-│ UPDATED (3)                              │
-│ Conto Fineco                     6.012   │
-│ Conto deposito                  17.901   │
-│ Directa                         59.448   │
-│ NOT UPDATED (3)                          │
-│ Fondo pensione                  24.300   │
-│ …                                        │
-│ No file this month covered these         │
-│ accounts: they keep their last values.   │
+│ Cancel    October check-in          Save │
+│           31 Oct 2026 ▾                  │
+│ ╭ ⤓ Import Files ───╮╭ ✓ Prices updated ╮ │
+│ TO CONFIRM · 2                           │
+│ ╭──────────────────────────────────────╮ │
+│ │ Home                  € [ 312.000 ]  │ │  ← typed: a field
+│ │ Last value 30 Jun                    │ │
+│ │ Fondo pensione             24.300    │ │  ← no file this month
+│ │ Last value 31 May                    │ │
+│ ╰──────────────────────────────────────╯ │
+│ UPDATED · 5                              │
+│ ╭──────────────────────────────────────╮ │
+│ │ Conto Fineco                6.012    │ │
+│ │ Conto deposito             17.901    │ │
+│ │ Directa                    59.448    │ │
+│ │ 2 more                           ›   │ │
+│ ╰──────────────────────────────────────╯ │
+│ Net worth so far     312.480 € ▲ +4.210  │  ← pinned to the bottom
 └──────────────────────────────────────────┘
 ```
 
-- **Date.** Defaults to today. In the first days of a month it suggests the end of the previous month (`CheckInDates.suggested(today:lastCheckIn:)`). *Change Date* picks another; an earlier date fills in history: see [Adding history](#adding-history).
-- ***Import Files…*** opens the import ([Import](#import-mac-first)) in a sheet for the check-in's date: bank statements are read through that date ([IMPORT.md](IMPORT.md#bank-statements)), and broker exports, pension spreadsheets and any other file import as they do anywhere. Each import is written when you tap *Import*, with its own backup, and undone from its Done step or with `retire import --undo`. Import as many files as the month has; the page follows each one.
-- **Prices.** Fetched for the date as soon as the check-in opens, and again after each import, for what the accounts hold then (Settings can turn this off). The status row opens the price list, read-only: each price, rate and inflation value with its source and time, or why it couldn't be fetched. A price that couldn't be fetched uses the latest one known. An instrument without a price source gets its price on the Instruments screen.
-- **Net worth** on the date, with the fetched prices, and the change since the previous check-in: a headline and a bar each for markets, saved and other.
-- **Typed by you:** the open accounts whose values you type (`Account.acceptsTypedValues`: those set to *Typed by you*, and starting estimates), each with the date of its latest value, its value on the date and *Update*, which opens *Update Value* ([Accounts](#accounts)) dated the check-in's date. Saving it writes the value with its own backup, and the page follows.
-- **Updated:** the other open accounts with a value, or for a trades account a trade, in the date's month on or before the date, with their value. **Not updated:** the rest, which keep their last values; an account that holds nothing isn't listed. Imported values aren't edited here: a wrong one comes from a file, so fix the file and import it again, or delete the value on the account's page.
+- **Date.** Defaults to today. In the first days of a month it suggests the end of the previous month (`CheckInDates.suggested(today:lastCheckIn:)`). The title says the month, with the date under it ("October check-in", "31 Oct 2026"); tapping the date picks another; an earlier date fills in history: see [Adding history](#adding-history).
+- ***Import Files*** opens the import ([Import](#import-mac-first)) in a sheet for the check-in's date: bank statements are read through that date ([IMPORT.md](IMPORT.md#bank-statements)), and broker exports, pension spreadsheets and any other file import as they do anywhere. Each import is written when you tap *Import*, with its own backup, and undone from its Done step or with `retire import --undo`. Import as many files as the month has; the page follows each one.
+- **Prices.** Fetched for the date as soon as the check-in opens, and again after each import, for what the accounts hold then (Settings can turn this off). The button beside *Import Files* says their status in a few words ("Prices updated", "Check prices") and opens the price list, read-only: each price, rate and inflation value with its source and time, or why it couldn't be fetched. A price that couldn't be fetched uses the latest one known. An instrument without a price source gets its price on the Instruments screen.
+- **Net worth so far**, on the date with the fetched prices, and its change since the previous check-in, in a bar pinned to the bottom.
+- **To confirm:** first the open accounts whose values you type (`Account.acceptsTypedValues`: those set to *Typed by you*, and starting estimates), each with the date of its latest value and its balance on the check-in's date in a field, prefilled from that value. Changing it and pressing Return, or leaving the field, saves it as a typed value on the check-in's date with its own backup, as *Update Value* does ([Accounts](#accounts)), which the row's context menu also opens; a balance that can't be read says so under the name. Then the accounts no file this month covered, which keep their last values (an account that holds nothing isn't listed), in gray, the date of the last value in the warning color when it's stale.
+- **Updated:** the other open accounts with a value, or for a trades account a trade, in the date's month on or before the date, with their value; past three, the rest behind "2 more". Imported values aren't edited here: a wrong one comes from a file, so fix the file and import it again, or delete the value on the account's page.
 - **Save** writes the fetched prices, FX rates and inflation values (a price you set by hand for the date stays) and records this month's answer. *Cancel* drops the fetched prices; what the imports wrote stays. Nothing is kept on the device: an open check-in is its date and its prices.
-- **After saving.** The confirmation shows as soon as the prices are written: "October saved", the check-in's date, and net worth with its change ("▲ +4.210 € since 31 Aug"); then the milestones passed since the check-in before ([Milestones](#milestones)). The main plan then runs to record this month's answer (only for the latest check-in: see [Adding history](#adding-history)), and the card *Your last Monday at work* shows its progress ([Calculating](#calculating)) in the meantime, the same as on the Plan screen, without a Cancel button, and "You can close this now: the answer is recorded when it's ready." Then it ends with your date, moved:
+- **After saving.** The confirmation shows as soon as the prices are written, titled "October saved": a card with your date, then the milestones passed since the check-in before ([Milestones](#milestones)), then *What moved it* with net worth and its change, and *Done* pinned to the bottom. The main plan then runs to record this month's answer (only for the latest check-in: see [Adding history](#adding-history)), and the card *Your last Monday at work* shows its progress ([Calculating](#calculating)) in the meantime, the same as on the Plan screen, without a Cancel button, and "You can close this now: the answer is recorded when it's ready." Then it ends with your date, moved:
 
   > October saved · Net worth 312.480 € (▲ 4.210)
   > Your last Monday at work: ~~3 April 2051~~ **27 March 2051** · A year sooner
   > At 62, in 9 of 10 futures.
 
-  The date before is struck through when it differs. The chip says how the earliest age moved since the check-in before: "A year sooner", "2 years later", "The same date". The line under it says the age and how sure: "Still at 63, in 9 of 10 futures." when it didn't move, "At 62, in 9 of 10 futures." when it moved or there's no answer before, "You could stop today, in 9 of 10 futures.", or "No age works out in 9 of 10 futures yet." *Open the plan* follows. Without a main plan: "Create a plan to see your last Monday at work. Every check-in will then end with it, moved." with *Create a plan*. When there's no answer for the month, the last one ("Last time (31 Aug): 27 March 2051.") and why: "The plan couldn't run this time: …", or "This month's date isn't ready yet. The plan works it out when you open it."
+  The date is the screen's hero, centered on its card under "Your last Monday at work"; the date before is struck through above it, with an arrow down, when it differs. The chip says how the earliest age moved since the check-in before: "A year sooner", "2 years later", "The same date". The line under it says the age and how sure: "Still at 63, in 9 of 10 futures." when it didn't move, "At 62, in 9 of 10 futures." when it moved or there's no answer before, "You could stop today, in 9 of 10 futures.", or "No age works out in 9 of 10 futures yet." *Open the plan* follows. Without a main plan: "Create a plan to see your last Monday at work. Every check-in will then end with it, moved." with *Create a plan*. When there's no answer for the month, the last one ("Last time (31 Aug): 27 March 2051.") and why: "The plan couldn't run this time: …", or "This month's date isn't ready yet. The plan works it out when you open it."
 
   This is the monthly moment the app is built around: recording the month's answer is what the check-in is for. *Done* can close the confirmation while it runs; the answer is still recorded.
-- **The ending.** Under the date, *What moved it*: what was saved as time ("You saved 1.500 €, about 2½ weeks of expenses. Markets added about 7 more.", see [Today](#today), *Saving as time*), and when markets took 5% or more of net worth, a word of perspective, "Markets took 8%. Months like this are part of the 9 in 10 futures your plan already counts." (`MarketPerspective`). Then the next milestone: "⚑ Next: 5 years of spending, 80% there."
+- **The ending.** Under the date, *What moved it*: net worth and its change ("312.480 € ▲ +4.210 €"), a bar each for what you saved and what markets did, what was saved as time ("You saved 1.500 €, about 2½ weeks of expenses. Markets added about 7 more.", see [Today](#today), *Saving as time*), and when markets took 5% or more of net worth, a word of perspective, "Markets took 8%. Months like this are part of the 9 in 10 futures your plan already counts." (`MarketPerspective`). Then the next milestone, on a card of its own: "⚑ Next: 5 years of spending, 80% there."
 - **Notes.** Saving schedules the notes again ([Notifications](#notifications)): the month's note is answered, and the next one counts from this check-in.
 - ⌘S saves on the Mac and iPad.
 

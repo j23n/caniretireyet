@@ -6,7 +6,7 @@ import Tracker
 /// The monthly check-in (UI.md, "Check-in"). It's import-led: this
 /// month's files are imported, each written with its own backup, and the
 /// page shows what they did. Accounts that take typed values are listed
-/// apart, each with *Update* to type its balance on the check-in's date.
+/// to confirm, each with its balance on the check-in's date in a field.
 /// Then *Save* writes the prices fetched for the date and records this
 /// month's answer.
 ///
@@ -22,6 +22,7 @@ struct CheckInScreen: View {
     @Environment(CheckInStore.self) private var checkIn
     @Environment(LibraryStore.self) private var library
     @Environment(AppNavigation.self) private var navigation
+    @Environment(\.locale) private var locale
     @State private var hasAppeared = false
     @State private var showsImport = false
     @State private var showsPrices = false
@@ -34,7 +35,7 @@ struct CheckInScreen: View {
 
     var body: some View {
         content
-            .navigationTitle("Check-in")
+            .personalNavigationTitle(title, hidden: "Check-in")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             .navigationDestination(isPresented: $showsPrices) {
@@ -79,10 +80,16 @@ struct CheckInScreen: View {
             CheckInSavingView()
         } else if let summary = checkIn.summary {
             CheckInPage(summary: summary, saveError: $saveError, showsImport: $showsImport,
-                        showsPrices: $showsPrices, showsDatePicker: $showsDatePicker)
+                        showsPrices: $showsPrices)
         } else {
             CheckInStartView { date in start(on: date) }
         }
+    }
+
+    /// "Check-in"; "October saved" once it's saved.
+    private var title: String {
+        guard let saved else { return "Check-in" }
+        return "\(AmountFormat.monthName(saved.date, locale: locale)) saved"
     }
 
     @ToolbarContentBuilder
@@ -91,10 +98,16 @@ struct CheckInScreen: View {
             Button(saved == nil ? "Cancel" : "Close") { cancel() }
                 .disabled(isSaving)
         }
+        if saved == nil, checkIn.summary != nil {
+            ToolbarItem(placement: .principal) {
+                CheckInTitle(date: checkIn.date) { showsDatePicker = true }
+            }
+        }
         if saved == nil, checkIn.date != nil {
             ToolbarItem(placement: .confirmationAction) {
                 Button("Save") { save() }
                     .fontWeight(.semibold)
+                    .buttonStyle(.borderedProminent)
                     .keyboardShortcut("s", modifiers: .command)
                     .disabled(isSaving || !library.canEdit)
             }
@@ -145,48 +158,83 @@ struct CheckInScreen: View {
 
 // MARK: - The page
 
-/// The open check-in: its date, the way to this month's files, the prices,
-/// net worth with the change since the previous check-in, the accounts
-/// whose values you type, with *Update*, and the other accounts, those
-/// this month's files updated and those they didn't.
+/// The check-in's title in the toolbar: "October check-in" over its date,
+/// which opens the date picker.
+private struct CheckInTitle: View {
+    let date: CalendarDate?
+    let changeDate: () -> Void
+
+    @Environment(\.locale) private var locale
+
+    var body: some View {
+        if let date {
+            Button(action: changeDate) {
+                VStack(spacing: 0) {
+                    Text(verbatim: "\(AmountFormat.monthName(date, locale: locale)) check-in")
+                        .font(.headline)
+                        .foregroundStyle(Palette.ink)
+                    HStack(spacing: 2) {
+                        Text(verbatim: AmountFormat.mediumDate(date, locale: locale))
+                        Image(systemName: "chevron.down")
+                            .font(.caption2.weight(.semibold))
+                            .accessibilityHidden(true)
+                    }
+                    .font(.caption)
+                    .foregroundStyle(Palette.secondaryInk)
+                }
+                .lineLimit(1)
+                .privacySensitiveInFeedback()
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint("Changes the check-in's date")
+        }
+    }
+}
+
+/// The open check-in (UI.md, "Check-in"): *Import Files* and the prices
+/// side by side; the accounts to confirm, those whose values you type each
+/// with its value in a field, and those this month's files didn't cover;
+/// the accounts this month's files updated; and net worth so far in a bar
+/// at the bottom.
 struct CheckInPage: View {
     let summary: CheckInSummary
     @Binding var saveError: String?
     @Binding var showsImport: Bool
     @Binding var showsPrices: Bool
-    @Binding var showsDatePicker: Bool
 
     @Environment(CheckInStore.self) private var checkIn
     @Environment(LibraryStore.self) private var library
+    @Environment(AppPreferences.self) private var preferences
     @Environment(\.locale) private var locale
 
     /// *Update Value* for one of the typed accounts, open in a sheet.
     @State private var typing: AccountAction?
+    @State private var showsAllUpdated = false
+
+    /// How many updated accounts show before "3 more".
+    private static let updatedShown = 3
 
     var body: some View {
         let typed = summary.typedAccounts(in: library.library)
         let notUpdated = summary.notUpdated.filter { !typed.contains($0) }
+        let updated = summary.updated.filter { !typed.contains($0) }
         ScrollView {
             VStack(alignment: .leading, spacing: Metrics.l) {
                 banners
-                dateAndFiles
-                prices
-                netWorth
-                if !typed.isEmpty {
-                    typedAccounts(typed)
+                actions
+                if !typed.isEmpty || !notUpdated.isEmpty {
+                    toConfirm(typed: typed, notUpdated: notUpdated)
                 }
-                accounts(summary.updated.filter { !typed.contains($0) }, title: "Updated",
-                         empty: "No file imported for this month yet.")
-                if !notUpdated.isEmpty {
-                    accounts(notUpdated, title: "Not updated",
-                             footer: "No file this month covered these accounts: they keep their last values.")
-                }
+                updatedAccounts(updated)
             }
             .padding(Metrics.l)
             .frame(maxWidth: Metrics.readableWidth)
             .frame(maxWidth: .infinity)
         }
         .background(Palette.page)
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            netWorthBar
+        }
         .sheet(item: $typing) { action in
             AccountActionSheet(action: action)
         }
@@ -206,149 +254,237 @@ struct CheckInPage: View {
         }
     }
 
-    /// "31 October 2026 · Change", and *Import Files…*.
-    private var dateAndFiles: some View {
-        Card {
-            HStack {
-                Text(verbatim: AmountFormat.longDate(summary.date, locale: locale))
-                    .font(.headline)
-                    .privacySensitiveInFeedback()
-                Spacer()
-                Button("Change Date") { showsDatePicker = true }
-                    .buttonStyle(.borderless)
-            }
-            Text("Import this month's statements and exports. Each import is saved with a backup, and can be undone from the import.")
-                .font(.subheadline)
-                .foregroundStyle(Palette.secondaryInk)
-                .fixedSize(horizontal: false, vertical: true)
+    // MARK: Files and prices
+
+    /// *Import Files* and the prices' status, side by side.
+    private var actions: some View {
+        let list = CheckInPriceList.make(date: summary.date, fetched: checkIn.priceList, library: library.library,
+                                         locale: locale)
+        let status = CheckInPriceStatus.make(list, isFetching: checkIn.isFetchingPrices, locale: locale)
+        return HStack(spacing: Metrics.m) {
             Button {
                 showsImport = true
             } label: {
-                Label("Import Files…", systemImage: "square.and.arrow.down")
-                    .frame(maxWidth: .infinity)
+                Label("Import Files", systemImage: AppSymbol.importData)
+                    .foregroundStyle(Palette.accent)
+                    .checkInActionSurface()
             }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
+            .buttonStyle(.plain)
             .disabled(!library.canEdit)
+            .accessibilityHint("Imports this month's statements and exports, each with a backup")
+            if let status {
+                Button {
+                    showsPrices = true
+                } label: {
+                    Label {
+                        Text(verbatim: status.shortTitle)
+                            .foregroundStyle(status.kind == .updated ? Palette.good : Palette.ink)
+                    } icon: {
+                        CheckInPriceStatusIcon(kind: status.kind)
+                    }
+                    .checkInActionSurface()
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(Text(verbatim: status.title))
+                .accessibilityHint("Opens the prices and exchange rates")
+            }
         }
     }
 
-    /// "✓ Prices and FX updated (4)", opening the price list.
-    @ViewBuilder
-    private var prices: some View {
-        let list = CheckInPriceList.make(date: summary.date, fetched: checkIn.priceList, library: library.library,
-                                         locale: locale)
-        if let status = CheckInPriceStatus.make(list, isFetching: checkIn.isFetchingPrices, locale: locale) {
-            Button {
-                showsPrices = true
-            } label: {
-                Card {
-                    HStack(spacing: Metrics.s) {
-                        CheckInPriceStatusIcon(kind: status.kind)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(verbatim: status.title)
-                                .foregroundStyle(Palette.ink)
-                            if let subtitle = status.subtitle {
-                                Text(verbatim: subtitle)
-                                    .font(.footnote)
-                                    .foregroundStyle(Palette.secondaryInk)
-                                    .lineLimit(2)
-                                    .privacySensitiveInFeedback()
+    // MARK: Accounts
+
+    /// The accounts whose values you type, each with its value in a field,
+    /// then those this month's files didn't cover, which keep their last
+    /// values.
+    private func toConfirm(typed: [AccountID], notUpdated: [AccountID]) -> some View {
+        CheckInSection(title: "To confirm · \(typed.count + notUpdated.count)",
+                       footer: notUpdated.isEmpty ? nil
+                           : "No file this month covered the accounts without a field: they keep their last values.") {
+            ForEach(typed, id: \.self) { id in
+                if let account = library.library.accounts[id] {
+                    CheckInTypedRow(account: account, date: summary.date, lastValue: lastValue(of: id),
+                                    isStale: isStale(id))
+                        .contextMenu {
+                            Button("Update Value…") {
+                                typing = AccountAction(.updateValue, id, date: summary.date)
                             }
+                            .disabled(!library.canEdit)
                         }
+                }
+            }
+            ForEach(notUpdated, id: \.self) { id in
+                CheckInAccountRow(name: name(of: id), value: value(of: id), lastValue: lastValue(of: id),
+                                  isStale: isStale(id), dimmed: true)
+            }
+        }
+    }
+
+    /// The accounts this month's files updated; past three, the rest
+    /// behind "2 more".
+    private func updatedAccounts(_ ids: [AccountID]) -> some View {
+        let hidden = showsAllUpdated ? 0 : max(ids.count - Self.updatedShown - 1, 0)
+        let shown = hidden > 0 ? Array(ids.prefix(Self.updatedShown)) : ids
+        return CheckInSection(title: ids.isEmpty ? "Updated" : "Updated · \(ids.count)") {
+            if ids.isEmpty {
+                Text("No file imported for this month yet.")
+                    .foregroundStyle(Palette.secondaryInk)
+                    .padding(.vertical, Metrics.m)
+            }
+            ForEach(shown, id: \.self) { id in
+                CheckInAccountRow(name: name(of: id), value: value(of: id))
+            }
+            if hidden > 0 {
+                Button {
+                    withAnimation { showsAllUpdated = true }
+                } label: {
+                    HStack {
+                        Text(verbatim: "\(hidden) more")
+                            .foregroundStyle(Palette.secondaryInk)
                         Spacer(minLength: Metrics.s)
                         Image(systemName: "chevron.right")
                             .font(.footnote.weight(.semibold))
                             .foregroundStyle(Palette.mutedInk)
                             .accessibilityHidden(true)
                     }
+                    .padding(.vertical, Metrics.m)
+                    .contentShape(Rectangle())
                 }
-                .contentShape(Rectangle())
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
-            .accessibilityHint("Opens the prices and exchange rates")
         }
     }
 
-    /// Net worth on the date, and its change since the previous check-in.
-    private var netWorth: some View {
-        Card("Net worth") {
+    /// "Net worth so far 336.850 € ▲ +4.395 €", pinned to the bottom.
+    private var netWorthBar: some View {
+        HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
+            Text("Net worth so far")
+                .foregroundStyle(Palette.secondaryInk)
+                .lineLimit(1)
+            Spacer(minLength: Metrics.s)
             AmountText(summary.netWorth.total, tabular: false)
-                .font(.largeTitle.bold())
+                .font(.headline)
+                .foregroundStyle(Palette.ink)
+                .lineLimit(1)
+                .fixedSize()
             if let change = summary.change {
-                WaterfallChart(change: change.total, from: AmountFormat.shortDate(change.from, locale: locale),
-                               to: AmountFormat.shortDate(change.to, locale: locale))
+                DeltaText(change.total.change)
+                    .font(.subheadline)
+                    .lineLimit(1)
+                    .fixedSize()
             }
+        }
+        .padding(.horizontal, Metrics.xl)
+        .padding(.vertical, Metrics.m)
+        .frame(maxWidth: .infinity)
+        .background(.bar)
+        .overlay(alignment: .top) {
+            Divider()
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    // MARK: Helpers
+
+    private func name(of account: AccountID) -> String {
+        library.library.accounts[account]?.name ?? account.rawValue
+    }
+
+    /// What an account is worth on the date, in the base currency.
+    private func value(of account: AccountID) -> Decimal {
+        summary.netWorth.accounts.first { $0.account == account }?.knownValue ?? 0
+    }
+
+    /// "Last value 30 Jun": the date of the account's latest value on or
+    /// before the check-in's date.
+    private func lastValue(of account: AccountID) -> String? {
+        library.valuator.latestValuation(for: account, onOrBefore: summary.date).map { latest in
+            "Last value " + AmountFormat.shortDate(latest.date, locale: locale)
         }
     }
 
-    private func accounts(_ ids: [AccountID], title: String, empty: String? = nil, footer: String? = nil)
-        -> some View {
-        Card {
-            if ids.isEmpty, let empty {
-                Text(verbatim: empty)
-                    .foregroundStyle(Palette.secondaryInk)
-            }
-            ForEach(ids, id: \.self) { id in
-                HStack {
-                    Text(verbatim: library.library.accounts[id]?.name ?? id.rawValue)
-                        .lineLimit(1)
-                        .privacySensitiveInFeedback()
-                    Spacer(minLength: Metrics.s)
-                    AmountText(value(of: id))
-                }
+    private func isStale(_ account: AccountID) -> Bool {
+        AccountStaleness.stale(account, valuator: library.valuator, on: summary.date,
+                               threshold: preferences.stalenessThreshold) != nil
+    }
+}
+
+/// A titled card of the check-in: its title in small capitals above the
+/// card, the rows with a hairline between them, and a footnote under it.
+private struct CheckInSection<Rows: View>: View {
+    let title: String
+    var footer: String?
+    @ViewBuilder var rows: Rows
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(verbatim: title)
+                .font(.footnote)
+                .textCase(.uppercase)
+                .foregroundStyle(Palette.secondaryInk)
+                .lineLimit(1)
+                .padding(.horizontal, Metrics.xs)
+                .accessibilityAddTraits(.isHeader)
+            CardRows {
+                rows
             }
             if let footer {
                 Text(verbatim: footer)
                     .font(.footnote)
                     .foregroundStyle(Palette.secondaryInk)
                     .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, Metrics.xs)
             }
-        } header: {
-            SectionHeader(ids.isEmpty ? title : "\(title) (\(ids.count))")
         }
     }
+}
 
-    /// The accounts whose values you type, each with the date of its
-    /// latest value, its value on the date and *Update*, which types its
-    /// balance on the check-in's date.
-    private func typedAccounts(_ ids: [AccountID]) -> some View {
-        Card {
-            ForEach(ids, id: \.self) { id in
-                HStack(spacing: Metrics.s) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(verbatim: library.library.accounts[id]?.name ?? id.rawValue)
-                            .lineLimit(1)
-                            .privacySensitiveInFeedback()
-                        if let latest = library.valuator.latestValuation(for: id, onOrBefore: summary.date) {
-                            Text(verbatim: "Last value " + AmountFormat.shortDate(latest.date, locale: locale))
-                                .font(.footnote)
-                                .foregroundStyle(Palette.secondaryInk)
-                                .privacySensitiveInFeedback()
-                        }
-                    }
-                    Spacer(minLength: Metrics.s)
-                    AmountText(value(of: id))
-                    Button("Update") {
-                        typing = AccountAction(.updateValue, id, date: summary.date)
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
-                    .disabled(!library.canEdit)
+/// An account in the check-in: its name over when its last value was (in
+/// the warning color when it's stale), and its value on the right, in gray
+/// when it only keeps its last value.
+private struct CheckInAccountRow: View {
+    let name: String
+    let value: Decimal
+    var lastValue: String?
+    var isStale = false
+    var dimmed = false
+
+    var body: some View {
+        HStack(alignment: .center, spacing: Metrics.s) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(verbatim: name)
+                    .foregroundStyle(Palette.ink)
+                    .lineLimit(1)
+                    .privacySensitiveInFeedback()
+                if let lastValue {
+                    Text(verbatim: lastValue)
+                        .font(.subheadline)
+                        .foregroundStyle(isStale ? Palette.warning : Palette.secondaryInk)
+                        .lineLimit(1)
+                        .privacySensitiveInFeedback()
                 }
             }
-            Text("You type these accounts' values. Update one when its value changed.")
-                .font(.footnote)
-                .foregroundStyle(Palette.secondaryInk)
-                .fixedSize(horizontal: false, vertical: true)
-        } header: {
-            SectionHeader("Typed by you (\(ids.count))")
+            Spacer(minLength: Metrics.s)
+            AmountText(value)
+                .foregroundStyle(dimmed ? Palette.secondaryInk : Palette.ink)
+                .lineLimit(1)
+                .fixedSize()
+                .layoutPriority(1)
         }
+        .padding(.vertical, Metrics.m)
+        .accessibilityElement(children: .combine)
     }
+}
 
-    /// What an account is worth on the date, in the base currency.
-    private func value(of account: AccountID) -> Decimal {
-        summary.netWorth.accounts.first { $0.account == account }?.knownValue ?? 0
+extension View {
+    /// The surface of the check-in's two buttons at the top: a white card,
+    /// half the width each.
+    fileprivate func checkInActionSurface() -> some View {
+        lineLimit(1)
+            .frame(maxWidth: .infinity, minHeight: 44)
+            .padding(.vertical, Metrics.s)
+            .padding(.horizontal, Metrics.m)
+            .cardSurface()
+            .contentShape(Rectangle())
     }
 }
 
