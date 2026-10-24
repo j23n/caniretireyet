@@ -30,6 +30,9 @@ struct AccountDetailScreen: View {
     @State private var error: String?
     @State private var fillsPastPrices = false
     @State private var tradeFilter = TradeListFilter()
+    /// The part of a trades account the segmented control shows on
+    /// iPhone; `nil` for the first.
+    @State private var part: AccountDetailSection?
 
     init(accountID: AccountID) {
         self.accountID = accountID
@@ -86,13 +89,27 @@ struct AccountDetailScreen: View {
 
     // MARK: iPhone and iPad
 
+    /// One card with the value and the chart, under a line with the group;
+    /// then for a trades account a segmented control between its holdings,
+    /// trades, income and statements, showing one at a time.
     private func listLayout(_ data: AccountDetailData, trades: TradeList?) -> some View {
-        List {
+        let parts = Self.parts(of: data)
+        let selected: AccountDetailSection? = if let part, parts.contains(part) { part } else { parts.first }
+        return List {
             Section {
                 AccountDetailHeader(data: data)
+                    .listRowSeparator(.hidden)
                 AccountHistoryChart(points: data.history, savedTicks: data.savedTicks, currency: data.currency)
                     .padding(.vertical, Metrics.xs)
+                    .listRowSeparator(.hidden)
                 chartNotes(data)
+            } header: {
+                Text(data.subtitle)
+                    .font(.subheadline)
+                    .foregroundStyle(Palette.secondaryInk)
+                    .textCase(nil)
+                    .lineLimit(1)
+                    .privacySensitiveInFeedback()
             }
             if let since = data.emptySince {
                 Section {
@@ -102,7 +119,16 @@ struct AccountDetailScreen: View {
                 }
             }
             ForEach(data.sections, id: \.self) { section in
-                listSection(section, data, trades: trades)
+                if !parts.contains(section) {
+                    listSection(section, data, trades: trades, showsHeader: true)
+                } else if section == selected {
+                    if parts.count > 1 {
+                        Section {
+                            partPicker(parts, selected: section)
+                        }
+                    }
+                    listSection(section, data, trades: trades, showsHeader: parts.count < 2)
+                }
             }
             Section {
                 AccountInfoRows(account: data.account)
@@ -121,11 +147,34 @@ struct AccountDetailScreen: View {
                 Text("Deleting is for mistakes. To stop tracking an account, close it: it keeps its history.")
             }
         }
+        #if os(iOS)
+        .listSectionSpacing(.compact)
+        #endif
     }
 
+    /// The parts of a trades account the segmented control switches between.
+    private static func parts(of data: AccountDetailData) -> [AccountDetailSection] {
+        data.sections.filter { [.holdings, .trades, .income, .statements].contains($0) }
+    }
+
+    /// *Holdings | Trades | Income | Statements*.
+    private func partPicker(_ parts: [AccountDetailSection], selected: AccountDetailSection) -> some View {
+        Picker("Show", selection: Binding(get: { selected }, set: { part = $0 })) {
+            ForEach(parts, id: \.self) { option in
+                Text(option.title).tag(option)
+            }
+        }
+        .pickerStyle(.segmented)
+        .labelsHidden()
+        .listRowInsets(EdgeInsets())
+        .listRowBackground(Color.clear)
+    }
+
+    /// A part of the page in the iPhone list. `showsHeader: false` leaves
+    /// out its title, which the segmented control above it already shows.
     @ViewBuilder
     private func listSection(_ section: AccountDetailSection, _ data: AccountDetailData,
-                             trades: TradeList?) -> some View {
+                             trades: TradeList?, showsHeader: Bool) -> some View {
         let currency = data.currency
         switch section {
         case .tradeIssues:
@@ -138,13 +187,10 @@ struct AccountDetailScreen: View {
             if let holdings = data.tradeHoldings {
                 Section {
                     TradeHoldingsRows(holdings: holdings, currency: currency)
-                    NavigationLink {
-                        InstrumentsScreen()
-                    } label: {
-                        Label("Instruments", systemImage: AppSymbol.instruments)
-                    }
                 } header: {
-                    Text("Holdings")
+                    if showsHeader {
+                        Text("Holdings")
+                    }
                 } footer: {
                     Text("From the trades, at the latest prices. The average cost is what was paid per unit, fees "
                         + "included; the gain is the value minus it.")
@@ -152,7 +198,7 @@ struct AccountDetailScreen: View {
             }
         case .trades:
             if let trades {
-                tradeSections(trades, currency: currency)
+                tradeSections(trades, currency: currency, showsHeader: showsHeader)
             }
         case .income:
             Section {
@@ -161,7 +207,9 @@ struct AccountDetailScreen: View {
                         .padding(.vertical, 2)
                 }
             } header: {
-                Text("Income & gains")
+                if showsHeader {
+                    Text("Income & gains")
+                }
             } footer: {
                 Text(Self.incomeNote)
             }
@@ -174,7 +222,9 @@ struct AccountDetailScreen: View {
                         }
                 }
             } header: {
-                Text("Statements")
+                if showsHeader {
+                    Text("Statements")
+                }
             } footer: {
                 Text(Self.statementsNote + " Swipe one to delete it.")
             }
@@ -239,14 +289,14 @@ struct AccountDetailScreen: View {
     private func macLayout(_ data: AccountDetailData, trades: TradeList?) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Metrics.l) {
-                AccountDetailHeader(data: data)
-                if let since = data.emptySince {
-                    emptyAccountBanner(since)
-                }
                 Card {
+                    AccountDetailHeader(data: data)
                     AccountHistoryChart(points: data.history, savedTicks: data.savedTicks, currency: data.currency,
                                         height: 240)
                     chartNotes(data)
+                }
+                if let since = data.emptySince {
+                    emptyAccountBanner(since)
                 }
                 ForEach(data.sections, id: \.self) { section in
                     macSection(section, data, trades: trades)
@@ -271,6 +321,7 @@ struct AccountDetailScreen: View {
             .frame(maxWidth: .infinity)
         }
         .background(Palette.page)
+        .personalNavigationSubtitle(data.subtitle)
     }
 
     @ViewBuilder
@@ -376,7 +427,7 @@ struct AccountDetailScreen: View {
     /// The count and the filter, then a section per month, newest first.
     /// Swipe or long-press a trade to delete it.
     @ViewBuilder
-    private func tradeSections(_ trades: TradeList, currency: CurrencyCode) -> some View {
+    private func tradeSections(_ trades: TradeList, currency: CurrencyCode, showsHeader: Bool) -> some View {
         Section {
             if !trades.isEmpty {
                 HStack {
@@ -393,7 +444,9 @@ struct AccountDetailScreen: View {
                     .foregroundStyle(Palette.secondaryInk)
             }
         } header: {
-            Text("Trades")
+            if showsHeader {
+                Text("Trades")
+            }
         }
         ForEach(trades.sections) { month in
             Section {
@@ -570,6 +623,20 @@ struct AccountDetailScreen: View {
     }
 }
 
+extension AccountDetailSection {
+    /// Its name in the segmented control of a trades account's page.
+    var title: String {
+        switch self {
+        case .tradeIssues: "Issues"
+        case .holdings: "Holdings"
+        case .trades: "Trades"
+        case .income: "Income"
+        case .statements: "Statements"
+        case .values: "Values"
+        }
+    }
+}
+
 /// A deletion on an account's page, waiting for the user to confirm it.
 private enum AccountDeletion: Hashable {
     case account
@@ -587,8 +654,9 @@ private enum AccountDeletion: Hashable {
 
 // MARK: - Header
 
-/// The kind, institution, value and its change since the previous value,
-/// split into markets, saved and other.
+/// The value and its change since the previous value, split into
+/// markets, saved and other, then when the last value was and whether
+/// it's stale. The group and institution are in the line above it.
 private struct AccountDetailHeader: View {
     let data: AccountDetailData
     @Environment(\.locale) private var locale
@@ -601,23 +669,9 @@ private struct AccountDetailHeader: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Metrics.xs) {
-            HStack(spacing: Metrics.s) {
-                Label(data.account.kind.displayName, systemImage: data.account.kind.systemImage)
-                    .lineLimit(1)
-                if let institution = data.account.institution {
-                    Text(institution)
-                        .lineLimit(1)
-                        .privacySensitiveInFeedback()
-                }
-                if data.stale != nil {
-                    AccountStaleBadge()
-                }
-            }
-            .font(.subheadline)
-            .foregroundStyle(Palette.secondaryInk)
             AmountText(data.amount, currency: data.currency, precision: .cents, tabular: false,
                        animatesChanges: true)
-                .font(.largeTitle.bold())
+                .font(.title.bold())
                 .foregroundStyle(Palette.ink)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
@@ -647,10 +701,17 @@ private struct AccountDetailHeader: View {
                     .font(.footnote)
                 }
             }
-            Text(statusLine)
-                .font(.caption)
-                .foregroundStyle(Palette.mutedInk)
-                .privacySensitiveInFeedback()
+            HStack(spacing: Metrics.s) {
+                Text(statusLine)
+                    .font(.caption)
+                    .foregroundStyle(Palette.mutedInk)
+                    .lineLimit(1)
+                    .privacySensitiveInFeedback()
+                if data.stale != nil {
+                    AccountStaleBadge()
+                        .fixedSize()
+                }
+            }
         }
         .padding(.vertical, Metrics.xs)
     }
@@ -700,79 +761,6 @@ private struct AccountDetailHeader: View {
 }
 
 // MARK: - Positions
-
-/// A position's first line: its name, and its value in the account's
-/// currency (or "No price").
-struct AccountPositionNameLine: View {
-    let row: AccountHoldingRow
-    let currency: CurrencyCode
-
-    var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
-            Text(row.name)
-                .foregroundStyle(Palette.ink)
-                .lineLimit(2)
-                .privacySensitiveInFeedback()
-            Spacer(minLength: Metrics.s)
-            if let amount = row.amount {
-                AmountText(amount, currency: currency, precision: .cents)
-                    .foregroundStyle(Palette.ink)
-                    .layoutPriority(1)
-            } else {
-                Text("No price")
-                    .foregroundStyle(Palette.secondaryInk)
-            }
-        }
-    }
-}
-
-/// A position's quantity × price, with `trailing` (its share, or its gain)
-/// at the end of the line: "0,10383916 BTC × 73.785,11 €   95 % of the
-/// account". When that doesn't fit, the quantity and `trailing` share a
-/// line and "at 73.785,11 €" goes on the next; at the largest text sizes
-/// each is a line of its own. In footnote type, secondary ink.
-struct AccountPositionQuantityLine<Trailing: View>: View {
-    let row: AccountHoldingRow
-    @ViewBuilder let trailing: () -> Trailing
-
-    @Environment(\.locale) private var locale
-
-    var body: some View {
-        let quantity = AccountPositionText.quantity(row, locale: locale)
-        let price = AccountPositionText.price(row, locale: locale)
-        ViewThatFits(in: .horizontal) {
-            HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
-                AmountSentenceText(AccountPositionText.quantityAndPrice(row, locale: locale))
-                    .lineLimit(1)
-                Spacer(minLength: Metrics.s)
-                trailing()
-            }
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
-                    AmountSentenceText(quantity)
-                        .lineLimit(1)
-                    Spacer(minLength: Metrics.s)
-                    trailing()
-                }
-                if let price {
-                    Text(verbatim: price)
-                        .lineLimit(1)
-                        .privacySensitiveInFeedback()
-                }
-            }
-            VStack(alignment: .leading, spacing: 2) {
-                AmountSentenceText(quantity)
-                if let price {
-                    Text(verbatim: price)
-                        .privacySensitiveInFeedback()
-                }
-                trailing()
-            }
-        }
-        .font(.footnote)
-        .foregroundStyle(Palette.secondaryInk)
-    }
-}
 
 /// A position's unrealised gain: "▼ −2.871 € −27,3 %", the amount and its
 /// fraction of the cost kept together.

@@ -233,6 +233,17 @@ struct CheckInPriceStatus: Hashable, Sendable {
     var title: String
     var subtitle: String?
 
+    /// The few words of the check-in's button, half the width: "Prices
+    /// updated", "Check prices". ``title`` is what VoiceOver reads.
+    var shortTitle: String {
+        switch kind {
+        case .fetching: "Fetching prices…"
+        case .updated: "Prices updated"
+        case .needsAttention: "Check prices"
+        case .notFetched: "Prices not fetched"
+        }
+    }
+
     /// The summary for the list; `nil` when the check-in needs no prices at
     /// all (only balances in the base currency) and nothing is being fetched.
     static func make(_ list: CheckInPriceList, isFetching: Bool, locale: Locale = .current) -> CheckInPriceStatus? {

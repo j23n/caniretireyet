@@ -253,6 +253,16 @@ struct AccountDetailData: Hashable, Sendable {
         return sections
     }
 
+    /// The line under the account's name: its group and, for an account
+    /// that records trades, that its value comes from them, else its
+    /// institution. "Investments, from your trades", "Cash, FinecoBank".
+    var subtitle: String {
+        let group = account.group.description
+        if recordsTrades { return "\(group), from your trades" }
+        if let institution = account.institution, !institution.isEmpty { return "\(group), \(institution)" }
+        return group
+    }
+
     init(account: Account, library: Library, valuator: Valuator, today: CalendarDate, stalenessThreshold: Int) {
         self.account = account
         baseCurrency = valuator.baseCurrency

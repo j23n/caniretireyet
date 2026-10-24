@@ -44,32 +44,34 @@ Plus the glance: "how am I doing?" in a widget or on Today.
 ```
 Today
 Timeline
+Plan                                 ← the main plan
 Check-in                       •     ← while due or under way; dot when due
 Accounts                  97.330     ← the total of the open accounts
-  All Accounts                       ← the list, with net worth and allocation
-  ▾ Cash                  12.990     ← a group, with its subtotal
+  All Accounts                 9     ← the list, with net worth and allocation
+  ▾ ● Cash                12.990     ← a group: its color dot and subtotal
       Conto deposito       8.200
       Conto Fineco      ◷  4.790     ← ◷ when the value is stale
-  ▸ Investments           71.300     ← collapsed
-  ▾ Crypto & gold         13.040
+  ▸ ● Investments         71.300     ← collapsed
+  ▾ ● Crypto & gold       13.040
       Gold coins           9.640
       Ledger wallet        3.400
   ▸ Pension · Property · Debts
-  ▸ Closed (1)                       ← collapsed at first
+  ▸ Closed                     1     ← collapsed at first
 Plans
-  Base case
-  Part-time from 50
+  Base case                   63     ← the age of its latest answer
+  Part-time from 50           62
 Library
   Import…
   Instruments
   Sync & backups
 ```
 
+- **Plan** opens the main plan, or "create your first plan" when there are none; the plan's own row under *Plans* is then selected. *Plans* lists every plan with the age of its latest answer, once there is one.
 - **Check-in** is a row while a check-in is due or under way, with a dot, and while it's selected. *New Check-in* (⌘K) starts one at any time.
 - **Accounts in the sidebar.** The accounts are in the sidebar itself, so an account is one click away and a group of one doesn't need a page of its own.
   - The *Accounts* header shows the total of the open accounts on the right: the groups' subtotals added up.
-  - *All Accounts* opens the accounts list ([Accounts](#accounts)), with net worth, its chart and the allocation at its top.
-  - Under it, a row per group that has open accounts (Cash, Investments, Crypto & gold, Pension, Property, Debts), with its subtotal on the right. It expands to the group's accounts: kind icon, name and value, with a small clock when the latest value is stale. Values and staleness are the same as in the list. *Closed (n)* expands to the closed accounts. Amounts are placeholders while they're hidden.
+  - *All Accounts* opens the accounts list ([Accounts](#accounts)), with net worth, its chart and the allocation at its top, and shows how many accounts are open.
+  - Under it, a row per group that has open accounts (Cash, Investments, Crypto & gold, Pension, Property, Debts), with its color dot and its subtotal on the right, on one line. It expands to the group's accounts: name and value, with a small clock when the latest value is stale; a long name is cut short. Values and staleness are the same as in the list. *Closed*, with its count, expands to the closed accounts. Amounts are placeholders while they're hidden.
   - Clicking a group, or its disclosure triangle, expands or collapses it; groups aren't pages. They start expanded and *Closed* collapsed, and the device remembers which are collapsed, here and in the iPhone's accounts list alike ([Accounts](#accounts)).
   - Selecting an account shows its detail in the content area; the arrow keys move from account to account. Opening an account from elsewhere in the app selects its row and expands its group.
   - The sidebar follows the library, also when it changes on the other device: a new account appears under its group, a selected account that's closed moves under *Closed* and stays selected, and one that's deleted gives way to *All Accounts*.
@@ -392,48 +394,44 @@ Once a month: import the month's files, update the values you type, look at what
 
 ```
 ┌──────────────────────────────────────────┐
-│ Cancel          Check-in            Save │
-│ 31 October 2026           Change Date    │
-│ Import this month's statements and       │
-│ exports. …                               │
-│ [        ⤓ Import Files…              ]  │
-│ ✓ Prices and FX updated (4)           ▸  │
-│ NET WORTH                                │
-│ 312.480 €                                │
-│ ▲ +4.210 € since 30 Sep                  │
-│ Markets ▬▬▬  Saved ▬▬  Other ▬           │
-│ TYPED BY YOU (1)                         │
-│ Home                 312.000  [Update]   │
-│ Last value 30 Jun                        │
-│ UPDATED (3)                              │
-│ Conto Fineco                     6.012   │
-│ Conto deposito                  17.901   │
-│ Directa                         59.448   │
-│ NOT UPDATED (3)                          │
-│ Fondo pensione                  24.300   │
-│ …                                        │
-│ No file this month covered these         │
-│ accounts: they keep their last values.   │
+│ Cancel    October check-in          Save │
+│           31 Oct 2026 ▾                  │
+│ ╭ ⤓ Import Files ───╮╭ ✓ Prices updated ╮ │
+│ TO CONFIRM · 2                           │
+│ ╭──────────────────────────────────────╮ │
+│ │ Home                  € [ 312.000 ]  │ │  ← typed: a field
+│ │ Last value 30 Jun                    │ │
+│ │ Fondo pensione             24.300    │ │  ← no file this month
+│ │ Last value 31 May                    │ │
+│ ╰──────────────────────────────────────╯ │
+│ UPDATED · 5                              │
+│ ╭──────────────────────────────────────╮ │
+│ │ Conto Fineco                6.012    │ │
+│ │ Conto deposito             17.901    │ │
+│ │ Directa                    59.448    │ │
+│ │ 2 more                           ›   │ │
+│ ╰──────────────────────────────────────╯ │
+│ Net worth so far     312.480 € ▲ +4.210  │  ← pinned to the bottom
 └──────────────────────────────────────────┘
 ```
 
-- **Date.** Defaults to today. In the first days of a month it suggests the end of the previous month (`CheckInDates.suggested(today:lastCheckIn:)`). *Change Date* picks another; an earlier date fills in history: see [Adding history](#adding-history).
-- ***Import Files…*** opens the import ([Import](#import-mac-first)) in a sheet for the check-in's date: bank statements are read through that date ([IMPORT.md](IMPORT.md#bank-statements)), and broker exports, pension spreadsheets and any other file import as they do anywhere. Each import is written when you tap *Import*, with its own backup, and undone from its Done step or with `retire import --undo`. Import as many files as the month has; the page follows each one.
-- **Prices.** Fetched for the date as soon as the check-in opens, and again after each import, for what the accounts hold then (Settings can turn this off). The status row opens the price list, read-only: each price, rate and inflation value with its source and time, or why it couldn't be fetched. A price that couldn't be fetched uses the latest one known. An instrument without a price source gets its price on the Instruments screen.
-- **Net worth** on the date, with the fetched prices, and the change since the previous check-in: a headline and a bar each for markets, saved and other.
-- **Typed by you:** the open accounts whose values you type (`Account.acceptsTypedValues`: those set to *Typed by you*, and starting estimates), each with the date of its latest value, its value on the date and *Update*, which opens *Update Value* ([Accounts](#accounts)) dated the check-in's date. Saving it writes the value with its own backup, and the page follows.
-- **Updated:** the other open accounts with a value, or for a trades account a trade, in the date's month on or before the date, with their value. **Not updated:** the rest, which keep their last values; an account that holds nothing isn't listed. Imported values aren't edited here: a wrong one comes from a file, so fix the file and import it again, or delete the value on the account's page.
+- **Date.** Defaults to today. In the first days of a month it suggests the end of the previous month (`CheckInDates.suggested(today:lastCheckIn:)`). The title says the month, with the date under it ("October check-in", "31 Oct 2026"); tapping the date picks another; an earlier date fills in history: see [Adding history](#adding-history).
+- ***Import Files*** opens the import ([Import](#import-mac-first)) in a sheet for the check-in's date: bank statements are read through that date ([IMPORT.md](IMPORT.md#bank-statements)), and broker exports, pension spreadsheets and any other file import as they do anywhere. Each import is written when you tap *Import*, with its own backup, and undone from its Done step or with `retire import --undo`. Import as many files as the month has; the page follows each one.
+- **Prices.** Fetched for the date as soon as the check-in opens, and again after each import, for what the accounts hold then (Settings can turn this off). The button beside *Import Files* says their status in a few words ("Prices updated", "Check prices") and opens the price list, read-only: each price, rate and inflation value with its source and time, or why it couldn't be fetched. A price that couldn't be fetched uses the latest one known. An instrument without a price source gets its price on the Instruments screen.
+- **Net worth so far**, on the date with the fetched prices, and its change since the previous check-in, in a bar pinned to the bottom.
+- **To confirm:** first the open accounts whose values you type (`Account.acceptsTypedValues`: those set to *Typed by you*, and starting estimates), each with the date of its latest value and its balance on the check-in's date in a field, prefilled from that value. Changing it and pressing Return, or leaving the field, saves it as a typed value on the check-in's date with its own backup, as *Update Value* does ([Accounts](#accounts)), which the row's context menu also opens; a balance that can't be read says so under the name. Then the accounts no file this month covered, which keep their last values (an account that holds nothing isn't listed), in gray, the date of the last value in the warning color when it's stale.
+- **Updated:** the other open accounts with a value, or for a trades account a trade, in the date's month on or before the date, with their value; past three, the rest behind "2 more". Imported values aren't edited here: a wrong one comes from a file, so fix the file and import it again, or delete the value on the account's page.
 - **Save** writes the fetched prices, FX rates and inflation values (a price you set by hand for the date stays) and records this month's answer. *Cancel* drops the fetched prices; what the imports wrote stays. Nothing is kept on the device: an open check-in is its date and its prices.
-- **After saving.** The confirmation shows as soon as the prices are written: "October saved", the check-in's date, and net worth with its change ("▲ +4.210 € since 31 Aug"); then the milestones passed since the check-in before ([Milestones](#milestones)). The main plan then runs to record this month's answer (only for the latest check-in: see [Adding history](#adding-history)), and the card *Your last Monday at work* shows its progress ([Calculating](#calculating)) in the meantime, the same as on the Plan screen, without a Cancel button, and "You can close this now: the answer is recorded when it's ready." Then it ends with your date, moved:
+- **After saving.** The confirmation shows as soon as the prices are written, titled "October saved": a card with your date, then the milestones passed since the check-in before ([Milestones](#milestones)), then *What moved it* with net worth and its change, and *Done* pinned to the bottom. The main plan then runs to record this month's answer (only for the latest check-in: see [Adding history](#adding-history)), and the card *Your last Monday at work* shows its progress ([Calculating](#calculating)) in the meantime, the same as on the Plan screen, without a Cancel button, and "You can close this now: the answer is recorded when it's ready." Then it ends with your date, moved:
 
   > October saved · Net worth 312.480 € (▲ 4.210)
   > Your last Monday at work: ~~3 April 2051~~ **27 March 2051** · A year sooner
   > At 62, in 9 of 10 futures.
 
-  The date before is struck through when it differs. The chip says how the earliest age moved since the check-in before: "A year sooner", "2 years later", "The same date". The line under it says the age and how sure: "Still at 63, in 9 of 10 futures." when it didn't move, "At 62, in 9 of 10 futures." when it moved or there's no answer before, "You could stop today, in 9 of 10 futures.", or "No age works out in 9 of 10 futures yet." *Open the plan* follows. Without a main plan: "Create a plan to see your last Monday at work. Every check-in will then end with it, moved." with *Create a plan*. When there's no answer for the month, the last one ("Last time (31 Aug): 27 March 2051.") and why: "The plan couldn't run this time: …", or "This month's date isn't ready yet. The plan works it out when you open it."
+  The date is the screen's hero, centered on its card under "Your last Monday at work"; the date before is struck through above it, with an arrow down, when it differs. The chip says how the earliest age moved since the check-in before: "A year sooner", "2 years later", "The same date". The line under it says the age and how sure: "Still at 63, in 9 of 10 futures." when it didn't move, "At 62, in 9 of 10 futures." when it moved or there's no answer before, "You could stop today, in 9 of 10 futures.", or "No age works out in 9 of 10 futures yet." *Open the plan* follows. Without a main plan: "Create a plan to see your last Monday at work. Every check-in will then end with it, moved." with *Create a plan*. When there's no answer for the month, the last one ("Last time (31 Aug): 27 March 2051.") and why: "The plan couldn't run this time: …", or "This month's date isn't ready yet. The plan works it out when you open it."
 
   This is the monthly moment the app is built around: recording the month's answer is what the check-in is for. *Done* can close the confirmation while it runs; the answer is still recorded.
-- **The ending.** Under the date, *What moved it*: what was saved as time ("You saved 1.500 €, about 2½ weeks of expenses. Markets added about 7 more.", see [Today](#today), *Saving as time*), and when markets took 5% or more of net worth, a word of perspective, "Markets took 8%. Months like this are part of the 9 in 10 futures your plan already counts." (`MarketPerspective`). Then the next milestone: "⚑ Next: 5 years of spending, 80% there."
+- **The ending.** Under the date, *What moved it*: net worth and its change ("312.480 € ▲ +4.210 €"), a bar each for what you saved and what markets did, what was saved as time ("You saved 1.500 €, about 2½ weeks of expenses. Markets added about 7 more.", see [Today](#today), *Saving as time*), and when markets took 5% or more of net worth, a word of perspective, "Markets took 8%. Months like this are part of the 9 in 10 futures your plan already counts." (`MarketPerspective`). Then the next milestone, on a card of its own: "⚑ Next: 5 years of spending, 80% there."
 - **Notes.** Saving schedules the notes again ([Notifications](#notifications)): the month's note is answered, and the next one counts from this check-in.
 - ⌘S saves on the Mac and iPad.
 
@@ -443,39 +441,42 @@ Once a month: import the month's files, update the values you type, look at what
 
   ```
   Accounts                              ⋯   +
-  Net worth                             3Y ▾
-  312.480 €
-  ▲ +4.210 € in September   ▲ 14% this year
-  ┌ net worth by asset class ────────────┐
-  Allocation                  Asset class ▾
-  Equity    ▇▇▇▇▇▇▇▇▇▇▇▇  182.400  58%
-  Cash      ▇▇▇▇           53.100  17%
-  …
-  9 open accounts
-  Cash                         12.990  ⌄         ← tap a header to collapse it
-    Conto deposito    ╱‾╲_╱     8.200  ›
-    Conto Fineco  ◷   _╱‾‾      4.790  ›         ← ◷ "Stale"
-  Investments                  71.300  ›         ← collapsed: the header alone
-  Crypto & gold                13.040  ⌄
-    Gold coins        ‾‾╲_      9.640  ›
-    Ledger wallet     _╱‾╲      3.400  ›
-  …
-  Closed (1)                           ›         ← collapsed at first
+  ╭──────────────────────────────────────╮
+  │ Net worth               Last 3 years ▾│
+  │ 312.480 €                             │
+  │ ▲ +4.210 € in September  ▲ 14% this year
+  │ ╱‾‾‾‾‾‾‾‾‾‾‾‾‾‾  net worth            │
+  │ ▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇   │
+  │ ● Real estate 66%  ● Equity 14%  …    │
+  │ Allocation                         ›  │
+  ╰──────────────────────────────────────╯
+  ╭──────────────────────────────────────╮
+  │ CASH                         12.990   │  ← tap the name to collapse it
+  │ Conto deposito  Fineco        8.200 › │
+  │ Conto Fineco ◷  Fineco        4.790 › │  ← ◷ stale
+  ╰──────────────────────────────────────╯
+  ╭──────────────────────────────────────╮
+  │ Investments                  71.300 › │  ← collapsed groups share a card
+  │ Pension ◷                    24.300 › │
+  │ Closed                            1 › │  ← collapsed at first
+  ╰──────────────────────────────────────╯
   ```
 
-  - **Net worth** heads the list: net worth today, as Today's *Net worth* row has it, in large type, animating when it changes; under it the change at the last check-in ("▲ +4.210 € in September") and this year's ("▲ 14% this year"); a compact time span menu (the *History* half of the decades chart's, sharing its choice); and the history chart of net worth by asset class, with debts below the zero line, drawn and read as the decades chart's past is ([Decades](#decades)). Under the header, "9 open accounts". Not shown while searching.
-  - **Allocation.** Under the chart: horizontal bars with values and percentages; a donut would be harder to read. *Group by* switches the dimension between asset class, account group, currency, institution, and liquid vs locked, and the device remembers it.
+  - **Net worth** heads the list, on one card: net worth today, as Today's *Net worth* row has it, animating when it changes; under it the change at the last check-in ("▲ +4.210 € in September") and this year's ("▲ 14% this year"); a menu of the chart's span (the *History* half of the decades chart's, sharing its choice); the chart of net worth over that span, a single line, read by dragging across it; and a strip of what you own by asset class, with its shares as a legend ("Equity 14%"). Not shown while searching.
+  - **Allocation.** Under the strip, collapsed at first: horizontal bars with values and percentages; a donut would be harder to read. *Group by* switches the dimension between asset class, account group, currency, institution, and liquid vs locked, and the device remembers it.
     - *Asset class* splits holdings by their instrument's mix and balances by the account's mix, and shows debts as their own bar.
     - *Currency* is where each part is priced; bitcoin in a euro wallet counts as dollars.
     - *Locked* is pension funds, TFR, property and belongings, and the mortgage secured on the property.
-  - Each group's header shows its name and subtotal.
-  - Each row shows a kind icon, the name, the institution, the value, a sparkline of the last 12 months (in the account's own currency, with gaps where a value can't be worked out), and a "stale" badge when needed.
+  - Each expanded group is a card: its name and subtotal at the top, then its accounts.
+  - Each row shows the name and the institution on one line, a clock when the value is stale, and the value on the right, on one line. A long name is cut short; the institution gives way first.
   - **Stale** means the latest value is older than the threshold (45 days by default). An account that holds nothing (a zero balance, or no cash and no quantity) has nothing to check in, so it's never stale: not in the list, the sidebar, its detail or *Needs attention*.
-  - Swipe actions: *Close*. The context menu adds *Edit Account…*. Values are typed on the account's page, for an account that takes them.
-  - Closed accounts sit in a "Closed (3)" section at the bottom.
-  - On iPhone the toolbar has *New Account* and *More*, with *Import Files…* and *Instruments*.
-  - **Collapsing.** Tapping a group's header, or *Closed*'s, collapses the group to its header (name and subtotal) or expands it again, with an animation; the chevron at the right of the header points down while it's expanded. The groups start expanded and *Closed* collapsed. The device remembers which are collapsed, and the sidebar shares them: collapsing Cash in the accounts list collapses it in the sidebar too (on an iPad that switches layouts), and the other way round.
+  - Swipe actions (iPhone): *Close*. The context menu adds *Edit Account…*. Values are typed on the account's page, for an account that takes them.
+  - Closed accounts sit under *Closed* at the bottom.
+  - On iPhone the toolbar has *More*, with *Import Files…* and *Instruments*, and *New Account*.
+  - **Collapsing.** Tapping a group's name, or *Closed*'s, collapses it to a row (name, subtotal or count, and a clock when one of its accounts is stale); collapsed groups next to each other share one card, and tapping a row expands its group again, with an animation. The groups start expanded and *Closed* collapsed. The device remembers which are collapsed, and the sidebar shares them: collapsing Cash in the accounts list collapses it in the sidebar too (on an iPad that switches layouts), and the other way round.
+  - On the Mac the cards are a scrolling page; on iPhone and iPad they're a grouped list.
 - **Account detail.**
+  - **Layout.** Under the account's name, a line with its group and its institution ("Cash, FinecoBank"), or for an account that records trades "Investments, from your trades" (on the Mac, the window's subtitle). Then one card with the value, its change and the chart; then the rest, a card each. On iPhone a trades account's holdings, trades, income and statements are behind a segmented control, one at a time.
   - **In the account's own currency.** The value, its change, the chart and the values list are in the account's currency, which needs no exchange rate: a dollar account in a euro library shows `0,00 US$`. Under the value, its value in the base currency at the day's rate, or "Value in EUR: rate missing".
   - The value and its change since the value before, with the year when it isn't this one: "▼ −123.959,00 US$ since 30 Nov 2021", then its parts (markets, saved, other). A change that shows as zero has no arrow and no sign.
   - A history chart. New-money events are small ticks in a lane along the bottom, pointing up for money added and down for money taken out, coloured by sign, so jumps you caused are distinguishable from market moves; they never stretch the value axis, and the callout gives their amount. The value axis always includes zero, with round ticks that read apart, even for an account that's been at zero. The callout stays inside the chart.
@@ -565,7 +566,7 @@ A brokerage, crypto or metals account records its **trades** ([TRADES.md](TRADES
 └──────────────────────────────────────────┘
 ```
 
-- **Holdings**: per instrument, the quantity, average cost (*costo medio*: what was paid per unit, fees included), value, unrealised gain (amount and %) and its share of the account; then the cash and the total. Each position is three lines: the name and value; "0,10383916 BTC × 73.785,11 €" and "95 % of the account" (when they don't fit on one line, the quantity and the share share it and "at 73.785,11 €" goes on the next; at the largest text sizes each is a line of its own); "Average cost 101.437,74 €" and the gain ("▼ −2.871 € −27,3 %"), the gain under the cost when they don't fit. A label and its value are one piece of text, so they never wrap apart. On the Mac, a grid with those columns.
+- **Holdings**: per instrument, the quantity, price, average cost (*costo medio*: what was paid per unit, fees included), value and unrealised gain; then the cash and the unrealised gain of them all. On iPhone each position is two lines: the name, cut short, and the value; "412,5 sh at 138,42 €, paid 116,85 € each" and the gain ("▲ +8.898 €"), the gain under it when they don't fit. On the Mac, a grid with those columns, its share of the account and the total.
 - **Trades**: grouped by month, newest first; each row shows the type's icon, what it was ("Buy 0,10383916 BTC") over its price, date and note ("at 101.437,76 € · 1 Oct 2025", the price in its own currency), and on the other side the cash it moved, with a sale's realised gain. A trade paid from outside the account shows what was paid or received, marked "paid from outside" (a sale: "proceeds paid out"); on the Mac the mark leads its note. At the largest text sizes the amount goes under the description. *Filter* shows one instrument or one type. Swipe or long-press a trade to delete it (the confirmation says what deleting brings in, e.g. a later sale now selling more than is held). On the Mac, a table (date, type, instrument, quantity, price, amount, note) as long as its trades, which scrolls with the page: right-click deletes.
 - **Income & gains**, by year: realised gains, dividends, interest, fees and taxes, and the net; a sale whose cost is unknown is left out and said so. In the account's currency.
 - **What needs a look**, as banners with the fix: a trade missing a price or amount, a sale of more than was held, an opening without cost, a missing exchange rate, a trade outside the account's dates, a value with a balance (which isn't used), and a statement that differs from the trades ("The statement on 30 Jun shows 12 VWCE; your trades give 10. Import the missing trade."). The fix is in the file: correct it and import it again, or delete the trade. A trade outside the account's dates offers *Edit Account…*. Today's *Needs attention* points to an account with any of these ("Directa: 2 problems with trades").
@@ -1014,13 +1015,13 @@ If nothing moves for 20 seconds, the screen says why it may be stuck and what to
 - **Keep Waiting** asks iCloud again for the missing files and gives it another 20 seconds.
 - **Open Settings** opens the app's page in Settings. The Mac names System Settings in the reasons and has no cellular reason.
 
-**Empty states and first launch.** Every empty screen has one clear next step. First launch is a short tour, full screen from start to finish, that ends on an answer: a few rough questions, the main plan calculated in the tour, and only then files, as the way to sharpen it. *Back* and the primary button sit along the bottom, with "Step 2 of 6" on every step after the welcome. Every question after your age can be left empty, and the app opens on a usable library either way:
+**Empty states and first launch.** Every empty screen has one clear next step. First launch is a short tour, full screen from start to finish, that ends on an answer: a few rough questions, the main plan calculated in the tour, and only then files, as the way to sharpen it. *Back* and the primary button sit along the bottom; "Step 2 of 6", over a thin bar, sits at the top of every step after the welcome. Every question after your age can be left empty, and the app opens on a usable library either way:
 
 1. **Welcome**: a blank calendar page, "When could your last Monday at work be?", and three lines with icons: *Your retirement age* (the earliest age, and how likely it is to work), *A monthly check-in* (import your statements to see how the answer changes), *Your data stays with you* (files in iCloud Drive or on the device, no account, no server). *Get Started*.
 2. **About you**: your age ("The answer is an age, so the app needs yours."), a menu from 18 to 90 (below the plan's default end age, 95) that starts unset (none is made up), and *Continue* waits for it; the tour saves it as a birth date half a year past your last birthday, and "You can set your exact birth date later in Settings."; the country and currency, starting from the device's region, with what they set ("Totals in Euro, adjusted for inflation with Italy's prices."); and *Keep in iCloud Drive*, on when iCloud is available.
 3. **Your money**: rough amounts of what you have today (cash and savings, investments, a pension you can't access yet with the age it's available from, and optionally the home's value, with the mortgage still owed on it once a value is entered; a mortgage without a home value is left out), and take-home pay and spending a month, with the saving worked out as you type ("You save about 1.200 € a month, a third of your pay."). *I've already stopped working* hides the pay: spending is then what you live on now. Each amount is a filled field with the currency inside it ("0 €"), so it reads as a place to type. A negative amount says "Amounts can't be negative." and keeps *See My Answer* off.
 4. **Pension and retirement**: the state pension a month and from what age, empty for none (the more cautious plan); when to retire, *As early as possible* or *At a set age* (30 to 85), and spending in retirement a month, empty to spend what you spend now (its placeholder); neither once you've stopped working; and the tax on investment gains, prefilled for the country (`CountryDefaults`) and changeable, empty for none. A negative amount says "Amounts can't be negative." and keeps *See My Answer* off. *See My Answer* creates the library with the settings chosen, the starting amounts as estimates and the main plan, then shows the answer.
-5. **The answer**: the main plan runs here, with its progress ("Calculating thousands of simulated futures…") under a blank calendar page, and records the first answer as a check-in does. Then "Your last Monday at work could be", the date in large type ("14 May 2052") and how sure ("At 64, in 9 of 10 futures."), or without a date "Your first answer" with "Yes." or "Not yet." and the answer in a sentence; a small fan of futures with what its bands are; and one lever worked out already ("Save 340 € more a month" over "and it could be 2 years sooner", two quick runs of the plan as it is and saving more), with "The Plan's levers try other changes." A chip says "It's a first sketch from rough amounts, not advice. Add your accounts and it gets sharper.", with an ⓘ that explains the estimates and replacing them. Once you've stopped working, the plan retires at your age today and the answer is whether your money lasts: "Yes." or "Not quite.", "Your money lasts to 95 in at least 9 of 10 futures." (or "in 7 of 10 futures. Your plan aims for 9 of 10."), and what you could spend ("Spending up to 2.300 € a month lasts in 9 of 10 futures."), with no lever. A plan that can't be calculated says why, and "You can continue: Today calculates your plan once it can." *Continue* goes on. Once the answer is there, *Back* returns to the questions while the library holds only what the tour added (no files imported yet); *See My Answer* then replaces those estimates and the plan, and *Keep in iCloud Drive* can no longer change. A library already in iCloud Drive without a birth date asks for your age here, the same menu, and without amounts or a plan it says what's missing.
+5. **The answer**: the main plan runs here, with its progress ("Calculating thousands of simulated futures…") under a blank calendar page, and records the first answer as a check-in does. Then "Your last Monday at work could be", the date as the screen's hero ("14 May 2052") and how sure, with that it's a sketch ("At 64, in 9 of 10 futures. It's a first sketch from the numbers you gave; adding your accounts makes it exact."), or without a date "Your first answer" with "Yes." or "Not yet." and the answer in a sentence. Under it one card: a small fan of futures marked at the age, and one lever worked out already ("Saving 340 € more a month would make it 2050.", two quick runs of the plan as it is and saving more). A small *What the answer stands on* (ⓘ) explains what the fan's bands are, the estimates and replacing them. Once you've stopped working, the plan retires at your age today and the answer is whether your money lasts: "Yes." or "Not quite.", "Your money lasts to 95 in at least 9 of 10 futures." (or "in 7 of 10 futures. Your plan aims for 9 of 10."), and what you could spend ("Spending up to 2.300 € a month lasts in 9 of 10 futures."), with no lever. A plan that can't be calculated says why, and "You can continue: Today calculates your plan once it can." *Add Your Accounts* (*Continue* for a library that was already there) goes on. Once the answer is there, *Back* returns to the questions while the library holds only what the tour added (no files imported yet); *See My Answer* then replaces those estimates and the plan, and *Keep in iCloud Drive* can no longer change. A library already in iCloud Drive without a birth date asks for your age here, the same menu, and without amounts or a plan it says what's missing.
 6. **Import your accounts**: which files work and where they come from (bank statements, broker exports), the starter spreadsheet for a home, pension and debts that have no export (*Save Starter Spreadsheet…*, a CSV with today's row and the home, mortgage and pension estimates' amounts, the mortgage's as owed), and on the iPhone and iPad that importing is easier on the Mac, where an iCloud library already is. *Import Files…* pushes the import on the tour's own stack; *Later* is a real choice.
 7. **Reminders**: this month's note as it would come, with the answer in it, and the *Monthly note* and *Your year* toggles, both on ([Notifications](#notifications)); where to add the widget; and the disclaimer in a line, with *Read More* showing the whole text. *Start* turns on the notes ticked and opens Today.
 
