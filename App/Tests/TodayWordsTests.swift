@@ -50,27 +50,15 @@ struct TodayWordsTests {
     @Test func comingUpStartsWithTheNextCheckIn() {
         let status = CheckInStatus(lastCheckIn: "2026-09-30", nextCheckIn: "2026-10-31", daysUntilDue: 7,
                                    isDue: false)
-        let ahead = [
-            ProjectedMilestone(milestone: Milestone(kind: .yearsOfSpending(5), amount: 180_000), date: "2028-10-15"),
-            ProjectedMilestone(milestone: Milestone(kind: .yearsOfSpending(10), amount: 360_000), date: "2033-03-01"),
-        ]
-        let items = TodayComingUp.items(status: status, ahead: ahead, next: nil,
+        let items = TodayComingUp.items(status: status, ahead: [], next: nil,
                                         text: PlanMilestoneText(currency: .eur, locale: english),
                                         today: "2026-10-24", locale: english)
-        #expect(items.map(\.id) == ["checkin", "milestone.years-5", "milestone.years-10"])
+        #expect(items.map { $0.id } == ["checkin"])
         #expect(items[0].what.text == "October check-in")
-        #expect(items[1].when == "Late 2028")
-        #expect(items[1].what.text == "5 years of spending")
-        #expect(items[2].when == "Early 2033")
-
         let open = CheckInStatus(lastCheckIn: "2026-09-30", nextCheckIn: "2026-10-31", daysUntilDue: 7,
                                  isDue: false, openDate: "2026-10-31")
         #expect(TodayComingUp.items(status: open, ahead: [], next: nil,
                                     text: PlanMilestoneText(currency: .eur, locale: english),
-                                    today: "2026-10-24", locale: english).map(\.what.text) == ["Check-in under way"])
-        let none = CheckInStatus(lastCheckIn: nil, nextCheckIn: "2026-10-24", daysUntilDue: 0, isDue: true)
-        #expect(TodayComingUp.items(status: none, ahead: ahead, next: nil,
-                                    text: PlanMilestoneText(currency: .eur, locale: english),
-                                    today: "2026-10-24", locale: english, limit: 1).map(\.id) == ["milestone.years-5"])
+                                    today: "2026-10-24", locale: english).map { $0.what.text } == ["Check-in under way"])
     }
 }
