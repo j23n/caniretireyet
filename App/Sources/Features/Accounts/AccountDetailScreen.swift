@@ -94,7 +94,7 @@ struct AccountDetailScreen: View {
     /// trades, income and statements, showing one at a time.
     private func listLayout(_ data: AccountDetailData, trades: TradeList?) -> some View {
         let parts = Self.parts(of: data)
-        let selected = part.flatMap { parts.contains($0) ? $0 : nil } ?? parts.first
+        let selected: AccountDetailSection? = if let part, parts.contains(part) { part } else { parts.first }
         return List {
             Section {
                 AccountDetailHeader(data: data)

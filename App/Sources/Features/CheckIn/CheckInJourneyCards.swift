@@ -142,7 +142,6 @@ struct CheckInMovedBars: View {
                         .fixedSize()
                         .gridColumnAlignment(.trailing)
                 }
-                .accessibilityElement(children: .combine)
             }
         }
         .privacySensitiveInFeedback()
