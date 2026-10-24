@@ -60,7 +60,7 @@ struct PlanYearFiguresCard: View {
     private var year: PlanProgressYear { card.year }
 
     var body: some View {
-        TimelineTitledRows(title: year.title) {
+        TimelineTitledRows(title: year.title, personal: true) {
             CardRow("Started at") { AmountText(year.change.start, currency: card.currency) }
             CardRow(year.change.saved >= 0 ? "You saved" : "You took out") {
                 AmountText(abs(year.change.saved), currency: card.currency)
@@ -191,7 +191,7 @@ struct PlanYearHappenings: View {
                 .padding(Metrics.l)
             }
             .background(Palette.page)
-            .sheetTitle(LocalizedStringKey(year.title)) { showsWhy = false }
+            .sheetTitle(LocalizedStringKey(whyTitle)) { showsWhy = false }
         }
         .presentationDetents([.medium, .large])
         #if os(macOS)

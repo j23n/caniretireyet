@@ -57,6 +57,9 @@ struct TimelineFigureCard<Value: View>: View {
 /// ``CardRows`` draws them: the year's figures, its milestones.
 struct TimelineTitledRows<Content: View>: View {
     let title: String
+    /// Whether the title is the person's data (a year), hidden in a
+    /// feedback screenshot.
+    var personal = false
     @ViewBuilder var content: Content
 
     var body: some View {
@@ -65,7 +68,7 @@ struct TimelineTitledRows<Content: View>: View {
                 .font(.headline)
                 .foregroundStyle(Palette.ink)
                 .lineLimit(1)
-                .privacySensitiveInFeedback()
+                .privacySensitiveInFeedback(personal)
                 .accessibilityAddTraits(.isHeader)
                 .padding(.top, Metrics.l)
                 .padding(.bottom, Metrics.xs)
