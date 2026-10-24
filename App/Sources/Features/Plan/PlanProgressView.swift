@@ -75,18 +75,13 @@ struct PlanProgressView: View {
                 if cards.indices.contains(target) { selectedYear = cards[target].year.year }
             }
             if isWide {
-                HStack(alignment: .top, spacing: Metrics.l) {
-                    VStack(alignment: .leading, spacing: Metrics.l) {
-                        PlanYearChartCard(timeline: timeline, index: index, select: select)
-                        PlanYearCheckIns(card: card, history: history)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    VStack(alignment: .leading, spacing: Metrics.l) {
-                        PlanYearFiguresCard(card: card)
-                        PlanYearHappenings(card: card)
-                        milestonesCard(milestones)
-                    }
-                    .frame(width: Self.sideWidth)
+                WideColumns(sideWidth: Self.sideWidth) {
+                    PlanYearChartCard(timeline: timeline, index: index, select: select)
+                    PlanYearCheckIns(card: card, history: history)
+                } side: {
+                    PlanYearFiguresCard(card: card)
+                    PlanYearHappenings(card: card)
+                    milestonesCard(milestones)
                 }
             } else {
                 VStack(alignment: .leading, spacing: Metrics.m) {

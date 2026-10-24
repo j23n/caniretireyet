@@ -26,15 +26,13 @@ struct TimelineDecadesView: View {
                     let results = session.baseResults
                     let chapters = session.baseDerived(locale: locale).chapters
                     if layout.isWide {
-                        HStack(alignment: .top, spacing: Metrics.l) {
+                        WideColumns(sideWidth: Self.sideWidth) {
                             chartCard(plan, results: results)
-                            VStack(alignment: .leading, spacing: Metrics.l) {
-                                if let results {
-                                    DecadesHowSureCard(results: results)
-                                }
-                                alongTheWay(chapters, plan: plan, results: results)
+                        } side: {
+                            if let results {
+                                DecadesHowSureCard(results: results)
                             }
-                            .frame(width: Self.sideWidth)
+                            alongTheWay(chapters, plan: plan, results: results)
                         }
                     } else {
                         VStack(alignment: .leading, spacing: Metrics.m) {
@@ -56,25 +54,21 @@ struct TimelineDecadesView: View {
     private func chartCard(_ plan: PlanDocument, results: PlanResults?) -> some View {
         let words = DecadesWords(plan: plan, results: results)
         return VStack(alignment: .leading, spacing: Metrics.m) {
-            HStack(alignment: .firstTextBaseline, spacing: Metrics.m) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(layout.isWide ? words.wideTitle : words.title)
-                        .font(.title3.weight(.bold))
-                        .foregroundStyle(Palette.ink)
-                        .lineLimit(1)
-                        .privacySensitiveInFeedback()
-                        .accessibilityAddTraits(.isHeader)
-                    Text(words.subtitle)
-                        .font(.subheadline)
-                        .foregroundStyle(Palette.secondaryInk)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.85)
-                        .privacySensitiveInFeedback()
+            // The legend beside the title when both fit, else under it.
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .firstTextBaseline, spacing: Metrics.m) {
+                    chartTitle(words)
+                    if layout.isWide && results != nil {
+                        Spacer(minLength: Metrics.m)
+                        DecadesLegend()
+                            .fixedSize()
+                    }
                 }
-                if layout.isWide && results != nil {
-                    Spacer(minLength: Metrics.m)
-                    DecadesLegend()
-                        .fixedSize()
+                VStack(alignment: .leading, spacing: Metrics.s) {
+                    chartTitle(words)
+                    if layout.isWide && results != nil {
+                        DecadesLegend()
+                    }
                 }
             }
             DecadesChart(plan: plan, results: results, today: .today(), chartHeight: layout.isWide ? 440 : 250,
@@ -83,6 +77,24 @@ struct TimelineDecadesView: View {
         .padding(Metrics.l)
         .frame(maxWidth: .infinity, alignment: .leading)
         .cardSurface()
+    }
+
+    /// "Your money, now to 95" and how sure the plan is.
+    private func chartTitle(_ words: DecadesWords) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(layout.isWide ? words.wideTitle : words.title)
+                .font(.title3.weight(.bold))
+                .foregroundStyle(Palette.ink)
+                .lineLimit(1)
+                .privacySensitiveInFeedback()
+                .accessibilityAddTraits(.isHeader)
+            Text(words.subtitle)
+                .font(.subheadline)
+                .foregroundStyle(Palette.secondaryInk)
+                .lineLimit(1)
+                .minimumScaleFactor(0.85)
+                .privacySensitiveInFeedback()
+        }
     }
 
     @ViewBuilder
