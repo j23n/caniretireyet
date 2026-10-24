@@ -174,3 +174,70 @@ struct AccountList: Hashable, Sendable {
         }
     }
 }
+
+// MARK: - Cards
+
+/// A collapsed group, or *Closed*, as one row of the accounts list: its
+/// name and what it adds up to, and a clock when one of its accounts is
+/// stale. Tapping it expands it.
+struct AccountListFolderRow: Hashable, Sendable, Identifiable {
+    var folder: SidebarAccountFolder
+    var title: String
+    /// A group's subtotal; `nil` for *Closed*, which shows its count.
+    var subtotal: Decimal?
+    var count: Int
+    var isStale: Bool
+
+    var id: String { folder.key }
+}
+
+/// A card of the accounts list (UI.md, "Accounts"): an expanded group with
+/// its accounts, the collapsed groups next to each other as one row each,
+/// or the expanded *Closed* with its accounts.
+enum AccountListCard: Hashable, Sendable, Identifiable {
+    case group(AccountListSection)
+    case collapsed([AccountListFolderRow])
+    case closed([AccountListItem])
+
+    var id: String {
+        switch self {
+        case .group(let section): section.group.rawValue
+        case .collapsed(let rows): "collapsed " + rows.map(\.id).joined(separator: " ")
+        case .closed: "closed"
+        }
+    }
+}
+
+extension AccountList {
+    /// The list's cards, in order: each expanded group a card of its own,
+    /// and the collapsed groups (and a collapsed *Closed*) next to each
+    /// other one card of rows.
+    func cards(isExpanded: (SidebarAccountFolder) -> Bool) -> [AccountListCard] {
+        var cards: [AccountListCard] = []
+        var collapsed: [AccountListFolderRow] = []
+        for section in sections {
+            let folder = SidebarAccountFolder.group(section.group)
+            if isExpanded(folder) {
+                if !collapsed.isEmpty { cards.append(.collapsed(collapsed)) }
+                collapsed = []
+                cards.append(.group(section))
+            } else {
+                collapsed.append(AccountListFolderRow(folder: folder, title: section.group.description,
+                                                      subtotal: section.subtotal, count: section.items.count,
+                                                      isStale: section.items.contains { $0.stale != nil }))
+            }
+        }
+        if !closed.isEmpty {
+            if isExpanded(.closed) {
+                if !collapsed.isEmpty { cards.append(.collapsed(collapsed)) }
+                collapsed = []
+                cards.append(.closed(closed))
+            } else {
+                collapsed.append(AccountListFolderRow(folder: .closed, title: "Closed", subtotal: nil,
+                                                      count: closed.count, isStale: false))
+            }
+        }
+        if !collapsed.isEmpty { cards.append(.collapsed(collapsed)) }
+        return cards
+    }
+}

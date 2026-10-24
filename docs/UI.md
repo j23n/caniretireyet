@@ -480,38 +480,40 @@ Once a month: import the month's files, update the values you type, look at what
 
   ```
   Accounts                              ⋯   +
-  Net worth                             3Y ▾
-  312.480 €
-  ▲ +4.210 € in September   ▲ 14% this year
-  ┌ net worth by asset class ────────────┐
-  Allocation                  Asset class ▾
-  Equity    ▇▇▇▇▇▇▇▇▇▇▇▇  182.400  58%
-  Cash      ▇▇▇▇           53.100  17%
-  …
-  9 open accounts
-  Cash                         12.990  ⌄         ← tap a header to collapse it
-    Conto deposito    ╱‾╲_╱     8.200  ›
-    Conto Fineco  ◷   _╱‾‾      4.790  ›         ← ◷ "Stale"
-  Investments                  71.300  ›         ← collapsed: the header alone
-  Crypto & gold                13.040  ⌄
-    Gold coins        ‾‾╲_      9.640  ›
-    Ledger wallet     _╱‾╲      3.400  ›
-  …
-  Closed (1)                           ›         ← collapsed at first
+  ╭──────────────────────────────────────╮
+  │ Net worth               Last 3 years ▾│
+  │ 312.480 €                             │
+  │ ▲ +4.210 € in September  ▲ 14% this year
+  │ ╱‾‾‾‾‾‾‾‾‾‾‾‾‾‾  net worth            │
+  │ ▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇   │
+  │ ● Real estate 66%  ● Equity 14%  …    │
+  │ Allocation                         ›  │
+  ╰──────────────────────────────────────╯
+  ╭──────────────────────────────────────╮
+  │ CASH                         12.990   │  ← tap the name to collapse it
+  │ Conto deposito  Fineco        8.200 › │
+  │ Conto Fineco ◷  Fineco        4.790 › │  ← ◷ stale
+  ╰──────────────────────────────────────╯
+  ╭──────────────────────────────────────╮
+  │ Investments                  71.300 › │  ← collapsed groups share a card
+  │ Pension ◷                    24.300 › │
+  │ Closed                            1 › │  ← collapsed at first
+  ╰──────────────────────────────────────╯
   ```
 
-  - **Net worth** heads the list: net worth today, as Today's *Net worth* row has it, in large type, animating when it changes; under it the change at the last check-in ("▲ +4.210 € in September") and this year's ("▲ 14% this year"); a compact time span menu (the *History* half of the decades chart's, sharing its choice); and the history chart of net worth by asset class, with debts below the zero line, drawn and read as the decades chart's past is ([Decades](#decades)). Under the header, "9 open accounts". Not shown while searching.
-  - **Allocation.** Under the chart: horizontal bars with values and percentages; a donut would be harder to read. *Group by* switches the dimension between asset class, account group, currency, institution, and liquid vs locked, and the device remembers it.
+  - **Net worth** heads the list, on one card: net worth today, as Today's *Net worth* row has it, animating when it changes; under it the change at the last check-in ("▲ +4.210 € in September") and this year's ("▲ 14% this year"); a menu of the chart's span (the *History* half of the decades chart's, sharing its choice); the chart of net worth over that span, a single line, read by dragging across it; and a strip of what you own by asset class, with its shares as a legend ("Equity 14%"). Not shown while searching.
+  - **Allocation.** Under the strip, collapsed at first: horizontal bars with values and percentages; a donut would be harder to read. *Group by* switches the dimension between asset class, account group, currency, institution, and liquid vs locked, and the device remembers it.
     - *Asset class* splits holdings by their instrument's mix and balances by the account's mix, and shows debts as their own bar.
     - *Currency* is where each part is priced; bitcoin in a euro wallet counts as dollars.
     - *Locked* is pension funds, TFR, property and belongings, and the mortgage secured on the property.
-  - Each group's header shows its name and subtotal.
-  - Each row shows a kind icon, the name, the institution, the value, a sparkline of the last 12 months (in the account's own currency, with gaps where a value can't be worked out), and a "stale" badge when needed.
+  - Each expanded group is a card: its name and subtotal at the top, then its accounts.
+  - Each row shows the name and the institution on one line, a clock when the value is stale, and the value on the right, on one line. A long name is cut short; the institution gives way first.
   - **Stale** means the latest value is older than the threshold (45 days by default). An account that holds nothing (a zero balance, or no cash and no quantity) has nothing to check in, so it's never stale: not in the list, the sidebar, its detail or *Needs attention*.
-  - Swipe actions: *Close*. The context menu adds *Edit Account…*. Values are typed on the account's page, for an account that takes them.
-  - Closed accounts sit in a "Closed (3)" section at the bottom.
-  - On iPhone the toolbar has *New Account* and *More*, with *Import Files…* and *Instruments*.
-  - **Collapsing.** Tapping a group's header, or *Closed*'s, collapses the group to its header (name and subtotal) or expands it again, with an animation; the chevron at the right of the header points down while it's expanded. The groups start expanded and *Closed* collapsed. The device remembers which are collapsed, and the sidebar shares them: collapsing Cash in the accounts list collapses it in the sidebar too (on an iPad that switches layouts), and the other way round.
+  - Swipe actions (iPhone): *Close*. The context menu adds *Edit Account…*. Values are typed on the account's page, for an account that takes them.
+  - Closed accounts sit under *Closed* at the bottom.
+  - On iPhone the toolbar has *More*, with *Import Files…* and *Instruments*, and *New Account*.
+  - **Collapsing.** Tapping a group's name, or *Closed*'s, collapses it to a row (name, subtotal or count, and a clock when one of its accounts is stale); collapsed groups next to each other share one card, and tapping a row expands its group again, with an animation. The groups start expanded and *Closed* collapsed. The device remembers which are collapsed, and the sidebar shares them: collapsing Cash in the accounts list collapses it in the sidebar too (on an iPad that switches layouts), and the other way round.
+  - On the Mac the cards are a scrolling page; on iPhone and iPad they're a grouped list.
 - **Account detail.**
   - **In the account's own currency.** The value, its change, the chart and the values list are in the account's currency, which needs no exchange rate: a dollar account in a euro library shows `0,00 US$`. Under the value, its value in the base currency at the day's rate, or "Value in EUR: rate missing".
   - The value and its change since the value before, with the year when it isn't this one: "▼ −123.959,00 US$ since 30 Nov 2021", then its parts (markets, saved, other). A change that shows as zero has no arrow and no sign.
