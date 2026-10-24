@@ -44,6 +44,40 @@ struct CheckInTypedValueTests {
         #expect(valuation.source == .manual)
     }
 
+    @Test @MainActor func aChangedFieldIsSavedWithTheCheckIn() throws {
+        let library = PreviewLibrary.library
+        let home = try #require(library.accounts["casa"])
+        let form = CheckInTypedValue.form(for: home, on: "2026-10-31", valuator: Valuator(library: library),
+                                          today: "2026-10-31", locale: locale)
+        let edits = CheckInTypedEdits()
+        edits.note(home, form: form, text: form.balance)
+        #expect(try edits.valuations(today: "2026-10-31", locale: locale).isEmpty)
+        edits.note(home, form: form, text: "318,000")
+        let valuations = try edits.valuations(today: "2026-10-31", locale: locale)
+        #expect(valuations.map { $0.account } == ["casa"])
+        #expect(valuations.first?.balance == d("318000"))
+        // Typed back to where it started, it needs no save.
+        edits.note(home, form: form, text: form.balance)
+        #expect(edits.edits.isEmpty)
+    }
+
+    @Test @MainActor func aFieldThatCantBeSavedStopsTheCheckInNamingItsAccount() throws {
+        let library = PreviewLibrary.library
+        let home = try #require(library.accounts["casa"])
+        let form = CheckInTypedValue.form(for: home, on: "2026-10-31", valuator: Valuator(library: library),
+                                          today: "2026-10-31", locale: locale)
+        let edits = CheckInTypedEdits()
+        edits.note(home, form: form, text: "abc")
+        #expect(throws: CheckInTypedEdits.Problem.self) {
+            try edits.valuations(today: "2026-10-31", locale: locale)
+        }
+        do {
+            _ = try edits.valuations(today: "2026-10-31", locale: locale)
+        } catch {
+            #expect(error.localizedDescription.hasPrefix("\(home.name): "))
+        }
+    }
+
     @Test func thePriceButtonSaysTheStatusInAFewWords() {
         #expect(CheckInPriceStatus(kind: .updated, title: "Prices and FX updated (4)").shortTitle
             == "Prices updated")

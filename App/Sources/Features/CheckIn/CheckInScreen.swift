@@ -30,11 +30,13 @@ struct CheckInScreen: View {
     @State private var isSaving = false
     @State private var saved: CheckInSaveResult?
     @State private var saveError: String?
+    @State private var typedEdits = CheckInTypedEdits()
 
     init() {}
 
     var body: some View {
         content
+            .environment(typedEdits)
             .personalNavigationTitle(title, hidden: "Check-in")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
@@ -136,6 +138,9 @@ struct CheckInScreen: View {
         saveError = nil
         Task {
             do {
+                // The balances typed into fields first: tapping Save
+                // doesn't end a field's editing.
+                try await typedEdits.saveAll(to: library, locale: locale)
                 saved = try await checkIn.save()
             } catch {
                 saveError = error.localizedDescription

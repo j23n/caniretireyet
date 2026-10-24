@@ -17,6 +17,7 @@ struct CheckInTypedRow: View {
     var isStale = false
 
     @Environment(LibraryStore.self) private var library
+    @Environment(CheckInTypedEdits.self) private var edits: CheckInTypedEdits?
     @Environment(\.locale) private var locale
 
     /// The form as last loaded or saved: its balance is what the field
@@ -52,6 +53,15 @@ struct CheckInTypedRow: View {
         }
         .padding(.vertical, Metrics.s)
         .onAppear(perform: load)
+        .onChange(of: date) { _, _ in reload() }
+        // A value saved elsewhere (Update Value…) refills a field you
+        // haven't changed.
+        .onChange(of: library.revision) { _, _ in
+            if !isFocused, !isSaving, text == form?.balance { reload() }
+        }
+        .onChange(of: text) { _, new in
+            if let form { edits?.note(account, form: form, text: new) }
+        }
     }
 
     /// The balance, in a rounded field that turns the accent while it's
@@ -91,11 +101,24 @@ struct CheckInTypedRow: View {
         let loaded = CheckInTypedValue.form(for: account, on: date, valuator: library.valuator, locale: locale)
         form = loaded
         text = loaded.balance
+        edits?.note(account, form: loaded, text: loaded.balance)
+    }
+
+    /// Loads the form again: on the check-in's new date, or from a value
+    /// saved since.
+    private func reload() {
+        form = nil
+        problem = nil
+        load()
     }
 
     /// Saves the balance when it changed, and waits for the write.
     private func save() {
-        guard var edited = form, text != edited.balance, !isSaving else { return }
+        guard var edited = form, !isSaving else { return }
+        guard text != edited.balance else {
+            problem = nil
+            return
+        }
         edited.balance = text
         if let first = edited.problems(for: account, today: .today(), locale: locale).first {
             problem = first
@@ -112,6 +135,7 @@ struct CheckInTypedRow: View {
                 try await library.saveTypedValue(valuation)
                 form = saved
                 problem = nil
+                edits?.note(account, form: saved, text: text)
             } catch {
                 problem = LibraryStore.describe(error)
             }
@@ -130,5 +154,56 @@ enum CheckInTypedValue {
         let day = min(date, TypedValueForm.latestDate(of: account, today: today))
         let previous = valuator.latestValuation(for: account.id, onOrBefore: day)
         return TypedValueForm(new: account, on: day, previous: previous, locale: locale)
+    }
+}
+
+/// The balances typed into a check-in's rows and not saved yet
+/// (``CheckInTypedRow``), so the check-in's *Save* writes them before it
+/// saves the month: tapping *Save* doesn't end a field's editing.
+@MainActor @Observable
+final class CheckInTypedEdits {
+    /// A row's field: the form it started from and what it holds now.
+    struct Edit {
+        var account: Account
+        var form: TypedValueForm
+        var text: String
+    }
+
+    /// The fields that hold a changed balance, by account.
+    private(set) var edits: [AccountID: Edit] = [:]
+
+    /// A balance that can't be saved: "Home: Enter a balance."
+    struct Problem: LocalizedError {
+        var message: String
+        var errorDescription: String? { message }
+    }
+
+    /// Notes what a row's field holds; an unchanged balance needs no save.
+    func note(_ account: Account, form: TypedValueForm, text: String) {
+        edits[account.id] = text == form.balance ? nil : Edit(account: account, form: form, text: text)
+    }
+
+    /// The values the changed fields hold, by account; throws the first
+    /// that can't be saved, naming its account.
+    func valuations(today: CalendarDate, locale: Locale) throws -> [Valuation] {
+        try edits.values.sorted { $0.account.id < $1.account.id }.map { edit in
+            var form = edit.form
+            form.balance = edit.text
+            if let first = form.problems(for: edit.account, today: today, locale: locale).first {
+                throw Problem(message: "\(edit.account.name): \(first)")
+            }
+            guard let valuation = form.valuation(locale: locale) else {
+                throw Problem(message: "\(edit.account.name): the balance can't be read.")
+            }
+            return valuation
+        }
+    }
+
+    /// Saves every changed field's balance, then forgets them.
+    func saveAll(to library: LibraryStore, locale: Locale) async throws {
+        for valuation in try valuations(today: .today(), locale: locale) {
+            try await library.saveTypedValue(valuation)
+            edits[valuation.account] = nil
+        }
     }
 }
