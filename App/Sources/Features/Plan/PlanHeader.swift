@@ -137,7 +137,7 @@ struct PlanAnswerWords {
     /// or only the answer recorded at the last check-in is there.
     var dims = false
 
-    init(session: PlanSession, locale: Locale) {
+    @MainActor init(session: PlanSession, locale: Locale) {
         let state = session.state
         placeholder = state.isRunning ? "Working out your date…" : "Your date shows here once the plan is calculated."
         guard let answer = state.results?.headline ?? state.recorded else { return }
