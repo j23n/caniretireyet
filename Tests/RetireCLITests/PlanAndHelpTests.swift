@@ -46,6 +46,26 @@ struct PlanAndHelpTests {
         }
     }
 
+    /// The example's pension fund is pre-tax money with a made-up 15%; the
+    /// rest is taxable.
+    @Test func planShowsHowEachGroupIsTaxed() async throws {
+        let library = try TemporaryFolder.exampleLibrary()
+        let text = await retire(["plan", "--library", library.path, "--fast"])
+        #expect(text.status == 0, "\(text.all)")
+        let lines = text.output.split(separator: "\n")
+        #expect(lines.contains { $0.contains("Taxed") && $0.contains("Drawn") })
+        #expect(lines.contains { $0.contains("Fondo pensione") && $0.contains("15% of withdrawals") })
+        #expect(lines.contains { $0.contains("Money you can draw") && $0.contains("on gains") })
+
+        let run = await retire(["plan", "--library", library.path, "--fast", "--json"])
+        #expect(run.status == 0, "\(run.all)")
+        let json = try parseJSON(run.output)
+        let buckets = try #require((json["start"] as? [String: Any])?["buckets"] as? [[String: Any]])
+        #expect(buckets.map { $0["name"] as? String } == ["Money you can draw", "Fondo pensione"])
+        #expect(buckets[0]["withdrawalTaxRate"] == nil)
+        #expect(abs(try #require(buckets[1]["withdrawalTaxRate"] as? Double) - 0.15) < 1e-9)
+    }
+
     @Test func planSavesABaseline() async throws {
         let library = try TemporaryFolder.exampleLibrary()
         // Few runs, so the full run is quick in a debug build.
@@ -121,7 +141,8 @@ struct PlanAndHelpTests {
             targetAge: 55, successAtTarget: 0.93,
             sustainableSpending: SustainableSpending(age: 55, perYear: 38_412.4, success: 0.9), agesWithout: [])
         let start = PlanStart(
-            date: "2026-09-30", planAssets: d("148808.36"), accounts: ["conto-fineco"],
+            date: "2026-09-30", planAssets: d("148808.36"), trackedAssets: d("148808.36"),
+            accounts: ["conto-fineco"],
             buckets: [BucketSummary(name: "Money you can draw", availableFromAge: nil, value: 148_808.36,
                                     costBasis: 148_808.36, mix: [:], accounts: ["conto-fineco"])])
         return PlanResult(

@@ -237,7 +237,7 @@ import TestSupport
               "assetClasses": { "bonds": "0.4", "equity": "0.6" }, "availableFromAge": 67, "closed": "2030-12-31", "country": "IT",
               "currency": "EUR", "depreciation": "0.1", "id": "fondo-pensione", "includeIn": { "netWorth": true, "plan": false }, "institution": "Fondo Esempio",
               "kind": "pensionFund", "name": "Fondo pensione", "notes": "joined at work", "opened": "2022-01-01", "successor": "new-fund",
-              "tags": ["pension"], "valuation": "balance", "values": "typed"
+              "tags": ["pension"], "valuation": "balance", "values": "typed", "withdrawalTaxRate": "0.15"
             }
             """, against: "account.schema.json")
         try checkRoundTrip(Instrument.self, """

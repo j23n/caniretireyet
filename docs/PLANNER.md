@@ -13,7 +13,7 @@ Alongside the headline, it shows:
 - **What you could spend.** The highest yearly spending in retirement that still reaches your confidence level at your target retirement age.
 - **Chance of success against retirement age.** A curve showing what each extra year of work buys you.
 - **Portfolio over time.** The median, with a band from the 10th to the 90th percentile.
-- **Income by source for each retirement year**: withdrawals, work, pensions, other income and windfalls, with the taxes on investments and on wealth.
+- **Income by source for each retirement year**: withdrawals, work, pensions, other income and windfalls, with the taxes on investments, on wealth and on withdrawals from pre-tax accounts.
 - **Why failing runs fail**, for example: "runs out at 55, while the pension fund can't be drawn until 60".
 - **With flexible spending**, how often and how far spending is cut ([Flexible spending](#flexible-spending)).
 
@@ -21,19 +21,19 @@ Alongside the headline, it shows:
 
 ## The model in brief
 
-The planner is deliberately simple: every number it uses is one you can see and check, and every year can be worked out by hand ([Calculations](#calculations)). It doesn't model tax law. You enter income from work, pensions and other income **after tax**, and two tax rates for your investments; the research behind the earlier, detailed tax systems is kept in [research/tax](research/tax/).
+The planner is deliberately simple: every number it uses is one you can see and check, and every year can be worked out by hand ([Calculations](#calculations)). It doesn't model tax law. You enter income from work, pensions and other income **after tax**, two tax rates for your investments, and optionally a rate of its own for each pre-tax account; the research behind the earlier, detailed tax systems is kept in [research/tax](research/tax/).
 
 - **Today's money.** Amounts are in today's money (real terms), in the library's base currency. Returns are real. Inflation matters only for one thing: what you paid for your investments stays in the money of the day you paid it, so the part of a value that's only inflation counts as gain when sold.
 - **Yearly steps**, from the day after the check-in the plan starts from to its end age (95 by default). The first year is the part of the year after the check-in: its income, spending, contributions, wealth tax and returns are scaled to the days left.
 - **Money grouped by when it can be drawn.** *The money you can draw* holds every account available at any age. An account available only from a later age (`availableFromAge` in the account file: a pension fund from 67, say) is locked until 1 January of the first year you're that age, then joins the money you can draw. Locked money keeps its own mix and isn't wealth-taxed until it opens.
-- **Two taxes.** One rate on investments (`tax.investmentRate`) taxes the gain part of what's sold and, every year, the income your investments pay (their income yield). A plan without it runs as if investments weren't taxed (0%), with a warning (`planner.noInvestmentRate`), so a new plan gives an answer before you've looked up your rate. An optional wealth tax (`tax.wealthRate`) taxes the money you can draw above an allowance.
+- **Two taxes, and pre-tax accounts.** One rate on investments (`tax.investmentRate`) taxes the gain part of what's sold and, every year, the income your investments pay (their income yield). A plan without it runs as if investments weren't taxed (0%), with a warning (`planner.noInvestmentRate`), so a new plan gives an answer before you've looked up your rate. An optional wealth tax (`tax.wealthRate`) taxes the money you can draw above an allowance. An account with a tax on withdrawals (`withdrawalTaxRate` in the account file: 0.2 for a traditional 401(k), say, or 0 for a Roth IRA) is pre-tax money: every amount taken from it pays that rate, in place of the rate on investments, which taxes neither its gains nor its income yield. Every plan taxes the same account alike.
 - **Deterministic and Monte Carlo runs.** The deterministic run uses each class's median return every year: the typical year, not the average one, which for a volatile class compounds far ahead of any typical future (crypto at a 0% median and 70% volatility averages +16.6% a year). The Monte Carlo simulation repeats the same steps 2,000 times with random returns.
 
 ## The yearly step
 
 ```
 for each year from the start to the end age:
-  accounts available from this year's age join the money you can draw
+  accounts available from this year's age join the money you can draw (pre-tax ones as groups of their own)
   taxes due: wealth tax = wealthRate × max(0, money you can draw − allowance) × share of the year simulated
              income tax = last year's investment income × investmentRate
   with flexible spending: level ← the guardrails rule (this year's withdrawal rate against the first year's)
@@ -41,22 +41,30 @@ for each year from the start to the end age:
        − spending (while working, or in retirement × phase factor × level) − one-off expenses
        − contributions into accounts − wealth tax − income tax
   contributions go into their account: the money you can draw at its target mix, a locked account at its own mix
-  if cash ≥ 0: invest it in the money you can draw, at the target mix of this year's age
-  if cash < 0: sell from the money you can draw, every class alike:
-       gain share g = 1 − what was paid / value;  sold = need / (1 − investmentRate × g)
+  if cash ≥ 0: invest it in the taxable money you can draw, at the target mix of this year's age
+  if cash < 0: sell the same share s of each group of the money you can draw, every class alike:
+       taxable money: tax tᵢ = investmentRate × g, with gain share g = 1 − what was paid / value
+       a pre-tax group: tax tᵢ = its withdrawalTaxRate, on the whole amount
+       s = need / Σ valueᵢ × (1 − tᵢ), at most 1;  sold = s × Σ valueᵢ
+       withdrawal tax = s × Σ valueᵢ × tᵢ over the pre-tax groups
        (with flexible spending, a shortfall first forces spending down as far as the floor)
        if it can't be covered: this run fails; record the year and why
-  rebalance: the money you can draw to the target mix of this year's age, locked accounts to their own (no tax)
-  investment income = the money you can draw × each class's income yield; taxed next year; it adds to what was paid
+  rebalance: each group of the money you can draw to the target mix of this year's age, locked accounts
+             to their own (no tax)
+  investment income = the taxable money you can draw × each class's income yield; taxed next year;
+                      it adds to what was paid
   returns: every class earns this year's return
   what was paid shrinks by this year's inflation (gains are taxed in money of the day)
 ```
 
-- **Sales** take every class of the money you can draw in proportion, so the mix stays as it was; what was paid shrinks in proportion too. The gain share is that of the money you can draw as a whole, so holding cash can't dodge the tax on equity's gains.
+Without pre-tax accounts there's one group, and the sale is the familiar sold = need / (1 − investmentRate × g).
+
+- **Sales** take every class of the money you can draw in proportion, so the mix stays as it was; what was paid shrinks in proportion too. The gain share is that of the taxable money you can draw as a whole, so holding cash can't dodge the tax on equity's gains. With pre-tax accounts, each group gives up the same share, so a sale never favours one kind of money: the net from a sale is s × Σ valueᵢ × (1 − tᵢ), and each year can still be checked by hand.
+- **Pre-tax money** (an account with `withdrawalTaxRate`) pays its rate on every amount taken from it and no investment tax: its gains and its income yield grow inside it, as a locked account's do. Accounts with the same rate and the same opening age are one group; once open, a group is part of the money you can draw (for the wealth tax, the target mix and sales) but keeps its rate. A locked pre-tax account keeps its rate after it opens, and counts at its value after that rate when a failure is checked for [locked money](#the-portfolio).
 - **New money**, from savings or a contribution, costs what it's worth: it raises what was paid by its amount.
 - **Rebalancing isn't taxed.** It's a simplification: in a taxable account a rebalancing sale realises gains. Since what was paid is tracked for the money you can draw as a whole, rebalancing doesn't change the share of gain in later sales either.
-- **Investment income** (dividends and interest) is part of each class's return, not on top of it: a class with a 5% return and a 2% income yield grows 5%, of which 2% is paid out and reinvested. It's taxed every year at the investment rate, paid the following year, and, reinvested, it adds to what was paid, so it isn't taxed again when sold. A class without an income yield is taxed only when sold: an accumulating fund. Locked accounts' income isn't taxed: it grows with them.
-- **Debts** the plan counts (a credit card, a loan not left out of the plan) are paid off from the money you can draw at the start, with a warning (`planner.debtIncluded`).
+- **Investment income** (dividends and interest) is part of each class's return, not on top of it: a class with a 5% return and a 2% income yield grows 5%, of which 2% is paid out and reinvested. It's taxed every year at the investment rate, paid the following year, and, reinvested, it adds to what was paid, so it isn't taxed again when sold. A class without an income yield is taxed only when sold: an accumulating fund. Locked and pre-tax accounts' income isn't taxed: it grows with them.
+- **Debts** the plan counts (a credit card, a loan not left out of the plan) are paid off from the money you can draw at the start, with a warning (`planner.debtIncluded`): the taxable money's cash first, then the rest of it in proportion, then the pre-tax groups open today, the same share of each, after its tax on withdrawals. That tax counts in the first year's tax on withdrawals (so the taxes per year, `PlanResults.taxes`, which the chapters' average tax reads, and the lifetime taxes include it) and is taken off the plan assets (`PlanStart.planAssets`). It was paid at the start, not from the first year's income, so the income per year by source (`PlanResults.income`) leaves it out of the taxes that income pays (`YearDetail.debtWithdrawalTax`). What the money you can draw can't cover is left out, of the plan assets too, and the warning says so. So the plan assets are what the groups hold, and the readiness and the assets-needed search are measured against that. A baseline and the fan start from the plan assets as the tracker values them (`PlanStart.trackedAssets`), so they compare with your history.
 
 ## Plan file
 
@@ -122,10 +130,11 @@ Every field, its default and allowed range, and the error or warning a value out
 
 ### The portfolio
 
-The plan starts from the check-in it names, valued by the tracker in the base currency, exactly as net worth is. Accounts count unless they're left out (`includeIn.plan: false` on the account, `portfolio.exclude` in the plan) or closed. Each account's value goes into the money you can draw or, with an `availableFromAge` above your age on the start date, into the group of accounts available from that age.
+The plan starts from the check-in it names, valued by the tracker in the base currency, exactly as net worth is. Accounts count unless they're left out (`includeIn.plan: false` on the account, `portfolio.exclude` in the plan) or closed. Each account's value goes into the money you can draw or, with an `availableFromAge` above your age on the start date, into the group of accounts available from that age. A pre-tax account (`withdrawalTaxRate`, from 0 to 1; outside it is an error, `planner.withdrawalTaxRate`) goes into the group of pre-tax accounts with its rate and its opening age, drawn from now when it has none. A debt's rate is ignored: plans don't draw on a debt.
 
 - **The mix** comes from the holdings' instruments, or from the account's `assetClasses` for a balance. A balance without an asset mix counts as cash, with a warning (`planner.noAssetMix`).
-- **What was paid** comes from the positions' recorded `costBasis` (converted at the start date's rate), from `unrealizedGainShare` where none is recorded, and is the value itself for cash and for locked accounts: what a locked account holds on the start date isn't taxed as gain once it opens; what it earns after it is.
+- **What was paid** comes from the positions' recorded `costBasis` (converted at the start date's rate), from `unrealizedGainShare` where none is recorded, and is the value itself for cash and for locked accounts: what a locked account holds on the start date isn't taxed as gain once it opens; what it earns after it is. Pre-tax accounts' gains are never taxed, so what was paid for them doesn't matter.
+- **The assets-needed search** adds money only to the taxable money you can draw now, and takes it from all the money you can draw now, pre-tax groups open today included, in proportion ([Assets needed to retire today](#assets-needed-to-retire-today)).
 - **With nothing held yet**, savings go into cash.
 
 ## Returns
@@ -212,7 +221,7 @@ The settings, `enabled`, `cut`, `floor`, `upperGuardrail` and `lowerGuardrail`, 
 
 - **Assets needed today** are the plan assets at the start that would make retiring at today's age succeed in the plan's confidence share of futures, with everything else as planned.
 - **Readiness** is today's plan assets divided by that: "58% of what you'd need to retire today". It is at least 100% exactly when retiring today reaches the confidence level, so it never disagrees with the headline.
-- **How it's found.** Extra money X is added only to the money you can draw, at the target mix in force in the first year of retiring today, costing what it's worth; locked accounts stay as they are (more of them wouldn't pay for the years before they open). When today's assets are more than enough, X is negative: that much comes out of the money you can draw in proportion. **Assets needed = today's plan assets + X.** The search doubles (or halves) the plan assets until the confidence level is crossed, then bisects on a log scale until within 1%; the amount reported is the bracket's upper end. Every amount uses the same random draws.
+- **How it's found.** Extra money X is added only to the taxable money you can draw, at the target mix in force in the first year of retiring today, costing what it's worth; locked accounts stay as they are (more of them wouldn't pay for the years before they open). When today's assets are more than enough, X is negative: that much comes out of the money you can draw in proportion, pre-tax groups open today included. **Assets needed = today's plan assets + X.** The search doubles (or halves) the plan assets until the confidence level is crossed, then bisects on a log scale until within 1%; the amount reported is the bracket's upper end. Every amount uses the same random draws.
 - **Limits.** At most 20 times today's plan assets ("more than 20 times your plan assets", no readiness). Going down, it stops when the money you can draw is empty or the plan assets are a twentieth of today's: "at most" that amount, with readiness a lower bound (`AssetsNeeded.leavesOnlyLockedMoney`: "at most what's locked away").
 
 ## Chapters
@@ -253,7 +262,7 @@ How much you've actually been saving, for a plan that goes on at that pace. The 
 
 ## Calculations
 
-`Planner.calculations(plan:library:options:)` runs a plan in full and writes, as Markdown, every input and result behind its answer: the plan as read (taxes, spending, work, pensions, other income, contributions, events, the target mix, each class's mean, median, volatility and income yield), the starting portfolio by group with what was paid, the chance of success by retirement age, the deterministic run and the median run year by year (income, windfalls, spending, expenses, each tax, what was sold and saved, and the value at the end), flexible spending's summary, why runs fail and the warnings. Anonymized (`CalculationsOptions.anonymize`), names become generic ("Work 1", "Accounts available later 1"), dates become years and amounts are rounded (to 100, or `rounding`), so the file can be given to someone else. The app's *Export Calculations…* and `retire plan debug` write it.
+`Planner.calculations(plan:library:options:)` runs a plan in full and writes, as Markdown, every input and result behind its answer: the plan as read (taxes, spending, work, pensions, other income, contributions, events, the target mix, each class's mean, median, volatility and income yield), the starting portfolio by group with what was paid and a pre-tax group's tax on withdrawals, the chance of success by retirement age, the deterministic run and the median run year by year (income, windfalls, spending, expenses, each tax: on investments, on wealth and on withdrawals, what was sold and saved, and the value at the end), flexible spending's summary, why runs fail and the warnings. Anonymized (`CalculationsOptions.anonymize`), names become generic ("Work 1", "Accounts available later 1", "Pre-tax accounts 1"), dates become years and amounts are rounded (to 100, or `rounding`), so the file can be given to someone else. The app's *Export Calculations…* and `retire plan debug` write it.
 
 ## Engine details
 
@@ -268,10 +277,10 @@ How much you've actually been saving, for a plan that goes on at that pace. The 
 
 ## Testing the engine
 
-- **Checked by hand** (`DeterministicTests`): with zero volatility and known returns, paths match closed forms: drawdown, saving, income from work growing in real terms, the gain share of sales, inflation counting as gain, a sale with no recorded cost taxed on its whole value, investment income taxed the following year, the wealth tax above its allowance and only on the money you can draw, a part year, accounts opening in the first year at their age, bridge failures and when locked money is too small to bridge, pensions, other income (from an age and from retirement, until an age), events and contributions.
-- **Rebalancing** (`RebalancingTests`): yearly rebalancing to the target or the starting mix, holding cash doesn't lower the tax on sales, locked accounts keep their own mix.
+- **Checked by hand** (`DeterministicTests`): with zero volatility and known returns, paths match closed forms: drawdown, saving, income from work growing in real terms, the gain share of sales, inflation counting as gain, a sale with no recorded cost taxed on its whole value, investment income taxed the following year, the wealth tax above its allowance and only on the money you can draw, a part year, accounts opening in the first year at their age, bridge failures and when locked money is too small to bridge, pensions, other income (from an age and from retirement, until an age), events and contributions, and a year selling taxable and pre-tax money together. Pre-tax accounts (`PreTaxTests`): a rate taken from what's sold, a rate of 0 untaxed on gains and income, a locked pre-tax account keeping its rate once open, groups with different rates kept apart, bridging counted after the rate, open pre-tax money wealth-taxed, debts paid from open pre-tax money after its tax (counted in the first year's taxes but not paid from its income, counted once in a part year's taxes, and taken off the plan assets but not a baseline's start) and the part it can't cover left out of the plan assets, the tax among the taxes per year, and a pre-tax account at 0% with no investment tax planning like the same account without a rate.
+- **Rebalancing** (`RebalancingTests`): yearly rebalancing to the target or the starting mix, holding cash doesn't lower the tax on sales, locked accounts keep their own mix, open pre-tax accounts go to the target mix.
 - **Invariants** (`InvariantTests`): Monte Carlo with zero volatility equals the deterministic run; more savings and working longer never lower the chance of success; the same seed gives the same results; fast runs are the first runs of the full set; percentiles are ordered.
-- **The searches** (`SolverTests`, `AssetsNeededTests`, `AssetsNeededAccessTests`): the earliest age and the sustainable spending on plans worked out by hand; the assets needed against a closed form, reaching the confidence while 2% less doesn't, the extra going only into the money you can draw, and the search's limits.
+- **The searches** (`SolverTests`, `AssetsNeededTests`, `AssetsNeededAccessTests`): the earliest age and the sustainable spending on plans worked out by hand; the assets needed against a closed form, reaching the confidence while 2% less doesn't, the extra going only into the taxable money you can draw, money taken out of open pre-tax groups too (all of it in an open Roth IRA isn't locked away), and the search's limits.
 - **Chapters** (`ChapterTests`): the example library's plans by hand, a second pension, other income, a gap between work phases, spending phases before retirement, retiring at an age already passed, and inputs outside the plan's years.
 - **Ages without** (`AgesWithoutTests`): saving nothing more caps pay and stops contributions, the plan at the pace saves the pace, the coast age, the age without a windfall and the pace age (later and earlier than the plan's) each match a full scan of the changed plan, nothing without an earliest age or a pace, and the bisection's steps.
 - **Saving pace** (`SavingPaceTests`, in TrackerTests): an unusual month above and below, fewer months scaled to a year, what a check-in saved spread over its days, a payment every quarter, a one-off in or out among regular payments, an account carried forward from its yearly value, money moved between plan assets, today's money, the range, and an account without what was saved into it.

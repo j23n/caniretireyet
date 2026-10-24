@@ -25,12 +25,13 @@ struct PlanCommand: RetireSubcommand {
             the plan's confidence, and your share of them), what you could spend, with flexible \
             spending what it did (how low spending goes in a bad case, how often and how long it's cut, \
             and the spending paid every five years), the chance of success by retirement age, how the \
-            plan read your library (the money you can draw now, and accounts available from a later age), \
+            plan read your library (the money you can draw now, accounts available from a later age, and \
+            pre-tax accounts with their tax on withdrawals), \
             and any issues, in the library's base currency. The plan starts from the \
             latest check-in. --fast uses \(PlannerOptions.defaultFastRuns) runs instead of the plan's \
             own number (2,000 by default), with the same random draws. --years adds the median run \
-            year by year: income after tax, investments sold, taxes on investments and wealth, spending \
-            and what's left. --save-baseline <label> saves the result as a \
+            year by year: income after tax, investments sold, taxes on investments, wealth and \
+            withdrawals from pre-tax accounts, spending and what's left. --save-baseline <label> saves the result as a \
             baseline in projections/<plan>/baselines/, to compare your actual numbers against later.
             """)
 
@@ -154,7 +155,8 @@ struct PlanReport: CommandReport {
     var currency: CurrencyCode { result.currency }
 
     /// One year of the median run: income after tax, investments sold,
-    /// taxes on investments and wealth, spending and what's left.
+    /// taxes on investments, wealth and withdrawals from pre-tax accounts,
+    /// spending and what's left.
     struct YearRow: Equatable {
         var year: Int
         var age: Int
@@ -328,7 +330,8 @@ struct PlanReport: CommandReport {
             }
             lines += table.lines()
             lines.append((hasOther ? "Work, pensions and other income after tax." : "Work and pensions after tax.")
-                + " Sold: investments sold to cover the year. Taxes: on investments and on wealth. The first year "
+                + " Sold: investments sold to cover the year. Taxes: on investments, on wealth and on "
+                + "withdrawals from pre-tax accounts. The first year "
                 + "is the part after the check-in.")
         }
         lines.append("")
@@ -346,11 +349,13 @@ struct PlanReport: CommandReport {
     }
 
     /// How the plan read the library (PLANNER.md, "The portfolio"): the
-    /// money you can draw now, and the accounts available from a later age.
+    /// money you can draw now, the accounts available from a later age, and
+    /// pre-tax accounts with their tax on withdrawals.
     func readingLines() -> [String] {
-        var table = TextTable([.left("Money"), .right("Value"), .left("Drawn"), .left("Accounts")])
+        var table = TextTable([.left("Money"), .right("Value"), .left("Drawn"), .left("Taxed"), .left("Accounts")])
         for bucket in result.start.buckets {
             table.add([bucket.name, Self.whole(bucket.value), bucket.availableFromAge.map { "from \($0)" } ?? "now",
+                       bucket.withdrawalTaxRate.map { "\(Self.percent($0)) of withdrawals" } ?? "on gains",
                        bucket.accounts.map(\.rawValue).joined(separator: ", ")])
         }
         return ["How the plan reads your library, on \(result.start.date) (\(currency))"] + table.lines()
@@ -362,7 +367,8 @@ struct PlanReport: CommandReport {
         // For an amount found: the money added to the accounts that can be drawn now.
         let extra = needed?.outcome == .found ? needed?.extra : nil
         let start = JSON.Start(date: result.start.date.description, buckets: result.start.buckets.map {
-            JSON.Bucket(name: $0.name, availableFromAge: $0.availableFromAge, value: Self.rounded($0.value),
+            JSON.Bucket(name: $0.name, availableFromAge: $0.availableFromAge,
+                        withdrawalTaxRate: $0.withdrawalTaxRate, value: Self.rounded($0.value),
                         accounts: $0.accounts.map(\.rawValue))
         })
         return JSON(
@@ -414,6 +420,8 @@ struct PlanReport: CommandReport {
             var name: String
             /// The age from which it can be drawn; absent for the money you can draw now.
             var availableFromAge: Int?
+            /// The share of what's taken from pre-tax accounts that goes to tax; absent for taxable money.
+            var withdrawalTaxRate: Double?
             var value: String
             var accounts: [String]
         }

@@ -296,6 +296,13 @@ enum PlanInterpreter {
         }
         let portfolio = Portfolio.build(library: library, date: startDate, plan: plan, currentAge: currentAge,
                                         extraClasses: mixClasses, issues: &issues)
+        for id in portfolio.accounts {
+            guard let account = library.accounts[id], !account.kind.isLiability,
+                  let rate = account.withdrawalTaxRate, rate < 0 || rate > 1
+            else { continue }
+            error("planner.withdrawalTaxRate",
+                  "\(account.name)'s tax on withdrawals has to be between 0% and 100%.", .portfolio, account: id)
+        }
         let returns = ReturnModel(assumptions: plan.assumptions, heldClasses: portfolio.classes, issues: &issues)
         let incomeYields = portfolio.classes.map { assetClass in
             min(1, max(0, plan.assumptions.returnAssumption(for: assetClass)?.incomeYield?.doubleValue ?? 0))

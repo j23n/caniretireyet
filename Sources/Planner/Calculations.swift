@@ -92,7 +92,9 @@ struct CalculationsReport {
         lines.append("- Inflation \(percent(model.inflation)) a year.")
         lines.append("- Taxes: \(percent(model.taxes.investmentRate)) on investment income and gains; wealth tax "
             + "\(percent(model.taxes.wealthRate))" + (model.taxes.wealthAllowance > 0
-                ? " above \(money(model.taxes.wealthAllowance))" : "") + ".")
+                ? " above \(money(model.taxes.wealthAllowance))" : "")
+            + (model.portfolio.buckets.contains(where: \.isPreTax)
+                ? "; pre-tax accounts pay their own rate on what's taken from them instead" : "") + ".")
         var spending = "- Spending: \(money(model.spending.working)) a year while working, "
             + "\(money(model.spending.retired)) in retirement"
         if !model.spending.phases.isEmpty {
@@ -169,16 +171,28 @@ struct CalculationsReport {
 
     private func startingPortfolio() -> [String] {
         var lines = ["", "## The starting portfolio", "",
-                     "| Accounts | Available from | Value | Purchase cost | Mix |", "|---|---:|---:|---:|---|"]
+                     "| Accounts | Available from | Value | Purchase cost | Mix | Tax on withdrawals |",
+                     "|---|---:|---:|---:|---|---:|"]
         for (n, bucket) in result.start.buckets.enumerated() {
-            let label = n == 0 ? "Money you can draw" : name(bucket.name, generic: "Accounts available later \(n)")
+            let generic = bucket.availableFromAge == nil ? "Pre-tax accounts \(n)" : "Accounts available later \(n)"
+            let label = n == 0 ? "Money you can draw" : name(bucket.name, generic: generic)
             lines.append("| \(label) | \(bucket.availableFromAge.map(String.init) ?? "now") | \(money(bucket.value)) | "
-                + "\(money(bucket.costBasis)) | \(describe(bucket.mix)) |")
+                + "\(money(bucket.costBasis)) | \(describe(bucket.mix)) | "
+                + "\(bucket.withdrawalTaxRate.map { percent($0) } ?? "–") |")
         }
-        if model.portfolio.debtPaidOff > 0 {
+        let portfolio = model.portfolio
+        if portfolio.debtPaidOff > 0 {
+            var line = "Debts the plan counts, \(money(portfolio.debtPaidOff)), are paid off from the money you can "
+                + "draw at the start"
+            if portfolio.debtWithdrawalTax > 0 {
+                line += ", with \(money(portfolio.debtWithdrawalTax)) of tax on what's taken from pre-tax accounts, "
+                    + "counted in the first year's tax on withdrawals and taken off the plan assets"
+            }
+            if portfolio.debtUnpaid > 0.5 {
+                line += "; the \(money(portfolio.debtUnpaid)) it can't cover is left out, of the plan assets too"
+            }
             lines.append("")
-            lines.append("Debts the plan counts, \(money(model.portfolio.debtPaidOff)), are paid off from the money "
-                + "you can draw at the start.")
+            lines.append(line + ".")
         }
         return lines
     }
@@ -194,8 +208,8 @@ struct CalculationsReport {
     private func yearByYear(_ title: String, _ path: PathDetail) -> [String] {
         var lines = ["", "## \(title)", "",
                      "| Year | Age | Income | Windfalls | Spending | Expenses | Tax on investments | Wealth tax | "
-                         + "Sold | Saved | At the end |",
-                     "|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|"]
+                         + "Tax on withdrawals | Sold | Saved | At the end |",
+                     "|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|"]
         for year in path.years {
             func sum(_ kinds: Set<IncomeKind>) -> Double {
                 year.income.filter { kinds.contains($0.kind) }.reduce(0) { $0 + $1.amount }
@@ -203,7 +217,8 @@ struct CalculationsReport {
             lines.append("| \(year.year) | \(year.age) | \(money(sum([.work, .pension, .other]))) | "
                 + "\(money(sum([.windfall]))) | "
                 + "\(money(year.spending)) | \(money(year.expenses)) | \(money(year.investmentTax)) | "
-                + "\(money(year.wealthTax)) | \(money(sum([.withdrawal]))) | \(money(max(0, year.savings))) | "
+                + "\(money(year.wealthTax)) | \(money(year.withdrawalTax)) | \(money(sum([.withdrawal]))) | "
+                + "\(money(max(0, year.savings))) | "
                 + "\(money(year.endAssets)) |")
         }
         if let failure = path.failure {

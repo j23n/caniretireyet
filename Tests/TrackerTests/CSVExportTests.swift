@@ -85,7 +85,10 @@ import TestSupport
         let accounts = rows(try file("accounts.csv"))
         let pension = try #require(accounts.first { $0[0] == "fondo-pensione" })
         #expect(pension[9] == "67")
-        #expect(pension[12] == "bonds=0.4; equity=0.6")
+        #expect(accounts[0][10] == "withdrawal_tax_rate")
+        #expect(pension[10] == "0.15")
+        #expect(accounts.first { $0[0] == "directa" }?[10] == "")
+        #expect(pension[13] == "bonds=0.4; equity=0.6")
     }
 
     @Test func moneyInAndOutAreExported() throws {

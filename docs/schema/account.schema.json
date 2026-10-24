@@ -51,6 +51,10 @@
       "description": "The age from which plans can draw on the account, e.g. 67 for a pension fund. Until 1 January of the first year you're that age, plans keep it apart: locked, at its own mix, not wealth-taxed (PLANNER.md). Left out, it can be drawn at any age. The app suggests 65 for a new pension fund.",
       "$ref": "common.schema.json#/$defs/age"
     },
+    "withdrawalTaxRate": {
+      "description": "The share of every amount plans take from the account that goes to tax, from 0 to 1 (an error on an account in the plan: planner.withdrawalTaxRate), set by hand like the plan's tax rates: such as \"0.2\" for money taxed as income when it comes out (a traditional 401(k) or IRA), or \"0\" for money that comes out tax-free (a Roth IRA). Set, the account is pre-tax money: plans tax what they take from it at this rate in place of the plan's rate on investments, which then applies neither to its gains nor to its income yield (PLANNER.md, \"The yearly step\" and \"The portfolio\"). Left out, it's taxed like any other investment. Plans ignore it on a debt (loan, mortgage, creditCard).",
+      "$ref": "common.schema.json#/$defs/decimal"
+    },
     "includeIn": {
       "description": "What the account counts in. Both default to true, and to false for a taxPot, whose money is owed; a primary home would normally set plan to false.",
       "type": "object",
@@ -92,7 +96,8 @@
       "id": "fondo-pensione",
       "kind": "pensionFund",
       "name": "Fondo pensione",
-      "opened": "2022-01-01"
+      "opened": "2022-01-01",
+      "withdrawalTaxRate": "0.15"
     },
     {
       "closed": "2024-02-29",

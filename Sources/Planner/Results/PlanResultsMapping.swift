@@ -37,9 +37,10 @@ public enum PlanResultsMapping {
     /// The label of the taxes on top of retirement income.
     public static let taxesLabel = "Taxes"
 
-    /// The fan in today's money: the start value, then each year-end.
+    /// The fan in today's money: the start value, as the tracker computes it
+    /// (``PlanStart/trackedAssets``, as a baseline's), then each year-end.
     public static func fan(_ result: PlanResult) -> [FanPoint] {
-        let start = result.start.planAssets.doubleValue
+        let start = result.start.trackedAssets.doubleValue
         var points = [FanPoint(date: result.start.date.dateValue, p10: start, p25: start, p50: start, p75: start,
                                p90: start)]
         for year in result.fan {
@@ -153,7 +154,9 @@ public enum PlanResultsMapping {
     /// shown after its share of the year's taxes (`totalTax`, shared in
     /// proportion to the amounts), and the taxes are a segment of their own
     /// on top: the sources add up to spending, expenses and what's saved,
-    /// and the stack to that plus taxes.
+    /// and the stack to that plus taxes. The tax on what paying off debts
+    /// took from pre-tax accounts (``YearDetail/debtWithdrawalTax``) was paid
+    /// at the start, not from the year's income, so it's left out here.
     public static func income(_ years: [YearDetail]) -> [IncomeSegment] {
         func category(_ item: IncomeItem) -> IncomeCategory { self.category(of: item) }
         // The names behind each category over all the years, so a category
@@ -172,7 +175,7 @@ public enum PlanResultsMapping {
             }
             let total = gross.values.reduce(0, +)
             guard total > 0.5 else { continue }
-            let taxes = min(total, whole(year.totalTax, year))
+            let taxes = min(total, whole(max(0, year.totalTax - year.debtWithdrawalTax), year))
             let share = (total - taxes) / total
             for category in gross.keys.sorted(by: { $0.sortKey < $1.sortKey }) {
                 guard let amount = gross[category], amount * share > 0.5 else { continue }
@@ -187,26 +190,36 @@ public enum PlanResultsMapping {
         return segments
     }
 
-    /// Taxes per year by tax: on investments and on wealth. The larger over
-    /// all the years takes the first colour slot.
+    /// Taxes per year by tax: on investments, on wealth and on withdrawals
+    /// from pre-tax accounts. The largest over all the years takes the first
+    /// colour slot.
+    ///
+    /// A part first year shows each tax for a whole year, except the tax on
+    /// what paying off debts took from pre-tax accounts
+    /// (``YearDetail/debtWithdrawalTax``): it's paid once, at the start, so
+    /// it's shown as paid.
     public static func taxes(_ years: [YearDetail]) -> [IncomeSegment] {
         let taxes: [(label: String, amount: KeyPath<YearDetail, Double>)] = [
             ("Tax on investments", \.investmentTax), ("Wealth tax", \.wealthTax),
+            ("Tax on withdrawals", \.withdrawalTax),
         ]
+        func shown(_ amount: KeyPath<YearDetail, Double>, _ year: YearDetail) -> Double {
+            let once = amount == \YearDetail.withdrawalTax ? year.debtWithdrawalTax : 0
+            return whole(year[keyPath: amount] - once, year) + once
+        }
         let totals: [Double] = taxes.map { tax in
             years.reduce(0.0) { total, year in
-                let amount = year[keyPath: tax.amount]
-                return amount > 0.5 ? total + whole(amount, year) : total
+                year[keyPath: tax.amount] > 0.5 ? total + shown(tax.amount, year) : total
             }
         }
         let ranked = taxes.indices.filter { totals[$0] > 0 }.sorted { (totals[$0], $1) > (totals[$1], $0) }
         var segments: [IncomeSegment] = []
         for year in years {
             for (slot, index) in ranked.enumerated() {
-                let amount = year[keyPath: taxes[index].amount]
-                guard amount > 0.5, whole(amount, year) > 0.5 else { continue }
+                let amount = shown(taxes[index].amount, year)
+                guard year[keyPath: taxes[index].amount] > 0.5, amount > 0.5 else { continue }
                 segments.append(IncomeSegment(year: year.year, source: taxes[index].label,
-                                              amount: whole(amount, year), color: .series(slot)))
+                                              amount: amount, color: .series(slot)))
             }
         }
         return segments

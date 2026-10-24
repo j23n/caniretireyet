@@ -117,6 +117,10 @@ struct AccountForm: Hashable, Sendable {
     /// An estimated loss of value a year, in per cent as typed
     /// ("15"); empty for none (``Model/Account/depreciation``).
     var depreciation: String
+    /// The share of what plans take from it that goes to tax, in per cent
+    /// as typed ("20"); empty for an account taxed only on its gains
+    /// (``Model/Account/withdrawalTaxRate``).
+    var withdrawalTaxRate: String
     /// Where its values come from: imported files, or typed by you too
     /// (``Model/Account/values``). Only kinds that take typed values offer
     /// the choice (``offersTypedValues``).
@@ -152,6 +156,7 @@ struct AccountForm: Hashable, Sendable {
         isPlanInclusionChosen = false
         assetMix = AccountsAssetMixForm()
         depreciation = ""
+        withdrawalTaxRate = ""
         values = .imported
         notes = ""
         original = nil
@@ -178,6 +183,7 @@ struct AccountForm: Hashable, Sendable {
         isPlanInclusionChosen = true
         assetMix = AccountsAssetMixForm(account.assetClasses, locale: locale)
         depreciation = account.depreciation.map { AmountInput.text(for: $0 * 100, locale: locale) } ?? ""
+        withdrawalTaxRate = account.withdrawalTaxRate.map { AmountInput.text(for: $0 * 100, locale: locale) } ?? ""
         values = Self.shownValues(of: account)
         notes = account.notes ?? ""
         original = account
@@ -309,6 +315,18 @@ struct AccountForm: Hashable, Sendable {
         return percent / 100
     }
 
+    /// Whether it asks for a tax on withdrawals: accounts plans count, other
+    /// than debts.
+    var takesWithdrawalTaxRate: Bool { includedInPlan && !kind.isLiability }
+
+    /// The tax on withdrawals as a share ("20" is 0.2, "0" is 0); `nil` when
+    /// empty, unreadable or not between 0 and 100.
+    func withdrawalTaxShare(locale: Locale = .current) -> Decimal? {
+        guard let percent = AmountInput.parse(withdrawalTaxRate, locale: locale).value, percent >= 0, percent <= 100
+        else { return nil }
+        return percent / 100
+    }
+
     var trimmedName: String {
         name.trimmingCharacters(in: .whitespacesAndNewlines)
     }
@@ -324,6 +342,13 @@ struct AccountForm: Hashable, Sendable {
             case .empty: break
             case .value(let percent) where percent >= 0 && percent < 100: break
             default: problems.append("Type the loss of value a year as a percentage from 0 to 99.")
+            }
+        }
+        if takesWithdrawalTaxRate {
+            switch AmountInput.parse(withdrawalTaxRate, locale: locale) {
+            case .empty: break
+            case .value(let percent) where percent >= 0 && percent <= 100: break
+            default: problems.append("Type the tax on withdrawals as a percentage from 0 to 100.")
             }
         }
         if let closed = original?.closed, closed < opened {
@@ -360,6 +385,9 @@ struct AccountForm: Hashable, Sendable {
         account.availableFromAge = availableFromAge
         // A kind that doesn't lose value drops it, so nothing hidden keeps estimating.
         account.depreciation = takesDepreciation ? depreciationShare(locale: locale) : nil
+        // A debt drops it, as plans never draw on one; hidden while plans leave it out, what it had is kept.
+        account.withdrawalTaxRate = kind.isLiability ? nil
+            : takesWithdrawalTaxRate ? withdrawalTaxShare(locale: locale) : original?.withdrawalTaxRate
         account.values = valuesField
 
         // What the file leaves out follows the kind: true, or false for a tax pot.

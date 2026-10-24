@@ -66,6 +66,55 @@ struct AccountFormTests {
         #expect(!edited.takesDepreciation)
     }
 
+    /// An asset plans count takes a tax on withdrawals, in per cent: set, 0
+    /// for money that comes out untaxed, and cleared when emptied.
+    @Test func theTaxOnWithdrawalsIsSetAndCleared() {
+        var form = newAccount(.pensionFund)
+        #expect(form.takesWithdrawalTaxRate)
+        #expect(form.withdrawalTaxRate.isEmpty)
+        #expect(form.account(id: "fund", locale: locale).withdrawalTaxRate == nil)
+        form.withdrawalTaxRate = "20"
+        #expect(form.problems(locale: locale).isEmpty)
+        #expect(form.account(id: "fund", locale: locale).withdrawalTaxRate == Decimal(string: "0.2"))
+        form.withdrawalTaxRate = "0"
+        #expect(form.problems(locale: locale).isEmpty)
+        #expect(form.account(id: "fund", locale: locale).withdrawalTaxRate == 0)
+        form.withdrawalTaxRate = "120"
+        #expect(form.problems(locale: locale) == ["Type the tax on withdrawals as a percentage from 0 to 100."])
+
+        var fund = Account(id: "fund", name: "Fund", kind: .pensionFund, currency: .eur, opened: "2026-01-01")
+        fund.withdrawalTaxRate = Decimal(string: "0.15")
+        var edited = AccountForm(editing: fund, locale: locale)
+        #expect(edited.withdrawalTaxRate == "15")
+        #expect(edited.account(id: "fund", locale: locale).withdrawalTaxRate == Decimal(string: "0.15"))
+        edited.withdrawalTaxRate = ""
+        #expect(edited.account(id: "fund", locale: locale).withdrawalTaxRate == nil)
+
+        // Left out of plans, it isn't asked for; what the account had is kept.
+        var excluded = AccountForm(editing: fund, locale: locale)
+        excluded.chosenPlanInclusion = false
+        #expect(!excluded.takesWithdrawalTaxRate)
+        excluded.withdrawalTaxRate = ""
+        #expect(excluded.account(id: "fund", locale: locale).withdrawalTaxRate == Decimal(string: "0.15"))
+        #expect(!newAccount(.mortgage).takesWithdrawalTaxRate)
+    }
+
+    /// A debt isn't asked for a tax on withdrawals: an account turned into
+    /// one drops its rate, even while plans leave it out.
+    @Test func anAccountTurnedIntoADebtDropsItsTaxOnWithdrawals() {
+        var fund = Account(id: "fund", name: "Fund", kind: .pensionFund, currency: .eur, opened: "2026-01-01")
+        fund.withdrawalTaxRate = Decimal(string: "0.15")
+        for debt in [AccountKind.mortgage, .loan, .creditCard] {
+            var edited = AccountForm(editing: fund, locale: locale)
+            edited.setKind(debt)
+            #expect(!edited.takesWithdrawalTaxRate)
+            #expect(edited.problems(locale: locale).isEmpty)
+            #expect(edited.account(id: "fund", locale: locale).withdrawalTaxRate == nil)
+            edited.chosenPlanInclusion = false
+            #expect(edited.account(id: "fund", locale: locale).withdrawalTaxRate == nil)
+        }
+    }
+
     /// A tax pot counts in neither net worth nor plans unless chosen by
     /// hand, and the file writes only what differs from the kind.
     @Test func aTaxPotIsLeftOutOfNetWorthAndPlans() {

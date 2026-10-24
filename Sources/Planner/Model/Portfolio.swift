@@ -4,61 +4,99 @@ import Tracker
 
 /// The money a plan starts with (PLANNER.md, "The portfolio"): the accounts it
 /// counts, valued on the start date in the base currency, grouped by when
-/// they can be drawn. Bucket 0 is the money you can draw now; each other
-/// bucket holds the accounts available from one later age
-/// (`availableFromAge`), and joins bucket 0 when that age is reached.
+/// they can be drawn and how what's taken from them is taxed. Bucket 0 is
+/// the taxable money you can draw now; each other bucket holds the accounts
+/// available from one later age (`availableFromAge`), or pre-tax accounts
+/// with one withdrawal tax rate (`withdrawalTaxRate`), or both. A taxable
+/// bucket joins bucket 0 when its age is reached; a pre-tax bucket stays a
+/// group of its own, drawn alongside bucket 0 from that age (now, without one).
 struct Portfolio: Sendable {
     struct Bucket: Sendable {
         let name: String
-        /// The age from which it can be drawn; `nil` for bucket 0.
+        /// The age from which it can be drawn; `nil` when it can be drawn now.
         let opensAtAge: Int?
+        /// The share of every amount sold from it that goes to tax, in place
+        /// of the plan's rate on investments; `nil` for taxable money.
+        var withdrawalRate: Double? = nil
         /// Value per class (``Portfolio/classes``).
         var values: [Double]
         /// What was paid for what it holds, in today's money: what a sale
-        /// counts as gain is the rest.
+        /// counts as gain is the rest. Pre-tax money's is its value: its
+        /// gains aren't taxed.
         var basis: Double
         let accounts: [AccountID]
 
         var value: Double { values.reduce(0, +) }
+        /// Whether it's pre-tax money (``withdrawalRate``).
+        var isPreTax: Bool { withdrawalRate != nil }
     }
 
     var buckets: [Bucket]
     /// Every asset class a bucket can hold, in canonical order.
     let classes: [AssetClass]
-    /// The value of the included accounts, exactly as the tracker computes it.
+    /// The value of the included accounts, exactly as the tracker computes it,
+    /// less the tax on what paying off the debts took from pre-tax buckets
+    /// (``debtWithdrawalTax``) and without the debts left unpaid
+    /// (``debtUnpaid``), each to the cent: what the buckets hold, which the
+    /// readiness and the assets-needed search are measured against.
     let startAssets: Decimal
+    /// The value of the included accounts, exactly as the tracker computes
+    /// it: where a baseline and the fan start.
+    let trackedAssets: Decimal
     /// The included accounts, sorted.
     let accounts: [AccountID]
-    /// Debts the plan counts, paid off from bucket 0 at the start.
+    /// Debts the plan counts, paid off at the start from the money you can
+    /// draw: bucket 0 first, then the open pre-tax buckets.
     let debtPaidOff: Double
+    /// The tax on withdrawals paid on what paying off the debts took from
+    /// pre-tax buckets: part of the first year's tax on withdrawals, and
+    /// taken off ``startAssets``.
+    var debtWithdrawalTax = 0.0
+    /// The part of the debts the money you can draw couldn't pay off, which
+    /// the plan leaves out, of ``startAssets`` too.
+    var debtUnpaid = 0.0
 
     var totalValue: Double { buckets.reduce(0) { $0 + $1.value } }
-    /// What can be drawn on the start date: bucket 0.
-    var accessibleValue: Double { buckets[0].value }
+    /// What can be drawn on the start date: bucket 0 and the pre-tax buckets
+    /// open from the start, the money the assets-needed search takes from.
+    var accessibleValue: Double { drawableNow.reduce(0) { $0 + buckets[$1].value } }
+
+    /// The buckets you can draw on the start date: bucket 0 and the pre-tax
+    /// buckets open from the start.
+    var drawableNow: [Int] { buckets.indices.filter { $0 == 0 || buckets[$0].opensAtAge == nil } }
 
     /// The portfolio with `extra` more money you can draw now (less, when
-    /// negative), the way the assets-needed search changes it: new money is
-    /// invested at `mix` and costs what it's worth; money taken out leaves
-    /// the mix and the share of gains as they were.
+    /// negative), the way the assets-needed search changes it: new money goes
+    /// into the taxable money (bucket 0), invested at `mix`, and costs what
+    /// it's worth; money taken out comes from every bucket you can draw now
+    /// in proportion, leaving their mixes and shares of gains as they were.
     func withExtra(_ extra: Double, mix: [Double]) -> Portfolio {
         var result = self
         if extra > 0 {
             for c in classes.indices { result.buckets[0].values[c] += extra * mix[c] }
             result.buckets[0].basis += extra
         } else if extra < 0 {
-            let value = buckets[0].value
+            let value = accessibleValue
             let keep = value > 0 ? max(0, 1 + extra / value) : 0
-            for c in classes.indices { result.buckets[0].values[c] *= keep }
-            result.buckets[0].basis *= keep
+            for b in drawableNow {
+                for c in classes.indices { result.buckets[b].values[c] *= keep }
+                result.buckets[b].basis *= keep
+            }
         }
         return result
     }
 
-    /// Bucket 0's mix as shares of its value; `nil` when it's empty.
+    /// The mix of the money you can draw now (bucket 0 and the pre-tax
+    /// buckets open from the start) as shares of its value; `nil` when it's
+    /// empty.
     var accessibleShares: [Double]? {
-        let value = buckets[0].value
+        var values = buckets[0].values
+        for bucket in buckets.dropFirst() where bucket.opensAtAge == nil {
+            for c in values.indices { values[c] += bucket.values[c] }
+        }
+        let value = values.reduce(0, +)
         guard value > 0 else { return nil }
-        return buckets[0].values.map { $0 / value }
+        return values.map { $0 / value }
     }
 }
 
@@ -83,7 +121,13 @@ extension Portfolio {
             var basis = 0.0
             var accounts: [AccountID] = []
         }
-        var groups: [Int?: Group] = [nil: Group()]
+        /// When a group can be drawn and how it's taxed.
+        struct Key: Hashable {
+            var opensAt: Int?
+            var withdrawalRate: Double?
+        }
+        let drawable = Key(opensAt: nil, withdrawalRate: nil)
+        var groups: [Key: Group] = [drawable: Group()]
         var debt = 0.0
         var undocumented: [String] = []
         var included: [AccountID] = []
@@ -108,8 +152,13 @@ extension Portfolio {
             included.append(account.id)
             total += value.knownValue
             let opensAt = account.availableFromAge.flatMap { $0 > currentAge ? $0 : nil }
-            let locked = opensAt != nil
-            var group = groups[opensAt] ?? Group()
+            // A debt isn't drawn from, so a rate on one is ignored.
+            let withdrawalRate = account.kind.isLiability
+                ? nil : account.withdrawalTaxRate.map { min(1, max(0, $0.doubleValue)) }
+            // Locked money's gains aren't taxed until it opens, pre-tax money's never.
+            let locked = opensAt != nil || withdrawalRate != nil
+            let key = Key(opensAt: opensAt, withdrawalRate: withdrawalRate)
+            var group = groups[key] ?? Group()
             // The holdings and what was paid for them; `nil` when nobody knows.
             var parts: [(assetClass: AssetClass, value: Double, basis: Double?)] = []
             func add(_ assetClass: AssetClass, _ amount: Double, basis: Double?) {
@@ -164,7 +213,7 @@ extension Portfolio {
             }
             group.name.append(account.name)
             group.accounts.append(account.id)
-            groups[opensAt] = group
+            groups[key] = group
         }
 
         if !undocumented.isEmpty {
@@ -182,21 +231,24 @@ extension Portfolio {
         var held = Set(groups.values.flatMap { $0.values.filter { $0.value > 0 }.keys }).union(extraClasses)
         if held.isEmpty { held = [.cash] }
         let classes = AssetClass.knownValues.filter(held.contains) + held.subtracting(AssetClass.knownValues).sorted()
-        let order = groups.keys.sorted { ($0 ?? .min) < ($1 ?? .min) }
+        // The money you can draw first, then by age and by rate; taxable money first at an age.
+        let order = groups.keys.sorted {
+            ($0.opensAt ?? .min, $0.withdrawalRate ?? -1) < ($1.opensAt ?? .min, $1.withdrawalRate ?? -1)
+        }
         var buckets = order.map { key -> Bucket in
             let group = groups[key]!
-            return Bucket(name: key == nil ? "Money you can draw" : group.name.joined(separator: ", "),
-                          opensAtAge: key, values: classes.map { max(0, group.values[$0] ?? 0) },
+            return Bucket(name: key == drawable ? "Money you can draw" : group.name.joined(separator: ", "),
+                          opensAtAge: key.opensAt, withdrawalRate: key.withdrawalRate,
+                          values: classes.map { max(0, group.values[$0] ?? 0) },
                           basis: max(0, group.basis), accounts: group.accounts)
         }
 
-        // Debts are paid off from the money you can draw: cash first, then the rest proportionally.
+        // Debts are paid off from the money you can draw: the taxable money's
+        // cash first, then the rest of it proportionally, then the open
+        // pre-tax money, the same share of each group, after its tax.
+        var debtTax = 0.0
+        var rest = debt
         if debt > 0 {
-            issues.append(.warning("planner.debtIncluded",
-                                   "The plan includes debts of \(Int(debt.rounded())); it pays them off from the "
-                                       + "money you can draw at the start. Leave debts out of the plan if their "
-                                       + "payments are in your spending.", section: .portfolio))
-            var rest = debt
             if let cash = classes.firstIndex(of: .cash) {
                 let take = min(rest, buckets[0].values[cash])
                 buckets[0].values[cash] -= take
@@ -205,13 +257,40 @@ extension Portfolio {
             }
             let value = buckets[0].value
             if rest > 0, value > 0 {
-                let keep = max(0, 1 - rest / value)
+                let take = min(rest, value)
+                let keep = max(0, 1 - take / value)
                 for c in classes.indices { buckets[0].values[c] *= keep }
                 buckets[0].basis *= keep
+                rest -= take
             }
+            let preTax = buckets.indices.filter { $0 > 0 && buckets[$0].opensAtAge == nil }
+            let net = preTax.reduce(0) { $0 + buckets[$1].value * (1 - (buckets[$1].withdrawalRate ?? 0)) }
+            if rest > 0, net > 0 {
+                let share = min(1, rest / net)
+                for b in preTax {
+                    debtTax += share * buckets[b].value * (buckets[b].withdrawalRate ?? 0)
+                    for c in classes.indices { buckets[b].values[c] *= 1 - share }
+                    buckets[b].basis *= 1 - share
+                }
+                rest = max(0, rest - share * net)
+            }
+            var message = "The plan includes debts of \(Int(debt.rounded())); it pays them off from the money you "
+                + "can draw at the start"
+            if debtTax > 0 {
+                message += ", and the \(Int(debtTax.rounded())) of tax on what it takes from pre-tax accounts, "
+                    + "counted in the first year's taxes and taken off the plan assets"
+            }
+            if rest > 0.5 {
+                message += ". The money you can draw covers \(Int((debt - rest).rounded())) of them; the plan leaves "
+                    + "the rest out, of the plan assets too"
+            }
+            message += ". Leave debts out of the plan if their payments are in your spending."
+            issues.append(.warning("planner.debtIncluded", message, section: .portfolio))
         }
-        return Portfolio(buckets: buckets, classes: classes, startAssets: total, accounts: included.sorted(),
-                         debtPaidOff: debt)
+        // What the buckets hold: the debts left unpaid are left out.
+        let startAssets = total - Decimal.rounded(debtTax, scale: 2) + Decimal.rounded(rest, scale: 2)
+        return Portfolio(buckets: buckets, classes: classes, startAssets: startAssets, trackedAssets: total,
+                         accounts: included.sorted(), debtPaidOff: debt, debtWithdrawalTax: debtTax, debtUnpaid: rest)
     }
 
     /// A mix as `Double` shares summing to 1, or `nil` if it's empty.

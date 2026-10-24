@@ -106,6 +106,41 @@ struct DeterministicTests {
         #expect(close(first.savings, -10_000 / 0.875))
     }
 
+    /// A year that sells taxable and pre-tax money together sells the same
+    /// share s of both: the taxable money pays the investment rate on its
+    /// gain share, the pre-tax money its own rate on the whole amount.
+    @Test func aSaleTakesTheSameShareOfTaxableAndPreTaxMoney() async throws {
+        let library = Sample.library(birth: "1966-01-01", on: "2025-12-31", [
+            SampleAccount(id: "broker", balance: 100_000),
+            SampleAccount(id: "ira", kind: .pensionFund, balance: 50_000, withdrawalTaxRate: d("0.25")),
+        ])
+        let plan = Sample.plan(retire: .age(59), endAge: 64, retired: "10000", equityReturn: "0",
+                               investmentRate: "0.25", unrealizedGainShare: "0.5")
+        let result = try await Sample.run(plan, library)
+
+        // Taxable: t = 0.25 × 0.5 = 0.125; pre-tax: t = 0.25. A sale of the share s
+        // brings in s × (100,000 × 0.875 + 50,000 × 0.75) = s × 125,000, so
+        // s = 10,000 / 125,000 = 0.08: 8,000 sold from the broker, 1,000 of it tax
+        // on its gain, and 4,000 from the IRA, a quarter of it tax.
+        #expect(result.start.buckets.map(\.withdrawalTaxRate) == [nil, 0.25])
+        let first = try #require(result.expectedYear(2026))
+        #expect(close(first.income.first { $0.kind == .withdrawal }?.amount, 12_000))
+        #expect(close(first.investmentTax, 1_000))
+        #expect(close(first.withdrawalTax, 1_000))
+        #expect(close(first.withdrawalTax, 0.25 * 4_000))
+        #expect(close(first.totalTax, 2_000))
+        #expect(close(first.savings, -12_000))
+        #expect(close(first.endAssets, 92_000 + 46_000))
+
+        // 2027: the broker's gain share is 1 − 46,000 / 1.02 / 92,000.
+        let gain = 1 - 46_000 / 1.02 / 92_000
+        let share = 10_000 / (92_000 * (1 - 0.25 * gain) + 46_000 * 0.75)
+        let second = try #require(result.expectedYear(2027))
+        #expect(close(second.investmentTax, share * 92_000 * 0.25 * gain))
+        #expect(close(second.withdrawalTax, share * 46_000 * 0.25))
+        #expect(close(second.endAssets, (1 - share) * 138_000))
+    }
+
     /// Purchase costs stay in the money of the day they were paid, so the
     /// part of a value that's only inflation counts as gain.
     @Test func inflationCountsAsGain() async throws {

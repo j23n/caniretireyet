@@ -33,7 +33,8 @@ public struct PlanResults: Hashable, Sendable, Codable {
     public var markers: [ChartMarker]
     /// Retirement income per year by source (median run).
     public var income: [IncomeSegment]
-    /// Taxes per year, on investments and on wealth (median run).
+    /// Taxes per year, on investments, on wealth and on withdrawals from
+    /// pre-tax accounts (median run).
     public var taxes: [IncomeSegment]
     /// The spending target per year, drawn over the income chart.
     public var spending: [YearValue]
@@ -235,7 +236,7 @@ extension PlanResults {
             income: PlanResultsMapping.income(medianRetired),
             taxes: PlanResultsMapping.taxes(medianRetired),
             spending: medianRetired.map { YearValue(year: $0.year, value: PlanResultsMapping.whole($0.spending, $0)) },
-            start: BaselineStart(date: result.start.date, value: result.start.planAssets),
+            start: BaselineStart(date: result.start.date, value: result.start.trackedAssets),
             accounts: result.start.accounts,
             years: baseline.years,
             details: details,

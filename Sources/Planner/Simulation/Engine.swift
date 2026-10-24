@@ -173,14 +173,15 @@ struct Engine: Sendable {
     /// The plan assets at the start that make retiring at `age` reach the
     /// confidence level (PLANNER.md, "Assets needed to retire today").
     ///
-    /// It adds extra money X to the buckets that can be drawn at any age,
-    /// the liquid ones (``startPortfolio(extra:)``: split by the target mix
-    /// in force at today's age, with no unrealised gain), or takes money out of them (X < 0,
-    /// never below zero), and searches the plan assets S + X as a multiple
-    /// of today's S: from 1 it doubles (or halves) until the confidence
-    /// level is crossed, between ``AssetsNeeded/maximumScale`` and the
-    /// larger of 1 / ``AssetsNeeded/maximumScale`` and what's locked away,
-    /// then bisects on a log scale until the bracket is narrower than
+    /// It adds extra money X to the taxable money you can draw now, bucket
+    /// 0, not to pre-tax accounts (``startPortfolio(extra:)``: split by the
+    /// target mix in force at today's age, with no unrealised gain), or takes
+    /// money out of bucket 0 and the pre-tax buckets open now in proportion
+    /// (X < 0, never below zero). It searches the plan assets S + X as a
+    /// multiple of today's S: from 1 it doubles (or halves) until the
+    /// confidence level is crossed, between ``AssetsNeeded/maximumScale``
+    /// and the larger of 1 / ``AssetsNeeded/maximumScale`` and what's locked
+    /// away, then bisects on a log scale until the bracket is narrower than
     /// ``AssetsNeeded/tolerance``. Every amount uses the same random draws,
     /// and a run is taken to succeed with every amount above one it
     /// succeeded with (more money to draw doesn't make it fail), so runs

@@ -201,7 +201,8 @@ public enum Planner {
         let result = PlanResult(
             plan: plan, engine: engineVersion, planHash: planHash(plan),
             start: PlanStart(date: model.startDate, planAssets: model.portfolio.startAssets,
-                             accounts: model.portfolio.accounts, buckets: bucketSummaries(model.portfolio)),
+                             trackedAssets: model.portfolio.trackedAssets, accounts: model.portfolio.accounts,
+                             buckets: bucketSummaries(model.portfolio)),
             settings: SimulationSettings(runs: model.runs, endAge: model.endAge),
             answer: answer, successCurve: curve, focusAge: focus, fan: fan,
             expectedPath: PathDetail(failure: expectedOutcome.failure, years: expectedYears),
@@ -442,7 +443,8 @@ public enum Planner {
                 }
             }
             return BucketSummary(name: bucket.name, availableFromAge: bucket.opensAtAge, value: value,
-                                 costBasis: bucket.basis, mix: mix, accounts: bucket.accounts)
+                                 costBasis: bucket.basis, mix: mix, accounts: bucket.accounts,
+                                 withdrawalTaxRate: bucket.withdrawalRate)
         }
     }
 

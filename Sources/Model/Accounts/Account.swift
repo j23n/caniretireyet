@@ -42,13 +42,20 @@ public struct Account: Hashable, Sendable, Identifiable, KnownKeysProviding {
     /// `values` as written in the file: where a balance account's values
     /// come from. See ``effectiveValues`` and ``acceptsTypedValues``.
     public var values: ValueEntry?
+    /// The share of every amount plans take from the account that goes to
+    /// tax, from 0 to 1, set by hand, such as `0.2` for money taxed as income
+    /// when it comes out. Set, the account is pre-tax money: plans tax what
+    /// they take from it at this rate in place of the plan's rate on
+    /// investments. `nil` means it's taxed like any other investment.
+    public var withdrawalTaxRate: Decimal?
 
     public init(
         id: AccountID, name: String, kind: AccountKind, currency: CurrencyCode, opened: CalendarDate,
         closed: CalendarDate? = nil, institution: String? = nil, country: CountryCode? = nil,
         valuation: ValuationMode? = nil, assetClasses: AssetMix? = nil, availableFromAge: Int? = nil,
         includeIn: IncludeIn? = nil, successor: AccountID? = nil, tags: [String] = [],
-        notes: String? = nil, depreciation: Decimal? = nil, values: ValueEntry? = nil
+        notes: String? = nil, depreciation: Decimal? = nil, values: ValueEntry? = nil,
+        withdrawalTaxRate: Decimal? = nil
     ) {
         self.id = id
         self.name = name
@@ -67,6 +74,7 @@ public struct Account: Hashable, Sendable, Identifiable, KnownKeysProviding {
         self.notes = notes
         self.depreciation = depreciation
         self.values = values
+        self.withdrawalTaxRate = withdrawalTaxRate
     }
 }
 
@@ -180,7 +188,7 @@ extension Account {
 extension Account: Codable {
     enum CodingKeys: String, CodingKey, CaseIterable {
         case id, name, kind, currency, opened, closed, institution, country, valuation, assetClasses,
-             availableFromAge, includeIn, successor, tags, notes, depreciation, values
+             availableFromAge, includeIn, successor, tags, notes, depreciation, values, withdrawalTaxRate
     }
 
     public static var knownKeys: Set<String> { Set(CodingKeys.allCases.map(\.stringValue)) }
@@ -204,6 +212,7 @@ extension Account: Codable {
         notes = try c.decodeIfPresent(String.self, forKey: .notes)
         depreciation = try c.decodeDecimalIfPresent(forKey: .depreciation)
         values = try c.decodeIfPresent(ValueEntry.self, forKey: .values)
+        withdrawalTaxRate = try c.decodeDecimalIfPresent(forKey: .withdrawalTaxRate)
     }
 
     public func encode(to encoder: any Encoder) throws {
@@ -225,6 +234,7 @@ extension Account: Codable {
         try c.encodeIfPresent(notes, forKey: .notes)
         try c.encodeDecimalIfPresent(depreciation, forKey: .depreciation)
         try c.encodeIfPresent(values, forKey: .values)
+        try c.encodeDecimalIfPresent(withdrawalTaxRate, forKey: .withdrawalTaxRate)
     }
 }
 

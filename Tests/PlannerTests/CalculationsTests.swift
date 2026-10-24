@@ -61,4 +61,29 @@ struct CalculationsTests {
         #expect(text.contains("| Accounts available later 1 | 60 | 50,000 | 50,000 |"))
         #expect(text.contains("starting in 2025,"))
     }
+
+    /// A pre-tax account shows its rate in the starting portfolio, and the
+    /// years their tax on withdrawals next to the other two taxes.
+    @Test func preTaxAccountsShowTheirTaxOnWithdrawals() async throws {
+        let library = Sample.library(birth: "1966-01-01", on: "2025-12-31", [
+            SampleAccount(id: "secret-broker", balance: 100_000),
+            SampleAccount(id: "secret-ira", kind: .pensionFund, balance: 50_000, withdrawalTaxRate: d("0.2")),
+        ])
+        let plan = Sample.plan(retire: .age(59), endAge: 64, retired: "10000", equityReturn: "0",
+                               investmentRate: "0.25", unrealizedGainShare: "0.5")
+        let text = try await Planner.calculations(plan: plan, library: library,
+                                                  options: CalculationsOptions(anonymize: true, today: "2026-01-02"))
+        #expect(text.contains("| Accounts | Available from | Value | Purchase cost | Mix | Tax on withdrawals |"))
+        #expect(text.contains("| Money you can draw | now | 100,000 | 50,000 | equity 100% | – |"))
+        #expect(text.contains("| Pre-tax accounts 1 | now | 50,000 | 50,000 | equity 100% | 20% |"))
+        #expect(text.contains("| Tax on investments | Wealth tax | Tax on withdrawals | Sold |"))
+        #expect(text.contains("pre-tax accounts pay their own rate"))
+
+        // 2026: s × (100,000 × 0.875 + 50,000 × 0.8) = 10,000, so s = 10,000 / 127,500:
+        // the IRA's 3,922 sold pays 784 (rounded to 800).
+        let lines = text.components(separatedBy: "\n")
+        let start = try #require(lines.firstIndex { $0.hasPrefix("## The deterministic run") })
+        let first = try #require(lines[(start + 4)...].first)
+        #expect(first.hasPrefix("| 2026 | 60 | 0 | 0 | 10,000 | 0 | 1,000 | 0 | 800 |"), "\(first)")
+    }
 }
