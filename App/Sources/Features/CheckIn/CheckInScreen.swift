@@ -134,6 +134,14 @@ struct CheckInScreen: View {
     }
 
     private func save() {
+        // A typed balance that can't be saved stops here, with the page
+        // and its fields as typed.
+        do {
+            _ = try typedEdits.valuations(today: .today(), locale: locale)
+        } catch {
+            saveError = error.localizedDescription
+            return
+        }
         isSaving = true
         saveError = nil
         Task {
