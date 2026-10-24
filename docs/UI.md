@@ -608,7 +608,7 @@ A brokerage, crypto or metals account records its **trades** ([TRADES.md](TRADES
 
 ## Plan
 
-A plan picker sits at the top (Base case ▾: the plans, then New Plan, Duplicate, Rename…, Set as Main Plan, *Export Calculations…* under how the results shown were calculated, "Calculated at 09:41 with 2.000 runs" or "Not calculated yet", and Delete…, whose confirmation says "The dates it worked out at your check-ins stay in the library."). Then one page: your date, the levers that move it, your life in chapters, the chosen chapter with its settings, the key numbers, and what every chapter assumes. On the Mac and iPad the toolbar also has *Calculate* (*Recalculate* once there are results). *New Plan*, *Duplicate*, moving the levers, *Save as Plan…* and *Export Calculations…* come with [Plus](#plus); without it they open the paywall.
+The plan's name is its menu (Base case ▾: the plans, then New Plan, Duplicate, Rename…, Set as Main Plan, *Export Calculations…* under how the results shown were calculated, "Calculated at 09:41 with 2.000 runs" or "Not calculated yet", and Delete…, whose confirmation says "The dates it worked out at your check-ins stay in the library."). Then one page: your date and the levers that move it, your chapters, and the key numbers with what every chapter assumes. On iPhone the page has no navigation bar: the header card names the plan. On the Mac and iPad a header row holds the name, how the results were calculated and *Assumptions…*, *Target Mix…*, *Duplicate* and *Save as Plan…*; the toolbar has *Calculate* (*Recalculate* once there are results). *New Plan*, *Duplicate*, moving the levers, *Save as Plan…* and *Export Calculations…* come with [Plus](#plus); without it they open the paywall.
 
 ### Calculating
 
@@ -637,92 +637,63 @@ A plan calculates on its own, in the background. The Plan screen runs it 600 ms 
 
 ### The plan
 
-The plan reads as a life ([PLANNER.md](PLANNER.md#chapters)): your date first, then the levers that move it, then your life as a list of **chapters**, then the chosen chapter: what happens in it, in words, and its settings, where the plan changes. A chapter starts in the year the work you do changes, work stops, the first pension is paid, or retirement spending moves to another phase; everything else (another pension, a contribution, an event, a change of the target mix) belongs to the chapter it starts or happens in.
+The plan reads as a life ([PLANNER.md](PLANNER.md#chapters)): your date first, with the levers that move it, then your life as **chapters**, each with what happens in it, in words, and its settings, where the plan changes. A chapter starts in the year the work you do changes, work stops, the first pension is paid, or retirement spending moves to another phase; everything else (another pension, a contribution, an event, a change of the target mix) belongs to the chapter it starts or happens in.
+
+On iPhone:
 
 ```
 ┌──────────────────────────────────────────┐
-│ Base case ▾                          ⋯   │
-│ Your last Monday at work                 │
-│ 27 March 2051, at 63                     │
-│ In 9 of 10 futures.                      │
+│ ╭──────────────────────────────────────╮ │
+│ │ Base case ▾                 Levers ⌄ │ │
+│ │ 27 March 2051, at 63                 │ │
+│ ╰──────────────────────────────────────╯ │
 │ ⓘ TFR counts as cash: it has no mix of   │
 │   investments set. Set one…              │
-│ ╭ Levers ──────────────────────────────╮ │
-│ │ Stop working at                   63 │ │
-│ │ ────────────────●─────────────────── │ │
-│ │ Spending              3.000 € a month│ │
-│ │ ──────────●───────────────────────── │ │
-│ │ Saving                  333 € a month│ │
-│ │ ───────────────●──────────────────── │ │
-│ │ Shares, above inflation  3.14% a year│ │
-│ │ ─────────●────────────────────────── │ │
-│ │ Move a lever and your date follows.  │ │
-│ ╰──────────────────────────────────────╯ │
-│ Your life in four chapters               │
+│ Your four chapters                  Add  │
 │ ╭──────────────────────────────────────╮ │
-│ │ ① Employee                         › │ │
-│ │   Now to 54 · 2026 to 2042           │ │
-│ │ ② Bridge                           ⌄ │ │
-│ │   54 to 67 · 2042 to 2055            │ │
-│ │ ③ Pension                          › │ │
-│ │   67 to 85 · 2055 to 2073            │ │
-│ │ ④ Slowing down                     › │ │
-│ │   85 to 95 · 2073 to 2083            │ │
+│ │ ① Employee                 now to 41 │ │
+│ │   ▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇   │ │
+│ │   4.200 € take-home, 3.000 € spent,  │ │
+│ │   1.200 € saved a month              │ │
+│ │ ③ Bridge years              55 to 67 │ │
+│ │   ╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱   │ │
+│ │   3.000 € a month from your savings  │ │
+│ │ ④ Pensions                     67 on │ │
+│ │   ▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇╱╱╱╱╱╱╱╱╱╱╱╱╱   │ │
+│ │   1.900 € from pensions, 1.100 € …   │ │
 │ ╰──────────────────────────────────────╯ │
-│ ╭──────────────────────────────────────╮ │
-│ │ ② Bridge                      ‹  ›   │ │
-│ │   54 to 67 · 2042 to 2055 · 13 years │ │
-│ │ WHAT HAPPENS                         │ │
-│ │ You stop working as early as you     │ │
-│ │ can, at 54 in 2042, and spend        │ │
-│ │ 3.000 € a month, all from your       │ │
-│ │ savings.                             │ │
-│ │ ▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇ │ │
-│ │ 3.400 € from savings                 │ │
-│ │          400 € of it tax, on average │ │
-│ │ WHAT CAN GO WRONG                    │ │
-│ │ ⚠ In 4 in 100 futures, the money     │ │
-│ │   you can draw runs out before       │ │
-│ │   Fondo pensione opens at 67.        │ │
-│ ╰──────────────────────────────────────╯ │
-│ Settings         A month, in today's EUR │
-│ ╭──────────────────────────────────────╮ │
-│ │ ▣ Stop working As early as you can › │ │
-│ │   At 54, in 2042                     │ │
-│ │ ▣ Spending                 3.000 € › │ │
-│ │ ▣ Flexible spending            Off › │ │
-│ │ ▣ Inheritance           +150.000 € › │ │
-│ │   At 62 · 80% likely                 │ │
-│ ╰──────────────────────────────────────╯ │
-│ + Add to this chapter                    │
 │ Key numbers                              │
-│ …                                        │
-│ Assumptions…   Export Calculations…      │
+│ ╭──────────────────────────────────────╮ │
+│ │ You could spend from 55      2.350 € │ │
+│ │ If you stopped saving now stop at 71 │ │
+│ │ Assumptions    5% shares, 2% infl. › │ │
+│ ╰──────────────────────────────────────╯ │
 └──────────────────────────────────────────┘
 ```
 
-- **Your date.** The plan's answer as Today says it ([Today](#today)): "Your last Monday at work", then "27 March 2051, at 63" in large type ("You could stop today" or "Not yet" without a date), then "In 9 of 10 futures." ("No age works out in 9 of 10 futures yet. Try the levers."). Once a lever has moved, the label reads "With your levers" in the accent and the date is the what-if's, with a chip for how far the levers moved it: "A year sooner than the plan", "The same as the plan". The date dims while the results are being recalculated or no longer fit. Before the first calculation it's the answer recorded at the last check-in. A calculation's progress shows under it ([Calculating](#calculating)).
-  - What stops the plan from answering (it can't run, a change wasn't saved) shows above it as a banner, with *Try Again* under the date after a failed run; what it assumed that you may want to change shows under it, quietly, a line each with the way to fix it: "TFR counts as cash: it has no mix of investments set. *Set one…*", which opens the account (two at most; the rest with the inputs they concern).
+On the Mac and iPad the levers sit beside the answer's card (the date large, "at 63", "Stop at 55: 4 in 10", and the chance by retirement age), the chapters are a table ("Chapter", "Ages", "Take-home", "Spending", "Saved", "Where it goes", and "One-offs" when there's room) with the chosen chapter's words and settings under it, and when the page is wide the key numbers and the assumptions take a column on the right.
+
+- **Your date.** On iPhone, in the header card: the plan menu, small and grey, over "27 March 2051, at 63" ("You could stop today" or "Not yet" without a date; "No age works out in 9 of 10 futures yet. Try the levers." under it), with *Levers* on the right. On the Mac and iPad, the answer's card: "Earliest last Monday, in 9 of 10 futures", then the date in large type, "at 63", and how sure stopping at the plan's own age is ("Stop at 55: 4 in 10") when that isn't the earliest age. Once a lever has moved, the date is the what-if's, with a chip for how far the levers moved it: "A year sooner than the plan", "The same as the plan" (on the Mac the label reads "With your levers, in 9 of 10 futures" in the accent). The date dims while the results are being recalculated or no longer fit. Before the first calculation it's the answer recorded at the last check-in. A calculation's progress shows under it ([Calculating](#calculating)).
+  - What stops the plan from answering (it can't run, a change wasn't saved) shows above it as a banner, with *Try Again* after a failed run; what it assumed that you may want to change shows under it, quietly, a line each with the way to fix it: "TFR counts as cash: it has no mix of investments set. *Set one…*", which opens the account (two at most; the rest with the inputs they concern).
   - **Feedback screenshots** hide the date, the age, the futures and the levers' values; amounts are amounts.
-- **Levers.** A card under the date: sliders, their values in words: **Stop working at** ("55"), **Spending** ("3.000 € a month", in retirement; the plan keeps it a year), **Saving** ("333 € a month", while working; "Once calculated" until the plan has run) and **Shares, above inflation** ("3.14% a year": equity's typical year, its median real return, as the defaults are given; the mean follows from the plan's volatility). Spending and saving move 50 a month at a time (`PlanWhatIfModel`).
-  - Before a move it says "Move a lever and your date follows." The what-if runs 350 ms after the last move: a first pass with fewer runs, then all 2,000, with the same random draws, while a spinner beside *Levers* says "Updating your date". A position calculated before shows again at once. The date above follows ("With your levers").
-  - After a move: *Reset* puts the levers back, and *Save as Plan…* asks for a name ("Save as plan": "A new plan with the levers where they are. This plan stays as it was."; left empty, "Base case, changed", made unique). The new plan opens, and this plan's levers reset.
-- **Chance of success by retirement age.** Beside the levers on the Mac and iPad, once there are results ([Charts](#design-system)):
+- **Levers.** On iPhone *Levers* in the header shows them in a card under it (filled in the accent once one has moved, and shown while they have); on the Mac and iPad they're a card beside the answer. Sliders, each with its name and value on one line: **Stop working at** ("55"), **Spend a month** ("3.000 €", in retirement; the plan keeps it a year), **Save a month** ("333 €", while working; "Once calculated" until the plan has run) and **Shares above inflation** ("3.14%" a year: equity's typical year, its median real return, as the defaults are given; the mean follows from the plan's volatility). On the Mac the values sit in field-like boxes. Spending and saving move 50 a month at a time (`PlanWhatIfModel`).
+  - Before a move it says "Move a lever and your date follows." The what-if runs 350 ms after the last move: a first pass with fewer runs, then all 2,000, with the same random draws, while a spinner beside *Levers* says "Updating your date". A position calculated before shows again at once. The date follows.
+  - After a move: *Reset* (beside *Levers*) puts the levers back, and *Save as Plan…* (under the levers on iPhone, in the header row on the Mac and iPad) asks for a name ("Save as plan": "A new plan with the levers where they are. This plan stays as it was."; left empty, "Base case, changed", made unique). The new plan opens, and this plan's levers reset.
+- **Chance of success by retirement age.** In the answer's card on the Mac and iPad, once there are results ([Charts](#design-system)):
   - One line; a dotted rule at your confidence level, labelled at its right end, below the rule where the curve ends above it; the earliest age marked where they cross.
   - The age axis runs from today's age to the last age simulated, labelled every 5 years (every 10 when narrow), never from 0.
-  - Tapping (or clicking) another age makes it the age the charts and the chapters are for ("Charts for retiring at 57 · 62%", with *Plan's age* to go back); dragging across the curve, or hovering over it on the Mac, only shows the chance at each age. Charts calculated before for that age show at once; otherwise they come with *Recalculate*.
+  - Tapping (or clicking) another age makes it the age the chapters are cut at ("Chapters for stopping at 57 · 6 in 10", with *Plan's age* to go back); dragging across the curve, or hovering over it on the Mac, only shows the chance at each age.
   - Steps where a pension starts or an account opens show as steps.
-- **Your life in chapters.** "Your life in four chapters": a card with a row per chapter: its number in the colour of its kind of life (grey while working or between jobs, orange for the bridge before the pensions, violet with them, a lighter violet for a later phase of spending), its name ("Employee", "Not working", "Bridge", "Retired" when no pension is ever paid, "Pension" or "Pensions", "Slowing down" or "Spending more" for a later phase) and its span ("Now to 54 · 2026 to 2042"), with a chevron. Tapping a row chooses the chapter: its number filled, its chevron pointing down in the accent. The choice follows the chapter's first year, so it stays put while an edit moves the chapters.
-- **The chosen chapter.** Under the list, at the page's full width: its number, name, span and length ("54 to 67 · 2042 to 2055 · 13 years"), with ‹ › on iPhone (⌘[ and ⌘] with a keyboard) to step through the chapters. Then two parts, one to read and one to change: side by side when there's room (the settings 380 points wide), the settings under the words otherwise. Each value has one place where it changes.
-  - **What happens**, in words that only read, their values in bold: "You take home **4.500 €** a month and spend **3.000 €**, so you save about 1.500 €.", "You stop working **as early as you can**, at 54 in 2042, and spend **3.000 €** a month, all from your savings.", "**State pension** pays **1.100 €** a month from **67**.", "In **2031** you spend **25.000 €** on **New car**." Amounts are a month's, from the plan's yearly ones, in today's money. An uncertain windfall says what it's worth to the answer: "At **62** you may receive **150.000 €** from **Inheritance**, **80%** likely; without it, your earliest age would be 56." ([PLANNER.md](PLANNER.md#ages-without)).
-  - **A month**: a month's money as one bar, every chapter's on the same scale. While working, pay spent and saved ("Pay 4.500 € · spend 3.000 €", "save 1.500 €"), or, when pay falls short, what your savings add; retired, what comes from your savings and, once calculated, the tax on what's sold, as the chapter's average a month in the median run ("400 € of it tax, on average"; from its first whole year of retirement to its last, the years the run reaches, a year without tax counting as none). An average, not the first year's: the share of gain in what's sold grows over the years, as what was paid for what's left shrinks with each sale and with inflation while its value keeps its returns, so the first year pays the least. With pensions or other income, what they pay ("Pensions", "Other income", or "Income" for both) and what's left to draw or to spare.
-  - **Along the way, typically**: the milestones the median future reaches in the chapter, a flag, the name and when ("400.000 €", "mid 2027"), four at most, then "And 2 more ahead." ([Milestones](#milestones)).
+- **Your chapters.** "Your four chapters", with *Add* (a work phase, a pension, a later phase of spending, other income, a contribution or an event, each in the chapter it starts in). On iPhone a card with a row per chapter: its number, white in a circle of the colour of its kind of life (grey while working or between jobs, orange for the bridge before the pensions, violet with them, a lighter violet for a later phase of spending), its name ("Employee", "Not working", "Bridge", "Retired" when no pension is ever paid, "Pension" or "Pensions", "Slowing down" or "Spending more" for a later phase) and its ages on the right ("now to 41", "41 to 55", "67 on"); under them a thin bar of where a month's money goes (pay spent in light blue and saved in blue, pensions in violet, what comes from savings striped in orange) and one line of figures: "4.200 € take-home, 3.000 € spent, 1.200 € saved a month", "3.000 € a month from your savings", "1.900 € from pensions, 1.100 € from savings". Tapping a row opens the chapter in a sheet, titled with its name and "41 to 55, 2029 to 2043", with *Done*. On the Mac and iPad the chapters are a table, a line each with a month's take-home pay, spending and saving (below zero in orange when it comes from savings), the bar and the one-offs ("New car 2031, 25.000 €"), then *Add*, *Flexible Spending…* and *Taxes…*; clicking a line chooses the chapter, whose number, name, span and length ("41 to 55, 2029 to 2043 · 14 years", with ‹ ›, ⌘[ and ⌘]) and words and settings follow the table, side by side when there's room. The choice follows the chapter's first year, so it stays put while an edit moves the chapters. Each value has one place where it changes.
+  - **What happens**, on a card, in words that only read, their values in bold: "You take home **4.500 €** a month and spend **3.000 €**, so you save about 1.500 €.", "You stop working **as early as you can**, at 54 in 2042, and spend **3.000 €** a month, all from your savings.", "**State pension** pays **1.100 €** a month from **67**.", "In **2031** you spend **25.000 €** on **New car**." Amounts are a month's, from the plan's yearly ones, in today's money. An uncertain windfall says what it's worth to the answer: "At **62** you may receive **150.000 €** from **Inheritance**, **80%** likely; without it, your earliest age would be 56." ([PLANNER.md](PLANNER.md#ages-without)).
+  - Under the words, a month's money as a bar, with a line under it: while working, "Spent 3.000 €" and "Saved 1.500 €", or, when pay falls short, what your savings add; retired, what comes from your savings and, once calculated, the tax on what's sold, as the chapter's average a month in the median run ("400 € of it tax, on average"; from its first whole year of retirement to its last, the years the run reaches, a year without tax counting as none). An average, not the first year's: the share of gain in what's sold grows over the years, as what was paid for what's left shrinks with each sale and with inflation while its value keeps its returns, so the first year pays the least. With pensions or other income, what they pay ("Pensions", "Other income", or "Income" for both) and what's left to draw or to spare.
+  - **Along the way, typically**: the milestones the median future reaches in the chapter, as rows, the name and when ("400.000 €", "mid 2027"), four at most, then "And 2 more ahead." ([Milestones](#milestones)).
   - **What can go wrong**, once calculated: in the bridge, "In 3 in 100 futures, the money you can draw runs out before Fondo pensione opens at 67."; in a chapter where futures run out, "Most of the futures that run out here do so before 85."
-  - **Settings** ("A month, in today's EUR"): every input that starts in the chapter, once, as a row with an icon, its name and second line, and its value: when work stops ("As early as you can", "At 54, in 2042"), spending while working or in retirement and flexible spending ("Never below 80%", "Off"), a later phase of spending ("Spending from 75", "90% of spending in retirement"), work phases ("Employee", "2026–42 · take-home pay · grows 1% a year"), pensions ("From 67, after tax"), other income ("From when you stop working until 60, after tax"), contributions ("Into Fondo pensione", "Until you stop working", or "Once, in 2031" with its amount), events ("At 62 · 80% likely", "+150.000 €"), the target mix and its changes with age ("Your savings from 60", "60% in shares") and the plan's end in the last chapter; "Nothing starts in this chapter." without any. When work stops and the plan's end open their small editor (a popover pointing at the row on the Mac and iPad, a sheet on iPhone): its stepper or switch, applied as you change it. Spending (while working, in retirement, flexible, and each later phase) and an item open a sheet, the target mix its own. A sheet has a grouped form with an inline title, *Cancel* and *Done*: it edits a copy, which *Done* writes into the plan, and while it has changes, swiping it down does nothing. An input's problems show on its row. Under the rows, what carries on from earlier chapters ("Continuing: Spending while working · Saving into Fondo pensione · Target mix"), and **Add to this chapter**: before retirement, a work phase (from the chapter's first day) or a contribution (in a later chapter, a one-off in its first year); in retirement, a pension from the chapter's first age or a later spending phase from its middle; in any, other income (from when work stops in the chapter it stops in, else from the chapter's first age) and an event in its first year. Each opens its sheet, titled for a new one ("New later spending"), and adds nothing until *Done*.
+  - **In this chapter** ("A month, in today's EUR"): every input that starts in the chapter, once, as a row with its name and its value, each on one line, and a chevron: when work stops ("As early as you can"), spending while working or in retirement and flexible spending ("Never below 80%", "Off"), a later phase of spending ("Spending from 75"), take-home pay, pensions, other income, contributions ("Into Fondo pensione", or a one-off's amount), events ("2031, −25.000 €"), the target mix and its changes with age ("Your savings from 60", "60% in shares") and the plan's end in the last chapter; "Nothing starts in this chapter." without any. VoiceOver adds each row's details ("At 54, in 2042", "From 67, after tax"). When work stops and the plan's end open their small editor (a popover pointing at the row on the Mac and iPad, a sheet on iPhone): its stepper or switch, applied as you change it. Spending (while working, in retirement, flexible, and each later phase) and an item open a sheet, the target mix its own. A sheet has a grouped form with an inline title, *Cancel* and *Done*: it edits a copy, which *Done* writes into the plan, and while it has changes, swiping it down does nothing. An input's problems show on its row. Under the rows, what carries on from earlier chapters ("Continuing: Spending while working · Saving into Fondo pensione · Target mix"), and **Add to This Chapter**: before retirement, a work phase (from the chapter's first day) or a contribution (in a later chapter, a one-off in its first year); in retirement, a pension from the chapter's first age or a later spending phase from its middle; in any, other income (from when work stops in the chapter it stops in, else from the chapter's first age) and an event in its first year. Each opens its sheet, titled for a new one ("New later spending"), and adds nothing until *Done*.
 - **The age they're cut at.** Work stops at the age the charts are for: one chosen on the chance-by-age chart, else the levers', else the plan's own, else the earliest age the plan found, else the one recorded at the last check-in. A plan asking for the earliest age with none of these yet assumes 65 until it's calculated, and says so where work stops. When the charts are for an age chosen on the chart, it says that, with *Plan's age*.
-- **Outside the plan's years.** Inputs that apply in no year the plan runs (an event after its end, a work phase over before it starts, a pension without an age) are listed after the chapter as settings, like the rest. Without a birth date there are no chapters: a card asks for it instead.
-- **Key numbers.** Once there are results, a card after the chapters: earliest retirement and its date, the chance at the target age and what you could spend then (the engine's solver for the highest spending that still meets your confidence level), what retiring today would need ([PLANNER.md](PLANNER.md#assets-needed-to-retire-today)): "Needed to retire today", "Extra in accounts you can draw now" and "You have 58%", or "At most what's locked away" when retiring today works even with the money you can draw emptied; the median at retirement and at the end, lifetime taxes, and how often the money runs out before a locked account opens; after a full calculation, the earliest age saving nothing more ("Saving nothing more, retire at") and saving at your pace of the last 12 months ("Saving at your pace of the last 12 months, retire at", left out without a pace; [PLANNER.md](PLANNER.md#ages-without)). In today's money, in the library's base currency.
-- **Assumptions.** At the page's end, *Assumptions…*, *Export Calculations…* and the disclaimer. *Assumptions…* opens what every chapter shares, a sheet of collapsible cards with a one-line summary each: **You** (the birth date, as in Settings), **Taxes**, **Assumptions**, **Target mix** and **Simulation**.
+- **Outside the plan's years.** Inputs that apply in no year the plan runs (an event after its end, a work phase over before it starts, a pension without an age) are listed after the chapters as settings, like the rest. Without a birth date there are no chapters: a card asks for it instead.
+- **Key numbers.** Once there are results, rows on one card after the chapters: what you could spend from the age the chapters are cut at ("You could spend from 55", "2.350 € a month": the engine's solver for the highest spending that still meets your confidence level) and, after a full calculation, the earliest age saving nothing more ("If you stopped saving now", "stop at 71"; [PLANNER.md](PLANNER.md#ages-without)); then **Assumptions** ("5% shares, 2% inflation"), a row that opens them. On the Mac and iPad, in the column beside the chapters, also the earliest age saving at your pace of the last 12 months ("Saving at last year's pace", left out without a pace), what retiring today would need ([PLANNER.md](PLANNER.md#assets-needed-to-retire-today)), or "At most what's locked away" when retiring today works even with the money you can draw emptied, the money at the plan's end and the taxes over a lifetime, typically, and how often the money runs out before a locked account opens. In today's money, in the library's base currency. The rest is in *Export Calculations…*.
+- **Assumptions.** On the Mac and iPad a card of rows under the key numbers (inflation, shares above inflation, the tax on investments, the target mix, the plan's end and the simulation), each opening *Assumptions…*, the target mix its own sheet. *Assumptions…* opens what every chapter shares, a sheet of collapsible cards with a one-line summary each: **You** (the birth date, as in Settings), **Taxes**, **Assumptions**, **Target mix** and **Simulation**. The disclaimer ends the page.
 - **Problems** are worded for the screen: accounts by their names, not their IDs ("A contribution goes into Fondo pensione, which the plan doesn't count; it's left out.").
 
 #### The editors
