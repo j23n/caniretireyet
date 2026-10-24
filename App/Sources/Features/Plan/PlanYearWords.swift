@@ -281,18 +281,16 @@ struct PlanYearCheckIns: View {
                     .foregroundStyle(Palette.secondaryInk)
                     .fixedSize(horizontal: false, vertical: true)
             } else {
-                Grid(alignment: .leading, horizontalSpacing: Metrics.l, verticalSpacing: 0) {
+                // No modifiers on the rows themselves: they'd turn each into one cell.
+                Grid(alignment: .leading, horizontalSpacing: Metrics.l, verticalSpacing: 7) {
                     GridRow {
-                        Text("Month")
-                        Text("Money").gridColumnAlignment(.trailing)
-                        Text("You saved").gridColumnAlignment(.trailing)
-                        Text("Markets").gridColumnAlignment(.trailing)
-                        Text("Age").gridColumnAlignment(.trailing)
-                        Text("Moved").gridColumnAlignment(.trailing)
+                        header("Month")
+                        header("Money").gridColumnAlignment(.trailing)
+                        header("You saved").gridColumnAlignment(.trailing)
+                        header("Markets").gridColumnAlignment(.trailing)
+                        header("Age").gridColumnAlignment(.trailing)
+                        header("Moved").gridColumnAlignment(.trailing)
                     }
-                    .font(.subheadline)
-                    .foregroundStyle(Palette.mutedInk)
-                    .padding(.bottom, Metrics.xs)
                     ForEach(rows) { row in
                         Divider()
                         GridRow {
@@ -310,16 +308,21 @@ struct PlanYearCheckIns: View {
                                 .foregroundStyle(Self.movedColor(row.moved))
                                 .privacySensitiveInFeedback()
                         }
-                        .lineLimit(1)
-                        .padding(.vertical, 7)
-                        .accessibilityElement(children: .combine)
                     }
                 }
+                .lineLimit(1)
             }
         }
         .padding(Metrics.l)
         .frame(maxWidth: .infinity, alignment: .leading)
         .cardSurface()
+    }
+
+    /// A column's header: small and grey.
+    private func header(_ title: LocalizedStringKey) -> some View {
+        Text(title)
+            .font(.subheadline)
+            .foregroundStyle(Palette.mutedInk)
     }
 
     /// "1 y sooner", "2 y later", "same"; empty without ages to compare.
@@ -407,7 +410,6 @@ struct PlanYearWhy: View {
                             PlanWhyBar(share: (abs(row.value) / largest).doubleValue, isPositive: row.value >= 0)
                             amountText(row.value)
                         }
-                        .accessibilityElement(children: .combine)
                     }
                     Divider()
                         .gridCellColumns(3)
@@ -420,7 +422,6 @@ struct PlanYearWhy: View {
                             .frame(height: 1)
                         amountText(explanation.end, isTotal: true)
                     }
-                    .accessibilityElement(children: .combine)
                 }
                 .font(PlanProgressFont.text)
                 if let expected {
