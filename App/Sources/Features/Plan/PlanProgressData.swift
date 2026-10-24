@@ -111,6 +111,19 @@ extension PlanProgressYear {
         return words.capitalizedFirst
     }
 
+    /// When the year's plan was kept, as the year's chart and verdict say
+    /// it: "January" (its own automatic baseline, kept at its first
+    /// check-in), the month when that was later ("October"), the year of a
+    /// past baseline ("2021").
+    func plannedIn(locale: Locale = .current) -> String {
+        let january = AmountFormat.monthName(CalendarDate.firstDay(ofYear: year), locale: locale)
+        guard let baseline else { return january }
+        let start = baseline.baseline.start.date
+        if baseline.baseline.kind == .past { return String(start.year) }
+        guard start.year == year, start.month > 1 else { return january }
+        return AmountFormat.monthName(start, locale: locale)
+    }
+
     /// What deleting `entry` changes, for its confirmation: which of `years`
     /// measured against it are then measured against another baseline
     /// (``baseline(for:in:)`` among those left) and which have none; whether
@@ -438,6 +451,21 @@ enum PlanProgressText {
         if year.checkIns == 0 { return "No check-ins · from prices" }
         guard year.baseline != nil else { return "No plan kept in January" }
         return year.isLatest ? "Measured from your next check-in" : "Baseline saved at its last check-in"
+    }
+
+    /// The year's verdict in a line, over its chart: "Ahead of what you
+    /// planned in January", "On track with what you planned in October",
+    /// "Behind what you planned in 2021"; "Ended ahead of …" for a past
+    /// year. `nil` without a position.
+    static func verdict(_ year: PlanProgressYear, locale: Locale = .current) -> String? {
+        guard let position = year.position else { return nil }
+        let planned = "what you planned in \(year.plannedIn(locale: locale))"
+        let words: String = switch position.standing {
+        case .ahead: "ahead of \(planned)"
+        case .onPlan: "on track with \(planned)"
+        case .behind: "behind \(planned)"
+        }
+        return year.isLatest ? words.capitalizedFirst : "Ended \(words)"
     }
 
     /// "Ahead of plan.", "On plan.", "Behind plan." for the latest year:
