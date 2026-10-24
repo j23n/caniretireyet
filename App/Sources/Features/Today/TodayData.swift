@@ -55,43 +55,116 @@ extension BreakdownDimension {
 // Tracker's `Valuator.changeThisYear(asOf:)`, from the same 31 December
 // (tested in TrackerTests, and against `NetWorthGlance` in GlanceTests).
 
+// MARK: - The answer
+
+/// Today's words that the package doesn't have (UI.md, "Today").
+enum TodayText {
+    /// The line under the date on iPhone: "At 63, about 25 years from now,
+    /// in 9 of 10 futures." Two years or more are rounded to the nearest
+    /// year (24 years 6 months reads 25); less is in months. Without a date
+    /// after `today`, Glance's line: "At 63, in 9 of 10 futures."
+    static func line(_ lastMonday: LastMonday, today: CalendarDate) -> String {
+        guard let countdown = RetirementCountdown(from: today, to: lastMonday.date) else {
+            return GlanceText.lastMondayLine(lastMonday)
+        }
+        let away: String
+        if countdown.years >= 2 {
+            let years = countdown.years + (countdown.months >= 6 ? 1 : 0)
+            away = "about \(Wording.count(years, "year")) from now"
+        } else if countdown.totalMonths == 0 {
+            away = "under a month from now"
+        } else {
+            away = "\(Wording.count(countdown.totalMonths, "month")) from now"
+        }
+        return "At \(lastMonday.age), \(away), in \(GlanceText.futures(lastMonday.confidence)) futures."
+    }
+
+    /// A move as a short value: "A year sooner", "2 years later", "The same".
+    static func move(_ move: LastMondayMove) -> String {
+        guard move.years != 0 else { return "The same" }
+        let years = abs(move.years)
+        return "\(years == 1 ? "A year" : "\(years) years") \(move.isSooner ? "sooner" : "later")"
+    }
+
+    /// The title over what moved at the last check-in: "What moved it in
+    /// September" when the check-in before was the end of the month
+    /// before, else "What moved it since 15 Aug". With `saysIt` the title
+    /// points at the date above it (iPhone); else "What moved in September".
+    static func movedTitle(from: CalendarDate, to: CalendarDate, today: CalendarDate, saysIt: Bool,
+                           locale: Locale = .current) -> String {
+        let moved = saysIt ? "What moved it" : "What moved"
+        guard let month = GlanceText.coveredMonth(from: from, to: to) else {
+            return "\(moved) since \(AmountFormat.shortDate(from, relativeTo: today, locale: locale))"
+        }
+        return "\(moved) in \(GlanceText.month(month, relativeTo: today, locale: locale))"
+    }
+
+    /// What a check-in saved, said as time of the plan's spending: "You
+    /// saved about 2 weeks of the life you plan." `nil` without a saving or
+    /// without the plan's spending (Glance's `SavingAsTime`).
+    static func savedAsTime(saved: Decimal, markets: Decimal, yearlySpending: Decimal?) -> String? {
+        SavingAsTime(saved: saved, markets: markets, yearlySpending: yearlySpending)
+            .map { "You saved \($0.saved.text) of the life you plan." }
+    }
+}
+
 // MARK: - This year
 
-/// The words of Today's *This year* card (UI.md, "This year").
-enum TodayYearText {
-    /// "Savings rate 17%: you saved 1.956 € of the 11.525 € that came in
-    /// since 30 Jun, 1.325 € of it paid into pensions, and spent 9.569 €."
-    /// With tax recorded, from a current account or a tax pot, what came in
-    /// is after it: "… that came in since 30 Jun after 3.000 € in tax, …".
-    /// When more was saved than came in, it says some income may not be
-    /// recorded. The amounts hide with the eye; the rate stays. `nil` when
-    /// nothing came in.
-    static func savings(_ savings: SavingsRate, today: CalendarDate, locale: Locale) -> AmountSentence? {
-        guard let rate = savings.rate else { return nil }
-        let percent = AmountFormat.percent(rate, digits: 0, locale: locale)
-        let since = AmountFormat.shortDate(savings.from, relativeTo: today, locale: locale)
-        let currency = savings.moneyInOut.currency
-        func amount(_ value: Decimal) -> AmountSentence {
-            .amount(AmountFormat.amount(value, currency: currency, locale: locale))
+/// How net worth changed this year (Tracker's `Valuator.changeThisYear(asOf:)`),
+/// split with saved as the savings rate counts it (`Valuator.savedSplit(of:)`),
+/// and the savings rate over this year's money in and out, when there is some.
+struct TodayYear {
+    let report: ChangeReport
+    let split: ValueChange
+    let savings: SavingsRate?
+}
+
+// MARK: - Coming up
+
+/// One line of *Coming up* on the Mac and iPad: when, and what.
+struct TodayComingUpItem: Identifiable {
+    var id: String
+    /// "30 Nov", "Late 2028".
+    var when: String
+    /// "November check-in", "5 years of spending, now 93%".
+    var what: AmountSentence
+}
+
+/// What's ahead (UI.md, "Today"): the next check-in, then the main plan's
+/// milestones that its median future reaches, soonest first.
+enum TodayComingUp {
+    /// At most `limit` items: the next check-in (or the one under way),
+    /// then the milestones ahead; the next milestone says how far there.
+    static func items(status: CheckInStatus, ahead: [ProjectedMilestone], next: NextMilestone?,
+                      text: PlanMilestoneText, today: CalendarDate, locale: Locale = .current,
+                      limit: Int = 5) -> [TodayComingUpItem] {
+        var items: [TodayComingUpItem] = []
+        if let open = status.openDate {
+            items.append(TodayComingUpItem(
+                id: "checkin", when: AmountFormat.shortDate(open, relativeTo: today, locale: locale),
+                what: AmountSentence("Check-in under way")))
+        } else if status.lastCheckIn != nil {
+            items.append(TodayComingUpItem(
+                id: "checkin", when: AmountFormat.shortDate(status.nextCheckIn, relativeTo: today, locale: locale),
+                what: AmountSentence("\(AmountFormat.monthName(status.nextCheckIn, locale: locale)) check-in")))
         }
-        var text: AmountSentence = "Savings rate \(percent): you saved \(amount(savings.saved)) of the "
-        text += "\(amount(savings.income)) that came in since \(since)"
-        if savings.tax > 0 {
-            text += " after \(amount(savings.tax)) in tax"
+        for milestone in ahead {
+            var what = text.name(milestone.milestone)
+            if let next, next.milestone.id == milestone.milestone.id {
+                what.append(words: ", now \(AmountFormat.percent(next.progress, digits: 0, locale: locale))")
+            }
+            items.append(TodayComingUpItem(id: "milestone.\(milestone.id)",
+                                           when: PlanMilestoneText.when(milestone.date).capitalizedFirst, what: what))
         }
-        if savings.pensionContributions > 0 {
-            text += ", \(amount(savings.pensionContributions)) of it paid into pensions"
-        }
-        guard savings.spent >= 0 else {
-            return text + ". More was saved than came in: some income may not be recorded."
-        }
-        return text + ", and spent \(amount(savings.spent))."
+        return Array(items.prefix(limit))
     }
 }
 
 // MARK: - Needs attention
 
-/// One thing on Today that needs you (UI.md, "Needs attention").
+/// One thing on Today that needs you (UI.md, "Needs attention"): what it
+/// is ("Fondo pensione"), a short line on why ("Last value in May"), and
+/// the action its row offers ("Update").
 struct TodayAttentionItem: Hashable, Sendable, Identifiable {
     /// Where tapping the item goes.
     enum Target: Hashable, Sendable {
@@ -109,6 +182,8 @@ struct TodayAttentionItem: Hashable, Sendable, Identifiable {
     var title: String
     var detail: String
     var target: Target
+    /// The row's action, a verb or two: "Update", "Fill In".
+    var action = "Open"
 }
 
 /// Finds what needs attention in the library's data: stale accounts,
@@ -130,16 +205,15 @@ enum TodayAttention {
             let name = accountName(stale.account)
             if let last = stale.lastValuation {
                 items.append(TodayAttentionItem(
-                    id: "stale.\(stale.account)", systemImage: "clock.badge.exclamationmark",
-                    title: "\(name): last value \(GlanceText.month(last, relativeTo: today, locale: locale))",
-                    detail: "Update it in your next check-in", target: .account(stale.account)))
+                    id: "stale.\(stale.account)", systemImage: "clock",
+                    title: name,
+                    detail: "Last value in \(GlanceText.month(last, relativeTo: today, locale: locale))",
+                    target: .account(stale.account), action: "Update"))
             } else {
                 items.append(TodayAttentionItem(
-                    id: "stale.\(stale.account)", systemImage: "clock.badge.exclamationmark",
-                    title: "\(name): no value yet",
-                    detail: library.accounts[stale.account]?.acceptsTypedValues == true
-                        ? "Update its value" : "Import a file with its values",
-                    target: .account(stale.account)))
+                    id: "stale.\(stale.account)", systemImage: "clock",
+                    title: name, detail: "No value yet", target: .account(stale.account),
+                    action: library.accounts[stale.account]?.acceptsTypedValues == true ? "Update" : "Import"))
             }
         }
         items += tradeProblems(library: library, valuator: valuator, locale: locale)
@@ -154,9 +228,8 @@ enum TodayAttention {
                 id: "price.\(instrument)", systemImage: "tag.slash",
                 title: "No price for \(instrumentName(instrument))",
                 detail: "\(Wording.names(gap.accounts.map(accountName))) "
-                    + "\(gap.accounts.count == 1 ? "leaves" : "leave") it out of your net worth. Fetch or type in a "
-                    + "price under Instruments.",
-                target: .instrument(instrument)))
+                    + "\(gap.accounts.count == 1 ? "leaves" : "leave") it out of your net worth",
+                target: .instrument(instrument), action: "Add Price"))
         }
         for gap in gaps {
             guard case .rate(let from, let to) = gap.item else { continue }
@@ -164,26 +237,25 @@ enum TodayAttention {
                 id: "fx.\(from)-\(to)", systemImage: "arrow.left.arrow.right",
                 title: "No \(from) to \(to) exchange rate",
                 detail: "\(Wording.names(gap.accounts.map(accountName))) "
-                    + "\(gap.accounts.count == 1 ? "isn't" : "aren't") fully counted. Fetch or type in a rate under "
-                    + "Instruments.",
-                target: .instruments))
+                    + "\(gap.accounts.count == 1 ? "isn't" : "aren't") fully counted",
+                target: .instruments, action: "Add Rate"))
         }
 
         for (instrument, date) in valuator.outdatedPrices(in: library, asOf: today)
         where !missingPrices.contains(instrument) {
             items.append(TodayAttentionItem(
                 id: "outdated.\(instrument)", systemImage: "tag",
-                title: "\(instrumentName(instrument)): last price \(AmountFormat.shortDate(date, locale: locale))",
-                detail: "Older than the account's latest value. Fetch or type in a price under Instruments.",
-                target: .instrument(instrument)))
+                title: instrumentName(instrument),
+                detail: "Last price \(AmountFormat.shortDate(date, locale: locale)), older than its account's value",
+                target: .instrument(instrument), action: "Update"))
         }
         items += pastGaps(library: library, valuator: valuator, asOf: today, locale: locale)
         return items
     }
 
     /// An item per account whose trades have problems, opening the account:
-    /// "Directa: 2 problems with trades", then "More sold than held · VWCE
-    /// differs from the statement. Open the account to fix them." The
+    /// "Directa", then "2 problems with trades: More sold than held · VWCE
+    /// differs from the statement", with *Fix*. The
     /// problems are the ones the account's page lists
     /// (``TradeIssueNote/notes(for:library:valuator:locale:)``): more sold
     /// than held, an opening without a cost, a statement that differs from
@@ -202,9 +274,9 @@ enum TodayAttention {
             let more = kinds.count > 2 ? " · \(kinds.count - 2) more" : ""
             return TodayAttentionItem(
                 id: "trades.\(account.id)", systemImage: "exclamationmark.triangle",
-                title: "\(account.name): \(Wording.count(notes.count, "problem")) with trades",
-                detail: "\(shown)\(more). Open the account to fix \(notes.count == 1 ? "it" : "them").",
-                target: .account(account.id))
+                title: account.name,
+                detail: "\(Wording.count(notes.count, "problem")) with trades: \(shown)\(more)",
+                target: .account(account.id), action: "Fix")
         }
     }
 
@@ -231,8 +303,7 @@ enum TodayAttention {
                 items.append(TodayAttentionItem(
                     id: "past.fx.\(from)-\(to)", systemImage: "arrow.left.arrow.right",
                     title: "Past exchange rates for \(AmountFormat.symbol(for: from, locale: locale)) are missing",
-                    detail: counted(gap.accounts, gap.dates) + ". Fill in past prices to fetch them.",
-                    target: .fillPastPrices))
+                    detail: counted(gap.accounts, gap.dates), target: .fillPastPrices, action: "Fill In"))
             case .price(let instrument):
                 prices.append((instrument, gap))
             case .noValuation:
@@ -240,21 +311,20 @@ enum TodayAttention {
             }
         }
         func name(_ id: InstrumentID) -> String { library.instruments[id]?.name ?? id.rawValue }
-        let fetchOrType = ". Fill in past prices to fetch them, or type them in."
         if prices.count > 2 {
             let gaps = prices.map(\.1)
             items.append(TodayAttentionItem(
                 id: "past.prices", systemImage: "tag.slash",
                 title: "Past prices for \(prices.count) instruments are missing",
                 detail: "\(MissingValueNote.shortList(prices.map { name($0.0) })): "
-                    + counted(gaps.flatMap(\.accounts), Set(gaps.flatMap(\.dates)).sorted()) + fetchOrType,
-                target: .fillPastPrices))
+                    + counted(gaps.flatMap(\.accounts), Set(gaps.flatMap(\.dates)).sorted()),
+                target: .fillPastPrices, action: "Fill In"))
         } else {
             for (instrument, gap) in prices {
                 items.append(TodayAttentionItem(
                     id: "past.price.\(instrument)", systemImage: "tag.slash",
                     title: "Past prices for \(name(instrument)) are missing",
-                    detail: counted(gap.accounts, gap.dates) + fetchOrType, target: .fillPastPrices))
+                    detail: counted(gap.accounts, gap.dates), target: .fillPastPrices, action: "Fill In"))
             }
         }
         return items

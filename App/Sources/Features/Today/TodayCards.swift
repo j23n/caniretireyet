@@ -5,87 +5,243 @@ import Storage
 import SwiftUI
 import Tracker
 
-// Today's cards (UI.md, "Today"): since the last check-in, this year, the
-// plan before there is an answer, and what needs attention. The answer
-// itself is `TodayAnswerCard`.
+// Today's cards (UI.md, "Today"): what moved at the last check-in, this
+// year, the plan before there is an answer, and what needs attention. The
+// answer itself is `TodayAnswerCard`; the Mac's figures, columns and
+// *Coming up* are in TodayWide.swift.
 
-// MARK: - Since last check-in
+// MARK: - What moved
 
-/// The change since the previous check-in (UI.md, "Since last check-in"),
-/// which the *Net worth* row says ("▲ +5.730 € in September"): the
-/// totals before and after, and a bar each for markets, saved and
-/// other, from a shared zero line (``WaterfallChart``). Titled "What changed
-/// in September" when the check-in before was the end of the month before.
-struct TodayChangeCard: View {
+/// What moved the date at the last check-in, on iPhone (UI.md, "What
+/// moved it"): "What moved it in September", a bar each for what you saved
+/// and what markets did, to one scale, and one sentence saying what was
+/// saved as time of the plan's spending.
+struct TodayMovedCard: View {
     let report: ChangeReport
     /// Its split with saved as the savings rate counts it (Tracker's
     /// `Valuator.savedSplit(of:)`).
     let split: ValueChange
     /// The main plan's retirement spending a year, to say what was saved as
-    /// time (``SavingAsTimeText``); `nil` without a main plan.
+    /// time; `nil` without a main plan.
     var yearlySpending: Decimal?
     @Environment(\.locale) private var locale
 
-    private var title: String {
-        guard let month = GlanceText.coveredMonth(from: report.from, to: report.to) else {
-            return "Since last check-in"
-        }
-        return "What changed in \(GlanceText.month(month, relativeTo: .today(), locale: locale))"
-    }
-
     var body: some View {
+        let largest = max(abs(split.saved), abs(split.market))
         Card {
-            VStack(alignment: .leading, spacing: Metrics.m) {
-                WaterfallChart(change: split,
-                               from: AmountFormat.shortDate(report.from, relativeTo: .today(), locale: locale),
-                               to: AmountFormat.shortDate(report.to, relativeTo: .today(), locale: locale),
-                               showsChange: false)
-                SavingAsTimeText(saved: split.saved, markets: split.market, yearlySpending: yearlySpending)
+            VStack(alignment: .leading, spacing: Metrics.s) {
+                Grid(alignment: .leading, horizontalSpacing: Metrics.m, verticalSpacing: Metrics.s) {
+                    bar("You saved", split.saved, largest: largest, color: Palette.accent)
+                    bar("Markets", split.market, largest: largest, color: Palette.accent.opacity(0.45))
+                }
+                if let sentence = TodayText.savedAsTime(saved: split.saved, markets: split.market,
+                                                        yearlySpending: yearlySpending) {
+                    Text(sentence)
+                        .font(.footnote)
+                        .foregroundStyle(Palette.secondaryInk)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .privacySensitiveInFeedback()
+                }
             }
         } header: {
-            SectionHeader(title)
+            SectionHeader(TodayText.movedTitle(from: report.from, to: report.to, today: .today(), saysIt: true,
+                                               locale: locale))
                 .privacySensitiveInFeedback()
+        }
+    }
+
+    /// A row: its name, its bar against the larger of the two, its amount.
+    private func bar(_ label: String, _ value: Decimal, largest: Decimal, color: Color) -> GridRow<some View> {
+        // No modifiers on the row itself: they'd turn it into one cell.
+        GridRow {
+            Text(label)
+                .font(.subheadline)
+                .foregroundStyle(Palette.secondaryInk)
+                .lineLimit(1)
+                .fixedSize()
+            TodayShareBar(share: largest > 0 ? (abs(value) / largest).doubleValue : 0, color: color)
+                .frame(maxWidth: .infinity)
+            AmountText(value)
+                .font(.subheadline)
+                .foregroundStyle(Palette.ink)
+                .lineLimit(1)
+                .fixedSize()
+                .gridColumnAlignment(.trailing)
+        }
+    }
+}
+
+/// A thin bar from the leading edge, `share` of the width: 0 to 1. While
+/// amounts are hidden it keeps its length; in a feedback screenshot it hides.
+struct TodayShareBar: View {
+    let share: Double
+    let color: Color
+
+    var body: some View {
+        GeometryReader { proxy in
+            Capsule()
+                .fill(color)
+                .frame(width: share > 0 ? max(proxy.size.width * min(share, 1), 8) : 0)
+        }
+        .frame(height: 8)
+        .privacySensitiveInFeedback()
+        .accessibilityHidden(true)
+    }
+}
+
+/// What moved at the last check-in, on the Mac and iPad: "What moved in
+/// October" with the change, then a row per account with its value, what
+/// was put in and what markets did, and the total.
+struct TodayChangeTable: View {
+    let report: ChangeReport
+    /// Its split with saved as the savings rate counts it, for the sentence.
+    let split: ValueChange
+    var yearlySpending: Decimal?
+    @Environment(LibraryStore.self) private var library
+    @Environment(\.locale) private var locale
+
+    var body: some View {
+        let rows = report.accounts
+            .filter { $0.change.start != 0 || $0.change.end != 0 }
+            .sorted { (name(of: $0), $0.account.rawValue) < (name(of: $1), $1.account.rawValue) }
+        Card {
+            VStack(alignment: .leading, spacing: Metrics.m) {
+                Grid(alignment: .leading, horizontalSpacing: Metrics.l, verticalSpacing: Metrics.s) {
+                    GridRow {
+                        heading("Account")
+                        heading("Value")
+                            .gridColumnAlignment(.trailing)
+                        heading("Put in")
+                            .gridColumnAlignment(.trailing)
+                        heading("Markets")
+                            .gridColumnAlignment(.trailing)
+                    }
+                    ForEach(rows) { row in
+                        Divider()
+                            .gridCellUnsizedAxes(.horizontal)
+                        GridRow {
+                            Text(name(of: row))
+                                .lineLimit(1)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .privacySensitiveInFeedback()
+                            AmountText(row.change.end)
+                            amount(row.change.saved)
+                            amount(row.change.market, signed: true)
+                        }
+                    }
+                    Divider()
+                        .gridCellUnsizedAxes(.horizontal)
+                    // No modifiers on the row itself: they'd turn it into one cell.
+                    GridRow {
+                        Text("Total")
+                            .fontWeight(.semibold)
+                        AmountText(report.total.end)
+                            .fontWeight(.semibold)
+                        amount(report.total.saved)
+                            .fontWeight(.semibold)
+                        amount(report.total.market, signed: true)
+                            .fontWeight(.semibold)
+                    }
+                }
+                .foregroundStyle(Palette.ink)
+                if let sentence = TodayText.savedAsTime(saved: split.saved, markets: split.market,
+                                                        yearlySpending: yearlySpending) {
+                    Text(sentence)
+                        .font(.footnote)
+                        .foregroundStyle(Palette.secondaryInk)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .privacySensitiveInFeedback()
+                }
+            }
+        } header: {
+            SectionHeader(TodayText.movedTitle(from: report.from, to: report.to, today: .today(), saysIt: false,
+                                               locale: locale)) {
+                DeltaText(report.total.change)
+                    .fontWeight(.semibold)
+            }
+            .privacySensitiveInFeedback()
+        }
+    }
+
+    private func name(of row: AccountChange) -> String {
+        library.library.accounts[row.account]?.name ?? row.account.rawValue
+    }
+
+    private func heading(_ title: String) -> some View {
+        Text(title)
+            .font(.caption)
+            .foregroundStyle(Palette.mutedInk)
+            .lineLimit(1)
+    }
+
+    /// An amount, or a dash for none; markets' with its sign and colour.
+    @ViewBuilder
+    private func amount(_ value: Decimal, signed: Bool = false) -> some View {
+        if value == 0 {
+            Text(verbatim: "—")
+                .foregroundStyle(Palette.mutedInk)
+        } else if signed {
+            AmountText(value, signed: true)
+                .foregroundStyle(Palette.change(value > 0 ? 1 : -1))
+        } else {
+            AmountText(value)
         }
     }
 }
 
 // MARK: - This year
 
-/// How net worth changed since 31 December of last year (UI.md, "This
-/// year"), titled "What changed this year", split as *What changed*
-/// splits a check-in's change: markets, new
-/// money and other, so what you saved stands apart from what markets did.
-/// The accounts' header says this year's change in per cent; this card leads with it
-/// in money ("▲ +18.240 € since 31 Dec 2025"), and in per cent while
-/// amounts are hidden. Under it, the savings rate over the money in and
-/// out recorded this year, when there is some (``TodayYearText``).
+/// This year so far, on the Mac and iPad (UI.md, "This year"): how net
+/// worth changed since 31 December of last year, what you saved and what
+/// markets did, and how the date moved since the last check-in of last
+/// year, as rows; then the year on the Timeline.
 struct TodayYearCard: View {
-    /// Tracker's `Valuator.changeThisYear(asOf:)`.
-    let report: ChangeReport
-    /// Its split with saved as the savings rate counts it (Tracker's
-    /// `Valuator.savedSplit(of:)`).
-    let split: ValueChange
-    /// Tracker's `Valuator.savingsRate(from:through:)` over the values
-    /// recorded this year; `nil` without money in and out.
-    var savings: SavingsRate?
-    /// The main plan's retirement spending a year (``SavingAsTimeText``).
-    var yearlySpending: Decimal?
+    let year: TodayYear
+    /// How the date moved since the last check-in before this year.
+    var yourDate: LastMondayMove?
+    @Environment(AppNavigation.self) private var navigation
     @Environment(\.locale) private var locale
 
     var body: some View {
-        Card("What changed this year") {
-            VStack(alignment: .leading, spacing: Metrics.m) {
-                WaterfallChart(change: split,
-                               from: AmountFormat.shortDate(report.from, relativeTo: .today(), locale: locale),
-                               to: AmountFormat.shortDate(report.to, relativeTo: .today(), locale: locale))
-                SavingAsTimeText(saved: split.saved, markets: split.market, yearlySpending: yearlySpending)
-                if let savings, let text = TodayYearText.savings(savings, today: report.to, locale: locale) {
-                    AmountSentenceText(text)
-                        .font(.subheadline)
+        let total = year.report.total
+        let thisYear = year.report.to.year
+        Card("This year so far") {
+            VStack(alignment: .leading, spacing: 0) {
+                CardRow("Net worth") {
+                    HStack(spacing: 0) {
+                        AmountText(total.change, signed: true)
+                        if let relative = total.relativeChange {
+                            Text(verbatim: ", \(AmountFormat.percent(relative, digits: 0, locale: locale))")
+                                .privacySensitiveInFeedback()
+                        }
+                    }
+                    .foregroundStyle(Palette.ink)
+                }
+                Divider()
+                CardRow("You saved") {
+                    AmountText(year.split.saved)
                         .foregroundStyle(Palette.ink)
-                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Divider()
+                CardRow("Markets") {
+                    DeltaText(year.split.market)
+                }
+                if let yourDate {
+                    Divider()
+                    CardRow("Your date") {
+                        Text(verbatim: TodayText.move(yourDate))
+                            .foregroundStyle(yourDate.years == 0 ? Palette.secondaryInk
+                                : yourDate.isSooner ? Palette.accent : Palette.warning)
+                            .privacySensitiveInFeedback()
+                    }
                 }
             }
+            Button("Open \(String(thisYear)) in Timeline") {
+                navigation.showTimeline(.year, year: thisYear)
+            }
+            .buttonStyle(.plain)
+            .font(.subheadline)
+            .foregroundStyle(Palette.accent)
         }
     }
 }
@@ -233,6 +389,11 @@ struct TodayPlanCard: View {
 /// or couldn't be fetched, past prices and exchange rates the history is
 /// missing (opening *Fill In Past Prices*), the library's own state (merged
 /// sync conflicts, save errors, unreadable files) and plan warnings.
+///
+/// A compact row each, with its action: on iPhone an icon, what and why,
+/// and the action at the trailing edge, in a card without a title; on the
+/// Mac and iPad titled "Needs attention", with an orange edge, the action
+/// under each. The first three show; *N More* shows the rest.
 struct TodayAttentionCard: View {
     /// The day Today reports on.
     let today: CalendarDate
@@ -242,23 +403,64 @@ struct TodayAttentionCard: View {
     @Environment(CheckInStore.self) private var checkIn
     @Environment(AppPreferences.self) private var preferences
     @Environment(AppNavigation.self) private var navigation
+    @Environment(\.pageLayout) private var layout
     @Environment(\.locale) private var locale
     @State private var fillsPastPrices = false
+    @State private var showsAll = false
+
+    /// How many items show before *N More*.
+    private static let shownAtFirst = 3
 
     var body: some View {
         let items = self.items
         let showsBanners = LibraryStatusBanners.showsAny(for: library)
         if !items.isEmpty || showsBanners {
-            Card("Needs attention") {
-                VStack(alignment: .leading, spacing: Metrics.s) {
-                    if showsBanners {
-                        LibraryStatusBanners()
+            let shown = showsAll ? items : Array(items.prefix(Self.shownAtFirst))
+            VStack(alignment: .leading, spacing: 0) {
+                if layout.isWide {
+                    SectionHeader("Needs attention")
+                        .padding(.top, Metrics.l)
+                        .padding(.bottom, Metrics.xs)
+                }
+                if showsBanners {
+                    LibraryStatusBanners()
+                        .padding(.vertical, Metrics.m)
+                }
+                ForEach(shown) { item in
+                    if item.id != shown.first?.id {
+                        Divider()
                     }
-                    ForEach(items) { item in
-                        row(for: item)
+                    row(for: item)
+                }
+                if items.count > Self.shownAtFirst {
+                    let toggle = showsAll ? "Show Fewer" : "\(items.count - shown.count) More"
+                    Divider()
+                    Button(toggle) {
+                        showsAll.toggle()
                     }
+                    .buttonStyle(.plain)
+                    .font(.subheadline)
+                    .foregroundStyle(Palette.accent)
+                    .padding(.vertical, Metrics.m)
                 }
             }
+            .padding(.horizontal, Metrics.l)
+            .padding(.bottom, layout.isWide ? Metrics.xs : 0)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .cardSurface()
+            .overlay {
+                if layout.isWide {
+                    Rectangle()
+                        .fill(Palette.warning)
+                        .frame(width: 3)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+                        .clipShape(RoundedRectangle(cornerRadius: Metrics.cardRadius, style: .continuous))
+                        .allowsHitTesting(false)
+                        .accessibilityHidden(true)
+                }
+            }
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel("Needs attention")
             .pastPricesSheet(isPresented: $fillsPastPrices)
         }
     }
@@ -271,7 +473,7 @@ struct TodayAttentionCard: View {
             items.append(TodayAttentionItem(
                 id: "checkin.prices", systemImage: "tag.slash",
                 title: failures.count == 1 ? "A price couldn't be fetched" : "\(failures.count) prices couldn't be fetched",
-                detail: "Type them in under Instruments.", target: .instruments))
+                detail: "Type them in under Instruments", target: .instruments))
         }
         if let main = library.settings.mainPlan, let error = plans.errors[main] {
             items.append(TodayAttentionItem(
@@ -284,9 +486,8 @@ struct TodayAttentionCard: View {
             let age = bridge.accessibleFromAge.map { " at \($0)" } ?? ""
             items.append(TodayAttentionItem(
                 id: "plan.bridge", systemImage: "lock",
-                title: "Money could run short before locked money opens",
-                detail: "In \(futures) of 100 simulated futures, it runs out before your pension money becomes "
-                    + "available\(age).",
+                title: "Money could run short",
+                detail: "In \(futures) of 100 futures, before your pension money opens\(age)",
                 target: .plan))
         }
         return items
@@ -332,36 +533,63 @@ struct TodayAttentionCard: View {
     }
 }
 
-/// One item: a warning icon, what it is, what to do, and a chevron.
+/// One item: what and why, and its action. On iPhone a warning icon at the
+/// leading edge and the action at the trailing one; on the Mac and iPad the
+/// action under the words, why in orange.
 private struct TodayAttentionRow: View {
     let item: TodayAttentionItem
+    @Environment(\.pageLayout) private var layout
 
     var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: Metrics.m) {
-            Image(systemName: item.systemImage)
-                .foregroundStyle(Palette.warning)
-                .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(item.title)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Palette.ink)
-                    .privacySensitiveInFeedback()
-                Text(item.detail)
-                    .font(.footnote)
-                    .foregroundStyle(Palette.secondaryInk)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .privacySensitiveInFeedback()
+        Group {
+            if layout.isWide {
+                VStack(alignment: .leading, spacing: Metrics.xs) {
+                    words(detail: Palette.warning)
+                    action
+                }
+            } else {
+                HStack(spacing: Metrics.m) {
+                    Image(systemName: item.systemImage)
+                        .font(.title3)
+                        .foregroundStyle(Palette.warning)
+                        .accessibilityHidden(true)
+                    words(detail: Palette.secondaryInk)
+                    Spacer(minLength: Metrics.s)
+                    action
+                }
             }
-            Spacer(minLength: Metrics.s)
-            Image(systemName: "chevron.right")
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(Palette.mutedInk)
-                .accessibilityHidden(true)
         }
-        .padding(.vertical, Metrics.xs)
+        .padding(.vertical, layout.isWide ? Metrics.s : Metrics.m)
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
         .accessibilityElement(children: .combine)
+    }
+
+    private func words(detail: Color) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(item.title)
+                .foregroundStyle(Palette.ink)
+                .lineLimit(1)
+                .privacySensitiveInFeedback()
+            Text(item.detail)
+                .font(.footnote)
+                .foregroundStyle(detail)
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+                .privacySensitiveInFeedback()
+        }
+    }
+
+    /// The action, drawn as a small button: the whole row is the button.
+    private var action: some View {
+        Text(item.action)
+            .font(layout.isWide ? .caption : .subheadline)
+            .foregroundStyle(layout.isWide ? Palette.ink : Palette.accent)
+            .lineLimit(1)
+            .fixedSize()
+            .padding(.horizontal, layout.isWide ? Metrics.s : Metrics.m)
+            .padding(.vertical, layout.isWide ? 3 : 6)
+            .background(Palette.page, in: Capsule())
     }
 }
 
@@ -370,13 +598,14 @@ private struct TodayAttentionRow: View {
     let date = PreviewLibrary.latestCheckIn
     NavigationStack {
         ScrollView {
-            VStack(spacing: Metrics.l) {
+            VStack(spacing: Metrics.m) {
                 if let report = valuator.changeSinceLastCheckIn(asOf: date) {
-                    TodayChangeCard(report: report, split: valuator.savedSplit(of: report))
+                    TodayMovedCard(report: report, split: valuator.savedSplit(of: report))
+                    TodayChangeTable(report: report, split: valuator.savedSplit(of: report))
                 }
                 if let report = valuator.changeThisYear(asOf: date) {
-                    TodayYearCard(report: report, split: valuator.savedSplit(of: report),
-                                     savings: valuator.savingsRate(from: report.from.adding(days: 1), through: date))
+                    TodayYearCard(year: TodayYear(report: report, split: valuator.savedSplit(of: report),
+                                                  savings: nil))
                 }
                 // Before the main plan's first calculation.
                 TodayPlanCard()
