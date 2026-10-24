@@ -130,4 +130,15 @@ struct AccountDetailDataTests {
         #expect(data.movedNote == nil)
         #expect(data.valuations.allSatisfy { $0.moved == nil })
     }
+
+    // MARK: The line under the name
+
+    @Test func theLineUnderTheNameSaysTheGroupAndTheInstitution() throws {
+        #expect(try detail("conto-fineco").subtitle == "Cash, FinecoBank")
+        #expect(try detail("fondo-pensione").subtitle == "Pension, Fondo Esempio")
+    }
+
+    @Test func aTradesAccountSaysItsValueComesFromItsTrades() throws {
+        #expect(try detail("directa").subtitle == "Investments, from your trades")
+    }
 }
