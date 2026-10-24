@@ -38,7 +38,8 @@ struct PlanYearFigurePair: View {
     /// "planned 13.463 € by now", "planned 12.000 €"; `nil` without a plan.
     private var savedDetail: AmountSentence? {
         guard let planned = year.explanation?.inWholeUnits.plannedSaving ?? year.plannedSaving else { return nil }
-        return "planned \(amount: amount(planned))\(year.isLatest ? " by now" : "")"
+        let byNow = year.isLatest ? " by now" : ""
+        return "planned \(amount: amount(planned))\(byNow)"
     }
 
     /// "expected 1.982 €", or what kind of year it was for markets.

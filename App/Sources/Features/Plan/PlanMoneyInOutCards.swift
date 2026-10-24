@@ -80,6 +80,66 @@ struct PlanLastTwelveMonthsCard: View {
     }
 }
 
+/// *Last 12 months* at the top of Look Back (UI.md, "Look Back"): its title
+/// over two small cards, the savings rate with its change against the 12
+/// months before ("17%", "2 points more than before", green when it's good
+/// news) and what was saved of what came in ("9.200 €", "of 54.000 € that
+/// came in"). With less than 12 months recorded, titled by where they
+/// start ("Since 30 Jun 2026"). The rest of the 12 months is in *Money in
+/// and out* (``PlanLastTwelveMonthsCard``).
+struct PlanLastTwelveMonthsFigures: View {
+    /// `nil` without money in and out in the 12 months.
+    let year: PlanLastTwelveMonths?
+
+    @Environment(\.locale) private var locale
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Metrics.s) {
+            Text(year?.since == nil ? "Last 12 months" : (year?.title(locale: locale) ?? ""))
+                .textCase(.uppercase)
+                .font(.footnote)
+                .foregroundStyle(Palette.secondaryInk)
+                .lineLimit(1)
+                .padding(.horizontal, Metrics.xs)
+                .privacySensitiveInFeedback(year?.since != nil)
+                .accessibilityAddTraits(.isHeader)
+            if let year {
+                let currency = year.current.moneyInOut.currency
+                let income = AmountFormat.amount(year.current.income, currency: currency, locale: locale)
+                let change = rateChange(year)
+                EqualColumns(spacing: Metrics.m, equalHeights: true) {
+                    TimelineFigureCard(title: "Savings rate", detail: change.map { AmountSentence($0.words) },
+                                       detailColor: change?.color ?? Palette.secondaryInk) {
+                        Text(verbatim: year.current.rate.map { AmountFormat.percent($0, digits: 0, locale: locale) }
+                            ?? "—")
+                            .monospacedDigit()
+                            .privacySensitiveInFeedback()
+                    }
+                    TimelineFigureCard(title: year.current.saved >= 0 ? "Saved" : "Took out",
+                                       detail: "of \(amount: income) that came in") {
+                        AmountText(abs(year.current.saved), currency: currency, tabular: false)
+                    }
+                }
+            } else {
+                Card {
+                    Text("No money in and out was recorded in the last 12 months.")
+                        .foregroundStyle(Palette.secondaryInk)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+    }
+
+    /// "2 points more than before", "Same as before"; `nil` without the 12
+    /// months before.
+    private func rateChange(_ year: PlanLastTwelveMonths) -> (words: String, color: Color)? {
+        guard let change = year.tiles.first?.change, case .points(let points) = change.value else { return nil }
+        guard points != 0 else { return ("Same as before", Palette.secondaryInk) }
+        let words = "\(Wording.count(abs(points), "point")) \(points > 0 ? "more" : "less") than before"
+        return (words, change.isGood ? Palette.positive : Palette.orangeStroke)
+    }
+}
+
 /// One tile of *Your last 12 months*: its title, its figure, large, and its
 /// change against the 12 months before, in green when it's good news and
 /// orange when not, always with its arrow.
