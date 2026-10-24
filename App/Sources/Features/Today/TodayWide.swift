@@ -80,9 +80,31 @@ struct TodayFigures: View {
     @Environment(\.baseCurrency) private var currency
     @Environment(\.locale) private var locale
 
+    /// Four across when they fit on one line each, else two by two.
     var body: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .top, spacing: Metrics.l) {
+                figures
+            }
+            Group(subviews: figures) { items in
+                Grid(alignment: .topLeading, horizontalSpacing: Metrics.l, verticalSpacing: Metrics.m) {
+                    ForEach(Array(stride(from: 0, to: items.count, by: 2)), id: \.self) { row in
+                        GridRow {
+                            items[row]
+                            if row + 1 < items.count {
+                                items[row + 1]
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var figures: some View {
         let netWorth = NetWorthGlance(valuator: library.valuator, asOf: today)
-        HStack(alignment: .top, spacing: Metrics.l) {
+        Group {
             figure("Net worth", hint: "Shows your accounts", action: { navigation.showAccounts() }) {
                 AmountText(netWorth.total, tabular: false, animatesChanges: true)
             } caption: {
