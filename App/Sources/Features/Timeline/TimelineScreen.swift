@@ -8,12 +8,12 @@ import SwiftUI
 /// - **Year**: one year, its check-ins, your money against what you
 ///   planned in January, and what moved your date (``PlanProgressView``).
 /// - **Decades**: your records to now, then the plan's futures to its end
-///   (``DecadesChart``).
+///   (``TimelineDecadesView``, ``DecadesChart``).
 /// - **Look back**: your whole history by month, quarter or year: savings
 ///   rate, your date check-in by check-in, money in and out
 ///   (``PlanTrendsView``).
 ///
-/// On iPhone the zoom is a segmented control under the title; on the Mac
+/// On iPhone the zoom is a segmented control under the large title; on the Mac
 /// and iPad it's in the toolbar, with Look back's grain and span beside it.
 struct TimelineScreen: View {
     @Environment(LibraryStore.self) private var library
@@ -61,10 +61,8 @@ private struct TimelineContentView: View {
     }
 
     var body: some View {
+        // A large title on iPhone, as on Today, with the zoom under it.
         zoomView
-            #if os(iOS)
-            .navigationBarTitleDisplayMode(layout.isWide ? .automatic : .inline)
-            #endif
             .safeAreaInset(edge: .top, spacing: 0) {
                 if !layout.isWide {
                     VStack(spacing: Metrics.s) {
@@ -119,20 +117,7 @@ private struct TimelineContentView: View {
             PlanProgressView(session: session, onShowPlan: { navigation.showPlan(planID) },
                              openingYear: $navigation.timelineYear)
         case .decades:
-            ScrollView {
-                VStack(alignment: .leading, spacing: Metrics.l) {
-                    if let plan = session.plan {
-                        DecadesChart(plan: plan, results: session.baseResults, today: .today(),
-                                     chartHeight: layout.isWide ? 420 : 320)
-                            .environment(\.chartSurface, Palette.page)
-                    }
-                }
-                .padding(layout.gutter)
-                .frame(maxWidth: layout.isWide ? Metrics.wideReadableWidth : Metrics.readableWidth,
-                       alignment: .leading)
-                .frame(maxWidth: .infinity)
-            }
-            .background(Palette.page)
+            TimelineDecadesView(session: session)
         case .lookBack:
             PlanTrendsView(session: session)
         }
