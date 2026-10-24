@@ -69,9 +69,11 @@ struct PlanSettingRow: Hashable, Identifiable {
 enum PlanChapterSettings {
     /// A row for each of `items`, in their order: what starts in a chapter,
     /// or the inputs outside the plan's years. Amounts are a month's, in
-    /// today's money; one-offs are their amount.
+    /// today's money; one-offs are their amount. A work phase reads
+    /// "Take-home pay" in its chapter, which bears its name, and by its
+    /// name with `namesWork` (outside the plan's years).
     static func rows(for items: [PlanChapter.Item], model: PlanChaptersModel, issues: PlanInputIssues,
-                     words: PlanWords) -> [PlanSettingRow] {
+                     words: PlanWords, namesWork: Bool = false) -> [PlanSettingRow] {
         let plan = model.plan
         return items.flatMap { item -> [PlanSettingRow] in
             switch item {
@@ -114,10 +116,10 @@ enum PlanChapterSettings {
                     subtitle += " · grows \(words.percent(growth)) a year"
                 }
                 return [PlanSettingRow(id: "work-\(index)", symbol: "briefcase", kind: .work,
-                                       title: plan.workName(index),
+                                       title: namesWork ? plan.workName(index) : "Take-home pay",
                                        subtitle: subtitle, value: phase.netIncome.map(words.monthly) ?? "Not set",
                                        opens: .sheet(.item(item)),
-                                       issues: issues.issues(for: .work, index: index))]
+                                       issues: issues.issues(for: .work, index: index), personalTitle: namesWork)]
             case .pension(let index):
                 guard plan.pensions.indices.contains(index) else { return [] }
                 let pension = plan.pensions[index]
@@ -159,15 +161,20 @@ enum PlanChapterSettings {
                 guard plan.events.indices.contains(index) else { return [] }
                 let event = plan.events[index]
                 var subtitle: String
+                let when: String
                 switch event.timing {
-                case .age(let age): subtitle = "At \(age)"
-                case .year(let year): subtitle = "In \(String(year))"
+                case .age(let age):
+                    subtitle = "At \(age)"
+                    when = "at \(age)"
+                case .year(let year):
+                    subtitle = "In \(String(year))"
+                    when = String(year)
                 }
                 if event.effectiveProbability < 1 {
                     subtitle += " · \(words.percent(event.effectiveProbability)) likely"
                 }
                 return [PlanSettingRow(id: "event-\(index)", symbol: "calendar", kind: .event, title: event.name,
-                                       subtitle: subtitle, value: words.signedAmount(event.amount),
+                                       subtitle: subtitle, value: "\(when), \(words.signedAmount(event.amount))",
                                        opens: .sheet(.item(item)),
                                        issues: issues.issues(for: .events, index: index))]
             case .targetMix, .targetMixStep:
@@ -205,25 +212,20 @@ struct PlanSettingsList: View {
     var onUsePlanAge: (() -> Void)?
 
     var body: some View {
-        let shape = RoundedRectangle(cornerRadius: 12, style: .continuous)
-        VStack(spacing: 0) {
-            ForEach(Array(rows.enumerated()), id: \.element.id) { offset, row in
-                if offset > 0 {
-                    Divider()
-                        .padding(.leading, 50)
-                }
+        CardRows {
+            ForEach(rows) { row in
                 PlanSettingRowView(row: row, plan: $plan, model: model, canEdit: canEdit, onSheet: onSheet,
                                    onUsePlanAge: onUsePlanAge)
             }
         }
-        .background(Palette.card, in: shape)
-        .overlay { shape.strokeBorder(Palette.border, lineWidth: 1) }
     }
 }
 
-/// One setting: its icon, name and second line, its value, and a chevron.
-/// A value opens its small editor in a popover pointing at the row (a sheet
-/// on iPhone); spending and an item open a sheet.
+/// One setting as a card's row: its name on the left, its value on the
+/// right, each on one line, and a chevron; its problems under it. A value
+/// opens its small editor in a popover pointing at the row (a sheet on
+/// iPhone); spending and an item open a sheet. The second line ("At 54, in
+/// 2042") is what VoiceOver adds.
 struct PlanSettingRowView: View {
     let row: PlanSettingRow
     @Binding var plan: PlanDocument
@@ -241,53 +243,71 @@ struct PlanSettingRowView: View {
             case .sheet(let sheet): onSheet(sheet)
             }
         } label: {
-            HStack(alignment: .center, spacing: Metrics.m) {
-                Image(systemName: row.symbol)
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .frame(width: 26, height: 26)
-                    .background(row.kind.color, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
-                    .accessibilityHidden(true)
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(row.title)
-                        .font(.subheadline)
-                        .foregroundStyle(Palette.ink)
-                        .privacySensitiveInFeedback(row.personalTitle)
-                    if let subtitle = row.subtitle {
-                        Text(subtitle)
-                            .font(.caption)
-                            .foregroundStyle(Palette.secondaryInk)
-                            .privacySensitiveInFeedback(row.personalSubtitle)
-                    }
-                    ForEach(row.issues, id: \.self) { issue in
-                        PlanIssueLine(issue)
+            CardRow(opens: true) {
+                Text(row.title)
+                    .privacySensitiveInFeedback(row.personalTitle)
+            } value: {
+                AmountSentenceText(row.value)
+                    .monospacedDigit()
+            } below: {
+                if !row.issues.isEmpty {
+                    VStack(alignment: .leading, spacing: 2) {
+                        ForEach(row.issues, id: \.self) { issue in
+                            PlanIssueLine(issue)
+                        }
                     }
                 }
-                .fixedSize(horizontal: false, vertical: true)
-                Spacer(minLength: Metrics.s)
-                AmountSentenceText(row.value)
-                    .font(.subheadline)
-                    .monospacedDigit()
-                    .foregroundStyle(canEdit ? Palette.accent : Palette.secondaryInk)
-                    .multilineTextAlignment(.trailing)
-                Image(systemName: "chevron.right")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(Palette.mutedInk)
-                    .accessibilityHidden(true)
             }
-            .padding(.horizontal, Metrics.m)
-            .padding(.vertical, Metrics.s)
-            .frame(minHeight: 44)
-            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .disabled(!canEdit)
-        .accessibilityElement(children: .combine)
+        .accessibilityHint(Text(row.subtitle ?? ""))
         .accessibilityIdentifier("plan.setting.\(row.id)")
         .popover(isPresented: $showsEditor) {
             if case .editor(let value) = row.opens {
                 PlanValueEditor(value: value, plan: $plan, model: model, onUsePlanAge: onUsePlanAge)
             }
+        }
+    }
+}
+
+extension PlanSettingSheet {
+    /// Whether it's the target mix's sheet, which has a sheet of its own.
+    var isTargetMix: Bool {
+        switch self {
+        case .item(.targetMix), .item(.targetMixStep): true
+        default: false
+        }
+    }
+}
+
+extension PlanEditTarget {
+    /// What a setting's sheet edits, from the plan as it is: spending's,
+    /// flexible spending's or an item's; `nil` for the target mix, which
+    /// has a sheet of its own (``PlanSettingSheet/isTargetMix``), and for an
+    /// item that's no longer there.
+    init?(_ sheet: PlanSettingSheet, in plan: PlanDocument) {
+        switch sheet {
+        case .item(.workingSpending):
+            self = .workingSpending(plan.spending)
+        case .item(.retiredSpending):
+            self = .retiredSpending(plan.spending)
+        case .flexibleSpending:
+            self = .flexibleSpending(plan.spending)
+        case .item(.spendingPhase(let index)) where plan.spending.phases.indices.contains(index):
+            self = .spendingPhase(index: index, phase: plan.spending.phases[index])
+        case .item(.work(let index)) where plan.work.indices.contains(index):
+            self = .work(index: index, phase: plan.work[index])
+        case .item(.pension(let index)) where plan.pensions.indices.contains(index):
+            self = .pension(index: index, pension: plan.pensions[index])
+        case .item(.income(let index)) where plan.income.indices.contains(index):
+            self = .income(index: index, income: plan.income[index])
+        case .item(.contribution(let index)) where plan.contributions.indices.contains(index):
+            self = .contribution(index: index, contribution: plan.contributions[index])
+        case .item(.event(let index)) where plan.events.indices.contains(index):
+            self = .event(index: index, event: plan.events[index])
+        default:
+            return nil
         }
     }
 }

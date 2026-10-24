@@ -3,28 +3,19 @@ import Glance
 import Model
 import Planner
 
-// The words and numbers of the plan's charts (UI.md, "More charts"), from
-// `PlanResults`. Plain Swift, so it's tested without SwiftUI; views add
-// privacy (amounts go through `AmountText`) and colour.
+// The words and numbers of the plan's results (UI.md, "The plan"), from
+// `PlanResults`. Plain Swift, so it's tested without SwiftUI; amounts are
+// `AmountSentence`s, so they hide with the eye.
 
-/// A value in the key numbers. Amounts stay numbers so views can hide them
-/// (`AmountText`).
-enum PlanFigure: Hashable, Sendable {
-    /// An amount in the currency of the screen (the plan's), e.g.
-    /// `38.400 €`, with an optional unit after it, e.g. `/yr`.
-    case amount(Decimal, unit: String?)
-    /// A share, e.g. 0.92 → "92%".
-    case percent(Double)
-    /// Words or an age, e.g. "54 · Mar 2042".
-    case text(String)
-}
-
-/// One row of a table of figures: "Needed to retire today · 1.240.000 €".
-struct PlanFigureRow: Hashable, Sendable, Identifiable {
+/// One of the key numbers, a row: "You could spend from 55 · 2.350 € a
+/// month".
+struct PlanKeyNumber: Hashable, Sendable, Identifiable {
     var label: String
-    var value: PlanFigure
-    /// Bold, for the row that answers the question.
-    var isEmphasized = false
+    /// Its value; amounts and ages in it hide (``AmountSentenceText``).
+    var value: AmountSentence
+    /// Whether the label holds the person's data (an age), hidden in a
+    /// feedback screenshot.
+    var personalLabel = true
 
     var id: String { label }
 }
@@ -81,72 +72,60 @@ enum PlanResultsText {
 
     /// "Needed to retire today" in the key numbers: the amount, or words
     /// when the search ended at one of its limits.
-    static func neededToday(_ needed: AssetsNeeded) -> PlanFigure? {
+    static func neededToday(_ needed: AssetsNeeded, words: PlanWords) -> AmountSentence? {
         switch needed.outcome {
         case .found:
-            return needed.amount.map { .amount(whole($0), unit: nil) }
+            return needed.amount.map { words.amount(whole($0)) }
         case .atMost:
-            return needed.leavesOnlyLockedMoney ? .text("At most what's locked away")
-                : .text("Under 1/\(searchedScale) of the money in your plan")
+            return needed.leavesOnlyLockedMoney ? "At most what's locked away"
+                : AmountSentence("Under 1/\(searchedScale) of your money")
         case .moreThanMaximum:
-            return .text("Over \(searchedScale)× the money in your plan")
+            return AmountSentence("Over \(searchedScale)× your money")
         case .noPlanAssets:
-            return needed.amount == 0 ? .text("None") : nil
+            return needed.amount == 0 ? "None" : nil
         }
     }
 
     // MARK: Key numbers
 
-    /// The key numbers beside the charts (MacPlan: Earliest retirement,
-    /// Success at 55, Spend at 55, Needed to retire today and the share you
-    /// have, Median at 54 and 95, Lifetime taxes, Runs out before 57). The
-    /// old FI number isn't among them: the amount needed today replaces it.
-    static func keyNumbers(_ results: PlanResults, locale: Locale = .current) -> [PlanFigureRow] {
+    /// The key numbers under the chapters, a row each: what you could spend
+    /// a month from the age the charts are for, and when you could stop if
+    /// you saved nothing more. With `more` (the Mac and iPad, where they
+    /// have a column) also when saving at last year's pace, what retiring
+    /// today would need, the money at the plan's end and the taxes over a
+    /// lifetime, typically, and how often the money runs out before a
+    /// locked account opens. In today's money.
+    static func keyNumbers(_ results: PlanResults, words: PlanWords, more: Bool = false) -> [PlanKeyNumber] {
         let headline = results.headline
-        var rows: [PlanFigureRow] = []
-        if let age = headline.earliestAge {
-            let date = headline.earliestDate.map { " · " + GlanceText.shortMonthAndYear($0, locale: locale) } ?? ""
-            rows.append(PlanFigureRow(label: "Earliest retirement", value: .text("\(age)\(date)"), isEmphasized: true))
-        } else {
-            rows.append(PlanFigureRow(label: "Earliest retirement", value: .text("None yet"), isEmphasized: true))
-        }
-        if let target = headline.targetAge, let success = headline.successAtTarget {
-            rows.append(PlanFigureRow(label: "Success at \(target) (target)", value: .percent(success)))
-        }
-        if let spending = headline.sustainableSpending {
-            let age = results.details.sustainableSpendingAge ?? headline.targetAge
-            rows.append(PlanFigureRow(label: age.map { "Spend at \($0)" } ?? "Sustainable spending",
-                                      value: .amount(spending, unit: "/yr")))
-        }
         let details = results.details
-        if let needed = details.assetsNeeded, let figure = neededToday(needed) {
-            rows.append(PlanFigureRow(label: "Needed to retire today", value: figure))
-            if needed.outcome == .found, let extra = needed.extra, extra >= 0.5 {
-                rows.append(PlanFigureRow(label: "Extra in accounts you can draw now",
-                                          value: .amount(whole(extra), unit: nil)))
-            }
-            if needed.outcome == .found, let readiness = needed.readiness {
-                rows.append(PlanFigureRow(label: "You have", value: .percent(Readiness.shown(readiness))))
-            }
-        }
-        if let median = details.focus.medianAtRetirement {
-            rows.append(PlanFigureRow(label: "Median at \(details.focus.age)", value: .amount(whole(median), unit: nil)))
-        }
-        if let median = details.focus.medianAtEnd {
-            rows.append(PlanFigureRow(label: "Median at \(details.endAge)", value: .amount(whole(median), unit: nil)))
-        }
-        rows.append(PlanFigureRow(label: "Lifetime taxes, median",
-                                  value: .amount(whole(details.focus.lifetimeTaxes), unit: nil)))
-        if let bridge = details.focus.bridges.first, let age = bridge.accessibleFromAge {
-            rows.append(PlanFigureRow(label: "Runs out before \(age)", value: .percent(bridge.share)))
+        var rows: [PlanKeyNumber] = []
+        if let spending = headline.sustainableSpending {
+            let age = details.sustainableSpendingAge ?? headline.targetAge
+            let label = age.map { more ? "Could spend from \($0)" : "You could spend from \($0)" } ?? "You could spend"
+            rows.append(PlanKeyNumber(label: label, value: "\(words.monthly(spending)) a month"))
         }
         if let coast = details.agesWithout.coast {
-            rows.append(PlanFigureRow(label: "Saving nothing more, retire at",
-                                      value: .text(coast.earliestAge.map { "\($0)" } ?? "None")))
+            rows.append(PlanKeyNumber(label: more ? "Saving nothing more" : "If you stopped saving now",
+                                      value: AmountSentence(coast.earliestAge.map { "stop at \($0)" } ?? "no age works"),
+                                      personalLabel: false))
         }
+        guard more else { return rows }
         if let pace = details.agesWithout.pace {
-            rows.append(PlanFigureRow(label: "Saving at your pace of the last 12 months, retire at",
-                                      value: .text(pace.earliestAge.map { "\($0)" } ?? "None")))
+            rows.append(PlanKeyNumber(label: "Saving at last year's pace",
+                                      value: AmountSentence(pace.earliestAge.map { "stop at \($0)" } ?? "no age works"),
+                                      personalLabel: false))
+        }
+        if let needed = details.assetsNeeded, let value = neededToday(needed, words: words) {
+            rows.append(PlanKeyNumber(label: "Needed to retire today", value: value, personalLabel: false))
+        }
+        if let median = details.focus.medianAtEnd {
+            rows.append(PlanKeyNumber(label: "Money at \(details.endAge), typically", value: words.amount(whole(median))))
+        }
+        rows.append(PlanKeyNumber(label: "Lifetime taxes, typically",
+                                  value: words.amount(whole(details.focus.lifetimeTaxes)), personalLabel: false))
+        if let bridge = details.focus.bridges.first, let age = bridge.accessibleFromAge {
+            let share = AmountFormat.percent(bridge.share, digits: 0, locale: words.locale)
+            rows.append(PlanKeyNumber(label: "Runs out before \(age)", value: AmountSentence("\(share) of futures")))
         }
         return rows
     }

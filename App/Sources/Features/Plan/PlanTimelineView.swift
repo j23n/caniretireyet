@@ -2,10 +2,14 @@ import Model
 import Planner
 import SwiftUI
 
-/// The plan (UI.md, "Plan"): your date, the levers that move it, and
-/// below them your life as chapters, each with its settings, where the
-/// plan changes; then the key numbers and what every chapter assumes. On
-/// the Mac and iPad the chance by retirement age sits beside the levers.
+/// The plan (UI.md, "Plan"). On iPhone: the header card (the plan menu,
+/// your date and *Levers*, which shows the levers under it), your chapters
+/// on one card, each opening in a sheet, then the key numbers with
+/// *Assumptions*. On the Mac and iPad: a header row with the plan's
+/// commands; the levers beside your date and the chance by age; the
+/// chapters as a table with the chosen one's words and settings under it;
+/// and beside them, when the page is wide, the key numbers and the
+/// assumptions.
 ///
 /// The plan calculates on its own: when it or the library changes, its
 /// results run again in the background, and the levers' what-if runs as
@@ -14,19 +18,34 @@ struct PlanTimelineView: View {
     let session: PlanSession
     /// The Target mix sheet, which the plan's screen opens too (``PlanRoute``).
     @Binding var showsTargetMix: Bool
-    /// Export Calculations…
-    var onExport: (() -> Void)?
+    /// What the plan menu and the header's buttons do.
+    var actions = PlanActions()
 
     @Environment(\.pageLayout) private var layout
     @Environment(\.locale) private var locale
     @Environment(LibraryStore.self) private var library
     @State private var editing: PlanEditTarget?
     @State private var showsAssumptions = false
+    @State private var showsLevers = false
+    @State private var showsChapter = false
+    @State private var pageWidth: CGFloat = 0
 
     private var gutter: CGFloat { layout.gutter }
 
-    private var milestoneText: PlanMilestoneText {
-        PlanMilestoneText(currency: session.currency, locale: locale)
+    /// The width the page's content has.
+    private var contentWidth: CGFloat {
+        max(0, min(pageWidth, Metrics.wideReadableWidth) - 2 * gutter)
+    }
+
+    /// Whether the key numbers and the assumptions have a column beside
+    /// the chapters.
+    private var hasInspector: Bool { contentWidth >= 900 }
+
+    /// The inspector's width, when it has a column.
+    private static let inspectorWidth: CGFloat = 280
+
+    private var words: PlanWords {
+        PlanWords(currency: session.currency, locale: locale)
     }
 
     /// What decides whether the plan needs calculating.
@@ -37,53 +56,33 @@ struct PlanTimelineView: View {
     }
 
     var body: some View {
-        @Bindable var session = session
         // Without the progress: only the progress view follows every update.
         let state = session.state
         let derived = session.derived(locale: locale)
         ScrollView {
-            VStack(alignment: .leading, spacing: Metrics.l) {
-                VStack(alignment: .leading, spacing: Metrics.m) {
-                    PlanResultsBanners(session: session)
-                    PlanDateHeader(session: session)
-                    if session.runError != nil, !state.isRunning {
-                        Button("Try Again") { session.calculate() }
-                            .buttonStyle(.bordered)
-                            .disabled(!session.canEdit)
-                    }
-                    PlanResultWarnings(session: session)
-                }
-                .padding(.horizontal, gutter)
-                if session.plan != nil {
-                    if layout.isRoomy, let results = state.results {
-                        EqualColumns(spacing: Metrics.l) {
-                            PlanLeversCard(session: session)
-                            PlanSuccessCard(session: session, results: results)
-                        }
-                        .padding(.horizontal, gutter)
-                    } else {
-                        PlanLeversCard(session: session)
-                            .padding(.horizontal, gutter)
-                    }
-                    chapters($session.editablePlan, state: state, derived: derived)
-                    if let results = state.results {
-                        PlanKeyNumbersCard(results: results)
-                            .padding(.horizontal, gutter)
-                    }
-                    PlanAssumptionsFooter(onShowAll: { showsAssumptions = true }, onExport: onExport)
-                        .padding(.horizontal, gutter)
+            Group {
+                if layout.isWide {
+                    wide(state: state, derived: derived)
+                } else {
+                    narrow(state: state, derived: derived)
                 }
             }
-            .padding(.vertical, gutter)
+            .padding(.horizontal, gutter)
+            .padding(.vertical, layout.isWide ? Metrics.l : Metrics.s)
             .frame(maxWidth: layout.isWide ? Metrics.wideReadableWidth : .infinity, alignment: .leading)
             .frame(maxWidth: .infinity)
         }
+        .measuringWidth($pageWidth)
         .background(Palette.page)
         .task(id: AutoRun(revision: library.revision, upToDate: session.baseIsUpToDate, running: state.isRunning)) {
             // A moment's pause, so a burst of edits runs once.
             try? await Task.sleep(for: .milliseconds(600))
             guard !Task.isCancelled else { return }
             session.calculateIfNeeded()
+        }
+        // The levers show while they've moved, on iPhone too.
+        .task(id: session.hasWhatIf) {
+            if session.hasWhatIf { showsLevers = true }
         }
         .sheet(item: $editing) { target in
             PlanItemSheet(session: session, target: target, issues: session.inputIssues)
@@ -94,144 +93,239 @@ struct PlanTimelineView: View {
         .sheet(isPresented: $showsAssumptions) {
             PlanAlwaysSheet(session: session)
         }
+        .sheet(isPresented: $showsChapter) {
+            PlanChapterSheet(session: session)
+        }
         .onDisappear { session.saveNow() }
     }
 
-    private var words: PlanWords {
-        PlanWords(currency: session.currency, locale: locale)
+    // MARK: iPhone
+
+    @ViewBuilder
+    private func narrow(state: PlanResultsState, derived: PlanDerived) -> some View {
+        VStack(alignment: .leading, spacing: Metrics.m) {
+            PlanResultsBanners(session: session)
+            PlanHeaderCard(session: session, actions: actions, showsLevers: $showsLevers)
+            tryAgain(state: state)
+            if showsLevers, session.plan != nil {
+                PlanLeversCard(session: session)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+            PlanResultWarnings(session: session)
+            if session.plan != nil {
+                chapterRows(state: state, derived: derived)
+                sectionTitle("Key numbers")
+                PlanKeyNumbersCard(session: session, onAssumptions: { showsAssumptions = true })
+                disclaimer
+            }
+        }
     }
 
-    // MARK: The chapters
-
-    /// "Your life in four chapters": a row each; the chosen one's words
-    /// and settings below the list.
+    /// "Your four chapters" with *Add*, and a row per chapter; a row opens
+    /// the chapter in a sheet.
     @ViewBuilder
-    private func chapters(_ plan: Binding<PlanDocument>, state: PlanResultsState, derived: PlanDerived)
-        -> some View {
+    private func chapterRows(state: PlanResultsState, derived: PlanDerived) -> some View {
+        @Bindable var session = session
+        PlanUnplacedIssues(issues: session.inputIssues)
+        if let model = derived.chapters, derived.timeline != nil {
+            if model.chapters.chapters.isEmpty {
+                PlanNoChapters(plan: $session.editablePlan)
+            } else {
+                HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
+                    sectionTitle(PlanTimelineText.chapters(model.chapters.chapters.count))
+                    Spacer(minLength: Metrics.s)
+                    PlanAddMenu(model: model, plan: session.editablePlan, editing: $editing) {
+                        Text("Add")
+                            .font(.body)
+                            .foregroundStyle(Palette.accent)
+                            .padding(.vertical, Metrics.s)
+                            .contentShape(Rectangle())
+                    }
+                    .menuStyle(.button)
+                    .buttonStyle(.plain)
+                    .padding(.horizontal, Metrics.xs)
+                }
+                let lines = PlanChapterLine.lines(model: model, results: state.results, words: words)
+                PlanChapterRows(lines: lines) { index in
+                    self.session.selectChapter(index, in: model)
+                    showsChapter = true
+                }
+            }
+            outside(model)
+        } else {
+            PlanChaptersNeedBirthDate()
+        }
+    }
+
+    // MARK: Mac and iPad
+
+    @ViewBuilder
+    private func wide(state: PlanResultsState, derived: PlanDerived) -> some View {
+        VStack(alignment: .leading, spacing: Metrics.m) {
+            PlanWideHeader(session: session, actions: actions, onAssumptions: { showsAssumptions = true },
+                           onTargetMix: { showsTargetMix = true })
+            PlanResultsBanners(session: session)
+            tryAgain(state: state)
+            PlanResultWarnings(session: session)
+            if session.plan != nil {
+                if hasInspector {
+                    HStack(alignment: .top, spacing: Metrics.m) {
+                        wideMain(state: state, derived: derived)
+                            .frame(maxWidth: .infinity, alignment: .topLeading)
+                        inspector
+                            .frame(width: Self.inspectorWidth)
+                    }
+                } else {
+                    wideMain(state: state, derived: derived)
+                    inspector
+                }
+                disclaimer
+            }
+        }
+    }
+
+    private var inspector: some View {
+        PlanInspector(session: session, onAssumptions: { showsAssumptions = true },
+                      onTargetMix: { showsTargetMix = true })
+    }
+
+    /// The levers beside the answer, then the chapters.
+    @ViewBuilder
+    private func wideMain(state: PlanResultsState, derived: PlanDerived) -> some View {
+        VStack(alignment: .leading, spacing: Metrics.m) {
+            HStack(alignment: .top, spacing: Metrics.m) {
+                PlanLeversCard(session: session)
+                    .frame(width: 290)
+                PlanAnswerCard(session: session)
+            }
+            .fixedSize(horizontal: false, vertical: true)
+            chapterTable(state: state, derived: derived)
+        }
+    }
+
+    /// The chapters' table, then the chosen chapter's words and settings.
+    @ViewBuilder
+    private func chapterTable(state: PlanResultsState, derived: PlanDerived) -> some View {
+        @Bindable var session = session
         let issues = session.inputIssues
         PlanUnplacedIssues(issues: issues)
-            .padding(.horizontal, gutter)
         if let model = derived.chapters, let timeline = derived.timeline {
             if model.chapters.chapters.isEmpty {
-                PlanNoChapters(plan: plan)
-                    .padding(.horizontal, gutter)
+                PlanNoChapters(plan: $session.editablePlan)
             } else {
                 let count = model.chapters.chapters.count
                 let selected = min(session.selectedChapter(in: model) ?? 0, count - 1)
-                let selection = Binding<Int>(get: { selected },
-                                             set: { session.selectChapter($0, in: model) })
-                PlanChapterList(timeline: timeline, model: model, selection: selection)
-                    .padding(.horizontal, gutter)
-                PlanChapterDetails(
+                let tableWidth = contentWidth - (hasInspector ? Self.inspectorWidth + Metrics.m : 0) - 2 * Metrics.l
+                PlanChapterTable(lines: PlanChapterLine.lines(model: model, results: state.results, words: words),
+                                 selection: selected, words: words, showsOneOffs: tableWidth >= 660,
+                                 onSelect: { self.session.selectChapter($0, in: model) }) {
+                    PlanAddMenu(model: model, plan: session.editablePlan, editing: $editing) {
+                        Text("Add")
+                    }
+                    .fixedSize()
+                    Button("Flexible Spending…") {
+                        editing = .flexibleSpending(self.session.editablePlan.spending)
+                    }
+                    .disabled(!session.canEdit)
+                    Button("Taxes…") { showsAssumptions = true }
+                }
+                .buttonStyle(.bordered)
+                chapterHeading(model, index: selected, count: count)
+                PlanChapterDetail(
                     model: model, index: selected,
                     story: PlanChapterStory(chapterAt: selected, in: model, results: state.results, words: words),
-                    barMaximum: derived.barMaximum, plan: plan, words: words,
-                    issues: issues, canEdit: session.canEdit,
+                    plan: $session.editablePlan, words: words, issues: issues, canEdit: session.canEdit,
                     editing: $editing,
                     milestones: timeline.cards.indices.contains(selected) ? timeline.cards[selected].milestones : [],
-                    milestoneText: milestoneText,
-                    onOpen: show, onSelect: { selection.wrappedValue = $0 },
-                    onUsePlanAge: { session.selectFocus(nil) })
-                    .padding(.horizontal, gutter)
+                    milestoneText: PlanMilestoneText(currency: session.currency, locale: locale),
+                    columns: contentWidth >= 640,
+                    onOpen: show, onUsePlanAge: { self.session.selectFocus(nil) })
             }
-            if !model.chapters.outside.isEmpty {
-                PlanOutsideCard(model: model, plan: plan, issues: issues, words: words, onOpen: show)
-                    .padding(.horizontal, gutter)
-            }
+            outside(model)
         } else {
             PlanChaptersNeedBirthDate()
-                .padding(.horizontal, gutter)
         }
     }
 
-/// Opens a setting's sheet: spending's, an item's, or the target mix's.
+    /// The chosen chapter's number, name, span and length, with ‹ ›.
+    private func chapterHeading(_ model: PlanChaptersModel, index: Int, count: Int) -> some View {
+        let chapter = model.chapters.chapters[index]
+        return HStack(alignment: .center, spacing: Metrics.s) {
+            PlanChapterBadge(number: index + 1, style: model.style(of: chapter))
+            Text(model.title(of: chapter))
+                .font(.title3.weight(.bold))
+                .foregroundStyle(Palette.ink)
+                .lineLimit(1)
+                .accessibilityAddTraits(.isHeader)
+                .privacySensitiveInFeedback()
+            Text("\(model.agesAndYears(ofChapterAt: index)) · \(model.length(ofChapterAt: index))")
+                .font(.subheadline)
+                .monospacedDigit()
+                .foregroundStyle(Palette.secondaryInk)
+                .lineLimit(1)
+                .privacySensitiveInFeedback()
+            Spacer(minLength: Metrics.s)
+            PlanStepButtons(index: index, count: count, select: { session.selectChapter($0, in: model) })
+                .controlSize(.small)
+        }
+        .padding(.top, Metrics.s)
+    }
+
+    // MARK: Shared
+
+    /// The inputs outside the plan's years, after the chapters.
+    @ViewBuilder
+    private func outside(_ model: PlanChaptersModel) -> some View {
+        @Bindable var session = session
+        if !model.chapters.outside.isEmpty {
+            PlanOutsideCard(model: model, plan: $session.editablePlan, issues: session.inputIssues, words: words,
+                            onOpen: show)
+        }
+    }
+
+    /// *Try Again* after a failed run.
+    @ViewBuilder
+    private func tryAgain(state: PlanResultsState) -> some View {
+        if session.runError != nil, !state.isRunning {
+            Button("Try Again") { session.calculate() }
+                .buttonStyle(.bordered)
+                .disabled(!session.canEdit)
+        }
+    }
+
+    /// A section's title on the page: "Your four chapters", "Key numbers".
+    private func sectionTitle(_ title: String) -> some View {
+        Text(title)
+            .font(.title2.weight(.bold))
+            .foregroundStyle(Palette.ink)
+            .lineLimit(1)
+            .padding(.horizontal, Metrics.xs)
+            .padding(.top, 6)
+            .accessibilityAddTraits(.isHeader)
+    }
+
+    private var disclaimer: some View {
+        Text(AboutText.disclaimer)
+            .font(.footnote)
+            .foregroundStyle(Palette.mutedInk)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.horizontal, Metrics.xs)
+            .padding(.top, Metrics.s)
+    }
+
+    /// Opens a setting's sheet: spending's, an item's, or the target mix's.
     private func show(_ sheet: PlanSettingSheet) {
         guard let plan = session.plan else { return }
-        switch sheet {
-        case .item(.workingSpending):
-            editing = .workingSpending(plan.spending)
-        case .item(.retiredSpending):
-            editing = .retiredSpending(plan.spending)
-        case .flexibleSpending:
-            editing = .flexibleSpending(plan.spending)
-        case .item(.spendingPhase(let index)) where plan.spending.phases.indices.contains(index):
-            editing = .spendingPhase(index: index, phase: plan.spending.phases[index])
-        case .item(.work(let index)) where plan.work.indices.contains(index):
-            editing = .work(index: index, phase: plan.work[index])
-        case .item(.pension(let index)) where plan.pensions.indices.contains(index):
-            editing = .pension(index: index, pension: plan.pensions[index])
-        case .item(.income(let index)) where plan.income.indices.contains(index):
-            editing = .income(index: index, income: plan.income[index])
-        case .item(.contribution(let index)) where plan.contributions.indices.contains(index):
-            editing = .contribution(index: index, contribution: plan.contributions[index])
-        case .item(.event(let index)) where plan.events.indices.contains(index):
-            editing = .event(index: index, event: plan.events[index])
-        case .item(.targetMix), .item(.targetMixStep):
+        if sheet.isTargetMix {
             showsTargetMix = true
-        default:
-            break
+        } else {
+            editing = PlanEditTarget(sheet, in: plan)
         }
     }
 }
 
-// MARK: - The chapters
-
-/// The chapters as a list (UI.md, "Plan"): each one's number, name and
-/// span, the chosen one marked; choosing one shows its words and settings
-/// under the list.
-struct PlanChapterList: View {
-    let timeline: PlanTimeline
-    let model: PlanChaptersModel
-    @Binding var selection: Int
-
-    var body: some View {
-        Card {
-            VStack(alignment: .leading, spacing: 0) {
-                ForEach(timeline.cards) { card in
-                    if card.index > 0 {
-                        Divider()
-                    }
-                    Button {
-                        withAnimation(.snappy) { selection = card.index }
-                    } label: {
-                        row(card)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityAddTraits(card.index == selection ? .isSelected : [])
-                }
-            }
-        } header: {
-            SectionHeader(PlanTimelineText.chapters(timeline.cards.count))
-        }
-    }
-
-    private func row(_ card: PlanTimeline.Card) -> some View {
-        let isSelected = card.index == selection
-        return HStack(alignment: .center, spacing: Metrics.m) {
-            PlanChapterBadge(number: card.index + 1, style: card.style, isSelected: isSelected)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(card.title)
-                    .font(.body.weight(.semibold))
-                    .foregroundStyle(Palette.ink)
-                Text(card.span)
-                    .font(.subheadline)
-                    .monospacedDigit()
-                    .foregroundStyle(Palette.secondaryInk)
-            }
-            .privacySensitiveInFeedback()
-            Spacer(minLength: Metrics.s)
-            Image(systemName: isSelected ? "chevron.down" : "chevron.right")
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(isSelected ? Palette.accent : Palette.mutedInk)
-                .accessibilityHidden(true)
-        }
-        .padding(.vertical, Metrics.s)
-        .contentShape(Rectangle())
-    }
-}
-
-/// A strip's title ("Your life in 6 chapters", "Year by year"), how to move
-/// along it, and on the Mac and iPad ‹ › beside them.
+/// A strip's title ("Year by year"), how to move along it, and on the Mac
+/// and iPad ‹ › beside them.
 struct PlanStripHeader: View {
     let title: String
     let hint: String?
@@ -300,223 +394,16 @@ struct PlanStepButtons: View {
     }
 }
 
-// MARK: - A chapter in words
-
-/// The chosen chapter (UI.md, "Plan"): its number, name and span; what
-/// happens in it, in words that only read (its values in bold), a month's
-/// money as a bar, the milestones along the way and what can go wrong; and
-/// its settings, where the plan changes: every input that starts in it,
-/// once. Side by side on the Mac and iPad; on iPhone the settings follow.
-struct PlanChapterDetails: View {
-    let model: PlanChaptersModel
-    let index: Int
-    let story: PlanChapterStory
-    /// The largest month among the chapters, for the bar.
-    let barMaximum: Double
-    @Binding var plan: PlanDocument
-    /// Amounts in the plan's currency, hidden with the eye.
-    let words: PlanWords
-    let issues: PlanInputIssues
-    var canEdit = true
-    @Binding var editing: PlanEditTarget?
-    /// The milestones the median future reaches in the chapter.
-    var milestones: [ProjectedMilestone] = []
-    let milestoneText: PlanMilestoneText
-    /// Opens a setting's sheet.
-    var onOpen: (PlanSettingSheet) -> Void = { _ in }
-    var onSelect: (Int) -> Void = { _ in }
-    var onUsePlanAge: () -> Void = {}
-
-    /// The milestones listed before "and N more".
-    private static let shownMilestones = 4
-
-    @Environment(\.pageLayout) private var layout
-
-    private var chapter: PlanChapter { model.chapters.chapters[index] }
-
-    var body: some View {
-        // The settings beside the words when the page has the room.
-        if layout.isRoomy {
-            Card {
-                VStack(alignment: .leading, spacing: Metrics.l) {
-                    header
-                    HStack(alignment: .top, spacing: Metrics.xl) {
-                        reading
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                        Divider()
-                        settings
-                            .frame(width: 380, alignment: .leading)
-                    }
-                }
-            }
-        } else {
-            VStack(alignment: .leading, spacing: Metrics.l) {
-                Card {
-                    VStack(alignment: .leading, spacing: Metrics.l) {
-                        header
-                        reading
-                    }
-                }
-                settings
-            }
-        }
-    }
-
-    private var header: some View {
-        HStack(alignment: .center, spacing: Metrics.s) {
-            PlanChapterBadge(number: index + 1, style: model.style(of: chapter))
-            VStack(alignment: .leading, spacing: 2) {
-                Text(model.title(of: chapter))
-                    .font(.title3.weight(.bold))
-                    .foregroundStyle(Palette.ink)
-                    .accessibilityAddTraits(.isHeader)
-                Text("\(model.span(ofChapterAt: index)) · \(model.length(ofChapterAt: index))")
-                    .font(.subheadline)
-                    .monospacedDigit()
-                    .foregroundStyle(Palette.secondaryInk)
-            }
-            .privacySensitiveInFeedback()
-            Spacer(minLength: Metrics.s)
-            // ‹ › on iPhone; on the Mac and iPad they're above the strip.
-            if !layout.isWide {
-                PlanStepButtons(index: index, count: model.chapters.chapters.count, select: onSelect)
-            }
-        }
-    }
-
-    /// What happens: the words, a month's money, the milestones along the
-    /// way, and what can go wrong.
-    private var reading: some View {
-        VStack(alignment: .leading, spacing: Metrics.l) {
-            VStack(alignment: .leading, spacing: Metrics.xs) {
-                PlanPartLabel("What happens")
-                PlanStoryText(runs: story.story)
-                    .font(.body)
-                    .foregroundStyle(Palette.ink)
-            }
-            if let bar = story.bar {
-                PlanMonthBarView(bar: bar, maximum: barMaximum)
-                    .frame(maxWidth: 440, alignment: .leading)
-            }
-            if !milestones.isEmpty {
-                VStack(alignment: .leading, spacing: Metrics.xs) {
-                    PlanPartLabel("Along the way, typically")
-                    ForEach(Array(milestones.prefix(Self.shownMilestones))) { item in
-                        HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
-                            Image(systemName: "flag")
-                                .foregroundStyle(Palette.accent)
-                                .accessibilityHidden(true)
-                            AmountSentenceText(milestoneText.name(item.milestone))
-                                .foregroundStyle(Palette.ink)
-                                .fixedSize(horizontal: false, vertical: true)
-                            Spacer(minLength: Metrics.s)
-                            Text(PlanMilestoneText.when(item.date))
-                                .monospacedDigit()
-                                .foregroundStyle(Palette.secondaryInk)
-                                .privacySensitiveInFeedback()
-                        }
-                        .font(.subheadline)
-                        .accessibilityElement(children: .combine)
-                    }
-                    if milestones.count > Self.shownMilestones {
-                        Text("And \(milestones.count - Self.shownMilestones) more ahead.")
-                            .font(.footnote)
-                            .foregroundStyle(Palette.secondaryInk)
-                    }
-                }
-            }
-            if !story.risks.isEmpty {
-                VStack(alignment: .leading, spacing: Metrics.xs) {
-                    PlanPartLabel("What can go wrong")
-                    ForEach(story.risks, id: \.self) { risk in
-                        Label {
-                            Text(risk)
-                                .fixedSize(horizontal: false, vertical: true)
-                                .privacySensitiveInFeedback()
-                        } icon: {
-                            Image(systemName: "exclamationmark.triangle.fill")
-                                .foregroundStyle(Palette.orangeStroke)
-                        }
-                        .font(.subheadline)
-                        .foregroundStyle(Palette.ink)
-                    }
-                }
-            }
-        }
-    }
-
-    /// Every input that starts in the chapter, once; what carries on into
-    /// it; and *Add to this chapter*.
-    private var settings: some View {
-        VStack(alignment: .leading, spacing: Metrics.s) {
-            HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
-                Text("Settings")
-                    .font(.headline)
-                    .foregroundStyle(Palette.ink)
-                    .accessibilityAddTraits(.isHeader)
-                Spacer(minLength: Metrics.s)
-                Text("A month, in \(PlanMoney.todaysMoney(words.currency))")
-                    .font(.caption)
-                    .foregroundStyle(Palette.secondaryInk)
-            }
-            let rows = PlanChapterSettings.rows(for: chapter.items, model: model, issues: issues, words: words)
-            if rows.isEmpty {
-                Text("Nothing starts in this chapter.")
-                    .font(.subheadline)
-                    .foregroundStyle(Palette.secondaryInk)
-            } else {
-                PlanSettingsList(rows: rows, plan: $plan, model: model, canEdit: canEdit, onSheet: onOpen,
-                                 onUsePlanAge: onUsePlanAge)
-            }
-            if let continuing = model.continuing(in: chapter) {
-                Text(continuing)
-                    .font(.footnote)
-                    .foregroundStyle(Palette.secondaryInk)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .privacySensitiveInFeedback()
-            }
-            PlanChapterAddMenu(chapter: chapter, model: model, plan: plan, editing: $editing)
-                .disabled(!canEdit)
-        }
-    }
-}
-
-// MARK: - Assumptions
-
-/// Under the chapters (UI.md, "Plan"): *Assumptions…*, the sheet with what
-/// every chapter shares, *Export Calculations…* and the disclaimer.
-struct PlanAssumptionsFooter: View {
-    var onShowAll: () -> Void = {}
-    var onExport: (() -> Void)?
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: Metrics.s) {
-            HStack(spacing: Metrics.l) {
-                Button("Assumptions…", action: onShowAll)
-                    .buttonStyle(.borderless)
-                if let onExport {
-                    Button("Export Calculations…", action: onExport)
-                        .buttonStyle(.borderless)
-                }
-            }
-            Text(AboutText.disclaimer)
-                .font(.footnote)
-                .foregroundStyle(Palette.mutedInk)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-    }
-}
-
 #Preview("Plan · iPhone") {
     PlanPreviewHost(model: AppModel.preview()) { session in
-        PlanTimelineView(session: session, showsTargetMix: .constant(false), onExport: {})
+        PlanTimelineView(session: session, showsTargetMix: .constant(false))
             .environment(\.pageLayout, PageLayout())
     }
 }
 
 #Preview("Plan · Mac") {
     PlanPreviewHost(model: AppModel.preview()) { session in
-        PlanTimelineView(session: session, showsTargetMix: .constant(false), onExport: {})
+        PlanTimelineView(session: session, showsTargetMix: .constant(false))
             .environment(\.pageLayout, PageLayout(isWide: true))
             .frame(width: 1_100, height: 1_000)
     }
