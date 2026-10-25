@@ -31,7 +31,7 @@ Check files against them with any 2020-12 validator, e.g. from this folder: `che
 ## Layout
 
 ```
-Can I Retire Yet/                   ← the app's folder in iCloud Drive
+Last Monday/                        ← the app's folder in iCloud Drive
 ├── library.json                    settings and format version
 ├── README.md                       written by the app: what this folder is and how to read it
 ├── accounts/                       one file per account, open or closed

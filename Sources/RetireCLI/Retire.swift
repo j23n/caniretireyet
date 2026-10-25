@@ -1,7 +1,7 @@
 import ArgumentParser
 import Foundation
 
-/// `retire`: Can I Retire Yet? on the command line. Creates and checks a
+/// `retire`: Last Monday on the command line. Creates and checks a
 /// library folder, shows and sets its settings, prints net worth, imports
 /// spreadsheets and broker exports, lists trades and instruments, fetches
 /// prices, runs plans and exports CSV files.
@@ -12,7 +12,7 @@ import Foundation
 struct Retire: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "retire",
-        abstract: "Can I Retire Yet? on the command line.",
+        abstract: "Last Monday on the command line.",
         discussion: """
             Every command works on a library folder: pass --library <path>, set \
             \(CLIContext.libraryVariable), or run it inside the folder.

@@ -7,15 +7,15 @@ import TestSupport
 struct NewLibraryTests {
     @Test func createsAnEmptyLibraryWithAReadme() throws {
         let parent = try TemporaryFolder()
-        let folder = LibraryFolder(root: parent.url.appendingPathComponent("Can I Retire Yet"))
+        let folder = LibraryFolder(root: parent.url.appendingPathComponent("Last Monday"))
         let settings = LibrarySettings(person: Person(name: "Sam Sample"), taxResidence: .it)
         try folder.createLibrary(settings: settings)
 
-        #expect(try parent.allFiles() == ["Can I Retire Yet/README.md", "Can I Retire Yet/library.json"])
+        #expect(try parent.allFiles() == ["Last Monday/README.md", "Last Monday/library.json"])
         for name in LibraryFolder.initialFolders {
-            #expect(parent.exists("Can I Retire Yet/\(name)"))
+            #expect(parent.exists("Last Monday/\(name)"))
         }
-        #expect(try parent.text("Can I Retire Yet/library.json") == """
+        #expect(try parent.text("Last Monday/library.json") == """
             {
               "baseCurrency": "EUR",
               "person": { "name": "Sam Sample" },
@@ -24,7 +24,7 @@ struct NewLibraryTests {
             }
 
             """)
-        #expect(try parent.text("Can I Retire Yet/README.md") == LibraryFolder.readme)
+        #expect(try parent.text("Last Monday/README.md") == LibraryFolder.readme)
 
         let result = try folder.load()
         #expect(result.report.issues.isEmpty)

@@ -78,7 +78,7 @@ struct SidebarRoot: View {
                         .tag(SidebarItem.sync)
                 }
             }
-            .navigationTitle("Can I Retire Yet?")
+            .navigationTitle("Last Monday")
             .navigationSplitViewColumnWidth(min: 220, ideal: 270)
         } detail: {
             SidebarDetail(navigation: navigation, item: navigation.sidebarSelection ?? .today)

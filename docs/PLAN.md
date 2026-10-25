@@ -14,7 +14,7 @@ A private app for iPhone and Mac with two halves:
    - windfalls and large expenses;
    - a tax rate on investment gains and income, and an optional wealth tax, set by hand.
 
-   The result answers the question in the app's name: **can I retire yet, and if not, at what age, and how confident is that?**
+   The result answers one question: **can I retire yet, and if not, at what age, and how confident is that?**
 
 All data lives in a folder of plain JSON files in iCloud Drive. The apps on your iPhone and Mac both read and write that folder.
 
@@ -91,7 +91,7 @@ These are listed as M3 and M4 in §6: explaining the gap to a baseline, the RW/I
 | --- | --- | --- |
 | Platform | One SwiftUI app target for iPhone, iPad and Mac. Minimum iOS 26 and macOS 26. | One codebase with a native feel on both platforms and first-class iCloud Drive APIs. A personal app doesn't need to support old OS versions. |
 | Source of truth | A folder of small JSON files, called "the library". | Human-readable, diffable and easy to back up. The data is tiny (thousands of records), so no database is needed. |
-| Sync | iCloud Drive, in the app's own iCloud container. It shows up as a "Can I Retire Yet" folder in Files and Finder. | No server, it works offline, and the files stay visible and editable. |
+| Sync | iCloud Drive, in the app's own iCloud container. It shows up as a "Last Monday" folder in Files and Finder. | No server, it works offline, and the files stay visible and editable. |
 | History model | Point-in-time valuations (balances and quantities) by default. An investment account can opt in to trades (`"valuation": "trades"`): its holdings, average cost, cash and realised gains are worked out from buys, sells, deposits and the like, and its imports record the trades and the cash a broker statement shows ([TRADES.md](TRADES.md)). | Valuations match the monthly workflow, and closing an account never touches its history. Trades give an exact purchase cost (*costo medio ponderato*), realised gains, dividends and exact flows for a broker account, which the tax on sales needs. Both styles work for a trades account: record every deposit, or import the cash from statements. |
 | Money | `Decimal` for every recorded amount, stored as strings in JSON. | No floating-point rounding errors in the tracker. |
 | Currencies | Each account has its own currency; the base currency is EUR. Each check-in stores the prices and FX rates it used. | Past net worth can always be recomputed, even if a price source goes away. |

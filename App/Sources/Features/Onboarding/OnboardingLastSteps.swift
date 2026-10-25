@@ -35,7 +35,7 @@ struct OnboardingFilesStep: View {
             .onboardingCard()
             #if os(iOS)
             Label(library.location?.kind == .iCloud
-                  ? "Importing is easier on a Mac. Open Can I Retire Yet there; your library is already in iCloud "
+                  ? "Importing is easier on a Mac. Open Last Monday there; your library is already in iCloud "
                     + "Drive."
                   : "Importing is easier on a Mac, where your files usually are.",
                   systemImage: "macbook.and.iphone")
@@ -160,7 +160,7 @@ struct OnboardingNotesStep: View {
 
     #if os(macOS)
     static let widgetTitle = "On your desktop"
-    static let widgetHow = "Control-click the desktop, choose Edit Widgets, then find Can I Retire Yet."
+    static let widgetHow = "Control-click the desktop, choose Edit Widgets, then find Last Monday."
     #else
     static let widgetTitle = "On your Lock Screen"
     static let widgetHow = "Touch and hold the Lock Screen, tap Customize, then add Time to retire."

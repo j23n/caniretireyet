@@ -43,9 +43,9 @@ final class LibraryCSVExport: Identifiable {
         }
     }
 
-    /// "Can I Retire Yet CSV 2026-09-30".
+    /// "Last Monday CSV 2026-09-30".
     nonisolated static func name(date: CalendarDate) -> String {
-        "Can I Retire Yet CSV \(date)"
+        "Last Monday CSV \(date)"
     }
 
     /// Where the exports go: a folder of their own in the temporary directory.
