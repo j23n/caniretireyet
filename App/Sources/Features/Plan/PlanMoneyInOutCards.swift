@@ -89,8 +89,9 @@ extension PlanLastTwelveMonths.Tile.Kind {
 
 /// One of the last 12 months' figures as a small tile (UI.md, "Tiles"),
 /// tinted by what it is, with its emoji: its title, its figure large, and
-/// its change against the 12 months before in a capsule ("▲ 4 points"). The
-/// savings rate says what it's of. Rates stay with the eye; amounts hide.
+/// its change against the 12 months before in a capsule ("▲ 4 points"),
+/// green when it's good news and orange when not. The savings rate says
+/// what it's of. Rates stay with the eye; amounts hide.
 struct TwelveMonthsTile: View {
     let tile: PlanLastTwelveMonths.Tile
     let currency: CurrencyCode
@@ -125,9 +126,10 @@ struct TwelveMonthsTile: View {
                     .font(.caption.weight(.semibold))
                     .monospacedDigit()
                     .lineLimit(1)
+                    .foregroundStyle(color(of: change))
                     .padding(.horizontal, 9)
                     .padding(.vertical, Metrics.xs)
-                    .background(.primary.opacity(0.08), in: Capsule())
+                    .background(Palette.card.opacity(0.75), in: Capsule())
                     .privacySensitive(isAmount(change))
                     .privacySensitiveInFeedback()
                     .padding(.top, Metrics.s)
@@ -147,11 +149,20 @@ struct TwelveMonthsTile: View {
                 .minimumScaleFactor(0.6)
                 .privacySensitiveInFeedback()
         case .amount(let amount):
-            AmountText(abs(amount), currency: currency, tabular: false)
+            // Only *Saved* says its sign in its title ("Took out"); what
+            // came in and what was spent can be below zero too.
+            AmountText(tile.kind == .saved ? abs(amount) : amount, currency: currency, tabular: false)
                 .font(.title2.bold())
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
         }
+    }
+
+    /// Green when the change is good news, orange when not, the tile's ink
+    /// when there's none.
+    private func color(of change: PlanLastTwelveMonths.TileChange) -> Color {
+        guard change.direction != 0 else { return tile.kind.tint.ink }
+        return change.isGood ? Palette.positive : Palette.orangeStroke
     }
 
     private func isAmount(_ change: PlanLastTwelveMonths.TileChange) -> Bool {
