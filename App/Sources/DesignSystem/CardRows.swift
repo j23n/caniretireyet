@@ -117,6 +117,10 @@ extension CardRow where Title == Text, Below == EmptyView {
             CardRow("At 55, as planned") { Text(verbatim: "4 in 10 futures") }
             CardRow { Text(verbatim: "Next: 5 years of spending") } value: { Text(verbatim: "90% there") }
             CardRow("Net worth", opens: true) { Text(verbatim: "€332,455") }
+            // Too long to share the line: the value goes under the title.
+            CardRow("Target mix", opens: true) {
+                Text(verbatim: "Equity 89% · cash 6% · gold 5% · changes at retirement")
+            }
         }
         .padding()
     }
