@@ -262,7 +262,9 @@ struct TileGrid: Layout {
     static let rowHeight: CGFloat = 176
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let width = proposal.width ?? Metrics.readableWidth
+        // A stack measuring how far the grid stretches offers it infinity:
+        // the rows are laid out at the readable width then.
+        let width = proposal.width.flatMap { $0.isFinite ? $0 : nil } ?? Metrics.readableWidth
         let height = Self.height(of: rows(of: subviews, width: width), spacing: spacing)
         if fillsHeight, let offered = proposal.height, offered.isFinite, offered > height {
             return CGSize(width: width, height: offered)
@@ -320,7 +322,8 @@ struct TileGrid: Layout {
     /// The small tiles a row of `width` holds: two, or more while each
     /// keeps ``minimumSmallWidth``.
     static func slots(width: CGFloat, spacing: CGFloat = Metrics.m) -> Int {
-        max(2, Int((width + spacing) / (minimumSmallWidth + spacing)))
+        let fit = (width + spacing) / (minimumSmallWidth + spacing)
+        return fit.isFinite ? max(2, Int(fit)) : 2
     }
 
     /// The tiles in rows of up to ``slots(width:spacing:)``, in order, each

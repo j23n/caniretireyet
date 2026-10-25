@@ -73,13 +73,17 @@ struct TodayScreen: View {
         return VStack(alignment: .leading, spacing: Metrics.l) {
             if let answer, let mainPlan, slots >= 4 {
                 VStack(alignment: .leading, spacing: Metrics.m) {
+                    // Both columns have their widths, so the stack never offers the
+                    // grid an unbounded width while it measures them.
+                    let answerWidth = 2 * TileGrid.smallWidth(width: pageWidth) + Metrics.m
                     HStack(alignment: .top, spacing: Metrics.m) {
                         TodayAnswerCard(answer: answer, plan: mainPlan, results: results, today: today)
-                            .frame(width: 2 * TileGrid.smallWidth(width: pageWidth) + Metrics.m)
+                            .frame(width: answerWidth)
                         TileGrid(fillsHeight: true) {
                             TodayTiles(part: .beside(slots: slots - 2), plan: mainPlan, results: results,
                                        today: today)
                         }
+                        .frame(width: max(0, pageWidth - answerWidth - Metrics.m))
                     }
                     .fixedSize(horizontal: false, vertical: true)
                     TileGrid {
