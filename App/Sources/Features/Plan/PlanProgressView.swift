@@ -7,11 +7,11 @@ import Tracker
 /// The Timeline at a year (UI.md, "Year"; PROGRESS.md): the chosen year's
 /// chart on a card, your money against what you planned in January, with
 /// ‹ › to step through the years and its verdict in a line; then tiles for
-/// what you saved and what markets did and why you're ahead or behind, the
-/// year month by month, what happened, and the milestones. On the Mac and
-/// iPad the year's figures, why, what happened and the milestones are
-/// beside the chart, and the year's check-ins a table under it. Your date
-/// at each check-in is on *Look back*.
+/// what you saved and what markets did, why you're ahead or behind, your
+/// money, the earliest age and the check-ins; then the year month by
+/// month, what happened, and the milestones. The same at every width, the
+/// tiles on the grid of slots. Your date at each check-in is on *Look
+/// back*.
 struct PlanProgressView: View {
     let session: PlanSession
     /// Shows the plan.
@@ -27,9 +27,6 @@ struct PlanProgressView: View {
     @State private var selectedYear: Int?
 
     private var isWide: Bool { layout.isWide }
-
-    /// The column beside the chart on the Mac and iPad.
-    private static let sideWidth: CGFloat = 300
 
     private var milestoneText: PlanMilestoneText {
         PlanMilestoneText(currency: library.baseCurrency, locale: locale)
@@ -75,26 +72,12 @@ struct PlanProgressView: View {
             let select: (Int) -> Void = { target in
                 if cards.indices.contains(target) { selectedYear = cards[target].year.year }
             }
-            if isWide {
-                WideColumns(sideWidth: Self.sideWidth) {
-                    PlanYearChartCard(timeline: timeline, index: index, select: select)
-                    PlanYearCheckIns(card: card, history: history)
-                } side: {
-                    PlanYearFiguresCard(card: card)
-                    if PlanYearWhyTile.shows(card.year) {
-                        PlanYearWhyTile(card: card)
-                    }
-                    happenings(card)
-                    milestonesCard(milestones)
-                }
-            } else {
-                VStack(alignment: .leading, spacing: Metrics.m) {
-                    PlanYearChartCard(timeline: timeline, index: index, select: select)
-                    PlanYearTiles(card: card)
-                    PlanYearMonthsCard(card: card)
-                    happenings(card)
-                    milestonesCard(milestones)
-                }
+            VStack(alignment: .leading, spacing: Metrics.m) {
+                PlanYearChartCard(timeline: timeline, index: index, select: select)
+                PlanYearTiles(card: card, history: history)
+                PlanYearMonthsCard(card: card)
+                happenings(card)
+                milestonesCard(milestones)
             }
         }
     }
