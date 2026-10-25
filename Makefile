@@ -62,7 +62,7 @@ screenshots: project
 	$(XCODEBUILD) $(XCODEBUILD_FLAGS) test -project $(XCODEPROJ) -scheme $(SCHEME) -destination "platform=iOS Simulator,id=$$device" \
 	  -only-testing:$(SCREEN_TESTS) -derivedDataPath $(DERIVED_DATA) -resultBundlePath $(RESULTS)/iphone.xcresult \
 	  $(UNSIGNED) || status=1; \
-	$(PYTHON) $(SCREENSHOT_SCRIPT) print $(SCREENSHOTS) || status=1; \
+	SCREENSHOT_PICK='iphone-size-320x568-se-slideover-today,iphone-size-320x568-se-slideover-plan,iphone-size-874x402-pro-landscape-today,iphone-size-874x402-pro-landscape-plan,iphone-size-874x402-pro-landscape-year,iphone-size-690x880-fold-compact-today,iphone-size-690x880-fold-compact-decades,iphone-size-820x1000-fold-regular-today,iphone-size-820x1000-fold-regular-year,iphone-size-820x1000-fold-regular-decades,iphone-size-507x1000-ipad-split-half-today,iphone-size-1032x1376-ipad-13-account,iphone-size-1032x1376-ipad-13-decades,iphone-size-956x440-promax-landscape-today,mac-size-900x600-min-decades,mac-size-900x600-min-year,mac-size-2200x1300-large-today' SCREENSHOT_PRINT_SIZE=640 $(PYTHON) $(SCREENSHOT_SCRIPT) print $(SCREENSHOTS) || status=1; \
 	$(PYTHON) $(SCREENSHOT_SCRIPT) failures $(RESULTS) || status=1; \
 	exit $$status
 

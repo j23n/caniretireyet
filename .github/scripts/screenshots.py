@@ -12,6 +12,7 @@
 
 import base64
 import json
+import os
 import pathlib
 import re
 import subprocess
@@ -61,10 +62,16 @@ def pick_ipad() -> None:
 
 
 def print_screenshots(out: pathlib.Path) -> None:
-    for image in sorted(out.glob("*.png")):
+    pick = [name for name in os.environ.get("SCREENSHOT_PICK", "").split(",") if name]
+    images = [out / f"{name}.png" for name in pick] if pick else sorted(out.glob("*.png"))
+    size = os.environ.get("SCREENSHOT_PRINT_SIZE", "1000")
+    for image in images:
+        if not image.exists():
+            print(f"=== missing {image.stem} ===")
+            continue
         with tempfile.TemporaryDirectory() as scratch:
             small = pathlib.Path(scratch) / "small.jpg"
-            subprocess.run(["sips", "-s", "format", "jpeg", "-s", "formatOptions", "50", "-Z", "1000", str(image),
+            subprocess.run(["sips", "-s", "format", "jpeg", "-s", "formatOptions", "40", "-Z", size, str(image),
                             "--out", str(small)], check=True, capture_output=True)
             encoded = base64.b64encode(small.read_bytes()).decode()
         # Few, long lines: a log is read from its end, a number of lines at a time.
