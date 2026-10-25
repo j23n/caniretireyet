@@ -438,7 +438,7 @@ struct DecadesGeometry {
 }
 
 /// The decades chart's plot (UI.md, "Decades"), drawn for its width: the
-/// gridlines with their amounts at the right, your money to now in ink,
+/// gridlines with their amounts at the left, your money to now in ink,
 /// the futures from now (the typical one as a blue line, half of them in
 /// the darker band, 8 in 10 in the lighter one), a rule at *Now* ("Now,
 /// 38") and one at the day you stop in a blue label ("27 Mar 2051, at
