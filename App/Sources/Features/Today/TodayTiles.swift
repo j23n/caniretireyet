@@ -61,12 +61,15 @@ struct TodayTiles: View {
         }
     }
 
-    /// The last 12 months' money in and out, when Look Back is on and they
-    /// recorded some that came in.
+    /// The last 12 months' money in and out, as Look Back has them (through
+    /// the latest check-in of the plan's accounts), when Look Back is on and
+    /// they recorded some that came in.
     private var twelveMonths: PlanLastTwelveMonths? {
+        let valuator = library.valuator
+        let end = valuator.latestCheckIn(onOrBefore: library.asOfDate, in: .planAssets) ?? library.asOfDate
         guard library.library.accountsTurningOffTrends.isEmpty,
-              let year = PlanLastTwelveMonths(valuator: library.valuator, through: library.latestCheckIn ?? today,
-                                              recordedSince: library.firstMoneyInOut),
+              let year = PlanLastTwelveMonths(valuator: valuator, through: end,
+                                              recordedSince: library.moneyInOutRecordedSince),
               year.current.rate != nil
         else { return nil }
         return year
