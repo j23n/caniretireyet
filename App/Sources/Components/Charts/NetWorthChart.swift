@@ -21,8 +21,8 @@ import Tracker
 ///   complete `history` total.
 /// - `projection` continues the chart into the plan's future: a dashed
 ///   median, a darker 25–75% band and a lighter 10–90% band. The value axis
-///   fits the history, the median and the 25–75% band; the 10–90% band may
-///   run off the top, and the legend says so (``ProjectionScale``). Stacked,
+///   fits the history and the median with a tenth above them; the bands
+///   may run off the top, and the legend says so (``ProjectionScale``). Stacked,
 ///   the legend has two rows: the groups, then the projection's key. The
 ///   median starts from the last `history` total, so pass the totals of
 ///   what the projection covers.
@@ -102,7 +102,7 @@ struct NetWorthChart: View {
 
     /// Everything placed for the chart's width and height: the value axis
     /// fits the history and the stacked areas, and the projection's median
-    /// and 25–75% band.
+    /// with a tenth above it.
     private var layout: ProjectionLayout {
         let dates = history.map(\.date) + projection.map(\.date) + stacked.flatMap { $0.points.map(\.date) }
         return ProjectionLayout(dates: dates, values: history.map(\.value) + stacked.stackedExtents, fan: projection,
