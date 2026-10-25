@@ -225,7 +225,7 @@ struct PlanWhatIfSheet: View {
                     }
                     VStack(alignment: .leading, spacing: 6) {
                         PlanPartLabel("With these levers")
-                        PlanChangeSummary(session: session, changed: session.whatIfResults,
+                        PlanChangeSummary(session: session, changed: session.whatIfResults, document: session.shownPlan,
                                           isUpdating: session.whatIfIsOutOfDate || session.isRunningWhatIf,
                                           error: session.hasWhatIf ? session.runError : nil,
                                           label: "With the levers")

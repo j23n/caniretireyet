@@ -487,6 +487,11 @@ final class PlanSession {
     }
 
     /// The sliders' model for the plan as shown.
+    /// The plan as the page shows it: with the levers once one has moved.
+    var shownPlan: PlanDocument? {
+        hasWhatIf ? whatIfModel?.kept ?? plan : plan
+    }
+
     var whatIfModel: PlanWhatIfModel? {
         plan.map { PlanWhatIfModel(plan: $0, results: baseResults, whatIf: whatIf) }
     }

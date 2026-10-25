@@ -219,15 +219,16 @@ struct AheadView: View {
                 HStack(alignment: .firstTextBaseline, spacing: Metrics.m) {
                     chartTitle(endAge)
                     Spacer(minLength: Metrics.m)
-                    DecadesLegend(compared: compared == nil ? nil : "As it is")
+                    DecadesLegend(compared: compared == nil ? nil : "As it is", changed: "With the levers")
                         .fixedSize()
                 }
                 VStack(alignment: .leading, spacing: Metrics.s) {
                     chartTitle(endAge)
-                    DecadesLegend(compared: compared == nil ? nil : "As it is")
+                    DecadesLegend(compared: compared == nil ? nil : "As it is", changed: "With the levers")
                 }
             }
-            DecadesChart(plan: plan, results: state.results, compared: compared, today: .today(), chartHeight: 380)
+            DecadesChart(plan: session.shownPlan ?? plan, results: state.results, compared: compared, today: .today(),
+                         chartHeight: 380)
                 .opacity(state.dimsResults ? Metrics.dimmedOpacity : 1)
         }
         .padding(Metrics.l)
@@ -324,6 +325,7 @@ struct AheadAnswerCard: View {
     var onWhatIf: (() -> Void)?
     var onSoFar: () -> Void = {}
 
+    @Environment(LibraryStore.self) private var library
     @Environment(\.locale) private var locale
 
     var body: some View {
@@ -385,10 +387,10 @@ struct AheadAnswerCard: View {
                 let compared = session.hasWhatIf && session.whatIfResults != nil ? session.baseResults : nil
                 VStack(alignment: .leading, spacing: Metrics.s) {
                     if state.results != nil {
-                        DecadesLegend(compared: compared == nil ? nil : "As it is")
+                        DecadesLegend(compared: compared == nil ? nil : "As it is", changed: "With the levers")
                     }
-                    DecadesChart(plan: plan, results: state.results, compared: compared, today: .today(),
-                                 chartHeight: 230)
+                    DecadesChart(plan: session.shownPlan ?? plan, results: state.results, compared: compared,
+                                 today: .today(), chartHeight: 230)
                         .opacity(state.dimsResults ? Metrics.dimmedOpacity : 1)
                 }
             }
@@ -400,10 +402,11 @@ struct AheadAnswerCard: View {
     }
 
     /// *What if…*, filled once a lever has moved, and how far ahead of
-    /// January's plan you are.
+    /// January's plan you are. Only for the main plan, which So far follows.
     @ViewBuilder
     private var buttons: some View {
-        let gap = session.progress.latestYear?.position?.gap
+        let year = library.settings.mainPlan == session.planID ? session.progress.latestYear : nil
+        let gap = year?.position?.gap
         if onWhatIf != nil || gap != nil {
             HStack(spacing: Metrics.s) {
                 if let onWhatIf {
@@ -418,7 +421,8 @@ struct AheadAnswerCard: View {
                 }
                 if let gap {
                     Button(action: onSoFar) {
-                        AheadGapLabel(gap: gap, currency: session.currency, long: onWhatIf == nil)
+                        AheadGapLabel(gap: gap, currency: session.currency,
+                                      against: onWhatIf == nil ? year?.expectation(locale: locale) : nil)
                     }
                     .buttonStyle(.bordered)
                     .accessibilityHint("Shows how you've been doing so far")
@@ -444,20 +448,25 @@ struct AheadAnswerCard: View {
     }
 }
 
-/// How far ahead of January's plan your money is, or behind it:
-/// "21.572 € ahead ›", "21.572 € ahead of January" (`long`).
+/// How far ahead of the year's plan your money is, or behind it:
+/// "21.572 € ahead ›", or "21.572 € ahead of your January plan" with what
+/// it's `against`.
 struct AheadGapLabel: View {
     let gap: Decimal
     let currency: CurrencyCode
-    var long = false
+    var against: String?
 
     @Environment(\.locale) private var locale
 
     var body: some View {
         let words = PlanWords(currency: currency, locale: locale)
         let side = gap >= 0 ? "ahead" : "behind"
-        let sentence: AmountSentence = long ? "\(words.unsigned(gap)) \(side) of January"
-            : "\(words.unsigned(gap)) \(side) ›"
+        let sentence: AmountSentence
+        if let against {
+            sentence = "\(words.unsigned(gap)) \(side) of \(against)"
+        } else {
+            sentence = "\(words.unsigned(gap)) \(side) ›"
+        }
         AmountSentenceText(sentence)
             .font(.subheadline.weight(.semibold))
             .monospacedDigit()

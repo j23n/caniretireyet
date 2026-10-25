@@ -100,9 +100,11 @@ struct DecadesChart: View {
 
 /// The plan chart's legend, in one row: the typical future, half of the
 /// futures and 8 in 10 of them; with `compared`, the dashed line it's
-/// compared with ("As it is").
+/// compared with ("As it is"), and the typical future named `changed`.
 struct DecadesLegend: View {
     var compared: String?
+    /// What the typical future is called beside `compared`.
+    var changed = "With the change"
 
     var body: some View {
         ChartLegendRow(items: items)
@@ -110,7 +112,7 @@ struct DecadesLegend: View {
 
     private var items: [ChartLegendItem] {
         var items = [
-            ChartLegendItem(name: compared == nil ? "Typical" : "With the change",
+            ChartLegendItem(name: compared == nil ? "Typical" : changed,
                             swatch: .line(.accent, dashed: false)),
             ChartLegendItem(name: "Half of futures", swatch: .band(opacity: ProjectionLegend.innerBand)),
             ChartLegendItem(name: "8 in 10", swatch: .band(opacity: ProjectionLegend.outerBand)),

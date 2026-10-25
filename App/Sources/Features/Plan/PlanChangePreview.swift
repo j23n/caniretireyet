@@ -67,6 +67,8 @@ struct PlanChangeSummary: View {
     let session: PlanSession
     /// The results with the change; `nil` until they're worked out.
     let changed: PlanResults?
+    /// The plan with the change, whose chapters the chart shows.
+    let document: PlanDocument?
     /// Whether newer results are being worked out.
     var isUpdating = false
     /// Why the change can't be worked out.
@@ -84,8 +86,9 @@ struct PlanChangeSummary: View {
                 answer(changed)
                     .opacity(isUpdating ? Metrics.dimmedOpacity : 1)
                 VStack(alignment: .leading, spacing: Metrics.s) {
-                    DecadesLegend(compared: base == nil ? nil : "As it is")
-                    DecadesChart(plan: plan, results: changed, compared: base, today: .today(), chartHeight: 210)
+                    DecadesLegend(compared: base == nil ? nil : "As it is", changed: label)
+                    DecadesChart(plan: document ?? plan, results: changed, compared: base, today: .today(),
+                                 chartHeight: 210)
                 }
                 .padding(Metrics.l)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -192,8 +195,9 @@ struct PlanChangeSummary: View {
             }
             if let left = focus.medianAtEnd {
                 let leftAmount = Decimal(wholeNumber: left)
-                PlanChangeTile(tint: .peach, title: "Left at \(changed.details.endAge)", emoji: "🏁",
-                               figure: .amount(leftAmount), caption: "typically", currency: currency,
+                PlanChangeTile(tint: .peach, title: "Money left at the end", emoji: "🏁",
+                               figure: .amount(leftAmount), caption: "at \(changed.details.endAge), typically",
+                               currency: currency,
                                change: was?.medianAtEnd.map {
                                    PlanChangeTile.Change.amount(leftAmount - Decimal(wholeNumber: $0), good: true)
                                })
@@ -330,8 +334,8 @@ struct PlanChangePreview: View {
     }
 
     var body: some View {
-        PlanChangeSummary(session: session, changed: changed == nil ? nil : results,
-                          isUpdating: isUpdating || (changed != nil && resultsFor != changed),
+        PlanChangeSummary(session: session, changed: changed == nil ? nil : results, document: changed,
+                          isUpdating: isUpdating || (changed != nil && error == nil && resultsFor != changed),
                           error: changed == nil ? nil : error)
             .task(id: changed) { await workOut(changed) }
     }
@@ -368,6 +372,9 @@ struct PlanChangePreview: View {
             return
         } catch {
             guard !Task.isCancelled else { return }
+            // An earlier copy's results would show over the error.
+            results = nil
+            resultsFor = nil
             self.error = PlanStore.describe(error)
             isUpdating = false
         }
