@@ -44,14 +44,6 @@ struct SidebarRoot: View {
     @Environment(AppPreferences.self) private var preferences
     @Environment(PlanStore.self) private var plans
 
-    /// The sidebar's width: wider on iPad, whose larger type would otherwise
-    /// leave a group's or an account's name little room beside its amount.
-    #if os(macOS)
-    private static let sidebarWidth: CGFloat = 270
-    #else
-    private static let sidebarWidth: CGFloat = 310
-    #endif
-
     var body: some View {
         NavigationSplitView {
             List(selection: selection) {
@@ -87,7 +79,7 @@ struct SidebarRoot: View {
                 }
             }
             .navigationTitle("Last Monday")
-            .navigationSplitViewColumnWidth(min: 220, ideal: Self.sidebarWidth)
+            .navigationSplitViewColumnWidth(min: 220, ideal: 270)
         } detail: {
             SidebarDetail(navigation: navigation, item: navigation.sidebarSelection ?? .today)
         }
@@ -222,6 +214,7 @@ private struct SidebarCountRow: View {
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
             Text(title)
+                .lineLimit(3)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: Metrics.xs)
             if count > 0 {
@@ -233,6 +226,7 @@ private struct SidebarCountRow: View {
             }
         }
         .accessibilityElement(children: .combine)
+        .sidebarAccountFont()
     }
 }
 
@@ -245,6 +239,7 @@ private struct SidebarPlanRow: View {
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
             Text(name)
+                .lineLimit(3)
                 .fixedSize(horizontal: false, vertical: true)
                 .privacySensitiveInFeedback()
             Spacer(minLength: Metrics.xs)
@@ -282,6 +277,7 @@ private struct SidebarFolderLabel<Trailing: View>: View {
                     .accessibilityHidden(true)
             }
             Text(title)
+                .lineLimit(3)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: Metrics.xs)
             trailing
@@ -292,6 +288,7 @@ private struct SidebarFolderLabel<Trailing: View>: View {
                 .layoutPriority(1)
         }
         .accessibilityElement(children: .combine)
+        .sidebarAccountFont()
         #if os(macOS)
         .contentShape(Rectangle())
         .onTapGesture {
@@ -311,6 +308,7 @@ private struct SidebarAccountRow: View {
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
             Text(item.account.name)
+                .lineLimit(3)
                 .fixedSize(horizontal: false, vertical: true)
                 .privacySensitiveInFeedback()
             Spacer(minLength: Metrics.xs)
@@ -330,6 +328,7 @@ private struct SidebarAccountRow: View {
             }
         }
         .accessibilityElement(children: .combine)
+        .sidebarAccountFont()
     }
 }
 
@@ -478,4 +477,18 @@ struct SettingsButton: View {
 #Preview("Sidebar") {
     SidebarRoot()
         .previewEnvironment()
+}
+
+private extension View {
+    /// The accounts' rows on iPad a size smaller than the places above
+    /// them, so a group's or an account's name has room beside its amount
+    /// in the sidebar's width. The Mac's sidebar type is small already.
+    @ViewBuilder
+    func sidebarAccountFont() -> some View {
+        #if os(macOS)
+        self
+        #else
+        font(.subheadline)
+        #endif
+    }
 }
