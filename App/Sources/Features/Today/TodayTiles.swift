@@ -17,12 +17,12 @@ import Tracker
 /// last check-in (opening the accounts). The tiles go into the page's
 /// ``TileGrid``s, in parts:
 ///
-/// - ``Part/all``: every tile, under the answer, where a row has three
-///   slots or fewer. Net worth and what moved are wide; the milestone and
+/// - ``Part/all``: every tile, under the answer, where a row has two
+///   slots, or before there's an answer. Net worth and what moved are wide; the milestone and
 ///   the savings rate are wide when only one has something to show.
 /// - ``Part/beside(slots:)``: net worth and what moved, tall, beside the
-///   answer in a row of `slots`; each takes two slots when there are
-///   enough, what moved first.
+///   answer in `slots`; each takes two slots when there are enough, what
+///   moved first, and with one slot the page stacks them in it.
 /// - ``Part/under``: the rest, small and half tiles, under the answer and
 ///   those two.
 struct TodayTiles: View {
