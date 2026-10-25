@@ -10,7 +10,7 @@ Last Monday's website: the landing page, the privacy policy, the terms of use an
 | Support | `support/index.html` |
 
 - The text pages share `assets/page.css`. The landing page carries its styles inline, and draws the app's screens in HTML.
-- The landing page's numbers come from the made-up example library (`Sources/TestSupport/Resources/ExampleLibrary/`). Keep them made up.
+- The landing page's numbers are made up, after the example library (`Sources/TestSupport/Resources/ExampleLibrary/`), with the plan stopping at 63, its earliest age. Keep every screen telling the same story, and keep the numbers made up.
 - The privacy policy describes what the app sends and stores. When the app starts calling a new service (a price source in `Sources/Prices`, say) or keeps data somewhere new, update the policy in the same change.
 - Links between pages are relative, so the site works at any path.
 
