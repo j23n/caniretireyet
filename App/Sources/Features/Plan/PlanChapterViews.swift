@@ -2,11 +2,10 @@ import Model
 import Planner
 import SwiftUI
 
-// The plan's chapters (UI.md, "The plan"): on iPhone a card with a row per
-// chapter, each opening the chapter in a sheet; on the Mac and iPad a table,
-// a row per chapter, the chosen one's words and settings under it.
+// The plan's chapters (UI.md, "Your life ahead"): a chapter as Ahead's
+// line says it, and a chapter in a sheet, its settings and its words.
 
-/// A chapter as its row or table line says it.
+/// A chapter as *Your life ahead* says it.
 struct PlanChapterLine: Identifiable {
     let index: Int
     let style: PlanChaptersModel.Style
@@ -47,73 +46,11 @@ struct PlanChapterLine: Identifiable {
     }
 }
 
-// MARK: - iPhone
-
-/// The chapters on one card (iPhone): a row each, its number in the colour
-/// of its kind of life, its name, its ages on the right, a thin bar of where
-/// its money goes and a line of figures under it. A row opens the chapter.
-struct PlanChapterRows: View {
-    let lines: [PlanChapterLine]
-    var onOpen: (Int) -> Void = { _ in }
-
-    var body: some View {
-        CardRows {
-            ForEach(lines) { line in
-                Button {
-                    onOpen(line.index)
-                } label: {
-                    row(line)
-                }
-                .buttonStyle(.plain)
-                .accessibilityHint("Shows what happens in it")
-            }
-        }
-    }
-
-    private func row(_ line: PlanChapterLine) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(alignment: .center, spacing: 10) {
-                PlanChapterBadge(number: line.index + 1, style: line.style)
-                Text(line.title)
-                    .font(.body.weight(.semibold))
-                    .foregroundStyle(Palette.ink)
-                    .lineLimit(1)
-                    .privacySensitiveInFeedback()
-                Spacer(minLength: Metrics.s)
-                Text(line.ages)
-                    .font(.footnote)
-                    .monospacedDigit()
-                    .foregroundStyle(Palette.secondaryInk)
-                    .lineLimit(1)
-                    .fixedSize()
-                    .privacySensitiveInFeedback()
-            }
-            VStack(alignment: .leading, spacing: 6) {
-                if let bar = line.bar {
-                    PlanChapterMoneyBar(bar: bar)
-                }
-                if !line.summary.isEmpty {
-                    AmountSentenceText(line.summary)
-                        .font(.footnote)
-                        .foregroundStyle(Palette.secondaryInk)
-                        .lineLimit(2)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-            .padding(.leading, 34)
-            .padding(.top, Metrics.s)
-        }
-        .padding(.vertical, 13)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .contentShape(Rectangle())
-        .accessibilityElement(children: .combine)
-    }
-}
-
-/// One chapter in a sheet (iPhone): its name and span as the title, then
-/// what happens in it and where its money goes, the milestones along the
-/// way, what can go wrong, and its settings. The sheet opens the settings'
-/// own sheets itself.
+/// One chapter in a sheet: its name and span as the title, then its
+/// settings, where the plan changes, then what happens in it and where its
+/// money goes, the milestones along the way and what can go wrong. The
+/// sheet opens the settings' own sheets itself, each with *With this
+/// change*.
 struct PlanChapterSheet: View {
     let session: PlanSession
 
@@ -207,8 +144,8 @@ struct PlanChapterSheet: View {
 /// happens in it, in words that only read, with a month's money as a bar;
 /// the milestones the median future reaches in it; what can go wrong; and
 /// *In this chapter*, its settings, where the plan changes: every input
-/// that starts in it, once, then *Add to This Chapter*. Side by side on the
-/// Mac and iPad (`columns`); on iPhone the settings follow.
+/// that starts in it, once, then *Add to This Chapter*. Side by side with
+/// `columns`; else the settings come first.
 struct PlanChapterDetail: View {
     let model: PlanChaptersModel
     let index: Int
@@ -242,8 +179,8 @@ struct PlanChapterDetail: View {
             }
         } else {
             VStack(alignment: .leading, spacing: Metrics.l) {
-                reading
                 settings
+                reading
             }
         }
     }

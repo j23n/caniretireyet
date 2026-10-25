@@ -51,7 +51,7 @@ struct NetWorthChart: View {
     var title = "Net worth"
     /// A date read without dragging across the chart: for previews.
     var readsDate: Date?
-    /// The plot's height; the Timeline's *Decades* draws it taller.
+    /// The plot's height.
     var height: CGFloat = 220
 
     @State private var selectedDate: Date?

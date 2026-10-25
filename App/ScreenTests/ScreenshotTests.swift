@@ -14,18 +14,27 @@ struct ScreenshotTests {
         try await keep("today", .example, .today)
     }
 
-    @Test func plan() async throws {
-        try await keep("plan", .example, .plan)
+    /// Ahead: your last Monday with the plan's chart, the tiles, and your
+    /// life ahead with when you stop on it.
+    @Test func ahead() async throws {
+        try await keep("ahead", .example, .ahead)
     }
 
-    /// Before it's calculated: the chapters without their money, the first
-    /// saying "Calculate to see your money".
-    @Test func planBeforeCalculating() async throws {
-        try await keep("plan-uncalculated", .example, .plan, calculates: false)
+    /// Before it's calculated: the chapters without their money.
+    @Test func aheadBeforeCalculating() async throws {
+        try await keep("ahead-uncalculated", .example, .ahead, calculates: false)
     }
 
+    /// What if with the age lever two years sooner: on iPhone its sheet,
+    /// with *With these levers*; on the Mac the levers beside your date.
     @Test func whatIf() async throws {
         try await keep("what-if", .example, .whatIf)
+    }
+
+    /// A new event's sheet: its form, then *With this change*. On iPhone;
+    /// on the Mac a sheet is a window of its own.
+    @Test func newEvent() async throws {
+        try await keep("new-event", .example, .newEvent)
     }
 
     /// The Target mix sheet of a plan with a mix of its own and changes
@@ -35,24 +44,16 @@ struct ScreenshotTests {
         try await keep("target-mix", .example, .targetMix)
     }
 
-    /// The Timeline at a year: this year's check-ins against January's plan.
-    @Test func timelineYear() async throws {
-        try await keep("timeline-year", .example, .year)
+    /// So far: this year against January's plan, the savings rate and money
+    /// in and out by month, and year by year.
+    @Test func soFar() async throws {
+        try await keep("so-far", .example, .soFar)
     }
 
     /// A savings plan since 2018 and check-ins from October 2025: the years
     /// before are valued from prices.
-    @Test func timelineYearWithALongHistory() async throws {
-        try await keep("timeline-year-long", .longHistory, .year)
-    }
-
-    /// The Timeline at decades: your records, then the plan's futures.
-    @Test func timelineDecades() async throws {
-        try await keep("timeline-decades", .example, .decades)
-    }
-
-    @Test func timelineLookBack() async throws {
-        try await keep("timeline-look-back", .example, .lookBack)
+    @Test func soFarWithALongHistory() async throws {
+        try await keep("so-far-long", .longHistory, .soFar)
     }
 
     /// The accounts, with the net worth chart and the allocation.
@@ -114,12 +115,12 @@ struct ScreenshotTests {
         try await keep("today-hidden", .example, .today, hidesAmounts: true)
     }
 
-    @Test func planWithAmountsHidden() async throws {
-        try await keep("plan-hidden", .example, .plan, hidesAmounts: true)
+    @Test func aheadWithAmountsHidden() async throws {
+        try await keep("ahead-hidden", .example, .ahead, hidesAmounts: true)
     }
 
-    @Test func timelineYearWithAmountsHidden() async throws {
-        try await keep("timeline-year-hidden", .example, .year, hidesAmounts: true)
+    @Test func soFarWithAmountsHidden() async throws {
+        try await keep("so-far-hidden", .example, .soFar, hidesAmounts: true)
     }
 
     private func keep(_ name: String, _ sample: ScreenLaunch.Sample, _ screen: ScreenLaunch.Screen,

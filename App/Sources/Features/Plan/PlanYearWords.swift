@@ -3,7 +3,7 @@ import Planner
 import SwiftUI
 import Tracker
 
-// The chosen year in tiles and rows (UI.md, "Year"), under its chart:
+// The chosen year in tiles and rows (UI.md, "The year"), under its chart:
 // what you saved and what markets did, why you're ahead or behind, your
 // money, the earliest age and the check-ins, month by month, and what
 // happened.
@@ -144,7 +144,7 @@ struct PlanYearTiles: View {
     }
 }
 
-/// Why you're ahead or behind as a wide tile (UI.md, "Year"): "🚀 Why
+/// Why you're ahead or behind as a wide tile (UI.md, "The year"): "🚀 Why
 /// you're ahead" with the gap, then the four rows that add up to it as bars
 /// (``PlanYearWhy``'s); a tap opens them in full with what was planned.
 /// Without the split, what the year is measured against and why not.
@@ -229,7 +229,7 @@ struct PlanYearWhyTile: View {
     }
 }
 
-/// What happened in the year (UI.md, "Year"), a row each on a card,
+/// What happened in the year (UI.md, "The year"), a row each on a card,
 /// newest first: an emoji on a tinted square, what it was ("Markets fell"),
 /// its month and a few words ("June, 4%"), and its figure in a capsule,
 /// green when it's good news and orange when not ("−3.100 €", "56 → 55").
@@ -416,127 +416,6 @@ private struct PlanYearHappeningRow: View {
     }
 }
 
-/// What you saved and what markets did at each check-in of the year, a
-/// pair of bars a month on one scale, up from a line for what was added
-/// and down for what was taken (UI.md, "Year"), the months' initials under
-/// them, months to come a grey dash and a skipped month empty. iPhone; the Mac and iPad have the table
-/// (``PlanYearCheckIns``).
-struct PlanYearMonthsCard: View {
-    let card: PlanProgressTimeline.Card
-
-    @Environment(LibraryStore.self) private var library
-    @Environment(\.redactionReasons) private var redactionReasons
-    @Environment(\.locale) private var locale
-
-    private static let height: CGFloat = 120
-
-    /// What was saved and what markets did, by month of the year.
-    private var months: [Int: (saved: Decimal, markets: Decimal)] {
-        var months: [Int: (saved: Decimal, markets: Decimal)] = [:]
-        for row in PlanYearCheckIn.rows(of: card.year, valuator: library.valuator) {
-            let month = months[row.date.month] ?? (0, 0)
-            months[row.date.month] = (month.saved + row.saved, month.markets + row.markets)
-        }
-        return months
-    }
-
-    var body: some View {
-        let months = self.months
-        Card {
-            HStack(spacing: Metrics.m) {
-                legend("💰 You saved", color: TileTint.mint.accent)
-                legend("📈 Markets", color: TileTint.sky.accent)
-            }
-            .font(.caption)
-            .foregroundStyle(Palette.secondaryInk)
-            if months.isEmpty {
-                Text("No check-ins this year: what you held is valued at its prices.")
-                    .font(PlanProgressFont.text)
-                    .foregroundStyle(Palette.secondaryInk)
-                    .fixedSize(horizontal: false, vertical: true)
-            } else {
-                VStack(spacing: Metrics.xs) {
-                    bars(months)
-                        .frame(height: Self.height)
-                    HStack(spacing: 0) {
-                        ForEach(1...12, id: \.self) { month in
-                            Text(PlanYearCardView.initial(month, locale: locale))
-                                .font(.caption2)
-                                .foregroundStyle(Palette.mutedInk)
-                                .frame(maxWidth: .infinity)
-                        }
-                    }
-                }
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel(Text(accessibilityLabel(months)))
-            }
-        } header: {
-            SectionHeader("Month by month")
-        }
-    }
-
-    private func legend(_ title: String, color: Color) -> some View {
-        HStack(spacing: Metrics.xs) {
-            RoundedRectangle(cornerRadius: 3).fill(color).frame(width: 9, height: 9)
-            Text(title)
-        }
-    }
-
-    /// Two bars a month from the line, to the largest up and down.
-    private func bars(_ months: [Int: (saved: Decimal, markets: Decimal)]) -> some View {
-        let values = months.values.flatMap { [$0.saved.doubleValue, $0.markets.doubleValue] }
-        let up = max(values.max() ?? 0, 0)
-        let down = max(-(values.min() ?? 0), 0)
-        let saved = TileTint.mint.accent
-        let markets = TileTint.sky.accent
-        // Months to come are a grey dash; a skipped month draws nothing, its
-        // money counted at the next check-in.
-        let lastMonth = card.year.isLatest ? months.keys.max() ?? 0 : 12
-        return Canvas { context, size in
-            let span = max(up + down, 1)
-            let zero = size.height * up / span
-            let slot = size.width / 12
-            let bar = max(3, slot * 0.3)
-            func draw(_ value: Double, x: CGFloat, color: Color) {
-                let length = max(abs(value) / span * size.height, value == 0 ? 0 : 2)
-                let rect = CGRect(x: x, y: value >= 0 ? zero - length : zero, width: bar, height: length)
-                context.fill(Path(roundedRect: rect, cornerRadius: 2), with: .color(color))
-            }
-            for month in 1...12 {
-                let x = CGFloat(month - 1) * slot + slot / 2
-                if let value = months[month] {
-                    draw(value.saved.doubleValue, x: x - bar - 1, color: saved)
-                    draw(value.markets.doubleValue, x: x + 1, color: markets)
-                } else if month > lastMonth {
-                    let rect = CGRect(x: x - bar - 1, y: zero - 1.5, width: 2 * bar + 2, height: 3)
-                    context.fill(Path(roundedRect: rect, cornerRadius: 1.5), with: .color(Palette.gridline))
-                }
-            }
-            var line = Path()
-            line.move(to: CGPoint(x: 0, y: zero))
-            line.addLine(to: CGPoint(x: size.width, y: zero))
-            context.stroke(line, with: .color(Palette.border), lineWidth: 1)
-        }
-        .privacySensitiveInFeedback()
-    }
-
-    /// Each month with a check-in: "September: saved 1.500 €, markets
-    /// +2.950 €"; the months alone while amounts are hidden.
-    private func accessibilityLabel(_ months: [Int: (saved: Decimal, markets: Decimal)]) -> String {
-        let hidden = redactionReasons.hidesAmounts
-        let lines = months.keys.sorted().compactMap { month -> String? in
-            guard let value = months[month],
-                  let date = CalendarDate(year: card.year.year, month: month, day: 1) else { return nil }
-            let name = AmountFormat.monthName(date, locale: locale)
-            guard !hidden else { return name }
-            let saved = AmountFormat.amount(value.saved, currency: card.currency, locale: locale)
-            let markets = AmountFormat.signedAmount(value.markets, currency: card.currency, locale: locale)
-            return "\(name): saved \(saved), markets \(markets)"
-        }
-        return "What you saved and what markets did, month by month. " + lines.joined(separator: "; ")
-    }
-}
-
 /// A check-in of a year against the one before it (the year's start for
 /// the first): your money then, what you saved and what markets did since.
 struct PlanYearCheckIn: Identifiable {
@@ -667,7 +546,7 @@ struct PlanYearCheckIns: View {
 }
 
 /// Why the year is ahead of or behind its baseline (PROGRESS.md, *Why*;
-/// UI.md, "Year"), in the same four rows every year, so stepping
+/// UI.md, "The year"), in the same four rows every year, so stepping
 /// through the years moves nothing under it: the gap going into the year,
 /// saving against the plan, markets against what was expected, and the
 /// rest (inflation, values without what was saved, exchange rates). Each with a

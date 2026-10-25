@@ -3,7 +3,7 @@ import Planner
 import SwiftUI
 import Tracker
 
-// The pieces the plan's words are made of (UI.md, "Plan"): sentences with
+// The pieces the plan's words are made of (UI.md, "Ahead"): sentences with
 // their values in bold, a month's money as a bar, the futures as ten dots,
 // each chapter's number in its colour, and the small editor a setting opens.
 

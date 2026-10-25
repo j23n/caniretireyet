@@ -3,7 +3,7 @@ import Model
 import Planner
 import Tracker
 
-// The words of Trends' *Year by year* (UI.md, "Look Back"; PROGRESS.md,
+// The words of Trends' *Year by year* (UI.md, "Money in and out, year by year"; PROGRESS.md,
 // "Trends"): each calendar year graded on what you control, against the
 // baseline Progress measures the year against, and what markets did as
 // context. The grades are the Planner's `PlanProgressYear`, the year Progress

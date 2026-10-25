@@ -4,34 +4,32 @@ import Planner
 import SwiftUI
 import Tracker
 
-/// The Timeline at *Decades* (UI.md, "Decades"): your records to now, then
-/// the main plan's futures to its end, on one chart across your ages
+/// The plan's chart on Ahead (UI.md, "Ahead"): your records to now, then
+/// the plan's futures to its end, on one chart across your ages
 /// (``DecadesPlot``): the typical future as a line, half of the futures in
 /// the darker band and 8 in 10 in the lighter one, *Now* and the day you
-/// stop marked, and the plan's chapters as a band under the ages. A
-/// one-row legend above it, and under it the notes on missing or old
-/// prices.
+/// stop marked, and the plan's chapters as a band under the ages. With
+/// `compared`, the typical future of those results is a dashed line under
+/// it: the plan as it is, under a what-if or a change not made yet. Under
+/// it, the notes on missing or old prices.
 ///
 /// The past is plan assets through the latest check-in, where the
 /// projection starts: the projection is of what the plan counts, so the
 /// past meets it there. It reaches back as far as the accounts' time span
-/// (`overview.range`). Without a projection yet, it calculates the main
-/// plan, with its progress (or why it can't run) above the chart; until
-/// then the past is your whole net worth, through today.
+/// (`overview.range`). Without results yet, the past is your whole net
+/// worth, through today. The chart never runs the plan: Ahead does
+/// (``PlanSession/calculateIfNeeded()``).
 struct DecadesChart: View {
     let plan: PlanDocument
     let results: PlanResults?
+    /// Results to compare with, drawn as a dashed typical future.
+    var compared: PlanResults?
     let today: CalendarDate
     /// The chart's height, the ages and the chapters under the plot included.
     var chartHeight: CGFloat = 220
-    /// Whether the legend sits above the chart; off where the page puts it
-    /// in its card's header.
-    var showsLegend = true
 
     @AppStorage("overview.range") private var range: HistoryRange = .threeYears
     @Environment(LibraryStore.self) private var library
-    @Environment(PlanStore.self) private var plans
-    @Environment(AppNavigation.self) private var navigation
     @Environment(\.locale) private var locale
     @State private var fillsPastPrices = false
 
@@ -43,12 +41,6 @@ struct DecadesChart: View {
         let history = HistoryChartData(valuator: valuator, through: future ? library.asOfDate : today, range: range,
                                        projection: projection)
         VStack(alignment: .leading, spacing: Metrics.m) {
-            if !future {
-                futureStatus(plan.id)
-            }
-            if showsLegend && future {
-                DecadesLegend()
-            }
             DecadesPlot(data: plotData(history, future: future), height: chartHeight)
             if let missing = history.missing {
                 missingNoteView(missing)
@@ -60,7 +52,6 @@ struct DecadesChart: View {
             }
         }
         .pastPricesSheet(isPresented: $fillsPastPrices)
-        .task(id: plan.id) { await calculateForFuture() }
     }
 
     /// What the plot draws: the past, the futures, *Now*, the day you stop
@@ -89,72 +80,11 @@ struct DecadesChart: View {
                                         color: PlanChapterColors.color(model.style(of: all[index])))
             }
         }
-        return DecadesPlotData(past: history.points, fan: history.projection, now: now.dateValue, nowLabel: nowLabel,
-                               retirement: retirement, retirementLabel: retirementLabel, birthDate: birthDate,
-                               chapters: chapters, currency: library.baseCurrency,
+        return DecadesPlotData(past: history.points, fan: history.projection, compared: compared?.portfolio ?? [],
+                               now: now.dateValue, nowLabel: nowLabel, retirement: retirement,
+                               retirementLabel: retirementLabel, birthDate: birthDate, chapters: chapters,
+                               currency: library.baseCurrency,
                                title: history.scope == .planAssets ? "Money in the plan" : "Net worth")
-    }
-
-    /// Without results, calculates the main plan for its projection, when
-    /// nothing is running. After a failure it waits for *Try Again*, so a
-    /// plan that can't run isn't retried on every visit.
-    private func calculateForFuture() async {
-        guard results == nil, !isCalculating(plan.id), plans.errors[plan.id] == nil else { return }
-        await plans.run(plan.id)
-    }
-
-    private func isCalculating(_ plan: PlanID) -> Bool {
-        plans.isRunning(plan, .base) || plans.isRunning(plan, .checkIn)
-    }
-
-    /// Above the chart without a projection: the main plan's calculation
-    /// with its bar, why it can't run (with *Try Again* and *Open Plan*),
-    /// or *Calculate*.
-    @ViewBuilder
-    private func futureStatus(_ plan: PlanID) -> some View {
-        if let progress = plans.progress(of: plan, .base) ?? plans.progress(of: plan, .checkIn) {
-            VStack(alignment: .leading, spacing: Metrics.xs) {
-                HStack {
-                    Text("Calculating \(planTitle)'s projection…")
-                        .lineLimit(1)
-                        .privacySensitiveInFeedback()
-                    Spacer(minLength: Metrics.s)
-                    Text(PlanRunText.overall(progress, locale: locale))
-                        .monospacedDigit()
-                }
-                ProgressView(value: min(1, max(0, progress.fraction)), total: 1)
-                    .tint(Palette.accent)
-            }
-            .font(.subheadline)
-            .foregroundStyle(Palette.secondaryInk)
-            .accessibilityElement(children: .combine)
-        } else if let error = plans.errors[plan] {
-            VStack(alignment: .leading, spacing: Metrics.s) {
-                Label("\(planTitle) can't be calculated: \(error)", systemImage: "exclamationmark.triangle")
-                    .foregroundStyle(Palette.secondaryInk)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .privacySensitiveInFeedback()
-                HStack(spacing: Metrics.s) {
-                    Button("Try Again") { Task { await plans.run(plan) } }
-                    Button("Open Plan") { navigation.showPlan(plan) }
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
-            }
-            .font(.subheadline)
-        } else {
-            HStack(spacing: Metrics.s) {
-                Text("Calculate \(planTitle) to see its futures.")
-                    .foregroundStyle(Palette.secondaryInk)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .privacySensitiveInFeedback()
-                Spacer(minLength: Metrics.s)
-                Button("Calculate") { Task { await plans.run(plan) } }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
-            }
-            .font(.subheadline)
-        }
     }
 
     /// Partial totals are drawn dashed: what they're missing, with *Fill In
@@ -166,21 +96,29 @@ struct DecadesChart: View {
         let fill: (() -> Void)? = canFill ? { fillsPastPrices = true } : nil
         return OldPriceNoteView(text: text, systemImage: "exclamationmark.triangle", fill: fill)
     }
-
-    private var planTitle: String {
-        plan.name ?? "your plan"
-    }
 }
 
-/// The decades chart's legend, in one row: the typical future, half of the
-/// futures and 8 in 10 of them.
+/// The plan chart's legend, in one row: the typical future, half of the
+/// futures and 8 in 10 of them; with `compared`, the dashed line it's
+/// compared with ("As it is").
 struct DecadesLegend: View {
+    var compared: String?
+
     var body: some View {
-        ChartLegendRow(items: [
-            ChartLegendItem(name: "Typical", swatch: .line(.accent, dashed: false)),
+        ChartLegendRow(items: items)
+    }
+
+    private var items: [ChartLegendItem] {
+        var items = [
+            ChartLegendItem(name: compared == nil ? "Typical" : "With the change",
+                            swatch: .line(.accent, dashed: false)),
             ChartLegendItem(name: "Half of futures", swatch: .band(opacity: ProjectionLegend.innerBand)),
             ChartLegendItem(name: "8 in 10", swatch: .band(opacity: ProjectionLegend.outerBand)),
-        ])
+        ]
+        if let compared {
+            items.insert(ChartLegendItem(name: compared, swatch: .line(.taxes, dashed: true)), at: 1)
+        }
+        return items
     }
 }
 
@@ -198,6 +136,8 @@ struct DecadesPlotData {
     var past: [ChartPoint]
     /// The plan's futures from now.
     var fan: [FanPoint]
+    /// Other results' futures, compared: their typical one is drawn dashed.
+    var compared: [FanPoint] = []
     var now: Date
     /// "Now, 38".
     var nowLabel: String
@@ -233,6 +173,8 @@ struct DecadesGeometry {
     let scale: AmountScale
     /// The futures with their bands cut at the plot's edges.
     let fan: [FanPoint]
+    /// The futures compared with, cut the same way.
+    let compared: [FanPoint]
 
     /// The amounts' column at the left.
     static let labelColumn: CGFloat = 40
@@ -257,6 +199,7 @@ struct DecadesGeometry {
                                          markerHeadroom: 0, plotHeight: plotHeight)
         scale = projection.scale
         fan = data.fan.map(projection.clamped)
+        compared = data.compared.map(projection.clamped)
     }
 
     var left: CGFloat { Self.labelColumn }
@@ -354,6 +297,15 @@ struct DecadesGeometry {
             context.stroke(median, with: .color(Palette.accent),
                            style: StrokeStyle(lineWidth: 2.2, lineCap: .round, lineJoin: .round))
         }
+        if compared.count >= 2 {
+            var median = Path()
+            for (offset, point) in compared.enumerated() {
+                let at = CGPoint(x: x(point.date), y: y(point.p50))
+                if offset == 0 { median.move(to: at) } else { median.addLine(to: at) }
+            }
+            context.stroke(median, with: .color(Palette.color(for: .taxes)),
+                           style: StrokeStyle(lineWidth: 1.6, lineCap: .round, lineJoin: .round, dash: [4, 4]))
+        }
         drawPast(in: &context)
 
         if !fan.isEmpty || data.retirement != nil {
@@ -437,7 +389,7 @@ struct DecadesGeometry {
     }
 }
 
-/// The decades chart's plot (UI.md, "Decades"), drawn for its width: the
+/// The decades chart's plot (UI.md, "The plan"), drawn for its width: the
 /// gridlines with their amounts at the left, your money to now in ink,
 /// the futures from now (the typical one as a blue line, half of them in
 /// the darker band, 8 in 10 in the lighter one), a rule at *Now* ("Now,

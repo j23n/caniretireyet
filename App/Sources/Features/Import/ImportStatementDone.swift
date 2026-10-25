@@ -42,7 +42,7 @@ private struct ImportBars: ViewModifier {
 /// with no bars. "Imported 26 months for 3 accounts", what was saved this
 /// year, the starting estimates it can replace and the answer
 /// (``ImportAnswerFollowUp``), what was remembered for next time, then *Undo Import*, *Open
-/// Trends* and *Done*. Undone with later changes kept, it says what stayed.
+/// So Far* and *Done*. Undone with later changes kept, it says what stayed.
 struct ImportStatementDone: View {
     let model: ImportController
     let receipt: ImportReceipt
@@ -125,7 +125,7 @@ struct ImportStatementDone: View {
                         Button("Undo Import", action: confirmUndo)
                             .disabled(!canUndo)
                     }
-                    Button("Open Trends", action: openTrends)
+                    Button("Open So Far", action: openSoFar)
                 }
                 .buttonStyle(.borderless)
                 .font(.callout)
@@ -137,7 +137,7 @@ struct ImportStatementDone: View {
                     Button("Undo Import", action: confirmUndo)
                         .disabled(!canUndo)
                 }
-                Button("Open Trends", action: openTrends)
+                Button("Open So Far", action: openSoFar)
                 Button("Done", action: done)
                     .buttonStyle(.borderedProminent)
                     .keyboardShortcut(.defaultAction)
@@ -156,15 +156,15 @@ struct ImportStatementDone: View {
         }
     }
 
-    /// The plan's Trends, with the import in it: a sheet closes first.
-    private func openTrends() {
+    /// So far, with the import in its money in and out: a sheet closes first.
+    private func openSoFar() {
         let navigation = navigation
         if let close {
             close()
         } else {
             model.startOver()
         }
-        navigation.showTimeline(.lookBack)
+        navigation.showSoFar()
     }
 }
 

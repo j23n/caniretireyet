@@ -3,13 +3,13 @@ import Planner
 import SwiftUI
 import Tracker
 
-// The Timeline at a year (UI.md, "Year"): the chosen year's chart on a
+// So far's year (UI.md, "The year"): the chosen year's chart on a
 // card, your money through the year against what you planned in January,
 // with ‹ › to step through the years.
 
 // MARK: - The year's card
 
-/// The chosen year on a card (UI.md, "Year"): its title ("2026 so far")
+/// The chosen year on a card (UI.md, "The year"): its title ("2026 so far")
 /// and its verdict in a line ("Ahead of what you planned in January", in
 /// orange when behind), ‹ › to step through the years either side of them
 /// on iPhone (with *Today* and ⌘[ ⌘] beside them on the Mac and iPad), and
@@ -178,7 +178,7 @@ struct PlanYearChartCard: View {
 
 // MARK: - The year's chart
 
-/// One year's chart (UI.md, "Year"): your money through it (the ink line,
+/// One year's chart (UI.md, "The year"): your money through it (the ink line,
 /// a dot at each check-in, a blue one at the last) against what you planned
 /// in January (dashed, in blue, labelled "planned in January" where it
 /// starts), the space between them washed in blue where you're ahead and
@@ -290,7 +290,7 @@ struct PlanYearCardView: View {
         return card.actual.min { abs($0.date.timeIntervalSince(day)) < abs($1.date.timeIntervalSince(day)) }
     }
 
-    /// The year at the pointer (UI.md, "Year"): a rule at the nearest
+    /// The year at the pointer (UI.md, "The year"): a rule at the nearest
     /// value, and a callout like the net-worth chart's over its history.
     @ViewBuilder
     private func readout(at pointerX: CGFloat) -> some View {
@@ -360,7 +360,7 @@ struct PlanYearCardView: View {
         plot.point(point.date, point.value, scale)
     }
 
-    /// Your money (UI.md, "Year"): solid into each check-in, lighter
+    /// Your money (UI.md, "The year"): solid into each check-in, lighter
     /// where it's valued from what you held and its prices, dotted where a
     /// price or a rate is missing (those holdings count as zero); a dot at
     /// each check-in and a larger blue one at the last point.
@@ -478,4 +478,46 @@ struct PlanYearCardView: View {
         .padding()
     }
     .background(Palette.page)
+}
+
+/// ‹ › buttons that step through `count` items (⌘[ and ⌘] with a
+/// keyboard, unless `hasShortcuts` is off), and *Today* when one of them
+/// is today's.
+struct PlanStepButtons: View {
+    let index: Int
+    let count: Int
+    /// The item that holds today: *Today* selects it.
+    var today: Int?
+    /// Whether ⌘[ and ⌘] step too: off on a page that stays under what it
+    /// opens, where they would step it unseen.
+    var hasShortcuts = true
+    let select: (Int) -> Void
+
+    var body: some View {
+        HStack(spacing: Metrics.xs) {
+            if let today {
+                Button("Today") { select(today) }
+                    .disabled(index == today)
+            }
+            Button {
+                select(index - 1)
+            } label: {
+                Label("Earlier", systemImage: "chevron.left")
+                    .labelStyle(.iconOnly)
+            }
+            .keyboardShortcut(hasShortcuts ? KeyboardShortcut("[", modifiers: .command) : nil)
+            .help(hasShortcuts ? "Earlier (⌘[)" : "Earlier")
+            .disabled(index <= 0)
+            Button {
+                select(index + 1)
+            } label: {
+                Label("Later", systemImage: "chevron.right")
+                    .labelStyle(.iconOnly)
+            }
+            .keyboardShortcut(hasShortcuts ? KeyboardShortcut("]", modifiers: .command) : nil)
+            .help(hasShortcuts ? "Later (⌘])" : "Later")
+            .disabled(index >= count - 1)
+        }
+        .buttonStyle(.bordered)
+    }
 }

@@ -2,7 +2,7 @@ import Model
 import Planner
 import SwiftUI
 
-// The chapters' inputs (UI.md, "Plan"): those outside the plan's years,
+// The chapters' inputs (UI.md, "Ahead"): those outside the plan's years,
 // what can be added to a chapter, and the sheets for what every chapter
 // shares. A chapter's own settings are in PlanChapterSettings.swift.
 
@@ -152,15 +152,18 @@ struct PlanChapterAddMenu: View {
     }
 }
 
-/// *Add* beside the chapters' title: something new in the chapter it
-/// starts in. A work phase in the last chapter you work in, a pension or a
-/// later phase of spending in the first retired one, a contribution and an
-/// event in the first, other income from when work stops. Each opens its
-/// sheet, which adds nothing until *Done*.
+/// *Add* beside *Your life ahead*: something new in the chapter it starts
+/// in. A work phase in the last chapter you work in, a pension or a later
+/// phase of spending in the first retired one, a contribution and an event
+/// in the first, other income from when work stops, and a change of mix,
+/// which the target mix's sheet adds. Each opens its sheet, which adds
+/// nothing until *Apply*.
 struct PlanAddMenu<MenuLabel: View>: View {
     let model: PlanChaptersModel
     let plan: PlanDocument
     @Binding var editing: PlanEditTarget?
+    /// Opens the target mix's sheet, where its changes with age are added.
+    var onTargetMix: () -> Void = {}
     @ViewBuilder var label: MenuLabel
 
     @Environment(LibraryStore.self) private var library
@@ -197,6 +200,7 @@ struct PlanAddMenu<MenuLabel: View>: View {
                 Button("Event") {
                     editing = .event(index: plan.events.count, event: model.newEvent(in: first))
                 }
+                Button("Change of Mix…", action: onTargetMix)
             }
         } label: {
             label
@@ -262,18 +266,20 @@ struct PlanAlwaysSheet: View {
 }
 
 /// The target mix and its changes with age, in a sheet of their own: a
-/// grouped form editing a copy of the plan. *Done* writes the copy's mix
-/// and its changes with age to the plan; *Cancel* discards them.
+/// grouped form editing a copy of the plan, then *With this change*.
+/// *Apply* writes the copy's mix and its changes with age to the plan;
+/// *Cancel* discards them.
 struct PlanTargetMixSheet: View {
     let session: PlanSession
 
     var body: some View {
-        PlanItemEditor("Target mix", item: session.editablePlan, onSave: { edited in
-            session.edit {
-                $0.portfolio.targetMix = edited.portfolio.targetMix
-                $0.portfolio.targetMixByAge = edited.portfolio.targetMixByAge
-            }
-        }) { plan in
+        let apply: (inout PlanDocument, PlanDocument) -> Void = { plan, edited in
+            plan.portfolio.targetMix = edited.portfolio.targetMix
+            plan.portfolio.targetMixByAge = edited.portfolio.targetMixByAge
+        }
+        PlanItemEditor("Target mix", item: session.editablePlan,
+                       preview: PlanEditPreview(session: session, applying: apply),
+                       onSave: { edited in session.edit { apply(&$0, edited) } }) { plan in
             PlanTargetMixEditor(plan: plan)
         }
         #if os(macOS)

@@ -6,8 +6,8 @@ import Tracker
 /// "Navigation"):
 ///
 ///     Today
-///     Timeline
-///     Plan                                ← the main plan, or "create a plan"
+///     So far
+///     Ahead                               ← the main plan, or "create a plan"
 ///     Check-in                      •     ← only while one is due or under way
 ///     Accounts             97.330     ← the total of the open accounts
 ///       All Accounts            9         ← how many are open
@@ -25,7 +25,7 @@ import Tracker
 /// - Selecting an account shows its detail in the content area, in a stack
 ///   of its own (`SidebarItem.account`). *All Accounts* is the list with
 ///   the net-worth chart and the allocation (`SidebarItem.accounts`).
-/// - *Plan* opens the main plan (`SidebarItem.plans`), which then selects
+/// - *Ahead* opens the main plan (`SidebarItem.plans`), which then selects
 ///   that plan's row under *Plans*.
 /// - A group's row expands or collapses it (click it, or its disclosure
 ///   triangle); which ones are collapsed is remembered on the device
@@ -49,9 +49,9 @@ struct SidebarRoot: View {
             List(selection: selection) {
                 Label("Today", systemImage: AppSymbol.today)
                     .tag(SidebarItem.today)
-                Label("Timeline", systemImage: AppSymbol.timeline)
-                    .tag(SidebarItem.timeline)
-                Label("Plan", systemImage: AppSymbol.plan)
+                Label("So far", systemImage: AppSymbol.soFar)
+                    .tag(SidebarItem.soFar)
+                Label("Ahead", systemImage: AppSymbol.ahead)
                     .tag(SidebarItem.plans)
                 if checkIn.status.isActive || navigation.sidebarSelection == .checkIn {
                     checkInRow
@@ -346,9 +346,9 @@ private struct SidebarDetail: View {
                     .todayToolbar()
                     .appDestinations()
             }
-        case .timeline:
+        case .soFar:
             NavigationStack {
-                TimelineScreen()
+                SoFarScreen()
                     .appDestinations()
             }
         case .accounts:

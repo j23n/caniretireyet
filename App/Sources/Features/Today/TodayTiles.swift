@@ -11,8 +11,8 @@ import Tracker
 // can use them too.
 
 /// Where you stand, as tiles: net worth (opening the accounts), the next
-/// milestone (opening the Timeline at *Year*), the savings rate over the
-/// last 12 months (opening it at *Look Back*), this year so far, the next
+/// milestone (opening So far), the savings rate over the last 12 months
+/// (opening So far too), this year so far, the next
 /// check-in and saving nothing more as half tiles, and what moved at the
 /// last check-in (opening the accounts). The tiles go into the page's
 /// ``TileGrid``s, in parts:
@@ -88,25 +88,25 @@ struct TodayTiles: View {
     private func figures(_ twelveMonths: PlanLastTwelveMonths?, pairSize: TileSize) -> some View {
         if let plan {
             Button {
-                navigation.showTimeline(.year)
+                navigation.showSoFar()
             } label: {
                 MilestoneTile(content: MilestoneTileContent(milestones(of: plan), hasResults: results != nil,
                                                             library: library),
                               size: pairSize, planName: plan.name, today: today)
             }
             .buttonStyle(.plain)
-            .accessibilityHint("Shows this year on the Timeline")
+            .accessibilityHint("Shows this year on So far")
             .tileSize(pairSize)
         }
         if let twelveMonths, let rate = twelveMonths.tiles.first {
             Button {
-                navigation.showTimeline(.lookBack)
+                navigation.showSoFar()
             } label: {
                 TwelveMonthsTile(tile: rate, currency: twelveMonths.current.moneyInOut.currency,
                                  period: twelveMonths.since == nil ? "last 12 months" : nil)
             }
             .buttonStyle(.plain)
-            .accessibilityHint("Looks back on the Timeline")
+            .accessibilityHint("Shows your savings rate on So far")
             .tileSize(pairSize)
         }
     }
@@ -117,12 +117,12 @@ struct TodayTiles: View {
         let valuator = library.valuator
         if let report = valuator.changeThisYear(asOf: today) {
             Button {
-                navigation.showTimeline(.year, year: report.to.year)
+                navigation.showSoFar(year: report.to.year)
             } label: {
                 TodayYearTile(report: report, split: valuator.savedSplit(of: report))
             }
             .buttonStyle(.plain)
-            .accessibilityHint("Shows this year on the Timeline")
+            .accessibilityHint("Shows this year on So far")
             .tileSize(.small)
         }
     }
@@ -144,12 +144,12 @@ struct TodayTiles: View {
         let planMilestones = plan.map { milestones(of: $0) }
         if let planMilestones, planMilestones.knowsCoastAge {
             Button {
-                navigation.showTimeline(.year)
+                navigation.showSoFar()
             } label: {
                 CoastAgeTile(age: planMilestones.coastAge, target: planMilestones.ladder.coastTarget, size: .half)
             }
             .buttonStyle(.plain)
-            .accessibilityHint("Shows this year on the Timeline")
+            .accessibilityHint("Shows this year on So far")
             .tileSize(.half)
         }
     }
@@ -165,8 +165,8 @@ struct TodayTiles: View {
         .accessibilityHint("Shows your accounts")
     }
 
-    /// The last 12 months' money in and out, as Look Back has them (through
-    /// the latest check-in of the plan's accounts), when Look Back is on and
+    /// The last 12 months' money in and out, as So far has them (through
+    /// the latest check-in of the plan's accounts), when Trends is on and
     /// they recorded some that came in.
     private var twelveMonths: PlanLastTwelveMonths? {
         let valuator = library.valuator
@@ -186,8 +186,8 @@ struct TodayTiles: View {
 
 /// *Coming up* (UI.md, "Today"): the main plan's milestones its median
 /// future reaches after the next, soonest first, a small tile each, as many
-/// as a row of `slots` holds and at least two. Each opens the Timeline at
-/// *Year*, where *All Milestones* is. Nothing without any.
+/// as a row of `slots` holds and at least two. Each opens So far,
+/// where *All Milestones* is. Nothing without any.
 struct TodayComingUp: View {
     let plan: PlanDocument?
     let results: PlanResults?
@@ -206,12 +206,12 @@ struct TodayComingUp: View {
                 TileGrid {
                     ForEach(ahead, id: \.id) { milestone in
                         Button {
-                            navigation.showTimeline(.year)
+                            navigation.showSoFar()
                         } label: {
                             AheadMilestoneTile(milestone: milestone)
                         }
                         .buttonStyle(.plain)
-                        .accessibilityHint("Shows this year on the Timeline")
+                        .accessibilityHint("Shows this year on So far")
                         .tileSize(.small)
                     }
                 }

@@ -4,7 +4,7 @@ import Model
 import Planner
 import Tracker
 
-// The words of Progress (UI.md, "Year"; PROGRESS.md): the answer
+// The words of Progress (UI.md, "The year"; PROGRESS.md): the answer
 // recorded at each check-in, each year's progress, and your actual numbers
 // against a baseline. The numbers are the Planner's `PlanProgress`.
 
@@ -179,7 +179,7 @@ extension PlanProgressYear {
 
 // MARK: - The years on a strip
 
-/// Progress as a strip of years (UI.md, "Year"): a card per year with
+/// Progress as a strip of years (UI.md, "The year"): a card per year with
 /// your money through it against what January expected (the Planner's
 /// `PlanYearChart`), on a scale the cards on screen share, so December of
 /// one year meets January of the next; where the answer moved; and the
@@ -241,7 +241,7 @@ struct PlanProgressTimeline {
         var gaps: [PlanYearChart.Gap] { chart.gaps }
         /// What happened at its check-ins, by date: the answer moving, the
         /// plan or the calculations changing, saving or markets out of the
-        /// ordinary. Milestones are the Timeline's own.
+        /// ordinary. Milestones are So far's own.
         var events: [PlanYearEvent] {
             (chart.answerEvents + chart.notableEvents).sorted { $0.date < $1.date }
         }
@@ -283,7 +283,7 @@ struct PlanProgressTimeline {
     }
 
     /// The money scale fitted to the money between the screen's edges
-    /// (UI.md, "Year"): your money and what was expected, each card's
+    /// (UI.md, "The year"): your money and what was expected, each card's
     /// plot `inset` in from its edges. `nil` without values.
     func scale(fitting window: PlanStripWindow, inset: Double = 0) -> PlanStripScale? {
         PlanStripScale(values: window.values(of: cards, inset: inset) { card, plot in
@@ -320,7 +320,7 @@ struct PlanProgressTimeline {
     }
 }
 
-/// A year's words (UI.md, "Year"): its change, where it stands against
+/// A year's words (UI.md, "The year"): its change, where it stands against
 /// January, its story and January's note. Amounts hide with the eye
 /// (``AmountSentence``).
 enum PlanProgressText {

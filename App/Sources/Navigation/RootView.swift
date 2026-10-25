@@ -48,14 +48,14 @@ struct RootView: View {
 
     /// A widget or a note was tapped: net worth and the date open Today,
     /// the answer the main plan, the check-in the check-in, *Your year* last
-    /// year on the Timeline.
+    /// year on So far.
     private func open(_ link: GlanceLink) {
         adoptLaunchLayout()
         switch link {
         case .today: navigation.showToday()
         case .plan: navigation.showPlan()
         case .checkIn: navigation.startCheckIn()
-        case .yourYear: navigation.showTimeline(.year, year: CalendarDate.today().year - 1)
+        case .yourYear: navigation.showSoFar(year: CalendarDate.today().year - 1)
         }
     }
 

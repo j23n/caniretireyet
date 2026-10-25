@@ -3,7 +3,7 @@ import Glance
 import Model
 import Tracker
 
-// The words of Trends' three cards on money in and out (UI.md, "Look Back";
+// The words of Trends' three cards on money in and out (UI.md, "Money in and out, year by year";
 // PROGRESS.md, "Trends"): your last 12 months, the savings rate and money in
 // and out by month or year. What they draw is Tracker's `PlanMoneyInOut`
 // and `PlanLastTwelveMonths`.

@@ -258,11 +258,32 @@ struct PlanSectionCard<Content: View>: View {
     }
 }
 
-/// A sheet editing a copy of one item; *Done* hands it back, *Delete*
-/// removes it. Once the item is changed, swiping the sheet down does
-/// nothing: *Cancel* discards the change.
+/// What an edit sheet's *With this change* shows the edited copy in: the
+/// plan on screen, and how the edited item goes into it.
+struct PlanEditPreview<Item> {
+    let session: PlanSession
+    /// Whether the item is new, so the plan changes even before it's edited.
+    var isNew = false
+    /// The plan with the edited item in it.
+    let applying: (inout PlanDocument, Item) -> Void
+
+    /// The plan with `item` in it; `nil` without a plan.
+    func candidate(_ item: Item) -> PlanDocument? {
+        guard var plan = session.plan else { return nil }
+        applying(&plan, item)
+        return plan
+    }
+}
+
+/// A sheet editing a copy of one item: the form first, then, with a
+/// `preview`, *With this change* (``PlanChangePreview``), what the edited
+/// copy does to your date before it's applied, and *Save as a New Plan…*.
+/// *Done* (*Apply* with a preview) hands the item back, *Delete* removes
+/// it. Once the item is changed, swiping the sheet down does nothing:
+/// *Cancel* discards the change.
 struct PlanItemEditor<Item: Equatable, Content: View>: View {
     let title: String
+    let preview: PlanEditPreview<Item>?
     let onSave: (Item) -> Void
     let onDelete: (() -> Void)?
     private let content: (Binding<Item>) -> Content
@@ -272,9 +293,10 @@ struct PlanItemEditor<Item: Equatable, Content: View>: View {
     @State private var original: Item
     @Environment(\.dismiss) private var dismiss
 
-    init(_ title: String, item: Item, onSave: @escaping (Item) -> Void, onDelete: (() -> Void)? = nil,
-         @ViewBuilder content: @escaping (Binding<Item>) -> Content) {
+    init(_ title: String, item: Item, preview: PlanEditPreview<Item>? = nil, onSave: @escaping (Item) -> Void,
+         onDelete: (() -> Void)? = nil, @ViewBuilder content: @escaping (Binding<Item>) -> Content) {
         self.title = title
+        self.preview = preview
         self.onSave = onSave
         self.onDelete = onDelete
         self.content = content
@@ -286,6 +308,12 @@ struct PlanItemEditor<Item: Equatable, Content: View>: View {
         NavigationStack {
             Form {
                 content($item)
+                if let preview {
+                    PlanEditPreviewSection(session: preview.session,
+                                           candidate: item == original && !preview.isNew ? nil
+                                               : preview.candidate(item),
+                                           onSaved: { dismiss() })
+                }
                 if let onDelete {
                     Section {
                         Button("Delete", role: .destructive) {
@@ -305,7 +333,7 @@ struct PlanItemEditor<Item: Equatable, Content: View>: View {
                     Button("Cancel") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") {
+                    Button(preview == nil ? "Done" : "Apply") {
                         onSave(item)
                         dismiss()
                     }
@@ -314,8 +342,34 @@ struct PlanItemEditor<Item: Equatable, Content: View>: View {
         }
         .interactiveDismissDisabled(item != original)
         #if os(macOS)
-        .frame(minWidth: 460, minHeight: 520)
+        .frame(minWidth: 480, minHeight: 600)
         #endif
+    }
+}
+
+/// An edit sheet's *With this change*: what the edited copy of the plan
+/// does (``PlanChangePreview``), then *Save as a New Plan…*, which keeps
+/// the copy as a plan of its own and leaves this one as it was.
+private struct PlanEditPreviewSection: View {
+    let session: PlanSession
+    /// The plan with the change; `nil` before a change.
+    let candidate: PlanDocument?
+    let onSaved: () -> Void
+
+    @Environment(PlusStore.self) private var plus
+    @State private var isNaming = false
+
+    var body: some View {
+        Section("With this change") {
+            PlanChangePreview(session: session, candidate: candidate)
+                .padding(.vertical, Metrics.s)
+                .listRowBackground(Color.clear)
+            Button("Save as a New Plan…") {
+                plus.unlock(.morePlans) { isNaming = true }
+            }
+            .disabled(candidate == nil || !session.canEdit)
+            .planSaveAsPlan(session: session, isPresented: $isNaming, document: candidate, onSaved: onSaved)
+        }
     }
 }
 

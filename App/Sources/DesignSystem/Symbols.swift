@@ -65,7 +65,10 @@ extension AccountGroup {
 /// Icons for places in the app.
 enum AppSymbol {
     static let today = "sun.max"
-    static let timeline = "calendar.day.timeline.left"
+    /// So far: how you've been doing.
+    static let soFar = "clock.arrow.circlepath"
+    /// Ahead: the plan.
+    static let ahead = "chart.line.uptrend.xyaxis"
     static let accounts = "list.bullet.rectangle"
     static let plan = "slider.horizontal.3"
     static let checkIn = "checklist"
