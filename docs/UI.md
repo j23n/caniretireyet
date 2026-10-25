@@ -189,13 +189,14 @@ Your money and your date over time, always for the main plan (or the first plan,
 │ │ March    You saved 9.121 €, more th…│ │
 │ │ Why you're ahead                   › │ │
 │ ╰──────────────────────────────────────╯ │
-│ Milestones                               │
-│ ╭──────────────────────────────────────╮ │
-│ │ ○ 5 years of spending                │ │
-│ │   93% there, typically late 2028     │ │
-│ │ Saving nothing more     retire at 71 │ │
-│ │ All Milestones                     › │ │
-│ ╰──────────────────────────────────────╯ │
+│ Milestones               All Milestones │
+│ ╭ 🛋️ Next milest… ╮╭ ⛵ Saving nothi… ─╮ │
+│ │                 ││                   │ │
+│ │ 5 years of      ││ 71                │ │
+│ │ spending        ││                   │ │
+│ │ ▇▇▇▇▇▇▇▇▇▇▇▇▇░  ││ The coast point   │ │
+│ │ 93% there  late…││ is 67.            │ │
+│ ╰─────────────────╯╰───────────────────╯ │
 └──────────────────────────────────────────┘
 ```
 
@@ -213,7 +214,7 @@ The years run from your first record of an account the plan counts (a value, or 
   - **VoiceOver** reads the card as its year and verdict, and the chart as a chart: its audio graph and chart details give your money at each point and what was planned.
 - **Two figures** under the card, side by side: **You saved** ("20.486 €", "planned 13.463 € by now" this year, "planned 13.463 €" for a past one) and **Markets added** ("6.628 €", "expected 1.982 €"), "You took out" and "Markets took" when they're below zero.
 - **What happened**, a card of rows: how the earliest age moved over the year ("Earliest age · 56 → 55"); then a row a month, newest first, the month in grey, a milestone's month flagged ("August · ⚑ Passed the coast point: 67", "May · ⚑ Plan changed. Passed 150.000 €", "March · You saved 9.121 €, more than usual"), each on one line; "Nothing to note yet" without any. Keeping the year's plan isn't a row. Last, *Why you're ahead* ("Why you ended behind" for a past year; "Against your January plan" without the split), which opens why in a sheet ([PROGRESS.md](PROGRESS.md#actual-vs-a-baseline)): the same four rows every year, each with a bar on the largest's scale and its amount, signed, in green or orange, "0 €" in grey: **At the start** (the gap going into the year, or at the plan's own start later in it), **Saving** (what you saved less what the plan had you save), **Markets** (what they did less what it expected) and **Other** (inflation, values without what was saved entered, exchange rates). Then the total ("Ahead +21.572 €") and what the plan expected, in one line ("Your January plan expected 141.463 € by 31 Dec.", "… by now."). In whole units, so the rows add up to the total. Without the split it says what the plan expected and where you stand, or, for a year not measured, how the year is measured. Under the card, a year whose check-ins stop early says so ("No check-ins after June: what you held is valued at its prices."), and one with missing prices or rates that those holdings count as zero and the line is dotted there, with *Fill In Past Prices…*.
-- **Milestones**, a card of rows ([Milestones](#milestones)): the next, with how far there and when it typically comes; saving nothing more, when you could still retire; *All Milestones*, what each kind means and every milestone reached and ahead, in a sheet.
+- **Milestones**, two small tiles under a heading ([Milestones](#milestones), [Tiles](#tiles)): the next milestone, as on Today, and saving nothing more, when you could still retire. Either tile, and *All Milestones* beside the heading, opens *All Milestones*, what each kind means and every milestone reached and ahead, in a sheet.
 - **Mac and iPad.** The chart's card on the left, with the year's check-ins under it as a table (*Month*, *Money*, *You saved*, *Markets*, *Age*, *Moved*). Beside it a column of the year's figures as rows (*Started at*, *You saved*, *Markets*, *Now* or *Ended at*, *Planned to save*, *Earliest age*), *What happened* and *Milestones*.
 - Without a check-in, "Your year shows here from your first check-in."
 
@@ -324,74 +325,53 @@ The points you pass on the way ([PROGRESS.md](PROGRESS.md#milestones)): round am
 ```
 ┌──────────────────────────────────────────┐
 │ Milestones                          Done │
-│ ⚑ Next milestone               98% there │
-│ 10 years of spending                     │
-│ ▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇░   │
-│ Enough to pay for 10 years of the        │
-│ spending you plan for retirement:        │
-│ 360.000 €.                               │
-│ Typically by early 2027.                 │
-│ ──────────────────────────────────────── │
-│ Saving nothing more                   71 │
-│ If you stopped saving today, you could   │
-│ still retire at 71; the coast point is   │
-│ 67, when your first pension starts.      │
-│ ──────────────────────────────────────── │
+│ ╭ 🛋️ Almost there    typically early… ─╮ │
+│ │ 10 years of spending             98% │ │
+│ │ ▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇░  │ │
+│ │ Last: 💰 300.000 €, Jun…  Then: ⚖️ … │ │
+│ ╰──────────────────────────────────────╯ │
+│ ╭ ⛵ Saving nothing more ──────────────╮ │
+│ │ 71                                   │ │
+│ │ If you stopped saving today, you     │ │
+│ │ could still retire at 71; the coast  │ │
+│ │ point is 67, when your first pension │ │
+│ │ starts.                              │ │
+│ ╰──────────────────────────────────────╯ │
 │ What they mean                           │
-│                                          │
-│ Round amounts                            │
-│ The money in your plan passing 10.000 €, │
-│ 15.000 €, 20.000 €, 25.000 € and on,     │
-│ each about a quarter above the last:     │
-│ simple marks of the money growing.       │
-│ ⚑ 300.000 €                     Jun 2026 │
-│ ⚐ 400.000 €                   early 2028 │
-│                                          │
-│ Years of spending                        │
-│ What you have, counted in years of the   │
-│ 36.000 € a year you plan to spend in     │
-│ retirement.                              │
-│ ⚑ 5 years of spending           Aug 2024 │
-│ ⚐ 10 years of spending        early 2027 │
-│                                          │
-│ What retiring today needs                │
-│ The money in your plan against what      │
-│ retiring today would need. All of it     │
-│ means you could stop now.                │
-│ ⚑ A third of what retiring…     Jun 2026 │
-│ ⚐ Half of what retiring…       late 2028 │
-│                                          │
-│ The crossover                            │
-│ From about 380.000 €, a typical year's   │
-│ growth adds as much as you save: from    │
-│ there, markets do more than your saving. │
-│ None yet.                                │
-│ ⚐ The crossover                 mid 2027 │
-│                                          │
-│ The coast point                          │
-│ When you could stop saving and still     │
-│ retire when your first pension starts,   │
-│ at 67.                                   │
-│ None yet.                                │
-│ ──────────────────────────────────────── │
-│ Reached                                  │
-│ ⚑ 300.000 €                     Jun 2026 │
-│ ⚑ A third of what retiring…     Jun 2026 │
-│ ⚑ 250.000 €                     Aug 2025 │
-│ Ahead, typically                         │
-│ ⚐ 10 years of spending        early 2027 │
-│ ⚐ The crossover                 mid 2027 │
-│ ⚐ 400.000 €                   early 2028 │
+│ ╭ 💰 Round amounts ────────────────────╮ │
+│ │ The money in your plan passing       │ │
+│ │ 10.000 €, 15.000 €, 20.000 €,        │ │
+│ │ 25.000 € and on, each about a        │ │
+│ │ quarter above the last: simple marks │ │
+│ │ of the money growing.                │ │
+│ │ ⚑ 300.000 €                Jun 2026 │ │
+│ │ ⚐ 400.000 €       typically early 2… │ │
+│ ╰──────────────────────────────────────╯ │
+│ ╭ 🛋️ Years of spending ───────────────╮ │
+│ │ …                                    │ │
+│ ╰──────────────────────────────────────╯ │
+│   (🧩 What retiring today needs,         │
+│    ⚖️ The crossover, ⛵ The coast point)  │
+│ ╭ Reached ─────────────────────────────╮ │
+│ │ 💰 300.000 €               Jun 2026 │ │
+│ │ 🧩 A third of what retir…  Jun 2026 │ │
+│ │ 💰 250.000 €               Aug 2025 │ │
+│ ╰──────────────────────────────────────╯ │
+│ ╭ Ahead, typically ────────────────────╮ │
+│ │ 🛋️ 10 years of spending  early 2027 │ │
+│ │ ⚖️ The crossover            mid 2027 │ │
+│ │ 💰 400.000 €              early 2028 │ │
+│ ╰──────────────────────────────────────╯ │
 └──────────────────────────────────────────┘
 ```
 
-- **Year.** A card of rows after *What happened* (beside the chart on the Mac and iPad): the next milestone with an open circle, its name, and how far there and when the median future typically reaches it ("5 years of spending", "93% there, typically late 2028"); saving nothing more (below); and *All Milestones*, a sheet with the next and saving nothing more; *What they mean*, each kind of milestone the plan has, explained, with the latest of it reached and the next ahead (below); then what's been reached, newest first, and what's ahead, soonest first (five of each, *Show All* for the rest). On a year's chart, a filled flag on the line at the check-in or the month end that reached one (in the years before your first check-in too); and in *What happened*, the month's row flagged ("June · ⚑ Passed 300.000 €"). Notable check-ins join the rows too: "You saved 3.200 €, more than usual.", "Markets fell 24.500 €, 8%.".
-- **Today.** The *Next milestone* tile ([Tiles](#tiles)), which opens the Timeline at *Year*. Tinted by the milestone's kind, with its emoji: round amounts butter 💰, years of spending mint 🛋️, shares of what retiring today needs lilac 🧩 (🏖️ for all of it), the crossover peach ⚖️, the coast point sky ⛵. It shows the next milestone's name, its bar and how far there ("80% there"), and when the median future typically reaches it ("mid 2027"); "Almost there" from 95%. The wide tile adds the last one passed and the one after ("Last: 💰 300.000 €, Sep 2026", "Then: 💰 500.000 €"), and when markets took it back since the check-in before, a fainter bar where it was and "81% in August" in place of the last one. Milestones passed at the latest check-in (or at a month end since the check-in before) turn it pink until the next check-in: "🎉 Passed in September" and the name ("2 passed in September" and both), the coast point as its age, then "Next: 💰 400.000 €". Without a next one: "No more before the plan's end."; before the plan has results, it says the milestones show once it's calculated.
+- **Year.** Two small tiles after *What happened* (beside the chart on the Mac and iPad), under the heading *Milestones* with *All Milestones* beside it: the next milestone, as Today's tile shows it (below), and saving nothing more (below). Either opens *All Milestones*, a sheet of wide tiles: the next milestone and saving nothing more; *What they mean*, a tile for each kind of milestone the plan has, explained, with the latest of it reached and the next ahead (below); then cards of what's been reached, newest first, and what's ahead, soonest first, each row with its kind's emoji (five of each, *Show All* for the rest). On a year's chart, a filled flag on the line at the check-in or the month end that reached one (in the years before your first check-in too); and in *What happened*, the month's row flagged ("June · ⚑ Passed 300.000 €"). Notable check-ins join the rows too: "You saved 3.200 €, more than usual.", "Markets fell 24.500 €, 8%.".
+- **Today.** The *Next milestone* tile ([Tiles](#tiles)), which opens the Timeline at *Year*; *Year* and *All Milestones* show the same tile, small and wide. Tinted by the milestone's kind, with its emoji: round amounts butter 💰, years of spending mint 🛋️, shares of what retiring today needs lilac 🧩 (🏖️ for all of it), the crossover peach ⚖️, the coast point sky ⛵. It shows the next milestone's name, its bar and how far there ("80% there"), and when the median future typically reaches it ("mid 2027"); "Almost there" from 95%. The wide tile adds the last one passed and the one after ("Last: 💰 300.000 €, Sep 2026", "Then: 💰 500.000 €"), and when markets took it back since the check-in before, a fainter bar where it was and "81% in August" in place of the last one. Milestones passed at the latest check-in (or at a month end since the check-in before) turn it pink until the next check-in: "🎉 Passed in September" and the name ("2 passed in September" and both), the coast point as its age, then "Next: 💰 400.000 €". Without a next one: "No more before the plan's end."; before the plan has results, it says the milestones show once it's calculated.
 - **Plan.** In the chosen chapter, *Along the way, typically*: the milestones the median future reaches in it, each with its flag and when ("400.000 €", "mid 2027").
 - **Check-in.** After saving, the milestones passed since the check-in before, at this one or at a month end between them, each a line with a flag ("Passed 300.000 €."), and the next with how far there ("Next: 5 years of spending, 80% there."). The shares of what retiring today needs and the coast point come with the month's answer, and show at *Year*.
-- **The coast age.** On *Year*'s Milestones card, once a calculation or a check-in has worked it out ([PLANNER.md](PLANNER.md#ages-without)): "Saving nothing more · retire at 71", in green once it's at or under the coast point. The *All Milestones* sheet says it in full ("If you stopped saving today, you could still retire at 63; the coast point is 67, when your first pension starts."), and so do the plan's key numbers. The coast point is a milestone: the first check-in whose recorded coast age is at or under the age the first pension starts, the first check-in that recorded one included ("Passed the coast point: saving nothing more, you could still retire at 67."). It stays under *Reached* when the age rises again.
+- **The coast age.** On *Year*, once a calculation or a check-in has worked it out ([PLANNER.md](PLANNER.md#ages-without)): a small tile, ⛵ *Saving nothing more*, the age large and the coast point under it ("The coast point is 67."), sky, and mint once it's at or under the coast point ("Past the coast point, 67."). The *All Milestones* sheet's wide tile says it in full ("If you stopped saving today, you could still retire at 63; the coast point is 67, when your first pension starts."), and so do the plan's key numbers. The coast point is a milestone: the first check-in whose recorded coast age is at or under the age the first pension starts, the first check-in that recorded one included ("Passed the coast point: saving nothing more, you could still retire at 67."). It stays under *Reached* when the age rises again.
 - **The widget.** *Next milestone* shows the next one, its bar and when it typically comes ([Widgets](#widgets)).
-- **What they mean.** In the *All Milestones* sheet, between saving nothing more and the lists, a block for each kind the plan has, in this order: its name, what it means and why it matters, then the latest of it reached (a filled flag, "None yet." without one) and the next of it ahead (an outlined flag; "No more before the plan's end." without one, nothing without results). Round amounts are always there: "The money in your plan passing 10.000 €, 15.000 €, 20.000 €, 25.000 € and on, each about a quarter above the last: simple marks of the money growing." (its amounts placeholders while amounts are hidden). Years of spending need the plan's retirement spending: "What you have, counted in years of the 36.000 € a year you plan to spend in retirement." What retiring today needs: "The money in your plan against what retiring today would need. All of it means you could stop now." The crossover needs saving and growth: "From about 380.000 €, a typical year's growth adds as much as you save: from there, markets do more than your saving." The coast point needs a pension, and has nothing ahead: "When you could stop saving and still retire when your first pension starts, at 67." A kind with none on the ladder and none reached is left out.
+- **What they mean.** In the *All Milestones* sheet, between saving nothing more and the lists, a wide tile for each kind the plan has, in this order, in the kind's tint with its emoji: its name, what it means and why it matters, then the latest of it reached (a filled flag, "None yet." without one) and the next of it ahead (an outlined flag; "No more before the plan's end." without one, nothing without results). Round amounts are always there: "The money in your plan passing 10.000 €, 15.000 €, 20.000 €, 25.000 € and on, each about a quarter above the last: simple marks of the money growing." (its amounts placeholders while amounts are hidden). Years of spending need the plan's retirement spending: "What you have, counted in years of the 36.000 € a year you plan to spend in retirement." What retiring today needs: "The money in your plan against what retiring today would need. All of it means you could stop now." The crossover needs saving and growth: "From about 380.000 €, a typical year's growth adds as much as you save: from there, markets do more than your saving." The coast point needs a pension, and has nothing ahead: "When you could stop saving and still retire when your first pension starts, at 67." A kind with none on the ladder and none reached is left out.
 - **Words.** A round amount is its amount (a placeholder while amounts are hidden; "A round amount" on the lock screen); "10 years of spending" ("Enough for 10 years of the spending you plan for retirement."); "Half of what retiring today needs" ("Halfway to what retiring today needs."), and all of it "All that retiring today needs: you could stop."; "The crossover" ("A typical year now adds more than you save."). Dates ahead are a part of a year, "early", "mid" or "late 2028", since they're the median of many futures.
 
 ## Check-in
@@ -1042,7 +1022,7 @@ A tour left before *Start* (the app closed after *See My Answer*) isn't shown ag
 
 ## Tiles
 
-Today's glance on iPhone, made to be used elsewhere too: tiles sized on the home screen's grid of icons, as widgets are, 2 × 2 (small) or 2 × 4 (wide), in rows of four columns (`TileGrid`); a row is as tall as a small tile is wide, or taller when larger type needs it. A tile has the card's corners and a pastel tint (`TileTint`: butter, mint, lilac, peach, sky and pink, each with its own ink and accent, in light and dark), or the plain card. Text is in the tint's ink, secondary text a little lighter; bars and lines are in its accent, which reaches 3:1 on the tint. Emoji are for milestones only: one per kind of milestone, 🎉 when one is passed. The net worth tile is on the plain card, its line in the sky tint's accent (it shows no projection, so it needn't be ink). Every tile is a button that opens where its numbers are explained.
+Today's glance on iPhone, made to be used elsewhere too: tiles sized on the home screen's grid of icons, as widgets are, 2 × 2 (small) or 2 × 4 (wide), in rows of four columns (`TileGrid`); a row is as tall as a small tile is wide, or taller when larger type needs it. A tile has the card's corners and a pastel tint (`TileTint`: butter, mint, lilac, peach, sky and pink, each with its own ink and accent, in light and dark), or the plain card. Text is in the tint's ink, secondary text a little lighter; bars and lines are in its accent, which reaches 3:1 on the tint. Emoji are for milestones only: one per kind of milestone, 🎉 when one is passed. The net worth tile is on the plain card, its line in the sky tint's accent (it shows no projection, so it needn't be ink). Every tile is a button that opens where its numbers are explained. Today has the next milestone, the earliest age and net worth; *Year* on the Timeline has the next milestone and saving nothing more, small; *All Milestones* has those two wide, and a wide tile for each kind of milestone.
 
 ## Widgets
 
