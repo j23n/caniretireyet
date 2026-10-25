@@ -61,7 +61,7 @@ enum ScreenCapture {
 #if os(macOS)
 /// A Mac window holding the view, with its title and toolbar, as the app's own.
 @MainActor
-private final class CaptureWindow {
+final class CaptureWindow {
     private let window: NSWindow
 
     init(_ view: some View, size: CGSize) throws {
@@ -120,7 +120,7 @@ private final class CaptureWindow {
 #else
 /// A window over the app's own, on its scene: the whole screen.
 @MainActor
-private final class CaptureWindow {
+final class CaptureWindow {
     private let window: UIWindow
 
     init(_ view: some View, size: CGSize) throws {

@@ -24,7 +24,7 @@ include .apple-ci/apple.mk
 RESULTS ?= $(CURDIR)/.build/results
 SCREENSHOTS ?= $(CURDIR)/.build/screenshots
 SCREENSHOT_SCRIPT := .github/scripts/screenshots.py
-SCREEN_TESTS := CanIRetireYetScreenTests
+SCREEN_TESTS := CanIRetireYetScreenTests/ScreenSizeTests
 
 .PHONY: help bootstrap test build-package screenshots ci-linux ci-macos ci-macos-app clean
 
@@ -54,7 +54,7 @@ screenshots: project
 	@mkdir -p $(RESULTS)
 	@rm -rf $(RESULTS)/mac.xcresult $(RESULTS)/iphone.xcresult $(SCREENSHOTS)
 	@status=0; \
-	device=$$($(PYTHON) $(SCREENSHOT_SCRIPT) pick-iphone) && xcrun simctl boot "$$device" || true; \
+	device=$$($(PYTHON) $(SCREENSHOT_SCRIPT) pick-ipad) && xcrun simctl boot "$$device" || true; \
 	export TEST_RUNNER_SCREENSHOTS_DIR='$(SCREENSHOTS)'; \
 	$(XCODEBUILD) $(XCODEBUILD_FLAGS) test -project $(XCODEPROJ) -scheme $(SCHEME) -destination 'platform=macOS' \
 	  -only-testing:$(SCREEN_TESTS) -derivedDataPath $(DERIVED_DATA) -resultBundlePath $(RESULTS)/mac.xcresult \
