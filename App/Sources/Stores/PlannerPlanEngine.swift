@@ -88,18 +88,7 @@ struct PlannerPlanEngine: PlanEngine {
         }
 
         if let whatIf = request.whatIf, !whatIf.isEmpty {
-            // Saving a month more (or less) is spending that much less while
-            // working, so the plan's own saving is needed first.
-            var baseSaving: Decimal?
-            var share: ClosedRange<Double> = 0...1
-            if whatIf.monthlySaving != nil {
-                let cached = await isCached(request.plan, .base(request.mode), inputs: inputs, asOf: request.asOf)
-                guard let base = try await step(request.plan, .base(request.mode), share: 0...0.5) else { return nil }
-                baseSaving = base.details.focus.monthlySaving
-                if !cached { share = 0.5...1 }
-            }
-            let plan = whatIf.applied(to: request.plan, baseMonthlySaving: baseSaving)
-            return try await step(plan, .base(request.mode), focusAge: request.focusAge, share: share)
+            return try await step(whatIf.applied(to: request.plan), .base(request.mode), focusAge: request.focusAge)
         }
         if let focusAge = request.focusAge {
             let cached = await isCached(request.plan, .base(.full), inputs: inputs, asOf: request.asOf)

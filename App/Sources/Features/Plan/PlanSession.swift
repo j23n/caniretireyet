@@ -480,6 +480,12 @@ final class PlanSession {
     /// Whether the what-if's run is in progress.
     var isRunningWhatIf: Bool { plans.isRunning(planID, .whatIf) }
 
+    /// The what-if's latest results, while the levers have moved; they may
+    /// be from before the latest move (``whatIfIsOutOfDate``).
+    var whatIfResults: PlanResults? {
+        whatIf.isEmpty ? nil : plans.results(of: planID, .whatIf)
+    }
+
     /// The sliders' model for the plan as shown.
     var whatIfModel: PlanWhatIfModel? {
         plan.map { PlanWhatIfModel(plan: $0, results: baseResults, whatIf: whatIf) }
@@ -521,23 +527,55 @@ final class PlanSession {
     }
 
     /// Saves the plan with the levers where they are as a new plan named
-    /// `name` ("Save as Plan…"), and puts this plan's levers back. Returns
-    /// the new plan's ID.
+    /// `name` ("Save as a New Plan…"), and puts this plan's levers back.
+    /// Returns the new plan's ID.
     func saveAsPlan(named name: String) throws -> PlanID {
         guard let model = whatIfModel, !whatIf.isEmpty else { throw LibraryEditError.unknownPlan(planID) }
-        saveNow()
-        var copy = model.kept
-        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        copy.name = PlanEditing.uniqueName(trimmed.isEmpty ? "\(copy.name), changed" : trimmed,
-                                           among: library.library.plans.values)
-        copy.id = library.newPlanID(for: copy.name)
-        try library.save(copy)
+        let id = try saveAsNewPlan(model.kept, named: name)
         leverTask?.cancel()
         runTask?.cancel()
         plans.setWhatIf(PlanWhatIf(), for: planID)
         plans.setFocusAge(nil, for: planID)
         lookUpCachedDetails()
+        return id
+    }
+
+    /// Saves `document`, this plan with a change, as a new plan named `name`
+    /// ("Base case, changed" when it's empty); this plan stays as it was.
+    /// Returns the new plan's ID.
+    func saveAsNewPlan(_ document: PlanDocument, named name: String) throws -> PlanID {
+        saveNow()
+        var copy = document
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        copy.name = PlanEditing.uniqueName(trimmed.isEmpty ? "\(copy.name), changed" : trimmed,
+                                           among: library.library.plans.values)
+        copy.id = library.newPlanID(for: copy.name)
+        try library.save(copy)
         return copy.id
+    }
+
+    /// *Apply to Base case*: writes the levers into the plan (the age into
+    /// when work stops, the pay into each work phase, the spending into
+    /// spending in retirement) and puts them back. The plan then calculates
+    /// as after any edit; the what-if's full results are the engine's
+    /// already, so they show at once.
+    func applyWhatIf() {
+        guard let model = whatIfModel, !whatIf.isEmpty else { return }
+        update(model.kept)
+        reset()
+    }
+
+    // MARK: Previews
+
+    /// The results of the plan with a change not made yet
+    /// (``PlanStore/preview(_:mode:)``): an editor's *With this change*.
+    func preview(_ document: PlanDocument, mode: PlanRunMode) async throws -> PlanResults {
+        try await plans.preview(document, mode: mode)
+    }
+
+    /// The results of `document` already calculated, full ones first.
+    func cachedPreview(_ document: PlanDocument) async -> PlanResults? {
+        await plans.cachedPreview(document, modes: [.full, .fast])
     }
 
     /// Calculates the plan when its own results are missing or out of

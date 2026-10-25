@@ -273,6 +273,34 @@ final class PlanStore {
         return false
     }
 
+    // MARK: Previews
+
+    /// The results of `document`, a changed copy of a plan that isn't saved
+    /// (an editor's *With this change*): the engine's, when it kept them,
+    /// else a run in `mode`. They aren't kept in the store, the run isn't
+    /// among ``running`` or ``progress``, and a failure throws instead of
+    /// becoming the plan's ``errors``, so a preview never holds up the
+    /// plan's own runs. Cancelling the calling task stops the run. Applying
+    /// the change later finds the full results in the engine's cache.
+    func preview(_ document: PlanDocument, mode: PlanRunMode) async throws -> PlanResults {
+        let request = PlanRunRequest(plan: document, library: library.library, mode: mode, whatIf: nil,
+                                     asOf: library.asOfDate)
+        if let cached = await engine.cachedResults(for: request) { return cached }
+        try Task.checkCancellation()
+        return try await engine.run(request, progress: nil)
+    }
+
+    /// The results of `document` the engine kept, in the first of `modes`
+    /// it has, without running anything.
+    func cachedPreview(_ document: PlanDocument, modes: [PlanRunMode]) async -> PlanResults? {
+        for mode in modes {
+            let request = PlanRunRequest(plan: document, library: library.library, mode: mode, whatIf: nil,
+                                         asOf: library.asOfDate)
+            if let cached = await engine.cachedResults(for: request) { return cached }
+        }
+        return nil
+    }
+
     // MARK: Kept on the device
 
     /// Shows each plan's results kept on this device (``archive``) once its
