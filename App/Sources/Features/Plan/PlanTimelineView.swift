@@ -70,7 +70,7 @@ struct PlanTimelineView: View {
             }
             .padding(.horizontal, gutter)
             .padding(.vertical, layout.isWide ? Metrics.l : Metrics.s)
-            .frame(maxWidth: layout.isWide ? Metrics.wideReadableWidth : .infinity, alignment: .leading)
+            .frame(maxWidth: layout.isWide ? Metrics.wideReadableWidth : Metrics.readableWidth, alignment: .leading)
             .frame(maxWidth: .infinity)
         }
         .measuringWidth($pageWidth)

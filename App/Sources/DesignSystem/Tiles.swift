@@ -7,8 +7,8 @@ enum TileSize: Hashable, Sendable {
     case small
     case wide
 
-    /// The columns of four it spans.
-    var columns: Int { self == .small ? 2 : 4 }
+    /// The slots it takes in a ``TileGrid``'s row: one, or two.
+    var slots: Int { self == .small ? 1 : 2 }
 }
 
 /// A tile's colors: a pastel surface with its own ink and accent, each with
@@ -143,16 +143,19 @@ private struct TileSizeKey: LayoutValueKey {
 }
 
 extension View {
-    /// The size this view takes in a ``TileGrid``: two of its four columns, or all four.
+    /// The size this view takes in a ``TileGrid``: one slot of a row, or two.
     func tileSize(_ size: TileSize) -> some View {
         layoutValue(key: TileSizeKey.self, value: size)
     }
 }
 
-/// Tiles in rows of four columns, as icons on the home screen: a small
-/// tile takes two and a wide one four (``View/tileSize(_:)``). A row is as
-/// tall as a small tile is wide, or taller when a tile's content needs it
-/// (larger Dynamic Type sizes); every tile in it takes its height.
+/// Tiles in rows, as widgets on the home screen: a small tile takes one
+/// slot and a wide one two (``View/tileSize(_:)``). On iPhone in portrait a
+/// row has two slots; a wider page fits more, so a tile keeps about the
+/// size it has on iPhone (``minimumSmallWidth``) instead of growing with
+/// the page, and a row that isn't full leaves its last slots empty. A row
+/// is as tall as a small tile is wide, or taller when a tile's content
+/// needs it (larger Dynamic Type sizes); every tile in it takes its height.
 ///
 ///     TileGrid {
 ///         MilestoneTile(…).tileSize(.small)
@@ -161,6 +164,12 @@ extension View {
 ///     }
 struct TileGrid: Layout {
     var spacing: CGFloat = Metrics.m
+
+    /// The narrowest a small tile gets before a row drops a slot: a little
+    /// under an iPhone's in portrait, so iPhones keep two slots and wider
+    /// pages (iPhone in landscape, iPad, the Mac's side columns once they
+    /// stack) take three or more.
+    static let minimumSmallWidth: CGFloat = 160
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
         let width = proposal.width ?? Metrics.readableWidth
@@ -187,9 +196,17 @@ struct TileGrid: Layout {
         var height: CGFloat
     }
 
-    /// The tiles in rows of up to four columns, in order, each with its width.
+    /// The small tiles a row of `width` holds: two, or more while each
+    /// keeps ``minimumSmallWidth``.
+    static func slots(width: CGFloat, spacing: CGFloat) -> Int {
+        max(2, Int((width + spacing) / (minimumSmallWidth + spacing)))
+    }
+
+    /// The tiles in rows of up to ``slots(width:spacing:)``, in order, each with its width.
     private func rows(of subviews: Subviews, width: CGFloat) -> [Row] {
-        let small = max(0, (width - spacing) / 2)
+        let slots = Self.slots(width: width, spacing: spacing)
+        let small = max(0, (width - spacing * CGFloat(slots - 1)) / CGFloat(slots))
+        let wide = min(width, small * 2 + spacing)
         var rows: [Row] = []
         var items: [(index: Int, width: CGFloat)] = []
         var columns = 0
@@ -204,9 +221,10 @@ struct TileGrid: Layout {
         }
         for index in subviews.indices {
             let size = subviews[index][TileSizeKey.self]
-            if columns + size.columns > 4 { closeRow() }
-            items.append((index, size == .small ? small : width))
-            columns += size.columns
+            let taken = min(size.slots, slots)
+            if columns + taken > slots { closeRow() }
+            items.append((index, size == .small ? small : wide))
+            columns += taken
         }
         closeRow()
         return rows
