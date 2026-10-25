@@ -92,8 +92,8 @@ private struct TimelineContentView: View {
                         zoomPicker
                             .fixedSize()
                     }
-                    // Look Back's grain apart from the zoom, so the two
-                    // don't read as one row of five.
+                    // Look Back's time span apart from the zoom, so the two
+                    // don't read as one control.
                     if navigation.timelineZoom == .lookBack, library.library.accountsTurningOffTrends.isEmpty {
                         ToolbarItem(placement: .primaryAction) {
                             PlanTrendsControls()

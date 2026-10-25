@@ -9,21 +9,6 @@ import Tracker
 // over the time span Today's history uses. What it shows is the
 // Planner's `PlanTrends`, worked out from the plan's `PlanProgress`.
 
-extension PeriodGrain {
-    /// "Months", "Years".
-    var title: String {
-        switch self {
-        case .months: "Months"
-        case .years: "Years"
-        }
-    }
-}
-
-extension PlanTrends {
-    /// The device remembers the grain once chosen.
-    static let grainKey = "trends.grain"
-}
-
 extension Library {
     /// The accounts whose typed values turn Trends off (UI.md, "Look Back";
     /// ``Model/Account/typedValuesTurnOffTrends``), by name: open savings
