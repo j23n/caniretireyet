@@ -27,4 +27,12 @@ struct ProjectionScaleTests {
         let projection = ProjectionScale(history: [1_500_000], fan: fan, markerHeadroom: 0, plotHeight: 200)
         #expect(abs(projection.scale.domain.upperBound - 1_650_000) < 1)
     }
+
+    /// Without a projection the axis is the history's own, as on the
+    /// accounts' chart: 5% above its highest value, no tenth.
+    @Test func historyAloneHasNoTenth() {
+        let projection = ProjectionScale(history: [80_000, 100_000], fan: [], markerHeadroom: 0, plotHeight: 200)
+        #expect(abs(projection.scale.domain.upperBound - 105_000) < 1)
+        #expect(!projection.clipsBand)
+    }
 }
