@@ -130,12 +130,16 @@ struct HalfTile<Figure: View, Caption: View>: View {
     var tint: TileTint = .card
     let title: String
     var emoji: String?
+    /// Whether the title holds the person's data, such as the plan's end
+    /// age; it hides in feedback screenshots.
+    var personalTitle = false
     @ViewBuilder var figure: Figure
     @ViewBuilder var caption: Caption
 
     var body: some View {
         ColorTile(tint: tint) {
             TileLabel(title, emoji: emoji)
+                .privacySensitiveInFeedback(personalTitle)
             Spacer(minLength: Metrics.xs)
             HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
                 figure

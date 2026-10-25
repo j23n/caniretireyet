@@ -280,6 +280,7 @@ struct CheckInTile: View {
         let words = status.tileWords(locale: locale)
         HalfTile(tint: .sky, title: status.isOpen ? "Check-in" : "Next check-in", emoji: "🗓️") {
             Text(verbatim: words.figure)
+                .privacySensitiveInFeedback()
         } caption: {
             Text(verbatim: words.caption)
         }

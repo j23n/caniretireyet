@@ -225,7 +225,7 @@ struct DecadesLeftTile: View {
     let currency: CurrencyCode
 
     var body: some View {
-        HalfTile(tint: .butter, title: "Left at \(max(endAge, outcome.age))", emoji: "🏁") {
+        HalfTile(tint: .butter, title: "Left at \(max(endAge, outcome.age))", emoji: "🏁", personalTitle: true) {
             AmountText(Decimal(wholeNumber: outcome.median), currency: currency, short: true)
         } caption: {
             Text("typically")

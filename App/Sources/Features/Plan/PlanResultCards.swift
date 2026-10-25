@@ -149,7 +149,7 @@ struct PlanResultTiles: View {
                     .tileSize(.small)
             }
             if let median = details.focus.medianAtEnd {
-                HalfTile(tint: .mint, title: "Left at \(details.endAge)", emoji: "🏁") {
+                HalfTile(tint: .mint, title: "Left at \(details.endAge)", emoji: "🏁", personalTitle: true) {
                     AmountSentenceText(words.amount(PlanResultsText.whole(median)))
                 } caption: {
                     Text("typically")
