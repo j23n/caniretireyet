@@ -6,7 +6,7 @@ import Tracker
 /// over four tiles, the savings rate, what was saved, what came in and what
 /// was spent over the 12 months that end at the latest check-in, each with
 /// its change against the 12 months before; two by two on iPhone, in a row
-/// on the Mac and iPad. Then one sentence against the plan's spending while
+/// where there's room. Then one sentence against the plan's spending while
 /// working. With less than 12 months recorded it covers what there is,
 /// titled by where that starts ("Since 30 Jun 2026").
 struct PlanLastTwelveMonthsTiles: View {
@@ -16,7 +16,6 @@ struct PlanLastTwelveMonthsTiles: View {
     /// working.
     var plannedSpending: Decimal?
 
-    @Environment(\.pageLayout) private var layout
     @Environment(\.locale) private var locale
 
     var body: some View {
@@ -31,19 +30,10 @@ struct PlanLastTwelveMonthsTiles: View {
                 .accessibilityAddTraits(.isHeader)
             if let year {
                 let currency = year.current.moneyInOut.currency
-                if layout.isWide {
-                    EqualColumns(spacing: Metrics.m, equalHeights: true) {
-                        ForEach(year.tiles) { tile in
-                            TwelveMonthsTile(tile: tile, currency: currency)
-                                .frame(minHeight: 150)
-                        }
-                    }
-                } else {
-                    TileGrid {
-                        ForEach(year.tiles) { tile in
-                            TwelveMonthsTile(tile: tile, currency: currency)
-                                .tileSize(.small)
-                        }
+                TileGrid {
+                    ForEach(year.tiles) { tile in
+                        TwelveMonthsTile(tile: tile, currency: currency)
+                            .tileSize(.small)
                     }
                 }
                 if let words = year.spendingWords(planned: plannedSpending, locale: locale) {
