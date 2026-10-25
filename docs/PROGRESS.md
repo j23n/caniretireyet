@@ -53,7 +53,7 @@ The automatic baseline is saved at the year's first check-in, so a year whose fi
 
 ### Milestones
 
-Retiring is years away and the answer moves slowly, so the app marks the points you pass on the way: plain facts about your money, reached by your plan assets or ahead in the median future ([UI.md](UI.md#milestones)). They stay calm: a sentence, a small flag on the line and a row in a list, with no badges, confetti or streaks. A milestone you've reached stays reached when markets fall back below it.
+Retiring is years away and the answer moves slowly, so the app marks the points you pass on the way: plain facts about your money, reached by your plan assets or ahead in the median future ([UI.md](UI.md#milestones)). They stay calm: a sentence, a small flag on the line, a row in a list and a tile on Today with an emoji of its own, with no badges, confetti or streaks. A milestone you've reached stays reached when markets fall back below it.
 
 Every milestone is an amount of plan assets, in the base currency and today's money (`MilestoneLadder`, in the Planner):
 
