@@ -40,6 +40,26 @@ def pick_iphone() -> None:
     print(chosen[4])
 
 
+def pick_ipad() -> None:
+    listing = subprocess.run(["xcrun", "simctl", "list", "devices", "available", "--json"],
+                             check=True, capture_output=True, text=True).stdout
+    candidates = []
+    for runtime, devices in json.loads(listing)["devices"].items():
+        version = re.search(r"iOS-(\d+)-(\d+)", runtime)
+        if not version:
+            continue
+        for device in devices:
+            name = device["name"]
+            if name.startswith("iPad"):
+                candidates.append(((int(version[1]), int(version[2])), "13-inch" in name, "Pro" in name, name,
+                                   device["udid"]))
+    if not candidates:
+        sys.exit("No iPad simulator available.")
+    chosen = max(candidates)
+    print(f"{chosen[3]}, iOS {chosen[0][0]}.{chosen[0][1]}", file=sys.stderr)
+    print(chosen[4])
+
+
 def print_screenshots(out: pathlib.Path) -> None:
     for image in sorted(out.glob("*.png")):
         with tempfile.TemporaryDirectory() as scratch:
@@ -72,6 +92,8 @@ if __name__ == "__main__":
     command = sys.argv[1] if len(sys.argv) > 1 else ""
     if command == "pick-iphone":
         pick_iphone()
+    elif command == "pick-ipad":
+        pick_ipad()
     elif command == "print" and len(sys.argv) == 3:
         print_screenshots(pathlib.Path(sys.argv[2]))
     elif command == "failures" and len(sys.argv) == 3:
