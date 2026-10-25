@@ -6,9 +6,11 @@ import Model
 /// formatted where they're shown, in the locale's way.
 public enum GlanceText {
     /// A share as the simplest "k of n", as the Plan screen words the
-    /// confidence: 0.9 → "9 of 10", 0.95 → "19 of 20", 0.75 → "3 of 4".
+    /// confidence: 0.9 → "9 of 10", 0.95 → "19 of 20", 0.75 → "3 of 4";
+    /// none and all of them out of 10, "0 of 10" and "10 of 10", not 2.
     public static func futures(_ share: Double) -> String {
         guard share.isFinite else { return "" }
+        if abs(share) < 0.0005 || abs(share - 1) < 0.0005 { return "\(Int((share * 10).rounded())) of 10" }
         for denominator in [2, 3, 4, 5, 10, 20, 25, 50, 100] {
             let numerator = share * Double(denominator)
             if abs(numerator - numerator.rounded()) < 0.001 {
