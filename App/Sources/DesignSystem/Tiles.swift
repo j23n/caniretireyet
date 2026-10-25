@@ -2,13 +2,22 @@ import SwiftUI
 
 /// A tile's size on the grid of the home screen's icons (UI.md, "Tiles"):
 /// a small tile is 2 × 2 icons, a wide one 2 × 4, as the small and medium
-/// widgets are.
+/// widgets are. A half tile is 1 × 2, for a figure and a few words; two
+/// stack in a small tile's slot. A full tile takes its whole row.
 enum TileSize: Hashable, Sendable {
+    case half
     case small
     case wide
+    case full
 
-    /// The slots it takes in a ``TileGrid``'s row: one, or two.
-    var slots: Int { self == .small ? 1 : 2 }
+    /// The slots it takes in a ``TileGrid``'s row of `slots`.
+    func slots(of slots: Int) -> Int {
+        switch self {
+        case .half, .small: 1
+        case .wide: min(2, slots)
+        case .full: slots
+        }
+    }
 }
 
 /// A tile's colors: a pastel surface with its own ink and accent, each with
@@ -106,6 +115,44 @@ struct TileLabel: View {
     }
 }
 
+/// A half tile's content (UI.md, "Tiles"): its label, then its figure
+/// with a few words beside it, so a figure that says it all takes half a
+/// small tile's height.
+///
+///     HalfTile(tint: .sky, title: "Next check-in", emoji: "🗓️") {
+///         Text("31 Oct")
+///     } caption: {
+///         Text("in 6 days")
+///     }
+struct HalfTile<Figure: View, Caption: View>: View {
+    var tint: TileTint = .card
+    let title: String
+    var emoji: String?
+    @ViewBuilder var figure: Figure
+    @ViewBuilder var caption: Caption
+
+    var body: some View {
+        ColorTile(tint: tint) {
+            TileLabel(title, emoji: emoji)
+            Spacer(minLength: Metrics.xs)
+            HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
+                figure
+                    .font(.title2.bold())
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+                    .layoutPriority(1)
+                Spacer(minLength: 0)
+                caption
+                    .font(.caption)
+                    .opacity(0.8)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.trailing)
+            }
+        }
+        .accessibilityElement(children: .combine)
+    }
+}
+
 /// How far along something is, as a bar in the tile's accent. With
 /// `before`, a fainter bar shows where it was, when that was further.
 struct TileBar: View {
@@ -150,16 +197,20 @@ extension View {
 }
 
 /// Tiles in rows, as widgets on the home screen: a small tile takes one
-/// slot and a wide one two (``View/tileSize(_:)``). On iPhone in portrait a
-/// row has two slots; a wider page fits more, so a tile keeps about the
-/// size it has on iPhone (``minimumSmallWidth``) instead of growing with
-/// the page, and a row that isn't full leaves its last slots empty. A row
-/// is as tall as a small tile is wide, or taller when a tile's content
-/// needs it (larger Dynamic Type sizes); every tile in it takes its height.
+/// slot, a wide one two and a full one the row (``View/tileSize(_:)``);
+/// two half tiles in a row stack in one slot. On iPhone in portrait a row
+/// has two slots; a wider page fits more, so a tile keeps about the size it
+/// has on iPhone (``minimumSmallWidth``) instead of growing with the page,
+/// and a row that isn't full leaves its last slots empty. A row is as tall
+/// as a small tile is wide, at most ``rowHeight``, so a slot wider than an
+/// iPhone's doesn't make its tiles taller; or taller when a tile's content
+/// needs it (larger Dynamic Type sizes). Every tile in it takes its height,
+/// half tiles half of it each.
 ///
 ///     TileGrid {
 ///         MilestoneTile(…).tileSize(.small)
-///         TwelveMonthsTile(…).tileSize(.small)
+///         CheckInTile(…).tileSize(.half)
+///         AttentionTile(…).tileSize(.half)
 ///         NetWorthTile(…).tileSize(.wide)
 ///     }
 struct TileGrid: Layout {
@@ -170,6 +221,10 @@ struct TileGrid: Layout {
     /// pages (iPhone in landscape, iPad, the Mac's side columns once they
     /// stack) take three or more.
     static let minimumSmallWidth: CGFloat = 160
+
+    /// The tallest a row gets for its slots' width: about a small tile's on
+    /// the larger iPhones.
+    static let rowHeight: CGFloat = 176
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
         let width = proposal.width ?? Metrics.readableWidth
@@ -182,17 +237,28 @@ struct TileGrid: Layout {
         var y = bounds.minY
         for row in rows(of: subviews, width: bounds.width) {
             var x = bounds.minX
-            for item in row.items {
-                subviews[item.index].place(at: CGPoint(x: x, y: y), anchor: .topLeading,
-                                           proposal: ProposedViewSize(width: item.width, height: row.height))
-                x += item.width + spacing
+            for cell in row.cells {
+                let height = cell.indices.count > 1 || subviews[cell.indices[0]][TileSizeKey.self] == .half
+                    ? (row.height - spacing) / 2 : row.height
+                for (stacked, index) in cell.indices.enumerated() {
+                    subviews[index].place(at: CGPoint(x: x, y: y + CGFloat(stacked) * (height + spacing)),
+                                          anchor: .topLeading,
+                                          proposal: ProposedViewSize(width: cell.width, height: height))
+                }
+                x += cell.width + spacing
             }
             y += row.height + spacing
         }
     }
 
+    /// A slot or slots of a row: one tile, or two half tiles stacked.
+    private struct Cell {
+        var indices: [Int]
+        var width: CGFloat
+    }
+
     private struct Row {
-        var items: [(index: Int, width: CGFloat)]
+        var cells: [Cell]
         var height: CGFloat
     }
 
@@ -202,28 +268,38 @@ struct TileGrid: Layout {
         max(2, Int((width + spacing) / (minimumSmallWidth + spacing)))
     }
 
-    /// The tiles in rows of up to ``slots(width:spacing:)``, in order, each with its width.
+    /// The tiles in rows of up to ``slots(width:spacing:)``, in order, each
+    /// cell with its width.
     private func rows(of subviews: Subviews, width: CGFloat) -> [Row] {
         let slots = Self.slots(width: width, spacing: spacing)
         let small = max(0, (width - spacing * CGFloat(slots - 1)) / CGFloat(slots))
-        let wide = min(width, small * 2 + spacing)
+        let unit = min(small, Self.rowHeight)
         var rows: [Row] = []
-        var items: [(index: Int, width: CGFloat)] = []
+        var cells: [Cell] = []
         var columns = 0
         func closeRow() {
-            guard !items.isEmpty else { return }
-            let tallest = items.map {
-                subviews[$0.index].sizeThatFits(ProposedViewSize(width: $0.width, height: nil)).height
+            guard !cells.isEmpty else { return }
+            let tallest = cells.map { cell in
+                let heights = cell.indices.map {
+                    subviews[$0].sizeThatFits(ProposedViewSize(width: cell.width, height: nil)).height
+                }
+                let isHalf = subviews[cell.indices[0]][TileSizeKey.self] == .half
+                return isHalf ? 2 * (heights.max() ?? 0) + spacing : heights.max() ?? 0
             }.max() ?? 0
-            rows.append(Row(items: items, height: max(small, tallest)))
-            items = []
+            rows.append(Row(cells: cells, height: max(unit, tallest)))
+            cells = []
             columns = 0
         }
         for index in subviews.indices {
             let size = subviews[index][TileSizeKey.self]
-            let taken = min(size.slots, slots)
+            if size == .half, let last = cells.indices.last, cells[last].indices.count == 1,
+               subviews[cells[last].indices[0]][TileSizeKey.self] == .half {
+                cells[last].indices.append(index)
+                continue
+            }
+            let taken = size.slots(of: slots)
             if columns + taken > slots { closeRow() }
-            items.append((index, size == .small ? small : wide))
+            cells.append(Cell(indices: [index], width: small * CGFloat(taken) + spacing * CGFloat(taken - 1)))
             columns += taken
         }
         closeRow()
