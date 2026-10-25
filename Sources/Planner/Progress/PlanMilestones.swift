@@ -96,11 +96,7 @@ public struct PlanMilestones: Sendable {
                                since previous: CalendarDate?, through date: CalendarDate) -> [ReachedMilestone] {
         MilestoneLadder(plan: plan, library: library, valuator: valuator, on: date)
             .reached(plan: plan.id, library: library, valuator: valuator, through: date)
-            .filter { milestone in
-                guard milestone.date <= date else { return false }
-                guard let previous else { return milestone.date == date }
-                return milestone.date > previous
-            }
+            .filter { isPassed($0, since: previous, through: date) }
     }
 
     /// The milestones passed at the latest check-in: those reached after
@@ -108,11 +104,17 @@ public struct PlanMilestones: Sendable {
     /// between, oldest first. Without a check-in before, those reached on
     /// `latest` itself.
     public func passed(since previous: CalendarDate?, through latest: CalendarDate) -> [ReachedMilestone] {
-        reached.filter { milestone in
-            guard milestone.date <= latest else { return false }
-            guard let previous else { return milestone.date == latest }
-            return milestone.date > previous
-        }
+        reached.filter { Self.isPassed($0, since: previous, through: latest) }
+    }
+
+    /// Whether `milestone` was passed at the check-in on `date`: after the
+    /// one before (`previous`) and not after `date`; without one before, on
+    /// `date` itself.
+    private static func isPassed(_ milestone: ReachedMilestone, since previous: CalendarDate?,
+                                 through date: CalendarDate) -> Bool {
+        guard milestone.date <= date else { return false }
+        guard let previous else { return milestone.date == date }
+        return milestone.date > previous
     }
 
     /// The milestone the median future reaches after the next; `nil`
