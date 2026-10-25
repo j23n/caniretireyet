@@ -296,6 +296,7 @@ struct MilestoneTile: View {
         return ColorTile(tint: .pink) {
             TileLabel(count == 1 ? "Passed in \(month)" : "\(count) passed in \(month)",
                       emoji: newest.milestone.tileEmoji == "🏖️" ? "🏖️" : "🎉")
+                .privacySensitiveInFeedback()
             Spacer(minLength: Metrics.s)
             if also.isEmpty {
                 passedOne(newest.milestone, text: text)
@@ -311,6 +312,7 @@ struct MilestoneTile: View {
                         Text("and \(also.count - (isWide ? 2 : 1)) more")
                             .font(.caption)
                             .opacity(0.8)
+                            .privacySensitiveInFeedback()
                     }
                 }
             }
@@ -351,6 +353,7 @@ struct MilestoneTile: View {
                 Text("You could stop now.")
                     .font(.caption)
                     .opacity(0.85)
+                    .privacySensitiveInFeedback()
             } else if size == .wide, let detail = text.detail(milestone) {
                 AmountSentenceText(detail)
                     .font(.caption)
@@ -421,6 +424,7 @@ struct RetirementAgeTile: View {
                     .font(.system(size: ageSize, weight: .bold))
                     .lineLimit(1)
                     .minimumScaleFactor(0.6)
+                    .privacySensitiveInFeedback()
                 Text("You could stop working today, in \(futures) futures.")
                     .font(.caption)
                     .opacity(0.8)
@@ -435,6 +439,7 @@ struct RetirementAgeTile: View {
                     .font(.system(size: ageSize * 0.75, weight: .bold))
                     .lineLimit(1)
                     .minimumScaleFactor(0.6)
+                    .privacySensitiveInFeedback()
                 Text("No age works out in \(futures) futures yet.")
                     .font(.caption)
                     .opacity(0.8)
