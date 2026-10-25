@@ -46,9 +46,10 @@ extension PlanMilestoneKind {
 }
 
 /// When you could still retire saving nothing more, as a tile (UI.md,
-/// "Milestones"): ⛵ and the coast age large, mint once it's at or under
-/// the coast point, else sky. The small tile names the coast point under
-/// it; the wide one says it in full; the half one names it beside the age.
+/// "Milestones"): "⛵ If you stopped saving now" and the coast age large,
+/// mint once it's at or under the coast point, else sky. The small tile
+/// names the coast point under it; the wide one says it in full; the half
+/// one says it's the earliest age to stop.
 struct CoastAgeTile: View {
     let age: Int?
     var target: Int?
@@ -63,15 +64,12 @@ struct CoastAgeTile: View {
 
     var body: some View {
         if size == .half {
-            HalfTile(tint: isPastCoastPoint ? .mint : .sky, title: "Saving nothing more", emoji: "⛵") {
+            HalfTile(tint: isPastCoastPoint ? .mint : .sky, title: "If you stopped saving now", emoji: "⛵") {
                 Text(verbatim: age.map { "\($0)" } ?? "No age yet")
                     .monospacedDigit()
                     .privacySensitiveInFeedback()
             } caption: {
-                if let target {
-                    Text(verbatim: isPastCoastPoint ? "past the coast point, \(target)" : "coast point \(target)")
-                        .privacySensitiveInFeedback()
-                }
+                Text(age == nil ? "works for stopping" : "earliest age to stop")
             }
         } else {
             tile
@@ -80,7 +78,7 @@ struct CoastAgeTile: View {
 
     private var tile: some View {
         ColorTile(tint: isPastCoastPoint ? .mint : .sky) {
-            TileLabel("Saving nothing more", emoji: "⛵")
+            TileLabel("If you stopped saving now", emoji: "⛵")
             Spacer(minLength: Metrics.s)
             Group {
                 if let age {

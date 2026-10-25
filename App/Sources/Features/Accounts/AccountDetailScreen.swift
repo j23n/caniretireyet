@@ -681,48 +681,39 @@ private struct AccountMonthTiles: View {
             let month = AmountFormat.monthName(latest.valuation.date, locale: locale)
             TileGrid {
                 ColorTile(tint: .mint) {
-                    label("Saved", emoji: "💰", month: month)
+                    TileLabel("Saved", emoji: "💰")
                     Spacer(minLength: Metrics.s)
                     AmountText(saved, currency: data.currency, signed: true, tabular: false)
                         .font(.title2.bold())
                         .lineLimit(1)
                         .minimumScaleFactor(0.6)
-                    if latest.recordsMoneyInOut, let moneyIn = latest.valuation.moneyIn,
-                       let moneyOut = latest.valuation.moneyOut {
-                        AmountSentenceText("in \(amount: amount(moneyIn)), out \(amount: amount(moneyOut))")
-                            .font(.caption)
-                            .opacity(0.8)
-                            .lineLimit(2)
-                            .fixedSize(horizontal: false, vertical: true)
+                    TileCaption {
+                        if latest.recordsMoneyInOut, let moneyIn = latest.valuation.moneyIn,
+                           let moneyOut = latest.valuation.moneyOut {
+                            AmountSentenceText("in \(month): \(amount: amount(moneyIn)) in, \(amount: amount(moneyOut)) out")
+                        } else {
+                            Text(verbatim: "in \(month)")
+                                .privacySensitiveInFeedback()
+                        }
                     }
                 }
                 .accessibilityElement(children: .combine)
                 .tileSize(interest == nil ? .wide : .small)
                 if let interest {
                     ColorTile(tint: .butter) {
-                        label("Interest", emoji: "🌱", month: month)
+                        TileLabel("Interest", emoji: "🌱")
                         Spacer(minLength: Metrics.s)
                         AmountText(interest, currency: data.currency, signed: true, tabular: false)
                             .font(.title2.bold())
                             .lineLimit(1)
                             .minimumScaleFactor(0.6)
+                        TileCaption(verbatim: "in \(month)")
+                            .privacySensitiveInFeedback()
                     }
                     .accessibilityElement(children: .combine)
                     .tileSize(.small)
                 }
             }
-        }
-    }
-
-    private func label(_ title: String, emoji: String, month: String) -> some View {
-        HStack(spacing: Metrics.s) {
-            TileLabel(title, emoji: emoji)
-            Spacer(minLength: Metrics.xs)
-            Text(verbatim: month)
-                .font(.caption)
-                .opacity(0.8)
-                .lineLimit(1)
-                .privacySensitiveInFeedback()
         }
     }
 

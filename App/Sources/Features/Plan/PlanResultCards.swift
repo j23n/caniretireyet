@@ -135,12 +135,12 @@ struct PlanResultTiles: View {
                     .tileSize(pace == nil ? .small : .half)
             }
             if let pace {
-                HalfTile(tint: .lilac, title: "At last year's saving", emoji: "🐢") {
+                HalfTile(tint: .lilac, title: "Saving as much as last year", emoji: "🐢") {
                     Text(verbatim: pace.earliestAge.map { "\($0)" } ?? "No age")
                         .monospacedDigit()
                         .privacySensitiveInFeedback()
                 } caption: {
-                    Text("to stop")
+                    Text(pace.earliestAge == nil ? "works for stopping" : "earliest age to stop")
                 }
                 .tileSize(.half)
             }
@@ -149,17 +149,18 @@ struct PlanResultTiles: View {
                     .tileSize(.small)
             }
             if let median = details.focus.medianAtEnd {
-                HalfTile(tint: .mint, title: "Left at \(details.endAge)", emoji: "🏁", personalTitle: true) {
+                HalfTile(tint: .mint, title: "Money left at the end", emoji: "🏁") {
                     AmountSentenceText(words.amount(PlanResultsText.whole(median)))
                 } caption: {
-                    Text("typically")
+                    Text(verbatim: "at \(details.endAge), typically")
+                        .privacySensitiveInFeedback()
                 }
                 .tileSize(.half)
             }
-            HalfTile(tint: .peach, title: "Lifetime taxes", emoji: "🧾") {
+            HalfTile(tint: .peach, title: "Taxes from now to the end", emoji: "🧾") {
                 AmountSentenceText(words.amount(PlanResultsText.whole(details.focus.lifetimeTaxes)))
             } caption: {
-                Text("typically")
+                Text("in total, typically")
             }
             .tileSize(.half)
             if !results.successByAge.isEmpty {
@@ -169,30 +170,28 @@ struct PlanResultTiles: View {
         }
     }
 
-    /// "🛍️ You could spend from 63", "2.350 €", "a month, in 9 of 10 futures".
+    /// "🛍️ Spending you can afford", "2.350 €", "a month from 63, in 9 of
+    /// 10 futures".
     private func spendTile(_ yearly: Decimal, age: Int?) -> some View {
         ColorTile(tint: .butter) {
-            TileLabel(age.map { "You could spend from \($0)" } ?? "You could spend", emoji: "🛍️")
-                .privacySensitiveInFeedback()
+            TileLabel("Spending you can afford", emoji: "🛍️")
             Spacer(minLength: Metrics.s)
             AmountText(yearly / 12, currency: session.currency, tabular: false)
                 .font(.title.bold())
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
-            Text(verbatim: "a month, in \(GlanceText.futures(results.headline.confidence)) futures")
-                .font(.caption)
-                .opacity(0.8)
-                .fixedSize(horizontal: false, vertical: true)
+            TileCaption(verbatim: "a month\(age.map { " from \($0)" } ?? ""), in "
+                        + "\(GlanceText.futures(results.headline.confidence)) futures")
                 .privacySensitiveInFeedback()
         }
         .accessibilityElement(children: .combine)
     }
 
-    /// "🧮 Needed to stop today", the amount, and how much of it you have
-    /// as a bar with its share ("64% of it").
+    /// "🧮 Needed to retire today", the amount, and how much of it you have
+    /// as a bar with its share ("You have 64% of it").
     private func neededTile(_ value: AmountSentence, readiness: Double?) -> some View {
         ColorTile(tint: .sky) {
-            TileLabel("Needed to stop today", emoji: "🧮")
+            TileLabel("Needed to retire today", emoji: "🧮")
             Spacer(minLength: Metrics.s)
             AmountSentenceText(value)
                 .font(.title2.bold())
@@ -202,11 +201,8 @@ struct PlanResultTiles: View {
                 let shown = Readiness.shown(readiness)
                 TileBar(progress: min(1, shown))
                     .padding(.top, Metrics.s)
-                Text(verbatim: "You have \(AmountFormat.percent(shown, digits: 0, locale: locale))"
-                    + (results.headline.readinessIsLowerBound ? " or more" : ""))
-                    .font(.caption)
-                    .opacity(0.8)
-                    .lineLimit(1)
+                TileCaption(verbatim: "You have \(AmountFormat.percent(shown, digits: 0, locale: locale))"
+                            + (results.headline.readinessIsLowerBound ? " or more" : "") + " of it")
                     .privacySensitiveInFeedback()
             }
         }
