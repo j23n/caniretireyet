@@ -29,8 +29,10 @@ struct CardRows<Content: View>: View {
 }
 
 /// One row: its title on the left and its value on the right, each on one
-/// line. The title gives way first, so a value is never cut; a chevron
-/// says the row opens something.
+/// line. The title gives way first, so a value is never cut; a value too
+/// long for the row's width goes under the title instead, wrapping, so it
+/// never makes the page wider than the screen. A chevron says the row
+/// opens something.
 ///
 ///     CardRow("Net worth", opens: true) { AmountText(total) }
 ///     CardRow { Text("Next: 5 years of spending") } value: { Text("90% there") }
@@ -50,21 +52,30 @@ struct CardRow<Title: View, Value: View, Below: View>: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Metrics.xs) {
-            HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
-                title
-                    .foregroundStyle(Palette.ink)
-                    .lineLimit(1)
-                Spacer(minLength: Metrics.s)
-                value
-                    .foregroundStyle(Palette.secondaryInk)
-                    .lineLimit(1)
-                    .fixedSize()
-                    .layoutPriority(1)
-                if opens {
-                    Image(systemName: "chevron.right")
-                        .font(.footnote.weight(.semibold))
-                        .foregroundStyle(Palette.mutedInk)
-                        .accessibilityHidden(true)
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
+                    title
+                        .foregroundStyle(Palette.ink)
+                        .lineLimit(1)
+                    Spacer(minLength: Metrics.s)
+                    value
+                        .foregroundStyle(Palette.secondaryInk)
+                        .lineLimit(1)
+                        .fixedSize()
+                        .layoutPriority(1)
+                    chevron
+                }
+                VStack(alignment: .leading, spacing: Metrics.xs) {
+                    HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
+                        title
+                            .foregroundStyle(Palette.ink)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Spacer(minLength: Metrics.s)
+                        chevron
+                    }
+                    value
+                        .foregroundStyle(Palette.secondaryInk)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
             below
@@ -74,6 +85,16 @@ struct CardRow<Title: View, Value: View, Below: View>: View {
         .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
         .contentShape(Rectangle())
         .accessibilityElement(children: .combine)
+    }
+
+    @ViewBuilder
+    private var chevron: some View {
+        if opens {
+            Image(systemName: "chevron.right")
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(Palette.mutedInk)
+                .accessibilityHidden(true)
+        }
     }
 }
 
