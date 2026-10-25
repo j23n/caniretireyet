@@ -125,7 +125,7 @@ extension PlanChaptersModel {
             : "Work stops at \(retirementAge), in \(retirementYear)."
         switch ageSource {
         case .chosen:
-            return "The chapters and charts are for retiring at \(retirementAge), chosen on the chance-by-age chart."
+            return "The chapters and charts are for retiring at \(retirementAge), chosen under \"If you stopped at another age\"."
         case .whatIf:
             return "The chapters follow the what-if: retiring at \(retirementAge)."
         case .plan:

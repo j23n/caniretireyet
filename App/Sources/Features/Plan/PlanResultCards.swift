@@ -220,7 +220,7 @@ struct PlanResultTiles: View {
 /// for each age to the height of the futures it lasts in, the answer's in
 /// the accent and the age the chapters are cut at outlined, a dotted rule
 /// at the plan's bar, and the answer in words. Tapping an age cuts the
-/// chapters at it, as the chart on the Mac does.
+/// chapters at it.
 struct PlanStopAgesTile: View {
     let session: PlanSession
     let results: PlanResults

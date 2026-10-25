@@ -22,7 +22,7 @@ import Tracker
 /// - **What if.** Moving a slider marks the what-if out of date; *Run
 ///   What-If* runs a quick estimate with fewer runs, then the full set.
 ///   *Keep* writes the change into the plan, *Reset* throws it away.
-/// - **Focus age.** Tapping an age on the success curve shows the charts
+/// - **Focus age.** Tapping an age on `PlanStopAgesTile` shows the charts
 ///   for retiring then, at once when they were calculated before, else
 ///   after *Calculate*.
 ///

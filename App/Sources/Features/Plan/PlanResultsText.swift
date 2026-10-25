@@ -7,19 +7,6 @@ import Planner
 // `PlanResults`. Plain Swift, so it's tested without SwiftUI; amounts are
 // `AmountSentence`s, so they hide with the eye.
 
-/// One of the key numbers, a row: "Could spend from 55 · 2.350 € a
-/// month".
-struct PlanKeyNumber: Hashable, Sendable, Identifiable {
-    var label: String
-    /// Its value; amounts and ages in it hide (``AmountSentenceText``).
-    var value: AmountSentence
-    /// Whether the label holds the person's data (an age), hidden in a
-    /// feedback screenshot.
-    var personalLabel = true
-
-    var id: String { label }
-}
-
 enum PlanResultsText {
     // MARK: Headline
 
@@ -70,7 +57,7 @@ enum PlanResultsText {
     /// Under an answer recorded before readiness existed, instead of a number.
     static let readinessNotRecorded = "Calculate the plan to see how close you are to retiring today."
 
-    /// "Needed to retire today" in the key numbers: the amount, or words
+    /// "Needed to stop today" on its tile: the amount, or words
     /// when the search ended at one of its limits.
     static func neededToday(_ needed: AssetsNeeded, words: PlanWords) -> AmountSentence? {
         switch needed.outcome {
@@ -84,48 +71,6 @@ enum PlanResultsText {
         case .noPlanAssets:
             return needed.amount == 0 ? "None" : nil
         }
-    }
-
-    // MARK: Key numbers
-
-    /// The key numbers in the Mac's and iPad's column, a row each: what
-    /// you could spend a month from the age the charts are for, when you
-    /// could stop if you saved nothing more, or at last year's pace, what
-    /// retiring today would need, the money at the plan's end and the taxes
-    /// over a lifetime, typically, and how often the money runs out before
-    /// a locked account opens. In today's money.
-    static func keyNumbers(_ results: PlanResults, words: PlanWords) -> [PlanKeyNumber] {
-        let headline = results.headline
-        let details = results.details
-        var rows: [PlanKeyNumber] = []
-        if let spending = headline.sustainableSpending {
-            let age = details.sustainableSpendingAge ?? headline.targetAge
-            let label = age.map { "Could spend from \($0)" } ?? "Could spend"
-            rows.append(PlanKeyNumber(label: label, value: "\(words.monthly(spending)) a month"))
-        }
-        if let coast = details.agesWithout.coast {
-            rows.append(PlanKeyNumber(label: "Saving nothing more",
-                                      value: AmountSentence(coast.earliestAge.map { "stop at \($0)" } ?? "no age works"),
-                                      personalLabel: false))
-        }
-        if let pace = details.agesWithout.pace {
-            rows.append(PlanKeyNumber(label: "Saving at last year's pace",
-                                      value: AmountSentence(pace.earliestAge.map { "stop at \($0)" } ?? "no age works"),
-                                      personalLabel: false))
-        }
-        if let needed = details.assetsNeeded, let value = neededToday(needed, words: words) {
-            rows.append(PlanKeyNumber(label: "Needed to retire today", value: value, personalLabel: false))
-        }
-        if let median = details.focus.medianAtEnd {
-            rows.append(PlanKeyNumber(label: "Money at \(details.endAge), typically", value: words.amount(whole(median))))
-        }
-        rows.append(PlanKeyNumber(label: "Lifetime taxes, typically",
-                                  value: words.amount(whole(details.focus.lifetimeTaxes)), personalLabel: false))
-        if let bridge = details.focus.bridges.first, let age = bridge.accessibleFromAge {
-            let share = AmountFormat.percent(bridge.share, digits: 0, locale: words.locale)
-            rows.append(PlanKeyNumber(label: "Runs out before \(age)", value: AmountSentence("\(share) of futures")))
-        }
-        return rows
     }
 
     /// A `Double` in whole units of the currency (0 when it isn't a number).

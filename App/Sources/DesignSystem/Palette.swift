@@ -58,7 +58,7 @@ enum Palette {
 
     // MARK: Roles
 
-    /// The one hue for single-series charts, fan charts and success curves.
+    /// The one hue for single-series charts and fan charts.
     static let accent = blue
     /// A deeper step of ``accent`` that stands out on it: the second lap of
     /// Today's readiness ring, past 100%. Darker in light mode,

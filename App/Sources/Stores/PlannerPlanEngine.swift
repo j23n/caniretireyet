@@ -33,8 +33,8 @@ struct PlanRunInputs: Hashable, Sendable {
 ///   retirement age; `.fast` (what-if sliders being dragged) runs
 ///   `PlannerOptions.defaultFastRuns` runs with the same random draws, over
 ///   a coarse grid of ages refined around the answer.
-/// - **Focus age.** A request for another retirement age (tapping the
-///   success curve) reuses the plan's full results and simulates only that
+/// - **Focus age.** A request for another retirement age (tapping an
+///   age on `PlanStopAgesTile`) reuses the plan's full results and simulates only that
 ///   age in detail, then merges its fan, income and failures in.
 /// - **Cache.** Results are kept per plan hash, library inputs, mode, focus
 ///   age and start date, so going back to a plan, or a what-if back to where

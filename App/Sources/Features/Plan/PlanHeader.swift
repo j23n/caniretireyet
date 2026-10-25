@@ -289,8 +289,8 @@ struct PlanHeaderCard: View {
 /// The header row on the Mac and iPad: the plan menu as its title, how the
 /// results shown were calculated, *Save as Plan…* once a lever has moved,
 /// which keeps the levers where they are as a plan of its own, and a •••
-/// menu: *Assumptions…*, *Target Mix…*, *Flexible Spending…*, *Taxes…*
-/// and *Duplicate*.
+/// menu: *Assumptions…* (taxes among them), *Target Mix…*, *Flexible
+/// Spending…* and *Duplicate*.
 struct PlanWideHeader: View {
     let session: PlanSession
     let actions: PlanActions
@@ -335,7 +335,6 @@ struct PlanWideHeader: View {
                 Button("Target Mix…", action: onTargetMix)
                 Button("Flexible Spending…", action: onFlexibleSpending)
                     .disabled(!session.canEdit)
-                Button("Taxes…", action: onAssumptions)
                 Divider()
                 Button("Duplicate", action: actions.duplicate)
             } label: {
