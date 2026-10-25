@@ -96,11 +96,48 @@ public struct PlanMilestones: Sendable {
                                since previous: CalendarDate?, through date: CalendarDate) -> [ReachedMilestone] {
         MilestoneLadder(plan: plan, library: library, valuator: valuator, on: date)
             .reached(plan: plan.id, library: library, valuator: valuator, through: date)
-            .filter { milestone in
-                guard milestone.date <= date else { return false }
-                guard let previous else { return milestone.date == date }
-                return milestone.date > previous
-            }
+            .filter { isPassed($0, since: previous, through: date) }
+    }
+
+    /// The milestones passed at the latest check-in: those reached after
+    /// the check-in before it (`previous`), at it or at a month end
+    /// between, oldest first. Without a check-in before, those reached on
+    /// `latest` itself.
+    public func passed(since previous: CalendarDate?, through latest: CalendarDate) -> [ReachedMilestone] {
+        reached.filter { Self.isPassed($0, since: previous, through: latest) }
+    }
+
+    /// Whether `milestone` was passed at the check-in on `date`: after the
+    /// one before (`previous`) and not after `date`; without one before, on
+    /// `date` itself.
+    private static func isPassed(_ milestone: ReachedMilestone, since previous: CalendarDate?,
+                                 through date: CalendarDate) -> Bool {
+        guard milestone.date <= date else { return false }
+        guard let previous else { return milestone.date == date }
+        return milestone.date > previous
+    }
+
+    /// The milestone the median future reaches after the next; `nil`
+    /// without results, or when none is ahead after it.
+    public var afterNext: ProjectedMilestone? {
+        Self.after(next, in: ahead)
+    }
+
+    /// The milestone in `ahead` after `next`; `nil` when `next` isn't in
+    /// it, or is the last.
+    static func after(_ next: NextMilestone?, in ahead: [ProjectedMilestone]) -> ProjectedMilestone? {
+        guard let next, let index = ahead.firstIndex(where: { $0.id == next.milestone.id }),
+              index + 1 < ahead.count else { return nil }
+        return ahead[index + 1]
+    }
+
+    /// How far `assets` in the plan are toward `milestone`, from 0 to 1;
+    /// `nil` for a share of what retiring today needs, whose progress is
+    /// the readiness, and for an amount of zero.
+    public static func progress(toward milestone: Milestone, assets: Decimal) -> Double? {
+        if case .shareOfNeeded = milestone.kind { return nil }
+        guard milestone.amount > 0 else { return nil }
+        return min(1, max(0, (assets / milestone.amount).doubleValue))
     }
 
     /// The coast point, when a check-in reached it; `nil` if none did.

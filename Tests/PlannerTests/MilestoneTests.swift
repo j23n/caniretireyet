@@ -289,6 +289,52 @@ struct MilestoneTests {
         #expect(!ahead.contains { $0.id == "share-1-4" })
     }
 
+    // MARK: Today's tile
+
+    @Test func passedAreThoseSinceTheCheckInBefore() throws {
+        let library = try Fixtures.exampleLibrary()
+        let plan = try #require(library.plans["base"])
+        let valuator = Valuator(library: library)
+        let reached = [
+            ReachedMilestone(milestone: Milestone(kind: .roundAmount, amount: 250_000), date: "2025-08-31"),
+            ReachedMilestone(milestone: Milestone(kind: .yearsOfSpending(5), amount: 180_000), date: "2026-08-31"),
+            ReachedMilestone(milestone: Milestone(kind: .roundAmount, amount: 300_000), date: "2026-09-30"),
+        ]
+        let milestones = PlanMilestones(plan: plan, library: library, valuator: valuator, asOf: "2026-09-30",
+                                        results: nil, reached: reached)
+        // A check-in on 31 July, then on 30 September: the month end between counts.
+        #expect(milestones.passed(since: "2026-07-31", through: "2026-09-30").map(\.id)
+            == ["years-5", "round-300000"])
+        #expect(milestones.passed(since: "2026-08-31", through: "2026-09-30").map(\.id) == ["round-300000"])
+        // Nothing since: the tile shows the next one.
+        #expect(milestones.passed(since: "2026-09-30", through: "2026-10-31").isEmpty)
+        // The first check-in: only what it reached on its day.
+        #expect(milestones.passed(since: nil, through: "2026-09-30").map(\.id) == ["round-300000"])
+    }
+
+    @Test func afterTheNextIsTheOneAheadAfterIt() {
+        let ahead = [
+            ProjectedMilestone(milestone: Milestone(kind: .roundAmount, amount: 400_000), date: "2027-06-30"),
+            ProjectedMilestone(milestone: Milestone(kind: .crossover, amount: 420_000), date: "2027-10-31"),
+        ]
+        let next = NextMilestone(milestone: ahead[0].milestone, progress: 0.78)
+        #expect(PlanMilestones.after(next, in: ahead)?.id == "crossover")
+        // The last one ahead, or one the median never reaches: nothing after.
+        #expect(PlanMilestones.after(NextMilestone(milestone: ahead[1].milestone, progress: 0.9), in: ahead) == nil)
+        #expect(PlanMilestones.after(next, in: []) == nil)
+        #expect(PlanMilestones.after(nil, in: ahead) == nil)
+    }
+
+    @Test func progressTowardAMilestoneIsTheAssetsShareOfItsAmount() throws {
+        let progress = try #require(PlanMilestones.progress(toward: Milestone(kind: .roundAmount, amount: 400_000),
+                                                            assets: 324_000))
+        #expect(abs(progress - 0.81) < 1e-9)
+        #expect(PlanMilestones.progress(toward: Milestone(kind: .crossover, amount: 400_000), assets: 500_000) == 1)
+        // A share's progress is the readiness, not the assets.
+        #expect(PlanMilestones.progress(toward: Milestone(kind: .shareOfNeeded(numerator: 1, denominator: 2),
+                                                          amount: 500_000), assets: 250_000) == nil)
+    }
+
     // MARK: The crossover
 
     @Test func theCrossoverIsAYearsSavingOverTheMixsTypicalGrowth() throws {
