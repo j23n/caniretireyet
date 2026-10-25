@@ -42,7 +42,8 @@ struct TodayTiles: View {
                 Button {
                     navigation.showPlan()
                 } label: {
-                    RetirementAgeTile(answer: answer, move: move(of: answer, plan: plan), updating: updating(plan))
+                    RetirementAgeTile(answer: answer, move: move(of: answer, plan: plan), updating: updating(plan),
+                                      today: today)
                 }
                 .buttonStyle(.plain)
                 .accessibilityHint("Opens the plan")
@@ -377,6 +378,7 @@ struct RetirementAgeTile: View {
     var move: LastMondayMove?
     /// How far a calculation has got, 0 to 1, while one runs.
     var updating: Double?
+    let today: CalendarDate
 
     @Environment(\.locale) private var locale
     @ScaledMetric(relativeTo: .largeTitle) private var ageSize: CGFloat = 54
@@ -469,7 +471,7 @@ struct RetirementAgeTile: View {
         .padding(.vertical, Metrics.xs)
         .background(.primary.opacity(0.08), in: Capsule())
         .privacySensitiveInFeedback()
-        .accessibilityLabel(Text(verbatim: GlanceText.move(move, relativeTo: .today(), locale: locale)))
+        .accessibilityLabel(Text(verbatim: GlanceText.move(move, relativeTo: today, locale: locale)))
     }
 }
 
