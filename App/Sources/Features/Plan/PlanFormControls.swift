@@ -260,6 +260,7 @@ struct PlanSectionCard<Content: View>: View {
 
 /// What an edit sheet's *With this change* shows the edited copy in: the
 /// plan on screen, and how the edited item goes into it.
+@MainActor
 struct PlanEditPreview<Item> {
     let session: PlanSession
     /// Whether the item is new, so the plan changes even before it's edited.
