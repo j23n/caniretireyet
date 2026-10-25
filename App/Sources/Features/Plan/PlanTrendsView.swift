@@ -12,8 +12,8 @@ import Tracker
 /// reference lines, and fold into one card while none is recorded; *Your
 /// last Monday, check-in by check-in* is the plan's answer at each
 /// check-in. The grain and the span are under the zoom on iPhone, and in
-/// the toolbar on the Mac and iPad (``PlanTrendsControls``), where the two
-/// money charts are side by side. While
+/// the toolbar on the Mac and iPad (``PlanTrendsControls``); each chart
+/// takes the page's width. While
 /// a savings or investment account's values are typed, one card says
 /// looking back is off instead (``PlanTrendsOffCard``).
 struct PlanTrendsView: View {
@@ -59,15 +59,8 @@ struct PlanTrendsView: View {
                 } else {
                     PlanLastTwelveMonthsTiles(year: model.lastTwelveMonths,
                                               plannedSpending: reference.spendingWhileWorking)
-                    if isWide {
-                        EqualColumns(spacing: Metrics.l) {
-                            savingsRateCard(model.money, planRate: reference.savingsRate)
-                            moneyCard(model.money, planSpending: reference.spending(per: model.money.grain))
-                        }
-                    } else {
-                        savingsRateCard(model.money, planRate: reference.savingsRate)
-                        moneyCard(model.money, planSpending: reference.spending(per: model.money.grain))
-                    }
+                    savingsRateCard(model.money, planRate: reference.savingsRate)
+                    moneyCard(model.money, planSpending: reference.spending(per: model.money.grain))
                     answerCard(model.history)
                 }
             }

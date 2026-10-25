@@ -79,7 +79,7 @@ extension PlanLastTwelveMonths.Tile.Kind {
 
 /// One of the last 12 months' figures as a small tile (UI.md, "Tiles"),
 /// tinted by what it is, with its emoji: its title, its figure large, and
-/// its change against the 12 months before in a capsule ("▲ 4 points"),
+/// its change against the 12 months before in a capsule ("▲ from 27%"),
 /// green when it's good news and orange when not. The savings rate says
 /// what it's of. Rates stay with the eye; amounts hide.
 struct TwelveMonthsTile: View {

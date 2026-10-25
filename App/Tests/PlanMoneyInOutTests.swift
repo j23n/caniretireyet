@@ -37,9 +37,11 @@ struct PlanMoneyInOutTests {
                                         previous: savings(moneyIn: 44_400, spent: 32_200), since: nil)
         let changes = year.tiles.map(\.change)
         // 31% against 27%.
-        #expect(changes[0] == PlanLastTwelveMonths.TileChange(value: .points(4), direction: 1, isGood: true))
+        let before = try #require(year.previous?.rate)
+        #expect(changes[0] == PlanLastTwelveMonths.TileChange(value: .rate(before), direction: 1, isGood: true))
+        #expect(changes[0]?.text(currency: .eur, locale: locale) == "▲ from 27%")
         // Saved 14.200 € against 12.200 €.
-        #expect(changes[1] == PlanLastTwelveMonths.TileChange(value: .amount(2_000), direction: 1, isGood: true))
+        #expect(changes[1] == PlanLastTwelveMonths.TileChange(value: .amount(12_200), direction: 1, isGood: true))
         // Came in 3% more: good news.
         #expect(changes[2]?.direction == 1)
         #expect(changes[2]?.isGood == true)
