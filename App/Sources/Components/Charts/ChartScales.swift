@@ -2,8 +2,8 @@ import Foundation
 import Tracker
 
 // Value axes beyond ``AmountScale``'s basics, without SwiftUI so they can be
-// tested on Linux: headroom for marker labels, a projection's axis that the
-// 10–90% band doesn't set, the layout the projection charts share, and a
+// tested on Linux: headroom for marker labels, a projection's axis that its
+// bands don't set, the layout the projection charts share, and a
 // relative axis for when amounts are hidden.
 
 extension AmountScale {
@@ -105,18 +105,28 @@ struct AmountAxisTicks: Hashable, Sendable {
 }
 
 /// The value axis of a projection, with or without history before it
-/// (UI.md, "Charts"): it fits the history, the median and the 25–75% band,
-/// so they fill the chart. The 10–90% band may run off the top, where it's
-/// cut at the chart's edge (``clamped(_:)``) and the legend says so
-/// (``clipsBand``). `markerHeadroom` points are kept above the data for the
-/// markers' labels.
+/// (UI.md, "Charts"): it fits the history and the median, its top about a
+/// tenth above the higher of them, so the typical future fills the chart
+/// however far the luckiest futures grow. The bands may run off the top,
+/// where they're cut at the chart's edge (``clamped(_:)``) and the legend
+/// says so (``clipsBand``); the 25% line keeps the bottom in view.
+/// `markerHeadroom` points are kept above the data for the markers' labels.
 struct ProjectionScale: Hashable, Sendable {
     var scale: AmountScale
-    /// Whether the 10–90% band runs off the top somewhere.
+    /// Whether a band runs off the top somewhere.
     var clipsBand: Bool
 
+    /// The room above the higher of the history and the median: a tenth,
+    /// with the 5% `AmountScale` adds above its values.
+    private static let typicalHeadroom = 1.1 / 1.05
+
     init(history: [Double], fan: [FanPoint], markerHeadroom: Double, plotHeight: Double) {
-        let values = history + fan.flatMap { [$0.p25, $0.p50, $0.p75] }
+        let medians = fan.map(\.p50)
+        let peak = (history + medians).filter(\.isFinite).max() ?? 0
+        // Without a projection, or with no money above zero, no tenth: the
+        // axis is the history's own.
+        let headroom = fan.isEmpty ? [] : [max(peak, 0) * Self.typicalHeadroom]
+        let values = history + medians + fan.map(\.p25) + headroom
         let scale = AmountScale(values: values).reservingTop(points: markerHeadroom, plotHeight: plotHeight)
         self.scale = scale
         clipsBand = fan.contains { $0.p90 > scale.domain.upperBound || $0.p10 < scale.domain.lowerBound }
@@ -141,7 +151,7 @@ struct ProjectionLayout: Hashable, Sendable {
     var ticks: TimeTicks
     var markers: MarkerLabelLayout
     var scale: AmountScale
-    /// Whether the 10–90% band runs off the top somewhere.
+    /// Whether a band runs off the top somewhere.
     var clipsBand: Bool
     /// The fan with its bands cut at the chart's edges.
     var fan: [FanPoint]
@@ -149,9 +159,9 @@ struct ProjectionLayout: Hashable, Sendable {
     /// - Parameters:
     ///   - dates: every date the chart shows.
     ///   - values: what the value axis fits besides the fan: the history.
-    ///   - fitsBands: the value axis fits every band, the 10–90% too, where
-    ///     the chart has no legend to say that it runs off the top
-    ///     (otherwise ``ProjectionScale``).
+    ///   - fitsBands: the value axis fits every band, where the chart has no
+    ///     legend to say that a band runs off the top (otherwise
+    ///     ``ProjectionScale``).
     ///   - width, height: the chart's size.
     init(dates: [Date], values: [Double], fan: [FanPoint], fitsBands: Bool = false, markers: [ChartMarker],
          width: Double, height: Double) {

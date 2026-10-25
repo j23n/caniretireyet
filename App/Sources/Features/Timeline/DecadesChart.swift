@@ -221,8 +221,8 @@ struct DecadesPlotData {
 
 /// Where everything on the decades plot goes for its size: dates across
 /// from the first record to the plan's end, money up on a scale that fits
-/// the past, the typical future and half of the futures (the lighter band
-/// may run off the top, cut at the edge), the amounts in a column at the
+/// the past and the typical future with a tenth above them (the bands may
+/// run off the top, cut at the edge), the amounts in a column at the
 /// left, the ages under the plot and the chapters under them.
 struct DecadesGeometry {
     let data: DecadesPlotData
