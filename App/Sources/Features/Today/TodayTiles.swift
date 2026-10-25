@@ -4,60 +4,127 @@ import Planner
 import SwiftUI
 import Tracker
 
-// Today's tiles on iPhone (UI.md, "Today" and "Tiles"): net worth, then
-// the next milestone and the savings rate side by side. Each tile takes a
-// size on the home screen's grid of icons, 2 × 2 or 2 × 4 (``TileGrid``),
-// so other screens can use them too.
+// Today's tiles (UI.md, "Today" and "Tiles"): net worth, the next
+// milestone, the savings rate, this year, the next check-in and saving
+// nothing more, and what moved it; then *Coming up*. Each tile takes a
+// size on the home screen's grid of icons (``TileGrid``), so other screens
+// can use them too.
 
-/// Where you stand on iPhone, as tiles under the answer: net worth, which
-/// opens the accounts; the next milestone, which opens the Timeline at
-/// *Year*; and the savings rate over the last 12 months, which opens it at
-/// *Look Back*. When only one of the two small ones has something to show,
-/// it's wide.
+/// Where you stand, as tiles under the answer, or beside it where a row
+/// has four slots or more. The tiles go into the page's ``TileGrid``s, in
+/// two parts: ``Part/beside`` the answer, net worth (opening the
+/// accounts), the next milestone (opening the Timeline at *Year*) and the
+/// savings rate over the last 12 months (opening it at *Look Back*), the
+/// last two wide when only one has something to show; and ``Part/below``
+/// it, this year so far, the next check-in and saving nothing more as half
+/// tiles, and what moved it at the last check-in, wide.
 struct TodayTiles: View {
+    enum Part {
+        case beside
+        case below
+    }
+
+    let part: Part
     let plan: PlanDocument?
     let results: PlanResults?
     let today: CalendarDate
 
     @Environment(LibraryStore.self) private var library
     @Environment(PlanStore.self) private var plans
+    @Environment(CheckInStore.self) private var checkIn
     @Environment(AppNavigation.self) private var navigation
+    @Environment(\.locale) private var locale
 
     var body: some View {
+        switch part {
+        case .beside: beside
+        case .below: below
+        }
+    }
+
+    @ViewBuilder
+    private var beside: some View {
         let netWorth = NetWorthGlance(valuator: library.valuator, asOf: today, historyFrom: today.adding(years: -1))
         let twelveMonths = self.twelveMonths
         let pairSize: TileSize = plan != nil && twelveMonths != nil ? .small : .wide
-        TileGrid {
+        Button {
+            navigation.showAccounts()
+        } label: {
+            NetWorthTile(netWorth: netWorth, today: today)
+        }
+        .buttonStyle(.plain)
+        .accessibilityHint("Shows your accounts")
+        .tileSize(.wide)
+        if let plan {
+            Button {
+                navigation.showTimeline(.year)
+            } label: {
+                MilestoneTile(content: MilestoneTileContent(milestones(of: plan), hasResults: results != nil,
+                                                            library: library),
+                              size: pairSize, planName: plan.name, today: today)
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint("Shows this year on the Timeline")
+            .tileSize(pairSize)
+        }
+        if let twelveMonths, let rate = twelveMonths.tiles.first {
+            Button {
+                navigation.showTimeline(.lookBack)
+            } label: {
+                TwelveMonthsTile(tile: rate, currency: twelveMonths.current.moneyInOut.currency,
+                                 period: twelveMonths.since == nil ? "12 months" : nil)
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint("Looks back on the Timeline")
+            .tileSize(pairSize)
+        }
+    }
+
+    @ViewBuilder
+    private var below: some View {
+        let valuator = library.valuator
+        if let report = valuator.changeThisYear(asOf: today) {
+            Button {
+                navigation.showTimeline(.year, year: report.to.year)
+            } label: {
+                TodayYearTile(report: report, split: valuator.savedSplit(of: report))
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint("Shows this year on the Timeline")
+            .tileSize(.small)
+        }
+        let status = checkIn.status
+        if status.lastCheckIn != nil {
+            Button {
+                navigation.startCheckIn()
+            } label: {
+                CheckInTile(status: status)
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint(status.isOpen ? "Continues the check-in" : "Starts the check-in")
+            .tileSize(.half)
+        }
+        let planMilestones = plan.map { milestones(of: $0) }
+        if let planMilestones, planMilestones.knowsCoastAge {
+            Button {
+                navigation.showTimeline(.year)
+            } label: {
+                CoastAgeTile(age: planMilestones.coastAge, target: planMilestones.ladder.coastTarget, size: .half)
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint("Shows this year on the Timeline")
+            .tileSize(.half)
+        }
+        if let change = valuator.changeSinceLastCheckIn(asOf: today) {
             Button {
                 navigation.showAccounts()
             } label: {
-                NetWorthTile(netWorth: netWorth, today: today)
+                TodayMovedTile(report: change, split: valuator.savedSplit(of: change),
+                               yearlySpending: plan.flatMap(MilestoneLadder.spending(of:)))
             }
             .buttonStyle(.plain)
             .accessibilityHint("Shows your accounts")
             .tileSize(.wide)
-            if let plan {
-                Button {
-                    navigation.showTimeline(.year)
-                } label: {
-                    MilestoneTile(content: milestoneContent(plan), size: pairSize, planName: plan.name,
-                                  today: today)
-                }
-                .buttonStyle(.plain)
-                .accessibilityHint("Shows this year on the Timeline")
-                .tileSize(pairSize)
-            }
-            if let twelveMonths, let rate = twelveMonths.tiles.first {
-                Button {
-                    navigation.showTimeline(.lookBack)
-                } label: {
-                    TwelveMonthsTile(tile: rate, currency: twelveMonths.current.moneyInOut.currency,
-                                     period: twelveMonths.since == nil ? "12 months" : nil)
-                }
-                .buttonStyle(.plain)
-                .accessibilityHint("Looks back on the Timeline")
-                .tileSize(pairSize)
-            }
         }
     }
 
@@ -75,11 +142,147 @@ struct TodayTiles: View {
         return year
     }
 
-    /// The main plan's milestones as the tile shows them: those passed at
-    /// the latest check-in, else the next.
-    private func milestoneContent(_ plan: PlanDocument) -> MilestoneTileContent {
-        MilestoneTileContent(TodayMilestones.of(plan, results: results, library: library, plans: plans),
-                             hasResults: results != nil, library: library)
+    private func milestones(of plan: PlanDocument) -> PlanMilestones {
+        TodayMilestones.of(plan, results: results, library: library, plans: plans)
+    }
+}
+
+/// *Coming up* (UI.md, "Today"): the main plan's milestones its median
+/// future reaches after the next, soonest first, a small tile each, as many
+/// as a row of `slots` holds and at least two. Each opens the Timeline at
+/// *Year*, where *All Milestones* is. Nothing without any.
+struct TodayComingUp: View {
+    let plan: PlanDocument?
+    let results: PlanResults?
+    let slots: Int
+
+    @Environment(LibraryStore.self) private var library
+    @Environment(PlanStore.self) private var plans
+    @Environment(AppNavigation.self) private var navigation
+
+    var body: some View {
+        let ahead = self.ahead
+        if !ahead.isEmpty {
+            VStack(alignment: .leading, spacing: Metrics.s) {
+                SectionHeader("Coming up")
+                    .padding(.horizontal, Metrics.xs)
+                TileGrid {
+                    ForEach(Array(ahead.enumerated()), id: \.element.id) { index, milestone in
+                        Button {
+                            navigation.showTimeline(.year)
+                        } label: {
+                            AheadMilestoneTile(milestone: milestone, isNext: index == 0)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityHint("Shows this year on the Timeline")
+                        .tileSize(.small)
+                    }
+                }
+            }
+        }
+    }
+
+    /// The milestones ahead after the next one.
+    private var ahead: [ProjectedMilestone] {
+        guard let plan else { return [] }
+        let milestones = TodayMilestones.of(plan, results: results, library: library, plans: plans)
+        let next = milestones.next?.milestone.id
+        return Array(milestones.ahead.filter { $0.id != next }.prefix(max(2, slots)))
+    }
+}
+
+/// A milestone ahead as a small tile on *Coming up*: tinted by its kind,
+/// "Then" or "Later" with its emoji, its name, and when the median future
+/// typically reaches it.
+struct AheadMilestoneTile: View {
+    let milestone: ProjectedMilestone
+    /// Whether it's the one after the next milestone: "Then", else "Later".
+    var isNext = false
+
+    @Environment(\.baseCurrency) private var currency
+    @Environment(\.locale) private var locale
+
+    var body: some View {
+        let text = PlanMilestoneText(currency: currency, locale: locale)
+        ColorTile(tint: milestone.milestone.tileTint) {
+            TileLabel(isNext ? "Then" : "Later", emoji: milestone.milestone.tileEmoji)
+            Spacer(minLength: Metrics.s)
+            AmountSentenceText(text.name(milestone.milestone))
+                .font(.headline)
+                .lineLimit(3)
+                .minimumScaleFactor(0.7)
+                .fixedSize(horizontal: false, vertical: true)
+            Text(verbatim: "typically \(PlanMilestoneText.when(milestone.date))")
+                .font(.caption)
+                .opacity(0.8)
+                .lineLimit(1)
+                .privacySensitiveInFeedback()
+                .padding(.top, 6)
+        }
+        .accessibilityElement(children: .combine)
+    }
+}
+
+/// This year so far as a small tile (UI.md, "Today"): how net worth
+/// changed since the end of last year, then what you saved and what
+/// markets did. In per cent while amounts are hidden.
+struct TodayYearTile: View {
+    let report: ChangeReport
+    /// Its split with saved as the savings rate counts it.
+    let split: ValueChange
+
+    @Environment(\.redactionReasons) private var redactionReasons
+    @Environment(\.locale) private var locale
+
+    var body: some View {
+        let total = report.total
+        ColorTile(tint: .mint) {
+            TileLabel("\(String(report.to.year)) so far", emoji: "📅")
+            Spacer(minLength: Metrics.s)
+            Group {
+                if redactionReasons.hidesAmounts, let relative = total.relativeChange {
+                    Text(verbatim: AmountFormat.percent(relative, signed: true, locale: locale))
+                        .privacySensitiveInFeedback()
+                } else {
+                    AmountText(total.change, signed: true, tabular: false)
+                }
+            }
+            .font(.title2.bold())
+            .lineLimit(1)
+            .minimumScaleFactor(0.6)
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: Metrics.xs) {
+                    Text("Saved")
+                    AmountText(split.saved)
+                }
+                HStack(spacing: Metrics.xs) {
+                    Text("Markets")
+                    AmountText(split.market, signed: true)
+                }
+            }
+            .font(.caption)
+            .opacity(0.8)
+            .lineLimit(1)
+            .padding(.top, Metrics.xs)
+        }
+        .accessibilityElement(children: .combine)
+    }
+}
+
+/// The next check-in as a half tile (UI.md, "Today"): its date and how
+/// soon, or that one is under way.
+struct CheckInTile: View {
+    let status: CheckInStatus
+
+    @Environment(\.locale) private var locale
+
+    var body: some View {
+        let words = status.tileWords(locale: locale)
+        HalfTile(tint: .sky, title: status.isOpen ? "Check-in" : "Next check-in", emoji: "🗓️") {
+            Text(verbatim: words.figure)
+        } caption: {
+            Text(verbatim: words.caption)
+        }
     }
 }
 

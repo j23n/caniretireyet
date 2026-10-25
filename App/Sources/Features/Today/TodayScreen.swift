@@ -7,17 +7,13 @@ import Tracker
 /// The home screen (UI.md, "Today"): your last Monday at work, what moved
 /// it at the last check-in, and where you stand.
 ///
-/// On iPhone, top to bottom: the answer as a date on the app icon's dusk
+/// One layout at every width: the answer as a date on the app icon's dusk
 /// (``TodayAnswerCard``), or before there's one the next step
-/// (``TodayPlanCard``); tiles for net worth, the next milestone and the
-/// savings rate (``TodayTiles``); *What moved it* at the last check-in
-/// (``TodayMovedCard``); and what needs attention, only while something
-/// does.
-///
-/// On the Mac and iPad the answer card holds four figures beside the date;
-/// under it two columns (``TodayColumns``): *Your timeline*, the decades
-/// chart, and what moved at the last check-in as a table on the left;
-/// *Needs attention*, *This year so far* and *Coming up* on the right.
+/// (``TodayPlanCard``); then tiles (``TodayTiles``) on a grid of slots as
+/// wide as an iPhone's (``TileGrid``). Where a row has four slots or more
+/// the answer takes two of them beside the first tiles, and the two end
+/// together. Then what needs attention, only while something does, and
+/// *Coming up*, the milestones ahead as tiles (``TodayComingUp``).
 ///
 /// When the main plan's results are out of date, Today calculates it in
 /// the background: there's no *Calculate* here.
@@ -26,6 +22,8 @@ struct TodayScreen: View {
     @Environment(PlanStore.self) private var plans
     @Environment(AppNavigation.self) private var navigation
     @Environment(\.pageLayout) private var layout
+    /// The page's width inside its margins, which sets the slots.
+    @State private var pageWidth: CGFloat = 0
 
     init() {}
 
@@ -53,131 +51,55 @@ struct TodayScreen: View {
     private var content: some View {
         let today = CalendarDate.today()
         return ScrollView {
-            Group {
-                if layout.isWide {
-                    wide(today: today)
-                } else {
-                    narrow(today: today)
-                }
-            }
-            .padding(layout.gutter)
-            .frame(maxWidth: layout.isWide ? Metrics.wideReadableWidth : Metrics.readableWidth, alignment: .leading)
-            .frame(maxWidth: .infinity)
+            page(today: today)
+                .measuringWidth($pageWidth)
+                .padding(layout.gutter)
+                .frame(maxWidth: layout.isWide ? Metrics.wideReadableWidth : Metrics.readableWidth, alignment: .leading)
+                .frame(maxWidth: .infinity)
         }
         .background(Palette.page)
     }
 
-    /// iPhone: the date on the dusk, the tiles, what moved it, what needs
-    /// attention.
-    private func narrow(today: CalendarDate) -> some View {
-        let valuator = library.valuator
+    /// The answer and the tiles, beside each other where a row has four
+    /// slots; then what needs attention and *Coming up*.
+    private func page(today: CalendarDate) -> some View {
         let mainPlan = library.mainPlan
         let latest = mainPlan == nil ? nil : plans.mainAnswer
         let answer = latest?.answer
-        let change = valuator.changeSinceLastCheckIn(asOf: today)
-        return VStack(alignment: .leading, spacing: Metrics.m) {
-            answerCard(answer, plan: mainPlan, results: latest?.results, year: nil, today: today)
-            TodayTiles(plan: mainPlan, results: latest?.results, today: today)
-            if let change {
-                TodayMovedCard(report: change, split: valuator.savedSplit(of: change),
-                               yearlySpending: mainPlan.flatMap(MilestoneLadder.spending(of:)))
-            }
-            TodayAttentionCard(today: today)
-            notesAndFirstValues(hasAnswer: answer != nil)
-        }
-    }
-
-    /// The Mac and iPad: the date with its figures, then the timeline and
-    /// what moved beside what needs attention, this year and what's ahead.
-    private func wide(today: CalendarDate) -> some View {
-        let valuator = library.valuator
-        let mainPlan = library.mainPlan
-        let latest = mainPlan == nil ? nil : plans.mainAnswer
-        let answer = latest?.answer
-        let change = valuator.changeSinceLastCheckIn(asOf: today)
-        let year = valuator.changeThisYear(asOf: today).map { report in
-            TodayYear(report: report, split: valuator.savedSplit(of: report),
-                      savings: library.library.accountsTurningOffTrends.isEmpty
-                          ? valuator.savingsRate(from: report.from.adding(days: 1), through: today)
-                          : nil)
-        }
+        let results = latest?.results
+        let slots = TileGrid.slots(width: pageWidth)
         return VStack(alignment: .leading, spacing: Metrics.l) {
-            answerCard(answer, plan: mainPlan, results: latest?.results, year: year, today: today)
-            TodayColumns {
-                VStack(alignment: .leading, spacing: Metrics.l) {
-                    if let mainPlan {
-                        Card {
-                            DecadesChart(plan: mainPlan, results: latest?.results, today: today, chartHeight: 240)
-                        } header: {
-                            timelineHeader
+            if let answer, let mainPlan, slots >= 4 {
+                VStack(alignment: .leading, spacing: Metrics.m) {
+                    HStack(alignment: .top, spacing: Metrics.m) {
+                        TodayAnswerCard(answer: answer, plan: mainPlan, results: results, today: today)
+                            .frame(width: 2 * TileGrid.smallWidth(width: pageWidth) + Metrics.m)
+                        TileGrid(fillsHeight: true) {
+                            TodayTiles(part: .beside, plan: mainPlan, results: results, today: today)
                         }
                     }
-                    if let change {
-                        TodayChangeTable(report: change, split: valuator.savedSplit(of: change),
-                                         yearlySpending: mainPlan.flatMap(MilestoneLadder.spending(of:)))
+                    .fixedSize(horizontal: false, vertical: true)
+                    TileGrid {
+                        TodayTiles(part: .below, plan: mainPlan, results: results, today: today)
                     }
-                    notesAndFirstValues(hasAnswer: answer != nil)
                 }
-                VStack(alignment: .leading, spacing: Metrics.l) {
-                    TodayAttentionCard(today: today)
-                    if let year {
-                        TodayYearCard(year: year, yourDate: moveThisYear(answer, plan: mainPlan, today: today))
+            } else {
+                VStack(alignment: .leading, spacing: Metrics.m) {
+                    if let answer, let mainPlan {
+                        TodayAnswerCard(answer: answer, plan: mainPlan, results: results, today: today)
+                    } else {
+                        TodayPlanCard()
                     }
-                    TodayComingUpCard(plan: mainPlan, results: latest?.results, today: today)
+                    TileGrid {
+                        TodayTiles(part: .beside, plan: mainPlan, results: results, today: today)
+                        TodayTiles(part: .below, plan: mainPlan, results: results, today: today)
+                    }
                 }
             }
+            TodayAttentionCard(today: today)
+            TodayComingUp(plan: mainPlan, results: results, slots: slots)
+            notesAndFirstValues(hasAnswer: answer != nil)
         }
-    }
-
-    /// "Your timeline" with what it shows, and the Timeline's zooms, which
-    /// open it there.
-    private var timelineHeader: some View {
-        HStack(alignment: .center, spacing: Metrics.s) {
-            Text("Your timeline")
-                .font(.headline)
-                .foregroundStyle(Palette.ink)
-                .lineLimit(1)
-                .fixedSize()
-                .accessibilityAddTraits(.isHeader)
-            Text("your records to now, then the plan's futures")
-                .font(.caption)
-                .foregroundStyle(Palette.mutedInk)
-                .lineLimit(1)
-                .layoutPriority(-1)
-            Spacer(minLength: Metrics.s)
-            Picker("Open the Timeline at", selection: Binding(get: { TimelineZoom.decades },
-                                                             set: { navigation.showTimeline($0) })) {
-                ForEach(TimelineZoom.allCases) { zoom in
-                    Text(zoom.title).tag(zoom)
-                }
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            .fixedSize()
-            .controlSize(.small)
-        }
-    }
-
-    /// The date, or before there's one the next step.
-    @ViewBuilder
-    private func answerCard(_ answer: RetirementAnswer?, plan: PlanDocument?, results: PlanResults?,
-                            year: TodayYear?, today: CalendarDate) -> some View {
-        if let answer, let plan {
-            TodayAnswerCard(answer: answer, plan: plan, results: results, year: year, today: today)
-        } else {
-            TodayPlanCard()
-        }
-    }
-
-    /// How the date moved since the last check-in of last year, for *This
-    /// year so far*; `nil` without one that recorded an age.
-    private func moveThisYear(_ answer: RetirementAnswer?, plan: PlanDocument?,
-                              today: CalendarDate) -> LastMondayMove? {
-        guard let answer, let plan, let newYear = CalendarDate(year: today.year, month: 1, day: 1) else { return nil }
-        let history = plans.recordedHeadlines(for: plan.id).map {
-            AnswerPoint(date: $0.date, earliestAge: $0.earliestAge)
-        }
-        return LastMondayMove(answer: answer, history: history, latestCheckIn: newYear)
     }
 
     /// The yearly notes, offered once there's an answer, and before the
@@ -205,79 +127,48 @@ struct TodayScreen: View {
 
 // MARK: - The answer
 
-/// "Your last Monday at work", the date, and how sure (UI.md, "Today").
-///
-/// On iPhone the whole card opens the plan: on the app icon's dusk, the
-/// date in large type, "At 63 · in 9 of 10 futures", "About 25 years from
-/// now.", and a chip with how it moved since the check-in before. On the
-/// Mac and iPad the date and
-/// "At 63, in 9 of 10 futures. A year sooner since September." open the
-/// plan, and four figures sit beside them (``TodayFigures``).
+/// "Your last Monday at work", the date, and how sure, on the app icon's
+/// dusk (UI.md, "Today"); the whole card opens the plan. In white: the day
+/// and month in large type and the year under them in the sun's light,
+/// "At 63 · in 9 of 10 futures", "About 25 years from now.", a chip with
+/// how it moved since the check-in before, and a calculation going on or
+/// why the plan can't be calculated; the horizon and the sun under them.
+/// Beside tiles it fills their height, and the horizon stays at its
+/// bottom.
 struct TodayAnswerCard: View {
     let answer: RetirementAnswer
     let plan: PlanDocument
     var results: PlanResults?
-    /// This year so far, for the Mac's *Saved this year*.
-    var year: TodayYear?
     let today: CalendarDate
 
     @Environment(LibraryStore.self) private var library
     @Environment(PlanStore.self) private var plans
     @Environment(AppNavigation.self) private var navigation
-    @Environment(\.pageLayout) private var layout
     @Environment(\.locale) private var locale
-    /// The date's size on iPhone; it grows with Dynamic Type, and shrinks
-    /// only when the date wouldn't fit on one line.
+    /// The date's size; it grows with Dynamic Type, and shrinks only when
+    /// the date wouldn't fit on one line.
     @ScaledMetric(relativeTo: .largeTitle) private var dateSize: CGFloat = 64
 
-    init(answer: RetirementAnswer, plan: PlanDocument, results: PlanResults? = nil, year: TodayYear? = nil,
-         today: CalendarDate) {
+    init(answer: RetirementAnswer, plan: PlanDocument, results: PlanResults? = nil, today: CalendarDate) {
         self.answer = answer
         self.plan = plan
         self.results = results
-        self.year = year
         self.today = today
     }
 
     var body: some View {
-        if layout.isWide {
-            HStack(alignment: .center, spacing: Metrics.xl) {
-                Button {
-                    navigation.showPlan()
-                } label: {
-                    summary
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityHint("Opens the plan")
-                .frame(minWidth: 240, maxWidth: 420, alignment: .leading)
-                TodayFigures(answer: answer, plan: plan, results: results, year: year, today: today)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .padding(.vertical, 14)
-            .padding(.horizontal, Metrics.l)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .cardSurface()
-        } else {
-            Button {
-                navigation.showPlan()
-            } label: {
-                hero
-            }
-            .buttonStyle(.plain)
-            .accessibilityHint("Opens the plan")
+        Button {
+            navigation.showPlan()
+        } label: {
+            hero
         }
+        .buttonStyle(.plain)
+        .accessibilityHint("Opens the plan")
     }
-
-    // MARK: iPhone
 
     /// The room under the words for the dusk's horizon and its sun.
     private static let horizonRoom: CGFloat = 150
 
-    /// iPhone: the answer on the app icon's dusk, in white: "Your last
-    /// Monday at work", the day and month large and the year under them in
-    /// the sun's light, "At 63 · in 9 of 10 futures", how far off it is,
-    /// how it moved, and the status; the horizon and the sun under them.
     private var hero: some View {
         let lastMonday = LastMonday(answer)
         let shape = RoundedRectangle(cornerRadius: 28, style: .continuous)
@@ -308,11 +199,11 @@ struct TodayAnswerCard: View {
                             .opacity(0.85)
                     }
                 } else {
-                    Text(verbatim: headline(nil))
+                    Text(verbatim: answer.canRetireNow ? "Yes" : "Not yet")
                         .font(.system(size: dateSize, weight: .heavy))
                         .lineLimit(1)
                         .minimumScaleFactor(0.5)
-                    Text(verbatim: line(nil))
+                    Text(verbatim: line)
                         .font(.callout)
                         .opacity(0.85)
                         .fixedSize(horizontal: false, vertical: true)
@@ -323,68 +214,24 @@ struct TodayAnswerCard: View {
                 TodayMoveChip(move: move, onDusk: true)
                     .padding(.top, Metrics.s)
             }
-            status(ink: .white.opacity(0.85))
+            status
         }
         .foregroundStyle(.white)
         .padding(.top, 22)
         .padding(.horizontal, 22)
         .padding(.bottom, Self.horizonRoom)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background {
-            DuskBackground()
+            DuskBackground(horizonHeight: Self.horizonRoom)
                 .clipShape(shape)
                 .accessibilityHidden(true)
         }
         .contentShape(shape)
     }
 
-    // MARK: The Mac and iPad
-
-    /// The Mac and iPad: the title, the date, the line under it with how it
-    /// moved, and the status.
-    private var summary: some View {
-        let lastMonday = LastMonday(answer)
-        let move = self.move
-        return VStack(alignment: .leading, spacing: Metrics.xs) {
-            Text(lastMonday == nil ? "Can I retire yet?" : "Your last Monday at work")
-                .font(.body)
-                .foregroundStyle(Palette.secondaryInk)
-                .lineLimit(1)
-            VStack(alignment: .leading, spacing: Metrics.xs) {
-                Text(verbatim: headline(lastMonday))
-                    .font(.system(size: 44, weight: .bold))
-                    .foregroundStyle(Palette.ink)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.5)
-                    .dynamicTypeSize(...DynamicTypeSize.accessibility2)
-                lineText(lastMonday, move: move)
-                    .foregroundStyle(Palette.ink)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            .privacySensitiveInFeedback()
-            status(ink: Palette.secondaryInk)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    /// "At 63, in 9 of 10 futures." and how it moved, in the accent: "A
-    /// year sooner since September."
-    private func lineText(_ lastMonday: LastMonday?, move: LastMondayMove?) -> Text {
-        let sure = Text(verbatim: line(lastMonday))
-        guard let move else { return sure.font(.body) }
-        let moved = Text(verbatim: GlanceText.move(move, relativeTo: today, locale: locale) + ".")
-            .fontWeight(.semibold)
-            .foregroundStyle(TodayMoveChip.color(of: move))
-        return Text("\(sure) \(moved)").font(.body)
-    }
-
-    private func headline(_ lastMonday: LastMonday?) -> String {
-        if let lastMonday { return GlanceText.lastMonday(lastMonday.date, locale: locale) }
-        return answer.canRetireNow ? "Yes" : "Not yet"
-    }
-
-    private func line(_ lastMonday: LastMonday?) -> String {
-        if let lastMonday { return GlanceText.lastMondayLine(lastMonday) }
+    /// Without an age that works: whether you could stop today, and in how
+    /// many futures.
+    private var line: String {
         let futures = GlanceText.futures(answer.confidence)
         return answer.canRetireNow
             ? "You could stop working today, in \(futures) futures."
@@ -400,9 +247,10 @@ struct TodayAnswerCard: View {
         return LastMondayMove(answer: answer, history: history, latestCheckIn: latest)
     }
 
-    /// A calculation going on, or why the plan can't be calculated, in `ink`.
+    /// A calculation going on, or why the plan can't be calculated.
     @ViewBuilder
-    private func status(ink: Color) -> some View {
+    private var status: some View {
+        let ink = Color.white.opacity(0.85)
         if let progress = plans.progress(of: plan.id, .checkIn) ?? plans.progress(of: plan.id, .base) {
             HStack(spacing: Metrics.s) {
                 ProgressView(value: min(1, max(0, progress.fraction)), total: 1)

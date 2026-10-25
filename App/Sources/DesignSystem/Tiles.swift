@@ -215,6 +215,9 @@ extension View {
 ///     }
 struct TileGrid: Layout {
     var spacing: CGFloat = Metrics.m
+    /// Whether the rows grow to fill a height offered beyond what they
+    /// need, as beside Today's answer, so the two end together.
+    var fillsHeight = false
 
     /// The narrowest a small tile gets before a row drops a slot: a little
     /// under an iPhone's in portrait, so iPhones keep two slots and wider
@@ -228,14 +231,24 @@ struct TileGrid: Layout {
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
         let width = proposal.width ?? Metrics.readableWidth
-        let rows = rows(of: subviews, width: width)
-        let height = rows.reduce(0) { $0 + $1.height } + spacing * CGFloat(max(0, rows.count - 1))
+        let height = Self.height(of: rows(of: subviews, width: width), spacing: spacing)
+        if fillsHeight, let offered = proposal.height, offered.isFinite, offered > height {
+            return CGSize(width: width, height: offered)
+        }
         return CGSize(width: width, height: height)
     }
 
     func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        var rows = rows(of: subviews, width: bounds.width)
+        let height = Self.height(of: rows, spacing: spacing)
+        if fillsHeight, bounds.height > height, !rows.isEmpty {
+            let extra = (bounds.height - height) / CGFloat(rows.count)
+            for index in rows.indices {
+                rows[index].height += extra
+            }
+        }
         var y = bounds.minY
-        for row in rows(of: subviews, width: bounds.width) {
+        for row in rows {
             var x = bounds.minX
             for cell in row.cells {
                 let height = cell.indices.count > 1 || subviews[cell.indices[0]][TileSizeKey.self] == .half
@@ -262,9 +275,19 @@ struct TileGrid: Layout {
         var height: CGFloat
     }
 
+    private static func height(of rows: [Row], spacing: CGFloat) -> CGFloat {
+        rows.reduce(0) { $0 + $1.height } + spacing * CGFloat(max(0, rows.count - 1))
+    }
+
+    /// The width of a small tile in a row of `width`.
+    static func smallWidth(width: CGFloat, spacing: CGFloat = Metrics.m) -> CGFloat {
+        let slots = slots(width: width, spacing: spacing)
+        return max(0, (width - spacing * CGFloat(slots - 1)) / CGFloat(slots))
+    }
+
     /// The small tiles a row of `width` holds: two, or more while each
     /// keeps ``minimumSmallWidth``.
-    static func slots(width: CGFloat, spacing: CGFloat) -> Int {
+    static func slots(width: CGFloat, spacing: CGFloat = Metrics.m) -> Int {
         max(2, Int((width + spacing) / (minimumSmallWidth + spacing)))
     }
 
@@ -272,7 +295,7 @@ struct TileGrid: Layout {
     /// cell with its width.
     private func rows(of subviews: Subviews, width: CGFloat) -> [Row] {
         let slots = Self.slots(width: width, spacing: spacing)
-        let small = max(0, (width - spacing * CGFloat(slots - 1)) / CGFloat(slots))
+        let small = Self.smallWidth(width: width, spacing: spacing)
         let unit = min(small, Self.rowHeight)
         var rows: [Row] = []
         var cells: [Cell] = []

@@ -77,13 +77,6 @@ enum TodayText {
         "At \(lastMonday.age) · in \(GlanceText.futures(lastMonday.confidence)) futures"
     }
 
-    /// A move as a short value: "A year sooner", "2 years later", "The same".
-    static func move(_ move: LastMondayMove) -> String {
-        guard move.years != 0 else { return "The same" }
-        let years = abs(move.years)
-        return "\(years == 1 ? "A year" : "\(years) years") \(move.isSooner ? "sooner" : "later")"
-    }
-
     /// The title over what moved at the last check-in: "What moved it in
     /// September" when the check-in before was the end of the month
     /// before, else "What moved it since 15 Aug". With `saysIt` the title
@@ -103,58 +96,6 @@ enum TodayText {
     static func savedAsTime(saved: Decimal, markets: Decimal, yearlySpending: Decimal?) -> String? {
         SavingAsTime(saved: saved, markets: markets, yearlySpending: yearlySpending)
             .map { "You saved \($0.saved.text) of the life you plan." }
-    }
-}
-
-// MARK: - This year
-
-/// How net worth changed this year (Tracker's `Valuator.changeThisYear(asOf:)`),
-/// split with saved as the savings rate counts it (`Valuator.savedSplit(of:)`),
-/// and the savings rate over this year's money in and out, when there is some.
-struct TodayYear {
-    let report: ChangeReport
-    let split: ValueChange
-    let savings: SavingsRate?
-}
-
-// MARK: - Coming up
-
-/// One line of *Coming up* on the Mac and iPad: when, and what.
-struct TodayComingUpItem: Identifiable {
-    var id: String
-    /// "30 Nov", "Late 2028".
-    var when: String
-    /// "November check-in", "5 years of spending, now 93%".
-    var what: AmountSentence
-}
-
-/// What's ahead (UI.md, "Today"): the next check-in, then the main plan's
-/// milestones that its median future reaches, soonest first.
-enum TodayComingUp {
-    /// At most `limit` items: the next check-in (or the one under way),
-    /// then the milestones ahead; the next milestone says how far there.
-    static func items(status: CheckInStatus, ahead: [ProjectedMilestone], next: NextMilestone?,
-                      text: PlanMilestoneText, today: CalendarDate, locale: Locale = .current,
-                      limit: Int = 5) -> [TodayComingUpItem] {
-        var items: [TodayComingUpItem] = []
-        if let open = status.openDate {
-            items.append(TodayComingUpItem(
-                id: "checkin", when: AmountFormat.shortDate(open, relativeTo: today, locale: locale),
-                what: AmountSentence("Check-in under way")))
-        } else if status.lastCheckIn != nil {
-            items.append(TodayComingUpItem(
-                id: "checkin", when: AmountFormat.shortDate(status.nextCheckIn, relativeTo: today, locale: locale),
-                what: AmountSentence("\(AmountFormat.monthName(status.nextCheckIn, locale: locale)) check-in")))
-        }
-        for milestone in ahead {
-            var what = text.name(milestone.milestone)
-            if let next, next.milestone.id == milestone.milestone.id {
-                what.append(words: ", now \(AmountFormat.percent(next.progress, digits: 0, locale: locale))")
-            }
-            items.append(TodayComingUpItem(id: "milestone.\(milestone.id)",
-                                           when: PlanMilestoneText.when(milestone.date).capitalizedFirst, what: what))
-        }
-        return Array(items.prefix(limit))
     }
 }
 
@@ -326,5 +267,19 @@ enum TodayAttention {
             }
         }
         return items
+    }
+}
+
+// MARK: - Milestones
+
+/// The main plan's milestones as Today shows them: the Plan screen's, with
+/// those reached as Progress works them out.
+@MainActor
+enum TodayMilestones {
+    static func of(_ plan: PlanDocument, results: PlanResults?, library: LibraryStore,
+                   plans: PlanStore) -> PlanMilestones {
+        let progress = plans.planProgress(of: plan.id, document: plan)
+        return PlanMilestones(plan: plan, library: library.library, valuator: library.valuator,
+                              asOf: library.asOfDate, results: results, reached: progress.reached)
     }
 }
