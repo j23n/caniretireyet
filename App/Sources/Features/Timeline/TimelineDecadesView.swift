@@ -96,14 +96,18 @@ struct TimelineDecadesView: View {
             TileGrid {
                 DecadesHowSureTile(results: results)
                     .tileSize(.half)
-                HalfTile(tint: .lilac, title: "When you stop", emoji: "🏖️") {
-                    Text(verbatim: "\(results.details.focus.age)")
-                        .monospacedDigit()
-                        .privacySensitiveInFeedback()
-                } caption: {
-                    Text(results.headline.earliestAge == results.details.focus.age ? "earliest" : "chosen")
+                // The plan's own age, else its earliest; without either no
+                // age works, and the run's age is only the last one tried.
+                if let age = results.headline.targetAge {
+                    HalfTile(tint: .lilac, title: "When you stop", emoji: "🏖️") {
+                        Text(verbatim: "\(age)")
+                            .monospacedDigit()
+                            .privacySensitiveInFeedback()
+                    } caption: {
+                        Text(results.headline.earliestAge == age ? "earliest" : "planned")
+                    }
+                    .tileSize(.half)
                 }
-                .tileSize(.half)
                 if let pensions {
                     HalfTile(tint: .peach, title: "Pensions from", emoji: "🧓") {
                         Text(verbatim: "\(pensions)")
