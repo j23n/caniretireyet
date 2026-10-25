@@ -9,9 +9,9 @@ import Tracker
 ///
 /// On iPhone, top to bottom: the answer as a date (``TodayAnswerCard``),
 /// or before there's one the next step (``TodayPlanCard``); *What moved
-/// it* at the last check-in (``TodayMovedCard``); a card of rows (the
-/// plan's target age, the next milestone, net worth, which opens the
-/// accounts); and what needs attention, only while something does.
+/// it* at the last check-in (``TodayMovedCard``); tiles for the next
+/// milestone, the earliest age and net worth (``TodayTiles``); and what
+/// needs attention, only while something does.
 ///
 /// On the Mac and iPad the answer card holds four figures beside the date;
 /// under it two columns (``TodayColumns``): *Your timeline*, the decades
@@ -66,7 +66,7 @@ struct TodayScreen: View {
         .background(Palette.page)
     }
 
-    /// iPhone: the date, what moved it, the rows, what needs attention.
+    /// iPhone: the date, what moved it, the tiles, what needs attention.
     private func narrow(today: CalendarDate) -> some View {
         let valuator = library.valuator
         let mainPlan = library.mainPlan
@@ -79,7 +79,7 @@ struct TodayScreen: View {
                 TodayMovedCard(report: change, split: valuator.savedSplit(of: change),
                                yearlySpending: mainPlan.flatMap(MilestoneLadder.spending(of:)))
             }
-            TodayRowsCard(answer: answer, plan: mainPlan, results: latest?.results, today: today)
+            TodayTiles(answer: answer, plan: mainPlan, results: latest?.results, today: today)
             TodayAttentionCard(today: today)
             notesAndFirstValues(hasAnswer: answer != nil)
         }
@@ -392,72 +392,6 @@ struct TodayMoveChip: View {
         .padding(.vertical, 6)
         .background(color.opacity(0.12), in: Capsule())
         .privacySensitiveInFeedback()
-    }
-}
-
-// MARK: - Rows
-
-/// Where you stand on iPhone, a row each (``CardRows``): the chance at the
-/// plan's target age, the next milestone with how far there, and net
-/// worth, which opens the accounts.
-struct TodayRowsCard: View {
-    let answer: RetirementAnswer?
-    let plan: PlanDocument?
-    let results: PlanResults?
-    let today: CalendarDate
-
-    @Environment(LibraryStore.self) private var library
-    @Environment(PlanStore.self) private var plans
-    @Environment(AppNavigation.self) private var navigation
-    @Environment(\.baseCurrency) private var currency
-    @Environment(\.locale) private var locale
-
-    var body: some View {
-        let netWorth = NetWorthGlance(valuator: library.valuator, asOf: today)
-        CardRows {
-            if let answer, let target = answer.targetAge, let success = answer.successAtTarget {
-                Button {
-                    navigation.showPlan()
-                } label: {
-                    CardRow {
-                        Text(verbatim: "At \(target), as planned")
-                            .privacySensitiveInFeedback()
-                    } value: {
-                        Text(verbatim: "\(GlanceText.futures(success)) futures")
-                            .privacySensitiveInFeedback()
-                    }
-                }
-                .buttonStyle(.plain)
-                .accessibilityHint("Opens the plan")
-            }
-            if let plan, let next = TodayMilestones.of(plan, results: results, library: library, plans: plans).next {
-                let text = PlanMilestoneText(currency: currency, locale: locale)
-                Button {
-                    navigation.showTimeline(.year)
-                } label: {
-                    CardRow {
-                        HStack(spacing: Metrics.xs) {
-                            Text("Next:")
-                            AmountSentenceText(text.name(next.milestone))
-                        }
-                    } value: {
-                        Text(verbatim: text.progress(next))
-                            .privacySensitiveInFeedback()
-                    }
-                }
-                .buttonStyle(.plain)
-                .accessibilityHint("Shows this year on the Timeline")
-            }
-            Button {
-                navigation.showAccounts()
-            } label: {
-                CardRow("Net worth", opens: true) {
-                    AmountText(netWorth.total, animatesChanges: true)
-                }
-            }
-            .buttonStyle(.plain)
-            .accessibilityHint("Shows your accounts")
-        }
     }
 }
 
