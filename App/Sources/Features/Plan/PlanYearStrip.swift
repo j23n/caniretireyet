@@ -59,29 +59,47 @@ struct PlanYearChartCard: View {
         .onChange(of: index) { _, _ in pointer = nil }
     }
 
-    /// "2026 so far" over its verdict, each on one line.
+    /// "2026 so far" over its verdict, each on one line. A line shrinks
+    /// to fit, but keeps its full height, so the card stays as tall from
+    /// year to year ("Ended ahead of what you planned in January" is longer).
     private func titles(alignment: HorizontalAlignment) -> some View {
         VStack(alignment: alignment, spacing: 2) {
-            Text(card.year.title)
-                .font(.title3.weight(.bold))
-                .foregroundStyle(Palette.ink)
-                .privacySensitiveInFeedback()
-                .accessibilityAddTraits(.isHeader)
+            steadyLine(font: .title3.weight(.bold), alignment: alignment) {
+                Text(card.year.title)
+                    .foregroundStyle(Palette.ink)
+                    .privacySensitiveInFeedback()
+                    .accessibilityAddTraits(.isHeader)
+            }
             if let verdict = PlanProgressText.verdict(card.year, locale: locale) {
-                Text(verdict)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(PlanBaselineComparison.Standing.color(of: card.year.position))
-                    // It names the plan's month or year: "…in January".
-                    .privacySensitiveInFeedback()
+                steadyLine(font: .subheadline.weight(.semibold), alignment: alignment) {
+                    Text(verdict)
+                        .foregroundStyle(PlanBaselineComparison.Standing.color(of: card.year.position))
+                        // It names the plan's month or year: "…in January".
+                        .privacySensitiveInFeedback()
+                }
             } else {
-                Text(PlanProgressText.unmeasured(card.year))
-                    .font(.subheadline)
-                    .foregroundStyle(Palette.mutedInk)
-                    .privacySensitiveInFeedback()
+                steadyLine(font: .subheadline, alignment: alignment) {
+                    Text(PlanProgressText.unmeasured(card.year))
+                        .foregroundStyle(Palette.mutedInk)
+                        .privacySensitiveInFeedback()
+                }
             }
         }
-        .lineLimit(1)
-        .minimumScaleFactor(0.8)
+    }
+
+    /// One line in `font` that shrinks to fit its width, as tall as the
+    /// font's line however much it shrinks.
+    private func steadyLine<Line: View>(font: Font, alignment: HorizontalAlignment,
+                                        @ViewBuilder line: () -> Line) -> some View {
+        ZStack(alignment: Alignment(horizontal: alignment, vertical: .center)) {
+            Text(verbatim: "Ag")
+                .hidden()
+                .accessibilityHidden(true)
+            line()
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+        }
+        .font(font)
     }
 
     /// ‹ or › in a round button on iPhone, greyed at either end.
