@@ -29,9 +29,9 @@ struct CardRows<Content: View>: View {
 }
 
 /// One row: its title on the left and its value on the right, each on one
-/// line. The title gives way first, so a value is never cut; a value too
-/// long for the row's width goes under the title instead, wrapping, so it
-/// never makes the page wider than the screen. A chevron says the row
+/// line, when both fit in full. When they don't, the value goes under the
+/// title, which wraps, and the value wraps too, so neither is cut and the
+/// row never makes the page wider than the screen. A chevron says the row
 /// opens something.
 ///
 ///     CardRow("Net worth", opens: true) { AmountText(total) }
