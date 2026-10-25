@@ -9,7 +9,8 @@
                                              between "=== screenshot NAME ===" and
                                              "=== end ===", for reading them from the log
   screenshots.py failures RESULTS            each result bundle's failed tests and why,
-                                             at the end of the log
+                                             and the app's crash reports, at the end of
+                                             the log
 """
 
 import base64
@@ -71,6 +72,33 @@ def failures(results: pathlib.Path) -> None:
         print(f"{result.get('result')}: {result.get('passedTests')} passed, {result.get('failedTests')} failed")
         for failure in result.get("testFailures", []):
             print(f"- {failure.get('testName')}: {failure.get('failureText')}")
+    crash_reports()
+
+
+def crash_reports() -> None:
+    """The app's newest crash reports: why it stopped and the crashed thread's frames, since a
+    result bundle's summary says only "Test crashed with signal trap"."""
+    folder = pathlib.Path.home() / "Library/Logs/DiagnosticReports"
+    reports = sorted(folder.glob("CanIRetireYet*.ips"), key=lambda report: report.stat().st_mtime)
+    for report in reports[-6:]:
+        print(f"=== crash {report.name} ===")
+        try:
+            body = json.loads(report.read_text().split("\n", 1)[1])
+        except (IndexError, ValueError, OSError) as error:
+            print(f"Unreadable: {error}")
+            continue
+        print(json.dumps(body.get("exception", {})))
+        for key, value in body.get("asi", {}).items():
+            print(f"{key}: {' '.join(value) if isinstance(value, list) else value}")
+        images = body.get("usedImages", [])
+        for thread in body.get("threads", []):
+            if not thread.get("triggered"):
+                continue
+            for frame in thread.get("frames", [])[:30]:
+                index = frame.get("imageIndex", -1)
+                image = images[index].get("name", "?") if 0 <= index < len(images) else "?"
+                place = f" {frame['sourceFile']}:{frame.get('sourceLine', '')}" if "sourceFile" in frame else ""
+                print(f"  {image}  {frame.get('symbol', '?')}{place}")
 
 
 if __name__ == "__main__":
