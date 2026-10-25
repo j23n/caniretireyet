@@ -389,7 +389,7 @@ private struct PlanYearHappeningRow: View {
 /// What you saved and what markets did at each check-in of the year, a
 /// pair of bars a month on one scale, up from a line for what was added
 /// and down for what was taken (UI.md, "Year"), the months' initials under
-/// them, months to come empty. iPhone; the Mac and iPad have the table
+/// them, months to come a grey dash and a skipped month empty. iPhone; the Mac and iPad have the table
 /// (``PlanYearCheckIns``).
 struct PlanYearMonthsCard: View {
     let card: PlanProgressTimeline.Card
@@ -459,6 +459,9 @@ struct PlanYearMonthsCard: View {
         let down = max(-(values.min() ?? 0), 0)
         let saved = TileTint.mint.accent
         let markets = TileTint.sky.accent
+        // Months to come are a grey dash; a skipped month draws nothing, its
+        // money counted at the next check-in.
+        let lastMonth = card.year.isLatest ? months.keys.max() ?? 0 : 12
         return Canvas { context, size in
             let span = max(up + down, 1)
             let zero = size.height * up / span
@@ -474,7 +477,7 @@ struct PlanYearMonthsCard: View {
                 if let value = months[month] {
                     draw(value.saved.doubleValue, x: x - bar - 1, color: saved)
                     draw(value.markets.doubleValue, x: x + 1, color: markets)
-                } else {
+                } else if month > lastMonth {
                     let rect = CGRect(x: x - bar - 1, y: zero - 1.5, width: 2 * bar + 2, height: 3)
                     context.fill(Path(roundedRect: rect, cornerRadius: 1.5), with: .color(Palette.gridline))
                 }
