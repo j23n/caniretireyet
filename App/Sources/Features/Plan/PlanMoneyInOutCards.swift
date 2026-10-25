@@ -156,7 +156,7 @@ struct TwelveMonthsTile: View {
     }
 
     private func isAmount(_ change: PlanLastTwelveMonths.TileChange) -> Bool {
-        if case .amount = change.value { true } else { false }
+        if case .rate = change.value { false } else { true }
     }
 }
 

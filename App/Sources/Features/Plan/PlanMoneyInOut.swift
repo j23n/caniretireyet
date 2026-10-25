@@ -123,6 +123,9 @@ extension PlanLastTwelveMonths {
             case rate(Decimal)
             /// An amount the 12 months before; it hides with the eye.
             case amount(Decimal)
+            /// What was saved the 12 months before, negative when money was
+            /// taken out, against what's saved `now`; it hides with the eye.
+            case saved(Decimal, now: Decimal)
         }
 
         /// Where it was the 12 months before.
@@ -133,14 +136,23 @@ extension PlanLastTwelveMonths {
         var isGood: Bool
 
         /// "▲ from 27%", "▼ from 12.200 €", or "Same as before" for one that
-        /// shows as none.
+        /// shows as none. What was saved reads as the figure does, without a
+        /// sign, and says "saving" or "taking out" when that was the other
+        /// way: "▼ from saving 3.000 €" under *Took out*.
         func text(currency: CurrencyCode, locale: Locale = .current) -> String {
             guard direction != 0 else { return "Same as before" }
             let before = switch value {
             case .rate(let rate): AmountFormat.percent(rate, digits: 0, locale: locale)
             case .amount(let amount): AmountFormat.amount(amount, currency: currency, locale: locale)
+            case .saved(let saved, let now):
+                Self.saved(saved, now: now, amount: AmountFormat.amount(abs(saved), currency: currency, locale: locale))
             }
             return "\(direction > 0 ? "▲" : "▼") from \(before)"
+        }
+
+        private static func saved(_ saved: Decimal, now: Decimal, amount: String) -> String {
+            if (saved < 0) == (now < 0) { return amount }
+            return saved < 0 ? "taking out \(amount)" : "saving \(amount)"
         }
     }
 
@@ -169,7 +181,7 @@ extension PlanLastTwelveMonths {
         guard let before = previous?.saved else { return nil }
         let change = current.saved - before
         let direction = DeltaFormat.direction(of: change, precision: .whole)
-        return TileChange(value: .amount(before), direction: direction, isGood: direction >= 0)
+        return TileChange(value: .saved(before, now: current.saved), direction: direction, isGood: direction >= 0)
     }
 
     /// A change, up or down when it's at least a whole per cent of what it
