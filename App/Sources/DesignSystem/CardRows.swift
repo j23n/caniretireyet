@@ -29,8 +29,10 @@ struct CardRows<Content: View>: View {
 }
 
 /// One row: its title on the left and its value on the right, each on one
-/// line. The title gives way first, so a value is never cut; a chevron
-/// says the row opens something.
+/// line, when both fit in full. When they don't, the value goes under the
+/// title, which wraps, and the value wraps too, so neither is cut and the
+/// row never makes the page wider than the screen. A chevron says the row
+/// opens something.
 ///
 ///     CardRow("Net worth", opens: true) { AmountText(total) }
 ///     CardRow { Text("Next: 5 years of spending") } value: { Text("90% there") }
@@ -50,21 +52,30 @@ struct CardRow<Title: View, Value: View, Below: View>: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Metrics.xs) {
-            HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
-                title
-                    .foregroundStyle(Palette.ink)
-                    .lineLimit(1)
-                Spacer(minLength: Metrics.s)
-                value
-                    .foregroundStyle(Palette.secondaryInk)
-                    .lineLimit(1)
-                    .fixedSize()
-                    .layoutPriority(1)
-                if opens {
-                    Image(systemName: "chevron.right")
-                        .font(.footnote.weight(.semibold))
-                        .foregroundStyle(Palette.mutedInk)
-                        .accessibilityHidden(true)
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
+                    title
+                        .foregroundStyle(Palette.ink)
+                        .lineLimit(1)
+                    Spacer(minLength: Metrics.s)
+                    value
+                        .foregroundStyle(Palette.secondaryInk)
+                        .lineLimit(1)
+                        .fixedSize()
+                        .layoutPriority(1)
+                    chevron
+                }
+                VStack(alignment: .leading, spacing: Metrics.xs) {
+                    HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
+                        title
+                            .foregroundStyle(Palette.ink)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Spacer(minLength: Metrics.s)
+                        chevron
+                    }
+                    value
+                        .foregroundStyle(Palette.secondaryInk)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
             below
@@ -74,6 +85,16 @@ struct CardRow<Title: View, Value: View, Below: View>: View {
         .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
         .contentShape(Rectangle())
         .accessibilityElement(children: .combine)
+    }
+
+    @ViewBuilder
+    private var chevron: some View {
+        if opens {
+            Image(systemName: "chevron.right")
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(Palette.mutedInk)
+                .accessibilityHidden(true)
+        }
     }
 }
 
@@ -96,6 +117,10 @@ extension CardRow where Title == Text, Below == EmptyView {
             CardRow("At 55, as planned") { Text(verbatim: "4 in 10 futures") }
             CardRow { Text(verbatim: "Next: 5 years of spending") } value: { Text(verbatim: "90% there") }
             CardRow("Net worth", opens: true) { Text(verbatim: "€332,455") }
+            // Too long to share the line: the value goes under the title.
+            CardRow("Target mix", opens: true) {
+                Text(verbatim: "Equity 89% · cash 6% · gold 5% · changes at retirement")
+            }
         }
         .padding()
     }
