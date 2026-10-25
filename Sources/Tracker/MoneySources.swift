@@ -2,7 +2,7 @@ import Foundation
 import Model
 
 /// How long the periods of a series over the past are: Trends' *Months |
-/// Years* (UI.md, "Look Back").
+/// Years* (UI.md, "Money in and out, year by year").
 public enum PeriodGrain: String, Hashable, Sendable, CaseIterable {
     case months
     case years

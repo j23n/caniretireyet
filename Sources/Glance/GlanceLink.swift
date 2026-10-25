@@ -9,7 +9,7 @@ public enum GlanceLink: String, Hashable, Sendable, CaseIterable {
     case plan
     /// The check-in.
     case checkIn = "check-in"
-    /// Your year: last year on the Timeline (UI.md, "Timeline").
+    /// Your year: last year on So far (UI.md, "So far").
     case yourYear = "your-year"
 
     /// The app's URL scheme (CFBundleURLTypes in App/Config/Info.plist).
