@@ -420,6 +420,7 @@ struct PlanAnswerCard: View {
                                     onCancel: session.isCheckInRun ? nil : { session.cancel() })
                     .padding(.top, Metrics.xs)
             }
+        }
         .padding(.horizontal, Metrics.l)
         .padding(.vertical, Metrics.m)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
