@@ -150,7 +150,7 @@ enum Metrics {
     #else
     static let cardRadius: CGFloat = 22
     #endif
-    /// The corners of a tile inside a card (``FigureTile``).
+    /// The corners of a small surface inside a card.
     static let tileRadius: CGFloat = 12
     /// Chart lines (UI.md: 2 pt).
     static let lineWidth: CGFloat = 2

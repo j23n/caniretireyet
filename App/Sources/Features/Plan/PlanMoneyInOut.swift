@@ -95,6 +95,10 @@ extension PlanLastTwelveMonths {
 
     /// One of the four tiles.
     struct Tile: Hashable, Identifiable {
+        enum Kind: Hashable {
+            case savingsRate, saved, cameIn, spent
+        }
+
         enum Figure: Hashable {
             /// A rate, which stays with the eye; `nil` when nothing came in.
             case rate(Decimal?)
@@ -102,12 +106,13 @@ extension PlanLastTwelveMonths {
             case amount(Decimal)
         }
 
+        var kind: Kind
         var title: String
         var figure: Figure
         /// Against the 12 months before; `nil` without them.
         var change: TileChange?
 
-        var id: String { title }
+        var id: Kind { kind }
     }
 
     /// A tile's change against the 12 months before.
@@ -143,11 +148,12 @@ extension PlanLastTwelveMonths {
     /// Savings rate, Saved, Came in and Spent, in that order.
     var tiles: [Tile] {
         [
-            Tile(title: "Savings rate", figure: .rate(current.rate), change: rateChange),
-            Tile(title: "Saved", figure: .amount(current.saved), change: savedChange),
-            Tile(title: "Came in", figure: .amount(current.income),
+            Tile(kind: .savingsRate, title: "Savings rate", figure: .rate(current.rate), change: rateChange),
+            Tile(kind: .saved, title: current.saved >= 0 ? "Saved" : "Took out", figure: .amount(current.saved),
+                 change: savedChange),
+            Tile(kind: .cameIn, title: "Came in", figure: .amount(current.income),
                  change: Self.share(current.income, before: previous?.income, moreIsGood: true)),
-            Tile(title: "Spent", figure: .amount(current.spent),
+            Tile(kind: .spent, title: "Spent", figure: .amount(current.spent),
                  change: Self.share(current.spent, before: previous?.spent, moreIsGood: false)),
         ]
     }

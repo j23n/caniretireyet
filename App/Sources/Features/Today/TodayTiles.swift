@@ -4,17 +4,17 @@ import Planner
 import SwiftUI
 import Tracker
 
-// Today's tiles on iPhone (UI.md, "Today" and "Tiles"): the next
-// milestone and the earliest age side by side, net worth under them. Each
-// tile takes a size on the home screen's grid of icons, 2 × 2 or 2 × 4
-// (``TileGrid``), so other screens can use them too.
+// Today's tiles on iPhone (UI.md, "Today" and "Tiles"): net worth, then
+// the next milestone and the savings rate side by side. Each tile takes a
+// size on the home screen's grid of icons, 2 × 2 or 2 × 4 (``TileGrid``),
+// so other screens can use them too.
 
-/// Where you stand on iPhone, as tiles: the next milestone, which opens the
-/// Timeline at *Year*; the earliest age, which opens the plan; and net
-/// worth, which opens the accounts. Before there's an answer the milestone
-/// tile is wide and there's no age.
+/// Where you stand on iPhone, as tiles under the answer: net worth, which
+/// opens the accounts; the next milestone, which opens the Timeline at
+/// *Year*; and the savings rate over the last 12 months, which opens it at
+/// *Look Back*. When only one of the two small ones has something to show,
+/// it's wide.
 struct TodayTiles: View {
-    let answer: RetirementAnswer?
     let plan: PlanDocument?
     let results: PlanResults?
     let today: CalendarDate
@@ -25,30 +25,9 @@ struct TodayTiles: View {
 
     var body: some View {
         let netWorth = NetWorthGlance(valuator: library.valuator, asOf: today, historyFrom: today.adding(years: -1))
-        let milestoneSize: TileSize = answer == nil ? .wide : .small
+        let twelveMonths = self.twelveMonths
+        let pairSize: TileSize = plan != nil && twelveMonths != nil ? .small : .wide
         TileGrid {
-            if let plan {
-                Button {
-                    navigation.showTimeline(.year)
-                } label: {
-                    MilestoneTile(content: milestoneContent(plan), size: milestoneSize, planName: plan.name,
-                                  today: today)
-                }
-                .buttonStyle(.plain)
-                .accessibilityHint("Shows this year on the Timeline")
-                .tileSize(milestoneSize)
-            }
-            if let answer, let plan {
-                Button {
-                    navigation.showPlan()
-                } label: {
-                    RetirementAgeTile(answer: answer, move: move(of: answer, plan: plan), updating: updating(plan),
-                                      today: today)
-                }
-                .buttonStyle(.plain)
-                .accessibilityHint("Opens the plan")
-                .tileSize(.small)
-            }
             Button {
                 navigation.showAccounts()
             } label: {
@@ -57,33 +36,50 @@ struct TodayTiles: View {
             .buttonStyle(.plain)
             .accessibilityHint("Shows your accounts")
             .tileSize(.wide)
+            if let plan {
+                Button {
+                    navigation.showTimeline(.year)
+                } label: {
+                    MilestoneTile(content: milestoneContent(plan), size: pairSize, planName: plan.name,
+                                  today: today)
+                }
+                .buttonStyle(.plain)
+                .accessibilityHint("Shows this year on the Timeline")
+                .tileSize(pairSize)
+            }
+            if let twelveMonths, let rate = twelveMonths.tiles.first {
+                Button {
+                    navigation.showTimeline(.lookBack)
+                } label: {
+                    TwelveMonthsTile(tile: rate, currency: twelveMonths.current.moneyInOut.currency,
+                                     period: twelveMonths.since == nil ? "12 months" : nil)
+                }
+                .buttonStyle(.plain)
+                .accessibilityHint("Looks back on the Timeline")
+                .tileSize(pairSize)
+            }
         }
+    }
+
+    /// The last 12 months' money in and out, as Look Back has them (through
+    /// the latest check-in of the plan's accounts), when Look Back is on and
+    /// they recorded some that came in.
+    private var twelveMonths: PlanLastTwelveMonths? {
+        let valuator = library.valuator
+        let end = valuator.latestCheckIn(onOrBefore: library.asOfDate, in: .planAssets) ?? library.asOfDate
+        guard library.library.accountsTurningOffTrends.isEmpty,
+              let year = PlanLastTwelveMonths(valuator: valuator, through: end,
+                                              recordedSince: library.moneyInOutRecordedSince),
+              year.current.rate != nil
+        else { return nil }
+        return year
     }
 
     /// The main plan's milestones as the tile shows them: those passed at
     /// the latest check-in, else the next.
     private func milestoneContent(_ plan: PlanDocument) -> MilestoneTileContent {
-        let milestones = TodayMilestones.of(plan, results: results, library: library, plans: plans)
-        let valuator = library.valuator
-        let latest = library.latestCheckIn
-        let previous = latest.flatMap { valuator.previousCheckIn(before: $0, in: .planAssets) }
-        return MilestoneTileContent(milestones, hasResults: results != nil, latestCheckIn: latest,
-                                    previousCheckIn: previous,
-                                    assetsBefore: previous.map { valuator.total(on: $0, in: .planAssets).total })
-    }
-
-    /// How the earliest age moved since the check-in before the latest.
-    private func move(of answer: RetirementAnswer, plan: PlanDocument) -> LastMondayMove? {
-        guard let latest = library.latestCheckIn else { return nil }
-        let history = plans.recordedHeadlines(for: plan.id).map {
-            AnswerPoint(date: $0.date, earliestAge: $0.earliestAge)
-        }
-        return LastMondayMove(answer: answer, history: history, latestCheckIn: latest)
-    }
-
-    /// How far the main plan's calculation has got, while one runs.
-    private func updating(_ plan: PlanDocument) -> Double? {
-        (plans.progress(of: plan.id, .checkIn) ?? plans.progress(of: plan.id, .base)).map(\.fraction)
+        MilestoneTileContent(TodayMilestones.of(plan, results: results, library: library, plans: plans),
+                             hasResults: results != nil, library: library)
     }
 }
 
@@ -366,134 +362,6 @@ struct MilestoneTile: View {
     }
 }
 
-// MARK: - Retirement age
-
-/// The earliest age as a small tile (UI.md, "Tiles"): the age, its last
-/// Monday, and how it moved since the check-in before, the tile mint when
-/// sooner, peach when later and white when the same; without a move, sky,
-/// with a dot for each of 10 futures it works in. "Yes" in pink when you
-/// could stop today, "Not yet" in lilac when no age works out.
-struct RetirementAgeTile: View {
-    let answer: RetirementAnswer
-    var move: LastMondayMove?
-    /// How far a calculation has got, 0 to 1, while one runs.
-    var updating: Double?
-    let today: CalendarDate
-
-    @Environment(\.locale) private var locale
-    @ScaledMetric(relativeTo: .largeTitle) private var ageSize: CGFloat = 54
-
-    var body: some View {
-        let futures = GlanceText.futures(answer.confidence)
-        if let lastMonday = LastMonday(answer) {
-            ColorTile(tint: tint) {
-                TileLabel("Earliest age")
-                Spacer(minLength: Metrics.xs)
-                Group {
-                    Text(verbatim: "\(lastMonday.age)")
-                        .font(.system(size: ageSize, weight: .bold))
-                        .monospacedDigit()
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.6)
-                        .opacity(updating == nil ? 1 : 0.4)
-                    Text(verbatim: GlanceText.shortLastMonday(lastMonday.date, locale: locale))
-                        .font(.caption)
-                        .opacity(0.8)
-                        .lineLimit(1)
-                }
-                .privacySensitiveInFeedback()
-                Group {
-                    if let updating {
-                        Text(verbatim: "Updating \(AmountFormat.percent(min(1, max(0, updating)), digits: 0, locale: locale))")
-                            .font(.caption)
-                            .opacity(0.8)
-                            .monospacedDigit()
-                        TileBar(progress: updating)
-                            .padding(.top, Metrics.xs)
-                    } else if let move {
-                        moveChip(move)
-                    } else {
-                        FuturesDots(share: lastMonday.confidence)
-                    }
-                }
-                .padding(.top, Metrics.s)
-            }
-        } else if answer.canRetireNow {
-            ColorTile(tint: .pink) {
-                TileLabel("Can I retire yet?")
-                Spacer(minLength: Metrics.s)
-                Text("Yes")
-                    .font(.system(size: ageSize, weight: .bold))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.6)
-                    .privacySensitiveInFeedback()
-                Text("You could stop working today, in \(futures) futures.")
-                    .font(.caption)
-                    .opacity(0.8)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .privacySensitiveInFeedback()
-            }
-        } else {
-            ColorTile(tint: .lilac) {
-                TileLabel("Can I retire yet?")
-                Spacer(minLength: Metrics.s)
-                Text("Not yet")
-                    .font(.system(size: ageSize * 0.75, weight: .bold))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.6)
-                    .privacySensitiveInFeedback()
-                Text("No age works out in \(futures) futures yet.")
-                    .font(.caption)
-                    .opacity(0.8)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .privacySensitiveInFeedback()
-            }
-        }
-    }
-
-    /// Mint when it moved sooner, peach when later, the card when it stayed;
-    /// sky without a check-in to compare with.
-    private var tint: TileTint {
-        guard let move else { return .sky }
-        return move.years == 0 ? .card : move.isSooner ? .mint : .peach
-    }
-
-    /// "← A year sooner", "→ 2 years later", "= The same", in a capsule.
-    private func moveChip(_ move: LastMondayMove) -> some View {
-        Label {
-            Text(verbatim: TodayText.move(move))
-                .lineLimit(1)
-        } icon: {
-            Image(systemName: move.years == 0 ? "equal" : move.isSooner ? "arrow.left" : "arrow.right")
-        }
-        .font(.caption.weight(.semibold))
-        .padding(.horizontal, 9)
-        .padding(.vertical, Metrics.xs)
-        .background(.primary.opacity(0.08), in: Capsule())
-        .privacySensitiveInFeedback()
-        .accessibilityLabel(Text(verbatim: GlanceText.move(move, relativeTo: today, locale: locale)))
-    }
-}
-
-/// A dot for each of 10 futures, filled for those the age works in.
-struct FuturesDots: View {
-    let share: Double
-
-    var body: some View {
-        let filled = Int((min(1, max(0, share)) * 10).rounded())
-        HStack(spacing: 3) {
-            ForEach(0..<10, id: \.self) { index in
-                Circle()
-                    .fill(index < filled ? AnyShapeStyle(.tint) : AnyShapeStyle(.primary.opacity(0.12)))
-                    .frame(width: 10, height: 10)
-            }
-        }
-        .privacySensitiveInFeedback()
-        .accessibilityElement()
-        .accessibilityLabel(Text(verbatim: GlanceText.inFutures(share)))
-    }
-}
-
 // MARK: - Net worth
 
 /// Net worth as a wide tile on the card (UI.md, "Tiles"): today's total,
@@ -512,7 +380,7 @@ struct NetWorthTile: View {
         let values = Self.values(netWorth)
         ColorTile {
             HStack(spacing: Metrics.s) {
-                TileLabel("Net worth")
+                TileLabel("Net worth", emoji: "📊")
                 Spacer(minLength: Metrics.s)
                 if values.count > 1, let first = netWorth.history.first, first.date <= today.adding(months: -11) {
                     Text("12 months")

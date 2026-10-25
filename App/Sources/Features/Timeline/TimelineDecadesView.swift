@@ -6,9 +6,10 @@ import Tracker
 
 /// The Timeline at *Decades* (UI.md, "Decades"): the decades chart on a
 /// card titled by the span it covers ("Now to 95") and how sure the plan is
-/// ("Money lasts in 9 of 10 futures"), then *Along the way*, the money
-/// typically there as each chapter starts and at the end. On the Mac and
-/// iPad *How sure* and *Along the way* are beside the chart.
+/// ("Money lasts in 9 of 10 futures"), then two tiles, how sure and what's
+/// typically left at the end, and *Along the way*, the chapters and their
+/// one-offs down a line, with the money typically there as each starts.
+/// On the Mac and iPad the tiles and *Along the way* are beside the chart.
 struct TimelineDecadesView: View {
     let session: PlanSession
 
@@ -29,15 +30,14 @@ struct TimelineDecadesView: View {
                         WideColumns(sideWidth: Self.sideWidth) {
                             chartCard(plan, results: results)
                         } side: {
-                            if let results {
-                                DecadesHowSureCard(results: results)
-                            }
-                            alongTheWay(chapters, plan: plan, results: results)
+                            tiles(chapters, results: results)
+                            alongTheWay(chapters, results: results)
                         }
                     } else {
                         VStack(alignment: .leading, spacing: Metrics.m) {
                             chartCard(plan, results: results)
-                            alongTheWay(chapters, plan: plan, results: results)
+                            tiles(chapters, results: results)
+                            alongTheWay(chapters, results: results)
                         }
                     }
                 }
@@ -97,11 +97,36 @@ struct TimelineDecadesView: View {
         }
     }
 
+    /// How sure, and what's typically left at the end.
     @ViewBuilder
-    private func alongTheWay(_ chapters: PlanChaptersModel?, plan: PlanDocument, results: PlanResults?) -> some View {
+    private func tiles(_ chapters: PlanChaptersModel?, results: PlanResults?) -> some View {
+        if let results {
+            let left = chapters?.chapters.chapters.indices.last.flatMap { chapters?.outcomes[$0] }
+            TileGrid {
+                DecadesHowSureTile(results: results)
+                    .tileSize(left == nil ? .wide : .small)
+                if let left {
+                    DecadesLeftTile(outcome: left, endAge: results.details.endAge, currency: session.currency)
+                        .tileSize(.small)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func alongTheWay(_ chapters: PlanChaptersModel?, results: PlanResults?) -> some View {
         if let chapters, let results, !chapters.outcomes.isEmpty {
-            DecadesAlongTheWayCard(chapters: chapters, endAge: results.details.endAge, markers: results.markers,
-                                   showsTitle: layout.isWide)
+            VStack(alignment: .leading, spacing: Metrics.s) {
+                SectionHeader("Along the way") {
+                    Text("typically, in \(PlanMoney.todaysMoney(session.currency))")
+                        .font(.footnote)
+                        .foregroundStyle(Palette.secondaryInk)
+                        .lineLimit(1)
+                }
+                .padding(.horizontal, Metrics.xs)
+                DecadesAlongTheWay(chapters: chapters, results: results,
+                                   words: PlanWords(currency: session.currency, locale: locale))
+            }
         }
     }
 }
@@ -143,153 +168,249 @@ struct DecadesWords {
     }
 }
 
-/// How sure the plan is, on the Mac and iPad beside the decades chart: the
+/// How sure the plan is, as a tile (UI.md, "Decades"): "🎯 How sure", the
 /// futures whose money lasts to the end when you stop at the plan's age
-/// ("9 in 10", "futures last to 95, stopping at 63"), and at the age you
-/// planned when that's another one ("4 in 10", "if you stop at 55, as
-/// planned").
-struct DecadesHowSureCard: View {
+/// ("9 in 10"), a dot for each of 10, and what it's about ("futures last
+/// to 95, stopping at 63"); at the age you planned too, when that's
+/// another one ("4 in 10 at 55, as planned").
+struct DecadesHowSureTile: View {
     let results: PlanResults
 
     var body: some View {
         let focus = results.details.focus
         let end = results.details.endAge
-        VStack(alignment: .leading, spacing: Metrics.m) {
-            Text("How sure")
-                .font(.headline)
-                .foregroundStyle(Palette.ink)
-                .accessibilityAddTraits(.isHeader)
-            if let success = focus.success {
-                figure(DecadesWords.inFutures(success), detail: "futures last to \(end), stopping at \(focus.age)")
+        ColorTile(tint: .sky) {
+            TileLabel("How sure", emoji: "🎯")
+            Spacer(minLength: Metrics.s)
+            Group {
+                if let success = focus.success {
+                    Text(verbatim: DecadesWords.inFutures(success))
+                        .font(.system(size: 36, weight: .bold))
+                        .monospacedDigit()
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
+                    FuturesDots(share: success)
+                        .padding(.top, Metrics.s)
+                    Text(verbatim: "futures last to \(end), stopping at \(focus.age)")
+                        .font(.caption)
+                        .opacity(0.8)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.top, Metrics.s)
+                } else {
+                    Text("Not calculated yet")
+                        .font(.headline)
+                }
+                if let target = results.headline.targetAge, target != focus.age,
+                   let success = results.headline.successAtTarget {
+                    Text(verbatim: "\(DecadesWords.inFutures(success)) at \(target), as planned")
+                        .font(.caption)
+                        .opacity(0.8)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                }
             }
-            if let target = results.headline.targetAge, target != focus.age,
-               let success = results.headline.successAtTarget {
-                figure(DecadesWords.inFutures(success), detail: "if you stop at \(target), as planned")
-            }
+            .privacySensitiveInFeedback()
         }
-        .padding(Metrics.l)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .cardSurface()
-    }
-
-    private func figure(_ value: String, detail: String) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Text(value)
-                .font(.title.weight(.bold))
-                .monospacedDigit()
-                .foregroundStyle(Palette.ink)
-                .lineLimit(1)
-            Text(detail)
-                .font(.subheadline)
-                .foregroundStyle(Palette.secondaryInk)
-                .lineLimit(1)
-                .minimumScaleFactor(0.85)
-        }
-        .privacySensitiveInFeedback()
         .accessibilityElement(children: .combine)
     }
 }
 
-/// *Along the way* (UI.md, "Decades"): the money typically there as each
-/// chapter of the plan starts, and what's typically left at its end, a row
-/// each: the age in grey, the chapter, the amount ("41 · Self-employed ·
-/// 520.000 €", "95 · Money left · 350.000 €"). On the Mac and iPad, titled,
-/// with the plan's other events in a line under the rows.
-struct DecadesAlongTheWayCard: View {
-    let chapters: PlanChaptersModel
-    let endAge: Int
-    var markers: [ChartMarker] = []
-    var showsTitle = false
+/// A dot for each of 10 futures, filled in the tile's accent for those the
+/// money lasts in.
+struct FuturesDots: View {
+    let share: Double
 
-    private struct Row: Identifiable {
-        var id: Int
-        var age: Int
-        var name: String
-        var amount: Double
-    }
-
-    /// Each chapter after the first as it starts, with the money at the end
-    /// of the one before, then the money left.
-    private var rows: [Row] {
-        let all = chapters.chapters.chapters
-        var rows: [Row] = []
-        for index in all.indices.dropFirst() {
-            if let before = chapters.outcomes[index - 1] {
-                rows.append(Row(id: rows.count, age: all[index].ages.lowerBound,
-                                name: chapters.title(of: all[index]), amount: before.median))
+    var body: some View {
+        let filled = Int((min(1, max(0, share)) * 10).rounded())
+        HStack(spacing: 2) {
+            ForEach(0..<10, id: \.self) { index in
+                Circle()
+                    .fill(index < filled ? AnyShapeStyle(.tint) : AnyShapeStyle(.primary.opacity(0.12)))
+                    .frame(width: 9, height: 9)
             }
         }
-        if let last = all.indices.last, let outcome = chapters.outcomes[last] {
-            rows.append(Row(id: rows.count, age: max(endAge, outcome.age), name: "Money left",
-                            amount: outcome.median))
+        .accessibilityHidden(true)
+    }
+}
+
+/// What's typically left at the plan's end, as a tile: "🏁 Left at 95", the
+/// median future's money, in today's money.
+struct DecadesLeftTile: View {
+    let outcome: PlanChaptersModel.Outcome
+    let endAge: Int
+    let currency: CurrencyCode
+
+    var body: some View {
+        ColorTile(tint: .butter) {
+            TileLabel("Left at \(max(endAge, outcome.age))", emoji: "🏁")
+                .privacySensitiveInFeedback()
+            Spacer(minLength: Metrics.s)
+            AmountText(Decimal(wholeNumber: outcome.median), currency: currency, tabular: false)
+                .font(.title2.bold())
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+            Text(verbatim: "typically, in \(PlanMoney.todaysMoney(currency))")
+                .font(.caption)
+                .opacity(0.8)
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.top, 2)
         }
-        return rows
+        .accessibilityElement(children: .combine)
+    }
+}
+
+/// *Along the way* (UI.md, "Decades"): the plan's chapters down a line, a
+/// dot in each one's colour, then its end. Each chapter says when it starts
+/// and its name ("41 · Self-employed"), the money typically there as it
+/// starts, its month's money ("5.000 € take-home, 3.000 € spent, 2.000 €
+/// saved a month"), where 8 in 10 futures are as a bar, and its one-offs.
+/// The end says what's typically left and how often it runs out first.
+struct DecadesAlongTheWay: View {
+    let chapters: PlanChaptersModel
+    let results: PlanResults
+    let words: PlanWords
+
+    @Environment(\.locale) private var locale
+
+    private struct Stop: Identifiable {
+        var id: Int
+        var color: Color
+        var title: String
+        /// The money typically there; `nil` for the first chapter, which starts now.
+        var median: Double?
+        var range: ClosedRange<Double>?
+        var summary: AmountSentence
+        var oneOffs: [AmountSentence]
+        var isEnd = false
     }
 
-    /// The plan's events other than when you stop: "New car 2031 · Inheritance 62".
-    private var events: String? {
-        let labels = markers.filter { $0.kind != .retirement }.map(\.label)
-        return labels.isEmpty ? nil : labels.joined(separator: " · ")
+    private var stops: [Stop] {
+        let all = chapters.chapters.chapters
+        let lines = PlanChapterLine.lines(model: chapters, results: results, words: words)
+        var stops: [Stop] = lines.map { line in
+            let index = line.index
+            let before = index > 0 ? chapters.outcomes[index - 1] : nil
+            let start = index == 0 ? "Now" : "\(all[index].ages.lowerBound)"
+            return Stop(id: index, color: PlanChapterColors.color(line.style), title: "\(start) · \(line.title)",
+                        median: before?.median, range: before.map { $0.low...max($0.low, $0.high) },
+                        summary: line.summary, oneOffs: line.oneOffs)
+        }
+        if let last = all.indices.last, let outcome = chapters.outcomes[last] {
+            var summary = AmountSentence("Left over, typically.")
+            if let success = results.details.focus.success, success < 0.995 {
+                summary += " Runs out first in \(DecadesWords.futures(1 - success)) futures."
+            }
+            stops.append(Stop(id: stops.count, color: Palette.ink,
+                              title: "\(max(results.details.endAge, outcome.age)) · The plan's end",
+                              median: outcome.median, range: nil, summary: summary, oneOffs: [], isEnd: true))
+        }
+        return stops
     }
 
     var body: some View {
+        let stops = self.stops
+        let largest = max(stops.compactMap { $0.range?.upperBound }.max() ?? 0, 1)
         VStack(alignment: .leading, spacing: 0) {
-            if showsTitle {
-                Text("Along the way")
-                    .font(.headline)
-                    .foregroundStyle(Palette.ink)
-                    .accessibilityAddTraits(.isHeader)
-                    .padding(.top, Metrics.l)
-                    .padding(.bottom, Metrics.xs)
+            ForEach(stops) { stop in
+                row(stop, isLast: stop.id == stops.last?.id, largest: largest)
             }
-            HStack {
-                Text(showsTitle ? "Age" : "At")
-                Spacer(minLength: Metrics.s)
-                Text("Typically")
-            }
-            .font(.footnote)
-            .foregroundStyle(Palette.mutedInk)
-            .padding(.top, showsTitle ? Metrics.xs : Metrics.m)
-            .padding(.bottom, 2)
-            .accessibilityHidden(true)
-            ForEach(rows) { row in
-                if row.id > 0 {
-                    Divider()
+        }
+        .padding(.horizontal, Metrics.l)
+        .padding(.vertical, Metrics.xs)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .cardSurface()
+    }
+
+    private func row(_ stop: Stop, isLast: Bool, largest: Double) -> some View {
+        HStack(alignment: .top, spacing: Metrics.m) {
+            VStack(spacing: 2) {
+                Circle()
+                    .fill(stop.isEnd ? AnyShapeStyle(Palette.card) : AnyShapeStyle(stop.color))
+                    .overlay {
+                        if stop.isEnd { Circle().strokeBorder(Palette.ink, lineWidth: 2) }
+                    }
+                    .frame(width: 14, height: 14)
+                    .padding(.top, 16)
+                if !isLast {
+                    Rectangle()
+                        .fill(Palette.border)
+                        .frame(width: 2)
+                        .frame(maxHeight: .infinity)
                 }
-                HStack(alignment: .firstTextBaseline, spacing: 10) {
-                    Text(verbatim: "\(row.age)")
-                        .monospacedDigit()
-                        .foregroundStyle(Palette.mutedInk)
-                        .frame(width: 28, alignment: .leading)
-                        .privacySensitiveInFeedback()
-                    Text(row.name)
+            }
+            .frame(width: 14)
+            .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
+                    Text(stop.title)
+                        .font(.body.weight(.semibold))
                         .foregroundStyle(Palette.ink)
                         .lineLimit(1)
                         .privacySensitiveInFeedback()
                     Spacer(minLength: Metrics.s)
-                    AmountText(Decimal(wholeNumber: row.amount), short: true)
+                    if let median = stop.median {
+                        AmountText(Decimal(wholeNumber: median), currency: words.currency, short: true)
+                            .font(.body.weight(.semibold))
+                            .foregroundStyle(Palette.ink)
+                            .lineLimit(1)
+                            .fixedSize()
+                    }
+                }
+                if !stop.summary.isEmpty {
+                    AmountSentenceText(stop.summary)
+                        .font(.subheadline)
+                        .foregroundStyle(Palette.secondaryInk)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                if let range = stop.range, let median = stop.median {
+                    rangeBar(range, median: median, largest: largest)
+                        .padding(.top, Metrics.xs)
+                    AmountSentenceText("8 in 10 futures: \(amount: short(range.lowerBound)) to "
+                                       + "\(amount: short(range.upperBound))")
+                        .font(.caption)
                         .foregroundStyle(Palette.secondaryInk)
                         .lineLimit(1)
-                        .fixedSize()
-                        .layoutPriority(1)
+                        .minimumScaleFactor(0.8)
                 }
-                .font(.body)
-                .padding(.vertical, 11)
-                .accessibilityElement(children: .combine)
+                ForEach(Array(stop.oneOffs.enumerated()), id: \.offset) { _, oneOff in
+                    AmountSentenceText("🗓️ " + oneOff)
+                        .font(.subheadline)
+                        .foregroundStyle(Palette.ink)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.top, 2)
+                }
             }
-            if showsTitle, let events {
-                Text(events)
-                    .font(.subheadline)
-                    .foregroundStyle(Palette.secondaryInk)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .privacySensitiveInFeedback()
-                    .padding(.top, Metrics.xs)
+            .padding(.vertical, 12)
+            .overlay(alignment: .bottom) {
+                if !isLast { Divider() }
             }
         }
-        .padding(.horizontal, Metrics.l)
-        .padding(.bottom, Metrics.xs)
-        .padding(.bottom, showsTitle ? Metrics.m : 0)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .cardSurface()
+        .accessibilityElement(children: .combine)
+    }
+
+    /// Where 8 in 10 futures are, washed in the accent on a grey track
+    /// from zero to the largest, with a tick at the median.
+    private func rangeBar(_ range: ClosedRange<Double>, median: Double, largest: Double) -> some View {
+        GeometryReader { proxy in
+            let width = proxy.size.width
+            let x = { (value: Double) in CGFloat(max(0, min(1, value / largest))) * width }
+            ZStack(alignment: .leading) {
+                Capsule().fill(Palette.page)
+                Capsule().fill(Palette.accent.opacity(0.28))
+                    .frame(width: max(4, x(range.upperBound) - x(range.lowerBound)))
+                    .offset(x: x(range.lowerBound))
+                Capsule().fill(Palette.accent)
+                    .frame(width: 3, height: 12)
+                    .offset(x: min(max(0, x(median) - 1.5), width - 3))
+            }
+        }
+        .frame(height: 8)
+        .privacySensitiveInFeedback()
+        .accessibilityHidden(true)
+    }
+
+    private func short(_ value: Double) -> String {
+        ShortAmount.text(Decimal(wholeNumber: value), currency: words.currency, locale: locale)
     }
 }

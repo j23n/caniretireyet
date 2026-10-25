@@ -139,6 +139,7 @@ final class LibraryStore {
     @ObservationIgnored private var diskSnapshot: FolderSnapshot?
     @ObservationIgnored private let valuators = Memo<Int, Valuator>()
     @ObservationIgnored private let firstMoneyInOuts = Memo<Int, CalendarDate?>()
+    @ObservationIgnored private let moneyInOutStarts = Memo<Int, CalendarDate?>()
     @ObservationIgnored private let problems = Memo<Int, [LibraryIssue]>()
     /// Counts the attempts at opening a library. An attempt that a newer one
     /// overtook (Try Again, another `open`) drops its results.
@@ -193,6 +194,15 @@ final class LibraryStore {
     /// one; looked up only when the library changes.
     var firstMoneyInOut: CalendarDate? {
         firstMoneyInOuts.value(for: revision) { library.allValuations.lazy.filter(\.hasMoneyInOut).map(\.date).min() }
+    }
+
+    /// Where money in and out starts as Look Back counts it: the date the
+    /// first counted value is measured from (`PlanMoneyInOut.recordedSince`);
+    /// `nil` without any recorded. Looked up only when the library changes.
+    var moneyInOutRecordedSince: CalendarDate? {
+        moneyInOutStarts.value(for: revision) {
+            valuator.moneyInOutSeries(.years, through: asOfDate).recorded.measuredFrom
+        }
     }
 
     /// Whether edits are possible: loaded, not read-only, and not being

@@ -239,6 +239,12 @@ struct PlanProgressTimeline {
         var start: Date { chart.start }
         var end: Date { chart.end }
         var gaps: [PlanYearChart.Gap] { chart.gaps }
+        /// What happened at its check-ins, by date: the answer moving, the
+        /// plan or the calculations changing, saving or markets out of the
+        /// ordinary. Milestones are the Timeline's own.
+        var events: [PlanYearEvent] {
+            (chart.answerEvents + chart.notableEvents).sorted { $0.date < $1.date }
+        }
 
         func expected(on date: Date) -> Double? {
             chart.expected(on: date)

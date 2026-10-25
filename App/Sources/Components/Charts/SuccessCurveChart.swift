@@ -133,16 +133,17 @@ struct SuccessCurveChart: View {
     }
 
     private var summary: ChartSummary {
-        var text = "Chance of success by retirement age, against a \(AmountFormat.percent(threshold, digits: 0)) confidence level."
+        var text = "The share of futures whose money lasts to the plan's end, by the age you stop working, against a "
+            + "\(AmountFormat.percent(threshold, digits: 0)) confidence level."
         if let crossing {
             text += " It reaches the level at \(crossing.age)."
         } else {
             text += " No age reaches it."
         }
         return ChartSummary(
-            title: "Chance of success by retirement age", summary: text, xTitle: "Retirement age",
-            yTitle: "Chance of success",
-            series: [ChartSummary.Series(name: "Chance of success",
+            title: "If you stopped at another age", summary: text, xTitle: "Age you stop working",
+            yTitle: "Futures whose money lasts",
+            series: [ChartSummary.Series(name: "Futures whose money lasts",
                                          points: points.map { ("\($0.age)", $0.success) })],
             describeValue: ChartStyle.spokenShare)
     }

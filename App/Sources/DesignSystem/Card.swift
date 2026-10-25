@@ -41,52 +41,6 @@ extension View {
     }
 }
 
-/// A figure's tile: a title over a figure on a small surface. Inside a
-/// card it's in the page's colour (`.inset`); on the page it's a card of
-/// its own (`.raised`), or one tinted in the accent that invites a tap
-/// (`.accent`: the plan's *What if*).
-///
-///     FigureTile { Text("To go"); Text(amount) }
-///     FigureTile(surface: .raised) { … }
-struct FigureTile<Content: View>: View {
-    enum Surface { case inset, raised, accent }
-
-    var surface: Surface = .inset
-    /// Whether it fills the width and height its row gives it; else it's
-    /// as wide as its content, at least 110 points.
-    var fills = true
-    @ViewBuilder var content: Content
-
-    var body: some View {
-        let shape = RoundedRectangle(cornerRadius: surface == .inset ? Metrics.tileRadius : Metrics.cardRadius,
-                                     style: .continuous)
-        VStack(alignment: .leading, spacing: 2) {
-            content
-        }
-        .padding(.horizontal, Metrics.m)
-        .padding(.vertical, 10)
-        .frame(minWidth: fills ? nil : 110, maxWidth: fills ? .infinity : nil, maxHeight: fills ? .infinity : nil,
-               alignment: .topLeading)
-        .background(background, in: shape)
-        .overlay {
-            switch surface {
-            case .inset: EmptyView()
-            case .raised: shape.strokeBorder(Palette.border, lineWidth: 1)
-            case .accent: shape.strokeBorder(Palette.accent.opacity(0.4), lineWidth: 1)
-            }
-        }
-        .contentShape(shape)
-    }
-
-    private var background: Color {
-        switch surface {
-        case .inset: Palette.page
-        case .raised: Palette.card
-        case .accent: Palette.accent.opacity(0.12)
-        }
-    }
-}
-
 extension Card where Header == SectionHeader<EmptyView> {
     /// A card with a title.
     init(_ title: String, systemImage: String? = nil, @ViewBuilder content: () -> Content) {

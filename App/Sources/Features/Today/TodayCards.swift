@@ -31,8 +31,8 @@ struct TodayMovedCard: View {
         Card {
             VStack(alignment: .leading, spacing: Metrics.s) {
                 Grid(alignment: .leading, horizontalSpacing: Metrics.m, verticalSpacing: Metrics.s) {
-                    bar("You saved", split.saved, largest: largest, color: Palette.accent)
-                    bar("Markets", split.market, largest: largest, color: Palette.accent.opacity(0.45))
+                    bar("💰 You saved", split.saved, largest: largest, color: Palette.accent)
+                    bar("📈 Markets", split.market, largest: largest, color: Palette.accent.opacity(0.45))
                 }
                 if let sentence = TodayText.savedAsTime(saved: split.saved, markets: split.market,
                                                         yearlySpending: yearlySpending) {
@@ -44,8 +44,8 @@ struct TodayMovedCard: View {
                 }
             }
         } header: {
-            SectionHeader(TodayText.movedTitle(from: report.from, to: report.to, today: .today(), saysIt: true,
-                                               locale: locale))
+            SectionHeader("🌤️ " + TodayText.movedTitle(from: report.from, to: report.to, today: .today(),
+                                                       saysIt: true, locale: locale))
                 .privacySensitiveInFeedback()
         }
     }

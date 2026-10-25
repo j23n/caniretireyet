@@ -6,9 +6,10 @@ import Tracker
 
 /// The Timeline at a year (UI.md, "Year"; PROGRESS.md): the chosen year's
 /// chart on a card, your money against what you planned in January, with
-/// ‹ › to step through the years and its verdict in a line; then what you
-/// saved and what markets did, what happened, and the milestones. On the
-/// Mac and iPad the year's figures, what happened and the milestones are
+/// ‹ › to step through the years and its verdict in a line; then tiles for
+/// what you saved and what markets did and why you're ahead or behind, the
+/// year month by month, what happened, and the milestones. On the Mac and
+/// iPad the year's figures, why, what happened and the milestones are
 /// beside the chart, and the year's check-ins a table under it. Your date
 /// at each check-in is on *Look back*.
 struct PlanProgressView: View {
@@ -80,17 +81,30 @@ struct PlanProgressView: View {
                     PlanYearCheckIns(card: card, history: history)
                 } side: {
                     PlanYearFiguresCard(card: card)
-                    PlanYearHappenings(card: card)
+                    if PlanYearWhyTile.shows(card.year) {
+                        PlanYearWhyTile(card: card)
+                    }
+                    happenings(card)
                     milestonesCard(milestones)
                 }
             } else {
                 VStack(alignment: .leading, spacing: Metrics.m) {
                     PlanYearChartCard(timeline: timeline, index: index, select: select)
-                    PlanYearFigurePair(card: card)
-                    PlanYearHappenings(card: card)
+                    PlanYearTiles(card: card)
+                    PlanYearMonthsCard(card: card)
+                    happenings(card)
                     milestonesCard(milestones)
                 }
             }
+        }
+    }
+
+    /// "What happened", over its card.
+    private func happenings(_ card: PlanProgressTimeline.Card) -> some View {
+        VStack(alignment: .leading, spacing: Metrics.s) {
+            SectionHeader("What happened")
+                .padding(.horizontal, Metrics.xs)
+            PlanYearHappenings(card: card)
         }
     }
 
@@ -98,7 +112,7 @@ struct PlanProgressView: View {
     private func milestonesCard(_ milestones: PlanMilestones?) -> some View {
         if let milestones {
             PlanProgressMilestones(milestones: milestones, text: milestoneText, asOf: library.asOfDate,
-                                   hasResults: session.baseResults != nil)
+                                   planName: session.plan?.name ?? "", hasResults: session.baseResults != nil)
         }
     }
 }

@@ -156,7 +156,7 @@ extension View {
 ///
 ///     TileGrid {
 ///         MilestoneTile(…).tileSize(.small)
-///         RetirementAgeTile(…).tileSize(.small)
+///         TwelveMonthsTile(…).tileSize(.small)
 ///         NetWorthTile(…).tileSize(.wide)
 ///     }
 struct TileGrid: Layout {
