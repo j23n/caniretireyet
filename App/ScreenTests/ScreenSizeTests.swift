@@ -29,7 +29,7 @@ struct ScreenSizeTests {
     }
 
     #if os(iOS)
-    static let sizes: [Size] = [
+    nonisolated static let sizes: [Size] = [
         Size(name: "320x568-se-slideover", width: 320, height: 568),
         Size(name: "375x667-se3", width: 375, height: 667),
         Size(name: "402x874-pro", width: 402, height: 874),
@@ -43,7 +43,7 @@ struct ScreenSizeTests {
         Size(name: "1032x1376-ipad-13", width: 1032, height: 1376, regular: true),
     ]
     #else
-    static let sizes: [Size] = [
+    nonisolated static let sizes: [Size] = [
         Size(name: "900x600-min", width: 900, height: 600),
         Size(name: "1440x900", width: 1440, height: 900),
         Size(name: "2200x1300-large", width: 2200, height: 1300),
