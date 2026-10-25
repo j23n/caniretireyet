@@ -461,17 +461,17 @@ struct AheadGapLabel: View {
     var body: some View {
         let words = PlanWords(currency: currency, locale: locale)
         let side = gap >= 0 ? "ahead" : "behind"
-        let sentence: AmountSentence
-        if let against {
-            sentence = "\(words.unsigned(gap)) \(side) of \(against)"
-        } else {
-            sentence = "\(words.unsigned(gap)) \(side) ›"
-        }
-        AmountSentenceText(sentence)
+        AmountSentenceText(Self.sentence(gap: gap, side: side, against: against, words: words))
             .font(.subheadline.weight(.semibold))
             .monospacedDigit()
             .lineLimit(1)
             .foregroundStyle(gap >= 0 ? Palette.positive : Palette.orangeStroke)
+    }
+
+    /// "21.572 € ahead ›", or "21.572 € ahead of your January plan".
+    private static func sentence(gap: Decimal, side: String, against: String?, words: PlanWords) -> AmountSentence {
+        guard let against else { return "\(words.unsigned(gap)) \(side) ›" }
+        return "\(words.unsigned(gap)) \(side) of \(against)"
     }
 }
 
