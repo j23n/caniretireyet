@@ -90,7 +90,7 @@ struct WidgetMessage: View {
 
 /// The words for the empty states.
 enum WidgetEmpty {
-    static let noSnapshot = "Open Can I Retire Yet? to see this here."
+    static let noSnapshot = "Open Last Monday to see this here."
     static let noCheckIn = "Your net worth appears here after your first check-in."
     static let noAnswer = "Your main plan's answer appears here after your next check-in, or once you calculate it."
 }

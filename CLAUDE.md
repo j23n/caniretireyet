@@ -1,9 +1,11 @@
 @.apple-ci/claude/j23n.md
 @.apple-ci/claude/apps.md
 
-# Can I Retire Yet
+# Last Monday
 
 Guidance for engineers and AI sessions working in this repository, after the shared j23n rules above. Start with [docs/PLAN.md](docs/PLAN.md); the file format is defined by the JSON Schemas in [docs/schema](docs/schema/).
+
+**Names.** People see the app as *Last Monday*; "Can I retire yet?" is the question it answers and can appear in copy. The code keeps the name CanIRetireYet: the repository, the Xcode targets, scheme and products (`CanIRetireYet`), the bundle IDs, iCloud container and App Group (`com.j23n.caniretireyet`), the URL scheme and in-app purchase IDs, and the `retire` CLI. Never rename those: signing, people's iCloud data, placed widgets and purchases depend on them.
 
 ## Build and test
 

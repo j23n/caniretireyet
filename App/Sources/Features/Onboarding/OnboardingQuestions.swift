@@ -9,7 +9,7 @@ struct OnboardingWelcome: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Metrics.l) {
             OnboardingCalendarPage(date: nil)
-            Text("Can I Retire Yet?")
+            Text("Last Monday")
                 .font(.largeTitle.bold())
                 .foregroundStyle(Palette.ink)
                 .accessibilityAddTraits(.isHeader)

@@ -38,9 +38,9 @@ extension LibraryFolder {
     /// The text of `README.md`: what the folder is and how its files are
     /// organised, for someone who opens it in Files, Finder or a text editor.
     public static let readme = """
-        # Can I Retire Yet? library
+        # Last Monday library
 
-        This folder holds everything the app "Can I Retire Yet?" knows about your \
+        This folder holds everything the app Last Monday knows about your \
         money: your accounts, what they were worth at each check-in, the prices \
         and exchange rates used, and your retirement plans. The apps on your iPhone \
         and your Mac both read and write this folder through iCloud Drive.

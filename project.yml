@@ -1,4 +1,4 @@
-# XcodeGen spec for the Can I Retire Yet? app (iPhone, iPad and Mac), at the
+# XcodeGen spec for the Last Monday app (iPhone, iPad and Mac), at the
 # repository's root, so `xcodegen` here (or `make project`) writes the project:
 #
 #   brew install xcodegen
@@ -102,10 +102,10 @@ targets:
         ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS: NO
         # The icon set in Assets.xcassets, made from the SVGs in App/Design/AppIcon.
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
-        # Info.plist: the keys in App/Config/Info.plist (iCloud Drive folder) plus generated ones.
+        # Info.plist: the keys in App/Config/Info.plist (the app menu's name, the iCloud Drive folder) plus generated ones.
         INFOPLIST_FILE: App/Config/Info.plist
         GENERATE_INFOPLIST_FILE: YES
-        INFOPLIST_KEY_CFBundleDisplayName: "Can I Retire Yet?"
+        INFOPLIST_KEY_CFBundleDisplayName: "Last Monday"
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.finance
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
@@ -189,7 +189,7 @@ targets:
         # Info.plist: the extension point and the App Group, plus generated keys.
         INFOPLIST_FILE: App/Config/Widgets-Info.plist
         GENERATE_INFOPLIST_FILE: YES
-        INFOPLIST_KEY_CFBundleDisplayName: "Can I Retire Yet?"
+        INFOPLIST_KEY_CFBundleDisplayName: "Last Monday"
         # The App Group on both platforms; the Mac also gets the sandbox.
         CODE_SIGN_ENTITLEMENTS: App/Config/CanIRetireYetWidgets.entitlements
         "CODE_SIGN_ENTITLEMENTS[sdk=macosx*]": App/Config/CanIRetireYetWidgets-macOS.entitlements

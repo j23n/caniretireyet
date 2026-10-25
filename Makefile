@@ -1,4 +1,4 @@
-# Can I Retire Yet?: every command a contributor, an agent and CI run. The targets follow the
+# Last Monday: every command a contributor, an agent and CI run. The targets follow the
 # build contract the j23n apps share (j23n/apple-ci); .apple-ci/apple.mk is a copy of its rules
 # (`make update-apple-ci` refreshes it). On Linux, put /opt/swift/usr/bin on the PATH first
 # (CLAUDE.md).

@@ -3,7 +3,7 @@ import Foundation
 /// Where a library folder is kept.
 public enum LibraryLocationKind: String, Hashable, Sendable, Codable, CaseIterable, CustomStringConvertible {
     /// The `Documents/` folder of the app's iCloud container, shown as
-    /// "Can I Retire Yet" in iCloud Drive. Synced between devices.
+    /// "Last Monday" in iCloud Drive. Synced between devices.
     case iCloud
     /// A folder in the app's Application Support on this device. Not synced;
     /// it can be moved to iCloud later.

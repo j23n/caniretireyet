@@ -231,7 +231,7 @@ struct LastMondayInline: View {
     }
 
     private var text: String {
-        guard let words = entry.lastMondayWords(locale: locale) else { return "Can I Retire Yet?" }
+        guard let words = entry.lastMondayWords(locale: locale) else { return "Open Last Monday" }
         return words.lastMonday == nil ? words.title : "Last Monday \(words.title)"
     }
 }

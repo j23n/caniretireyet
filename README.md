@@ -1,9 +1,9 @@
-# Can I Retire Yet?
+# Last Monday
 
 A personal net-worth tracker and retirement planner for iPhone, iPad and Mac.
 
 - **Track.** Once a month, record what each account and holding is worth: cash, ETFs, crypto, gold, pension funds, property and debts. You can open and close accounts without losing their history.
-- **Plan.** Start from your real numbers and project forward: savings, spending, pensions and windfalls, with thousands of simulated markets. The model is deliberately simple, so every year can be checked by hand: you enter income from work and pensions after tax, a tax rate on investment gains and income, and optionally a wealth tax; accounts such as a pension fund can be locked until an age. It answers the question in its name: *can I retire yet, and if not, when?* Results are estimates from a simplified model, not financial or tax advice. *Export Calculations…* writes every calculation behind an answer, anonymized if you like, to check it or give it to someone else.
+- **Plan.** Start from your real numbers and project forward: savings, spending, pensions and windfalls, with thousands of simulated markets. The model is deliberately simple, so every year can be checked by hand: you enter income from work and pensions after tax, a tax rate on investment gains and income, and optionally a wealth tax; accounts such as a pension fund can be locked until an age. It answers one question: *can I retire yet, and if not, when?* Results are estimates from a simplified model, not financial or tax advice. *Export Calculations…* writes every calculation behind an answer, anonymized if you like, to check it or give it to someone else.
 - **Your data is files.** Everything is stored as plain JSON files in a folder in iCloud Drive. The app on each device (iPhone, iPad, Mac) reads and writes that folder, and iCloud keeps it in sync. There is no server, no account to create, and no lock-in.
 
 **Status: MVP.** Tracking (accounts, check-ins, history, trades), import from spreadsheets, prices, the planner, and the iPhone, iPad and Mac app with iCloud sync. The `retire` command-line tool does the same from a terminal. Start with [docs/PLAN.md](docs/PLAN.md); to build and contribute, see [CLAUDE.md](CLAUDE.md).
@@ -29,7 +29,7 @@ You need a Mac with Xcode 26 and an Apple Developer account (for iCloud).
    ```
 
    Git ignores the file and every generated project reads it (`App/Config/Project.xcconfig`), so Xcode doesn't ask for your team after each `xcodegen`, and a pull never touches it. Each build's build number is the number of commits (`make build-number`; j23n/apple-ci's README, "Build numbers"). In Xcode's *Signing & Capabilities*, check that *iCloud → iCloud Documents* lists the container `iCloud.<bundle id>`; the first build with automatic signing registers it.
-3. **Run it** on the Mac, your iPhone and your iPad: one app covers all three (in Xcode, pick the device as the run destination). Sign in to the same iCloud account with iCloud Drive on. The first launch creates the library (or finds the one the other device created) in iCloud Drive → *Can I Retire Yet*.
+3. **Run it** on the Mac, your iPhone and your iPad: one app covers all three (in Xcode, pick the device as the run destination). Sign in to the same iCloud account with iCloud Drive on. The first launch creates the library (or finds the one the other device created) in iCloud Drive → *Last Monday*.
 4. **Check the price sources once.** The providers are tested against recorded responses; this checks the live services from your network:
 
    ```sh
