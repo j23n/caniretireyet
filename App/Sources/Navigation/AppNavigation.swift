@@ -99,9 +99,9 @@ final class AppNavigation {
     /// The pages pushed on Today's stack (iPhone): the accounts (a
     /// ``TodayPage``) and an account's detail (an `AccountID`).
     var todayPath = NavigationPath()
-    /// A year for So far to open at, once (``showSoFar(year:)``); `nil`
-    /// keeps the year it shows.
-    var soFarYear: Int?
+    /// Where So far opens, once (``showSoFar(year:)``); `nil` keeps the
+    /// year it shows.
+    var soFarOpening: SoFarOpening?
     /// The plan Ahead shows; `nil` for the main (or first) plan.
     var selectedPlan: PlanID?
     var sheet: AppSheet?
@@ -155,9 +155,9 @@ final class AppNavigation {
         sidebarSelection = .today
     }
 
-    /// Shows So far, at `year` when one is given.
+    /// Shows So far at `year`, or at the latest year.
     func showSoFar(year: Int? = nil) {
-        soFarYear = year
+        soFarOpening = SoFarOpening(year: year)
         tab = .soFar
         sidebarSelection = .soFar
     }
@@ -288,4 +288,11 @@ final class AppNavigation {
     private var isImporting: Bool {
         if case .importFile? = sheet { true } else { false }
     }
+}
+
+/// A request for So far to open at a year, `nil` for the latest; each
+/// request is new, so asking for the same year twice opens it twice.
+struct SoFarOpening: Equatable {
+    var year: Int?
+    let id = UUID()
 }

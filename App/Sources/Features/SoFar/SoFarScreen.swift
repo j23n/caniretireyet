@@ -125,10 +125,10 @@ struct SoFarView: View {
                 }
             }
         }
-        .onChange(of: navigation.soFarYear, initial: true) { _, year in
-            guard let year else { return }
-            selectedYear = year
-            navigation.soFarYear = nil
+        .onChange(of: navigation.soFarOpening, initial: true) { _, opening in
+            guard let opening else { return }
+            selectedYear = opening.year
+            navigation.soFarOpening = nil
         }
     }
 
