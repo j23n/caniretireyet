@@ -6,14 +6,14 @@ import Tracker
 
 /// The Timeline looking back (UI.md, "Look Back"; PROGRESS.md, "Trends"):
 /// how you've actually been doing, from your own records, over the
-/// accounts' time span. *Last 12 months* (the savings rate and what was
-/// saved, two small cards), *Savings rate by month* and *Money in and out*
-/// (a row that opens it, with the rest of the 12 months) are built on
-/// money in and out, with the plan as reference lines, and fold into one
-/// card while none is recorded; *Your last Monday, check-in by check-in* is
-/// the plan's answer at each check-in. The grain and the span are under the
-/// zoom on iPhone, and in the toolbar on the Mac and iPad
-/// (``PlanTrendsControls``), where the two charts are side by side. While
+/// accounts' time span. *Last 12 months* (the savings rate, what was saved,
+/// what came in and what was spent, four tiles), *Savings rate by month*
+/// and *Money in and out* are built on money in and out, with the plan as
+/// reference lines, and fold into one card while none is recorded; *Your
+/// last Monday, check-in by check-in* is the plan's answer at each
+/// check-in. The grain and the span are under the zoom on iPhone, and in
+/// the toolbar on the Mac and iPad (``PlanTrendsControls``), where the two
+/// money charts are side by side. While
 /// a savings or investment account's values are typed, one card says
 /// looking back is off instead (``PlanTrendsOffCard``).
 struct PlanTrendsView: View {
@@ -24,7 +24,6 @@ struct PlanTrendsView: View {
     @Environment(\.locale) private var locale
     @AppStorage("overview.range") private var range: HistoryRange = .threeYears
     @AppStorage(PlanTrends.grainKey) private var storedGrain: PeriodGrain?
-    @State private var showsMoney = false
 
     private var isWide: Bool { layout.isWide }
 
@@ -58,17 +57,18 @@ struct PlanTrendsView: View {
                     PlanMoneyInOutEmptyCard()
                     answerCard(model.history)
                 } else {
-                    PlanLastTwelveMonthsFigures(year: model.lastTwelveMonths)
+                    PlanLastTwelveMonthsTiles(year: model.lastTwelveMonths,
+                                              plannedSpending: reference.spendingWhileWorking)
                     if isWide {
                         EqualColumns(spacing: Metrics.l) {
                             savingsRateCard(model.money, planRate: reference.savingsRate)
-                            answerCard(model.history)
+                            moneyCard(model.money, planSpending: reference.spending(per: model.money.grain))
                         }
                     } else {
                         savingsRateCard(model.money, planRate: reference.savingsRate)
-                        answerCard(model.history)
+                        moneyCard(model.money, planSpending: reference.spending(per: model.money.grain))
                     }
-                    moneyRow
+                    answerCard(model.history)
                 }
             }
             .padding(gutter)
@@ -76,43 +76,6 @@ struct PlanTrendsView: View {
             .frame(maxWidth: .infinity)
         }
         .background(Palette.page)
-        .sheet(isPresented: $showsMoney) {
-            moneySheet(model, reference: reference)
-        }
-    }
-
-    /// *Money in and out*, a row that opens it.
-    private var moneyRow: some View {
-        CardRows {
-            Button {
-                showsMoney = true
-            } label: {
-                CardRow("Money in and out", opens: true) {
-                    EmptyView()
-                }
-            }
-            .buttonStyle(.plain)
-        }
-    }
-
-    /// Money in and out in full: the last 12 months' four figures against
-    /// the 12 before and the plan's spending, then the chart.
-    private func moneySheet(_ model: PlanTrends, reference: PlanMoneyReference) -> some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: Metrics.l) {
-                    PlanLastTwelveMonthsCard(year: model.lastTwelveMonths,
-                                             plannedSpending: reference.spendingWhileWorking)
-                    moneyCard(model.money, planSpending: reference.spending(per: model.money.grain))
-                }
-                .padding(Metrics.l)
-            }
-            .background(Palette.page)
-            .sheetTitle("Money in and out") { showsMoney = false }
-        }
-        #if os(macOS)
-        .frame(minWidth: 560, minHeight: 600)
-        #endif
     }
 
     /// The plan's references for money in and out on the latest check-in:
