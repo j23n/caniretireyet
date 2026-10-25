@@ -7,7 +7,7 @@ import Planner
 // `PlanResults`. Plain Swift, so it's tested without SwiftUI; amounts are
 // `AmountSentence`s, so they hide with the eye.
 
-/// One of the key numbers, a row: "You could spend from 55 · 2.350 € a
+/// One of the key numbers, a row: "Could spend from 55 · 2.350 € a
 /// month".
 struct PlanKeyNumber: Hashable, Sendable, Identifiable {
     var label: String
@@ -88,28 +88,26 @@ enum PlanResultsText {
 
     // MARK: Key numbers
 
-    /// The key numbers under the chapters, a row each: what you could spend
-    /// a month from the age the charts are for, and when you could stop if
-    /// you saved nothing more. With `more` (the Mac and iPad, where they
-    /// have a column) also when saving at last year's pace, what retiring
-    /// today would need, the money at the plan's end and the taxes over a
-    /// lifetime, typically, and how often the money runs out before a
-    /// locked account opens. In today's money.
-    static func keyNumbers(_ results: PlanResults, words: PlanWords, more: Bool = false) -> [PlanKeyNumber] {
+    /// The key numbers in the Mac's and iPad's column, a row each: what
+    /// you could spend a month from the age the charts are for, when you
+    /// could stop if you saved nothing more, or at last year's pace, what
+    /// retiring today would need, the money at the plan's end and the taxes
+    /// over a lifetime, typically, and how often the money runs out before
+    /// a locked account opens. In today's money.
+    static func keyNumbers(_ results: PlanResults, words: PlanWords) -> [PlanKeyNumber] {
         let headline = results.headline
         let details = results.details
         var rows: [PlanKeyNumber] = []
         if let spending = headline.sustainableSpending {
             let age = details.sustainableSpendingAge ?? headline.targetAge
-            let label = age.map { more ? "Could spend from \($0)" : "You could spend from \($0)" } ?? "You could spend"
+            let label = age.map { "Could spend from \($0)" } ?? "Could spend"
             rows.append(PlanKeyNumber(label: label, value: "\(words.monthly(spending)) a month"))
         }
         if let coast = details.agesWithout.coast {
-            rows.append(PlanKeyNumber(label: more ? "Saving nothing more" : "If you stopped saving now",
+            rows.append(PlanKeyNumber(label: "Saving nothing more",
                                       value: AmountSentence(coast.earliestAge.map { "stop at \($0)" } ?? "no age works"),
                                       personalLabel: false))
         }
-        guard more else { return rows }
         if let pace = details.agesWithout.pace {
             rows.append(PlanKeyNumber(label: "Saving at last year's pace",
                                       value: AmountSentence(pace.earliestAge.map { "stop at \($0)" } ?? "no age works"),

@@ -409,8 +409,14 @@ struct PlanAnswerCard: View {
                     .padding(.top, Metrics.xs)
             }
             if let results = state.results {
-                PlanSuccessChart(session: session, results: results)
+                Text(verbatim: "If you stopped at another age: how many of 10 futures keep your money lasting to "
+                     + "\(results.details.endAge)")
+                    .font(.subheadline)
+                    .foregroundStyle(Palette.secondaryInk)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .privacySensitiveInFeedback()
                     .padding(.top, Metrics.s)
+                PlanSuccessChart(session: session, results: results)
             }
         }
         .padding(.horizontal, Metrics.l)

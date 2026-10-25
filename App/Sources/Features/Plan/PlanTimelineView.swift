@@ -3,13 +3,14 @@ import Planner
 import SwiftUI
 
 /// The plan (UI.md, "Plan"). On iPhone: the header card (the plan menu,
-/// your date and *Levers*, which shows the levers under it), your chapters
-/// on one card, each opening in a sheet, then the key numbers with
-/// *Assumptions*. On the Mac and iPad: a header row with the plan's
-/// commands; the levers beside your date and the chance by age; the
-/// chapters as a table with the chosen one's words and settings under it;
-/// and beside them, when the page is wide, the key numbers and the
-/// assumptions.
+/// your date and *Levers*, which shows the levers under it), tiles for what
+/// you could spend, saving nothing more and the ages you could stop at,
+/// your chapters on one card, each opening in a sheet, what changes along
+/// the way with *Add*, then *Assumptions*. On the Mac and iPad: a header
+/// row with the plan's commands; the levers beside your date and the
+/// chance by age; the chapters as a table with the chosen one's words and
+/// settings under it; and beside them, when the page is wide, the key
+/// numbers and the assumptions.
 ///
 /// The plan calculates on its own: when it or the library changes, its
 /// results run again in the background, and the levers' what-if runs as
@@ -113,16 +114,21 @@ struct PlanTimelineView: View {
             }
             PlanResultWarnings(session: session)
             if session.plan != nil {
+                if let results = state.results {
+                    PlanResultTiles(session: session, results: results, milestones: derived.milestones)
+                }
                 chapterRows(state: state, derived: derived)
-                sectionTitle("Key numbers")
-                PlanKeyNumbersCard(session: session, onAssumptions: { showsAssumptions = true })
+                sectionTitle("Assumptions")
+                PlanAssumptionRows(session: session, onAssumptions: { showsAssumptions = true },
+                                   onTargetMix: { showsTargetMix = true })
                 disclaimer
             }
         }
     }
 
-    /// "Your four chapters" with *Add*, and a row per chapter; a row opens
-    /// the chapter in a sheet.
+    /// "Your life in chapters" and a row per chapter, which opens it in a
+    /// sheet; then *What changes along the way*, the inputs the chapters
+    /// follow from, with *Add*.
     @ViewBuilder
     private func chapterRows(state: PlanResultsState, derived: PlanDerived) -> some View {
         @Bindable var session = session
@@ -131,29 +137,72 @@ struct PlanTimelineView: View {
             if model.chapters.chapters.isEmpty {
                 PlanNoChapters(plan: $session.editablePlan)
             } else {
-                HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
-                    sectionTitle(PlanTimelineText.chapters(model.chapters.chapters.count))
-                    Spacer(minLength: Metrics.s)
-                    PlanAddMenu(model: model, plan: session.editablePlan, editing: $editing) {
-                        Text("Add")
-                            .font(.body)
-                            .foregroundStyle(Palette.accent)
-                            .padding(.vertical, Metrics.s)
-                            .contentShape(Rectangle())
-                    }
-                    .menuStyle(.button)
-                    .buttonStyle(.plain)
-                    .padding(.horizontal, Metrics.xs)
+                VStack(alignment: .leading, spacing: 2) {
+                    sectionTitle("Your life in chapters")
+                    Text("They follow from your income, your pensions and the age you stop.")
+                        .font(.footnote)
+                        .foregroundStyle(Palette.secondaryInk)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.horizontal, Metrics.xs)
                 }
                 let lines = PlanChapterLine.lines(model: model, results: state.results, words: words)
                 PlanChapterRows(lines: lines) { index in
                     self.session.selectChapter(index, in: model)
                     showsChapter = true
                 }
+                changes(model)
             }
             outside(model)
         } else {
             PlanChaptersNeedBirthDate()
+        }
+    }
+
+    /// *What changes along the way*: the work, pensions, other income,
+    /// contributions, one-offs and later spending the chapters follow from,
+    /// in the order the chapters meet them, each opening its sheet; *Add*
+    /// for another. The chapters redraw around them.
+    @ViewBuilder
+    private func changes(_ model: PlanChaptersModel) -> some View {
+        @Bindable var session = session
+        let items = model.chapters.chapters.flatMap(\.items).filter(Self.isChange)
+        HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
+            sectionTitle("What changes along the way")
+            Spacer(minLength: Metrics.s)
+            PlanAddMenu(model: model, plan: session.editablePlan, editing: $editing) {
+                Text("Add")
+                    .font(.body)
+                    .foregroundStyle(Palette.accent)
+                    .padding(.vertical, Metrics.s)
+                    .contentShape(Rectangle())
+            }
+            .menuStyle(.button)
+            .buttonStyle(.plain)
+            .disabled(!session.canEdit)
+            .padding(.horizontal, Metrics.xs)
+        }
+        let rows = PlanChapterSettings.rows(for: items, model: model, issues: session.inputIssues, words: words,
+                                            namesWork: true)
+        if !rows.isEmpty {
+            PlanSettingsList(rows: rows, plan: $session.editablePlan, model: model, canEdit: session.canEdit,
+                             onSheet: show)
+        }
+        Text("Add income, a pension, a change in spending, saving into an account or a one-off. The chapters "
+             + "redraw around them.")
+            .font(.footnote)
+            .foregroundStyle(Palette.secondaryInk)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.horizontal, Metrics.xs)
+    }
+
+    /// Whether an input changes the plan along the way: work, pensions,
+    /// other income, contributions, one-offs and later spending; not the
+    /// spending, the target mix, when work stops or the end, which every
+    /// plan has.
+    private static func isChange(_ item: PlanChapter.Item) -> Bool {
+        switch item {
+        case .work, .pension, .income, .contribution, .event, .spendingPhase: true
+        case .retirement, .workingSpending, .retiredSpending, .targetMix, .targetMixStep, .end: false
         }
     }
 
@@ -293,7 +342,7 @@ struct PlanTimelineView: View {
         }
     }
 
-    /// A section's title on the page: "Your four chapters", "Key numbers".
+    /// A section's title on the page: "Your life in chapters", "Assumptions".
     private func sectionTitle(_ title: String) -> some View {
         Text(title)
             .font(.title2.weight(.bold))
