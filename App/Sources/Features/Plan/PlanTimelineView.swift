@@ -3,14 +3,12 @@ import Planner
 import SwiftUI
 
 /// The plan (UI.md, "Plan"). On iPhone: the header card (the plan menu,
-/// your date and *Levers*, which shows the levers under it), tiles for what
-/// you could spend, saving nothing more and the ages you could stop at,
-/// your chapters on one card, each opening in a sheet, what changes along
-/// the way with *Add*, then *Assumptions*. On the Mac and iPad: a header
-/// row with the plan's commands; the levers beside your date and the
-/// chance by age; the chapters as a table with the chosen one's words and
-/// settings under it; and beside them, when the page is wide, the key
-/// numbers and the assumptions.
+/// your date and *Levers*, which shows the levers under it), the key
+/// numbers as tiles (``PlanResultTiles``), your chapters on one card, each
+/// opening in a sheet, what changes along the way with *Add*, then
+/// *Assumptions*. On the Mac and iPad the same page, with a header row and
+/// its ••• menu in place of the header card, the levers beside your date,
+/// and the assumptions in one sentence.
 ///
 /// The plan calculates on its own: when it or the library changes, its
 /// results run again in the background, and the levers' what-if runs as
@@ -29,21 +27,8 @@ struct PlanTimelineView: View {
     @State private var showsAssumptions = false
     @State private var showsLevers = false
     @State private var showsChapter = false
-    @State private var pageWidth: CGFloat = 0
 
     private var gutter: CGFloat { layout.gutter }
-
-    /// The width the page's content has.
-    private var contentWidth: CGFloat {
-        max(0, min(pageWidth, Metrics.wideReadableWidth) - 2 * gutter)
-    }
-
-    /// Whether the key numbers and the assumptions have a column beside
-    /// the chapters.
-    private var hasInspector: Bool { contentWidth >= 900 }
-
-    /// The inspector's width, when it has a column.
-    private static let inspectorWidth: CGFloat = 280
 
     private var words: PlanWords {
         PlanWords(currency: session.currency, locale: locale)
@@ -73,7 +58,6 @@ struct PlanTimelineView: View {
             .frame(maxWidth: layout.isWide ? Metrics.wideReadableWidth : Metrics.readableWidth, alignment: .leading)
             .frame(maxWidth: .infinity)
         }
-        .measuringWidth($pageWidth)
         .background(Palette.page)
         .task(id: AutoRun(revision: library.revision, upToDate: session.baseIsUpToDate, running: state.isRunning)) {
             // A moment's pause, so a burst of edits runs once.
@@ -212,112 +196,59 @@ struct PlanTimelineView: View {
     private func wide(state: PlanResultsState, derived: PlanDerived) -> some View {
         VStack(alignment: .leading, spacing: Metrics.m) {
             PlanWideHeader(session: session, actions: actions, onAssumptions: { showsAssumptions = true },
-                           onTargetMix: { showsTargetMix = true })
+                           onTargetMix: { showsTargetMix = true },
+                           onFlexibleSpending: { editing = .flexibleSpending(session.editablePlan.spending) })
             PlanResultsBanners(session: session)
             tryAgain(state: state)
             PlanResultWarnings(session: session)
             if session.plan != nil {
-                if hasInspector {
+                ViewThatFits(in: .horizontal) {
                     HStack(alignment: .top, spacing: Metrics.m) {
-                        wideMain(state: state, derived: derived)
-                            .frame(maxWidth: .infinity, alignment: .topLeading)
-                        inspector
-                            .frame(width: Self.inspectorWidth)
+                        PlanAnswerCard(session: session)
+                            .frame(minWidth: Self.leversWidth)
+                        PlanLeversCard(session: session)
+                            .frame(width: Self.leversWidth)
                     }
-                } else {
-                    wideMain(state: state, derived: derived)
-                    inspector
+                    .fixedSize(horizontal: false, vertical: true)
+                    VStack(alignment: .leading, spacing: Metrics.m) {
+                        PlanAnswerCard(session: session)
+                        PlanLeversCard(session: session)
+                    }
                 }
+                if let results = state.results {
+                    PlanResultTiles(session: session, results: results, milestones: derived.milestones)
+                }
+                chapterRows(state: state, derived: derived)
+                assumptionsLine
                 disclaimer
             }
         }
     }
 
-    private var inspector: some View {
-        PlanInspector(session: session, onAssumptions: { showsAssumptions = true },
-                      onTargetMix: { showsTargetMix = true })
-    }
+    /// The levers' width beside the answer, and the narrowest the answer
+    /// gets beside them before the levers go under it.
+    private static let leversWidth: CGFloat = 290
 
-    /// The levers beside the answer, then the chapters.
+    /// What every chapter assumes, in one sentence, with *Assumptions…*.
     @ViewBuilder
-    private func wideMain(state: PlanResultsState, derived: PlanDerived) -> some View {
-        VStack(alignment: .leading, spacing: Metrics.m) {
-            HStack(alignment: .top, spacing: Metrics.m) {
-                PlanLeversCard(session: session)
-                    .frame(width: 290)
-                PlanAnswerCard(session: session)
-            }
-            .fixedSize(horizontal: false, vertical: true)
-            chapterTable(state: state, derived: derived)
-        }
-    }
-
-    /// The chapters' table, then the chosen chapter's words and settings.
-    @ViewBuilder
-    private func chapterTable(state: PlanResultsState, derived: PlanDerived) -> some View {
-        @Bindable var session = session
-        let issues = session.inputIssues
-        PlanUnplacedIssues(issues: issues)
-        if let model = derived.chapters, let timeline = derived.timeline {
-            if model.chapters.chapters.isEmpty {
-                PlanNoChapters(plan: $session.editablePlan)
-            } else {
-                let count = model.chapters.chapters.count
-                let selected = min(session.selectedChapter(in: model) ?? 0, count - 1)
-                let tableWidth = contentWidth - (hasInspector ? Self.inspectorWidth + Metrics.m : 0) - 2 * Metrics.l
-                PlanChapterTable(lines: PlanChapterLine.lines(model: model, results: state.results, words: words),
-                                 selection: selected, words: words, showsOneOffs: tableWidth >= 660,
-                                 onSelect: { self.session.selectChapter($0, in: model) }) {
-                    PlanAddMenu(model: model, plan: session.editablePlan, editing: $editing) {
-                        Text("Add")
-                    }
+    private var assumptionsLine: some View {
+        if let plan = session.plan {
+            let summaries = PlanInputSummaries(plan: plan, library: library.library, currency: session.currency,
+                                               locale: locale)
+            let sentence = summaries.rows.map { AmountSentence("\($0.label) ") + $0.value }.joined(separator: " · ")
+            HStack(alignment: .firstTextBaseline, spacing: Metrics.m) {
+                AmountSentenceText(sentence)
+                    .font(.footnote)
+                    .foregroundStyle(Palette.secondaryInk)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                Button("Assumptions…") { showsAssumptions = true }
+                    .buttonStyle(.bordered)
                     .fixedSize()
-                    Button("Flexible Spending…") {
-                        editing = .flexibleSpending(self.session.editablePlan.spending)
-                    }
-                    .disabled(!session.canEdit)
-                    Button("Taxes…") { showsAssumptions = true }
-                }
-                .buttonStyle(.bordered)
-                chapterHeading(model, index: selected, count: count)
-                PlanChapterDetail(
-                    model: model, index: selected,
-                    story: PlanChapterStory(chapterAt: selected, in: model, results: state.results, words: words),
-                    plan: $session.editablePlan, words: words, issues: issues, canEdit: session.canEdit,
-                    editing: $editing,
-                    milestones: timeline.cards.indices.contains(selected) ? timeline.cards[selected].milestones : [],
-                    milestoneText: PlanMilestoneText(currency: session.currency, locale: locale),
-                    columns: contentWidth >= 640,
-                    onOpen: show, onUsePlanAge: { self.session.selectFocus(nil) })
             }
-            outside(model)
-        } else {
-            PlanChaptersNeedBirthDate()
+            .padding(.horizontal, Metrics.xs)
+            .padding(.top, Metrics.s)
         }
-    }
-
-    /// The chosen chapter's number, name, span and length, with ‹ ›.
-    private func chapterHeading(_ model: PlanChaptersModel, index: Int, count: Int) -> some View {
-        let chapter = model.chapters.chapters[index]
-        return HStack(alignment: .center, spacing: Metrics.s) {
-            PlanChapterBadge(number: index + 1, style: model.style(of: chapter))
-            Text(model.title(of: chapter))
-                .font(.title3.weight(.bold))
-                .foregroundStyle(Palette.ink)
-                .lineLimit(1)
-                .accessibilityAddTraits(.isHeader)
-                .privacySensitiveInFeedback()
-            Text("\(model.agesAndYears(ofChapterAt: index)) · \(model.length(ofChapterAt: index))")
-                .font(.subheadline)
-                .monospacedDigit()
-                .foregroundStyle(Palette.secondaryInk)
-                .lineLimit(1)
-                .privacySensitiveInFeedback()
-            Spacer(minLength: Metrics.s)
-            PlanStepButtons(index: index, count: count, select: { session.selectChapter($0, in: model) })
-                .controlSize(.small)
-        }
-        .padding(.top, Metrics.s)
     }
 
     // MARK: Shared
