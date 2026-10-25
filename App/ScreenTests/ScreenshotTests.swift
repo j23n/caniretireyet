@@ -73,9 +73,10 @@ struct ScreenshotTests {
     }
 
     /// An account whose name and institution are longer than fit beside
-    /// its value: they truncate to a line each, and its value stays on one
-    /// line in the column of the others'. On iPhone the accounts list; on
-    /// the Mac *All Accounts* and the sidebar's accounts.
+    /// its value: the institution goes under the name and both wrap, and
+    /// its value stays on one line in the column of the others'. On iPhone
+    /// the accounts list; on the Mac *All Accounts* and the sidebar's
+    /// accounts.
     @Test func accountsWithALongName() async throws {
         try await keep("accounts-long-name", .longAccountName, .accounts)
     }

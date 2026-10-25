@@ -44,6 +44,14 @@ struct SidebarRoot: View {
     @Environment(AppPreferences.self) private var preferences
     @Environment(PlanStore.self) private var plans
 
+    /// The sidebar's width: wider on iPad, whose larger type would otherwise
+    /// leave a group's or an account's name little room beside its amount.
+    #if os(macOS)
+    private static let sidebarWidth: CGFloat = 270
+    #else
+    private static let sidebarWidth: CGFloat = 310
+    #endif
+
     var body: some View {
         NavigationSplitView {
             List(selection: selection) {
@@ -79,7 +87,7 @@ struct SidebarRoot: View {
                 }
             }
             .navigationTitle("Last Monday")
-            .navigationSplitViewColumnWidth(min: 220, ideal: 270)
+            .navigationSplitViewColumnWidth(min: 220, ideal: Self.sidebarWidth)
         } detail: {
             SidebarDetail(navigation: navigation, item: navigation.sidebarSelection ?? .today)
         }
@@ -212,9 +220,9 @@ private struct SidebarCountRow: View {
     let count: Int
 
     var body: some View {
-        HStack(spacing: Metrics.s) {
+        HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
             Text(title)
-                .lineLimit(1)
+                .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: Metrics.xs)
             if count > 0 {
                 Text(count, format: .number)
@@ -235,9 +243,9 @@ private struct SidebarPlanRow: View {
     let age: Int?
 
     var body: some View {
-        HStack(spacing: Metrics.s) {
+        HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
             Text(name)
-                .lineLimit(1)
+                .fixedSize(horizontal: false, vertical: true)
                 .privacySensitiveInFeedback()
             Spacer(minLength: Metrics.xs)
             if let age {
@@ -255,8 +263,8 @@ private struct SidebarPlanRow: View {
 }
 
 /// A group's row, or *Closed*'s: a color dot for a group, the name, and
-/// on the right what it adds up to (a group's subtotal, *Closed*'s count),
-/// on one line. On the Mac, clicking it expands or collapses it like its
+/// on the right what it adds up to (a group's subtotal, *Closed*'s count);
+/// a long name wraps rather than being cut short. On the Mac, clicking it expands or collapses it like its
 /// disclosure triangle (on iPad, tapping the row does that already).
 private struct SidebarFolderLabel<Trailing: View>: View {
     let title: String
@@ -265,15 +273,16 @@ private struct SidebarFolderLabel<Trailing: View>: View {
     @ViewBuilder var trailing: Trailing
 
     var body: some View {
-        HStack(spacing: Metrics.s) {
+        HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
             if let dot {
                 Circle()
                     .fill(dot)
                     .frame(width: 8, height: 8)
+                    .alignmentGuide(.firstTextBaseline) { $0[VerticalAlignment.center] + 4 }
                     .accessibilityHidden(true)
             }
             Text(title)
-                .lineLimit(1)
+                .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: Metrics.xs)
             trailing
                 .monospacedDigit()
@@ -293,16 +302,16 @@ private struct SidebarFolderLabel<Trailing: View>: View {
 }
 
 /// An account under its group (or *Closed*): its name, a clock when its
-/// latest value is stale, and its value on the right (open accounts), on
-/// one line; a long name is cut short first.
+/// latest value is stale, and its value on the right (open accounts) on
+/// the name's first line; a long name wraps rather than being cut short.
 private struct SidebarAccountRow: View {
     let item: AccountListItem
     var showsValue = true
 
     var body: some View {
-        HStack(spacing: Metrics.s) {
+        HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
             Text(item.account.name)
-                .lineLimit(1)
+                .fixedSize(horizontal: false, vertical: true)
                 .privacySensitiveInFeedback()
             Spacer(minLength: Metrics.xs)
             if item.stale != nil {

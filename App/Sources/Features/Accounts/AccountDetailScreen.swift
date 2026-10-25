@@ -1023,7 +1023,7 @@ private struct AccountStatementsTable: View {
     let delete: (ValuationKey) -> Void
 
     private enum Columns {
-        static let date = PageTableColumn(min: 84, max: 120)
+        static let date = PageTableColumn(min: 100, max: 120)
         static let cash = PageTableColumn(min: 100, max: 160, alignment: .trailing)
         static let difference = PageTableColumn(min: 110, max: 160, alignment: .trailing)
         static let positions = PageTableColumn(min: 160, max: 280)
@@ -1092,7 +1092,7 @@ private struct AccountValuationsTable: View {
     let delete: (ValuationKey) -> Void
 
     private enum Columns {
-        static let date = PageTableColumn(min: 84, max: 120)
+        static let date = PageTableColumn(min: 100, max: 120)
         static let value = PageTableColumn(min: 100, max: 160, alignment: .trailing)
         static let saved = PageTableColumn(min: 90, max: 140, alignment: .trailing)
         static let amount = PageTableColumn(min: 80, max: 130, alignment: .trailing)
