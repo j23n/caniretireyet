@@ -26,16 +26,8 @@ struct PlanActions {
 /// Spending…*; *Export Calculations…* under how the results shown were
 /// calculated; and Delete….
 struct PlanMenu: View {
-    enum Style {
-        /// Small and grey, over the date (iPhone).
-        case caption
-        /// The header row's title (the Mac and iPad).
-        case title
-    }
-
     let session: PlanSession
     let actions: PlanActions
-    var style: Style = .caption
 
     @Environment(LibraryStore.self) private var library
     @Environment(AppNavigation.self) private var navigation
@@ -118,8 +110,8 @@ struct PlanMenu: View {
                     .accessibilityLabel("Main plan")
             }
             Text(name)
-                .font(style == .caption ? Font.subheadline : Font.title3.weight(.bold))
-                .foregroundStyle(style == .caption ? Palette.secondaryInk : Palette.ink)
+                .font(.subheadline)
+                .foregroundStyle(Palette.secondaryInk)
                 .lineLimit(1)
             Image(systemName: "chevron.down")
                 .font(.caption2.weight(.semibold))
