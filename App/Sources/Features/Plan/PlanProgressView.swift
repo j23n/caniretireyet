@@ -98,7 +98,7 @@ struct PlanProgressView: View {
     private func milestonesCard(_ milestones: PlanMilestones?) -> some View {
         if let milestones {
             PlanProgressMilestones(milestones: milestones, text: milestoneText, asOf: library.asOfDate,
-                                   hasResults: session.baseResults != nil)
+                                   planName: session.plan?.name ?? "", hasResults: session.baseResults != nil)
         }
     }
 }

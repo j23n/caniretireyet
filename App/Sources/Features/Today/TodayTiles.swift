@@ -63,13 +63,8 @@ struct TodayTiles: View {
     /// The main plan's milestones as the tile shows them: those passed at
     /// the latest check-in, else the next.
     private func milestoneContent(_ plan: PlanDocument) -> MilestoneTileContent {
-        let milestones = TodayMilestones.of(plan, results: results, library: library, plans: plans)
-        let valuator = library.valuator
-        let latest = library.latestCheckIn
-        let previous = latest.flatMap { valuator.previousCheckIn(before: $0, in: .planAssets) }
-        return MilestoneTileContent(milestones, hasResults: results != nil, latestCheckIn: latest,
-                                    previousCheckIn: previous,
-                                    assetsBefore: previous.map { valuator.total(on: $0, in: .planAssets).total })
+        MilestoneTileContent(TodayMilestones.of(plan, results: results, library: library, plans: plans),
+                             hasResults: results != nil, library: library)
     }
 
     /// How the earliest age moved since the check-in before the latest.
