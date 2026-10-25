@@ -56,7 +56,7 @@ jobs:
             PR TITLE: ${{ github.event.pull_request.title }}
             HEAD: ${{ github.event.pull_request.head.sha }}
 
-            Review this pull request for the Last Monday app. Read CLAUDE.md and docs/PLAN.md first, then the diff
+            Review this pull request for the Can I Retire Yet repo. Read CLAUDE.md and docs/PLAN.md first, then the diff
             (gh pr diff ${{ github.event.pull_request.number }}) and the docs it touches or relies on.
             Check: correctness bugs, with the inputs that trigger them; CLAUDE.md's rules (module dependencies only as its table
             says, Apple-only frameworks only in CloudSync and App/, no third-party dependencies in the library modules, Decimal
