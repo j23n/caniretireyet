@@ -67,6 +67,8 @@ struct TodayTilesTests {
         }
     }
 
+    /// On the main actor, as `NetWorthTile` is a view.
+    @MainActor
     @Test func theNetWorthLineEndsToday() {
         let history = [GlancePoint(date: "2026-08-31", value: 100), GlancePoint(date: "2026-09-30", value: 110)]
         var netWorth = NetWorthGlance(date: "2026-09-30", total: 110, isComplete: true, sinceLastCheckIn: nil,
