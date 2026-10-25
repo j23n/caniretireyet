@@ -111,6 +111,13 @@ struct AccountDetailScreen: View {
                     .lineLimit(1)
                     .privacySensitiveInFeedback()
             }
+            if AccountMonthTiles.shows(data) {
+                Section {
+                    AccountMonthTiles(data: data)
+                        .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
+                        .listRowBackground(Color.clear)
+                }
+            }
             if let since = data.emptySince {
                 Section {
                     emptyAccountBanner(since)
@@ -653,6 +660,76 @@ private enum AccountDeletion: Hashable {
 }
 
 // MARK: - Header
+
+/// What the latest value saved, as tiles under the chart on iPhone and iPad
+/// (UI.md, "Account"): "💰 Saved", with the money in and out when the value
+/// records them, and for a savings account "🌱 Interest", each with the
+/// value's month. Without interest to show, *Saved* is wide.
+private struct AccountMonthTiles: View {
+    let data: AccountDetailData
+
+    @Environment(\.locale) private var locale
+
+    /// Whether the latest value knows what it saved.
+    static func shows(_ data: AccountDetailData) -> Bool {
+        data.valuations.first?.saved != nil
+    }
+
+    var body: some View {
+        if let latest = data.valuations.first, let saved = latest.saved {
+            let interest = data.valuationsShowInterest ? latest.valuation.interest : nil
+            let month = AmountFormat.monthName(latest.valuation.date, locale: locale)
+            TileGrid {
+                ColorTile(tint: .mint) {
+                    label("Saved", emoji: "💰", month: month)
+                    Spacer(minLength: Metrics.s)
+                    AmountText(saved, currency: data.currency, signed: true, tabular: false)
+                        .font(.title2.bold())
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
+                    if latest.recordsMoneyInOut, let moneyIn = latest.valuation.moneyIn,
+                       let moneyOut = latest.valuation.moneyOut {
+                        AmountSentenceText("in \(amount: amount(moneyIn)), out \(amount: amount(moneyOut))")
+                            .font(.caption)
+                            .opacity(0.8)
+                            .lineLimit(2)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                .accessibilityElement(children: .combine)
+                .tileSize(interest == nil ? .wide : .small)
+                if let interest {
+                    ColorTile(tint: .butter) {
+                        label("Interest", emoji: "🌱", month: month)
+                        Spacer(minLength: Metrics.s)
+                        AmountText(interest, currency: data.currency, signed: true, tabular: false)
+                            .font(.title2.bold())
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.6)
+                    }
+                    .accessibilityElement(children: .combine)
+                    .tileSize(.small)
+                }
+            }
+        }
+    }
+
+    private func label(_ title: String, emoji: String, month: String) -> some View {
+        HStack(spacing: Metrics.s) {
+            TileLabel(title, emoji: emoji)
+            Spacer(minLength: Metrics.xs)
+            Text(verbatim: month)
+                .font(.caption)
+                .opacity(0.8)
+                .lineLimit(1)
+                .privacySensitiveInFeedback()
+        }
+    }
+
+    private func amount(_ value: Decimal) -> String {
+        AmountFormat.amount(value, currency: data.currency, locale: locale)
+    }
+}
 
 /// The value and its change since the previous value, split into
 /// markets, saved and other, then when the last value was and whether
