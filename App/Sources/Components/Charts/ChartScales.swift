@@ -105,18 +105,25 @@ struct AmountAxisTicks: Hashable, Sendable {
 }
 
 /// The value axis of a projection, with or without history before it
-/// (UI.md, "Charts"): it fits the history, the median and the 25–75% band,
-/// so they fill the chart. The 10–90% band may run off the top, where it's
-/// cut at the chart's edge (``clamped(_:)``) and the legend says so
-/// (``clipsBand``). `markerHeadroom` points are kept above the data for the
-/// markers' labels.
+/// (UI.md, "Charts"): it fits the history and the median, its top about a
+/// tenth above the higher of them, so the typical future fills the chart
+/// however far the luckiest futures grow. The bands may run off the top,
+/// where they're cut at the chart's edge (``clamped(_:)``) and the legend
+/// says so (``clipsBand``); the 25% line keeps the bottom in view.
+/// `markerHeadroom` points are kept above the data for the markers' labels.
 struct ProjectionScale: Hashable, Sendable {
     var scale: AmountScale
-    /// Whether the 10–90% band runs off the top somewhere.
+    /// Whether a band runs off the top somewhere.
     var clipsBand: Bool
 
+    /// The room above the higher of the history and the median: a tenth,
+    /// with the 5% `AmountScale` adds above its values.
+    private static let typicalHeadroom = 1.1 / 1.05
+
     init(history: [Double], fan: [FanPoint], markerHeadroom: Double, plotHeight: Double) {
-        let values = history + fan.flatMap { [$0.p25, $0.p50, $0.p75] }
+        let medians = fan.map(\.p50)
+        let peak = (history + medians).filter(\.isFinite).max() ?? 0
+        let values = history + medians + fan.map(\.p25) + [peak * Self.typicalHeadroom]
         let scale = AmountScale(values: values).reservingTop(points: markerHeadroom, plotHeight: plotHeight)
         self.scale = scale
         clipsBand = fan.contains { $0.p90 > scale.domain.upperBound || $0.p10 < scale.domain.lowerBound }

@@ -15,8 +15,8 @@ import Tracker
 ///   to two rows so they never collide (``MarkerLabelLayout``); a marker
 ///   without room shows its icon, with its label in the callout.
 /// - With `showsLegend`, the legend sits in its own row above the chart,
-///   and the value axis fits the history, the median and the 25–75% band:
-///   the 10–90% band may run off the top, which the legend says
+///   and the value axis fits the history and the median with a tenth above
+///   them: the bands may run off the top, which the legend says
 ///   (``ProjectionScale``). Without it (a legend of the caller's own), the
 ///   axis fits every band.
 /// - While amounts are hidden the axis reads in multiples of the start
@@ -59,8 +59,8 @@ struct FanChart: View {
     }
 
     /// Everything placed for the chart's width and height: the value axis
-    /// fits the complete actual values, and the median and 25–75% band, or
-    /// without a legend every band.
+    /// fits the complete actual values and the median with a tenth above
+    /// them, or without a legend every band.
     private var layout: ProjectionLayout {
         ProjectionLayout(dates: fan.map(\.date) + actual.map(\.date),
                          values: actual.filter(\.isComplete).map(\.value), fan: fan, fitsBands: !showsLegend,

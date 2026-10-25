@@ -389,7 +389,7 @@ struct ChartLegendItem: Hashable, Identifiable {
 /// A chart's legend, in a row of its own above the chart (UI.md,
 /// "Charts"): each item a swatch that mirrors its mark and a name in a text
 /// token, never in the series colour. It wraps onto more rows when it
-/// doesn't fit. `note` follows the items, e.g. "↑ 10–90% continues above".
+/// doesn't fit. `note` follows the items, e.g. "↑ Bands continue above".
 struct ChartLegendRow: View {
     var items: [ChartLegendItem]
     var note: String?
@@ -482,7 +482,7 @@ struct ChartLegendLabel: View {
 }
 
 /// The legend of a projection: your actual values, the median and the two
-/// bands, with a cue when the 10–90% band runs off the top.
+/// bands, with a cue when a band runs off the top.
 struct ProjectionLegend: View {
     var showsActual = true
     /// Today draws the projected median dashed after a solid history.
@@ -494,7 +494,7 @@ struct ProjectionLegend: View {
     static let outerBand = 0.14
 
     var body: some View {
-        ChartLegendRow(items: items, note: clipsBand ? "↑ 10–90% continues above" : nil)
+        ChartLegendRow(items: items, note: clipsBand ? "↑ Bands continue above" : nil)
     }
 
     private var items: [ChartLegendItem] {
