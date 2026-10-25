@@ -24,6 +24,7 @@ make build                              # the app for the iOS Simulator and the 
 - **TestFlight:** pushing a `v*` tag on `main` uploads the app to TestFlight (`.github/workflows/testflight.yml`, apple-ci's README, "TestFlight"); the tag's version becomes `MARKETING_VERSION`. It signs with the owner's secrets, so only the owner pushes such a tag.
 - `swift build` and `swift test` must pass with no warnings in our code before every commit.
 - **Stale builds:** after a change to a stored property of a Model type, an incremental build can link stale objects. The symptom is an "undefined reference" linker error, or a test crashing with signal 11 while releasing that type. `rm -rf .build` and rebuild before looking for a code bug.
+- **`site/`** is the website on GitHub Pages: the landing page, privacy policy, terms and support page, in plain HTML (its README). `.github/workflows/pages.yml` publishes it from `main`. A change to what the app sends or stores updates the privacy policy too.
 - **`tools/statement-backfill/`** is a one-off Python script that reads PDF statements with a local model into CSVs for `retire import` (its README). It isn't part of the package or CI; its tests run with `python3 -m unittest` there.
 - **App changes are checked only by CI's macOS job.** Its `xcodebuild -quiet` log ends with the compiler errors.
 

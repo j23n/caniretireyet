@@ -1,0 +1,37 @@
+# Publishes site/ (the landing page, privacy policy, terms and support page) to GitHub Pages when it
+# changes on main, or by hand (Actions › Pages › Run workflow). Pages must be set to deploy from
+# GitHub Actions (Settings › Pages › Source).
+name: Pages
+
+on:
+  push:
+    branches: [main]
+    paths: [site/**, .github/workflows/pages.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One deployment at a time; a newer one waits rather than cancelling a deployment in progress.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Publish site/
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deployment
+        uses: actions/deploy-pages@v4
