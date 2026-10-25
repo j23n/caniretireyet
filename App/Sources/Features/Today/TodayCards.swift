@@ -104,17 +104,10 @@ struct TodayMovedTile: View {
     /// Its name and amount on a line, its bar under them.
     private func tallBar(_ label: String, _ value: Decimal, largest: Decimal, color: Color) -> some View {
         VStack(alignment: .leading, spacing: Metrics.xs) {
-            HStack(spacing: Metrics.s) {
-                Text(label)
-                    .foregroundStyle(Palette.secondaryInk)
-                    .lineLimit(1)
-                Spacer(minLength: Metrics.xs)
-                AmountText(value)
-                    .foregroundStyle(Palette.ink)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
-            }
-            .font(.subheadline)
+            LineOrStack(Text(label).foregroundStyle(Palette.secondaryInk),
+                        AmountText(value).foregroundStyle(Palette.ink), spread: true)
+                .font(.subheadline)
+                .lineLimit(1)
             TodayShareBar(share: share(of: value, largest: largest), color: color)
         }
     }

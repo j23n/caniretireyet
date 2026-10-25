@@ -461,20 +461,23 @@ struct MilestoneTile: View {
             }
             TileBar(progress: next.progress, before: before?.progress)
                 .padding(.top, 10)
-            HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
+            Group {
                 if isWide {
-                    wideFooter(last: last, after: after, before: before, text: text)
+                    HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
+                        wideFooter(last: last, after: after, before: before, text: text)
+                    }
                 } else {
-                    Text(verbatim: "\(percent) there")
+                    let there = Text(verbatim: "\(percent) there")
                         .font(.footnote.weight(.semibold))
                         .monospacedDigit()
                         .privacySensitiveInFeedback()
-                    Spacer(minLength: Metrics.xs)
                     if let date {
-                        Text(verbatim: PlanMilestoneText.when(date))
+                        LineOrStack(there, Text(verbatim: PlanMilestoneText.when(date))
                             .font(.caption)
                             .opacity(0.8)
-                            .privacySensitiveInFeedback()
+                            .privacySensitiveInFeedback(), spread: true)
+                    } else {
+                        there
                     }
                 }
             }
@@ -550,7 +553,8 @@ struct MilestoneTile: View {
                 AmountSentenceText("Next: \(next.milestone.tileEmoji) " + text.name(next.milestone) + progress)
                     .font(.caption)
                     .opacity(0.8)
-                    .lineLimit(1)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
                     .padding(.top, 6)
             }
         }
@@ -664,19 +668,20 @@ struct NetWorthTile: View {
     private var yearChange: some View {
         if let first = netWorth.history.first, first.date < netWorth.date {
             let change = netWorth.total - first.value
-            HStack(spacing: Metrics.xs) {
+            let delta = Group {
                 if redactionReasons.hidesAmounts, first.value != 0 {
                     DeltaText(percent: (change / abs(first.value)).doubleValue)
                 } else {
                     DeltaText(change)
                 }
-                Text(verbatim: first.date <= today.adding(months: -11)
-                    ? "in a year" : "since \(GlanceText.shortMonth(first.date, relativeTo: today, locale: locale))")
-                    .foregroundStyle(Palette.secondaryInk)
-                    .privacySensitiveInFeedback()
             }
-            .font(.subheadline.weight(.semibold))
-            .lineLimit(1)
+            let period = Text(verbatim: first.date <= today.adding(months: -11)
+                ? "in a year" : "since \(GlanceText.shortMonth(first.date, relativeTo: today, locale: locale))")
+                .foregroundStyle(Palette.secondaryInk)
+                .privacySensitiveInFeedback()
+            LineOrStack(delta, period)
+                .font(.subheadline.weight(.semibold))
+                .lineLimit(1)
         }
     }
 
@@ -685,19 +690,21 @@ struct NetWorthTile: View {
     @ViewBuilder
     private var lastCheckIn: some View {
         if let change = netWorth.sinceLastCheckIn {
-            HStack(spacing: Metrics.xs) {
+            let amount = Group {
                 if redactionReasons.hidesAmounts, let fraction = change.fraction {
                     Text(verbatim: AmountFormat.percent(fraction, signed: true, locale: locale))
                         .privacySensitiveInFeedback()
                 } else {
                     AmountText(change.change, signed: true)
                 }
-                Text(verbatim: GlanceText.period(from: change.from, to: change.to, relativeTo: today, locale: locale))
-                    .privacySensitiveInFeedback()
             }
-            .font(.caption)
-            .foregroundStyle(Palette.secondaryInk)
-            .lineLimit(1)
+            let period = Text(verbatim: GlanceText.period(from: change.from, to: change.to, relativeTo: today,
+                                                          locale: locale))
+                .privacySensitiveInFeedback()
+            LineOrStack(amount, period)
+                .font(.caption)
+                .foregroundStyle(Palette.secondaryInk)
+                .lineLimit(1)
         }
     }
 
