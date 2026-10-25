@@ -106,6 +106,8 @@ struct AheadLifeSection: View {
                             card(stop, lines: lines)
                                 .padding(.bottom, Metrics.s)
                         }
+                        // As tall as the card, so the line reaches the next dot.
+                        .fixedSize(horizontal: false, vertical: true)
                     }
                 }
             }
@@ -282,7 +284,8 @@ struct AheadChapterCard: View {
 /// the day, the money typically there then, where 8 in 10 futures are, and
 /// a stepper to stop a year sooner or later, each side with how many of 10
 /// futures last then ("‹ 62: 8 in 10", "64: 10 in 10 ›"). Stepping sets
-/// the plan's own age; the rest opens when work stops in its small editor.
+/// the plan's own age, or the lever's while it's moved; the rest opens
+/// when work stops in its small editor.
 struct AheadStopCard: View {
     let session: PlanSession
     let model: PlanChaptersModel
@@ -390,10 +393,24 @@ struct AheadStopCard: View {
         .privacySensitiveInFeedback()
     }
 
+    /// Stops work at `age`: under a lever's age, the lever moves; else the
+    /// plan's own age, after letting go of an age chosen on the tiles.
+    private func step(to age: Int) {
+        switch model.ageSource {
+        case .whatIf:
+            session.set(.retirementAge, to: Double(age))
+        case .chosen:
+            session.selectFocus(nil)
+            session.edit { $0.retirement.age = .age(age) }
+        default:
+            session.edit { $0.retirement.age = .age(age) }
+        }
+    }
+
     private func stepButton(_ point: SuccessPoint?, age: Int, label: (String) -> String) -> some View {
         let text = point.map { "\(age): \(PlanTimelineText.tenths($0.success)) in 10" } ?? "\(age)"
         return Button {
-            session.edit { $0.retirement.age = .age(age) }
+            step(to: age)
         } label: {
             Text(verbatim: label(text))
                 .monospacedDigit()
