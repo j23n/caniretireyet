@@ -90,7 +90,8 @@ struct ColorTile<Content: View>: View {
     }
 }
 
-/// A tile's label: its emoji, if any, and a few words, on one line.
+/// A tile's label: its emoji, if any, and a few words, on one line, or two
+/// in a narrow tile (an iPhone SE's) rather than cut.
 struct TileLabel: View {
     let title: String
     var emoji: String?
@@ -110,7 +111,8 @@ struct TileLabel: View {
             Text(title)
                 .font(.caption.weight(.semibold))
                 .opacity(0.8)
-                .lineLimit(1)
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 }

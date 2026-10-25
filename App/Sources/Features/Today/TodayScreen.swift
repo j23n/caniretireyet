@@ -145,9 +145,22 @@ struct TodayAnswerCard: View {
     @Environment(PlanStore.self) private var plans
     @Environment(AppNavigation.self) private var navigation
     @Environment(\.locale) private var locale
+    #if os(iOS)
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
+    #endif
     /// The date's size; it grows with Dynamic Type, and shrinks only when
     /// the date wouldn't fit on one line.
     @ScaledMetric(relativeTo: .largeTitle) private var dateSize: CGFloat = 64
+
+    /// A short screen (iPhone in landscape): the date on one line and less
+    /// room for the horizon, so the card fits the screen's height.
+    private var isShort: Bool {
+        #if os(iOS)
+        verticalSizeClass == .compact
+        #else
+        false
+        #endif
+    }
 
     init(answer: RetirementAnswer, plan: PlanDocument, results: PlanResults? = nil, today: CalendarDate) {
         self.answer = answer
@@ -167,7 +180,7 @@ struct TodayAnswerCard: View {
     }
 
     /// The room under the words for the dusk's horizon and its sun.
-    private static let horizonRoom: CGFloat = 150
+    private var horizonRoom: CGFloat { isShort ? 90 : 150 }
 
     private var hero: some View {
         let lastMonday = LastMonday(answer)
@@ -179,13 +192,15 @@ struct TodayAnswerCard: View {
                 .lineLimit(1)
             Group {
                 if let lastMonday {
-                    VStack(alignment: .leading, spacing: 0) {
+                    let layout = isShort ? AnyLayout(HStackLayout(alignment: .firstTextBaseline, spacing: 12))
+                        : AnyLayout(VStackLayout(alignment: .leading, spacing: 0))
+                    layout {
                         Text(verbatim: lastMonday.date.dateValue
                             .formatted(.dateTime.day().month(.wide).locale(locale)))
                         Text(verbatim: String(lastMonday.date.year))
                             .foregroundStyle(DuskBackground.sunLight)
                     }
-                    .font(.system(size: dateSize, weight: .heavy))
+                    .font(.system(size: isShort ? dateSize * 0.7 : dateSize, weight: .heavy))
                     .lineLimit(1)
                     .minimumScaleFactor(0.5)
                     .dynamicTypeSize(...DynamicTypeSize.accessibility2)
@@ -219,10 +234,10 @@ struct TodayAnswerCard: View {
         .foregroundStyle(.white)
         .padding(.top, 22)
         .padding(.horizontal, 22)
-        .padding(.bottom, Self.horizonRoom)
+        .padding(.bottom, horizonRoom)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background {
-            DuskBackground(horizonHeight: Self.horizonRoom)
+            DuskBackground(horizonHeight: horizonRoom)
                 .clipShape(shape)
                 .accessibilityHidden(true)
         }
