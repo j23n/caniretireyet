@@ -1,15 +1,12 @@
-import Charts
 import Glance
 import Model
 import Planner
 import SwiftUI
 import Tracker
 
-// The cards behind the plan's answer (UI.md, "Plan", "More charts"): your
-// money over time, the chance of success by retirement age, retirement
-// income and taxes, the tiles and the assumptions on iPhone, and the key
-// numbers on the Mac and iPad; and the run's banners and status the Plan
-// view shows above them.
+// The cards behind the plan's answer (UI.md, "Plan"): the tiles with the
+// key numbers and the assumptions; and the run's banners and status the
+// Plan view shows above them.
 
 
 /// What stops the plan from answering, above the answer: the plan can't
@@ -106,87 +103,15 @@ struct PlanRunProgressCard: View {
     }
 }
 
-// MARK: - Charts
-
-/// Chance of success by retirement age, inside the answer's card on the
-/// Mac and iPad. Tapping or clicking an age cuts the chapters at it;
-/// dragging across the curve, or on the Mac hovering over it, only reads
-/// it. The stepper chooses an age without the chart.
-struct PlanSuccessChart: View {
-    let session: PlanSession
-    let results: PlanResults
-
-    /// The age being read on the curve (a finger on it, or the pointer over it).
-    @State private var chartSelection: Int?
-    /// The age read last and when that reading ended: lifting the finger
-    /// (or the mouse button) can end it before the tap is recognised.
-    @State private var lastReading: Int?
-    @State private var lastReadingEnded = Date.distantPast
-
-    private var focus: Int? { session.shownFocusAge }
-
-    /// The ages the curve covers.
-    private var ages: ClosedRange<Int>? {
-        let ages = results.successByAge.map(\.age)
-        guard let low = ages.min(), let high = ages.max() else { return nil }
-        return low...high
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: Metrics.s) {
-            SuccessCurveChart(points: results.successByAge, threshold: results.headline.confidence,
-                              highlightedAge: results.headline.earliestAge, selectedAge: $chartSelection)
-            .onChange(of: chartSelection) { oldValue, newValue in
-                if newValue == nil, let oldValue {
-                    lastReading = oldValue
-                    lastReadingEnded = Date.now
-                }
-            }
-            // Only a tap or a click chooses the age; reading the curve changes nothing.
-            .contentShape(Rectangle())
-            .simultaneousGesture(TapGesture().onEnded { chooseTappedAge() })
-            if let focus, let ages {
-                HStack(spacing: Metrics.m) {
-                    Stepper(value: Binding(get: { session.shownFocusAge ?? 55 }, set: { session.selectFocus($0) }),
-                            in: ages) {
-                        HStack(spacing: Metrics.xs) {
-                            Text("Chapters for stopping at \(focus)")
-                                .lineLimit(1)
-                            if let success = results.successByAge.first(where: { $0.age == focus })?.success {
-                                Text(verbatim: "· \(PlanTimelineText.tenths(success)) in 10")
-                                    .foregroundStyle(Palette.secondaryInk)
-                                    .lineLimit(1)
-                            }
-                        }
-                        .font(.subheadline)
-                    }
-                    .personalControl()
-                    if session.focusAge != nil {
-                        Button("Plan's age") { session.selectFocus(nil) }
-                            .buttonStyle(.borderless)
-                            .font(.subheadline)
-                            .fixedSize()
-                    }
-                }
-            }
-        }
-    }
-
-    /// Chooses the age under a tap or click: the one being read, or the
-    /// one whose reading the tap's lift just ended. A tap where no age is
-    /// read (an axis label) chooses nothing.
-    private func chooseTappedAge() {
-        let justRead = Date.now.timeIntervalSince(lastReadingEnded) < 0.5 ? lastReading : nil
-        if let age = chartSelection ?? justRead { session.selectFocus(age) }
-    }
-}
-
 // MARK: - Tiles
 
-/// The plan's results as tiles on iPhone (UI.md, "The plan"): what you
-/// could spend a month from the age the chapters are cut at, the age you
-/// could stop saving nothing more (``CoastAgeTile``), and how sure you'd be
-/// stopping at the ages around the answer (``PlanStopAgesTile``).
+/// The plan's results as tiles (UI.md, "The plan"), at every width: what
+/// you could spend a month from the age the chapters are cut at; the age
+/// you could stop saving nothing more (``CoastAgeTile``) over the age at
+/// last year's pace, half tiles; what retiring today would need, with how
+/// much of it you have as a bar; the money at the plan's end over the
+/// lifetime taxes, half tiles; then how sure you'd be stopping at the ages
+/// around the answer (``PlanStopAgesTile``), across the row.
 struct PlanResultTiles: View {
     let session: PlanSession
     let results: PlanResults
@@ -196,18 +121,50 @@ struct PlanResultTiles: View {
 
     var body: some View {
         let headline = results.headline
+        let details = results.details
+        let words = PlanWords(currency: session.currency, locale: locale)
+        let pace = details.agesWithout.pace
         TileGrid {
             if let spending = headline.sustainableSpending {
-                spendTile(spending, age: results.details.sustainableSpendingAge ?? headline.targetAge)
+                spendTile(spending, age: details.sustainableSpendingAge ?? headline.targetAge)
                     .tileSize(.small)
             }
             if let milestones, milestones.knowsCoastAge {
-                CoastAgeTile(age: milestones.coastAge, target: milestones.ladder.coastTarget)
-                    .tileSize(headline.sustainableSpending == nil ? .wide : .small)
+                CoastAgeTile(age: milestones.coastAge, target: milestones.ladder.coastTarget,
+                             size: pace == nil ? .small : .half)
+                    .tileSize(pace == nil ? .small : .half)
             }
+            if let pace {
+                HalfTile(tint: .lilac, title: "At last year's saving", emoji: "🐢") {
+                    Text(verbatim: pace.earliestAge.map { "\($0)" } ?? "No age")
+                        .monospacedDigit()
+                        .privacySensitiveInFeedback()
+                } caption: {
+                    Text("to stop")
+                }
+                .tileSize(.half)
+            }
+            if let needed = details.assetsNeeded, let value = PlanResultsText.neededToday(needed, words: words) {
+                neededTile(value, readiness: headline.readiness)
+                    .tileSize(.small)
+            }
+            if let median = details.focus.medianAtEnd {
+                HalfTile(tint: .mint, title: "Left at \(details.endAge)", emoji: "🏁", personalTitle: true) {
+                    AmountSentenceText(words.amount(PlanResultsText.whole(median)))
+                } caption: {
+                    Text("typically")
+                }
+                .tileSize(.half)
+            }
+            HalfTile(tint: .peach, title: "Lifetime taxes", emoji: "🧾") {
+                AmountSentenceText(words.amount(PlanResultsText.whole(details.focus.lifetimeTaxes)))
+            } caption: {
+                Text("typically")
+            }
+            .tileSize(.half)
             if !results.successByAge.isEmpty {
                 PlanStopAgesTile(session: session, results: results)
-                    .tileSize(.wide)
+                    .tileSize(.full)
             }
         }
     }
@@ -230,6 +187,31 @@ struct PlanResultTiles: View {
         }
         .accessibilityElement(children: .combine)
     }
+
+    /// "🧮 Needed to stop today", the amount, and how much of it you have
+    /// as a bar with its share ("64% of it").
+    private func neededTile(_ value: AmountSentence, readiness: Double?) -> some View {
+        ColorTile(tint: .sky) {
+            TileLabel("Needed to stop today", emoji: "🧮")
+            Spacer(minLength: Metrics.s)
+            AmountSentenceText(value)
+                .font(.title2.bold())
+                .lineLimit(2)
+                .minimumScaleFactor(0.6)
+            if let readiness {
+                let shown = Readiness.shown(readiness)
+                TileBar(progress: min(1, shown))
+                    .padding(.top, Metrics.s)
+                Text(verbatim: "You have \(AmountFormat.percent(shown, digits: 0, locale: locale))"
+                    + (results.headline.readinessIsLowerBound ? " or more" : ""))
+                    .font(.caption)
+                    .opacity(0.8)
+                    .lineLimit(1)
+                    .privacySensitiveInFeedback()
+            }
+        }
+        .accessibilityElement(children: .combine)
+    }
 }
 
 /// How sure you'd be stopping at the ages around the answer, as a wide
@@ -238,7 +220,7 @@ struct PlanResultTiles: View {
 /// for each age to the height of the futures it lasts in, the answer's in
 /// the accent and the age the chapters are cut at outlined, a dotted rule
 /// at the plan's bar, and the answer in words. Tapping an age cuts the
-/// chapters at it, as the chart on the Mac does.
+/// chapters at it.
 struct PlanStopAgesTile: View {
     let session: PlanSession
     let results: PlanResults
@@ -385,119 +367,6 @@ struct PlanAssumptionRows: View {
             }
             .accessibilityHint("Shows what every chapter assumes")
         }
-    }
-}
-
-/// The Mac's and iPad's column beside the chapters: the key numbers, then
-/// the assumptions, each a card of rows. An assumption opens
-/// *Assumptions…*, the target mix its own sheet.
-struct PlanInspector: View {
-    let session: PlanSession
-    var onAssumptions: () -> Void = {}
-    var onTargetMix: () -> Void = {}
-
-    @Environment(LibraryStore.self) private var library
-    @Environment(\.locale) private var locale
-
-    var body: some View {
-        let words = PlanWords(currency: session.currency, locale: locale)
-        VStack(alignment: .leading, spacing: Metrics.m) {
-            if let results = session.state.results {
-                Card("Key numbers") {
-                    PlanTableRows {
-                        ForEach(PlanResultsText.keyNumbers(results, words: words)) { row in
-                            PlanTableRow(row.label, personalLabel: row.personalLabel) {
-                                AmountSentenceText(row.value)
-                                    .monospacedDigit()
-                            }
-                        }
-                    }
-                }
-            }
-            if let plan = session.plan {
-                let summaries = PlanInputSummaries(plan: plan, library: library.library, currency: session.currency,
-                                                   locale: locale)
-                Card {
-                    PlanTableRows {
-                        ForEach(summaries.rows) { row in
-                            Button {
-                                if row.section == .targetMix { onTargetMix() } else { onAssumptions() }
-                            } label: {
-                                PlanTableRow(row.label, personalLabel: false, opens: true) {
-                                    AmountSentenceText(row.value)
-                                        .monospacedDigit()
-                                }
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                } header: {
-                    SectionHeader("Assumptions") {
-                        Button("Edit…", action: onAssumptions)
-                            .buttonStyle(.borderless)
-                    }
-                }
-            }
-        }
-    }
-}
-
-/// Rows of a table on a card, a hairline between them (the Mac's denser
-/// ``CardRows``).
-struct PlanTableRows<Content: View>: View {
-    @ViewBuilder var content: Content
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Group(subviews: content) { rows in
-                ForEach(rows) { row in
-                    if row.id != rows.first?.id {
-                        Divider()
-                    }
-                    row
-                }
-            }
-        }
-    }
-}
-
-/// A row of a table: its label on the left in grey, its value on the right,
-/// each on one line; the label gives way first.
-struct PlanTableRow<Value: View>: View {
-    let label: String
-    var personalLabel = false
-    var opens = false
-    private let value: Value
-
-    init(_ label: String, personalLabel: Bool = false, opens: Bool = false, @ViewBuilder value: () -> Value) {
-        self.label = label
-        self.personalLabel = personalLabel
-        self.opens = opens
-        self.value = value()
-    }
-
-    var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
-            Text(label)
-                .foregroundStyle(Palette.secondaryInk)
-                .lineLimit(1)
-                .privacySensitiveInFeedback(personalLabel)
-            Spacer(minLength: Metrics.s)
-            value
-                .foregroundStyle(Palette.ink)
-                .lineLimit(1)
-                .layoutPriority(1)
-            if opens {
-                Image(systemName: "chevron.right")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(Palette.mutedInk)
-                    .accessibilityHidden(true)
-            }
-        }
-        .padding(.vertical, 6)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .contentShape(Rectangle())
-        .accessibilityElement(children: .combine)
     }
 }
 

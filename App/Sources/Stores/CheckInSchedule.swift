@@ -44,6 +44,21 @@ struct CheckInStatus: Hashable, Sendable {
     }
 }
 
+extension CheckInStatus {
+    /// Today's check-in tile: "31 Oct" and "in 6 days", "today", "ready to
+    /// start" once it has passed; "Under way" and "Continue" while one is open.
+    func tileWords(locale: Locale = .current) -> (figure: String, caption: String) {
+        if openDate != nil { return ("Under way", "Continue") }
+        let date = AmountFormat.shortDate(nextCheckIn, locale: locale)
+        switch daysUntilDue {
+        case 2...: return (date, "in \(Wording.count(daysUntilDue, "day"))")
+        case 1: return (date, "tomorrow")
+        case 0: return (date, "today")
+        default: return (date, "ready to start")
+        }
+    }
+}
+
 /// When check-ins are due: once a month, at the month's end, as the widgets
 /// have it (Glance's `CheckInGlance`).
 enum CheckInSchedule {

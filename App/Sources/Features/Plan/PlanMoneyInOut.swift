@@ -115,33 +115,44 @@ extension PlanLastTwelveMonths {
         var id: Kind { kind }
     }
 
-    /// A tile's change against the 12 months before.
+    /// A tile's change against the 12 months before, said with where it
+    /// was then: "▲ from 27%", "▼ from 12.200 €".
     struct TileChange: Hashable {
         enum Value: Hashable {
-            /// Percentage points of the savings rate: "▲ 4 points".
-            case points(Int)
-            /// An amount: "▲ 2.100 €"; it hides with the eye.
+            /// The savings rate the 12 months before.
+            case rate(Decimal)
+            /// An amount the 12 months before; it hides with the eye.
             case amount(Decimal)
-            /// A share of what it was: "▼ 2%".
-            case percent(Double)
+            /// What was saved the 12 months before, negative when money was
+            /// taken out, against what's saved `now`; it hides with the eye.
+            case saved(Decimal, now: Decimal)
         }
 
+        /// Where it was the 12 months before.
         var value: Value
         /// 1 up, −1 down, 0 for none.
         var direction: Int
         /// Whether it's good news (more saved, less spent): green, else orange.
         var isGood: Bool
 
-        /// "▲ 4 points", "▲ 2.100 €", "▼ 2%", or "No change" for one that
-        /// shows as none.
+        /// "▲ from 27%", "▼ from 12.200 €", or "Same as before" for one that
+        /// shows as none. What was saved reads as the figure does, without a
+        /// sign, and says "saving" or "taking out" when that was the other
+        /// way: "▼ from saving 3.000 €" under *Took out*.
         func text(currency: CurrencyCode, locale: Locale = .current) -> String {
-            guard direction != 0 else { return "No change" }
-            let number = switch value {
-            case .points(let points): Wording.count(abs(points), "point")
-            case .amount(let amount): AmountFormat.amount(abs(amount), currency: currency, locale: locale)
-            case .percent(let fraction): AmountFormat.percent(abs(fraction), digits: 0, locale: locale)
+            guard direction != 0 else { return "Same as before" }
+            let before = switch value {
+            case .rate(let rate): AmountFormat.percent(rate, digits: 0, locale: locale)
+            case .amount(let amount): AmountFormat.amount(amount, currency: currency, locale: locale)
+            case .saved(let saved, let now):
+                Self.saved(saved, now: now, amount: AmountFormat.amount(abs(saved), currency: currency, locale: locale))
             }
-            return "\(direction > 0 ? "▲" : "▼") \(number)"
+            return "\(direction > 0 ? "▲" : "▼") from \(before)"
+        }
+
+        private static func saved(_ saved: Decimal, now: Decimal, amount: String) -> String {
+            if (saved < 0) == (now < 0) { return amount }
+            return saved < 0 ? "taking out \(amount)" : "saving \(amount)"
         }
     }
 
@@ -158,11 +169,11 @@ extension PlanLastTwelveMonths {
         ]
     }
 
-    /// The savings rate's change in whole percentage points.
+    /// The savings rate's change, in whole percentage points.
     private var rateChange: TileChange? {
         guard let rate = current.rate, let before = previous?.rate else { return nil }
         let points = Int(((rate - before) * 100).doubleValue.rounded())
-        return TileChange(value: .points(points), direction: points.signum(), isGood: points >= 0)
+        return TileChange(value: .rate(before), direction: points.signum(), isGood: points >= 0)
     }
 
     /// What was saved, in money.
@@ -170,16 +181,16 @@ extension PlanLastTwelveMonths {
         guard let before = previous?.saved else { return nil }
         let change = current.saved - before
         let direction = DeltaFormat.direction(of: change, precision: .whole)
-        return TileChange(value: .amount(change), direction: direction, isGood: direction >= 0)
+        return TileChange(value: .saved(before, now: current.saved), direction: direction, isGood: direction >= 0)
     }
 
-    /// A change as a share of what it was; `nil` without it, or when it was
-    /// nothing.
+    /// A change, up or down when it's at least a whole per cent of what it
+    /// was; `nil` without it, or when it was nothing.
     private static func share(_ now: Decimal, before: Decimal?, moreIsGood: Bool) -> TileChange? {
         guard let before, before > 0 else { return nil }
         let fraction = ((now - before) / before).doubleValue
         let direction = DeltaFormat.direction(ofFraction: fraction, digits: 0)
-        return TileChange(value: .percent(fraction), direction: direction,
+        return TileChange(value: .amount(before), direction: direction,
                           isGood: moreIsGood ? direction >= 0 : direction <= 0)
     }
 

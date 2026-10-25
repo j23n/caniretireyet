@@ -21,12 +21,6 @@ struct TodayWordsTests {
         #expect(TodayText.away(lastMonday, today: "2051-05-01") == nil)
     }
 
-    @Test func aMoveIsShort() {
-        #expect(TodayText.move(LastMondayMove(since: "2025-12-31", years: -1)) == "A year sooner")
-        #expect(TodayText.move(LastMondayMove(since: "2025-12-31", years: 2)) == "2 years later")
-        #expect(TodayText.move(LastMondayMove(since: "2025-12-31", years: 0)) == "The same")
-    }
-
     @Test func whatMovedNamesTheMonthItCovers() {
         #expect(TodayText.movedTitle(from: "2026-08-31", to: "2026-09-30", today: "2026-10-24", saysIt: true,
                                      locale: english) == "What moved it in September")
@@ -46,18 +40,18 @@ struct TodayWordsTests {
         #expect(TodayText.savedAsTime(saved: 0, markets: 500, yearlySpending: 36500) == nil)
     }
 
-    @Test func comingUpStartsWithTheNextCheckIn() {
+    @Test func theCheckInTileSaysWhenItsDue() {
         let status = CheckInStatus(lastCheckIn: "2026-09-30", nextCheckIn: "2026-10-31", daysUntilDue: 7,
                                    isDue: false)
-        let items = TodayComingUp.items(status: status, ahead: [], next: nil,
-                                        text: PlanMilestoneText(currency: .eur, locale: english),
-                                        today: "2026-10-24", locale: english)
-        #expect(items.map { $0.id } == ["checkin"])
-        #expect(items[0].what.text == "October check-in")
+        #expect(status.tileWords(locale: english).figure == AmountFormat.shortDate("2026-10-31", locale: english))
+        #expect(status.tileWords(locale: english).caption == "in 7 days")
+        let tomorrow = CheckInStatus(lastCheckIn: "2026-09-30", nextCheckIn: "2026-10-31", daysUntilDue: 1, isDue: true)
+        #expect(tomorrow.tileWords(locale: english).caption == "tomorrow")
+        let passed = CheckInStatus(lastCheckIn: "2026-09-30", nextCheckIn: "2026-10-31", daysUntilDue: -2, isDue: true)
+        #expect(passed.tileWords(locale: english).caption == "ready to start")
         let open = CheckInStatus(lastCheckIn: "2026-09-30", nextCheckIn: "2026-10-31", daysUntilDue: 7,
                                  isDue: false, openDate: "2026-10-31")
-        #expect(TodayComingUp.items(status: open, ahead: [], next: nil,
-                                    text: PlanMilestoneText(currency: .eur, locale: english),
-                                    today: "2026-10-24", locale: english).map { $0.what.text } == ["Check-in under way"])
+        #expect(open.tileWords(locale: english).figure == "Under way")
+        #expect(open.tileWords(locale: english).caption == "Continue")
     }
 }

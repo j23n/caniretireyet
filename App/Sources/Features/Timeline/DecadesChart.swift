@@ -223,7 +223,7 @@ struct DecadesPlotData {
 /// from the first record to the plan's end, money up on a scale that fits
 /// the past and the typical future with a tenth above them (the bands may
 /// run off the top, cut at the edge), the amounts in a column at the
-/// right, the ages under the plot and the chapters under them.
+/// left, the ages under the plot and the chapters under them.
 struct DecadesGeometry {
     let data: DecadesPlotData
     let width: CGFloat
@@ -234,7 +234,7 @@ struct DecadesGeometry {
     /// The futures with their bands cut at the plot's edges.
     let fan: [FanPoint]
 
-    /// The amounts' column at the right.
+    /// The amounts' column at the left.
     static let labelColumn: CGFloat = 40
     /// Above the plot: *Now* and the day you stop.
     static let topStrip: CGFloat = 26
@@ -259,8 +259,8 @@ struct DecadesGeometry {
         fan = data.fan.map(projection.clamped)
     }
 
-    var left: CGFloat { 4 }
-    var right: CGFloat { max(left + 1, width - Self.labelColumn) }
+    var left: CGFloat { Self.labelColumn }
+    var right: CGFloat { max(left + 1, width - 4) }
     var top: CGFloat { Self.topStrip }
     var bottom: CGFloat {
         max(top + 1, height - Self.axisHeight - (data.chapters.isEmpty ? 0 : Self.bandHeight + 4))
@@ -438,7 +438,7 @@ struct DecadesGeometry {
 }
 
 /// The decades chart's plot (UI.md, "Decades"), drawn for its width: the
-/// gridlines with their amounts at the right, your money to now in ink,
+/// gridlines with their amounts at the left, your money to now in ink,
 /// the futures from now (the typical one as a blue line, half of them in
 /// the darker band, 8 in 10 in the lighter one), a rule at *Now* ("Now,
 /// 38") and one at the day you stop in a blue label ("27 Mar 2051, at
@@ -486,7 +486,7 @@ struct DecadesPlot: View {
         }
     }
 
-    /// The gridlines' amounts in the column at the right; multiples of
+    /// The gridlines' amounts in the column at the left; multiples of
     /// today's value while amounts are hidden.
     private func amountLabels(_ geometry: DecadesGeometry) -> some View {
         let axis = AmountAxisTicks(scale: geometry.scale, hidesAmounts: hidesAmounts,
@@ -497,7 +497,7 @@ struct DecadesPlot: View {
             AmountAxisLabel(text: tick.label, isRelative: axis.isRelative)
                 .lineLimit(1)
                 .frame(width: column, alignment: .trailing)
-                .position(x: width - column / 2, y: geometry.y(tick.value))
+                .position(x: column / 2, y: geometry.y(tick.value))
         }
     }
 

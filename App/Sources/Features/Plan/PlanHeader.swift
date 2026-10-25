@@ -287,14 +287,16 @@ struct PlanHeaderCard: View {
 // MARK: - Mac and iPad
 
 /// The header row on the Mac and iPad: the plan menu as its title, how the
-/// results shown were calculated, and the plan's commands: *Assumptions…*,
-/// *Target Mix…*, *Duplicate* and *Save as Plan…*, which keeps the levers
-/// where they are as a plan of its own once one has moved.
+/// results shown were calculated, *Save as Plan…* once a lever has moved,
+/// which keeps the levers where they are as a plan of its own, and a •••
+/// menu: *Assumptions…* (taxes among them), *Target Mix…*, *Flexible
+/// Spending…* and *Duplicate*.
 struct PlanWideHeader: View {
     let session: PlanSession
     let actions: PlanActions
     var onAssumptions: () -> Void = {}
     var onTargetMix: () -> Void = {}
+    var onFlexibleSpending: () -> Void = {}
 
     @Environment(PlusStore.self) private var plus
     @Environment(\.locale) private var locale
@@ -311,27 +313,36 @@ struct PlanWideHeader: View {
             }
             .layoutPriority(1)
             Spacer(minLength: Metrics.m)
-            ViewThatFits(in: .horizontal) {
-                buttons(all: true)
-                buttons(all: false)
-            }
+            buttons
         }
         .planSaveAsPlan(session: session, isPresented: $isNaming)
     }
 
-    private func buttons(all: Bool) -> some View {
+    /// *Save as Plan…* while a lever has moved, and the plan's other
+    /// commands in a menu.
+    private var buttons: some View {
         HStack(spacing: Metrics.s) {
-            if all {
+            if session.hasWhatIf {
+                Button("Save as Plan…") {
+                    plus.unlock(.morePlans) { isNaming = true }
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(!session.canEdit)
+                .help("Keep the levers where they are as a plan of its own")
+            }
+            Menu {
                 Button("Assumptions…", action: onAssumptions)
                 Button("Target Mix…", action: onTargetMix)
+                Button("Flexible Spending…", action: onFlexibleSpending)
+                    .disabled(!session.canEdit)
+                Divider()
                 Button("Duplicate", action: actions.duplicate)
+            } label: {
+                Label("More", systemImage: "ellipsis")
+                    .labelStyle(.iconOnly)
             }
-            Button("Save as Plan…") {
-                plus.unlock(.morePlans) { isNaming = true }
-            }
-            .buttonStyle(.borderedProminent)
-            .disabled(!session.hasWhatIf || !session.canEdit)
-            .help("Keep the levers where they are as a plan of its own")
+            .menuIndicator(.hidden)
+            .help("The plan's settings")
         }
         .buttonStyle(.bordered)
         .controlSize(.regular)
@@ -342,8 +353,8 @@ struct PlanWideHeader: View {
 /// The answer's card on the Mac and iPad: "Earliest last Monday, in 9 of 10
 /// futures", the date large with the age beside it and how sure stopping at
 /// the plan's own age is ("Stop at 55: 4 in 10"), or how far the levers
-/// moved it; then the chance by retirement age. While a calculation runs,
-/// its progress.
+/// moved it. While a calculation runs, its progress. The chance by
+/// retirement age is a tile under it (``PlanStopAgesTile``).
 struct PlanAnswerCard: View {
     let session: PlanSession
 
@@ -407,16 +418,6 @@ struct PlanAnswerCard: View {
                 PlanRunProgressView(progress: progress, isCheckIn: session.isCheckInRun,
                                     onCancel: session.isCheckInRun ? nil : { session.cancel() })
                     .padding(.top, Metrics.xs)
-            }
-            if let results = state.results {
-                Text(verbatim: "If you stopped at another age: how many of 10 futures keep your money lasting to "
-                     + "\(results.details.endAge)")
-                    .font(.subheadline)
-                    .foregroundStyle(Palette.secondaryInk)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .privacySensitiveInFeedback()
-                    .padding(.top, Metrics.s)
-                PlanSuccessChart(session: session, results: results)
             }
         }
         .padding(.horizontal, Metrics.l)

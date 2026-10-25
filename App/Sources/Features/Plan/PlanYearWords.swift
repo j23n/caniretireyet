@@ -4,18 +4,23 @@ import SwiftUI
 import Tracker
 
 // The chosen year in tiles and rows (UI.md, "Year"), under its chart:
-// what you saved and what markets did, why you're ahead or behind, month
-// by month, and what happened. On the Mac and iPad the figures are rows
-// beside the chart, and the check-ins a table under it.
+// what you saved and what markets did, why you're ahead or behind, your
+// money, the earliest age and the check-ins, month by month, and what
+// happened.
 
-/// What you saved and what markets did in the year, two small tiles side by
-/// side ("💰 You saved", "15.890 €", "planned 13.463 € by now"; "📈 Markets
-/// added", "8.940 €", "expected 1.982 €"), and why you're ahead or behind,
-/// a wide tile under them (``PlanYearWhyTile``).
+/// The year as tiles: what you saved and what markets did, small ("💰 You
+/// saved", "15.890 €", "planned 13.463 € by now"; "📈 Markets added",
+/// "8.940 €", "expected 1.982 €"); why you're ahead or behind, wide
+/// (``PlanYearWhyTile``); your money now or at the year's end, wide; and
+/// the earliest age over the year and the year's check-ins, half tiles,
+/// the check-ins opening their table.
 struct PlanYearTiles: View {
     let card: PlanProgressTimeline.Card
+    let history: PlanAnswerHistory
 
+    @Environment(LibraryStore.self) private var library
     @Environment(\.locale) private var locale
+    @State private var showsCheckIns = false
 
     private var year: PlanProgressYear { card.year }
 
@@ -33,7 +38,72 @@ struct PlanYearTiles: View {
                 PlanYearWhyTile(card: card)
                     .tileSize(.wide)
             }
+            moneyTile
+                .tileSize(.wide)
+            if let to = year.answerTo?.earliestAge {
+                HalfTile(tint: .lilac, title: "Earliest age", emoji: "🧭") {
+                    Text(verbatim: "\(to)")
+                        .monospacedDigit()
+                        .privacySensitiveInFeedback()
+                } caption: {
+                    Text(verbatim: ageCaption(to: to))
+                        .privacySensitiveInFeedback()
+                }
+                .tileSize(.half)
+            }
+            Button {
+                showsCheckIns = true
+            } label: {
+                HalfTile(tint: .sky, title: "Check-ins", emoji: "✅") {
+                    Text(verbatim: "\(PlanYearCheckIn.rows(of: year, valuator: library.valuator).count)")
+                        .monospacedDigit()
+                } caption: {
+                    Text(year.isLatest ? "this year" : "that year")
+                }
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint("Shows the year's check-ins")
+            .tileSize(.half)
         }
+        .sheet(isPresented: $showsCheckIns) {
+            NavigationStack {
+                ScrollView {
+                    PlanYearCheckIns(card: card, history: history)
+                        .padding(Metrics.l)
+                }
+                .background(Palette.page)
+                .sheetTitle("Check-ins") { showsCheckIns = false }
+            }
+            .presentationDetents([.medium, .large])
+            #if os(macOS)
+            .frame(minWidth: 520, minHeight: 360)
+            #endif
+        }
+    }
+
+    /// "📊 Now" (or "Ended at"), your money in the plan, and where the year
+    /// started.
+    private var moneyTile: some View {
+        ColorTile {
+            TileLabel(year.isLatest ? "Now" : "Ended at", emoji: "📊")
+            Spacer(minLength: Metrics.s)
+            AmountText(year.change.end, currency: card.currency, tabular: false)
+                .font(.title2.bold())
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+            AmountSentenceText("started the year at \(amount: amount(year.change.start))")
+                .font(.caption)
+                .foregroundStyle(Palette.secondaryInk)
+                .lineLimit(1)
+                .padding(.top, 2)
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    /// "from 56", "no change".
+    private func ageCaption(to: Int) -> String {
+        guard let from = year.answerFrom?.earliestAge, from != to else { return "no change" }
+        return "from \(from)"
     }
 
     private func figureTile(_ title: String, emoji: String, tint: TileTint, value: Decimal,
@@ -159,43 +229,6 @@ struct PlanYearWhyTile: View {
     private var emoji: String {
         guard let explanation = year.explanation else { return "📏" }
         return explanation.end >= 0 ? "🚀" : "🧭"
-    }
-}
-
-/// The year's figures as rows beside its chart on the Mac and iPad: where
-/// it started, what you saved and what markets did, where it is now (or
-/// ended), what was planned, and how the earliest age moved.
-struct PlanYearFiguresCard: View {
-    let card: PlanProgressTimeline.Card
-
-    private var year: PlanProgressYear { card.year }
-
-    var body: some View {
-        TimelineTitledRows(title: year.title, personal: true) {
-            CardRow("Started at") { AmountText(year.change.start, currency: card.currency) }
-            CardRow(year.change.saved >= 0 ? "You saved" : "You took out") {
-                AmountText(abs(year.change.saved), currency: card.currency)
-            }
-            CardRow("Markets") {
-                AmountText(year.change.market, currency: card.currency, signed: true)
-                    .foregroundStyle(year.change.market < 0 ? Palette.orangeStroke : Palette.positive)
-            }
-            CardRow(year.isLatest ? "Now" : "Ended at") {
-                AmountText(year.change.end, currency: card.currency)
-                    .fontWeight(.semibold)
-                    .foregroundStyle(Palette.ink)
-            }
-            if let planned = year.plannedSaving {
-                CardRow("Planned to save") { AmountText(planned, currency: card.currency) }
-            }
-            if let age = PlanYearHappenings.ageWords(year) {
-                CardRow("Earliest age") {
-                    Text(age)
-                        .monospacedDigit()
-                        .privacySensitiveInFeedback()
-                }
-            }
-        }
     }
 }
 
@@ -530,8 +563,8 @@ struct PlanYearCheckIn: Identifiable {
     }
 }
 
-/// The year's check-ins as a table under its chart on the Mac and iPad,
-/// newest first: the month, the money in the plan, what you saved and what
+/// The year's check-ins as a table, in the sheet the *Check-ins* tile
+/// opens, newest first: the month, the money in the plan, what you saved and what
 /// markets did since the check-in before, the earliest age it recorded,
 /// and how that moved ("1 sooner", "same").
 struct PlanYearCheckIns: View {

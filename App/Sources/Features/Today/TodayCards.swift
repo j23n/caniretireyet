@@ -5,18 +5,18 @@ import Storage
 import SwiftUI
 import Tracker
 
-// Today's cards (UI.md, "Today"): what moved at the last check-in, this
-// year, the plan before there is an answer, and what needs attention. The
-// answer itself is `TodayAnswerCard`; the Mac's figures, columns and
-// *Coming up* are in TodayWide.swift.
+// Today's cards (UI.md, "Today"): what moved at the last check-in, as a
+// tile, the plan before there is an answer, and what needs attention. The
+// answer itself is `TodayAnswerCard`; the other tiles are in
+// TodayTiles.swift.
 
 // MARK: - What moved
 
-/// What moved the date at the last check-in, on iPhone (UI.md, "What
+/// What moved the date at the last check-in, as a wide tile (UI.md, "What
 /// moved it"): "What moved it in September", a bar each for what you saved
 /// and what markets did, to one scale, and one sentence saying what was
 /// saved as time of the plan's spending.
-struct TodayMovedCard: View {
+struct TodayMovedTile: View {
     let report: ChangeReport
     /// Its split with saved as the savings rate counts it (Tracker's
     /// `Valuator.savedSplit(of:)`).
@@ -28,26 +28,28 @@ struct TodayMovedCard: View {
 
     var body: some View {
         let largest = max(abs(split.saved), abs(split.market))
-        Card {
-            VStack(alignment: .leading, spacing: Metrics.s) {
-                Grid(alignment: .leading, horizontalSpacing: Metrics.m, verticalSpacing: Metrics.s) {
-                    bar("💰 You saved", split.saved, largest: largest, color: Palette.accent)
-                    bar("📈 Markets", split.market, largest: largest, color: Palette.accent.opacity(0.45))
-                }
-                if let sentence = TodayText.savedAsTime(saved: split.saved, markets: split.market,
-                                                        yearlySpending: yearlySpending) {
-                    Text(sentence)
-                        .font(.footnote)
-                        .foregroundStyle(Palette.secondaryInk)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .privacySensitiveInFeedback()
-                }
-            }
-        } header: {
-            SectionHeader("🌤️ " + TodayText.movedTitle(from: report.from, to: report.to, today: .today(),
-                                                       saysIt: true, locale: locale))
+        ColorTile {
+            TileLabel(TodayText.movedTitle(from: report.from, to: report.to, today: .today(), saysIt: true,
+                                           locale: locale),
+                      emoji: "🌤️")
                 .privacySensitiveInFeedback()
+            Spacer(minLength: Metrics.s)
+            Grid(alignment: .leading, horizontalSpacing: Metrics.m, verticalSpacing: Metrics.s) {
+                bar("💰 You saved", split.saved, largest: largest, color: Palette.accent)
+                bar("📈 Markets", split.market, largest: largest, color: Palette.accent.opacity(0.45))
+            }
+            if let sentence = TodayText.savedAsTime(saved: split.saved, markets: split.market,
+                                                    yearlySpending: yearlySpending) {
+                Text(sentence)
+                    .font(.footnote)
+                    .foregroundStyle(Palette.secondaryInk)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .privacySensitiveInFeedback()
+                    .padding(.top, Metrics.s)
+            }
         }
+        .accessibilityElement(children: .combine)
     }
 
     /// A row: its name, its bar against the larger of the two, its amount.
@@ -86,163 +88,6 @@ struct TodayShareBar: View {
         .frame(height: 8)
         .privacySensitiveInFeedback()
         .accessibilityHidden(true)
-    }
-}
-
-/// What moved at the last check-in, on the Mac and iPad: "What moved in
-/// October" with the change, then a row per account with its value, what
-/// was put in and what markets did, and the total.
-struct TodayChangeTable: View {
-    let report: ChangeReport
-    /// Its split with saved as the savings rate counts it, for the sentence.
-    let split: ValueChange
-    var yearlySpending: Decimal?
-    @Environment(LibraryStore.self) private var library
-    @Environment(\.locale) private var locale
-
-    var body: some View {
-        let rows = report.accounts
-            .filter { $0.change.start != 0 || $0.change.end != 0 }
-            .sorted { (name(of: $0), $0.account.rawValue) < (name(of: $1), $1.account.rawValue) }
-        Card {
-            VStack(alignment: .leading, spacing: Metrics.m) {
-                Grid(alignment: .leading, horizontalSpacing: Metrics.l, verticalSpacing: Metrics.s) {
-                    GridRow {
-                        heading("Account")
-                        heading("Value")
-                            .gridColumnAlignment(.trailing)
-                        heading("Put in")
-                            .gridColumnAlignment(.trailing)
-                        heading("Markets")
-                            .gridColumnAlignment(.trailing)
-                    }
-                    ForEach(rows) { row in
-                        Divider()
-                            .gridCellUnsizedAxes(.horizontal)
-                        GridRow {
-                            Text(name(of: row))
-                                .lineLimit(1)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .privacySensitiveInFeedback()
-                            AmountText(row.change.end)
-                            amount(row.change.saved)
-                            amount(row.change.market, signed: true)
-                        }
-                    }
-                    Divider()
-                        .gridCellUnsizedAxes(.horizontal)
-                    // No modifiers on the row itself: they'd turn it into one cell.
-                    GridRow {
-                        Text("Total")
-                            .fontWeight(.semibold)
-                        AmountText(report.total.end)
-                            .fontWeight(.semibold)
-                        amount(report.total.saved)
-                            .fontWeight(.semibold)
-                        amount(report.total.market, signed: true)
-                            .fontWeight(.semibold)
-                    }
-                }
-                .foregroundStyle(Palette.ink)
-                if let sentence = TodayText.savedAsTime(saved: split.saved, markets: split.market,
-                                                        yearlySpending: yearlySpending) {
-                    Text(sentence)
-                        .font(.footnote)
-                        .foregroundStyle(Palette.secondaryInk)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .privacySensitiveInFeedback()
-                }
-            }
-        } header: {
-            SectionHeader(TodayText.movedTitle(from: report.from, to: report.to, today: .today(), saysIt: false,
-                                               locale: locale)) {
-                DeltaText(report.total.change)
-                    .fontWeight(.semibold)
-            }
-            .privacySensitiveInFeedback()
-        }
-    }
-
-    private func name(of row: AccountChange) -> String {
-        library.library.accounts[row.account]?.name ?? row.account.rawValue
-    }
-
-    private func heading(_ title: String) -> some View {
-        Text(title)
-            .font(.caption)
-            .foregroundStyle(Palette.mutedInk)
-            .lineLimit(1)
-    }
-
-    /// An amount, or a dash for none; markets' with its sign and colour.
-    @ViewBuilder
-    private func amount(_ value: Decimal, signed: Bool = false) -> some View {
-        if value == 0 {
-            Text(verbatim: "—")
-                .foregroundStyle(Palette.mutedInk)
-        } else if signed {
-            AmountText(value, signed: true)
-                .foregroundStyle(Palette.change(value > 0 ? 1 : -1))
-        } else {
-            AmountText(value)
-        }
-    }
-}
-
-// MARK: - This year
-
-/// This year so far, on the Mac and iPad (UI.md, "This year"): how net
-/// worth changed since 31 December of last year, what you saved and what
-/// markets did, and how the date moved since the last check-in of last
-/// year, as rows; then the year on the Timeline.
-struct TodayYearCard: View {
-    let year: TodayYear
-    /// How the date moved since the last check-in before this year.
-    var yourDate: LastMondayMove?
-    @Environment(AppNavigation.self) private var navigation
-    @Environment(\.locale) private var locale
-
-    var body: some View {
-        let total = year.report.total
-        let thisYear = year.report.to.year
-        Card("This year so far") {
-            VStack(alignment: .leading, spacing: 0) {
-                CardRow("Net worth") {
-                    HStack(spacing: 0) {
-                        AmountText(total.change, signed: true)
-                        if let relative = total.relativeChange {
-                            Text(verbatim: ", \(AmountFormat.percent(relative, digits: 0, locale: locale))")
-                                .privacySensitiveInFeedback()
-                        }
-                    }
-                    .foregroundStyle(Palette.ink)
-                }
-                Divider()
-                CardRow("You saved") {
-                    AmountText(year.split.saved)
-                        .foregroundStyle(Palette.ink)
-                }
-                Divider()
-                CardRow("Markets") {
-                    DeltaText(year.split.market)
-                }
-                if let yourDate {
-                    Divider()
-                    CardRow("Your date") {
-                        Text(verbatim: TodayText.move(yourDate))
-                            .foregroundStyle(yourDate.years == 0 ? Palette.secondaryInk
-                                : yourDate.isSooner ? Palette.accent : Palette.warning)
-                            .privacySensitiveInFeedback()
-                    }
-                }
-            }
-            Button("Open \(String(thisYear)) in Timeline") {
-                navigation.showTimeline(.year, year: thisYear)
-            }
-            .buttonStyle(.plain)
-            .font(.subheadline)
-            .foregroundStyle(Palette.accent)
-        }
     }
 }
 
@@ -600,12 +445,21 @@ private struct TodayAttentionRow: View {
         ScrollView {
             VStack(spacing: Metrics.m) {
                 if let report = valuator.changeSinceLastCheckIn(asOf: date) {
-                    TodayMovedCard(report: report, split: valuator.savedSplit(of: report))
-                    TodayChangeTable(report: report, split: valuator.savedSplit(of: report))
+                    TileGrid {
+                        TodayMovedTile(report: report, split: valuator.savedSplit(of: report))
+                            .tileSize(.wide)
+                    }
                 }
                 if let report = valuator.changeThisYear(asOf: date) {
-                    TodayYearCard(year: TodayYear(report: report, split: valuator.savedSplit(of: report),
-                                                  savings: nil))
+                    TileGrid {
+                        TodayYearTile(report: report, split: valuator.savedSplit(of: report))
+                            .tileSize(.small)
+                        CheckInTile(status: CheckInStatus(lastCheckIn: date, nextCheckIn: date.adding(months: 1),
+                                                          daysUntilDue: 6, isDue: false))
+                            .tileSize(.half)
+                        CoastAgeTile(age: 71, target: 67, size: .half)
+                            .tileSize(.half)
+                    }
                 }
                 // Before the main plan's first calculation.
                 TodayPlanCard()

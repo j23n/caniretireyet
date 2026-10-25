@@ -37,9 +37,12 @@ struct PlanMoneyInOutTests {
                                         previous: savings(moneyIn: 44_400, spent: 32_200), since: nil)
         let changes = year.tiles.map(\.change)
         // 31% against 27%.
-        #expect(changes[0] == PlanLastTwelveMonths.TileChange(value: .points(4), direction: 1, isGood: true))
+        let before = try #require(year.previous?.rate)
+        #expect(changes[0] == PlanLastTwelveMonths.TileChange(value: .rate(before), direction: 1, isGood: true))
+        #expect(changes[0]?.text(currency: .eur, locale: locale) == "▲ from 27%")
         // Saved 14.200 € against 12.200 €.
-        #expect(changes[1] == PlanLastTwelveMonths.TileChange(value: .amount(2_000), direction: 1, isGood: true))
+        #expect(changes[1] == PlanLastTwelveMonths.TileChange(value: .saved(12_200, now: 14_200), direction: 1, isGood: true))
+        #expect(changes[1]?.text(currency: .eur, locale: locale) == "▲ from \(amount(12_200))")
         // Came in 3% more: good news.
         #expect(changes[2]?.direction == 1)
         #expect(changes[2]?.isGood == true)
@@ -50,6 +53,28 @@ struct PlanMoneyInOutTests {
         let worse = PlanLastTwelveMonths(current: savings(moneyIn: 40_000, spent: 36_000),
                                          previous: savings(moneyIn: 45_800, spent: 31_600), since: nil)
         #expect(worse.tiles.map { $0.change?.isGood } == [false, false, false, false])
+    }
+
+    /// What was saved reads as the figure does: without a sign, and with
+    /// "taking out" or "saving" when it was the other way.
+    @Test func savedChangesReadAsTheFigure() {
+        let tookOut = PlanLastTwelveMonths(current: savings(moneyIn: 30_000, spent: 31_000),
+                                           previous: savings(moneyIn: 30_000, spent: 33_000), since: nil)
+        #expect(tookOut.tiles[1].title == "Took out")
+        #expect(tookOut.tiles[1].change?.text(currency: .eur, locale: locale) == "▲ from \(amount(3_000))")
+
+        let wasSaving = PlanLastTwelveMonths(current: savings(moneyIn: 30_000, spent: 31_000),
+                                             previous: savings(moneyIn: 33_000, spent: 30_000), since: nil)
+        #expect(wasSaving.tiles[1].change?.text(currency: .eur, locale: locale) == "▼ from saving \(amount(3_000))")
+
+        let wasTakingOut = PlanLastTwelveMonths(current: savings(moneyIn: 33_000, spent: 30_000),
+                                                previous: savings(moneyIn: 30_000, spent: 31_000), since: nil)
+        #expect(wasTakingOut.tiles[1].change?.text(currency: .eur, locale: locale)
+            == "▲ from taking out \(amount(1_000))")
+    }
+
+    private func amount(_ value: Decimal) -> String {
+        AmountFormat.amount(value, currency: .eur, locale: locale)
     }
 
     /// What came in, was taxed and was spent between `from` (exclusive) and

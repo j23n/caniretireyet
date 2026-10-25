@@ -6,10 +6,10 @@ import Tracker
 
 /// The Timeline at *Decades* (UI.md, "Decades"): the decades chart on a
 /// card titled by the span it covers ("Now to 95") and how sure the plan is
-/// ("Money lasts in 9 of 10 futures"), then two tiles, how sure and what's
-/// typically left at the end, and *Along the way*, the chapters and their
-/// one-offs down a line, with the money typically there as each starts.
-/// On the Mac and iPad the tiles and *Along the way* are beside the chart.
+/// ("Money lasts in 9 of 10 futures"), then half tiles, how sure, when you
+/// stop, when the pensions start and what's typically left at the end,
+/// and *Along the way*, the chapters and their one-offs down a line, with
+/// the money typically there as each starts. The same at every width.
 struct TimelineDecadesView: View {
     let session: PlanSession
 
@@ -17,28 +17,16 @@ struct TimelineDecadesView: View {
     @Environment(\.pageLayout) private var layout
     @Environment(\.locale) private var locale
 
-    /// The column beside the chart on the Mac and iPad.
-    private static let sideWidth: CGFloat = 300
-
     var body: some View {
         ScrollView {
             Group {
                 if let plan = session.plan {
                     let results = session.baseResults
                     let chapters = session.baseDerived(locale: locale).chapters
-                    if layout.isWide {
-                        WideColumns(sideWidth: Self.sideWidth) {
-                            chartCard(plan, results: results)
-                        } side: {
-                            tiles(chapters, results: results)
-                            alongTheWay(chapters, results: results)
-                        }
-                    } else {
-                        VStack(alignment: .leading, spacing: Metrics.m) {
-                            chartCard(plan, results: results)
-                            tiles(chapters, results: results)
-                            alongTheWay(chapters, results: results)
-                        }
+                    VStack(alignment: .leading, spacing: Metrics.m) {
+                        chartCard(plan, results: results)
+                        tiles(chapters, results: results)
+                        alongTheWay(chapters, results: results)
                     }
                 }
             }
@@ -97,17 +85,42 @@ struct TimelineDecadesView: View {
         }
     }
 
-    /// How sure, and what's typically left at the end.
+    /// How sure, when you stop, when the pensions start, and what's
+    /// typically left at the end, half tiles.
     @ViewBuilder
     private func tiles(_ chapters: PlanChaptersModel?, results: PlanResults?) -> some View {
         if let results {
-            let left = chapters?.chapters.chapters.indices.last.flatMap { chapters?.outcomes[$0] }
+            let all = chapters?.chapters.chapters ?? []
+            let left = all.indices.last.flatMap { chapters?.outcomes[$0] }
+            let pensions = all.first { $0.kind == .pensions }?.ages.lowerBound
             TileGrid {
                 DecadesHowSureTile(results: results)
-                    .tileSize(left == nil ? .wide : .small)
+                    .tileSize(.half)
+                // The plan's own age, else its earliest; without either no
+                // age works, and the run's age is only the last one tried.
+                if let age = results.headline.targetAge {
+                    HalfTile(tint: .lilac, title: "When you stop", emoji: "🏖️") {
+                        Text(verbatim: "\(age)")
+                            .monospacedDigit()
+                            .privacySensitiveInFeedback()
+                    } caption: {
+                        Text(results.headline.earliestAge == age ? "earliest" : "planned")
+                    }
+                    .tileSize(.half)
+                }
+                if let pensions {
+                    HalfTile(tint: .peach, title: "Pensions from", emoji: "🧓") {
+                        Text(verbatim: "\(pensions)")
+                            .monospacedDigit()
+                            .privacySensitiveInFeedback()
+                    } caption: {
+                        Text("age")
+                    }
+                    .tileSize(.half)
+                }
                 if let left {
                     DecadesLeftTile(outcome: left, endAge: results.details.endAge, currency: session.currency)
-                        .tileSize(.small)
+                        .tileSize(.half)
                 }
             }
         }
@@ -168,50 +181,24 @@ struct DecadesWords {
     }
 }
 
-/// How sure the plan is, as a tile (UI.md, "Decades"): "🎯 How sure", the
-/// futures whose money lasts to the end when you stop at the plan's age
-/// ("9 in 10"), a dot for each of 10, and what it's about ("futures last
-/// to 95, stopping at 63"); at the age you planned too, when that's
-/// another one ("4 in 10 at 55, as planned").
+/// How sure the plan is, as a half tile (UI.md, "Decades"): "🎯 How
+/// sure", the futures whose money lasts to the end when you stop at the
+/// plan's age ("9 in 10"), and a dot for each of 10.
 struct DecadesHowSureTile: View {
     let results: PlanResults
 
     var body: some View {
         let focus = results.details.focus
-        let end = results.details.endAge
-        ColorTile(tint: .sky) {
-            TileLabel("How sure", emoji: "🎯")
-            Spacer(minLength: Metrics.s)
-            Group {
-                if let success = focus.success {
-                    Text(verbatim: DecadesWords.inFutures(success))
-                        .font(.system(size: 36, weight: .bold))
-                        .monospacedDigit()
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.6)
-                    FuturesDots(share: success)
-                        .padding(.top, Metrics.s)
-                    Text(verbatim: "futures last to \(end), stopping at \(focus.age)")
-                        .font(.caption)
-                        .opacity(0.8)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .padding(.top, Metrics.s)
-                } else {
-                    Text("Not calculated yet")
-                        .font(.headline)
-                }
-                if let target = results.headline.targetAge, target != focus.age,
-                   let success = results.headline.successAtTarget {
-                    Text(verbatim: "\(DecadesWords.inFutures(success)) at \(target), as planned")
-                        .font(.caption)
-                        .opacity(0.8)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.8)
-                }
+        HalfTile(tint: .sky, title: "How sure", emoji: "🎯") {
+            Text(verbatim: focus.success.map(DecadesWords.inFutures) ?? "–")
+                .monospacedDigit()
+                .privacySensitiveInFeedback()
+        } caption: {
+            if let success = focus.success {
+                FuturesDots(share: success, size: 6)
+                    .privacySensitiveInFeedback()
             }
-            .privacySensitiveInFeedback()
         }
-        .accessibilityElement(children: .combine)
     }
 }
 
@@ -219,44 +206,34 @@ struct DecadesHowSureTile: View {
 /// money lasts in.
 struct FuturesDots: View {
     let share: Double
+    var size: CGFloat = 9
 
     var body: some View {
         let filled = Int((min(1, max(0, share)) * 10).rounded())
-        HStack(spacing: 2) {
+        HStack(spacing: size > 6 ? 2 : 1) {
             ForEach(0..<10, id: \.self) { index in
                 Circle()
                     .fill(index < filled ? AnyShapeStyle(.tint) : AnyShapeStyle(.primary.opacity(0.12)))
-                    .frame(width: 9, height: 9)
+                    .frame(width: size, height: size)
             }
         }
         .accessibilityHidden(true)
     }
 }
 
-/// What's typically left at the plan's end, as a tile: "🏁 Left at 95", the
-/// median future's money, in today's money.
+/// What's typically left at the plan's end, as a half tile: "🏁 Left at
+/// 95", the median future's money, in today's money.
 struct DecadesLeftTile: View {
     let outcome: PlanChaptersModel.Outcome
     let endAge: Int
     let currency: CurrencyCode
 
     var body: some View {
-        ColorTile(tint: .butter) {
-            TileLabel("Left at \(max(endAge, outcome.age))", emoji: "🏁")
-                .privacySensitiveInFeedback()
-            Spacer(minLength: Metrics.s)
-            AmountText(Decimal(wholeNumber: outcome.median), currency: currency, tabular: false)
-                .font(.title2.bold())
-                .lineLimit(1)
-                .minimumScaleFactor(0.6)
-            Text(verbatim: "typically, in \(PlanMoney.todaysMoney(currency))")
-                .font(.caption)
-                .opacity(0.8)
-                .lineLimit(2)
-                .fixedSize(horizontal: false, vertical: true)
-                .padding(.top, 2)
+        HalfTile(tint: .butter, title: "Left at \(max(endAge, outcome.age))", emoji: "🏁", personalTitle: true) {
+            AmountText(Decimal(wholeNumber: outcome.median), currency: currency, short: true)
+        } caption: {
+            Text("typically")
         }
-        .accessibilityElement(children: .combine)
     }
 }
 

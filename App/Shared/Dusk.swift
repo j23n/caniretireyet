@@ -4,8 +4,17 @@ import SwiftUI
 // widgets and on Today's answer.
 
 /// The app icon's sky behind the last Monday: a dusk gradient, the sun setting
-/// behind a rising chart drawn as the horizon.
+/// behind a rising chart drawn as the horizon. The horizon and the sun take
+/// the bottom of the view in proportion, as on the icon; with
+/// `horizonHeight` they keep to that band at the bottom however tall the
+/// view grows, so larger type above them never runs into them.
 struct DuskBackground: View {
+    var horizonHeight: CGFloat?
+
+    /// A band of `horizonHeight` holds the horizon and the sun as the
+    /// bottom of a view this much taller would.
+    private static let horizonShare: CGFloat = 0.36
+
     // The app icon's dusk (App/Design/AppIcon): the same in light and dark.
     private static let duskSky = Color(red: 15 / 255, green: 42 / 255, blue: 85 / 255)
     private static let duskBlue = Color(red: 42 / 255, green: 99 / 255, blue: 184 / 255)
@@ -17,15 +26,24 @@ struct DuskBackground: View {
     private static let horizonLine = Color(red: 158 / 255, green: 197 / 255, blue: 244 / 255)
 
     var body: some View {
+        ZStack {
+            LinearGradient(stops: [
+                .init(color: Self.duskSky, location: 0),
+                .init(color: Self.duskBlue, location: 0.62),
+                .init(color: Self.duskGlow, location: 0.92),
+            ], startPoint: .top, endPoint: .bottom)
+            horizon
+                .frame(height: horizonHeight.map { $0 / Self.horizonShare })
+                .frame(maxHeight: .infinity, alignment: .bottom)
+        }
+    }
+
+    /// The sun behind the horizon, for a view of the height it's given.
+    private var horizon: some View {
         GeometryReader { geometry in
             let size = geometry.size
             let sun = size.height * 0.33
             ZStack {
-                LinearGradient(stops: [
-                    .init(color: Self.duskSky, location: 0),
-                    .init(color: Self.duskBlue, location: 0.62),
-                    .init(color: Self.duskGlow, location: 0.92),
-                ], startPoint: .top, endPoint: .bottom)
                 Circle()
                     .fill(RadialGradient(colors: [Self.sunLight, Self.sunDeep],
                                          center: UnitPoint(x: 0.5, y: 0.45), startRadius: 0, endRadius: sun * 0.6))

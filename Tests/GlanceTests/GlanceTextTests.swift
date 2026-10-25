@@ -97,6 +97,10 @@ struct GlanceTextTests {
         #expect(GlanceText.futures(0.95) == "19 of 20")
         #expect(GlanceText.futures(0.75) == "3 of 4")
         #expect(GlanceText.futures(0.873) == "87 of 100")
+        // All or none: out of 10, not "2 of 2".
+        #expect(GlanceText.futures(1) == "10 of 10")
+        #expect(GlanceText.futures(0) == "0 of 10")
+        #expect(GlanceText.futures(0.5) == "1 of 2")
     }
 
     @Test func dates() {

@@ -47,8 +47,8 @@ struct PlanRunRequest: Sendable {
     /// The date the plan starts from (normally the latest check-in).
     var asOf: CalendarDate
     /// The retirement age the fan, income and failures are for; `nil` for
-    /// the plan's own (its age, or the earliest). Tapping an age on the
-    /// success curve sets it.
+    /// the plan's own (its age, or the earliest). Tapping an age on
+    /// `PlanStopAgesTile` sets it.
     var focusAge: Int? = nil
 }
 
