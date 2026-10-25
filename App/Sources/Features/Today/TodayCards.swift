@@ -12,10 +12,12 @@ import Tracker
 
 // MARK: - What moved
 
-/// What moved the date at the last check-in, as a wide tile (UI.md, "What
-/// moved it"): "What moved it in September", a bar each for what you saved
-/// and what markets did, to one scale, and one sentence saying what was
-/// saved as time of the plan's spending.
+/// What moved at the last check-in, as a tile (UI.md, "What moved it"):
+/// "🌤️ What moved in September", how net worth changed, then a bar each
+/// for what you saved and what markets did, to one scale, and one sentence
+/// saying what was saved as time of the plan's spending. Wide under the
+/// answer; tall beside it on a wide page (`isTall`), each bar under its
+/// name. The change is in per cent while amounts are hidden.
 struct TodayMovedTile: View {
     let report: ChangeReport
     /// Its split with saved as the savings rate counts it (Tracker's
@@ -24,29 +26,56 @@ struct TodayMovedTile: View {
     /// The main plan's retirement spending a year, to say what was saved as
     /// time; `nil` without a main plan.
     var yearlySpending: Decimal?
+    /// Whether it's a tall, narrow tile beside the answer.
+    var isTall = false
+
+    @Environment(\.redactionReasons) private var redactionReasons
     @Environment(\.locale) private var locale
 
     var body: some View {
         let largest = max(abs(split.saved), abs(split.market))
+        let total = report.total
         ColorTile {
-            TileLabel(TodayText.movedTitle(from: report.from, to: report.to, today: .today(), saysIt: true,
+            TileLabel(TodayText.movedTitle(from: report.from, to: report.to, today: .today(), saysIt: false,
                                            locale: locale),
                       emoji: "🌤️")
                 .privacySensitiveInFeedback()
             Spacer(minLength: Metrics.s)
-            Grid(alignment: .leading, horizontalSpacing: Metrics.m, verticalSpacing: Metrics.s) {
-                bar("💰 You saved", split.saved, largest: largest, color: Palette.accent)
-                bar("📈 Markets", split.market, largest: largest, color: Palette.accent.opacity(0.45))
+            Group {
+                if redactionReasons.hidesAmounts, let relative = total.relativeChange {
+                    Text(verbatim: AmountFormat.percent(relative, signed: true, locale: locale))
+                        .privacySensitiveInFeedback()
+                } else {
+                    AmountText(total.change, signed: true, tabular: false)
+                }
             }
+            .font(.title2.bold())
+            .lineLimit(1)
+            .minimumScaleFactor(0.6)
+            TileCaption("in net worth")
+            Group {
+                if isTall {
+                    VStack(alignment: .leading, spacing: Metrics.s) {
+                        tallBar("💰 You saved", split.saved, largest: largest, color: Palette.accent)
+                        tallBar("📈 Markets", split.market, largest: largest, color: Palette.accent.opacity(0.45))
+                    }
+                } else {
+                    Grid(alignment: .leading, horizontalSpacing: Metrics.m, verticalSpacing: Metrics.s) {
+                        bar("💰 You saved", split.saved, largest: largest, color: Palette.accent)
+                        bar("📈 Markets", split.market, largest: largest, color: Palette.accent.opacity(0.45))
+                    }
+                }
+            }
+            .padding(.top, Metrics.m)
             if let sentence = TodayText.savedAsTime(saved: split.saved, markets: split.market,
                                                     yearlySpending: yearlySpending) {
                 Text(sentence)
                     .font(.footnote)
                     .foregroundStyle(Palette.secondaryInk)
-                    .lineLimit(2)
+                    .lineLimit(isTall ? 4 : 2)
                     .fixedSize(horizontal: false, vertical: true)
                     .privacySensitiveInFeedback()
-                    .padding(.top, Metrics.s)
+                    .padding(.top, Metrics.m)
             }
         }
         .accessibilityElement(children: .combine)
@@ -61,7 +90,7 @@ struct TodayMovedTile: View {
                 .foregroundStyle(Palette.secondaryInk)
                 .lineLimit(1)
                 .fixedSize()
-            TodayShareBar(share: largest > 0 ? (abs(value) / largest).doubleValue : 0, color: color)
+            TodayShareBar(share: share(of: value, largest: largest), color: color)
                 .frame(maxWidth: .infinity)
             AmountText(value)
                 .font(.subheadline)
@@ -70,6 +99,28 @@ struct TodayMovedTile: View {
                 .fixedSize()
                 .gridColumnAlignment(.trailing)
         }
+    }
+
+    /// Its name and amount on a line, its bar under them.
+    private func tallBar(_ label: String, _ value: Decimal, largest: Decimal, color: Color) -> some View {
+        VStack(alignment: .leading, spacing: Metrics.xs) {
+            HStack(spacing: Metrics.s) {
+                Text(label)
+                    .foregroundStyle(Palette.secondaryInk)
+                    .lineLimit(1)
+                Spacer(minLength: Metrics.xs)
+                AmountText(value)
+                    .foregroundStyle(Palette.ink)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+            }
+            .font(.subheadline)
+            TodayShareBar(share: share(of: value, largest: largest), color: color)
+        }
+    }
+
+    private func share(of value: Decimal, largest: Decimal) -> Double {
+        largest > 0 ? (abs(value) / largest).doubleValue : 0
     }
 }
 

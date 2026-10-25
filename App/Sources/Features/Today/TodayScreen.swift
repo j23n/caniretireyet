@@ -11,9 +11,10 @@ import Tracker
 /// (``TodayAnswerCard``), or before there's one the next step
 /// (``TodayPlanCard``); then tiles (``TodayTiles``) on a grid of slots as
 /// wide as an iPhone's (``TileGrid``). Where a row has four slots or more
-/// the answer takes two of them beside the first tiles, and the two end
-/// together. Then what needs attention, only while something does, and
-/// *Coming up*, the milestones ahead as tiles (``TodayComingUp``).
+/// the answer takes two of them, with net worth and what moved beside it
+/// as tall tiles that end with it, and the smaller tiles under them. Then
+/// what needs attention, only while something does, and *Coming up*, the
+/// milestones ahead as tiles (``TodayComingUp``).
 ///
 /// When the main plan's results are out of date, Today calculates it in
 /// the background: there's no *Calculate* here.
@@ -60,8 +61,9 @@ struct TodayScreen: View {
         .background(Palette.page)
     }
 
-    /// The answer and the tiles, beside each other where a row has four
-    /// slots; then what needs attention and *Coming up*.
+    /// The answer with net worth and what moved beside it where a row has
+    /// four slots, and the other tiles; then what needs attention and
+    /// *Coming up*.
     private func page(today: CalendarDate) -> some View {
         let mainPlan = library.mainPlan
         let latest = mainPlan == nil ? nil : plans.mainAnswer
@@ -75,12 +77,13 @@ struct TodayScreen: View {
                         TodayAnswerCard(answer: answer, plan: mainPlan, results: results, today: today)
                             .frame(width: 2 * TileGrid.smallWidth(width: pageWidth) + Metrics.m)
                         TileGrid(fillsHeight: true) {
-                            TodayTiles(part: .beside, plan: mainPlan, results: results, today: today)
+                            TodayTiles(part: .beside(slots: slots - 2), plan: mainPlan, results: results,
+                                       today: today)
                         }
                     }
                     .fixedSize(horizontal: false, vertical: true)
                     TileGrid {
-                        TodayTiles(part: .below, plan: mainPlan, results: results, today: today)
+                        TodayTiles(part: .under, plan: mainPlan, results: results, today: today)
                     }
                 }
             } else {
@@ -91,8 +94,7 @@ struct TodayScreen: View {
                         TodayPlanCard()
                     }
                     TileGrid {
-                        TodayTiles(part: .beside, plan: mainPlan, results: results, today: today)
-                        TodayTiles(part: .below, plan: mainPlan, results: results, today: today)
+                        TodayTiles(part: .all, plan: mainPlan, results: results, today: today)
                     }
                 }
             }
