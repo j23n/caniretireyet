@@ -102,7 +102,7 @@ targets:
         ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS: NO
         # The icon set in Assets.xcassets, made from the SVGs in App/Design/AppIcon.
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
-        # Info.plist: the keys in App/Config/Info.plist (iCloud Drive folder) plus generated ones.
+        # Info.plist: the keys in App/Config/Info.plist (the app menu's name, the iCloud Drive folder) plus generated ones.
         INFOPLIST_FILE: App/Config/Info.plist
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_CFBundleDisplayName: "Last Monday"
