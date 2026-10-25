@@ -3,6 +3,8 @@
 
   screenshots.py pick-iphone                 the UDID of an iPhone simulator to test on:
                                              the newest iOS, an "iPhone NN Pro" if there is one
+  screenshots.py pick-ipad                   the UDID of an iPad simulator to test on:
+                                             the newest iOS, a 13-inch iPad Pro if there is one
   screenshots.py print OUT                   each screenshot as a small JPEG in base64,
                                              between "=== screenshot NAME ===" and
                                              "=== end ===", for reading them from the log
@@ -19,7 +21,7 @@ import sys
 import tempfile
 
 
-def pick_iphone() -> None:
+def pick_simulator(family: str) -> None:
     listing = subprocess.run(["xcrun", "simctl", "list", "devices", "available", "--json"],
                              check=True, capture_output=True, text=True).stdout
     candidates = []
@@ -29,15 +31,18 @@ def pick_iphone() -> None:
             continue
         for device in devices:
             name = device["name"]
-            if name.startswith("iPhone"):
-                plain = re.fullmatch(r"iPhone \d+( Pro)?", name) is not None
-                candidates.append(((int(version[1]), int(version[2])), plain, name.endswith(" Pro"), name,
-                                   device["udid"]))
+            if not name.startswith(family):
+                continue
+            if family == "iPhone":
+                preferred = (re.fullmatch(r"iPhone \d+( Pro)?", name) is not None, name.endswith(" Pro"))
+            else:
+                preferred = (name.startswith("iPad Pro"), "13-inch" in name)
+            candidates.append(((int(version[1]), int(version[2])), preferred, name, device["udid"]))
     if not candidates:
-        sys.exit("No iPhone simulator available.")
+        sys.exit(f"No {family} simulator available.")
     chosen = max(candidates)
-    print(f"{chosen[3]}, iOS {chosen[0][0]}.{chosen[0][1]}", file=sys.stderr)
-    print(chosen[4])
+    print(f"{chosen[2]}, iOS {chosen[0][0]}.{chosen[0][1]}", file=sys.stderr)
+    print(chosen[3])
 
 
 def print_screenshots(out: pathlib.Path) -> None:
@@ -71,7 +76,9 @@ def failures(results: pathlib.Path) -> None:
 if __name__ == "__main__":
     command = sys.argv[1] if len(sys.argv) > 1 else ""
     if command == "pick-iphone":
-        pick_iphone()
+        pick_simulator("iPhone")
+    elif command == "pick-ipad":
+        pick_simulator("iPad")
     elif command == "print" and len(sys.argv) == 3:
         print_screenshots(pathlib.Path(sys.argv[2]))
     elif command == "failures" and len(sys.argv) == 3:

@@ -24,17 +24,17 @@ enum ScreenCapture {
             .deletingLastPathComponent().appendingPathComponent(".build/screenshots", isDirectory: true)
     }
 
-    /// The pictures' prefix: `mac` or `iphone`.
+    /// The pictures' prefix: `mac`, `iphone` or `ipad`.
     static var platform: String {
         #if os(macOS)
         return "mac"
         #else
-        return "iphone"
+        return UIDevice.current.userInterfaceIdiom == .pad ? "ipad" : "iphone"
         #endif
     }
 
-    /// Shows `view` (on the Mac in a window of `size`; on iPhone full
-    /// screen), waits until `ready` (at most `timeout`), lets it settle for
+    /// Shows `view` (on the Mac in a window of `size`; on iPhone and iPad
+    /// full screen), waits until `ready` (at most `timeout`), lets it settle for
     /// `settle`, and keeps its picture. A screen that never gets ready is
     /// an issue, and its picture is kept all the same.
     static func keep(_ view: some View, named name: String, size: CGSize = CGSize(width: 1_200, height: 800),

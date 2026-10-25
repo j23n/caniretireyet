@@ -19,7 +19,7 @@ on:
   workflow_dispatch:
     inputs:
       screenshots:
-        description: Take screenshots (about half an hour on the Mac)
+        description: Take screenshots (about 45 minutes on the Mac)
         type: boolean
         default: false
 
@@ -64,8 +64,9 @@ jobs:
     if: github.event_name == 'pull_request' || inputs.screenshots
     uses: j23n/apple-ci/.github/workflows/macos.yml@main
     with:
-      name: macOS · screenshots (Mac and iPhone Simulator)
+      name: macOS · screenshots (Mac, iPhone and iPad Simulators)
       run: make screenshots
       artifact-name: screenshots
       artifact-path: .build/screenshots
       pull-request-label: ci:screenshots
+      timeout-minutes: 90

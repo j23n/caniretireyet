@@ -34,7 +34,7 @@ help:
 	@echo "make test         the package's tests (macOS and Linux)"
 	@echo "make build        the app and its widgets for the iOS Simulator and the Mac, unsigned"
 	@echo "make test-app     the app's unit tests (App/Tests) on the Mac"
-	@echo "make screenshots  each screen on the Mac and an iPhone simulator, as pictures in .build/screenshots"
+	@echo "make screenshots  each screen on the Mac and iPhone and iPad simulators, as pictures in .build/screenshots"
 	@echo "make ci-linux | ci-macos | ci-macos-app   what CI runs"
 
 bootstrap: tools project
@@ -47,20 +47,24 @@ test: swift-test
 
 # The screen tests (App/ScreenTests) on the Mac (signed to run locally, without the entitlements an
 # app without a provisioning profile can't launch with, or its sandbox, so they can write their
-# pictures) and on the newest iPhone simulator, booted while the Mac's run builds. Their pictures
+# pictures) and on the newest iPhone and iPad simulators, booted while the Mac's run builds. Their pictures
 # go to .build/screenshots (TEST_RUNNER_ hands SCREENSHOTS_DIR to the tests) and into the log
 # (App/README.md, "Screenshots").
 screenshots: project
 	@mkdir -p $(RESULTS)
-	@rm -rf $(RESULTS)/mac.xcresult $(RESULTS)/iphone.xcresult $(SCREENSHOTS)
+	@rm -rf $(RESULTS)/mac.xcresult $(RESULTS)/iphone.xcresult $(RESULTS)/ipad.xcresult $(SCREENSHOTS)
 	@status=0; \
 	device=$$($(PYTHON) $(SCREENSHOT_SCRIPT) pick-iphone) && xcrun simctl boot "$$device" || true; \
+	ipad=$$($(PYTHON) $(SCREENSHOT_SCRIPT) pick-ipad) && xcrun simctl boot "$$ipad" || true; \
 	export TEST_RUNNER_SCREENSHOTS_DIR='$(SCREENSHOTS)'; \
 	$(XCODEBUILD) $(XCODEBUILD_FLAGS) test -project $(XCODEPROJ) -scheme $(SCHEME) -destination 'platform=macOS' \
 	  -only-testing:$(SCREEN_TESTS) -derivedDataPath $(DERIVED_DATA) -resultBundlePath $(RESULTS)/mac.xcresult \
 	  $(SIGNED_LOCALLY) CODE_SIGN_ENTITLEMENTS= ENABLE_HARDENED_RUNTIME=NO || status=1; \
 	$(XCODEBUILD) $(XCODEBUILD_FLAGS) test -project $(XCODEPROJ) -scheme $(SCHEME) -destination "platform=iOS Simulator,id=$$device" \
 	  -only-testing:$(SCREEN_TESTS) -derivedDataPath $(DERIVED_DATA) -resultBundlePath $(RESULTS)/iphone.xcresult \
+	  $(UNSIGNED) || status=1; \
+	$(XCODEBUILD) $(XCODEBUILD_FLAGS) test -project $(XCODEPROJ) -scheme $(SCHEME) -destination "platform=iOS Simulator,id=$$ipad" \
+	  -only-testing:$(SCREEN_TESTS) -derivedDataPath $(DERIVED_DATA) -resultBundlePath $(RESULTS)/ipad.xcresult \
 	  $(UNSIGNED) || status=1; \
 	$(PYTHON) $(SCREENSHOT_SCRIPT) print $(SCREENSHOTS) || status=1; \
 	$(PYTHON) $(SCREENSHOT_SCRIPT) failures $(RESULTS) || status=1; \
