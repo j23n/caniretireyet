@@ -59,24 +59,22 @@ extension BreakdownDimension {
 
 /// Today's words that the package doesn't have (UI.md, "Today").
 enum TodayText {
-    /// The line under the date on iPhone: "At 63, about 25 years from now,
-    /// in 9 of 10 futures." Two years or more are rounded to the nearest
-    /// year (24 years 6 months reads 25); less is in months. Without a date
-    /// after `today`, Glance's line: "At 63, in 9 of 10 futures."
-    static func line(_ lastMonday: LastMonday, today: CalendarDate) -> String {
-        guard let countdown = RetirementCountdown(from: today, to: lastMonday.date) else {
-            return GlanceText.lastMondayLine(lastMonday)
-        }
-        let away: String
+    /// How far off the last Monday is: "about 25 years from now", "6
+    /// months from now", "under a month from now"; `nil` when it isn't
+    /// after `today`.
+    static func away(_ lastMonday: LastMonday, today: CalendarDate) -> String? {
+        guard let countdown = RetirementCountdown(from: today, to: lastMonday.date) else { return nil }
         if countdown.years >= 2 {
             let years = countdown.years + (countdown.months >= 6 ? 1 : 0)
-            away = "about \(Wording.count(years, "year")) from now"
-        } else if countdown.totalMonths == 0 {
-            away = "under a month from now"
-        } else {
-            away = "\(Wording.count(countdown.totalMonths, "month")) from now"
+            return "about \(Wording.count(years, "year")) from now"
         }
-        return "At \(lastMonday.age), \(away), in \(GlanceText.futures(lastMonday.confidence)) futures."
+        if countdown.totalMonths == 0 { return "under a month from now" }
+        return "\(Wording.count(countdown.totalMonths, "month")) from now"
+    }
+
+    /// The age and how sure, on Today's dusk: "At 63 · in 9 of 10 futures".
+    static func ageAndFutures(_ lastMonday: LastMonday) -> String {
+        "At \(lastMonday.age) · in \(GlanceText.futures(lastMonday.confidence)) futures"
     }
 
     /// A move as a short value: "A year sooner", "2 years later", "The same".

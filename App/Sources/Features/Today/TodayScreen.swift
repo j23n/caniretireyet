@@ -7,11 +7,12 @@ import Tracker
 /// The home screen (UI.md, "Today"): your last Monday at work, what moved
 /// it at the last check-in, and where you stand.
 ///
-/// On iPhone, top to bottom: the answer as a date (``TodayAnswerCard``),
-/// or before there's one the next step (``TodayPlanCard``); *What moved
-/// it* at the last check-in (``TodayMovedCard``); tiles for the next
-/// milestone, the earliest age and net worth (``TodayTiles``); and what
-/// needs attention, only while something does.
+/// On iPhone, top to bottom: the answer as a date on the app icon's dusk
+/// (``TodayAnswerCard``), or before there's one the next step
+/// (``TodayPlanCard``); tiles for net worth, the next milestone and the
+/// savings rate (``TodayTiles``); *What moved it* at the last check-in
+/// (``TodayMovedCard``); and what needs attention, only while something
+/// does.
 ///
 /// On the Mac and iPad the answer card holds four figures beside the date;
 /// under it two columns (``TodayColumns``): *Your timeline*, the decades
@@ -66,7 +67,8 @@ struct TodayScreen: View {
         .background(Palette.page)
     }
 
-    /// iPhone: the date, what moved it, the tiles, what needs attention.
+    /// iPhone: the date on the dusk, the tiles, what moved it, what needs
+    /// attention.
     private func narrow(today: CalendarDate) -> some View {
         let valuator = library.valuator
         let mainPlan = library.mainPlan
@@ -75,11 +77,11 @@ struct TodayScreen: View {
         let change = valuator.changeSinceLastCheckIn(asOf: today)
         return VStack(alignment: .leading, spacing: Metrics.m) {
             answerCard(answer, plan: mainPlan, results: latest?.results, year: nil, today: today)
+            TodayTiles(plan: mainPlan, results: latest?.results, today: today)
             if let change {
                 TodayMovedCard(report: change, split: valuator.savedSplit(of: change),
                                yearlySpending: mainPlan.flatMap(MilestoneLadder.spending(of:)))
             }
-            TodayTiles(answer: answer, plan: mainPlan, results: latest?.results, today: today)
             TodayAttentionCard(today: today)
             notesAndFirstValues(hasAnswer: answer != nil)
         }
@@ -205,9 +207,10 @@ struct TodayScreen: View {
 
 /// "Your last Monday at work", the date, and how sure (UI.md, "Today").
 ///
-/// On iPhone the whole card opens the plan: the date in large type, "At
-/// 63, about 25 years from now, in 9 of 10 futures.", and a chip with how
-/// it moved since the check-in before. On the Mac and iPad the date and
+/// On iPhone the whole card opens the plan: on the app icon's dusk, the
+/// date in large type, "At 63 · in 9 of 10 futures", "About 25 years from
+/// now.", and a chip with how it moved since the check-in before. On the
+/// Mac and iPad the date and
 /// "At 63, in 9 of 10 futures. A year sooner since September." open the
 /// plan, and four figures sit beside them (``TodayFigures``).
 struct TodayAnswerCard: View {
@@ -225,7 +228,7 @@ struct TodayAnswerCard: View {
     @Environment(\.locale) private var locale
     /// The date's size on iPhone; it grows with Dynamic Type, and shrinks
     /// only when the date wouldn't fit on one line.
-    @ScaledMetric(relativeTo: .largeTitle) private var dateSize: CGFloat = 52
+    @ScaledMetric(relativeTo: .largeTitle) private var dateSize: CGFloat = 64
 
     init(answer: RetirementAnswer, plan: PlanDocument, results: PlanResults? = nil, year: TodayYear? = nil,
          today: CalendarDate) {
@@ -259,30 +262,97 @@ struct TodayAnswerCard: View {
             Button {
                 navigation.showPlan()
             } label: {
-                summary
-                    .padding(.vertical, 18)
-                    .padding(.horizontal, 20)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .cardSurface()
-                    .contentShape(RoundedRectangle(cornerRadius: Metrics.cardRadius, style: .continuous))
+                hero
             }
             .buttonStyle(.plain)
             .accessibilityHint("Opens the plan")
         }
     }
 
-    /// The title, the date, the line under it, how it moved, and the status.
+    // MARK: iPhone
+
+    /// The room under the words for the dusk's horizon and its sun.
+    private static let horizonRoom: CGFloat = 150
+
+    /// iPhone: the answer on the app icon's dusk, in white: "Your last
+    /// Monday at work", the day and month large and the year under them in
+    /// the sun's light, "At 63 · in 9 of 10 futures", how far off it is,
+    /// how it moved, and the status; the horizon and the sun under them.
+    private var hero: some View {
+        let lastMonday = LastMonday(answer)
+        let shape = RoundedRectangle(cornerRadius: 28, style: .continuous)
+        return VStack(alignment: .leading, spacing: Metrics.xs) {
+            Text(lastMonday == nil ? "Can I retire yet?" : "Your last Monday at work")
+                .font(.subheadline.weight(.semibold))
+                .opacity(0.85)
+                .lineLimit(1)
+            Group {
+                if let lastMonday {
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text(verbatim: lastMonday.date.dateValue
+                            .formatted(.dateTime.day().month(.wide).locale(locale)))
+                        Text(verbatim: String(lastMonday.date.year))
+                            .foregroundStyle(DuskBackground.sunLight)
+                    }
+                    .font(.system(size: dateSize, weight: .heavy))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.5)
+                    .dynamicTypeSize(...DynamicTypeSize.accessibility2)
+                    .padding(.top, Metrics.xs)
+                    Text(verbatim: TodayText.ageAndFutures(lastMonday))
+                        .font(.headline)
+                        .padding(.top, Metrics.s)
+                    if let away = TodayText.away(lastMonday, today: today) {
+                        Text(verbatim: away.capitalizedFirst + ".")
+                            .font(.subheadline)
+                            .opacity(0.85)
+                    }
+                } else {
+                    Text(verbatim: headline(nil))
+                        .font(.system(size: dateSize, weight: .heavy))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.5)
+                    Text(verbatim: line(nil))
+                        .font(.callout)
+                        .opacity(0.85)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .privacySensitiveInFeedback()
+            if let move {
+                TodayMoveChip(move: move, onDusk: true)
+                    .padding(.top, Metrics.s)
+            }
+            status(ink: .white.opacity(0.85))
+        }
+        .foregroundStyle(.white)
+        .padding(.top, 22)
+        .padding(.horizontal, 22)
+        .padding(.bottom, Self.horizonRoom)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background {
+            DuskBackground()
+                .clipShape(shape)
+                .accessibilityHidden(true)
+        }
+        .contentShape(shape)
+    }
+
+    // MARK: The Mac and iPad
+
+    /// The Mac and iPad: the title, the date, the line under it with how it
+    /// moved, and the status.
     private var summary: some View {
         let lastMonday = LastMonday(answer)
         let move = self.move
         return VStack(alignment: .leading, spacing: Metrics.xs) {
             Text(lastMonday == nil ? "Can I retire yet?" : "Your last Monday at work")
-                .font(layout.isWide ? .body : .subheadline)
+                .font(.body)
                 .foregroundStyle(Palette.secondaryInk)
                 .lineLimit(1)
             VStack(alignment: .leading, spacing: Metrics.xs) {
                 Text(verbatim: headline(lastMonday))
-                    .font(.system(size: layout.isWide ? 44 : dateSize, weight: .bold))
+                    .font(.system(size: 44, weight: .bold))
                     .foregroundStyle(Palette.ink)
                     .lineLimit(1)
                     .minimumScaleFactor(0.5)
@@ -292,23 +362,14 @@ struct TodayAnswerCard: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             .privacySensitiveInFeedback()
-            if !layout.isWide, let move {
-                TodayMoveChip(move: move)
-                    .padding(.top, Metrics.s)
-            }
-            status
+            status(ink: Palette.secondaryInk)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    /// iPhone: "At 63, about 25 years from now, in 9 of 10 futures." The
-    /// Mac and iPad: "At 63, in 9 of 10 futures." and how it moved, in the
-    /// accent: "A year sooner since September."
+    /// "At 63, in 9 of 10 futures." and how it moved, in the accent: "A
+    /// year sooner since September."
     private func lineText(_ lastMonday: LastMonday?, move: LastMondayMove?) -> Text {
-        guard layout.isWide else {
-            return Text(verbatim: lastMonday.map { TodayText.line($0, today: today) } ?? line(lastMonday))
-                .font(.callout)
-        }
         let sure = Text(verbatim: line(lastMonday))
         guard let move else { return sure.font(.body) }
         let moved = Text(verbatim: GlanceText.move(move, relativeTo: today, locale: locale) + ".")
@@ -339,24 +400,24 @@ struct TodayAnswerCard: View {
         return LastMondayMove(answer: answer, history: history, latestCheckIn: latest)
     }
 
-    /// A calculation going on, or why the plan can't be calculated.
+    /// A calculation going on, or why the plan can't be calculated, in `ink`.
     @ViewBuilder
-    private var status: some View {
+    private func status(ink: Color) -> some View {
         if let progress = plans.progress(of: plan.id, .checkIn) ?? plans.progress(of: plan.id, .base) {
             HStack(spacing: Metrics.s) {
                 ProgressView(value: min(1, max(0, progress.fraction)), total: 1)
-                    .tint(Palette.accent)
+                    .tint(ink)
                     .frame(maxWidth: 120)
                 Text(verbatim: "Updating \(PlanRunText.overall(progress, locale: locale))")
                     .monospacedDigit()
             }
             .font(.footnote)
-            .foregroundStyle(Palette.secondaryInk)
+            .foregroundStyle(ink)
             .padding(.top, Metrics.xs)
         } else if let error = plans.errors[plan.id] {
             Label("Can't be calculated: \(error)", systemImage: "exclamationmark.triangle")
                 .font(.footnote)
-                .foregroundStyle(Palette.secondaryInk)
+                .foregroundStyle(ink)
                 .fixedSize(horizontal: false, vertical: true)
                 .privacySensitiveInFeedback()
                 .padding(.top, Metrics.xs)
@@ -365,11 +426,13 @@ struct TodayAnswerCard: View {
 }
 
 /// "A year sooner since September" in a tinted capsule: blue when sooner,
-/// orange when later, grey when it stayed.
+/// orange when later, grey when it stayed; on Today's dusk, white.
 struct TodayMoveChip: View {
     let move: LastMondayMove
     /// What it says, when not since when (the plan's levers).
     var words: String?
+    /// White on a translucent capsule, for Today's dusk.
+    var onDusk = false
     @Environment(\.locale) private var locale
 
     /// A move's colour: the accent when sooner, orange when later, grey
@@ -379,7 +442,7 @@ struct TodayMoveChip: View {
     }
 
     var body: some View {
-        let color = Self.color(of: move)
+        let color = onDusk ? Color.white : Self.color(of: move)
         Label {
             Text(verbatim: words ?? GlanceText.move(move, relativeTo: .today(), locale: locale))
                 .lineLimit(1)
@@ -390,7 +453,7 @@ struct TodayMoveChip: View {
         .foregroundStyle(color)
         .padding(.horizontal, Metrics.m)
         .padding(.vertical, 6)
-        .background(color.opacity(0.12), in: Capsule())
+        .background(color.opacity(onDusk ? 0.18 : 0.12), in: Capsule())
         .privacySensitiveInFeedback()
     }
 }
