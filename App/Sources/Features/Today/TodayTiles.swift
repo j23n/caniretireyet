@@ -512,7 +512,7 @@ struct NetWorthTile: View {
             HStack(spacing: Metrics.s) {
                 TileLabel("Net worth")
                 Spacer(minLength: Metrics.s)
-                if values.count > 1 {
+                if values.count > 1, let first = netWorth.history.first, first.date <= today.adding(months: -11) {
                     Text("12 months")
                         .font(.caption)
                         .foregroundStyle(Palette.secondaryInk)
