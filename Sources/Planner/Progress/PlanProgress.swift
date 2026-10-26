@@ -311,7 +311,7 @@ public struct PlanYearEvent: Hashable, Sendable {
     }
 }
 
-/// What Trends works out for one grain and span (UI.md, "Look Back"): money
+/// What Trends works out for one grain and span (UI.md, "Money in and out, year by year"): money
 /// in and out, plan assets split by where they came from, and, from the
 /// plan's ``PlanProgress``, its answers and its years in the span.
 public struct PlanTrends: Sendable {

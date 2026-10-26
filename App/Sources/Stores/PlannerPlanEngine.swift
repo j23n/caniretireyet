@@ -39,15 +39,17 @@ struct PlanRunInputs: Hashable, Sendable {
 /// - **Cache.** Results are kept per plan hash, library inputs, mode, focus
 ///   age and start date, so going back to a plan, or a what-if back to where
 ///   it was, doesn't run again; ``cachedResults(for:)`` looks without running.
+///   An edit sheet's previews share it, two results a pause in typing, so it
+///   holds 64: enough that a few edits don't push out the plan's own runs.
 ///   Results kept on the device from an earlier launch come back in through
 ///   ``remember(_:for:)``.
 /// - **Progress.** The Planner's `PlannerProgress`, in a `PlanRunProgress`.
-///   A request that needs two runs (a what-if's saving needs the plan's own
-///   run first; a focus age needs the full run) shares the bar between them.
+///   A request that needs two runs (a focus age needs the full run) shares
+///   the bar between them.
 /// - **Cancellation.** Runs stop promptly when their task is cancelled
 ///   (`PlanStore` cancels a superseded run); cancelled runs aren't cached.
 struct PlannerPlanEngine: PlanEngine {
-    private let cache = PlanRunCache(capacity: 32)
+    private let cache = PlanRunCache(capacity: 64)
 
     var version: String { Planner.engineVersion }
 
@@ -88,18 +90,10 @@ struct PlannerPlanEngine: PlanEngine {
         }
 
         if let whatIf = request.whatIf, !whatIf.isEmpty {
-            // Saving a month more (or less) is spending that much less while
-            // working, so the plan's own saving is needed first.
-            var baseSaving: Decimal?
-            var share: ClosedRange<Double> = 0...1
-            if whatIf.monthlySaving != nil {
-                let cached = await isCached(request.plan, .base(request.mode), inputs: inputs, asOf: request.asOf)
-                guard let base = try await step(request.plan, .base(request.mode), share: 0...0.5) else { return nil }
-                baseSaving = base.details.focus.monthlySaving
-                if !cached { share = 0.5...1 }
-            }
-            let plan = whatIf.applied(to: request.plan, baseMonthlySaving: baseSaving)
-            return try await step(plan, .base(request.mode), focusAge: request.focusAge, share: share)
+            // As *Apply* keeps it (`PlanWhatIfModel.kept`), so applying reuses these results.
+            let start = request.plan.startDate(in: request.library, today: request.asOf)
+            return try await step(whatIf.applied(to: request.plan, start: start), .base(request.mode),
+                                  focusAge: request.focusAge)
         }
         if let focusAge = request.focusAge {
             let cached = await isCached(request.plan, .base(.full), inputs: inputs, asOf: request.asOf)

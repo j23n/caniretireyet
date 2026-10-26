@@ -2,8 +2,8 @@ import Model
 import SwiftUI
 import Tracker
 
-/// *Last 12 months* at the top of Look Back (UI.md, "Look Back"): its title
-/// over four tiles, the savings rate, what was saved, what came in and what
+/// *Last 12 months* on So far (UI.md, "So far"): its title over four tiles
+/// (or the `kinds` asked for), the savings rate, what was saved, what came in and what
 /// was spent over the 12 months that end at the latest check-in, each with
 /// its change against the 12 months before; two by two on iPhone, in a row
 /// where there's room. Then one sentence against the plan's spending while
@@ -15,6 +15,8 @@ struct PlanLastTwelveMonthsTiles: View {
     /// The plan's spending while working, a year; `nil` when it's past
     /// working.
     var plannedSpending: Decimal?
+    /// The tiles shown, in their order; all four when `nil`.
+    var kinds: [PlanLastTwelveMonths.Tile.Kind]?
 
     @Environment(\.locale) private var locale
 
@@ -31,7 +33,7 @@ struct PlanLastTwelveMonthsTiles: View {
             if let year {
                 let currency = year.current.moneyInOut.currency
                 TileGrid {
-                    ForEach(year.tiles) { tile in
+                    ForEach(year.tiles.filter { kinds?.contains($0.kind) ?? true }) { tile in
                         TwelveMonthsTile(tile: tile, currency: currency)
                             .tileSize(.small)
                     }
@@ -150,8 +152,8 @@ struct TwelveMonthsTile: View {
     }
 }
 
-/// Trends' three cards on money in and out, folded into one while none is
-/// recorded (UI.md, "Look Back"): what records it, with *Open Accounts*.
+/// So far's cards on money in and out, folded into one while none is
+/// recorded (UI.md, "So far"): what records it, with *Open Accounts*.
 struct PlanMoneyInOutEmptyCard: View {
     @Environment(LibraryStore.self) private var library
     @Environment(AppNavigation.self) private var navigation
@@ -204,9 +206,10 @@ struct PlanMoneyInOutEmptyCard: View {
     .previewEnvironment()
 }
 
-/// Trends in place of its cards while a savings or investment account's
-/// values are typed (UI.md, "Look Back"; `Library.accountsTurningOffTrends`):
-/// why it's off, and those accounts, each opening its page.
+/// In place of So far's cards on money in and out while a savings or
+/// investment account's values are typed (UI.md, "So far";
+/// `Library.accountsTurningOffTrends`): why they're off, and those
+/// accounts, each opening its page.
 struct PlanTrendsOffCard: View {
     let accounts: [Account]
 
@@ -214,9 +217,9 @@ struct PlanTrendsOffCard: View {
 
     var body: some View {
         Card {
-            Text("Trends is built on the money in and out and the money invested that statements record. "
-                + "A typed value is a balance only, so Trends is off while a savings or investment "
-                + "account's values are typed.")
+            Text("Your savings rate and your money in and out are built on the money in and out and the money "
+                + "invested that statements record. A typed value is a balance only, so they're off while a "
+                + "savings or investment account's values are typed.")
                 .font(PlanProgressFont.text)
                 .foregroundStyle(Palette.secondaryInk)
                 .fixedSize(horizontal: false, vertical: true)
@@ -235,7 +238,7 @@ struct PlanTrendsOffCard: View {
                 .foregroundStyle(Palette.secondaryInk)
                 .fixedSize(horizontal: false, vertical: true)
         } header: {
-            SectionHeader("Trends is off")
+            SectionHeader("Money in and out is off")
         }
     }
 }

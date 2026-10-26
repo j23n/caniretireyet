@@ -2,7 +2,7 @@ import Model
 import Planner
 import SwiftUI
 
-// What the plan's chapters and Progress's years share (UI.md, "Plan" and
+// What the plan's chapters and Progress's years share (UI.md, "Ahead" and
 // "Progress"): a strip of cards that scrolls sideways, each card's graph on
 // the money scale the cards on screen share, and the parts of the graph
 // both draw alike.

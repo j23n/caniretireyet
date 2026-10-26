@@ -34,13 +34,13 @@ struct TabRoot: View {
                         .appDestinations()
                 }
             }
-            Tab("Timeline", systemImage: AppSymbol.timeline, value: AppTab.timeline) {
+            Tab("So far", systemImage: AppSymbol.soFar, value: AppTab.soFar) {
                 NavigationStack {
-                    TimelineScreen()
+                    SoFarScreen()
                         .appDestinations()
                 }
             }
-            Tab("Plan", systemImage: AppSymbol.plan, value: AppTab.plan) {
+            Tab("Ahead", systemImage: AppSymbol.ahead, value: AppTab.ahead) {
                 NavigationStack {
                     PlanScreen(planID: navigation.selectedPlan)
                         .appDestinations()

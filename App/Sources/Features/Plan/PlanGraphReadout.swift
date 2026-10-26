@@ -3,7 +3,7 @@ import SwiftUI
 import UIKit
 #endif
 
-// Reading the strips' graphs at a point (UI.md, "Plan" and "Progress"): on
+// Reading the strips' graphs at a point (UI.md, "Ahead" and "Progress"): on
 // the Mac and an iPad with a pointer, wherever the pointer is over a card;
 // on iPhone, touch and hold a card, then drag, until the finger lifts. A
 // rule marks the point, and a callout like the net-worth chart's says what

@@ -8,10 +8,10 @@ import SwiftUI
 /// (App/ScreenTests, `make screenshots`) and for opening a screen by hand:
 /// `-screenLibrary example` (or `longHistory` or `longAccountName`) opens a
 /// made-up library in memory, with the real planner, no network and settings
-/// of its own, and `-screen` the screen to start on (`today`, `plan`,
-/// `whatIf`; `year`, `decades` or `lookBack`, the Timeline at that zoom;
-/// `targetMix`, the Target mix sheet of the first plan with changes with
-/// age; `accounts`, the accounts list;
+/// of its own, and `-screen` the screen to start on (`today`; `ahead`;
+/// `whatIf`, What if with the age lever moved; `newEvent`, a new event's
+/// sheet with *With this change*; `targetMix`, the Target mix sheet of the
+/// first plan with changes with age; `soFar`; `accounts`, the accounts list;
 /// `tradesAccount` or `cashAccount`, an account's
 /// details; `checkIn`, the October check-in under way, from
 /// `CheckInPreviewData`). The main plan is calculated at once, with fewer runs than it
@@ -52,14 +52,15 @@ struct ScreenLaunch {
 
     enum Screen: String, CaseIterable {
         case today
-        case plan
-        /// The Timeline at a year (was Progress).
-        case year
-        /// The Timeline at decades: the history and the plan's futures.
-        case decades
-        /// The Timeline looking back (was Trends).
-        case lookBack
+        /// The main plan on Ahead.
+        case ahead
+        /// So far: the year, the savings rate, money in and out, year by year.
+        case soFar
+        /// What if, its age lever two years sooner: a sheet on iPhone, the
+        /// levers on the page on the Mac.
         case whatIf
+        /// A new event's sheet, with *With this change*.
+        case newEvent
         case targetMix
         /// The accounts: on iPhone pushed on Today's stack, on the Mac
         /// *All Accounts*.
@@ -186,20 +187,18 @@ struct ScreenLaunch {
         switch screen {
         case .today:
             navigation.showToday()
-        case .plan:
+        case .ahead:
             navigation.showPlan(main)
-        case .year:
-            navigation.showTimeline(.year)
-        case .decades:
-            navigation.showTimeline(.decades)
-        case .lookBack:
-            navigation.showTimeline(.lookBack)
+        case .soFar:
+            navigation.showSoFar()
         case .whatIf:
-            navigation.showPlan(main)
+            navigation.showPlan(main, at: PlanRoute(sheet: .whatIf))
+        case .newEvent:
+            navigation.showPlan(main, at: PlanRoute(sheet: .newEvent))
         case .targetMix:
             let plans = library.plans.values.sorted { $0.id.rawValue < $1.id.rawValue }
             navigation.showPlan(plans.first { !$0.portfolio.targetMixByAge.isEmpty }?.id ?? main,
-                                at: PlanRoute(opensTargetMix: true))
+                                at: PlanRoute(sheet: .targetMix))
         case .accounts:
             // Both layouts', since the root view sets the layout once it appears.
             navigation.tab = .today

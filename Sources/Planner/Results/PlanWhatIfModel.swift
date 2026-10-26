@@ -1,41 +1,43 @@
 import Foundation
 import Model
 
-/// The What-if sliders (UI.md, "What if"): retirement age, spending, saving
-/// per month and equity's typical year (its median real return, as the
-/// defaults are given). Each starts at the plan's own value; moving
-/// one sets that field of a `PlanWhatIf`. Values are `Double`, as a slider takes them.
+/// What if's levers (UI.md, "What if"): when you stop working, take-home
+/// pay while working (a change on top of every work phase), and spending
+/// a month in retirement. Each starts at the plan's own value; moving one
+/// sets that field of a `PlanWhatIf`. Values are `Double`, as a slider
+/// takes them.
 public enum PlanWhatIfSlider: String, CaseIterable, Hashable, Sendable, Identifiable {
     case retirementAge
+    case takeHome
     case spending
-    case saving
-    case equityReturn
 
     public var id: String { rawValue }
 
-    /// The step a drag moves in: a year of age, 50 a month of spending or
-    /// saving, a quarter of a percent of return.
+    /// The step a drag moves in: a year of age, 50 a month of pay or spending.
     public var step: Double {
         switch self {
         case .retirementAge: 1
+        case .takeHome: 50
         case .spending: 50
-        case .saving: 50
-        case .equityReturn: 0.0025
         }
     }
 }
 
-/// The sliders' values and ranges for one plan and its results.
+/// The levers' values and ranges for one plan and its results.
 public struct PlanWhatIfModel: Hashable, Sendable {
     public var plan: PlanDocument
     /// The plan's own results (without what-if changes).
     public var results: PlanResults?
     public var whatIf: PlanWhatIf
+    /// The day the plan starts from (`PlanDocument.startDate(in:today:)`):
+    /// pay that ended before it is left alone.
+    public var start: CalendarDate?
 
-    public init(plan: PlanDocument, results: PlanResults?, whatIf: PlanWhatIf) {
+    public init(plan: PlanDocument, results: PlanResults?, whatIf: PlanWhatIf, start: CalendarDate? = nil) {
         self.plan = plan
         self.results = results
         self.whatIf = whatIf
+        self.start = start
     }
 
     // MARK: The plan's own values
@@ -45,28 +47,28 @@ public struct PlanWhatIfModel: Hashable, Sendable {
         plan.retirement.age.age ?? results?.headline.targetAge ?? results?.headline.earliestAge
     }
 
+    /// Whether the plan stops work as early as it can, rather than at an age of its own.
+    public var planRetiresEarliest: Bool { plan.retirement.age.age == nil }
+
     public var planSpending: Decimal { plan.spending.retired }
 
-    /// Saving per month while working, from the plan's own run.
-    public var planSaving: Decimal? { results?.details.focus.monthlySaving }
-
-    /// Equity's median real return in the plan (the typical year), to a
-    /// hundredth of a percent: as written, or derived from the mean.
-    public var planEquityReturn: Decimal {
-        (plan.assumptions.returnAssumption(for: .equity)?.impliedMedianReal ?? 0).rounded(scale: 4)
+    /// Each work phase's take-home pay a month, in the plan's order, for
+    /// the phases with pay set that haven't ended before the plan starts.
+    public var planTakeHome: [Decimal] {
+        plan.work.filter { $0.isGoing(on: start) }.compactMap(\.netIncome).map { $0 / 12 }
     }
 
-    /// Whether the slider can be used: the age needs results (for today's
-    /// age), saving needs the plan's own saving.
+    /// Whether the lever can be used: the age needs results (for today's
+    /// age), take-home pay a work phase with pay.
     public func isAvailable(_ slider: PlanWhatIfSlider) -> Bool {
         switch slider {
         case .retirementAge: planRetirementAge != nil
-        case .spending, .equityReturn: true
-        case .saving: planSaving != nil
+        case .takeHome: !planTakeHome.isEmpty
+        case .spending: true
         }
     }
 
-    // MARK: Sliders
+    // MARK: Levers
 
     public func range(_ slider: PlanWhatIfSlider) -> ClosedRange<Double> {
         switch slider {
@@ -74,36 +76,34 @@ public struct PlanWhatIfModel: Hashable, Sendable {
             let current = Double(results?.details.currentAge ?? max(18, (planRetirementAge ?? 55) - 20))
             let end = Double(min(75, plan.effectiveEndAge - 1))
             return current...max(current + 1, end)
+        case .takeHome:
+            // Half the highest pay either way, in hundreds, at least 1.000.
+            let most = planTakeHome.map(\.doubleValue).max() ?? 0
+            let reach = max(1_000, (most / 2 / 100).rounded(.up) * 100)
+            return -reach...reach
         case .spending:
             let own = planSpending.doubleValue / 12
             return 0...max(5_000, (own * 2 / 100).rounded(.up) * 100)
-        case .saving:
-            let own = planSaving?.doubleValue ?? 0
-            let most = own + plan.spending.working.doubleValue / 12
-            return 0...max(own * 2, (most / 100).rounded(.up) * 100, 1_000)
-        case .equityReturn:
-            return -0.02...0.08
         }
     }
 
-    /// The value the slider shows: the what-if's, else the plan's; spending
-    /// a month, as the plan's words say it (the plan keeps it a year).
+    /// The value the lever shows: the what-if's, else the plan's; spending
+    /// a month, as the plan's words say it (the plan keeps it a year); pay
+    /// as the change a month, zero as planned.
     public func value(_ slider: PlanWhatIfSlider) -> Double {
         switch slider {
         case .retirementAge: Double(whatIf.retirementAge ?? planRetirementAge ?? 55)
+        case .takeHome: (whatIf.takeHomeChange ?? 0).doubleValue
         case .spending: (whatIf.retiredSpending ?? planSpending).doubleValue / 12
-        case .saving: (whatIf.monthlySaving ?? planSaving ?? 0).doubleValue
-        case .equityReturn: (whatIf.equityReturn ?? planEquityReturn).doubleValue
         }
     }
 
-    /// Whether the slider is moved away from the plan's value.
+    /// Whether the lever is moved away from the plan's value.
     public func isChanged(_ slider: PlanWhatIfSlider) -> Bool {
         switch slider {
         case .retirementAge: whatIf.retirementAge != nil
+        case .takeHome: whatIf.takeHomeChange != nil
         case .spending: whatIf.retiredSpending != nil
-        case .saving: whatIf.monthlySaving != nil
-        case .equityReturn: whatIf.equityReturn != nil
         }
     }
 
@@ -116,23 +116,22 @@ public struct PlanWhatIfModel: Hashable, Sendable {
         case .retirementAge:
             let age = Int(snapped.rounded())
             whatIf.retirementAge = age == planRetirementAge ? nil : age
+        case .takeHome:
+            let change = Int(snapped.rounded())
+            whatIf.takeHomeChange = change == 0 ? nil : Decimal(change)
         case .spending:
-            // A month on the slider, a year in the plan; back within half a
+            // A month on the lever, a year in the plan; back within half a
             // step of the plan's own is the plan's own.
             let own = planSpending.doubleValue / 12
             whatIf.retiredSpending = abs(snapped - own) < slider.step / 2 ? nil : Decimal(Int((snapped * 12).rounded()))
-        case .saving:
-            let amount = Decimal(Int(snapped.rounded()))
-            whatIf.monthlySaving = amount == planSaving ? nil : amount
-        case .equityReturn:
-            let rate = Decimal(Int((snapped * 10_000).rounded())) / 10_000
-            whatIf.equityReturn = rate == planEquityReturn ? nil : rate
         }
         return whatIf
     }
 
-    /// The plan with the what-if written in ("Keep").
+    /// The plan with the what-if written in (*Apply*): the age into when
+    /// work stops, the pay into each work phase, the spending into spending
+    /// in retirement, which every retired chapter spends.
     public var kept: PlanDocument {
-        whatIf.applied(to: plan, baseMonthlySaving: planSaving)
+        whatIf.applied(to: plan, start: start)
     }
 }

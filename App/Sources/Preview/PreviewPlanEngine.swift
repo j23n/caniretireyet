@@ -8,8 +8,8 @@ import Tracker
 /// running the Planner (a full run takes about a minute in a Debug build).
 /// Not a simulation; never used in the app itself.
 ///
-/// It reacts to the what-if sliders (retirement age, spending, saving,
-/// equity return) the way a real engine would, roughly. Its retirement
+/// It reacts to What if's levers (retirement age, take-home pay, spending)
+/// the way a real engine would, roughly. Its retirement
 /// years are the Planner's kind of `YearDetail` (gross income by source,
 /// the two taxes, spending, savings) with made-up amounts: the plan's
 /// pensions, withdrawals, its windfalls. They go
@@ -46,18 +46,17 @@ struct PreviewPlanEngine: PlanEngine {
         let target = whatIf.retirementAge ?? plan.retirement.age.age ?? 55
         let endAge = plan.effectiveEndAge
         let spending = (whatIf.retiredSpending ?? plan.spending.retired).doubleValue
-        let saving = whatIf.monthlySaving.map { $0.doubleValue * 12 } ?? 18_000
-        // Equity's typical year, as the what-if slider moves it.
-        let planEquity = plan.assumptions.returnAssumption(for: .equity)?.medianReturn ?? 0.05
-        let equity = whatIf.equityReturn?.doubleValue ?? planEquity
+        // Take-home pay moved on What if is saved, as spending while working stays.
+        let takeHome = whatIf.takeHomeChange?.doubleValue ?? 0
+        let saving = 18_000 + takeHome * 12
+        let equity = plan.assumptions.returnAssumption(for: .equity)?.medianReturn ?? 0.05
         let confidence = plan.simulation.effectiveConfidence.doubleValue
         let valuator = Valuator(library: library)
         let start = valuator.total(on: today, in: .planAssets)
 
         // Chance of success by retirement age: a logistic curve whose middle
-        // moves with spending, saving, returns and the starting portfolio.
+        // moves with spending, saving and the starting portfolio.
         let middle = 44 + spending / 6_000 - saving / 9_000 - start.total.doubleValue / 200_000
-            - (equity - planEquity) * 120
         func success(_ retirementAge: Int) -> Double {
             let raw = 1 / (1 + exp(-(Double(retirementAge) - middle) / 1.6))
             let pensionStep = retirementAge >= 67 ? 0.03 : 0
@@ -172,7 +171,7 @@ struct PreviewPlanEngine: PlanEngine {
                 medianAtRetirement: years.first { $0.year == birth.year + focusAge }?.p50.doubleValue,
                 medianAtEnd: years.last?.p50.doubleValue,
                 lifetimeTaxes: taxes.reduce(0) { $0 + $1.amount } + 180_000,
-                monthlySaving: Decimal((whatIf.monthlySaving ?? 1_500).doubleValue.rounded()),
+                monthlySaving: Decimal((1_500 + takeHome).rounded()),
                 bridges: [PlanBridgeFailure(name: "Fondo pensione", accessibleFromAge: 67, share: 0.03)]),
             headline: Headline(
                 date: today, confidence: Self.recorded(confidence), earliestAge: earliest, engine: version,

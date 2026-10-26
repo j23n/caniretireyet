@@ -4,7 +4,7 @@ import Model
 import Planner
 import Tracker
 
-/// The plan as a strip of chapters (UI.md, "Plan"): a card per chapter, as
+/// The plan as a strip of chapters (UI.md, "Ahead"): a card per chapter, as
 /// wide as its years, with the money through it on a scale the cards on
 /// screen share, so the graph runs on from card to card; the ages along
 /// each card's bottom, what happens in it, and where the money stands at its
@@ -119,7 +119,7 @@ struct PlanTimeline {
     }
 
     /// The money scale fitted to the money between the screen's edges
-    /// (UI.md, "Plan"): the median and the middle half of futures, so the
+    /// (UI.md, "Ahead"): the median and the middle half of futures, so the
     /// outer band may run off the top or the bottom. `nil` before the plan
     /// has results.
     func scale(fitting window: PlanStripWindow) -> PlanStripScale? {
@@ -220,7 +220,7 @@ struct PlanWords: Hashable, Sendable {
     }
 }
 
-/// The plan's answer and the strip's words (UI.md, "Plan").
+/// The plan's answer and the strip's words (UI.md, "Ahead").
 enum PlanTimelineText {
     /// "Not yet. Stop at 54, in March 2042.", "Yes. You could stop working today."
     static func headline(_ headline: RetirementAnswer, locale: Locale = .current) -> String {
@@ -237,7 +237,7 @@ enum PlanTimelineText {
     }
 
     /// Why the answer is what it is, at the age the plan is shown for
-    /// (UI.md, "Plan"): "At 55, as planned, 4 in 10 futures last to 95.
+    /// (UI.md, "Ahead"): "At 55, as planned, 4 in 10 futures last to 95.
     /// Your bar is 9 in 10.", "If you stop at 58, 9 in 10 futures last to
     /// 95. That meets your bar." In hundredths when the bar isn't a whole
     /// number of tenths (95 in 100).

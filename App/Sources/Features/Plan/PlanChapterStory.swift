@@ -3,7 +3,7 @@ import Model
 import Planner
 import Tracker
 
-/// A chapter in words (UI.md, "Plan"): what happens in it, its values
+/// A chapter in words (UI.md, "Ahead"): what happens in it, its values
 /// marked; what a month looks like; and, once calculated, what can go
 /// wrong. Amounts are a month's, in today's money, from the plan's yearly
 /// ones, and hide with the eye (``AmountSentence``).

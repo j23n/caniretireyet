@@ -41,7 +41,7 @@ struct PlanTaxesEditor: View {
 
 // MARK: - Sheets
 
-/// The sheet editing one list item.
+/// The sheet editing one list item, with *With this change* under its form.
 struct PlanItemSheet: View {
     let session: PlanSession
     let target: PlanEditTarget
@@ -71,17 +71,17 @@ struct PlanItemSheet: View {
                 PlanEventForm(event: $0, issues: issues.issues(for: .events, index: index))
             }
         case .workingSpending(let spending):
-            PlanItemEditor("Spending while working", item: spending, onSave: { edited in
-                session.edit { $0.spending.working = edited.working }
-            }, content: { PlanWorkingSpendingForm(spending: $0) })
+            spendingEditor("Spending while working", spending: spending, apply: { $0.working = $1.working }) {
+                PlanWorkingSpendingForm(spending: $0)
+            }
         case .retiredSpending(let spending):
-            PlanItemEditor("Spending in retirement", item: spending, onSave: { edited in
-                session.edit { $0.spending.retired = edited.retired }
-            }, content: { PlanRetiredSpendingForm(spending: $0) })
+            spendingEditor("Spending in retirement", spending: spending, apply: { $0.retired = $1.retired }) {
+                PlanRetiredSpendingForm(spending: $0)
+            }
         case .flexibleSpending(let spending):
-            PlanItemEditor("Flexible spending", item: spending, onSave: { edited in
-                session.edit { $0.spending.flexible = edited.flexible }
-            }, content: { PlanFlexibleSpendingForm(spending: $0) })
+            spendingEditor("Flexible spending", spending: spending, apply: { $0.flexible = $1.flexible }) {
+                PlanFlexibleSpendingForm(spending: $0)
+            }
         case .spendingPhase(let index, let phase):
             editor(\.spending.phases, at: index, item: phase, title: "Later spending", new: "New later spending") {
                 PlanSpendingPhaseForm(phase: $0)
@@ -91,7 +91,7 @@ struct PlanItemSheet: View {
 
     /// The editor of the item at `index` of the plan's `list`: titled
     /// `title`, or `new` for an item not in the list yet, which has no
-    /// *Delete*. *Done* puts the item at its index, or a new one where
+    /// *Delete*. *Apply* puts the item at its index, or a new one where
     /// `adding` puts it.
     private func editor<Item: Equatable, Fields: View>(
         _ list: WritableKeyPath<PlanDocument, [Item]>, at index: Int, item: Item, title: String, new: String,
@@ -99,17 +99,32 @@ struct PlanItemSheet: View {
         @ViewBuilder fields: @escaping (Binding<Item>) -> Fields
     ) -> some View {
         let exists = index < session.editablePlan[keyPath: list].count
-        return PlanItemEditor(exists ? title : new, item: item, onSave: { edited in
-            session.edit { plan in
-                if !exists, let adding {
-                    plan[keyPath: list] = adding(plan, edited)
-                } else {
-                    plan[keyPath: list] = PlanEditing.replacing(at: index, with: edited, in: plan[keyPath: list])
-                }
+        let apply: (inout PlanDocument, Item) -> Void = { plan, edited in
+            if !exists, let adding {
+                plan[keyPath: list] = adding(plan, edited)
+            } else {
+                plan[keyPath: list] = PlanEditing.replacing(at: index, with: edited, in: plan[keyPath: list])
             }
-        }, onDelete: exists ? {
-            session.edit { $0[keyPath: list] = PlanEditing.removing(at: index, from: $0[keyPath: list]) }
-        } : nil, content: fields)
+        }
+        return PlanItemEditor(exists ? title : new, item: item,
+                              preview: PlanEditPreview(session: session, isNew: !exists, applying: apply),
+                              onSave: { edited in session.edit { apply(&$0, edited) } },
+                              onDelete: exists ? {
+                                  session.edit {
+                                      $0[keyPath: list] = PlanEditing.removing(at: index, from: $0[keyPath: list])
+                                  }
+                              } : nil, content: fields)
+    }
+
+    /// The editor of a part of spending: *Apply* writes the part `apply`
+    /// copies from the edited spending.
+    private func spendingEditor<Fields: View>(
+        _ title: String, spending: PlanSpending, apply: @escaping (inout PlanSpending, PlanSpending) -> Void,
+        @ViewBuilder fields: @escaping (Binding<PlanSpending>) -> Fields
+    ) -> some View {
+        let applying: (inout PlanDocument, PlanSpending) -> Void = { plan, edited in apply(&plan.spending, edited) }
+        return PlanItemEditor(title, item: spending, preview: PlanEditPreview(session: session, applying: applying),
+                              onSave: { edited in session.edit { applying(&$0, edited) } }, content: fields)
     }
 }
 

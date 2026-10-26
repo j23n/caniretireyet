@@ -4,7 +4,7 @@ import Planner
 import SwiftUI
 import Tracker
 
-// The cards behind the plan's answer (UI.md, "Plan"): the tiles with the
+// The cards behind the plan's answer (UI.md, "Ahead"): the tiles with the
 // key numbers and the assumptions; and the run's banners and status the
 // Plan view shows above them.
 
@@ -27,7 +27,7 @@ struct PlanResultsBanners: View {
 }
 
 /// What the answer assumed that you may want to change, under it, quietly
-/// (UI.md, "Plan"): "TFR counts as cash: it has no mix of investments set.
+/// (UI.md, "Ahead"): "TFR counts as cash: it has no mix of investments set.
 /// Set one…", which opens the account. The first two; the rest show with
 /// the inputs they concern.
 struct PlanResultWarnings: View {
@@ -326,43 +326,6 @@ struct PlanStopAgesTile: View {
             words += " Stop at \(sooner.age): \(PlanTimelineText.tenths(sooner.success)) in 10."
         }
         return words
-    }
-}
-
-// MARK: - Assumptions
-
-/// *Assumptions* on iPhone (UI.md, "The plan"): what every chapter shares, a
-/// row each on one card, opening *Assumptions…*; the target mix opens its
-/// own sheet.
-struct PlanAssumptionRows: View {
-    let session: PlanSession
-    var onAssumptions: () -> Void = {}
-    var onTargetMix: () -> Void = {}
-
-    @Environment(LibraryStore.self) private var library
-    @Environment(\.locale) private var locale
-
-    var body: some View {
-        if let plan = session.plan {
-            let summaries = PlanInputSummaries(plan: plan, library: library.library, currency: session.currency,
-                                               locale: locale)
-            CardRows {
-                ForEach(summaries.rows) { row in
-                    Button {
-                        if row.section == .targetMix { onTargetMix() } else { onAssumptions() }
-                    } label: {
-                        CardRow(opens: true) {
-                            Text(row.label)
-                        } value: {
-                            AmountSentenceText(row.value)
-                                .monospacedDigit()
-                        }
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-            .accessibilityHint("Shows what every chapter assumes")
-        }
     }
 }
 

@@ -181,11 +181,10 @@ struct PlanScreenMathTests {
 
     // MARK: What if
 
-    @Test func aSliderBackAtThePlansValueClearsIt() {
+    @Test func aLeverBackAtThePlansValueClearsIt() {
         let model = PlanWhatIfModel(plan: plan, results: nil, whatIf: PlanWhatIf())
         #expect(model.planRetirementAge == 55)
         #expect(model.value(.spending) == 3_000)
-        #expect(!model.isAvailable(.saving))
         let moved = model.setting(.spending, to: 3_520)
         // Snapped to 50 a month, kept a year.
         #expect(moved.retiredSpending == 42_000)
@@ -193,7 +192,37 @@ struct PlanScreenMathTests {
         #expect(back.retiredSpending == nil)
         #expect(model.setting(.retirementAge, to: 55.3).retirementAge == nil)
         #expect(model.setting(.retirementAge, to: 57).retirementAge == 57)
-        #expect(model.setting(.equityReturn, to: 0.051).equityReturn == Decimal(string: "0.05"))
+        #expect(model.setting(.takeHome, to: 520).takeHomeChange == 500)
+        #expect(model.setting(.takeHome, to: 20).takeHomeChange == nil)
+    }
+
+    @Test func takeHomePayMovesEveryWorkPhaseWithPay() {
+        var plan = plan
+        plan.work = [
+            WorkPhase(name: "Employee", from: "2026-01-01", until: .date("2030-12-31"), netIncome: 50_400),
+            WorkPhase(name: "Self-employed", from: "2031-01-01", until: .retirement, netIncome: 60_000),
+            WorkPhase(name: "Sabbatical", from: "2032-01-01", until: .retirement, netIncome: nil),
+        ]
+        let model = PlanWhatIfModel(plan: plan, results: nil, whatIf: PlanWhatIf(takeHomeChange: 500))
+        #expect(model.planTakeHome == [4_200, 5_000])
+        #expect(model.isAvailable(.takeHome))
+        // Half the highest pay either way, in hundreds.
+        #expect(model.range(.takeHome) == -2_500...2_500)
+        let kept = model.kept
+        #expect(kept.work.map(\.netIncome) == [56_400, 66_000, nil])
+        // Never below zero.
+        let less = PlanWhatIf(takeHomeChange: -6_000).applied(to: plan)
+        #expect(less.work.map(\.netIncome) == [0, 0, nil])
+        // A phase that ended before the plan starts keeps its pay.
+        let later = PlanWhatIfModel(plan: plan, results: nil, whatIf: PlanWhatIf(takeHomeChange: 500),
+                                    start: "2031-06-30")
+        #expect(later.planTakeHome == [5_000])
+        #expect(later.kept.work.map(\.netIncome) == [50_400, 66_000, nil])
+        plan.work = [WorkPhase(from: "2020-01-01", until: .date("2024-12-31"), netIncome: 50_400)]
+        #expect(!PlanWhatIfModel(plan: plan, results: nil, whatIf: PlanWhatIf(), start: "2026-06-30")
+            .isAvailable(.takeHome))
+        plan.work = []
+        #expect(!PlanWhatIfModel(plan: plan, results: nil, whatIf: PlanWhatIf()).isAvailable(.takeHome))
     }
 
     // MARK: Target mix

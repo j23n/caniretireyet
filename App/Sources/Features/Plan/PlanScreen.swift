@@ -1,12 +1,13 @@
 import Model
 import SwiftUI
 
-/// One plan (UI.md, "Plan"): its name, which is the plan menu (New,
-/// Duplicate, Rename, Set as main plan, Export Calculations, Delete), your
-/// date and the levers, your chapters, the key numbers and *Assumptions*,
-/// what every chapter shares. How you've been doing is on the Timeline.
+/// Ahead, one plan (UI.md, "Ahead"): its name, which is the plan menu
+/// (New, Duplicate, Rename, Set as main plan, what every chapter shares,
+/// Export Calculations, Delete), your last Monday with the plan's chart and
+/// What if, the key numbers, and your life ahead (``AheadView``). How
+/// you've been doing is on So far.
 ///
-/// *New Plan* and *Duplicate*, moving the levers and *Save as Plan…*, and
+/// *New Plan* and *Duplicate*, moving the levers and *Save as a New Plan…*, and
 /// *Export Calculations…* come with Plus; without it they open the paywall
 /// (``PlusStore/unlock(_:then:)``, UI.md "Plus"). Every plan stays open to
 /// read, edit and calculate.
@@ -55,7 +56,7 @@ struct PlanEmptyView: View {
                 .buttonStyle(.borderedProminent)
                 .disabled(!library.canEdit)
         }
-        .navigationTitle("Plan")
+        .navigationTitle("Ahead")
     }
 
     private func create() {
@@ -80,7 +81,8 @@ struct PlanContentView: View {
     @Environment(PlusStore.self) private var plus
     @Environment(\.pageLayout) private var layout
     @State private var session: PlanSession
-    @State private var showsTargetMix = false
+    /// The sheet a route asked for, which Ahead opens.
+    @State private var routeSheet: PlanRoute.Sheet?
     @State private var isRenaming = false
     @State private var isDeleting = false
     @State private var calculations: PlanCalculationsExport?
@@ -99,10 +101,10 @@ struct PlanContentView: View {
 
     var body: some View {
         planLayout
-            .personalNavigationTitle(name, hidden: "Plan")
+            .navigationTitle("Ahead")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
-            // On iPhone the header card names the plan and holds its menu.
+            // On iPhone the page draws its title, with the plan menu beside it.
             .toolbar(isWide ? .automatic : .hidden, for: .navigationBar)
             #endif
             .toolbar { planToolbar }
@@ -154,7 +156,7 @@ struct PlanContentView: View {
     private func takeRoute() {
         guard let route = navigation.planRoute, planID == route.plan ?? library.settings.mainPlan else { return }
         navigation.planRoute = nil
-        if route.opensTargetMix { showsTargetMix = true }
+        routeSheet = route.sheet
     }
 
     // MARK: Layouts
@@ -166,7 +168,7 @@ struct PlanContentView: View {
     /// Window pass").
     @ViewBuilder
     private var planLayout: some View {
-        let page = PlanTimelineView(session: session, showsTargetMix: $showsTargetMix, actions: planActions)
+        let page = AheadView(session: session, opening: $routeSheet, actions: planActions)
             .environment(\.pageLayout, PageLayout(isWide: isWide))
         if isWide {
             page
@@ -197,7 +199,7 @@ struct PlanContentView: View {
         }
     }
 
-    /// What the plan menu (Base case ▾) and the header's buttons do.
+    /// What the plan menu (Base case ▾) does; Ahead adds the sheets it opens.
     private var planActions: PlanActions {
         PlanActions(
             newPlan: { newPlan() },

@@ -7,14 +7,16 @@ import Tracker
 /// The iPhone's tabs (UI.md, "Navigation").
 enum AppTab: String, Hashable, Sendable, CaseIterable {
     case today
-    case timeline
-    case plan
+    /// How you've been doing: the year, the savings rate, money in and out.
+    case soFar
+    /// The plan: your date, what if, your life ahead.
+    case ahead
 }
 
 /// A place in the Mac and iPad sidebar (UI.md, "Navigation").
 enum SidebarItem: Hashable, Sendable {
     case today
-    case timeline
+    case soFar
     case checkIn
     /// Every account, with the net-worth chart and the allocation.
     case accounts
@@ -22,8 +24,9 @@ enum SidebarItem: Hashable, Sendable {
     /// sidebar's Accounts section.
     case account(AccountID)
     case plan(PlanID)
-    /// The main plan, or the first; "create your first plan" when there are
-    /// none. The sidebar replaces it with the plan's own row once one exists.
+    /// Ahead: the main plan, or the first; "create your first plan" when
+    /// there are none. The sidebar replaces it with the plan's own row once
+    /// one exists.
     case plans
     case importData
     case instruments
@@ -60,32 +63,20 @@ enum TodayPage: Hashable, Sendable {
     case accounts
 }
 
-/// How far the Timeline zooms out (UI.md, "Timeline").
-enum TimelineZoom: String, Hashable, Sendable, CaseIterable, Identifiable {
-    /// One year, its check-ins and what moved (was Progress).
-    case year
-    /// Your records to now, then the main plan's futures to its end.
-    case decades
-    /// Your whole history, by month, quarter or year (was Trends).
-    case lookBack
-
-    var id: String { rawValue }
-
-    var title: String {
-        switch self {
-        case .year: "Year"
-        case .decades: "Decades"
-        case .lookBack: "Look Back"
-        }
-    }
-}
-
-/// Where in a plan to open (``AppNavigation/planRoute``): a part, and
-/// What if or the Target mix sheet over it.
+/// Where in a plan to open (``AppNavigation/planRoute``): a sheet over Ahead.
 struct PlanRoute: Hashable, Sendable {
+    /// A sheet Ahead opens.
+    enum Sheet: Hashable, Sendable {
+        case targetMix
+        /// What if, on iPhone; on the Mac and iPad it's on the page.
+        case whatIf
+        /// A new event, with *With this change*.
+        case newEvent
+    }
+
     /// The plan that takes it; `nil` is the main plan.
     var plan: PlanID?
-    var opensTargetMix = false
+    var sheet: Sheet?
 }
 
 /// Which navigation the root view shows.
@@ -108,11 +99,10 @@ final class AppNavigation {
     /// The pages pushed on Today's stack (iPhone): the accounts (a
     /// ``TodayPage``) and an account's detail (an `AccountID`).
     var todayPath = NavigationPath()
-    /// How far the Timeline zooms out, and the year it shows at
-    /// ``TimelineZoom/year`` (`nil`: this one).
-    var timelineZoom: TimelineZoom = .year
-    var timelineYear: Int?
-    /// The plan the Plan tab shows; `nil` for the main (or first) plan.
+    /// Where So far opens, once (``showSoFar(year:)``); `nil` keeps the
+    /// year it shows.
+    var soFarOpening: SoFarOpening?
+    /// The plan Ahead shows; `nil` for the main (or first) plan.
     var selectedPlan: PlanID?
     var sheet: AppSheet?
     /// Whether the sheet shows *Sync & backups*, pushed on its stack: with
@@ -165,12 +155,11 @@ final class AppNavigation {
         sidebarSelection = .today
     }
 
-    /// Shows the Timeline at `zoom`; at a year, `year` (`nil`: this one).
-    func showTimeline(_ zoom: TimelineZoom = .year, year: Int? = nil) {
-        timelineZoom = zoom
-        timelineYear = year
-        tab = .timeline
-        sidebarSelection = .timeline
+    /// Shows So far at `year`, or at the latest year.
+    func showSoFar(year: Int? = nil) {
+        soFarOpening = SoFarOpening(year: year)
+        tab = .soFar
+        sidebarSelection = .soFar
     }
 
     /// Shows an account's detail: on iPhone pushed over the accounts on
@@ -218,8 +207,8 @@ final class AppNavigation {
         }
     }
 
-    /// Shows a plan (`nil`: the main plan), opened at `route`'s part, What
-    /// if or Target mix when one is given.
+    /// Shows a plan on Ahead (`nil`: the main plan), with `route`'s sheet
+    /// over it when one is given.
     func showPlan(_ id: PlanID? = nil, at route: PlanRoute? = nil) {
         selectedPlan = id
         planRoute = route.map { route in
@@ -227,7 +216,7 @@ final class AppNavigation {
             route.plan = id
             return route
         }
-        tab = .plan
+        tab = .ahead
         sidebarSelection = id.map(SidebarItem.plan) ?? .plans
     }
 
@@ -269,7 +258,7 @@ final class AppNavigation {
         sidebarSelection = item
         switch item {
         case .today, .instruments: tab = .today
-        case .timeline: tab = .timeline
+        case .soFar: tab = .soFar
         case .sync:
             tab = .today
             if layout == .tabs { showSyncInSheet() }
@@ -299,4 +288,11 @@ final class AppNavigation {
     private var isImporting: Bool {
         if case .importFile? = sheet { true } else { false }
     }
+}
+
+/// A request for So far to open at a year, `nil` for the latest; each
+/// request is new, so asking for the same year twice opens it twice.
+struct SoFarOpening: Equatable {
+    var year: Int?
+    let id = UUID()
 }
