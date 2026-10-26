@@ -56,7 +56,6 @@ struct PlanChapterSheet: View {
 
     @Environment(\.locale) private var locale
     @Environment(\.dismiss) private var dismiss
-    @Environment(AppNavigation.self) private var navigation
     @State private var editing: PlanEditTarget?
     @State private var showsTargetMix = false
 
@@ -80,12 +79,7 @@ struct PlanChapterSheet: View {
                         canEdit: session.canEdit, editing: $editing,
                         milestones: milestones(derived.timeline, index: index),
                         milestoneText: PlanMilestoneText(currency: session.currency, locale: locale),
-                        laterAccounts: model.laterAccounts(derived.laterAccounts, inChapterAt: index),
-                        onOpen: open, onUsePlanAge: { session.selectFocus(nil) },
-                        onOpenAccount: { account in
-                            dismiss()
-                            navigation.showAccount(account)
-                        })
+                        onOpen: open, onUsePlanAge: { session.selectFocus(nil) })
                     .padding(.horizontal, Metrics.l)
                     .padding(.vertical, Metrics.s)
                 }
@@ -148,11 +142,10 @@ struct PlanChapterSheet: View {
 
 /// A chapter's words and settings, as cards (UI.md, "The plan"): what
 /// happens in it, in words that only read, with a month's money as a bar;
-/// the milestones the median future reaches in it; what can go wrong;
+/// the milestones the median future reaches in it; what can go wrong; and
 /// *In this chapter*, its settings, where the plan changes: every input
-/// that starts in it, once, then *Add to This Chapter*; and the accounts
-/// that open in it, such as a pension fund. Side by side with `columns`;
-/// else the settings come first.
+/// that starts in it, once, then *Add to This Chapter*. Side by side with
+/// `columns`; else the settings come first.
 struct PlanChapterDetail: View {
     let model: PlanChaptersModel
     let index: Int
@@ -165,15 +158,11 @@ struct PlanChapterDetail: View {
     /// The milestones the median future reaches in the chapter.
     var milestones: [ProjectedMilestone] = []
     let milestoneText: PlanMilestoneText
-    /// The accounts the plan can draw from only from an age in the chapter.
-    var laterAccounts: [PlanLaterAccount] = []
     /// The reading and the settings side by side.
     var columns = false
     /// Opens a setting's sheet.
     var onOpen: (PlanSettingSheet) -> Void = { _ in }
     var onUsePlanAge: () -> Void = {}
-    /// Opens an account.
-    var onOpenAccount: (AccountID) -> Void = { _ in }
 
     /// The milestones listed before "And N more ahead."
     private static let shownMilestones = 4
@@ -293,52 +282,6 @@ struct PlanChapterDetail: View {
             PlanChapterAddMenu(chapter: chapter, model: model, plan: plan, editing: $editing)
                 .disabled(!canEdit)
                 .padding(.top, 6)
-            if !laterAccounts.isEmpty {
-                opening
-                    .padding(.top, Metrics.l)
-            }
         }
-    }
-
-    /// The accounts that open in the chapter, each with its value on the
-    /// plan's start date and the age it opens at; a row opens the account,
-    /// where that age is set.
-    private var opening: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            PlanPartLabel("Accounts that open")
-            CardRows {
-                ForEach(laterAccounts) { account in
-                    Button {
-                        onOpenAccount(account.id)
-                    } label: {
-                        CardRow(opens: true) {
-                            Text(verbatim: account.name)
-                                .privacySensitiveInFeedback()
-                        } value: {
-                            AmountSentenceText(Self.value(of: account, words: words))
-                                .monospacedDigit()
-                        } below: {
-                            Text(verbatim: "Available from \(account.age)")
-                                .font(.footnote)
-                                .foregroundStyle(Palette.secondaryInk)
-                                .privacySensitiveInFeedback()
-                        }
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityIdentifier("plan.account.\(account.id.rawValue)")
-                }
-            }
-            Text("The plan can draw on them from that age. Each account sets its own age.")
-                .font(.footnote)
-                .foregroundStyle(Palette.secondaryInk)
-                .fixedSize(horizontal: false, vertical: true)
-                .padding(.horizontal, Metrics.xs)
-        }
-    }
-
-    /// "32.000 € today", or "No value yet".
-    static func value(of account: PlanLaterAccount, words: PlanWords) -> AmountSentence {
-        guard let value = account.value else { return AmountSentence("No value yet") }
-        return "\(words.amount(value)) today"
     }
 }

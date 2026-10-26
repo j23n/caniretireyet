@@ -20,9 +20,6 @@ struct PlanDerived {
     /// The milestones from the results shown, with those reached; `nil`
     /// without a plan.
     let milestones: PlanMilestones?
-    /// The accounts the plan can draw from only from a later age, such as a
-    /// pension fund, which a chapter's sheet lists where they open.
-    let laterAccounts: [PlanLaterAccount]
 
     /// - Parameter reached: the milestones reached (``PlanSession/progress``),
     ///   which are neither next nor ahead again.
@@ -40,9 +37,6 @@ struct PlanDerived {
         }
         self.milestones = milestones
         self.chapters = chapters
-        laterAccounts = plan.map {
-            PlanLaterAccount.accounts(of: $0, library: library, valuator: valuator, today: asOf)
-        } ?? []
         timeline = chapters.flatMap { model in
             library.settings.person?.birthDate.map { birthDate in
                 PlanTimeline(model: model, results: results, birthDate: birthDate, currency: currency,

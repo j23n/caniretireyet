@@ -103,30 +103,6 @@ struct PlanScreenMathTests {
         #expect(PlanChaptersModel.birthday(birthDate, age: 62) == CalendarDate("2050-04-12").dateValue)
     }
 
-    /// The pension fund, available from 67, opens in the chapter whose ages
-    /// hold 67, with its value on the plan's start date; the TFR, which the
-    /// plan can draw now, isn't one of them.
-    @Test func aPensionFundOpensInTheChapterOfItsAge() throws {
-        let model = try chapters()
-        let accounts = PlanLaterAccount.accounts(of: plan, library: library, valuator: valuator, today: today)
-        #expect(accounts.map(\.id) == ["fondo-pensione"])
-        let fund = try #require(accounts.first)
-        #expect(fund.age == 67)
-        #expect(fund.name == "Fondo pensione")
-        let start = plan.startDate(in: library, today: today)
-        #expect(fund.value == valuator.value(of: "fondo-pensione", on: start)?.knownValue)
-        #expect((fund.value ?? 0) > 0)
-        let index = try #require(model.chapters.chapters.firstIndex { $0.ages.contains(67) })
-        #expect(model.laterAccounts(accounts, inChapterAt: index) == [fund])
-        for other in model.chapters.chapters.indices where other != index {
-            #expect(model.laterAccounts(accounts, inChapterAt: other).isEmpty)
-        }
-        // Left out of the plan, it isn't listed.
-        var without = plan
-        without.portfolio.exclude = ["fondo-pensione"]
-        #expect(PlanLaterAccount.accounts(of: without, library: library, valuator: valuator, today: today).isEmpty)
-    }
-
     // MARK: A chapter's money
 
     @Test func pensionsAndIncomeArePaidFromTheYearTheyStart() {
