@@ -90,7 +90,10 @@ struct PlannerPlanEngine: PlanEngine {
         }
 
         if let whatIf = request.whatIf, !whatIf.isEmpty {
-            return try await step(whatIf.applied(to: request.plan), .base(request.mode), focusAge: request.focusAge)
+            // As *Apply* keeps it (`PlanWhatIfModel.kept`), so applying reuses these results.
+            let start = request.plan.startDate(in: request.library, today: request.asOf)
+            return try await step(whatIf.applied(to: request.plan, today: start), .base(request.mode),
+                                  focusAge: request.focusAge)
         }
         if let focusAge = request.focusAge {
             let cached = await isCached(request.plan, .base(.full), inputs: inputs, asOf: request.asOf)
