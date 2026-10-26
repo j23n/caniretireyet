@@ -7,6 +7,7 @@ import Testing
 /// So far's year month by month (UI.md, "The year", *Month by month*), on
 /// the example library (``PreviewLibrary``): where each year starts and
 /// ends, and its milestones and events in between, in order.
+@MainActor
 struct PlanYearLineTests {
     private let english = Locale(identifier: "en_US")
 
