@@ -61,8 +61,10 @@ struct PlanMoveChip: View {
 /// moved ("10 months sooner", "Was 27 March 2051, at 63."), the plan's
 /// chart with the change, the plan as it is dashed under it, then tiles for
 /// how sure, saving and spending a month and what's left at the end, each
-/// with how it moved in a capsule. While the change's results are being
-/// worked out, the last ones dim; before there are any, a line says so.
+/// with how it moved in a capsule. Before a change, the same for the plan
+/// as it is, without the capsules, so the chart is there to follow the
+/// first edit. While the change's results are being worked out, the last
+/// ones dim.
 struct PlanChangeSummary: View {
     let session: PlanSession
     /// The results with the change; `nil` until they're worked out.
@@ -75,6 +77,8 @@ struct PlanChangeSummary: View {
     var error: String?
     /// What the chart calls the change: "With the change", "With the levers".
     var label = "With the change"
+    /// What to do to see a change, under the plan as it is.
+    var hint = "Change something above to see what it does to your date."
 
     @Environment(\.locale) private var locale
 
@@ -83,18 +87,17 @@ struct PlanChangeSummary: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Metrics.m) {
             if let changed, let plan = session.plan {
-                answer(changed)
+                answer(changed, against: base)
                     .opacity(isUpdating ? Metrics.dimmedOpacity : 1)
-                VStack(alignment: .leading, spacing: Metrics.s) {
-                    DecadesLegend(compared: base == nil ? nil : "As it is", changed: label)
-                    DecadesChart(plan: document ?? plan, results: changed, compared: base, today: .today(),
-                                 chartHeight: 210)
-                }
-                .padding(Metrics.l)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .cardSurface()
-                .opacity(isUpdating ? Metrics.dimmedOpacity : 1)
-                tiles(changed)
+                chart(plan: document ?? plan, results: changed, against: base)
+                    .opacity(isUpdating ? Metrics.dimmedOpacity : 1)
+                tiles(changed, against: base)
+                    .opacity(isUpdating ? Metrics.dimmedOpacity : 1)
+            } else if error == nil, let base, let plan = session.plan {
+                answer(base, against: nil)
+                chart(plan: plan, results: base, against: nil)
+                    .opacity(isUpdating ? Metrics.dimmedOpacity : 1)
+                tiles(base, against: nil)
                     .opacity(isUpdating ? Metrics.dimmedOpacity : 1)
             } else if let error {
                 Label(error, systemImage: "exclamationmark.triangle")
@@ -119,11 +122,26 @@ struct PlanChangeSummary: View {
         }
     }
 
+    /// The plan's chart for `results`, with `against`'s typical future
+    /// dashed under it.
+    private func chart(plan: PlanDocument, results: PlanResults, against: PlanResults?) -> some View {
+        VStack(alignment: .leading, spacing: Metrics.s) {
+            DecadesLegend(compared: against == nil ? nil : "As it is", changed: label)
+            DecadesChart(plan: plan, results: results, compared: against, today: .today(), chartHeight: 210)
+        }
+        .padding(Metrics.l)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .cardSurface()
+    }
+
     // MARK: Your last Monday
 
-    private func answer(_ changed: PlanResults) -> some View {
+    /// The date `changed` gives, with how far it moved from `against` and
+    /// what `against` said; without `against` (the plan as it is), the hint,
+    /// or that the change is being worked out.
+    private func answer(_ changed: PlanResults, against: PlanResults?) -> some View {
         let headline = changed.headline
-        let move = base.flatMap { PlanDateMove(from: $0.headline, to: headline) }
+        let move = against.flatMap { PlanDateMove(from: $0.headline, to: headline) }
         return VStack(alignment: .leading, spacing: Metrics.xs) {
             HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
                 Text("Your last Monday")
@@ -145,12 +163,17 @@ struct PlanChangeSummary: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
                 .privacySensitiveInFeedback()
-            if let base {
-                Text(verbatim: "Was \(Self.dateAndAge(base.headline, locale: locale)).")
+            if let against {
+                Text(verbatim: "Was \(Self.dateAndAge(against.headline, locale: locale)).")
                     .font(.subheadline)
                     .foregroundStyle(Palette.secondaryInk)
                     .fixedSize(horizontal: false, vertical: true)
                     .privacySensitiveInFeedback()
+            } else {
+                Text(isUpdating ? "Working out what it does…" : hint)
+                    .font(.subheadline)
+                    .foregroundStyle(Palette.secondaryInk)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
         .padding(.horizontal, Metrics.xs)
@@ -175,16 +198,18 @@ struct PlanChangeSummary: View {
         return results.successByAge.first { $0.age == age }?.success
     }
 
-    private func tiles(_ changed: PlanResults) -> some View {
+    /// The tiles for `changed`, each with how it moved from `against` in a
+    /// capsule; none without `against`.
+    private func tiles(_ changed: PlanResults, against: PlanResults?) -> some View {
         let focus = changed.details.focus
-        let was = base?.details.focus
+        let was = against?.details.focus
         let currency = session.currency
         return TileGrid {
             if let success = focus.success {
                 PlanChangeTile(tint: .sky, title: "How sure", emoji: "🎯",
                                figure: .text(PlanChangeTile.inTen(success)),
                                caption: "stopping at \(focus.age)",
-                               change: Self.success(of: base, at: focus.age).map {
+                               change: Self.success(of: against, at: focus.age).map {
                                    PlanChangeTile.Change.share(from: $0, to: success)
                                })
                     .tileSize(.small)
@@ -197,7 +222,7 @@ struct PlanChangeSummary: View {
             }
             if let spending = changed.headline.sustainableSpending {
                 let age = changed.details.sustainableSpendingAge ?? changed.headline.targetAge
-                let before = base?.headline.sustainableSpending
+                let before = against?.headline.sustainableSpending
                 PlanChangeTile(tint: .butter, title: "You could spend", emoji: "🛍️", figure: .amount(spending / 12),
                                caption: "a month" + (age.map { " from \($0)" } ?? ""), currency: currency,
                                change: before.map { PlanChangeTile.Change.amount((spending - $0) / 12, good: true) })
@@ -337,7 +362,7 @@ struct PlanChangePreview: View {
     @State private var error: String?
 
     /// How long the form rests before the change is worked out.
-    private static let delay: Duration = .milliseconds(400)
+    private static let delay: Duration = .milliseconds(250)
 
     private var changed: PlanDocument? {
         guard let candidate, candidate != session.plan else { return nil }
