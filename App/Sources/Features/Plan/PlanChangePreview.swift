@@ -114,7 +114,7 @@ struct PlanChangeSummary: View {
                         .foregroundStyle(Palette.secondaryInk)
                 }
             } else {
-                Text("Change something above to see what it does to your date.")
+                Text(hint)
                     .font(.subheadline)
                     .foregroundStyle(Palette.secondaryInk)
                     .fixedSize(horizontal: false, vertical: true)
