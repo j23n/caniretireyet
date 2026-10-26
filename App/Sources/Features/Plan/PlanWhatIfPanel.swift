@@ -228,7 +228,8 @@ struct PlanWhatIfSheet: View {
                         PlanChangeSummary(session: session, changed: session.whatIfResults, document: session.shownPlan,
                                           isUpdating: session.whatIfIsOutOfDate || session.isRunningWhatIf,
                                           error: session.hasWhatIf ? session.runError : nil,
-                                          label: "With the levers")
+                                          label: "With the levers",
+                                          hint: "Move a lever to see what it does to your date.")
                     }
                     PlanLeverButtons(session: session) { dismiss() }
                 }
