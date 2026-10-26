@@ -10,9 +10,9 @@ import SwiftUI
 /// *Your life ahead*: its title with *Add*, a line on what it is, then the
 /// chapters down a line. Each chapter is a card: its number and name, its
 /// ages, its month's money in words, and the money typically there as it
-/// starts ("Today" for the first). What changes in it (a pension, other
-/// income, saving into an account, a one-off, later spending, a change of
-/// mix) follows it on a card of its own, a row each. Before the first
+/// starts ("Today" for the first). What changes in it (other income,
+/// saving into an account, a one-off, later spending, a change of mix)
+/// follows it on a card of its own, a row each. Before the first
 /// retired chapter, *You stop working* (``AheadStopCard``); after the last,
 /// the plan's end. A chapter opens in a sheet, a change in its own, the
 /// stop and the end in their small editors. On the Mac and iPad
@@ -61,13 +61,14 @@ struct AheadLifeSection: View {
         return stops
     }
 
-    /// Whether an input is a change along the way: pensions, other income,
+    /// Whether an input is a change along the way: other income,
     /// contributions, one-offs, later spending and changes of mix. Not
-    /// work, which is its chapter, nor what every chapter has.
+    /// work, nor pensions, which their chapters are (their sheets list
+    /// them), nor what every chapter has.
     static func isChange(_ item: PlanChapter.Item) -> Bool {
         switch item {
-        case .pension, .income, .contribution, .event, .spendingPhase, .targetMixStep: true
-        case .work, .retirement, .workingSpending, .retiredSpending, .targetMix, .end: false
+        case .income, .contribution, .event, .spendingPhase, .targetMixStep: true
+        case .work, .pension, .retirement, .workingSpending, .retiredSpending, .targetMix, .end: false
         }
     }
 
