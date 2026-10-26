@@ -275,7 +275,7 @@ struct PlanChangeTile: View {
 
     @ViewBuilder
     private func pill(_ change: Change) -> some View {
-        let (text, direction, good, isAmount) = words(change)
+        let (text, direction, good, isAmount) = Self.words(change, currency: currency, locale: locale)
         let color: Color = direction == 0 || good == nil ? tint.ink
             : (direction > 0) == good ? Palette.positive : Palette.orangeStroke
         Text(verbatim: text)
@@ -293,7 +293,8 @@ struct PlanChangeTile: View {
 
     /// The capsule's words, which way it moved, whether more is good, and
     /// whether the words are an amount.
-    private func words(_ change: Change) -> (String, Int, Bool?, Bool) {
+    static func words(_ change: Change, currency: CurrencyCode, locale: Locale)
+        -> (text: String, direction: Int, good: Bool?, isAmount: Bool) {
         switch change {
         case .share(let from, let to):
             let before = Self.tenths(from)
