@@ -1,22 +1,29 @@
+import Glance
 import Model
 import Planner
 import SwiftUI
 import Tracker
 
-// The chosen year in tiles and rows (UI.md, "The year"), under its chart:
-// what you saved and what markets did, why you're ahead or behind, your
-// money, the earliest age and the check-ins, month by month, and what
-// happened.
+// The chosen year under its chart (UI.md, "So far"): its tiles, then the
+// year month by month, on a line.
 
-/// The year as tiles: what you saved and what markets did, small ("💰 You
-/// saved", "15.890 €", "planned 13.463 € by now"; "📈 Markets added",
-/// "8.940 €", "expected 1.982 €"); why you're ahead or behind, wide
-/// (``PlanYearWhyTile``); your money now or at the year's end, wide; and
-/// the earliest age over the year and the year's check-ins, half tiles,
-/// the check-ins opening their table.
+/// The year as tiles: what you saved and what markets did, half tiles
+/// ("💰 You saved", "15.890 €", "planned 13.463 € by now"; "📈 Markets
+/// added", "8.940 €", "expected 1.982 €"); your money now or at the year's
+/// end, small; then the year's savings rate and spending a month against
+/// the plan's, when money in and out was recorded in it, and the earliest
+/// age at its end and its check-ins, half tiles, the check-ins opening
+/// their table.
 struct PlanYearTiles: View {
     let card: PlanProgressTimeline.Card
     let history: PlanAnswerHistory
+    /// The year's money in and out (a calendar year's period); `nil`
+    /// without money in and out, or with typed accounts.
+    var money: MoneyInOutPeriod?
+    /// The plan's own savings rate.
+    var planRate: Decimal?
+    /// The plan's spending while working, a year.
+    var plannedSpending: Decimal?
 
     @Environment(LibraryStore.self) private var library
     @Environment(\.locale) private var locale
@@ -30,16 +37,30 @@ struct PlanYearTiles: View {
         TileGrid {
             figureTile(saved >= 0 ? "You saved" : "You took out", emoji: "💰", tint: .mint, value: saved,
                        detail: savedDetail)
-                .tileSize(.small)
+                .tileSize(.half)
             figureTile(market >= 0 ? "Markets added" : "Markets took", emoji: market >= 0 ? "📈" : "📉",
                        tint: market >= 0 ? .sky : .peach, value: market, detail: marketsDetail)
-                .tileSize(.small)
-            if PlanYearWhyTile.shows(year) {
-                PlanYearWhyTile(card: card)
-                    .tileSize(.wide)
-            }
+                .tileSize(.half)
             moneyTile
-                .tileSize(.wide)
+                .tileSize(.small)
+            if let money, !money.isEmpty {
+                HalfTile(tint: .lilac, title: "Savings rate", emoji: "🐷") {
+                    Text(verbatim: money.rate.map { AmountFormat.percent($0, digits: 0, locale: locale) } ?? "—")
+                        .monospacedDigit()
+                        .privacySensitiveInFeedback()
+                } caption: {
+                    Text(verbatim: planRate.map { "your plan's \(AmountFormat.percent($0, digits: 0, locale: locale))" }
+                         ?? "of what came in")
+                        .privacySensitiveInFeedback(planRate != nil)
+                }
+                .tileSize(.half)
+                HalfTile(tint: .peach, title: "Spent", emoji: "🛒") {
+                    AmountText(spentAMonth(money), currency: card.currency, tabular: false)
+                } caption: {
+                    AmountSentenceText(spentDetail)
+                }
+                .tileSize(.half)
+            }
             if let to = year.answerTo?.earliestAge {
                 HalfTile(tint: .lilac, title: "Earliest age to stop", emoji: "🧭") {
                     Text(verbatim: "\(to)")
@@ -106,26 +127,31 @@ struct PlanYearTiles: View {
         return from == to ? "same as at the year's start" : "was \(from) at the year's start"
     }
 
+    /// A half tile's figure, what it was, and a few words.
     private func figureTile(_ title: String, emoji: String, tint: TileTint, value: Decimal,
                             detail: AmountSentence?) -> some View {
-        ColorTile(tint: tint) {
-            TileLabel(title, emoji: emoji)
-            Spacer(minLength: Metrics.s)
+        HalfTile(tint: tint, title: title, emoji: emoji) {
             AmountText(abs(value), currency: card.currency, tabular: false)
-                .font(.title2.bold())
-                .lineLimit(1)
-                .minimumScaleFactor(0.6)
+        } caption: {
             if let detail {
-                TileCaption {
-                    AmountSentenceText(detail)
-                }
+                AmountSentenceText(detail)
             }
         }
-        .accessibilityElement(children: .combine)
     }
 
     private func amount(_ value: Decimal) -> String {
         AmountFormat.amount(abs(value), currency: card.currency, locale: locale)
+    }
+
+    /// What the year spent a month: what it spent scaled to a year, over 12.
+    private func spentAMonth(_ money: MoneyInOutPeriod) -> Decimal {
+        ((money.savings?.spentPerYear ?? 0) / 12).rounded(scale: 0)
+    }
+
+    /// "a month, plan 2.700 €", or "a month" without the plan's spending.
+    private var spentDetail: AmountSentence {
+        guard let plannedSpending, plannedSpending > 0 else { return "a month" }
+        return "a month, plan \(amount: amount((plannedSpending / 12).rounded(scale: 0)))"
     }
 
     /// "planned 13.463 € by now", "planned 12.000 €"; `nil` without a plan.
@@ -144,100 +170,14 @@ struct PlanYearTiles: View {
     }
 }
 
-/// Why you're ahead or behind as a wide tile (UI.md, "The year"): "🚀 Why
-/// you're ahead" with the gap, then the four rows that add up to it as bars
-/// (``PlanYearWhy``'s); a tap opens them in full with what was planned.
-/// Without the split, what the year is measured against and why not.
-struct PlanYearWhyTile: View {
-    let card: PlanProgressTimeline.Card
-
-    @Environment(\.locale) private var locale
-    @State private var showsWhy = false
-
-    private var year: PlanProgressYear { card.year }
-
-    /// Whether the year has a why to tell: a position against its baseline,
-    /// or no baseline, which it says how to add.
-    static func shows(_ year: PlanProgressYear) -> Bool {
-        year.position != nil || year.baseline == nil
-    }
-
-    var body: some View {
-        Button {
-            showsWhy = true
-        } label: {
-            ColorTile {
-                HStack(spacing: Metrics.s) {
-                    TileLabel(PlanYearWhy.title(year, locale: locale), emoji: emoji)
-                        .privacySensitiveInFeedback()
-                    Spacer(minLength: Metrics.s)
-                    Image(systemName: "chevron.right")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(Palette.mutedInk)
-                }
-                if let explanation = year.explanation?.inWholeUnits {
-                    HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
-                        Text(verbatim: AmountFormat.signedAmount(explanation.end, currency: card.currency,
-                                                                 locale: locale))
-                            .font(.title2.bold())
-                            .monospacedDigit()
-                            .foregroundStyle(explanation.end >= 0 ? Palette.positive : Palette.orangeStroke)
-                            .privacySensitiveAmount()
-                        Text("against \(year.expectation(locale: locale))")
-                            .font(.footnote)
-                            .foregroundStyle(Palette.secondaryInk)
-                            .lineLimit(1)
-                            .privacySensitiveInFeedback()
-                    }
-                    .padding(.top, Metrics.s)
-                    PlanYearWhyBars(explanation: explanation, currency: card.currency)
-                        .padding(.top, Metrics.m)
-                } else {
-                    AmountSentenceText(PlanProgressText.january(year, currency: card.currency, locale: locale)
-                        ?? AmountSentence(PlanProgressText.unmeasured(year)))
-                        .font(.footnote)
-                        .foregroundStyle(Palette.secondaryInk)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .padding(.top, Metrics.s)
-                }
-            }
-        }
-        .buttonStyle(.plain)
-        .accessibilityHint("Shows why in full")
-        .sheet(isPresented: $showsWhy) {
-            NavigationStack {
-                ScrollView {
-                    Card {
-                        PlanYearWhy(card: card)
-                    }
-                    .padding(Metrics.l)
-                }
-                .background(Palette.page)
-                .sheetTitle(LocalizedStringKey(PlanYearWhy.title(year, locale: locale))) { showsWhy = false }
-            }
-            .presentationDetents([.medium, .large])
-            #if os(macOS)
-            .frame(minWidth: 420, minHeight: 360)
-            #endif
-        }
-    }
-
-    /// 🚀 ahead, 🧭 behind, 📏 unmeasured.
-    private var emoji: String {
-        guard let explanation = year.explanation else { return "📏" }
-        return explanation.end >= 0 ? "🚀" : "🧭"
-    }
-}
-
-/// What happened in the year (UI.md, "The year"), a row each on a card,
-/// newest first: an emoji on a tinted square, what it was ("Markets fell"),
-/// its month and a few words ("June, 4%"), and its figure in a capsule,
-/// green when it's good news and orange when not ("−3.100 €", "56 → 55").
-/// How the earliest age moved over the year comes first. Milestones aren't
-/// here: they have their own tiles. Under the card, check-ins that stop
+/// The year month by month (UI.md, "So far"), on a line like *Your life
+/// ahead*'s: where the year started, the milestones it reached and what
+/// happened at its check-ins in the order they came, each with its month,
+/// and where it stands now or where it ended. Under it, check-ins that stop
 /// early, and missing prices or rates.
-struct PlanYearHappenings: View {
+struct PlanYearLine: View {
     let card: PlanProgressTimeline.Card
+    let text: PlanMilestoneText
 
     @Environment(\.locale) private var locale
     @State private var fillsPastPrices = false
@@ -263,15 +203,42 @@ struct PlanYearHappenings: View {
             case .neutral: Palette.page
             }
         }
+
+        /// Its dot on the line.
+        var dot: Color {
+            switch self {
+            case .good: Palette.positive
+            case .bad: Palette.orangeStroke
+            case .neutral: Palette.mutedInk
+            }
+        }
     }
 
-    struct Row: Identifiable {
+    /// One stop on the line.
+    struct Entry: Identifiable {
+        enum Kind {
+            /// Where the year started.
+            case start
+            /// Something that happened at a check-in.
+            case event
+            /// A milestone reached.
+            case milestone
+            /// Now, or the year's end.
+            case end
+        }
+
         var id: Int
-        var emoji: String
-        var tint: TileTint
-        var title: String
-        /// Its month and a few words: "June, 4%".
-        var detail: String
+        var kind: Kind
+        var date: CalendarDate
+        /// "Mar".
+        var month: String
+        var emoji: String?
+        /// What it was: "Markets fell 4%", "10 years of spending"; an amount
+        /// in it hides with the eye.
+        var title: AmountSentence
+        /// Whether the title is the person's data (a share of their money),
+        /// hidden in a feedback screenshot.
+        var personalTitle = false
         /// Its figure; an amount in it hides with the eye.
         var figure: AmountSentence?
         /// Whether the figure is the person's data other than an amount
@@ -280,79 +247,190 @@ struct PlanYearHappenings: View {
         var tone: Tone = .neutral
     }
 
-    /// "56 → 55", "55, no change"; `nil` without an age at the year's end.
-    static func ageWords(_ year: PlanProgressYear) -> String? {
-        guard let to = year.answerTo?.earliestAge else { return nil }
-        guard let from = year.answerFrom?.earliestAge, from != to else { return "\(to), no change" }
-        return "\(from) → \(to)"
-    }
-
-    /// The earliest age over the year, then each event, newest first.
-    static func rows(_ card: PlanProgressTimeline.Card, locale: Locale = .current) -> [Row] {
+    /// The year's stops in order: its start, its events and milestones by
+    /// date, then now or its end.
+    static func entries(_ card: PlanProgressTimeline.Card, text: PlanMilestoneText) -> [Entry] {
         let year = card.year
+        let locale = text.locale
         let money = PlanWords(currency: card.currency, locale: locale)
-        var rows: [Row] = []
-        func add(_ emoji: String, _ tint: TileTint, _ title: String, _ detail: String, _ figure: AmountSentence?,
-                 personal: Bool = false, tone: Tone = .neutral) {
-            rows.append(Row(id: rows.count, emoji: emoji, tint: tint, title: title, detail: detail, figure: figure,
-                            personalFigure: personal, tone: tone))
+        func month(_ date: CalendarDate) -> String { GlanceText.shortMonth(date, locale: locale) }
+        var middle: [(date: CalendarDate, entry: Entry)] = []
+        func add(_ kind: Entry.Kind, _ date: CalendarDate, _ emoji: String, _ title: AmountSentence,
+                 personalTitle: Bool = false, figure: AmountSentence? = nil, personalFigure: Bool = false,
+                 tone: Tone = .neutral) {
+            middle.append((date, Entry(id: 0, kind: kind, date: date, month: month(date), emoji: emoji, title: title,
+                                       personalTitle: personalTitle, figure: figure, personalFigure: personalFigure,
+                                       tone: tone)))
         }
-        if let age = ageWords(year) {
-            let moved = year.answerFrom?.earliestAge.flatMap { from in
-                year.answerTo?.earliestAge.map { $0 - from }
-            } ?? 0
-            let detail = moved == 0 ? (year.isLatest ? "No change so far" : "No change")
-                : PlanProgressText.move(years: moved).capitalizedFirst + (year.isLatest ? " so far" : "")
-            add("🗓️", .sky, "Earliest age", detail, AmountSentence(age), personal: true,
-                tone: moved < 0 ? .good : moved > 0 ? .bad : .neutral)
-        }
-        for event in card.events.reversed() {
-            let month = AmountFormat.monthName(event.date, locale: locale)
+        for event in card.events {
             switch event.kind {
             case let .answerMoved(age, years, again, planChanged):
-                let move = again ? "\(age) again" : PlanProgressText.move(years: years)
-                add(planChanged ? "✏️" : years < 0 ? "⏪" : "⏩", planChanged ? .lilac : years < 0 ? .mint : .peach,
-                    planChanged ? "Plan changed" : "Earliest age moved", "\(month), \(move)",
-                    AmountSentence("\(age)"), personal: true, tone: years < 0 ? .good : years > 0 ? .bad : .neutral)
+                let figure = again ? "\(age) again" : "\(age - years) → \(age)"
+                add(.event, event.date, planChanged ? "✏️" : years < 0 ? "⏪" : "⏩",
+                    planChanged ? "Plan changed" : "Earliest age moved", figure: AmountSentence(figure),
+                    personalFigure: true, tone: years < 0 ? .good : years > 0 ? .bad : .neutral)
             case .changed(let changes):
-                let title = changes.first?.label ?? "Plan changed"
-                let more = changes.dropFirst().map(\.label.localizedLowercase)
-                add(changes.contains(.plan) ? "✏️" : "⚙️", .lilac, title, ([month] + more).joined(separator: ", "),
-                    nil)
+                add(.event, event.date, changes.contains(.plan) ? "✏️" : "⚙️",
+                    AmountSentence(changes.map(\.label).joined(separator: " · ")))
             case .noAge:
-                add("⚠️", .peach, "No age worked out", month, nil, tone: .bad)
+                add(.event, event.date, "⚠️", "No age worked out", tone: .bad)
             case .savedMore(let saved):
-                add("💪", .mint, "Saved more than usual", month, "\(money.unsigned(saved))", tone: .good)
+                add(.event, event.date, "💪", "Saved more than usual", figure: "\(money.unsigned(saved))",
+                    tone: .good)
             case let .markets(markets, share):
                 let percent = AmountFormat.percent(abs(share.doubleValue), digits: 0, locale: locale)
-                add(markets < 0 ? "📉" : "📈", markets < 0 ? .peach : .sky, markets < 0 ? "Markets fell" : "Markets rose",
-                    "\(month), \(percent)",
-                    .amount(AmountFormat.signedAmount(markets, currency: card.currency, locale: locale)),
+                add(.event, event.date, markets < 0 ? "📉" : "📈",
+                    AmountSentence(markets < 0 ? "Markets fell \(percent)" : "Markets rose \(percent)"),
+                    personalTitle: true,
+                    figure: .amount(AmountFormat.signedAmount(markets, currency: card.currency, locale: locale)),
                     tone: markets < 0 ? .bad : .good)
             }
         }
-        return rows
+        for reached in card.milestones {
+            add(.milestone, reached.date, "🏁", text.name(reached.milestone), tone: .good)
+        }
+        // By date; on the same day, events before milestones, as they were added.
+        let sorted = middle.enumerated().sorted { ($0.element.date, $0.offset) < ($1.element.date, $1.offset) }
+            .map(\.element.entry)
+        let opened = year.from.year < year.year ? CalendarDate(year: year.year, month: 1, day: 1) ?? year.from
+            : year.from
+        var entries = [Entry(id: 0, kind: .start, date: opened, month: month(opened),
+                             title: year.from.year < year.year ? "Started the year" : "First values",
+                             figure: money.amount(year.change.start))]
+        entries += sorted
+        entries.append(Entry(id: 0, kind: .end, date: year.to, month: month(year.to),
+                             title: year.isLatest ? "Now" : "The year's end",
+                             figure: money.amount(year.change.end)))
+        for index in entries.indices {
+            entries[index].id = index
+        }
+        return entries
     }
 
     var body: some View {
-        let rows = Self.rows(card, locale: locale)
+        let entries = Self.entries(card, text: text)
         VStack(alignment: .leading, spacing: Metrics.s) {
-            CardRows {
-                ForEach(rows) { row in
-                    PlanYearHappeningRow(row: row)
-                }
-                if rows.isEmpty {
-                    CardRow {
-                        Text(year.isLatest ? "Nothing to note yet" : "Nothing to note")
-                            .foregroundStyle(Palette.secondaryInk)
-                    } value: {
-                        EmptyView()
+            VStack(alignment: .leading, spacing: 0) {
+                ForEach(entries) { entry in
+                    HStack(alignment: .top, spacing: Metrics.m) {
+                        rail(entry, isLast: entry.id == entries.count - 1)
+                        row(entry)
+                            .padding(.bottom, Metrics.s)
                     }
+                    // As tall as the row, so the line reaches the next dot.
+                    .fixedSize(horizontal: false, vertical: true)
                 }
             }
             notes
         }
         .pastPricesSheet(isPresented: $fillsPastPrices)
+    }
+
+    /// The line down the left: a dot in the entry's tone, filled for a
+    /// milestone, a ring for now or the year's end.
+    private func rail(_ entry: Entry, isLast: Bool) -> some View {
+        VStack(spacing: 0) {
+            Group {
+                switch entry.kind {
+                case .start:
+                    Circle()
+                        .strokeBorder(Palette.mutedInk, lineWidth: 2)
+                case .event:
+                    Circle()
+                        .strokeBorder(entry.tone.dot, lineWidth: 2)
+                case .milestone:
+                    Circle()
+                        .fill(TileTint.butter.accent)
+                case .end:
+                    Circle()
+                        .fill(Palette.ink)
+                }
+            }
+            .frame(width: 12, height: 12)
+            .padding(.top, 14)
+            if !isLast {
+                Rectangle()
+                    .fill(Palette.border)
+                    .frame(width: 2)
+                    .frame(maxHeight: .infinity)
+            }
+        }
+        .frame(width: 12)
+        .accessibilityHidden(true)
+    }
+
+    /// The month, what it was and its figure, on a card; a milestone on
+    /// butter, now or the year's end in ink.
+    private func row(_ entry: Entry) -> some View {
+        let isEnd = entry.kind == .end
+        let ink: Color = isEnd ? Palette.card : entry.kind == .milestone ? TileTint.butter.ink : Palette.ink
+        return HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
+            Text(verbatim: entry.month)
+                .font(.caption.weight(.bold))
+                .textCase(.uppercase)
+                .foregroundStyle(isEnd ? Palette.card.opacity(0.75) : Palette.secondaryInk)
+                .frame(minWidth: 34, alignment: .leading)
+                .fixedSize()
+                .privacySensitiveInFeedback()
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                if let emoji = entry.emoji {
+                    Text(verbatim: emoji)
+                        .accessibilityHidden(true)
+                }
+                AmountSentenceText(entry.title)
+                    .fontWeight(entry.kind == .event ? .regular : .semibold)
+                    .lineLimit(2)
+                    .privacySensitiveInFeedback(entry.personalTitle)
+            }
+            .font(PlanProgressFont.text)
+            .foregroundStyle(ink)
+            Spacer(minLength: Metrics.s)
+            figure(entry, ink: ink)
+        }
+        .padding(.horizontal, Metrics.m)
+        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background {
+            let shape = RoundedRectangle(cornerRadius: 16, style: .continuous)
+            switch entry.kind {
+            case .end: shape.fill(Palette.ink)
+            case .milestone: shape.fill(TileTint.butter.surface)
+            case .start, .event: Color.clear.cardSurface()
+            }
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    @ViewBuilder
+    private func figure(_ entry: Entry, ink: Color) -> some View {
+        switch entry.kind {
+        case .milestone:
+            Text("reached")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(ink)
+        case .start, .end:
+            if let figure = entry.figure {
+                AmountSentenceText(figure)
+                    .font(PlanProgressFont.text.weight(entry.kind == .end ? .semibold : .regular))
+                    .monospacedDigit()
+                    .foregroundStyle(entry.kind == .end ? ink : Palette.secondaryInk)
+                    .lineLimit(1)
+                    .fixedSize()
+            }
+        case .event:
+            if let figure = entry.figure {
+                AmountSentenceText(figure)
+                    .font(.footnote.weight(.bold))
+                    .monospacedDigit()
+                    .foregroundStyle(entry.tone.ink)
+                    .lineLimit(1)
+                    .fixedSize()
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(entry.tone.surface, in: Capsule())
+                    .privacySensitiveInFeedback(entry.personalFigure)
+            }
+        }
     }
 
     /// Check-ins that stop early, and missing prices or rates.
@@ -372,47 +450,6 @@ struct PlanYearHappenings: View {
                              systemImage: "exclamationmark.triangle") { fillsPastPrices = true }
                 .padding(.horizontal, Metrics.l)
         }
-    }
-}
-
-/// One thing that happened in the year (``PlanYearHappenings``).
-private struct PlanYearHappeningRow: View {
-    let row: PlanYearHappenings.Row
-
-    var body: some View {
-        HStack(spacing: Metrics.m) {
-            Text(verbatim: row.emoji)
-                .font(.title3)
-                .frame(width: 36, height: 36)
-                .background(row.tint.surface, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-                .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(row.title)
-                    .font(PlanProgressFont.text.weight(.semibold))
-                    .foregroundStyle(Palette.ink)
-                    .lineLimit(1)
-                Text(row.detail)
-                    .font(PlanProgressFont.caption)
-                    .foregroundStyle(Palette.secondaryInk)
-                    .lineLimit(1)
-                    .privacySensitiveInFeedback()
-            }
-            Spacer(minLength: Metrics.s)
-            if let figure = row.figure {
-                AmountSentenceText(figure)
-                    .font(.footnote.weight(.bold))
-                    .monospacedDigit()
-                    .foregroundStyle(row.tone.ink)
-                    .lineLimit(1)
-                    .fixedSize()
-                    .padding(.horizontal, 9)
-                    .padding(.vertical, 5)
-                    .background(row.tone.surface, in: Capsule())
-                    .privacySensitiveInFeedback(row.personalFigure)
-            }
-        }
-        .padding(.vertical, 10)
-        .accessibilityElement(children: .combine)
     }
 }
 
@@ -542,161 +579,6 @@ struct PlanYearCheckIns: View {
     private static func movedColor(_ change: Int?) -> Color {
         guard let change, change != 0 else { return Palette.mutedInk }
         return change < 0 ? Palette.accent : Palette.orangeStroke
-    }
-}
-
-/// Why the year is ahead of or behind its baseline (PROGRESS.md, *Why*;
-/// UI.md, "The year"), in the same four rows every year, so stepping
-/// through the years moves nothing under it: the gap going into the year,
-/// saving against the plan, markets against what was expected, and the
-/// rest (inflation, values without what was saved, exchange rates). Each with a
-/// bar and its amount, in whole units, adding up to the total; then what
-/// the baseline expected.
-struct PlanYearWhy: View {
-    let card: PlanProgressTimeline.Card
-    /// *Add What You Planned in 2021…*, for a year without a baseline.
-    var onAddPastBaseline: ((Int) -> Void)?
-
-    @Environment(\.locale) private var locale
-
-    private var year: PlanProgressYear { card.year }
-
-    private func amount(_ value: Decimal) -> String {
-        AmountFormat.amount(abs(value), currency: card.currency, locale: locale)
-    }
-
-    /// "Why you're ahead", "Why you ended behind"; "Against your January
-    /// plan" unmeasured.
-    static func title(_ year: PlanProgressYear, locale: Locale = .current) -> String {
-        guard let explanation = year.explanation else { return "Against \(year.expectation(locale: locale))" }
-        let side = explanation.end >= 0 ? "ahead" : "behind"
-        return year.isLatest ? "Why you're \(side)" : "Why you ended \(side)"
-    }
-
-    /// "January expected 141.463 € by 31 Dec.", "… by now."
-    private var expected: AmountSentence? {
-        PlanProgressText.expected(year, amount: { .amount(amount($0)) }, locale: locale).map { $0 + "." }
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: Metrics.s) {
-            Text(Self.title(year, locale: locale))
-                .font(PlanProgressFont.text.weight(.semibold))
-                .foregroundStyle(Palette.ink)
-                .privacySensitiveInFeedback()
-                .accessibilityAddTraits(.isHeader)
-            if let explanation = year.explanation?.inWholeUnits {
-                PlanYearWhyBars(explanation: explanation, currency: card.currency, showsTotal: true)
-                    .font(PlanProgressFont.text)
-                if let expected {
-                    AmountSentenceText(expected)
-                        .font(PlanProgressFont.caption)
-                        .foregroundStyle(Palette.secondaryInk)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.85)
-                }
-            } else {
-                AmountSentenceText(PlanProgressText.january(year, currency: card.currency, locale: locale)
-                    ?? AmountSentence(PlanProgressText.unmeasured(year)))
-                    .font(PlanProgressFont.caption)
-                    .foregroundStyle(Palette.secondaryInk)
-                    .fixedSize(horizontal: false, vertical: true)
-                if year.baseline == nil, let onAddPastBaseline {
-                    Button("Add What You Planned in \(String(year.year))…") { onAddPastBaseline(year.year) }
-                        .buttonStyle(.borderless)
-                        .font(PlanProgressFont.text.weight(.semibold))
-                        .personalControl()
-                }
-            }
-        }
-        .frame(maxWidth: 460, alignment: .leading)
-    }
-}
-
-/// The four rows that add up to a year's gap (``PlanYearWhy``): the gap
-/// going into the year, saving against the plan, markets against what was
-/// expected, and the rest, each with a bar against the largest and its
-/// amount; with `showsTotal`, the gap under a hairline.
-struct PlanYearWhyBars: View {
-    /// In whole units.
-    let explanation: GapExplanation
-    let currency: CurrencyCode
-    var showsTotal = false
-
-    @Environment(\.locale) private var locale
-
-    private struct Row: Identifiable {
-        var title: String
-        var value: Decimal
-        var id: String { title }
-    }
-
-    private var rows: [Row] {
-        [Row(title: "At the start", value: explanation.start),
-         Row(title: "Saving", value: explanation.saving),
-         Row(title: "Markets", value: explanation.markets),
-         Row(title: "Other", value: (explanation.inflation ?? 0) + explanation.other)]
-    }
-
-    var body: some View {
-        let shown = rows
-        let largest = max(shown.map { abs($0.value) }.max() ?? 0, 1)
-        Grid(alignment: .leading, horizontalSpacing: Metrics.s, verticalSpacing: Metrics.s) {
-            ForEach(shown) { row in
-                GridRow {
-                    Text(row.title)
-                        .foregroundStyle(Palette.ink)
-                    PlanWhyBar(share: (abs(row.value) / largest).doubleValue, isPositive: row.value >= 0)
-                    amountText(row.value)
-                }
-            }
-            if showsTotal {
-                Divider()
-                    .gridCellColumns(3)
-                GridRow {
-                    Text(explanation.end >= 0 ? "Ahead" : "Behind")
-                        .fontWeight(.semibold)
-                        .foregroundStyle(Palette.ink)
-                        .privacySensitiveInFeedback()
-                    Color.clear
-                        .frame(height: 1)
-                    amountText(explanation.end, isTotal: true)
-                }
-            }
-        }
-    }
-
-    private func amountText(_ value: Decimal, isTotal: Bool = false) -> some View {
-        Text(value == 0 ? AmountFormat.amount(0, currency: currency, locale: locale)
-            : AmountFormat.signedAmount(value, currency: currency, locale: locale))
-            .fontWeight(isTotal ? .bold : .semibold)
-            .monospacedDigit()
-            .foregroundStyle(value == 0 ? Palette.mutedInk : value > 0 ? Palette.positive : Palette.orangeStroke)
-            .privacySensitiveAmount()
-            .gridColumnAlignment(.trailing)
-            .lineLimit(1)
-    }
-}
-
-/// A row's share of the largest in ``PlanYearWhy``: green for what put you
-/// ahead, orange for what put you behind, on a grey track.
-struct PlanWhyBar: View {
-    let share: Double
-    let isPositive: Bool
-
-    var body: some View {
-        Capsule()
-            .fill(Palette.gridline.opacity(0.6))
-            .frame(height: 6)
-            .overlay(alignment: .leading) {
-                GeometryReader { proxy in
-                    Capsule()
-                        .fill(isPositive ? Palette.green : Palette.orange)
-                        .frame(width: max(share > 0 ? 3 : 0, proxy.size.width * CGFloat(min(1, max(0, share)))))
-                }
-            }
-            .frame(maxWidth: .infinity, minHeight: 6, maxHeight: 6)
-            .accessibilityHidden(true)
     }
 }
 
