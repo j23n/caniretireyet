@@ -214,7 +214,6 @@ private struct SidebarCountRow: View {
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
             Text(title)
-                .lineLimit(3)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: Metrics.xs)
             if count > 0 {
@@ -239,7 +238,6 @@ private struct SidebarPlanRow: View {
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
             Text(name)
-                .lineLimit(3)
                 .fixedSize(horizontal: false, vertical: true)
                 .privacySensitiveInFeedback()
             Spacer(minLength: Metrics.xs)
@@ -277,7 +275,6 @@ private struct SidebarFolderLabel<Trailing: View>: View {
                     .accessibilityHidden(true)
             }
             Text(title)
-                .lineLimit(3)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: Metrics.xs)
             trailing
@@ -308,7 +305,6 @@ private struct SidebarAccountRow: View {
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
             Text(item.account.name)
-                .lineLimit(3)
                 .fixedSize(horizontal: false, vertical: true)
                 .privacySensitiveInFeedback()
             Spacer(minLength: Metrics.xs)
