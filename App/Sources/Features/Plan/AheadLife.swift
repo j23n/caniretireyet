@@ -63,8 +63,8 @@ struct AheadLifeSection: View {
 
     /// Whether an input is a change along the way: other income,
     /// contributions, one-offs, later spending and changes of mix. Not
-    /// work, nor pensions, which their chapters are (their sheets list
-    /// them), nor what every chapter has.
+    /// work, nor pensions, which the sheet of the chapter they start in
+    /// lists, nor what every chapter has.
     static func isChange(_ item: PlanChapter.Item) -> Bool {
         switch item {
         case .income, .contribution, .event, .spendingPhase, .targetMixStep: true
