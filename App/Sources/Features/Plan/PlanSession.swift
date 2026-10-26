@@ -486,12 +486,12 @@ final class PlanSession {
         whatIf.isEmpty ? nil : plans.results(of: planID, .whatIf)
     }
 
-    /// The sliders' model for the plan as shown.
     /// The plan as the page shows it: with the levers once one has moved.
     var shownPlan: PlanDocument? {
         hasWhatIf ? whatIfModel?.kept ?? plan : plan
     }
 
+    /// The sliders' model for the plan as shown.
     var whatIfModel: PlanWhatIfModel? {
         plan.map { PlanWhatIfModel(plan: $0, results: baseResults, whatIf: whatIf) }
     }
