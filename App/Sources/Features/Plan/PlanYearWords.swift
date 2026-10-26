@@ -326,8 +326,9 @@ struct PlanYearLine: View {
         .pastPricesSheet(isPresented: $fillsPastPrices)
     }
 
-    /// The line down the left: a dot in the entry's tone, filled for a
-    /// milestone, a ring for now or the year's end.
+    /// The line down the left: a ring where the year started and, in the
+    /// entry's tone, at each event; filled for a milestone, and in ink for
+    /// now or the year's end.
     private func rail(_ entry: Entry, isLast: Bool) -> some View {
         VStack(spacing: 0) {
             Group {
