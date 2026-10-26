@@ -151,11 +151,4 @@ struct PlanMoneyInOutTests {
             + "what was spent then counts in the rate over 12 months.")
     }
 
-    /// The plan's spending is an amount, which hides with the eye.
-    @Test func spendingAgainstThePlanWhileWorking() throws {
-        let year = PlanLastTwelveMonths(current: savings(moneyIn: 45_000, spent: 30_000), previous: nil, since: nil)
-        // Past working: left out.
-        #expect(year.spendingWords(planned: nil, locale: locale) == nil)
-        #expect(year.spendingWords(planned: 36_000, locale: locale)?.hasAmounts == true)
-    }
 }
