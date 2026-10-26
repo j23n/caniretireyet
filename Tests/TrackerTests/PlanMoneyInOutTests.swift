@@ -67,6 +67,26 @@ struct PlanMoneyInOutTests {
         #expect(!throughSeptember.isSoFar(september))
     }
 
+    @Test func aYearHoldsItsOwnMonthsAlone() throws {
+        let all = money(through: "2026-10-10")
+        let year = all.year(2026)
+        #expect(year.periods.map(\.from) == ["2026-07-01", "2026-08-01", "2026-09-01", "2026-10-01"])
+        #expect(year.periods.allSatisfy { $0.lastTwelveMonths == nil })
+        #expect(year.periods.map(\.savings) == all.periods.map(\.savings))
+        #expect(year.end == "2026-10-10")
+        #expect(year.isSoFar(try #require(year.periods.last)))
+        // Recorded from 30 June, so the year starts before it.
+        #expect(year.startsInSpan)
+        #expect(year.recordedMonths == all.recordedMonths)
+        // A year before any money in and out has no periods, and ends on its last day.
+        let before = all.year(2025)
+        #expect(before.periods.isEmpty)
+        #expect(before.counted.isEmpty)
+        #expect(before.end == "2025-12-31")
+        #expect(before.recordedMonths == 0)
+        #expect(!before.startsInSpan)
+    }
+
     @Test func aMonthAfterASkippedCheckInCoversMore() throws {
         var library = self.library
         library.months["2026-08"]?.valuations.removeAll { ["conto-fineco", "conto-deposito"].contains($0.account) }

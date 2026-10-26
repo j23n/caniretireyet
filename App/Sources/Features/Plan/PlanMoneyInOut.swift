@@ -65,12 +65,14 @@ extension PlanMoneyInOut {
         return "No rate in \(Wording.list(names)), so \(bar)\(line)."
     }
 
-    /// "Money in and out is recorded since 30 Jun 2026: 3 months so far.";
+    /// "Money in and out is recorded since 30 Jun 2026: 3 months so far.",
+    /// "… 6 months recorded." for a span that ends on a year's last day;
     /// `nil` when it was recorded before the span, or not at all.
     func whereItStarts(locale: Locale = .current) -> String? {
         guard startsInSpan, let since = recordedSince else { return nil }
+        let ended = end.month == 12 && end.day == 31
         return "Money in and out is recorded since \(AmountFormat.mediumDate(since, locale: locale)): "
-            + "\(Wording.count(recordedMonths, "month")) so far."
+            + "\(Wording.count(recordedMonths, "month")) \(ended ? "recorded" : "so far")."
     }
 }
 
@@ -192,23 +194,5 @@ extension PlanLastTwelveMonths {
         let direction = DeltaFormat.direction(ofFraction: fraction, digits: 0)
         return TileChange(value: .amount(before), direction: direction,
                           isGood: moreIsGood ? direction >= 0 : direction <= 0)
-    }
-
-    /// "Your plan spends 36.000 € a year while you work: you spent 12%
-    /// less.", "… 8% more.", "… about the same." within 2%: what was spent
-    /// a year against the plan's spending while working. `nil` when the
-    /// plan is past working, or nothing was spent.
-    func spendingWords(planned: Decimal?, locale: Locale = .current) -> AmountSentence? {
-        guard let planned, let difference = spendingDifference(planned: planned) else { return nil }
-        let amount = AmountSentence.amount(AmountFormat.amount(planned, currency: current.moneyInOut.currency,
-                                                               locale: locale))
-        let words: String
-        if difference == 0 {
-            words = "about the same"
-        } else {
-            let percent = AmountFormat.percent(abs(difference), digits: 0, locale: locale)
-            words = "\(percent) \(difference < 0 ? "less" : "more")"
-        }
-        return "Your plan spends \(amount) a year while you work: you spent \(words)."
     }
 }

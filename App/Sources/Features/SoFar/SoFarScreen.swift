@@ -1,16 +1,14 @@
-import Glance
 import Model
 import Planner
 import SwiftUI
 import Tracker
 
 /// So far (UI.md, "So far"): how you've been doing, from your own records,
-/// always against the main plan. One page: the chosen year's chart against
-/// what you planned in January, with ‹ › to step through the years, and its
-/// tiles; the last 12 months' savings rate and spending; what happened in
-/// the year; your savings rate and your money in and out by month, over the
-/// accounts' time span; year by year; your last Monday at each check-in;
-/// the milestones; and where this leads, which opens Ahead.
+/// always against the main plan, one year at a time. One page: the chosen
+/// year's chart against what you planned in January, with ‹ › to step
+/// through the years; its tiles; the year month by month, on a line; its
+/// savings rate and money in and out by month; and year by year, which
+/// opens a year at the top.
 struct SoFarScreen: View {
     @Environment(LibraryStore.self) private var library
     @Environment(PlanStore.self) private var plans
@@ -68,7 +66,7 @@ private struct SoFarContentView: View {
     }
 }
 
-/// So far's page (UI.md, "So far").
+/// So far's page (UI.md, "So far"): one year at a time.
 struct SoFarView: View {
     let session: PlanSession
 
@@ -76,13 +74,11 @@ struct SoFarView: View {
     @Environment(AppNavigation.self) private var navigation
     @Environment(\.pageLayout) private var layout
     @Environment(\.locale) private var locale
-    @AppStorage("overview.range") private var range: HistoryRange = .threeYears
     /// The year chosen; the latest when `nil`.
     @State private var selectedYear: Int?
+    @State private var showsAllMilestones = false
 
     private var isWide: Bool { layout.isWide }
-
-    private var isMainPlan: Bool { library.settings.mainPlan == session.planID }
 
     private var milestoneText: PlanMilestoneText {
         PlanMilestoneText(currency: library.baseCurrency, locale: locale)
@@ -117,13 +113,8 @@ struct SoFarView: View {
             }
         }
         .background(Palette.page)
-        .toolbar {
-            if isWide, library.library.accountsTurningOffTrends.isEmpty {
-                ToolbarItem(placement: .primaryAction) {
-                    TimeSpanMenu(range: $range, horizon: nil, choices: [])
-                        .fixedSize()
-                }
-            }
+        .sheet(isPresented: $showsAllMilestones) {
+            allMilestones
         }
         .onChange(of: navigation.soFarOpening, initial: true) { _, opening in
             guard let opening else { return }
@@ -132,53 +123,75 @@ struct SoFarView: View {
         }
     }
 
+    /// The chosen year's chart and tiles, its line, its savings rate and
+    /// money in and out by month, then every year.
     @ViewBuilder
     private func content(_ timeline: PlanProgressTimeline, history: PlanAnswerHistory,
                          selectYear: @escaping (Int) -> Void) -> some View {
         let cards = timeline.cards
         let typedAccounts = library.library.accountsTurningOffTrends
-        let monthly = session.trends(grain: .months, lastYears: range.years)
-        let reference = moneyReference(on: monthly.money.end)
-        if cards.isEmpty {
+        let monthly = session.trends(grain: .months, lastYears: nil).money
+        let yearly = session.trends(grain: .years, lastYears: nil).money
+        let reference = moneyReference(on: monthly.end)
+        let index = selectedYear.flatMap { year in cards.firstIndex { $0.year.year == year } } ?? cards.count - 1
+        let card = cards.indices.contains(index) ? cards[index] : nil
+        // The year shown: the card's, else the latest with money in and out.
+        let year = card?.year.year ?? monthly.end.year
+        if let card {
+            PlanYearChartCard(timeline: timeline, index: index) { target in
+                if cards.indices.contains(target) { selectedYear = cards[target].year.year }
+            }
+            .id(Self.yearCard)
+            PlanYearTiles(card: card, history: history,
+                          money: typedAccounts.isEmpty ? yearly.periods.first(where: { $0.from.year == year }) : nil,
+                          planRate: reference.savingsRate, plannedSpending: reference.spendingWhileWorking)
+            VStack(alignment: .leading, spacing: Metrics.s) {
+                SectionHeader("Month by month") {
+                    if session.baseDerived(locale: locale).milestones != nil {
+                        Button("All Milestones") { showsAllMilestones = true }
+                            .buttonStyle(.borderless)
+                    }
+                }
+                .padding(.horizontal, Metrics.xs)
+                PlanYearLine(card: card, text: milestoneText)
+            }
+        } else {
             Card {
                 Text("Your year shows here from your first check-in.")
                     .foregroundStyle(Palette.secondaryInk)
                     .fixedSize(horizontal: false, vertical: true)
             }
-        } else {
-            let index = selectedYear.flatMap { year in cards.firstIndex { $0.year.year == year } } ?? cards.count - 1
-            let card = cards[index]
-            PlanYearChartCard(timeline: timeline, index: index) { target in
-                if cards.indices.contains(target) { selectedYear = cards[target].year.year }
-            }
-            .id(Self.yearCard)
-            PlanYearTiles(card: card, history: history)
-            if typedAccounts.isEmpty, !monthly.money.isEmpty {
-                PlanLastTwelveMonthsTiles(year: monthly.lastTwelveMonths,
-                                          plannedSpending: reference.spendingWhileWorking,
-                                          kinds: [.savingsRate, .spent])
-            }
-            VStack(alignment: .leading, spacing: Metrics.s) {
-                SectionHeader("What happened")
-                    .padding(.horizontal, Metrics.xs)
-                PlanYearHappenings(card: card)
-            }
         }
         if !typedAccounts.isEmpty {
             PlanTrendsOffCard(accounts: typedAccounts)
-        } else if monthly.money.isEmpty {
+        } else if monthly.isEmpty {
             PlanMoneyInOutEmptyCard()
         } else {
-            savingsRateCard(monthly.money, planRate: reference.savingsRate)
-            moneyCard(monthly.money, planSpending: reference.spending(per: monthly.money.grain))
-            yearByYear(years: Set(cards.map(\.year.year)), select: selectYear)
+            let months = monthly.year(year)
+            savingsRateCard(months, year: year, planRate: reference.savingsRate)
+            moneyCard(months, year: year, planSpending: reference.spending(per: months.grain))
+            yearByYear(yearly, years: Set(cards.map(\.year.year)), select: selectYear)
         }
-        answerCard(history)
+    }
+
+    /// *All Milestones*: every milestone, reached and ahead, as wide tiles
+    /// and lists.
+    @ViewBuilder
+    private var allMilestones: some View {
         if let milestones = session.baseDerived(locale: locale).milestones {
-            PlanProgressMilestones(milestones: milestones, text: milestoneText, asOf: library.asOfDate,
-                                   planName: session.plan?.name ?? "", hasResults: session.baseResults != nil)
+            NavigationStack {
+                ScrollView {
+                    PlanAllMilestones(milestones: milestones, text: milestoneText, planName: session.plan?.name ?? "",
+                                      asOf: library.asOfDate, hasResults: session.baseResults != nil)
+                        .padding(Metrics.l)
+                }
+                .background(Palette.page)
+                .sheetTitle("Milestones") { showsAllMilestones = false }
+            }
+            #if os(macOS)
+            .frame(minWidth: 460, minHeight: 520)
+            #endif
         }
-        whereThisLeads
     }
 
     /// The plan's references for money in and out on the latest check-in:
@@ -192,12 +205,11 @@ struct SoFarView: View {
 
     // MARK: Savings rate, Money in and out
 
-    /// "Savings rate by month", with the accounts' time span on iPhone (in
-    /// the toolbar on the Mac and iPad).
-    private func savingsRateCard(_ money: PlanMoneyInOut, planRate: Decimal?) -> some View {
+    /// "Savings rate by month" over the year's months.
+    private func savingsRateCard(_ money: PlanMoneyInOut, year: Int, planRate: Decimal?) -> some View {
         Card {
             if money.counted.isEmpty {
-                notYet("No money in and out was recorded in this time span.")
+                notYet("No money in and out was recorded in \(String(year)).")
             } else {
                 PlanSavingsRateLegend(money: money, planRate: planRate,
                                       cuts: money.cutsRates(planRate: planRate))
@@ -206,17 +218,16 @@ struct SoFarView: View {
             whereItStarts(money)
         } header: {
             SectionHeader("Savings rate by month") {
-                if !isWide {
-                    TimeSpanMenu(range: $range, horizon: nil, choices: [], compact: true)
-                }
+                yearLabel(year)
             }
         }
     }
 
-    private func moneyCard(_ money: PlanMoneyInOut, planSpending: Decimal?) -> some View {
+    /// "Money in and out" over the year's months.
+    private func moneyCard(_ money: PlanMoneyInOut, year: Int, planSpending: Decimal?) -> some View {
         Card {
             if money.counted.isEmpty {
-                notYet("No money in and out was recorded in this time span.")
+                notYet("No money in and out was recorded in \(String(year)).")
             } else {
                 PlanMoneyInOutLegend(money: money, showsPlanSpending: planSpending != nil,
                                      cuts: money.cutsAmounts(planSpending: planSpending))
@@ -224,12 +235,23 @@ struct SoFarView: View {
             }
             whereItStarts(money)
         } header: {
-            SectionHeader("Money in and out")
+            SectionHeader("Money in and out") {
+                yearLabel(year)
+            }
         }
     }
 
+    /// The year a card's months are of, beside its title: "2026".
+    private func yearLabel(_ year: Int) -> some View {
+        Text(verbatim: String(year))
+            .font(.footnote)
+            .monospacedDigit()
+            .foregroundStyle(Palette.secondaryInk)
+            .privacySensitiveInFeedback()
+    }
+
     /// "Money in and out is recorded since 30 Jun 2026: 3 months so far.",
-    /// when the span reaches back before it.
+    /// when the year reaches back before it.
     @ViewBuilder
     private func whereItStarts(_ money: PlanMoneyInOut) -> some View {
         if let line = money.whereItStarts(locale: locale) {
@@ -245,9 +267,8 @@ struct SoFarView: View {
 
     /// *Year by year*: every year with money in and out recorded, newest
     /// first (``SoFarYearByYear``); a year with a check-in opens at the top.
-    private func yearByYear(years: Set<Int>, select: @escaping (Int) -> Void) -> some View {
-        let money = session.trends(grain: .years, lastYears: nil).money
-        return Card {
+    private func yearByYear(_ money: PlanMoneyInOut, years: Set<Int>, select: @escaping (Int) -> Void) -> some View {
+        Card {
             SoFarYearByYear(money: money, years: years, select: select)
         } header: {
             SectionHeader("Year by year") {
@@ -256,110 +277,6 @@ struct SoFarView: View {
                     .foregroundStyle(Palette.secondaryInk)
             }
         }
-    }
-
-    // MARK: Your date at each check-in
-
-    private func answerCard(_ history: PlanAnswerHistory) -> some View {
-        Card {
-            if !isMainPlan {
-                notYet("Only your main plan records an answer at each check-in.")
-                Button {
-                    setMainPlan()
-                } label: {
-                    Label("Set as Main Plan", systemImage: "star")
-                }
-                .buttonStyle(.borderless)
-                .font(PlanProgressFont.caption)
-                .disabled(!library.canEdit)
-            } else if history.latestAge == nil {
-                notYet("Your date shows here from the first check-in that records it.")
-            } else {
-                // A key only when there's more than the earliest age to tell apart.
-                let legend = answerLegend(history)
-                if legend.count > 1 {
-                    ChartLegendRow(items: legend)
-                }
-                PlanAnswerHistoryChart(history: history)
-                if let line = history.nowLine(locale: locale) {
-                    Text(line)
-                        .font(PlanProgressFont.text)
-                        .foregroundStyle(Palette.ink)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .privacySensitiveInFeedback()
-                }
-                if !history.markers.isEmpty {
-                    HStack(spacing: Metrics.m) {
-                        ForEach(PlanAnswerHistory.Change.allCases, id: \.self) { change in
-                            if history.markers.contains(where: { $0.changes.contains(change) }) {
-                                Label(change.label, systemImage: change.systemImage)
-                            }
-                        }
-                    }
-                    .font(.caption)
-                    .foregroundStyle(Palette.secondaryInk)
-                }
-            }
-        } header: {
-            SectionHeader("Your last Monday, check-in by check-in")
-        }
-    }
-
-    /// "━ earliest age ┄ at your pace ┈ saving nothing more", for the lines drawn.
-    private func answerLegend(_ history: PlanAnswerHistory) -> [ChartLegendItem] {
-        var items = [ChartLegendItem(name: "Earliest age", swatch: .line(.accent, dashed: false))]
-        if !history.pacePoints.isEmpty {
-            items.append(ChartLegendItem(name: "At your pace", swatch: .line(.taxes, dashed: true)))
-        }
-        if !history.coastPoints.isEmpty {
-            items.append(ChartLegendItem(name: "Saving nothing more", swatch: .dottedLine(.neutral)))
-        }
-        return items
-    }
-
-    private func setMainPlan() {
-        do {
-            try library.setMainPlan(session.planID)
-        } catch {
-            library.reportError("The main plan couldn't be changed. \(LibraryStore.describe(error))")
-        }
-    }
-
-    // MARK: Where this leads
-
-    /// *Where this leads*: the plan's latest answer, which opens Ahead.
-    private var whereThisLeads: some View {
-        Button {
-            navigation.showPlan(session.planID)
-        } label: {
-            HStack(alignment: .center, spacing: Metrics.m) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Where this leads")
-                        .font(.headline)
-                        .foregroundStyle(Palette.ink)
-                    Text(verbatim: session.latestAnswer.map { PlanChangeSummary.dateAndAge($0.answer, locale: locale) }
-                         ?? "Your date shows on Ahead once the plan is calculated.")
-                        .font(.subheadline)
-                        .foregroundStyle(Palette.secondaryInk)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .privacySensitiveInFeedback()
-                }
-                Spacer(minLength: Metrics.s)
-                Text("Ahead")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Palette.accent)
-                Image(systemName: "chevron.right")
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(Palette.accent)
-                    .accessibilityHidden(true)
-            }
-            .padding(Metrics.l)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .cardSurface()
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityHint("Shows your plan on Ahead")
     }
 
     /// What a card needs before it can show anything, in a line.

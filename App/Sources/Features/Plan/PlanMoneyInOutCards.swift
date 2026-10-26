@@ -2,60 +2,6 @@ import Model
 import SwiftUI
 import Tracker
 
-/// *Last 12 months* on So far (UI.md, "So far"): its title over four tiles
-/// (or the `kinds` asked for), the savings rate, what was saved, what came in and what
-/// was spent over the 12 months that end at the latest check-in, each with
-/// its change against the 12 months before; two by two on iPhone, in a row
-/// where there's room. Then one sentence against the plan's spending while
-/// working. With less than 12 months recorded it covers what there is,
-/// titled by where that starts ("Since 30 Jun 2026").
-struct PlanLastTwelveMonthsTiles: View {
-    /// `nil` without money in and out in the 12 months.
-    let year: PlanLastTwelveMonths?
-    /// The plan's spending while working, a year; `nil` when it's past
-    /// working.
-    var plannedSpending: Decimal?
-    /// The tiles shown, in their order; all four when `nil`.
-    var kinds: [PlanLastTwelveMonths.Tile.Kind]?
-
-    @Environment(\.locale) private var locale
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: Metrics.s) {
-            Text(year?.since == nil ? "Last 12 months" : (year?.title(locale: locale) ?? ""))
-                .textCase(.uppercase)
-                .font(.footnote)
-                .foregroundStyle(Palette.secondaryInk)
-                .lineLimit(1)
-                .padding(.horizontal, Metrics.xs)
-                .privacySensitiveInFeedback(year?.since != nil)
-                .accessibilityAddTraits(.isHeader)
-            if let year {
-                let currency = year.current.moneyInOut.currency
-                TileGrid {
-                    ForEach(year.tiles.filter { kinds?.contains($0.kind) ?? true }) { tile in
-                        TwelveMonthsTile(tile: tile, currency: currency)
-                            .tileSize(.small)
-                    }
-                }
-                if let words = year.spendingWords(planned: plannedSpending, locale: locale) {
-                    AmountSentenceText(words)
-                        .font(PlanProgressFont.caption)
-                        .foregroundStyle(Palette.secondaryInk)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .padding(.horizontal, Metrics.xs)
-                }
-            } else {
-                Card {
-                    Text("No money in and out was recorded in the last 12 months.")
-                        .foregroundStyle(Palette.secondaryInk)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-        }
-    }
-}
-
 extension PlanLastTwelveMonths.Tile.Kind {
     /// Lilac for the savings rate, mint for what was saved, sky for what
     /// came in, peach for what was spent.
@@ -186,21 +132,10 @@ struct PlanMoneyInOutEmptyCard: View {
     }
 }
 
-#Preview("Your last 12 months") {
-    let year = PlanLastTwelveMonths(valuator: PreviewLibrary.valuator, through: PreviewLibrary.latestCheckIn,
-                                    recordedSince: "2026-06-30")
+#Preview("No money in and out") {
     ScrollView {
-        VStack(spacing: Metrics.l) {
-            PlanLastTwelveMonthsTiles(year: year, plannedSpending: 36_000)
-                .environment(\.pageLayout, PageLayout())
-            PlanLastTwelveMonthsTiles(year: year, plannedSpending: 36_000)
-                .environment(\.pageLayout, PageLayout(isWide: true))
-            PlanLastTwelveMonthsTiles(year: year, plannedSpending: 36_000)
-                .environment(\.pageLayout, PageLayout())
-                .redacted(reason: .privacy)
-            PlanMoneyInOutEmptyCard()
-        }
-        .padding()
+        PlanMoneyInOutEmptyCard()
+            .padding()
     }
     .background(Palette.page)
     .previewEnvironment()

@@ -15,29 +15,6 @@ extension PlanAnswerHistory.Change {
         case .engine: "Calculations updated"
         }
     }
-
-    var systemImage: String {
-        switch self {
-        case .plan: "pencil"
-        case .engine: "gearshape"
-        }
-    }
-}
-
-extension PlanAnswerHistory.Marker {
-    var label: String { changes.map(\.label).joined(separator: " · ") }
-}
-
-extension PlanAnswerHistory {
-    /// "54 now: 4 years sooner since Jan 2026.", "54 now: no change since
-    /// Jan 2026.", "54 now."; `nil` without an earliest age.
-    func nowLine(locale: Locale) -> String? {
-        guard let latest = latestAge else { return nil }
-        guard let change else { return "\(latest) now." }
-        let since = GlanceText.shortMonthAndYear(change.since, locale: locale)
-        let move = change.years == 0 ? "no change" : PlanProgressText.move(years: change.years)
-        return "\(latest) now: \(move) since \(since)."
-    }
 }
 
 extension PlanBaselineComparison {
