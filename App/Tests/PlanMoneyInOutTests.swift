@@ -110,6 +110,20 @@ struct PlanMoneyInOutTests {
                               from: nil, firstRecord: nil, through: through)
     }
 
+    /// So far's year says where money in and out starts in it: months
+    /// "so far" while the year runs, months "recorded" once it has ended,
+    /// and nothing for a year that starts after it.
+    @Test func aYearSaysWhereItsMoneyStarts() {
+        let running = series([month("2026-11", moneyIn: 3_000, spent: 2_100)]).year(2026)
+        #expect(running.whereItStarts(locale: locale)?.hasSuffix(": 1 month so far.") == true)
+
+        let money = series([month("2026-11", moneyIn: 3_000, spent: 2_100),
+                            month("2026-12", moneyIn: 3_000, spent: 2_100),
+                            month("2027-01", moneyIn: 3_000, spent: 2_100)])
+        #expect(money.year(2026).whereItStarts(locale: locale)?.hasSuffix(": 2 months recorded.") == true)
+        #expect(money.year(2027).whereItStarts(locale: locale) == nil)
+    }
+
     /// *Savings rate*'s summary names the months with money in and out but
     /// no bar, each with why.
     @Test func theSummaryNamesTheMonthsWithoutABar() {
