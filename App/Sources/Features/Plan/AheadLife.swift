@@ -407,6 +407,16 @@ struct AheadStopCard: View {
         }
     }
 
+    /// Whether work can stop at `age`: from today's age to the year before
+    /// the plan ends, and within the lever's range under a lever's age.
+    private func canStep(to age: Int) -> Bool {
+        guard session.canEdit, age >= (results?.details.currentAge ?? 0), age < model.plan.effectiveEndAge else {
+            return false
+        }
+        guard model.ageSource == .whatIf, let range = session.whatIfModel?.range(.retirementAge) else { return true }
+        return range.contains(Double(age))
+    }
+
     private func stepButton(_ point: SuccessPoint?, age: Int, label: (String) -> String) -> some View {
         let text = point.map { "\(age): \(PlanTimelineText.tenths($0.success)) in 10" } ?? "\(age)"
         return Button {
@@ -417,7 +427,7 @@ struct AheadStopCard: View {
                 .lineLimit(1)
         }
         .buttonStyle(.bordered)
-        .disabled(!session.canEdit || age < (results?.details.currentAge ?? 0) || age >= model.plan.effectiveEndAge)
+        .disabled(!canStep(to: age))
         .accessibilityLabel(Text(verbatim: "Stop at \(text)"))
     }
 }

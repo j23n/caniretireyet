@@ -167,6 +167,14 @@ struct PlanChangeSummary: View {
 
     // MARK: Tiles
 
+    /// How many futures last when work stops at `age` in `results`, so the
+    /// pill compares the same age even when the change moves it.
+    static func success(of results: PlanResults?, at age: Int) -> Double? {
+        guard let results else { return nil }
+        if results.details.focus.age == age, let success = results.details.focus.success { return success }
+        return results.successByAge.first { $0.age == age }?.success
+    }
+
     private func tiles(_ changed: PlanResults) -> some View {
         let focus = changed.details.focus
         let was = base?.details.focus
@@ -176,7 +184,9 @@ struct PlanChangeSummary: View {
                 PlanChangeTile(tint: .sky, title: "How sure", emoji: "🎯",
                                figure: .text(PlanChangeTile.inTen(success)),
                                caption: "stopping at \(focus.age)",
-                               change: was?.success.map { PlanChangeTile.Change.share(from: $0, to: success) })
+                               change: Self.success(of: base, at: focus.age).map {
+                                   PlanChangeTile.Change.share(from: $0, to: success)
+                               })
                     .tileSize(.small)
             }
             if let saving = focus.monthlySaving {

@@ -49,10 +49,13 @@ public struct PlanWhatIfModel: Hashable, Sendable {
     public var planSpending: Decimal { plan.spending.retired }
 
     /// Each work phase's take-home pay a month, in the plan's order, for
-    /// the phases with pay set.
+    /// the phases with pay set that haven't ended before the plan starts.
     public var planTakeHome: [Decimal] {
-        plan.work.compactMap(\.netIncome).map { $0 / 12 }
+        plan.work.filter { $0.isGoing(on: start) }.compactMap(\.netIncome).map { $0 / 12 }
     }
+
+    /// The day the plan's results start from, when there are results.
+    private var start: CalendarDate? { results?.start.date }
 
     /// Whether the lever can be used: the age needs results (for today's
     /// age), take-home pay a work phase with pay.
@@ -128,6 +131,6 @@ public struct PlanWhatIfModel: Hashable, Sendable {
     /// work stops, the pay into each work phase, the spending into spending
     /// in retirement, which every retired chapter spends.
     public var kept: PlanDocument {
-        whatIf.applied(to: plan)
+        whatIf.applied(to: plan, today: start)
     }
 }
