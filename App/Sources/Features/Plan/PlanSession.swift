@@ -493,7 +493,10 @@ final class PlanSession {
 
     /// The sliders' model for the plan as shown.
     var whatIfModel: PlanWhatIfModel? {
-        plan.map { PlanWhatIfModel(plan: $0, results: baseResults, whatIf: whatIf) }
+        plan.map {
+            PlanWhatIfModel(plan: $0, results: baseResults, whatIf: whatIf,
+                            start: $0.startDate(in: library.library, today: library.asOfDate))
+        }
     }
 
     /// Moves a lever. Once the levers rest for a moment, the what-if runs:

@@ -24,9 +24,10 @@ public struct PlanWhatIf: Hashable, Sendable {
     /// `plan` with these changes: the retirement age, retirement spending
     /// (which its later phases spend a share of), and take-home pay, a
     /// month's change twelve times a year in each work phase with pay set,
-    /// never below zero. Given `today`, phases that ended before it keep
-    /// their pay.
-    public func applied(to plan: PlanDocument, today: CalendarDate? = nil) -> PlanDocument {
+    /// never below zero. Given the day the plan starts from
+    /// (`PlanDocument.startDate(in:today:)`), phases that ended before it
+    /// keep their pay.
+    public func applied(to plan: PlanDocument, start: CalendarDate? = nil) -> PlanDocument {
         var plan = plan
         if let retirementAge {
             plan.retirement.age = .age(retirementAge)
@@ -35,7 +36,7 @@ public struct PlanWhatIf: Hashable, Sendable {
             plan.spending.retired = max(0, retiredSpending)
         }
         if let takeHomeChange, takeHomeChange != 0 {
-            for index in plan.work.indices where plan.work[index].isGoing(on: today) {
+            for index in plan.work.indices where plan.work[index].isGoing(on: start) {
                 guard let income = plan.work[index].netIncome else { continue }
                 plan.work[index].netIncome = max(0, income + takeHomeChange * 12)
             }
@@ -45,9 +46,10 @@ public struct PlanWhatIf: Hashable, Sendable {
 }
 
 extension WorkPhase {
-    /// Whether the phase hasn't ended by `today`; any phase when `today` is `nil`.
-    func isGoing(on today: CalendarDate?) -> Bool {
-        guard let today, let last = until.date else { return true }
-        return last >= today
+    /// Whether the phase hasn't ended before `start`, the day a plan starts
+    /// from; any phase when `start` is `nil`.
+    func isGoing(on start: CalendarDate?) -> Bool {
+        guard let start, let last = until.date else { return true }
+        return last >= start
     }
 }

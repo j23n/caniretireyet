@@ -214,12 +214,12 @@ struct PlanScreenMathTests {
         let less = PlanWhatIf(takeHomeChange: -6_000).applied(to: plan)
         #expect(less.work.map(\.netIncome) == [0, 0, nil])
         // A phase that ended before the plan starts keeps its pay.
-        let later = PlanWhatIfModel(plan: plan, results: .made(start: "2031-06-30"),
-                                    whatIf: PlanWhatIf(takeHomeChange: 500))
+        let later = PlanWhatIfModel(plan: plan, results: nil, whatIf: PlanWhatIf(takeHomeChange: 500),
+                                    start: "2031-06-30")
         #expect(later.planTakeHome == [5_000])
         #expect(later.kept.work.map(\.netIncome) == [50_400, 66_000, nil])
         plan.work = [WorkPhase(from: "2020-01-01", until: .date("2024-12-31"), netIncome: 50_400)]
-        #expect(!PlanWhatIfModel(plan: plan, results: .made(start: "2026-06-30"), whatIf: PlanWhatIf())
+        #expect(!PlanWhatIfModel(plan: plan, results: nil, whatIf: PlanWhatIf(), start: "2026-06-30")
             .isAvailable(.takeHome))
         plan.work = []
         #expect(!PlanWhatIfModel(plan: plan, results: nil, whatIf: PlanWhatIf()).isAvailable(.takeHome))

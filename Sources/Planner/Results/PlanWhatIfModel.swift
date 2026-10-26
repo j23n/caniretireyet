@@ -29,11 +29,15 @@ public struct PlanWhatIfModel: Hashable, Sendable {
     /// The plan's own results (without what-if changes).
     public var results: PlanResults?
     public var whatIf: PlanWhatIf
+    /// The day the plan starts from (`PlanDocument.startDate(in:today:)`):
+    /// pay that ended before it is left alone.
+    public var start: CalendarDate?
 
-    public init(plan: PlanDocument, results: PlanResults?, whatIf: PlanWhatIf) {
+    public init(plan: PlanDocument, results: PlanResults?, whatIf: PlanWhatIf, start: CalendarDate? = nil) {
         self.plan = plan
         self.results = results
         self.whatIf = whatIf
+        self.start = start
     }
 
     // MARK: The plan's own values
@@ -53,9 +57,6 @@ public struct PlanWhatIfModel: Hashable, Sendable {
     public var planTakeHome: [Decimal] {
         plan.work.filter { $0.isGoing(on: start) }.compactMap(\.netIncome).map { $0 / 12 }
     }
-
-    /// The day the plan's results start from, when there are results.
-    private var start: CalendarDate? { results?.start.date }
 
     /// Whether the lever can be used: the age needs results (for today's
     /// age), take-home pay a work phase with pay.
@@ -131,6 +132,6 @@ public struct PlanWhatIfModel: Hashable, Sendable {
     /// work stops, the pay into each work phase, the spending into spending
     /// in retirement, which every retired chapter spends.
     public var kept: PlanDocument {
-        whatIf.applied(to: plan, today: start)
+        whatIf.applied(to: plan, start: start)
     }
 }

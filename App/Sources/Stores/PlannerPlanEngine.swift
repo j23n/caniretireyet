@@ -92,7 +92,7 @@ struct PlannerPlanEngine: PlanEngine {
         if let whatIf = request.whatIf, !whatIf.isEmpty {
             // As *Apply* keeps it (`PlanWhatIfModel.kept`), so applying reuses these results.
             let start = request.plan.startDate(in: request.library, today: request.asOf)
-            return try await step(whatIf.applied(to: request.plan, today: start), .base(request.mode),
+            return try await step(whatIf.applied(to: request.plan, start: start), .base(request.mode),
                                   focusAge: request.focusAge)
         }
         if let focusAge = request.focusAge {
