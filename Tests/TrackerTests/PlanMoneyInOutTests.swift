@@ -84,6 +84,7 @@ struct PlanMoneyInOutTests {
         #expect(before.counted.isEmpty)
         #expect(before.end == "2025-12-31")
         #expect(before.recordedMonths == 0)
+        #expect(!before.startsInSpan)
     }
 
     @Test func aMonthAfterASkippedCheckInCoversMore() throws {
