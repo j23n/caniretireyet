@@ -6,16 +6,6 @@ import Model
 // in and out is the library's, the same under every plan; the plan only
 // adds reference lines (the Planner's `PlanMoneyReference`).
 
-extension PeriodGrain {
-    /// The grain Trends starts on: months until money in and out has been
-    /// recorded for two whole calendar years, then years. The year of
-    /// `firstMoneyInOut` isn't whole: a first value covers no time before it.
-    public static func trendsStandard(firstMoneyInOut: CalendarDate?, asOf: CalendarDate) -> PeriodGrain {
-        guard let first = firstMoneyInOut else { return .months }
-        return first.year + 2 < asOf.year ? .years : .months
-    }
-}
-
 /// What markets did in a year, as context and not a grade: "strong" when
 /// they added 8% or more of what you had going in, "hard" when they took 5%
 /// or more, else "average".
