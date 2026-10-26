@@ -68,6 +68,36 @@ public struct PlanMoneyInOut: Hashable, Sendable {
         self.end = end
     }
 
+    private init(currency: CurrencyCode, grain: PeriodGrain, periods: [MoneyInOutPeriod],
+                 recordedSince: CalendarDate?, recordedMonths: Int, startsInSpan: Bool, end: CalendarDate) {
+        self.currency = currency
+        self.grain = grain
+        self.periods = periods
+        self.recordedSince = recordedSince
+        self.recordedMonths = recordedMonths
+        self.startsInSpan = startsInSpan
+        self.end = end
+    }
+
+    /// The periods of calendar `year` alone, as So far shows its chosen
+    /// year (UI.md, "So far"): without the rates over 12 months, which reach
+    /// outside it, ending at the year's last day or at ``end``, whichever
+    /// comes first. It starts in the span when money in and out is recorded
+    /// from later than the year's first day, and its months recorded are the
+    /// year's.
+    public func year(_ year: Int) -> PlanMoneyInOut {
+        let periods = self.periods.filter { $0.from.year == year }.map { period in
+            MoneyInOutPeriod(from: period.from, through: period.through, savings: period.savings)
+        }
+        let first = CalendarDate(year: year, month: 1, day: 1)
+        let last = CalendarDate(year: year, month: 12, day: 31)
+        let startsInSpan = recordedSince.flatMap { since in first.map { $0 < since } } ?? false
+        let months = Set(periods.compactMap { $0.savings?.moneyInOut.months }.joined().filter { $0.year == year })
+        return PlanMoneyInOut(currency: currency, grain: grain, periods: periods, recordedSince: recordedSince,
+                              recordedMonths: months.count, startsInSpan: startsInSpan,
+                              end: last.map { min($0, end) } ?? end)
+    }
+
     /// Whether no money in and out has been recorded: the three cards fold
     /// into one.
     public var isEmpty: Bool { recordedSince == nil }
