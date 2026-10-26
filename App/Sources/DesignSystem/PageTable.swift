@@ -138,7 +138,7 @@ private struct PageTablePreviewRow: Identifiable {
 }
 
 private enum PageTablePreviewColumns {
-    static let date = PageTableColumn(min: 84, max: 120)
+    static let date = PageTableColumn(min: 100, max: 120)
     static let value = PageTableColumn(min: 90, max: 140, alignment: .trailing)
     static let note = PageTableColumn(min: 0, max: .infinity)
 }

@@ -72,14 +72,14 @@ struct TradeHoldingsRows: View {
     }
 
     /// "Vanguard FTSE All-World   57.098,25 €" / "412,5 sh at 138,42 €,
-    /// paid 116,85 € each   ▲ +8.898 €". The name is cut short before the
+    /// paid 116,85 € each   ▲ +8.898 €". A long name wraps beside the
     /// value; the second line goes under the first when both don't fit.
     private func positionRow(_ row: AccountHoldingRow) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
                 Text(row.name)
                     .foregroundStyle(Palette.ink)
-                    .lineLimit(1)
+                    .fixedSize(horizontal: false, vertical: true)
                     .privacySensitiveInFeedback()
                 Spacer(minLength: Metrics.s)
                 if let amount = row.amount {
@@ -156,7 +156,8 @@ struct TradeHoldingsGrid: View {
             ForEach(holdings.rows) { row in
                 GridRow {
                     Text(row.name)
-                        .lineLimit(1)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .gridCellAnchor(.leading)
                         .privacySensitiveInFeedback()
                     Text(QuantityFormat.quantity(row.quantity, locale: locale))
                         .monospacedDigit()
@@ -351,7 +352,7 @@ struct TradesTable: View {
     let delete: (TradeKey) -> Void
 
     private enum Columns {
-        static let date = PageTableColumn(min: 80, max: 110)
+        static let date = PageTableColumn(min: 100, max: 120)
         static let type = PageTableColumn(min: 80, max: 140)
         static let instrument = PageTableColumn(min: 50, max: 140)
         static let quantity = PageTableColumn(min: 64, max: 120, alignment: .trailing)

@@ -439,30 +439,51 @@ private struct AccountFolderRow: View {
 
 /// One account in a list: its name and its institution (or closing date)
 /// on one line, a clock when the latest value is stale, and its value on
-/// the right. The value keeps its width and never wraps; the institution
-/// gives way first, then the name.
+/// the right. The value keeps its width and never wraps. When the name and
+/// the institution don't fit beside it, the institution goes under the
+/// name, and either wraps rather than being cut short.
 struct AccountListRow: View {
     let item: AccountListItem
     /// Draws a chevron after the value: on the Mac, where the row isn't a
     /// list's.
     var showsChevron = false
 
-    var body: some View {
+    /// The name, with a clock when the latest value is stale.
+    private var name: some View {
         HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
             Text(item.account.name)
                 .foregroundStyle(Palette.ink)
-                .lineLimit(1)
-                .layoutPriority(1)
+                .fixedSize(horizontal: false, vertical: true)
                 .privacySensitiveInFeedback()
             if item.stale != nil {
                 AccountStaleClock()
             }
-            if let subtitle {
-                Text(subtitle)
-                    .font(.subheadline)
-                    .foregroundStyle(Palette.secondaryInk)
-                    .lineLimit(1)
-                    .privacySensitiveInFeedback()
+        }
+    }
+
+    @ViewBuilder
+    private var subtitleText: some View {
+        if let subtitle {
+            Text(subtitle)
+                .font(.subheadline)
+                .foregroundStyle(Palette.secondaryInk)
+                .fixedSize(horizontal: false, vertical: true)
+                .privacySensitiveInFeedback()
+        }
+    }
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
+                    name
+                    subtitleText
+                }
+                .fixedSize()
+                VStack(alignment: .leading, spacing: 2) {
+                    name
+                    subtitleText
+                }
             }
             Spacer(minLength: Metrics.s)
             AmountText(item.value)

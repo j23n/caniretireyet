@@ -85,7 +85,7 @@ extension PlanLastTwelveMonths.Tile.Kind {
 struct TwelveMonthsTile: View {
     let tile: PlanLastTwelveMonths.Tile
     let currency: CurrencyCode
-    /// "12 months", beside the title, where the page doesn't say it.
+    /// "last 12 months", under the figure, where the page doesn't say it.
     var period: String?
 
     @Environment(\.locale) private var locale
@@ -93,23 +93,13 @@ struct TwelveMonthsTile: View {
 
     var body: some View {
         ColorTile(tint: tile.kind.tint) {
-            HStack(spacing: Metrics.s) {
-                TileLabel(tile.title, emoji: tile.kind.emoji)
-                if let period {
-                    Spacer(minLength: Metrics.xs)
-                    Text(period)
-                        .font(.caption)
-                        .opacity(0.8)
-                        .lineLimit(1)
-                }
-            }
+            TileLabel(tile.title, emoji: tile.kind.emoji)
             Spacer(minLength: Metrics.s)
             figure
             if tile.kind == .savingsRate {
-                Text("of what came in")
-                    .font(.caption)
-                    .opacity(0.8)
-                    .lineLimit(1)
+                TileCaption(verbatim: period.map { "of what came in, \($0)" } ?? "of what came in")
+            } else if let period {
+                TileCaption(verbatim: period)
             }
             if let change = tile.change {
                 Text(verbatim: change.text(currency: currency, locale: locale))

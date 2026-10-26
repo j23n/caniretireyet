@@ -65,9 +65,15 @@ struct TileTint {
 /// secondary line takes `.opacity(0.8)` of it rather than the app's grey,
 /// which doesn't read on every tint.
 ///
+/// Every tile reads the same way (UI.md, "Tiles"): its heading
+/// (``TileLabel``), which says what the figure is without the screen
+/// around it; its figure, large; then a line under the figure that says
+/// more (``TileCaption``), never beside it.
+///
 ///     ColorTile(tint: .butter) { TileLabel("Next milestone", emoji: "💰"); … }
 struct ColorTile<Content: View>: View {
     var tint: TileTint = .card
+    var padding: CGFloat = 14
     @ViewBuilder var content: Content
 
     var body: some View {
@@ -75,7 +81,7 @@ struct ColorTile<Content: View>: View {
         VStack(alignment: .leading, spacing: 0) {
             content
         }
-        .padding(14)
+        .padding(padding)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .foregroundStyle(tint.ink)
         .tint(tint.accent)
@@ -117,8 +123,38 @@ struct TileLabel: View {
     }
 }
 
-/// A half tile's content (UI.md, "Tiles"): its label, then its figure
-/// with a few words beside it, so a figure that says it all takes half a
+/// A tile's line under its figure: a few words in the tint's ink, a
+/// little lighter, wrapping onto a second line rather than cut.
+struct TileCaption<Content: View>: View {
+    @ViewBuilder var content: Content
+
+    init(@ViewBuilder content: () -> Content) {
+        self.content = content()
+    }
+
+    var body: some View {
+        content
+            .font(.caption)
+            .opacity(0.8)
+            .lineLimit(2)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+}
+
+extension TileCaption where Content == Text {
+    /// A caption of the app's own words.
+    init(_ text: LocalizedStringKey) {
+        self.content = Text(text)
+    }
+
+    /// A caption of words worked out, such as a date.
+    init(verbatim text: String) {
+        self.content = Text(verbatim: text)
+    }
+}
+
+/// A half tile's content (UI.md, "Tiles"): its heading, its figure, and a
+/// few words under the figure, so a figure that says it all takes half a
 /// small tile's height.
 ///
 ///     HalfTile(tint: .sky, title: "Next check-in", emoji: "🗓️") {
@@ -130,29 +166,19 @@ struct HalfTile<Figure: View, Caption: View>: View {
     var tint: TileTint = .card
     let title: String
     var emoji: String?
-    /// Whether the title holds the person's data, such as the plan's end
-    /// age; it hides in feedback screenshots.
-    var personalTitle = false
     @ViewBuilder var figure: Figure
     @ViewBuilder var caption: Caption
 
     var body: some View {
-        ColorTile(tint: tint) {
+        ColorTile(tint: tint, padding: 12) {
             TileLabel(title, emoji: emoji)
-                .privacySensitiveInFeedback(personalTitle)
             Spacer(minLength: Metrics.xs)
-            HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
-                figure
-                    .font(.title2.bold())
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.6)
-                    .layoutPriority(1)
-                Spacer(minLength: 0)
+            figure
+                .font(.title3.bold())
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+            TileCaption {
                 caption
-                    .font(.caption)
-                    .opacity(0.8)
-                    .lineLimit(2)
-                    .multilineTextAlignment(.trailing)
             }
         }
         .accessibilityElement(children: .combine)
@@ -236,7 +262,9 @@ struct TileGrid: Layout {
     static let rowHeight: CGFloat = 176
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let width = proposal.width ?? Metrics.readableWidth
+        // A stack measuring how far the grid stretches offers it infinity:
+        // the rows are laid out at the readable width then.
+        let width = proposal.width.flatMap { $0.isFinite ? $0 : nil } ?? Metrics.readableWidth
         let height = Self.height(of: rows(of: subviews, width: width), spacing: spacing)
         if fillsHeight, let offered = proposal.height, offered.isFinite, offered > height {
             return CGSize(width: width, height: offered)
@@ -294,7 +322,8 @@ struct TileGrid: Layout {
     /// The small tiles a row of `width` holds: two, or more while each
     /// keeps ``minimumSmallWidth``.
     static func slots(width: CGFloat, spacing: CGFloat = Metrics.m) -> Int {
-        max(2, Int((width + spacing) / (minimumSmallWidth + spacing)))
+        let fit = (width + spacing) / (minimumSmallWidth + spacing)
+        return fit.isFinite ? max(2, Int(fit)) : 2
     }
 
     /// The tiles in rows of up to ``slots(width:spacing:)``, in order, each

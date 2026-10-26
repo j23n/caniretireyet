@@ -199,10 +199,13 @@ func tickAxis<Value: Plottable & Sendable>(_ values: [Value],
             .foregroundStyle(Palette.axis)
         AxisValueLabel {
             if let typed = value.as(Value.self) {
+                // Whole even at the chart's edge, where the last label would
+                // otherwise be cut short ("2…").
                 Text(verbatim: label(typed))
                     .font(.caption2)
                     .monospacedDigit()
                     .foregroundStyle(Palette.mutedInk)
+                    .fixedSize()
             }
         }
     }

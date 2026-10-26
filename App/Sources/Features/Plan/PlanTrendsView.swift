@@ -11,9 +11,9 @@ import Tracker
 /// and *Money in and out* are built on money in and out, with the plan as
 /// reference lines, and fold into one card while none is recorded; *Your
 /// last Monday, check-in by check-in* is the plan's answer at each
-/// check-in. The grain and the span are under the zoom on iPhone, and in
-/// the toolbar on the Mac and iPad (``PlanTrendsControls``); each chart
-/// takes the page's width. While
+/// check-in. Month by month, over the span chosen under the zoom on iPhone,
+/// and in the toolbar on the Mac and iPad (``PlanTrendsControls``); each
+/// chart takes the page's width. While
 /// a savings or investment account's values are typed, one card says
 /// looking back is off instead (``PlanTrendsOffCard``).
 struct PlanTrendsView: View {
@@ -23,15 +23,10 @@ struct PlanTrendsView: View {
     @Environment(\.pageLayout) private var layout
     @Environment(\.locale) private var locale
     @AppStorage("overview.range") private var range: HistoryRange = .threeYears
-    @AppStorage(PlanTrends.grainKey) private var storedGrain: PeriodGrain?
 
     private var isWide: Bool { layout.isWide }
 
     private var gutter: CGFloat { layout.gutter }
-
-    private var grain: PeriodGrain {
-        storedGrain ?? .trendsStandard(firstMoneyInOut: library.firstMoneyInOut, asOf: library.asOfDate)
-    }
 
     private var isMainPlan: Bool { library.settings.mainPlan == session.planID }
 
@@ -80,11 +75,11 @@ struct PlanTrendsView: View {
                            birthDate: library.settings.person?.birthDate)
     }
 
-    /// Worked out once for each state of the library, the grain and the
-    /// span, from the progress Progress shows too (``PlanSession/trends(grain:lastYears:)``),
-    /// not each time the page draws.
+    /// Worked out once for each state of the library and the span, month
+    /// by month, from the progress Progress shows too
+    /// (``PlanSession/trends(grain:lastYears:)``), not each time the page draws.
     private var trendsModel: PlanTrends {
-        session.trends(grain: grain, lastYears: range.years)
+        session.trends(grain: .months, lastYears: range.years)
     }
 
     // MARK: Savings rate, Money in and out
@@ -100,7 +95,7 @@ struct PlanTrendsView: View {
             }
             whereItStarts(money)
         } header: {
-            SectionHeader(money.grain == .years ? "Savings rate by year" : "Savings rate by month")
+            SectionHeader("Savings rate by month")
         }
     }
 
@@ -208,34 +203,17 @@ struct PlanTrendsView: View {
     }
 }
 
-/// Trends' grain (*Months | Years*) and time span (the *History* half of
-/// Today's menu, sharing its choice): at the top of the page on
-/// iPhone under the Timeline's zoom, beside it in the toolbar on the Mac and iPad. The
-/// grain is remembered once chosen.
+/// Trends' time span (the *History* half of Today's menu, sharing its
+/// choice): at the top of the page on iPhone under the Timeline's zoom,
+/// beside it in the toolbar on the Mac and iPad.
 struct PlanTrendsControls: View {
-    @Environment(LibraryStore.self) private var library
     @AppStorage("overview.range") private var range: HistoryRange = .threeYears
-    @AppStorage(PlanTrends.grainKey) private var storedGrain: PeriodGrain?
 
     var body: some View {
         HStack(spacing: Metrics.m) {
-            Picker("Grain", selection: grain) {
-                ForEach(PeriodGrain.allCases, id: \.self) { grain in
-                    Text(grain.title).tag(grain)
-                }
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            .fixedSize()
             Spacer(minLength: 0)
             TimeSpanMenu(range: $range, horizon: nil, choices: [])
         }
-    }
-
-    private var grain: Binding<PeriodGrain> {
-        Binding(get: { storedGrain ?? .trendsStandard(firstMoneyInOut: library.firstMoneyInOut,
-                                                      asOf: library.asOfDate) },
-                set: { storedGrain = $0 })
     }
 }
 

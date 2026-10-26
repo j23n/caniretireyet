@@ -41,7 +41,7 @@ struct PlanYearTiles: View {
             moneyTile
                 .tileSize(.wide)
             if let to = year.answerTo?.earliestAge {
-                HalfTile(tint: .lilac, title: "Earliest age", emoji: "🧭") {
+                HalfTile(tint: .lilac, title: "Earliest age to stop", emoji: "🧭") {
                     Text(verbatim: "\(to)")
                         .monospacedDigit()
                         .privacySensitiveInFeedback()
@@ -54,11 +54,12 @@ struct PlanYearTiles: View {
             Button {
                 showsCheckIns = true
             } label: {
-                HalfTile(tint: .sky, title: "Check-ins", emoji: "✅") {
+                HalfTile(tint: .sky, title: year.isLatest ? "Check-ins this year" : "Check-ins that year",
+                         emoji: "✅") {
                     Text(verbatim: "\(PlanYearCheckIn.rows(of: year, valuator: library.valuator).count)")
                         .monospacedDigit()
                 } caption: {
-                    Text(year.isLatest ? "this year" : "that year")
+                    Text("each one's figures ›")
                 }
             }
             .buttonStyle(.plain)
@@ -81,29 +82,28 @@ struct PlanYearTiles: View {
         }
     }
 
-    /// "📊 Now" (or "Ended at"), your money in the plan, and where the year
-    /// started.
+    /// "📊 Your money now" (or "Your money at the year's end"), your money
+    /// in the plan, and where the year started.
     private var moneyTile: some View {
         ColorTile {
-            TileLabel(year.isLatest ? "Now" : "Ended at", emoji: "📊")
+            TileLabel(year.isLatest ? "Your money now" : "Your money at the year's end", emoji: "📊")
             Spacer(minLength: Metrics.s)
             AmountText(year.change.end, currency: card.currency, tabular: false)
                 .font(.title2.bold())
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
-            AmountSentenceText("started the year at \(amount: amount(year.change.start))")
-                .font(.caption)
-                .foregroundStyle(Palette.secondaryInk)
-                .lineLimit(1)
-                .padding(.top, 2)
+            TileCaption {
+                AmountSentenceText("started the year at \(amount: amount(year.change.start))")
+            }
         }
         .accessibilityElement(children: .combine)
     }
 
-    /// "from 56", "no change".
+    /// "was 56 at the year's start", "same as at the year's start"; "the
+    /// plan's answer" without one from the year's start.
     private func ageCaption(to: Int) -> String {
-        guard let from = year.answerFrom?.earliestAge, from != to else { return "no change" }
-        return "from \(from)"
+        guard let from = year.answerFrom?.earliestAge else { return "the plan's answer" }
+        return from == to ? "same as at the year's start" : "was \(from) at the year's start"
     }
 
     private func figureTile(_ title: String, emoji: String, tint: TileTint, value: Decimal,
@@ -116,12 +116,9 @@ struct PlanYearTiles: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
             if let detail {
-                AmountSentenceText(detail)
-                    .font(.caption)
-                    .opacity(0.8)
-                    .lineLimit(2)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(.top, 2)
+                TileCaption {
+                    AmountSentenceText(detail)
+                }
             }
         }
         .accessibilityElement(children: .combine)

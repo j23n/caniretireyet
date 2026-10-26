@@ -94,6 +94,19 @@ struct PlanMilestoneText {
         }
     }
 
+    /// What a milestone of a kind is, as a tile's heading over its name
+    /// (*Coming up* on Today): "Your plan passes" over "500.000 €", "Saved"
+    /// over "10 years of spending".
+    static func kindName(_ kind: Milestone.Kind) -> String {
+        switch PlanMilestoneKind(kind) {
+        case .roundAmount: "Your plan passes"
+        case .yearsOfSpending: "Saved"
+        case .shareOfNeeded: "You'll have"
+        case .crossover: "Growth matches saving"
+        case .coastPoint: "You could stop saving"
+        }
+    }
+
     /// What a kind means and why it matters, under its heading in *All
     /// Milestones*: "The money in your plan passing 10.000 €, 15.000 €, 20.000 €,
     /// 25.000 € and on, each about a quarter above the last: simple marks of

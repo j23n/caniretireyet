@@ -212,9 +212,9 @@ private struct SidebarCountRow: View {
     let count: Int
 
     var body: some View {
-        HStack(spacing: Metrics.s) {
+        HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
             Text(title)
-                .lineLimit(1)
+                .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: Metrics.xs)
             if count > 0 {
                 Text(count, format: .number)
@@ -225,6 +225,7 @@ private struct SidebarCountRow: View {
             }
         }
         .accessibilityElement(children: .combine)
+        .sidebarAccountFont()
     }
 }
 
@@ -235,9 +236,9 @@ private struct SidebarPlanRow: View {
     let age: Int?
 
     var body: some View {
-        HStack(spacing: Metrics.s) {
+        HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
             Text(name)
-                .lineLimit(1)
+                .fixedSize(horizontal: false, vertical: true)
                 .privacySensitiveInFeedback()
             Spacer(minLength: Metrics.xs)
             if let age {
@@ -255,8 +256,8 @@ private struct SidebarPlanRow: View {
 }
 
 /// A group's row, or *Closed*'s: a color dot for a group, the name, and
-/// on the right what it adds up to (a group's subtotal, *Closed*'s count),
-/// on one line. On the Mac, clicking it expands or collapses it like its
+/// on the right what it adds up to (a group's subtotal, *Closed*'s count);
+/// a long name wraps rather than being cut short. On the Mac, clicking it expands or collapses it like its
 /// disclosure triangle (on iPad, tapping the row does that already).
 private struct SidebarFolderLabel<Trailing: View>: View {
     let title: String
@@ -265,15 +266,16 @@ private struct SidebarFolderLabel<Trailing: View>: View {
     @ViewBuilder var trailing: Trailing
 
     var body: some View {
-        HStack(spacing: Metrics.s) {
+        HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
             if let dot {
                 Circle()
                     .fill(dot)
                     .frame(width: 8, height: 8)
+                    .alignmentGuide(.firstTextBaseline) { $0[VerticalAlignment.center] + 4 }
                     .accessibilityHidden(true)
             }
             Text(title)
-                .lineLimit(1)
+                .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: Metrics.xs)
             trailing
                 .monospacedDigit()
@@ -283,6 +285,7 @@ private struct SidebarFolderLabel<Trailing: View>: View {
                 .layoutPriority(1)
         }
         .accessibilityElement(children: .combine)
+        .sidebarAccountFont()
         #if os(macOS)
         .contentShape(Rectangle())
         .onTapGesture {
@@ -293,16 +296,16 @@ private struct SidebarFolderLabel<Trailing: View>: View {
 }
 
 /// An account under its group (or *Closed*): its name, a clock when its
-/// latest value is stale, and its value on the right (open accounts), on
-/// one line; a long name is cut short first.
+/// latest value is stale, and its value on the right (open accounts) on
+/// the name's first line; a long name wraps rather than being cut short.
 private struct SidebarAccountRow: View {
     let item: AccountListItem
     var showsValue = true
 
     var body: some View {
-        HStack(spacing: Metrics.s) {
+        HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
             Text(item.account.name)
-                .lineLimit(1)
+                .fixedSize(horizontal: false, vertical: true)
                 .privacySensitiveInFeedback()
             Spacer(minLength: Metrics.xs)
             if item.stale != nil {
@@ -321,6 +324,7 @@ private struct SidebarAccountRow: View {
             }
         }
         .accessibilityElement(children: .combine)
+        .sidebarAccountFont()
     }
 }
 
@@ -469,4 +473,18 @@ struct SettingsButton: View {
 #Preview("Sidebar") {
     SidebarRoot()
         .previewEnvironment()
+}
+
+private extension View {
+    /// The accounts' rows on iPad a size smaller than the places above
+    /// them, so a group's or an account's name has room beside its amount
+    /// in the sidebar's width. The Mac's sidebar type is small already.
+    @ViewBuilder
+    func sidebarAccountFont() -> some View {
+        #if os(macOS)
+        self
+        #else
+        font(.subheadline)
+        #endif
+    }
 }

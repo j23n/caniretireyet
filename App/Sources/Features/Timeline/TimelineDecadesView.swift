@@ -92,29 +92,30 @@ struct TimelineDecadesView: View {
         if let results {
             let all = chapters?.chapters.chapters ?? []
             let left = all.indices.last.flatMap { chapters?.outcomes[$0] }
-            let pensions = all.first { $0.kind == .pensions }?.ages.lowerBound
+            let pensions = all.first { $0.kind == .pensions }
             TileGrid {
                 DecadesHowSureTile(results: results)
                     .tileSize(.half)
                 // The plan's own age, else its earliest; without either no
                 // age works, and the run's age is only the last one tried.
                 if let age = results.headline.targetAge {
-                    HalfTile(tint: .lilac, title: "When you stop", emoji: "🏖️") {
+                    HalfTile(tint: .lilac, title: "Age you stop working", emoji: "🏖️") {
                         Text(verbatim: "\(age)")
                             .monospacedDigit()
                             .privacySensitiveInFeedback()
                     } caption: {
-                        Text(results.headline.earliestAge == age ? "earliest" : "planned")
+                        Text(results.headline.earliestAge == age ? "the earliest that works" : "as planned")
                     }
                     .tileSize(.half)
                 }
                 if let pensions {
-                    HalfTile(tint: .peach, title: "Pensions from", emoji: "🧓") {
-                        Text(verbatim: "\(pensions)")
+                    HalfTile(tint: .peach, title: "First pension from age", emoji: "🧓") {
+                        Text(verbatim: "\(pensions.ages.lowerBound)")
                             .monospacedDigit()
                             .privacySensitiveInFeedback()
                     } caption: {
-                        Text("age")
+                        Text(verbatim: "in \(String(pensions.years.lowerBound))")
+                            .privacySensitiveInFeedback()
                     }
                     .tileSize(.half)
                 }
@@ -181,15 +182,15 @@ struct DecadesWords {
     }
 }
 
-/// How sure the plan is, as a half tile (UI.md, "Decades"): "🎯 How
-/// sure", the futures whose money lasts to the end when you stop at the
-/// plan's age ("9 in 10"), and a dot for each of 10.
+/// How sure the plan is, as a half tile (UI.md, "Decades"): "🎯 Futures
+/// where money lasts", those whose money lasts to the end when you stop at
+/// the plan's age ("9 in 10"), and a dot for each of 10.
 struct DecadesHowSureTile: View {
     let results: PlanResults
 
     var body: some View {
         let focus = results.details.focus
-        HalfTile(tint: .sky, title: "How sure", emoji: "🎯") {
+        HalfTile(tint: .sky, title: "Futures where money lasts", emoji: "🎯") {
             Text(verbatim: focus.success.map(DecadesWords.inFutures) ?? "–")
                 .monospacedDigit()
                 .privacySensitiveInFeedback()
@@ -221,18 +222,20 @@ struct FuturesDots: View {
     }
 }
 
-/// What's typically left at the plan's end, as a half tile: "🏁 Left at
-/// 95", the median future's money, in today's money.
+/// What's typically left at the plan's end, as a half tile: "🏁 Money
+/// left at the end", the median future's money in today's money, "at 95,
+/// typically".
 struct DecadesLeftTile: View {
     let outcome: PlanChaptersModel.Outcome
     let endAge: Int
     let currency: CurrencyCode
 
     var body: some View {
-        HalfTile(tint: .butter, title: "Left at \(max(endAge, outcome.age))", emoji: "🏁", personalTitle: true) {
+        HalfTile(tint: .butter, title: "Money left at the end", emoji: "🏁") {
             AmountText(Decimal(wholeNumber: outcome.median), currency: currency, short: true)
         } caption: {
-            Text("typically")
+            Text(verbatim: "at \(max(endAge, outcome.age)), typically")
+                .privacySensitiveInFeedback()
         }
     }
 }

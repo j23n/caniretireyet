@@ -10,18 +10,26 @@ import Tracker
 // size on the home screen's grid of icons (``TileGrid``), so other screens
 // can use them too.
 
-/// Where you stand, as tiles under the answer, or beside it where a row
-/// has four slots or more. The tiles go into the page's ``TileGrid``s, in
-/// two parts: ``Part/beside`` the answer, net worth (opening the
-/// accounts), the next milestone (opening the Timeline at *Year*) and the
-/// savings rate over the last 12 months (opening it at *Look Back*), the
-/// last two wide when only one has something to show; and ``Part/below``
-/// it, this year so far, the next check-in and saving nothing more as half
-/// tiles, and what moved it at the last check-in, wide.
+/// Where you stand, as tiles: net worth (opening the accounts), the next
+/// milestone (opening the Timeline at *Year*), the savings rate over the
+/// last 12 months (opening it at *Look Back*), this year so far, the next
+/// check-in and saving nothing more as half tiles, and what moved at the
+/// last check-in (opening the accounts). The tiles go into the page's
+/// ``TileGrid``s, in parts:
+///
+/// - ``Part/all``: every tile, under the answer, where a row has two
+///   slots, or before there's an answer. Net worth and what moved are wide; the milestone and
+///   the savings rate are wide when only one has something to show.
+/// - ``Part/beside(slots:)``: net worth and what moved, tall, beside the
+///   answer in `slots`; each takes two slots when there are enough, what
+///   moved first, and with one slot the page stacks them in it.
+/// - ``Part/under``: the rest, small and half tiles, under the answer and
+///   those two.
 struct TodayTiles: View {
     enum Part {
-        case beside
-        case below
+        case all
+        case beside(slots: Int)
+        case under
     }
 
     let part: Part
@@ -36,25 +44,48 @@ struct TodayTiles: View {
     @Environment(\.locale) private var locale
 
     var body: some View {
+        let moved = library.valuator.changeSinceLastCheckIn(asOf: today)
         switch part {
-        case .beside: beside
-        case .below: below
+        case .all:
+            let twelveMonths = self.twelveMonths
+            netWorth(isTall: false)
+                .tileSize(.wide)
+            figures(twelveMonths, pairSize: plan != nil && twelveMonths != nil ? .small : .wide)
+            year
+            halves
+            if let moved {
+                movedTile(moved, isTall: false)
+                    .tileSize(.wide)
+            }
+        case .beside(let slots):
+            netWorth(isTall: true)
+                .tileSize(moved == nil ? (slots >= 2 ? .wide : .small) : (slots >= 4 ? .wide : .small))
+            if let moved {
+                movedTile(moved, isTall: true)
+                    .tileSize(slots >= 3 ? .wide : .small)
+            }
+        case .under:
+            figures(twelveMonths, pairSize: .small)
+            year
+            halves
         }
     }
 
-    @ViewBuilder
-    private var beside: some View {
-        let netWorth = NetWorthGlance(valuator: library.valuator, asOf: today, historyFrom: today.adding(years: -1))
-        let twelveMonths = self.twelveMonths
-        let pairSize: TileSize = plan != nil && twelveMonths != nil ? .small : .wide
+    private func netWorth(isTall: Bool) -> some View {
         Button {
             navigation.showAccounts()
         } label: {
-            NetWorthTile(netWorth: netWorth, today: today)
+            NetWorthTile(netWorth: NetWorthGlance(valuator: library.valuator, asOf: today,
+                                                  historyFrom: today.adding(years: -1)),
+                         today: today, isTall: isTall)
         }
         .buttonStyle(.plain)
         .accessibilityHint("Shows your accounts")
-        .tileSize(.wide)
+    }
+
+    /// The next milestone and the savings rate.
+    @ViewBuilder
+    private func figures(_ twelveMonths: PlanLastTwelveMonths?, pairSize: TileSize) -> some View {
         if let plan {
             Button {
                 navigation.showTimeline(.year)
@@ -72,7 +103,7 @@ struct TodayTiles: View {
                 navigation.showTimeline(.lookBack)
             } label: {
                 TwelveMonthsTile(tile: rate, currency: twelveMonths.current.moneyInOut.currency,
-                                 period: twelveMonths.since == nil ? "12 months" : nil)
+                                 period: twelveMonths.since == nil ? "last 12 months" : nil)
             }
             .buttonStyle(.plain)
             .accessibilityHint("Looks back on the Timeline")
@@ -80,8 +111,9 @@ struct TodayTiles: View {
         }
     }
 
+    /// This year so far.
     @ViewBuilder
-    private var below: some View {
+    private var year: some View {
         let valuator = library.valuator
         if let report = valuator.changeThisYear(asOf: today) {
             Button {
@@ -93,6 +125,11 @@ struct TodayTiles: View {
             .accessibilityHint("Shows this year on the Timeline")
             .tileSize(.small)
         }
+    }
+
+    /// The next check-in and saving nothing more.
+    @ViewBuilder
+    private var halves: some View {
         let status = checkIn.status
         if status.lastCheckIn != nil {
             Button {
@@ -115,17 +152,17 @@ struct TodayTiles: View {
             .accessibilityHint("Shows this year on the Timeline")
             .tileSize(.half)
         }
-        if let change = valuator.changeSinceLastCheckIn(asOf: today) {
-            Button {
-                navigation.showAccounts()
-            } label: {
-                TodayMovedTile(report: change, split: valuator.savedSplit(of: change),
-                               yearlySpending: plan.flatMap(MilestoneLadder.spending(of:)))
-            }
-            .buttonStyle(.plain)
-            .accessibilityHint("Shows your accounts")
-            .tileSize(.wide)
+    }
+
+    private func movedTile(_ change: ChangeReport, isTall: Bool) -> some View {
+        Button {
+            navigation.showAccounts()
+        } label: {
+            TodayMovedTile(report: change, split: library.valuator.savedSplit(of: change),
+                           yearlySpending: plan.flatMap(MilestoneLadder.spending(of:)), isTall: isTall)
         }
+        .buttonStyle(.plain)
+        .accessibilityHint("Shows your accounts")
     }
 
     /// The last 12 months' money in and out, as Look Back has them (through
@@ -167,11 +204,11 @@ struct TodayComingUp: View {
                 SectionHeader("Coming up")
                     .padding(.horizontal, Metrics.xs)
                 TileGrid {
-                    ForEach(Array(ahead.enumerated()), id: \.element.id) { index, milestone in
+                    ForEach(ahead, id: \.id) { milestone in
                         Button {
                             navigation.showTimeline(.year)
                         } label: {
-                            AheadMilestoneTile(milestone: milestone, isNext: index == 0)
+                            AheadMilestoneTile(milestone: milestone)
                         }
                         .buttonStyle(.plain)
                         .accessibilityHint("Shows this year on the Timeline")
@@ -192,12 +229,10 @@ struct TodayComingUp: View {
 }
 
 /// A milestone ahead as a small tile on *Coming up*: tinted by its kind,
-/// "Then" or "Later" with its emoji, its name, and when the median future
-/// typically reaches it.
+/// with its emoji and what kind of milestone it is, its name, and when the
+/// median future typically reaches it.
 struct AheadMilestoneTile: View {
     let milestone: ProjectedMilestone
-    /// Whether it's the one after the next milestone: "Then", else "Later".
-    var isNext = false
 
     @Environment(\.baseCurrency) private var currency
     @Environment(\.locale) private var locale
@@ -205,27 +240,25 @@ struct AheadMilestoneTile: View {
     var body: some View {
         let text = PlanMilestoneText(currency: currency, locale: locale)
         ColorTile(tint: milestone.milestone.tileTint) {
-            TileLabel(isNext ? "Then" : "Later", emoji: milestone.milestone.tileEmoji)
+            TileLabel(PlanMilestoneText.kindName(milestone.milestone.kind), emoji: milestone.milestone.tileEmoji)
             Spacer(minLength: Metrics.s)
             AmountSentenceText(text.name(milestone.milestone))
                 .font(.headline)
                 .lineLimit(3)
                 .minimumScaleFactor(0.7)
                 .fixedSize(horizontal: false, vertical: true)
-            Text(verbatim: "typically \(PlanMilestoneText.when(milestone.date))")
-                .font(.caption)
-                .opacity(0.8)
-                .lineLimit(1)
+            TileCaption(verbatim: "typically \(PlanMilestoneText.when(milestone.date))")
                 .privacySensitiveInFeedback()
-                .padding(.top, 6)
+                .padding(.top, 2)
         }
         .accessibilityElement(children: .combine)
     }
 }
 
-/// This year so far as a small tile (UI.md, "Today"): how net worth
-/// changed since the end of last year, then what you saved and what
-/// markets did. In per cent while amounts are hidden.
+/// This year so far as a small tile (UI.md, "Today"): "📅 Net worth
+/// change in 2026", how net worth changed since the end of last year, then
+/// what you saved and what markets did. In per cent while amounts are
+/// hidden.
 struct TodayYearTile: View {
     let report: ChangeReport
     /// Its split with saved as the savings rate counts it.
@@ -237,7 +270,7 @@ struct TodayYearTile: View {
     var body: some View {
         let total = report.total
         ColorTile(tint: .mint) {
-            TileLabel("\(String(report.to.year)) so far", emoji: "📅")
+            TileLabel("Net worth change in \(String(report.to.year))", emoji: "📅")
             Spacer(minLength: Metrics.s)
             Group {
                 if redactionReasons.hidesAmounts, let relative = total.relativeChange {
@@ -404,18 +437,8 @@ struct MilestoneTile: View {
         let isWide = size == .wide
         let percent = AmountFormat.percent(next.progress, digits: 0, locale: locale)
         return ColorTile(tint: milestone.tileTint) {
-            HStack(spacing: Metrics.s) {
-                TileLabel(next.progress >= Self.almostThere ? "Almost there" : "Next milestone",
-                          emoji: milestone.tileEmoji)
-                if isWide, let date {
-                    Spacer(minLength: Metrics.s)
-                    Text(verbatim: "typically \(PlanMilestoneText.when(date))")
-                        .font(.caption)
-                        .opacity(0.8)
-                        .lineLimit(1)
-                        .privacySensitiveInFeedback()
-                }
-            }
+            TileLabel(next.progress >= Self.almostThere ? "Almost there" : "Next milestone",
+                      emoji: milestone.tileEmoji)
             Spacer(minLength: Metrics.s)
             HStack(alignment: .lastTextBaseline, spacing: Metrics.m) {
                 AmountSentenceText(text.name(milestone))
@@ -431,22 +454,30 @@ struct MilestoneTile: View {
                         .privacySensitiveInFeedback()
                 }
             }
+            if isWide, let date {
+                TileCaption(verbatim: "typically \(PlanMilestoneText.when(date))")
+                    .privacySensitiveInFeedback()
+                    .padding(.top, 2)
+            }
             TileBar(progress: next.progress, before: before?.progress)
                 .padding(.top, 10)
-            HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
+            Group {
                 if isWide {
-                    wideFooter(last: last, after: after, before: before, text: text)
+                    HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
+                        wideFooter(last: last, after: after, before: before, text: text)
+                    }
                 } else {
-                    Text(verbatim: "\(percent) there")
+                    let there = Text(verbatim: "\(percent) there")
                         .font(.footnote.weight(.semibold))
                         .monospacedDigit()
                         .privacySensitiveInFeedback()
-                    Spacer(minLength: Metrics.xs)
                     if let date {
-                        Text(verbatim: PlanMilestoneText.when(date))
+                        LineOrStack(there, Text(verbatim: PlanMilestoneText.when(date))
                             .font(.caption)
                             .opacity(0.8)
-                            .privacySensitiveInFeedback()
+                            .privacySensitiveInFeedback(), spread: true)
+                    } else {
+                        there
                     }
                 }
             }
@@ -522,7 +553,8 @@ struct MilestoneTile: View {
                 AmountSentenceText("Next: \(next.milestone.tileEmoji) " + text.name(next.milestone) + progress)
                     .font(.caption)
                     .opacity(0.8)
-                    .lineLimit(1)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
                     .padding(.top, 6)
             }
         }
@@ -570,12 +602,14 @@ struct MilestoneTile: View {
 
 /// Net worth as a wide tile on the card (UI.md, "Tiles"): today's total,
 /// how it changed over the last 12 months and at the last check-in, and
-/// the 12 month ends as a line in sky blue with a wash under it. While
-/// amounts are hidden, the changes show in per cent and the line keeps its
-/// shape.
+/// the 12 month ends as a line in sky blue with a wash under it, beside
+/// them, or under them filling a tall tile (`isTall`). While amounts are
+/// hidden, the changes show in per cent and the line keeps its shape.
 struct NetWorthTile: View {
     let netWorth: NetWorthGlance
     let today: CalendarDate
+    /// Whether it's a tall tile beside the answer, the line under the figures.
+    var isTall = false
 
     @Environment(\.redactionReasons) private var redactionReasons
     @Environment(\.locale) private var locale
@@ -583,34 +617,40 @@ struct NetWorthTile: View {
     var body: some View {
         let values = Self.values(netWorth)
         ColorTile {
-            HStack(spacing: Metrics.s) {
-                TileLabel("Net worth", emoji: "📊")
-                Spacer(minLength: Metrics.s)
-                if values.count > 1, let first = netWorth.history.first, first.date <= today.adding(months: -11) {
-                    Text("12 months")
-                        .font(.caption)
-                        .foregroundStyle(Palette.secondaryInk)
-                }
-            }
+            TileLabel("Net worth", emoji: "📊")
             Spacer(minLength: Metrics.s)
-            HStack(alignment: .bottom, spacing: Metrics.m) {
-                VStack(alignment: .leading, spacing: 3) {
-                    AmountText(netWorth.total, tabular: false, animatesChanges: true)
-                        .font(.system(size: 30, weight: .bold))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.6)
-                    yearChange
-                    lastCheckIn
-                }
-                .layoutPriority(1)
+            if isTall {
+                figures
                 if values.count > 1 {
                     sparkline(values)
-                        .frame(maxWidth: 150)
-                        .frame(height: 56)
+                        .frame(minHeight: 56, maxHeight: .infinity)
+                        .padding(.top, Metrics.m)
+                }
+            } else {
+                HStack(alignment: .bottom, spacing: Metrics.m) {
+                    figures
+                        .layoutPriority(1)
+                    if values.count > 1 {
+                        sparkline(values)
+                            .frame(maxWidth: 150)
+                            .frame(height: 56)
+                    }
                 }
             }
         }
         .accessibilityElement(children: .combine)
+    }
+
+    /// The total, and how it changed in a year and at the last check-in.
+    private var figures: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            AmountText(netWorth.total, tabular: false, animatesChanges: true)
+                .font(.system(size: 30, weight: .bold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+            yearChange
+            lastCheckIn
+        }
     }
 
     /// The month ends of the last 12 months, and today.
@@ -628,19 +668,20 @@ struct NetWorthTile: View {
     private var yearChange: some View {
         if let first = netWorth.history.first, first.date < netWorth.date {
             let change = netWorth.total - first.value
-            HStack(spacing: Metrics.xs) {
+            let delta = Group {
                 if redactionReasons.hidesAmounts, first.value != 0 {
                     DeltaText(percent: (change / abs(first.value)).doubleValue)
                 } else {
                     DeltaText(change)
                 }
-                Text(verbatim: first.date <= today.adding(months: -11)
-                    ? "in a year" : "since \(GlanceText.shortMonth(first.date, relativeTo: today, locale: locale))")
-                    .foregroundStyle(Palette.secondaryInk)
-                    .privacySensitiveInFeedback()
             }
-            .font(.subheadline.weight(.semibold))
-            .lineLimit(1)
+            let period = Text(verbatim: first.date <= today.adding(months: -11)
+                ? "in a year" : "since \(GlanceText.shortMonth(first.date, relativeTo: today, locale: locale))")
+                .foregroundStyle(Palette.secondaryInk)
+                .privacySensitiveInFeedback()
+            LineOrStack(delta, period)
+                .font(.subheadline.weight(.semibold))
+                .lineLimit(1)
         }
     }
 
@@ -649,19 +690,21 @@ struct NetWorthTile: View {
     @ViewBuilder
     private var lastCheckIn: some View {
         if let change = netWorth.sinceLastCheckIn {
-            HStack(spacing: Metrics.xs) {
+            let amount = Group {
                 if redactionReasons.hidesAmounts, let fraction = change.fraction {
                     Text(verbatim: AmountFormat.percent(fraction, signed: true, locale: locale))
                         .privacySensitiveInFeedback()
                 } else {
                     AmountText(change.change, signed: true)
                 }
-                Text(verbatim: GlanceText.period(from: change.from, to: change.to, relativeTo: today, locale: locale))
-                    .privacySensitiveInFeedback()
             }
-            .font(.caption)
-            .foregroundStyle(Palette.secondaryInk)
-            .lineLimit(1)
+            let period = Text(verbatim: GlanceText.period(from: change.from, to: change.to, relativeTo: today,
+                                                          locale: locale))
+                .privacySensitiveInFeedback()
+            LineOrStack(amount, period)
+                .font(.caption)
+                .foregroundStyle(Palette.secondaryInk)
+                .lineLimit(1)
         }
     }
 
