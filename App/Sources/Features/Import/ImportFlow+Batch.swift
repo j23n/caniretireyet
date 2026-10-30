@@ -1,6 +1,7 @@
 import Foundation
 import Importer
 import Model
+import Tracker
 
 /// Several bank statements opened at once (IMPORT.md, "Several statements
 /// at once"; UI.md, "Import"): the files in the order they're imported,
@@ -83,6 +84,11 @@ struct ImportFirstCheckIn: Hashable, Sendable {
     var ends: StatementCheckIns.Ends
     /// The dates of the values the files add before the first check-in.
     var values: [CalendarDate]
+    /// Whether the files' lines add up at each of ``values``.
+    var before: [ImportCheckInCheck] = []
+    /// The library's check-ins the files' days reach, from the first on:
+    /// they stay, and the files' lines fill them in.
+    var after: [ImportCheckInCheck] = []
 
     /// "8 check-ins added, one at each quarter end. …"
     var note: String {
@@ -101,7 +107,70 @@ struct ImportFirstCheckIn: Hashable, Sendable {
     }
 }
 
+/// Whether the files' lines lead to their accounts' balances at one
+/// check-in (Tracker's `AccountMonth`), as importing would leave them.
+struct ImportCheckInCheck: Hashable, Sendable, Identifiable {
+    var date: CalendarDate
+    /// How many of the files' accounts' lines lead to it.
+    var lines = 0
+    /// The first of its accounts whose lines don't lead to its balance:
+    /// the balance less what they lead to, in that account's currency.
+    var off: Decimal?
+    var currency: CurrencyCode?
+
+    var id: CalendarDate { date }
+
+    /// "Mar 2025".
+    func title(locale: Locale = .current) -> String {
+        date.dateValue.formatted(.dateTime.month(.abbreviated).year().locale(locale))
+    }
+
+    /// "412 lines · adds up", "58 lines · off by 12,40 €".
+    func status(locale: Locale = .current) -> AmountSentence {
+        let count = Wording.count(lines, "line")
+        guard let off else { return "\(count) · adds up" }
+        let amount = AmountFormat.amount(abs(off), currency: currency ?? .eur, precision: .cents, locale: locale)
+        return "\(count) · off by \(amount: amount)"
+    }
+
+    /// "7 add up; Mar 2025 is off by 12,40 €.", "All 8 add up.", or `nil`
+    /// for none.
+    static func summary(_ checks: [ImportCheckInCheck], locale: Locale = .current) -> AmountSentence? {
+        guard !checks.isEmpty else { return nil }
+        let offs = checks.filter { $0.off != nil }
+        guard let first = offs.first, let off = first.off else {
+            if checks.count == 1 { return "It adds up." }
+            return "All \(checks.count) add up."
+        }
+        let amount = AmountFormat.amount(abs(off), currency: first.currency ?? .eur, precision: .cents,
+                                         locale: locale)
+        var sentence: AmountSentence = "\(checks.count - offs.count) of \(checks.count) add up; "
+        sentence += "\(first.title(locale: locale)) is off by \(amount: amount)"
+        if offs.count > 1 { sentence += " and \(offs.count - 1) more don't" }
+        return sentence + "."
+    }
+}
+
 extension ImportFlow {
+    /// Whether the files' lines add up at each of `dates`, in the library
+    /// as importing would leave it.
+    func checkInChecks(on dates: [CalendarDate]) -> [ImportCheckInCheck] {
+        guard let batch, let after = planned?.library else { return [] }
+        let accounts = Set(batch.files.compactMap(\.account)).sorted()
+        return dates.map { date in
+            var check = ImportCheckInCheck(date: date)
+            for account in accounts {
+                guard let month = after.accountMonth(of: account, through: date) else { continue }
+                check.lines += month.lines.count
+                if check.off == nil, case .off(let difference) = month.status {
+                    check.off = difference
+                    check.currency = after.accounts[account]?.currency
+                }
+            }
+            return check
+        }
+    }
+
     /// The files' days before the library's first check-in, and where
     /// their values go; `nil` when no file has any.
     var firstCheckIn: ImportFirstCheckIn? {
@@ -117,7 +186,12 @@ extension ImportFlow {
                 }
             }
         }
-        return ImportFirstCheckIn(from: from, firstCheckIn: first, ends: batch.checkIns?.ends ?? .months,
-                                  values: values.sorted())
+        var result = ImportFirstCheckIn(from: from, firstCheckIn: first, ends: batch.checkIns?.ends ?? .months,
+                                        values: values.sorted())
+        result.before = checkInChecks(on: result.values)
+        if let first, let through = statementsPeriod?.through {
+            result.after = checkInChecks(on: library.checkInDates.filter { $0 >= first && $0 <= through })
+        }
+        return result
     }
 }
