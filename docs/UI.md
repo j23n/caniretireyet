@@ -485,9 +485,20 @@ One account's month: its lines in date order, each with its date, the bank's tex
 - **Add Line** types in one the bank's export left out: its day in the month, money in or out, the amount, the bank's text and what it is. It's confirmed.
 - The side shows the month's totals (came in, interest, one-offs, tax, spent, moved, saved) and, for a past month, the months after it, which follow a change.
 
+### A brokerage month
+
+A brokerage, crypto or metals account that records its trades has a row in each check-in's months too ("Cash adds up · 2 trades", "1 deposit to add", "Cash off by 19,75 €"), which opens its month ([TRADES.md](TRADES.md#a-brokerage-month)):
+
+- **What the month did**: what the account opened at, what you put in, what markets did and what it closed at.
+- **A deposit to add**: "Conto Fineco moved 1.500,00 € to Directa on 3 Oct", with *Add as Deposit*, for money a statement moved to the account that it has no deposit for.
+- **Trades**: the opening cash, then the month's trades as the account's page lists them. Right-click or long-press one to delete it.
+- **Does the cash add up?** The opening cash and the trades lead to a cash; the broker's cash on the check-in's date is typed beside it, and the month says whether it adds up or by how much it's off. The month still to come takes it at the check-in.
+- **Holdings** at the month's end: each instrument's quantity, price and value, then the cash.
+- *Import CSV…* opens the import with the broker's file; its types step asks once what each of the broker's words is, and remembers them for the next file ([IMPORT.md](IMPORT.md#types)). *Add Trade* types one in: a buy, a sale, a deposit, a withdrawal, a dividend, interest, a fee or a tax; the instrument, or *New Instrument…* with its price source; the quantity, price and fees, or the amount; and the cash it moves.
+
 ## Trade history
 
-A brokerage, crypto or metals account records its **trades** ([TRADES.md](TRADES.md)): its holdings, average cost, cash, realised gains and income follow from them. Its trades come from the broker's exports ([IMPORT.md](IMPORT.md#broker-transactions)); the app doesn't type or edit one. New accounts of those kinds record trades; nothing switches an account back to a balance.
+A brokerage, crypto or metals account records its **trades** ([TRADES.md](TRADES.md)): its holdings, average cost, cash, realised gains and income follow from them. Its trades come from the broker's exports ([IMPORT.md](IMPORT.md#broker-transactions)), or are typed on its month ([A brokerage month](#a-brokerage-month)); the app doesn't edit one. New accounts of those kinds record trades; nothing switches an account back to a balance.
 
 **Account detail** of an account that records trades, top to bottom:
 
