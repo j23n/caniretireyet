@@ -243,13 +243,18 @@ struct CheckInPage: View {
         ScrollView {
             VStack(alignment: .leading, spacing: Metrics.l) {
                 banners
-                if layout.isRoomy {
+                if layout.isWide {
                     actions
-                    HStack(alignment: .top, spacing: Metrics.xl) {
-                        sections(groups)
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                    if layout.isRoomy {
+                        HStack(alignment: .top, spacing: Metrics.xl) {
+                            sections(groups)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            CheckInSoFarCard(soFar: soFar, date: summary.date)
+                                .frame(width: 300)
+                        }
+                    } else {
                         CheckInSoFarCard(soFar: soFar, date: summary.date)
-                            .frame(width: 300)
+                        sections(groups)
                     }
                 } else {
                     progress(groups, soFar: soFar)
@@ -295,7 +300,7 @@ struct CheckInPage: View {
         }
         // Worked out when the check-in began: the values it saves on its date make it a saved one.
         let kind = checkIn.dateKind ?? CheckInDateMenu.kind(of: summary.date, in: library.library)
-        if !layout.isRoomy {
+        if !layout.isWide {
             if let banner = CheckInDateMenu.shortBanner(for: kind, on: summary.date, locale: locale) {
                 StatusBanner(.info, banner, personal: [.title])
             }
@@ -409,7 +414,7 @@ struct CheckInPage: View {
     /// the footnotes.
     private func sections(_ groups: CheckInGroups) -> some View {
         VStack(alignment: .leading, spacing: Metrics.l) {
-            if groups.count > 0, layout.isRoomy {
+            if groups.count > 0, layout.isWide {
                 Text(verbatim: CheckInWording.doneCount(groups))
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(groups.doneCount == groups.count ? Palette.good : Palette.secondaryInk)
