@@ -256,11 +256,11 @@ struct InstrumentEditTarget: Identifiable, Hashable {
 
 extension View {
     /// Presents ``InstrumentEditor`` for the target's instrument, or a new
-    /// one, as a sheet.
-    func instrumentEditorSheet(item: Binding<InstrumentEditTarget?>) -> some View {
+    /// one, as a sheet. A new one starts in `currency` when it's given.
+    func instrumentEditorSheet(item: Binding<InstrumentEditTarget?>, currency: CurrencyCode? = nil) -> some View {
         sheet(item: item) { target in
             NavigationStack {
-                InstrumentEditor(instrumentID: target.instrument, isSheet: true)
+                InstrumentEditor(instrumentID: target.instrument, currency: currency, isSheet: true)
             }
             #if os(macOS)
             .frame(minWidth: 460, idealWidth: 520, minHeight: 480, idealHeight: 640)
