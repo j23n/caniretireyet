@@ -194,10 +194,12 @@ extension Library {
         let keys = Set(moves.map { $0.line.key })
         let accounts = Set(moves.map { $0.move.account } + gone.map { $0.account }).sorted()
         // The lines waiting for a deposit already, before any is taken away.
-        let waiting = Set(accounts.flatMap { unmatchedMoves(to: $0) }.map { $0.key })
+        let firstPass = accounts.map { unmatchedMoves(to: $0) }
+        let waiting = Set(firstPass.joined().map { $0.key })
         for removed in gone { removeTradeRecord(removed.trade) }
-        for account in accounts {
-            for line in unmatchedMoves(to: account) where keys.contains(line.key) || !waiting.contains(line.key) {
+        for (account, unmatched) in zip(accounts, firstPass) {
+            let now = gone.isEmpty ? unmatched : unmatchedMoves(to: account)
+            for line in now where keys.contains(line.key) || !waiting.contains(line.key) {
                 addDeposit(for: line)
             }
         }
