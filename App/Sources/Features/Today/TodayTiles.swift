@@ -78,7 +78,8 @@ struct TodayTiles: View {
                 movedTile(moved, isTall: false)
                     .tileSize(.wide)
             }
-            figures(twelveMonths, pairSize: .small)
+            let twelveMonths = self.twelveMonths
+            figures(twelveMonths, pairSize: plan != nil && twelveMonths != nil ? .small : .wide)
         }
     }
 
