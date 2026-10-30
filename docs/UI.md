@@ -48,15 +48,10 @@ Ahead                                ← the main plan
 Check-in                       •     ← while due or under way; dot when due
 Accounts                  97.330     ← the total of the open accounts
   All Accounts                 9     ← the list, with net worth and allocation
-  ▾ ● Cash                12.990     ← a group: its color dot and subtotal
-      Conto deposito       8.200
-      Conto Fineco      ◷  4.790     ← ◷ when the value is stale
-  ▸ ● Investments         71.300     ← collapsed
-  ▾ ● Crypto & gold       13.040
-      Gold coins           9.640
-      Ledger wallet        3.400
-  ▸ Pension · Property · Debts
-  ▸ Closed                     1     ← collapsed at first
+  ● Cash               ◷  12.990     ← a group: its color dot and subtotal;
+  ● Investments           71.300        ◷ when one of its values is stale
+  ● Crypto & gold         13.040
+  ● Pension · Property · Debts
 Plans
   Base case                   63     ← the age of its latest answer
   Part-time from 50           62
@@ -68,13 +63,12 @@ Library
 
 - **Ahead** opens the main plan, or "create your first plan" when there are none; the plan's own row under *Plans* is then selected. *Plans* lists every plan with the age of its latest answer, once there is one.
 - **Check-in** is a row while a check-in is due or under way, with a dot, and while it's selected. *New Check-in* (⌘K) starts one at any time.
-- **Accounts in the sidebar.** The accounts are in the sidebar itself, so an account is one click away and a group of one doesn't need a page of its own.
+- **Accounts in the sidebar.** The sidebar shows the groups, not the accounts, so it stays short however many accounts there are.
   - The *Accounts* header shows the total of the open accounts on the right: the groups' subtotals added up.
   - *All Accounts* opens the accounts list ([Accounts](#accounts)), with net worth, its chart and the allocation at its top, and shows how many accounts are open.
-  - Under it, a row per group that has open accounts (Cash, Investments, Crypto & gold, Pension, Property, Debts), with its color dot and its subtotal on the right, on one line. It expands to the group's accounts: name and value, with a small clock when the latest value is stale; a long name wraps onto more lines, its value beside the first. A group's name wraps the same way. On iPad these rows are a size smaller than the places above them, so names have room beside their amounts. Values and staleness are the same as in the list. *Closed*, with its count, expands to the closed accounts. Amounts are placeholders while they're hidden.
-  - Clicking a group, or its disclosure triangle, expands or collapses it; groups aren't pages. They start expanded and *Closed* collapsed, and the device remembers which are collapsed, here and in the iPhone's accounts list alike ([Accounts](#accounts)).
-  - Selecting an account shows its detail in the content area; the arrow keys move from account to account. Opening an account from elsewhere in the app selects its row and expands its group.
-  - The sidebar follows the library, also when it changes on the other device: a new account appears under its group, a selected account that's closed moves under *Closed* and stays selected, and one that's deleted gives way to *All Accounts*.
+  - Under it, a row per group that has open accounts (Cash, Investments, Crypto & gold, Pension, Property, Debts), with its color dot, a small clock when one of its accounts' values is stale, and its subtotal on the right, on one line; a long name wraps. On iPad these rows are a size smaller than the places above them, so names have room beside their amounts. Subtotals and staleness are the same as in the list. Amounts are placeholders while they're hidden.
+  - Selecting a group shows the list of its accounts alone, open and closed, without the net worth card. Selecting an account in either list shows its detail over it. Opening an account from elsewhere in the app shows its detail over *All Accounts*.
+  - The sidebar follows the library, also when it changes on the other device: a group appears once it has an open account, and a selected group left without open accounts gives way to *All Accounts*. An account's detail open over it stays, so closing a group's last account leaves its detail on screen, over *All Accounts*.
 - **Settings** is the standard Settings window (⌘,).
 - **Menu commands:**
 
@@ -366,7 +360,7 @@ Once a month: import the month's files, update the values you type, look at what
 
 ## Accounts
 
-- **List.** Grouped: Cash, Investments, Crypto & gold, Pension, Property, Debts. On iPhone (and the iPad in compact width) it opens from Today's *Net worth* row; on the Mac and iPad it's *All Accounts* in the sidebar, which also lists each group's accounts itself ([Navigation](#navigation)).
+- **List.** Grouped: Cash, Investments, Crypto & gold, Pension, Property, Debts. On iPhone (and the iPad in compact width) it opens from Today's *Net worth* row; on the Mac and iPad it's *All Accounts* in the sidebar, and each group's row there is the list of that group alone ([Navigation](#navigation)).
 
   ```
   Accounts                              ⋯   +
@@ -380,14 +374,17 @@ Once a month: import the month's files, update the values you type, look at what
   │ Allocation                         ›  │
   ╰──────────────────────────────────────╯
   ╭──────────────────────────────────────╮
-  │ CASH                         12.990   │  ← tap the name to collapse it
+  │ CASH                         12.990   │  ← a group: its name and subtotal
   │ Conto deposito  Fineco        8.200 › │
   │ Conto Fineco ◷  Fineco        4.790 › │  ← ◷ stale
   ╰──────────────────────────────────────╯
   ╭──────────────────────────────────────╮
-  │ Investments                  71.300 › │  ← collapsed groups share a card
-  │ Pension ◷                    24.300 › │
-  │ Closed                            1 › │  ← collapsed at first
+  │ INVESTMENTS                  71.300   │
+  │ …                                     │
+  ╰──────────────────────────────────────╯
+  ╭──────────────────────────────────────╮
+  │ CLOSED                            1   │
+  │ Old savings  Closed 31 Mar 2025   0 › │
   ╰──────────────────────────────────────╯
   ```
 
@@ -396,13 +393,12 @@ Once a month: import the month's files, update the values you type, look at what
     - *Asset class* splits holdings by their instrument's mix and balances by the account's mix, and shows debts as their own bar.
     - *Currency* is where each part is priced; bitcoin in a euro wallet counts as dollars.
     - *Locked* is pension funds, TFR, property and belongings, and the mortgage secured on the property.
-  - Each expanded group is a card: its name and subtotal at the top, then its accounts.
+  - Each group is a card: its name and subtotal at the top, then all of its accounts. Groups don't collapse.
   - Each row shows the name and the institution on one line, a clock when the value is stale, and the value on the right. When they don't fit beside the value, the institution goes under the name, and a long name wraps; nothing is cut short, and the value stays on one line.
   - **Stale** means the latest value is older than the threshold (45 days by default). An account that holds nothing (a zero balance, or no cash and no quantity) has nothing to check in, so it's never stale: not in the list, the sidebar, its detail or *Needs attention*.
   - Swipe actions (iPhone): *Close*. The context menu adds *Edit Account…*. Values are typed on the account's page, for an account that takes them.
-  - Closed accounts sit under *Closed* at the bottom.
+  - Closed accounts sit under *Closed* at the bottom, a card like a group's with their count at the top.
   - On iPhone the toolbar has *More*, with *Import Files…* and *Instruments*, and *New Account*.
-  - **Collapsing.** Tapping a group's name, or *Closed*'s, collapses it to a row (name, subtotal or count, and a clock when one of its accounts is stale); collapsed groups next to each other share one card, and tapping a row expands its group again, with an animation. The groups start expanded and *Closed* collapsed. The device remembers which are collapsed, and the sidebar shares them: collapsing Cash in the accounts list collapses it in the sidebar too (on an iPad that switches layouts), and the other way round.
   - On the Mac the cards are a scrolling page; on iPhone and iPad they're a grouped list.
 - **Account detail.**
   - **Layout.** Under the account's name, a line with its group and its institution ("Cash, FinecoBank"), or for an account that records trades "Investments, from your trades" (on the Mac, the window's subtitle). Then one card with the value, its change and the chart; then the rest, a card each. On iPhone a trades account's holdings, trades, income and statements are behind a segmented control, one at a time.
