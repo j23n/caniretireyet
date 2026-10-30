@@ -8,9 +8,10 @@ import Model
 /// refund lowers what was spent and a loan's principal repaid is saved. What
 /// came in is the money in that cash and savings accounts record, plus what
 /// was paid into pension funds and TFR, pay that never reaches a cash
-/// account, less tax: the tax money out recorded and what moved into tax
-/// pots, so it's after tax. What was spent is the rest. Only accounts in net worth count, on both sides. In
-/// the base currency.
+/// account, less tax: the tax money out recorded, spread over the year
+/// before it was paid, and what moved into tax pots, so it's after tax.
+/// What was spent is the rest. Only accounts in net worth count, on both
+/// sides. In the base currency.
 public struct SavingsRate: Hashable, Sendable {
     /// The money in it's worked out from.
     public var moneyInOut: MoneyInOutSummary
@@ -26,6 +27,13 @@ public struct SavingsRate: Hashable, Sendable {
     /// (``Valuator/taxSetAside(after:through:)``): tax, so neither came in
     /// nor spent.
     public var taxSetAside: Decimal
+    /// The tax money out recorded with values (``Model/Valuation/tax``),
+    /// spread over the year before each was paid, that falls in those days
+    /// (``Valuator/spreadTax(after:through:)``): a yearly bill counts as if
+    /// it had been set aside a little each month. Without it given, the
+    /// tax recorded with the values counted (``MoneyInOutSummary/taxes``),
+    /// unspread.
+    public var spreadTaxes: Decimal
     /// What each account in net worth saved over those days
     /// (``Valuator/saved(after:through:)``): what it saved, less what a new
     /// account's first value already held.
@@ -34,7 +42,7 @@ public struct SavingsRate: Hashable, Sendable {
     public var isPriced: Bool
 
     public init(moneyInOut: MoneyInOutSummary, from: CalendarDate, through: CalendarDate,
-                pensionContributions: Decimal = 0, taxSetAside: Decimal = 0,
+                pensionContributions: Decimal = 0, taxSetAside: Decimal = 0, spreadTaxes: Decimal? = nil,
                 savedByAccount: [AccountID: Decimal] = [:],
                 isPriced: Bool = true) {
         self.moneyInOut = moneyInOut
@@ -42,6 +50,7 @@ public struct SavingsRate: Hashable, Sendable {
         self.through = through
         self.pensionContributions = pensionContributions
         self.taxSetAside = taxSetAside
+        self.spreadTaxes = spreadTaxes ?? moneyInOut.taxes
         self.savedByAccount = savedByAccount
         self.isPriced = isPriced
     }
@@ -49,10 +58,10 @@ public struct SavingsRate: Hashable, Sendable {
     /// The account kinds whose saved amount counts as pay that was saved.
     public static let pensionKinds: Set<AccountKind> = [.pensionFund, .tfr]
 
-    /// Tax: the tax money out of the values counted recorded
-    /// (``MoneyInOutSummary/taxes``, less refunds), plus what moved into tax
+    /// Tax: the tax money out recorded, less refunds, spread over the year
+    /// before each was paid (``spreadTaxes``), plus what moved into tax
     /// pots (``taxSetAside``). Neither came in nor spent.
-    public var tax: Decimal { moneyInOut.taxes + taxSetAside }
+    public var tax: Decimal { spreadTaxes + taxSetAside }
 
     /// What came in, after tax: money in, plus the pension contributions,
     /// less the tax.
@@ -60,9 +69,13 @@ public struct SavingsRate: Hashable, Sendable {
 
     /// What was saved: what every account saved over the days, added up,
     /// less the one-offs (``MoneyInOutSummary/oneOffs``), which are neither
-    /// came in nor spent.
+    /// came in nor spent. A tax bill paid in the days counts as set aside
+    /// over the year before it, as if into a tax pot: the money it took
+    /// out is added back, and the share of each bill that falls in the
+    /// days (``spreadTaxes``) taken out.
     public var saved: Decimal {
         savedByAccount.keys.sorted().reduce(Decimal(0)) { $0 + (savedByAccount[$1] ?? 0) } - oneOffs
+            + moneyInOut.taxes - spreadTaxes
     }
 
     /// Money from outside that was neither income nor spending, such as an
@@ -131,8 +144,38 @@ extension Valuator {
         }
         let tax = taxSetAside(after: start, through: through)
         return SavingsRate(moneyInOut: money, from: start, through: through, pensionContributions: contributions,
-                           taxSetAside: tax.amount, savedByAccount: saved.byAccount,
-                           isPriced: saved.isPriced && tax.isPriced)
+                           taxSetAside: tax.amount, spreadTaxes: spreadTax(after: start, through: through),
+                           savedByAccount: saved.byAccount, isPriced: saved.isPriced && tax.isPriced)
+    }
+
+    /// The tax recorded with the counted values of the accounts whose
+    /// money in counts as came in (``cameInAccounts``; ``Model/Valuation/tax``:
+    /// a bill paid from a cash or savings account, less a refund), each
+    /// spread evenly over the year that ends on its date, that falls after
+    /// `from` through `through` (PROGRESS.md, "Savings rate"): its share of
+    /// that year's days, in the base currency at its date, rounded to
+    /// cents. So a yearly bill counts as tax a little in each month of the
+    /// year it pays for, as if it had been set aside, not all in the month
+    /// it's paid. A value without an exchange rate is left out, as money
+    /// in and out leaves it out.
+    public func spreadTax(after from: CalendarDate, through: CalendarDate) -> Decimal {
+        var total: Decimal = 0
+        for id in cameInAccounts.sorted() {
+            guard let account = accounts[id] else { continue }
+            for (index, valuation) in valuations(for: id).enumerated() where index > 0 {
+                let yearBefore = valuation.date.adding(years: -1)
+                guard valuation.date > from, yearBefore < through,
+                      let counted = valuation.moneyInOut(on: account.kind).counted, counted.tax != 0,
+                      let tax = fx.convert(counted.tax, from: account.currency, to: baseCurrency,
+                                           on: valuation.date)
+                else { continue }
+                let days = max(from, yearBefore).days(to: min(through, valuation.date))
+                let year = yearBefore.days(to: valuation.date)
+                guard days > 0, year > 0 else { continue }
+                total += (tax * Decimal(days) / Decimal(year)).rounded(scale: 2)
+            }
+        }
+        return total
     }
 
     /// What moved into tax pots outside net worth (``Model/AccountKind/taxPot``)
