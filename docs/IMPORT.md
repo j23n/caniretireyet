@@ -339,7 +339,7 @@ Lines are keyed by account, date and **ID**. An imported line's ID is made from 
 
 **Between two values** (Tracker's `Library.lineStretches(of:)`, `LineStretch`) an account's lines are checked against its balances: the value before, plus every line that counts, has to be the value after. The difference is a line missing, one listed twice, or a balance typed wrong. Each stretch starts from the value before it, so a value corrected later carries into the next stretch. A stretch's **spent** is its money out less the tax in it, and what it **moved** is its transfers. Lines after the account's last value wait for the next one.
 
-**After a line is changed** (`Library.countLines(of:)`), each value that records money in and out, whose stretch adds up, gets the sums of its lines, as a statement's import counts them ([Values](#values)), so the savings rate follows. A value without lines in its period keeps the money in and out it has: typed totals, or a check-in's. So does a value whose stretch doesn't add up, such as one whose money in and out were typed for a longer period than the lines cover, until it's fixed.
+**After a line is changed** (`Library.countLines(of:)`), each value whose stretch adds up gets the sums of its lines, also a balance typed without money in and out, as a statement's import counts them ([Values](#values)), so the savings rate follows. A value without lines in its period keeps the money in and out it has: typed totals, or a check-in's. So does a value whose stretch doesn't add up, such as one whose money in and out were typed for a longer period than the lines cover, until it's fixed.
 
 ### Your months
 

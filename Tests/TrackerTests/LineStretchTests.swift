@@ -93,11 +93,18 @@ struct LineStretchTests {
         #expect(library.lineStretches(of: "conto").map(\.difference) == [0, 0])
     }
 
-    @Test func valuesWithoutMoneyInAndOutAreLeftAlone() throws {
+    /// A balance typed without money in and out takes its lines' sums
+    /// once they add up to it.
+    @Test func aBalanceAloneTakesItsLinesOnceTheyAddUp() throws {
         var library = Self.library()
         library.upsert(Valuation(account: "conto", date: "2026-01-31", balance: 1540))
         library.countLines(of: "conto")
         #expect(library.valuations(for: "conto").last?.moneyOut == nil)
+        library.removeLineRecord(BankLineKey(account: "conto", date: "2026-01-12", id: "shop-2"))
+        library.countLines(of: "conto")
+        let value = try #require(library.valuations(for: "conto").last)
+        #expect(value.moneyIn == 3000)
+        #expect(value.moneyOut == 960)
         #expect(Library().lineStretches(of: "conto").isEmpty)
     }
 
