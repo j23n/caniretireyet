@@ -20,9 +20,9 @@ enum SidebarItem: Hashable, Sendable {
     case checkIn
     /// Every account, with the net-worth chart and the allocation.
     case accounts
-    /// One account's detail, selected under its group (or *Closed*) in the
-    /// sidebar's Accounts section.
-    case account(AccountID)
+    /// One group's accounts, open and closed, under the sidebar's *All
+    /// Accounts*.
+    case accountGroup(AccountGroup)
     case plan(PlanID)
     /// Ahead: the main plan, or the first; "create your first plan" when
     /// there are none. The sidebar replaces it with the plan's own row once
@@ -95,7 +95,15 @@ final class AppNavigation {
     /// Set by the root view.
     var layout: NavigationLayout = .sidebar
     var tab: AppTab = .today
-    var sidebarSelection: SidebarItem? = .today
+    var sidebarSelection: SidebarItem? = .today {
+        didSet {
+            if sidebarSelection != oldValue { accountsPath = NavigationPath() }
+        }
+    }
+    /// The pages pushed over the accounts in the sidebar layout, *All
+    /// Accounts* or a group: an account's detail (an `AccountID`). Selecting
+    /// another sidebar place clears it.
+    var accountsPath = NavigationPath()
     /// The pages pushed on Today's stack (iPhone): the accounts (a
     /// ``TodayPage``) and an account's detail (an `AccountID`).
     var todayPath = NavigationPath()
@@ -162,9 +170,8 @@ final class AppNavigation {
         sidebarSelection = .soFar
     }
 
-    /// Shows an account's detail: on iPhone pushed over the accounts on
-    /// Today's stack; in the sidebar selected, which expands its group (or
-    /// *Closed*) so the row shows.
+    /// Shows an account's detail, pushed over the accounts: on iPhone on
+    /// Today's stack, in the sidebar over *All Accounts*.
     func showAccount(_ id: AccountID) {
         switch layout {
         case .tabs:
@@ -174,12 +181,16 @@ final class AppNavigation {
             path.append(id)
             todayPath = path
         case .sidebar:
-            sidebarSelection = .account(id)
+            sidebarSelection = .accounts
+            var path = NavigationPath()
+            path.append(id)
+            accountsPath = path
         }
     }
 
     /// Shows the accounts: on iPhone the list, pushed on Today's stack; in
-    /// the sidebar `account` when there's one, else every account.
+    /// the sidebar *All Accounts*, with `account`'s detail over it when
+    /// there's one.
     func showAccounts(selecting account: AccountID? = nil) {
         switch layout {
         case .tabs:
@@ -188,23 +199,24 @@ final class AppNavigation {
             path.append(TodayPage.accounts)
             todayPath = path
         case .sidebar:
-            sidebarSelection = account.map(SidebarItem.account) ?? .accounts
+            if let account {
+                showAccount(account)
+            } else {
+                sidebarSelection = .accounts
+            }
         }
     }
 
-    /// The account selected in the sidebar, if one is.
-    var selectedAccount: AccountID? {
-        if case .account(let id)? = sidebarSelection { id } else { nil }
-    }
-
-    /// Keeps the sidebar on a place that exists: when the selected account
-    /// is no longer in `library` (deleted here or on another device), shows
-    /// every account. A closed account stays selected; it's listed under
-    /// *Closed*. The sidebar calls it whenever the library changes.
-    func libraryChanged(_ library: Library) {
-        if let id = selectedAccount, library.accounts[id] == nil {
-            sidebarSelection = .accounts
+    /// Keeps the sidebar on a place that exists: when the selected group
+    /// has no open accounts left on `today` (closed or deleted, here or on
+    /// another device), shows every account, as the sidebar no longer lists
+    /// the group. The sidebar calls it whenever the library changes.
+    func libraryChanged(_ library: Library, today: CalendarDate) {
+        guard case .accountGroup(let group)? = sidebarSelection else { return }
+        let hasOpenAccounts = library.accounts.values.contains { account in
+            account.group == group && !AccountList.listsAsClosed(account, today: today)
         }
+        if !hasOpenAccounts { sidebarSelection = .accounts }
     }
 
     /// Shows a plan on Ahead (`nil`: the main plan), with `route`'s sheet
@@ -264,7 +276,9 @@ final class AppNavigation {
             if layout == .tabs { showSyncInSheet() }
         case .checkIn: startCheckIn()
         case .accounts: showAccounts()
-        case .account(let id): showAccount(id)
+        case .accountGroup:
+            // The accounts with tabs, where groups aren't pages.
+            if layout == .tabs { showAccounts() }
         case .plan(let id): showPlan(id)
         case .plans: showPlan()
         case .importData: startImport()

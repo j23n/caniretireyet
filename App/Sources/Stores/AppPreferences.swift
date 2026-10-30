@@ -46,20 +46,6 @@ final class AppPreferences {
         didSet { defaults.set(notesOffered, forKey: Keys.notesOffered) }
     }
 
-    /// The account groups (and *Closed*) that are collapsed on this device,
-    /// in the sidebar and in the Accounts list alike
-    /// (``SidebarAccountFolder/key``: a group's raw value, or `"closed"`).
-    /// Until one is toggled, only *Closed* is collapsed
-    /// (``defaultCollapsedAccountFolders``). Read and change it with
-    /// `isExpanded(_:)` and `setExpanded(_:_:)`; the list expands everything
-    /// while searching.
-    var collapsedAccountFolders: Set<String> {
-        didSet { defaults.set(collapsedAccountFolders.sorted(), forKey: Keys.collapsedAccountFolders) }
-    }
-
-    /// The groups start expanded, *Closed* collapsed.
-    static let defaultCollapsedAccountFolders: Set<String> = [SidebarAccountFolder.closed.key]
-
     /// How far ahead charts show a plan's projection: Today's net
     /// worth with *Future* on, and the plan's "Your money over time"
     /// (UI.md, "Charts"). Retirement and 10 years after it until changed,
@@ -95,8 +81,6 @@ final class AppPreferences {
         stalenessThreshold = defaults.object(forKey: Keys.stalenessThreshold) as? Int
             ?? Valuator.defaultStalenessThreshold
         fetchPricesOnCheckIn = defaults.object(forKey: Keys.fetchPricesOnCheckIn) as? Bool ?? true
-        collapsedAccountFolders = defaults.stringArray(forKey: Keys.collapsedAccountFolders).map(Set.init)
-            ?? Self.defaultCollapsedAccountFolders
         futureHorizon = FutureHorizon(stored: defaults.string(forKey: Keys.futureHorizon))
         let standard = NoteSettings.standard
         let monthly = defaults.bool(forKey: Keys.reminderEnabled)
@@ -134,7 +118,6 @@ final class AppPreferences {
         static let notesRecordsAnniversary = "notes.recordsAnniversary"
         static let notesPlanCheckUp = "notes.planCheckUp"
         static let notesOffered = "notes.offered"
-        static let collapsedAccountFolders = "sidebar.collapsedAccountFolders"
         static let futureHorizon = "charts.futureHorizon"
         static let hideAmountsOnLaunch = "privacy.hideAmountsOnLaunch"
         static let hideInAppSwitcher = "privacy.hideInAppSwitcher"

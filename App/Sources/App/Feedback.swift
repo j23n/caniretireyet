@@ -40,6 +40,7 @@ extension AppNavigation {
             }
         case .sidebar:
             parts = ["sidebar \(sidebarSelection.map(Self.feedbackName) ?? "nothing selected")"]
+            if !accountsPath.isEmpty { parts.append("account detail") }
         }
         if let sheet {
             switch sheet {
@@ -53,7 +54,7 @@ extension AppNavigation {
 
     private static func feedbackName(_ item: SidebarItem) -> String {
         switch item {
-        case .account: "account"
+        case .accountGroup: "account group"
         case .plan: "plan"
         default: String(describing: item)
         }
