@@ -155,9 +155,9 @@ struct AddTradeSheet: View {
         return first.dateValue...last.dateValue
     }
 
-    /// What the instrument's pill says: its name, or "Choose".
+    /// What the instrument's pill says: its name, or "Choose…".
     private var instrumentName: String {
-        draft.instrument.flatMap { library.library.instruments[$0]?.name } ?? "Choose"
+        draft.instrument.flatMap { library.library.instruments[$0]?.name } ?? "Choose…"
     }
 
     private var instruments: [Instrument] {
