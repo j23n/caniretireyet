@@ -57,6 +57,27 @@ struct ImportStatementsCommand: RetireSubcommand {
                                    + "worth nothing after it, and closes. Repeatable.", valueName: "line=account"))
     var sales: [String] = []
 
+    @Option(help: ArgumentHelp("Which month ends before the library's first check-in get a value: months (every "
+                                   + "one), quarters or none (the lines are one stretch up to the file's last day). "
+                                   + "Month ends from the first check-in on always do. Default: months.",
+                               valueName: "ends"))
+    var beforeFirstCheckIn: CheckInEnds?
+
+    /// ``Importer/StatementCheckIns/Ends``, as an option.
+    enum CheckInEnds: String, ExpressibleByArgument, CaseIterable {
+        case months
+        case quarters
+        case never = "none"
+
+        var ends: StatementCheckIns.Ends {
+            switch self {
+            case .months: .months
+            case .quarters: .quarters
+            case .never: .never
+            }
+        }
+    }
+
     @Option(help: ArgumentHelp("The date pattern of every file, e.g. dd/MM/yyyy or MM/dd/yyyy. Default: each "
                                    + "file's profile, else detected.", valueName: "pattern"))
     var dateFormat: String?
@@ -132,6 +153,10 @@ struct ImportStatementsCommand: RetireSubcommand {
         var statements = StatementImport(StatementBatch(files: read, library: library, today: context.today),
                                          paths: files)
         try chooseAccounts(&statements.batch, library: library, today: context.today)
+        if let beforeFirstCheckIn {
+            let checkIns = StatementCheckIns(ends: beforeFirstCheckIn.ends, before: library)
+            statements.batch.setCheckIns(checkIns, library: library, today: context.today)
+        }
         statements.batch.editSessions(library: library, today: context.today) { _, session in
             for rule in classes {
                 if let (words, statementClass) = ImportCommand.classRule(rule) {
