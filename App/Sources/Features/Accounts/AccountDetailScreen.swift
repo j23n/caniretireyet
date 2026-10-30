@@ -807,7 +807,7 @@ private struct AccountDetailHeader: View {
     /// The parts that don't show as zero.
     private func parts(of change: ValueChange) -> [Part] {
         [Part(name: "Markets", amount: change.market), Part(name: "Saved", amount: change.saved),
-         Part(name: "Other", amount: change.other)]
+         Part(name: "Other", amount: change.other), Part(name: "Lost value", amount: change.lost)]
             .filter { DeltaFormat.direction(of: $0.amount, precision: .whole) != 0 }
     }
 

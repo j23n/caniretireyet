@@ -201,24 +201,25 @@ struct SavingsRateTests {
                                  moneyOut: 4550))
         library.upsert(Valuation(account: "car", date: "2026-01-31", balance: 20000, saved: 20000))
         let valuator = Valuator(library: library)
-        // 181 days at 12% a year, 20,000 × 12% × 181 / 365, is lost value: markets, not saved.
+        // 181 days at 12% a year, 20,000 × 12% × 181 / 365, is lost value: neither saved nor markets.
         #expect(valuator.saved(after: "2026-01-31", through: "2026-07-31").byAccount["car"] == 0)
         let july = valuator.change(from: "2026-01-31", to: "2026-07-31")
-        #expect(july.accounts.first { $0.account == "car" }?.change.market == d("-1190.14"))
+        #expect(july.accounts.first { $0.account == "car" }?.change.lost == d("-1190.14"))
+        #expect(july.accounts.first { $0.account == "car" }?.change.market == 0)
         // Worth 17,000 at the end of August, against 18,606.03 estimated after 212 days: the rest is saved.
         library.upsert(Valuation(account: "car", date: "2026-08-31", balance: 17000))
         let typed = Valuator(library: library)
         #expect(typed.saved(after: "2026-07-31", through: "2026-08-31").byAccount["car"] == d("-1606.03"))
         #expect(typed.saved(after: "2026-01-31", through: "2026-08-31").byAccount["car"] == d("-1606.03"))
         let august = typed.change(from: "2026-01-31", to: "2026-08-31")
-        #expect(august.accounts.first { $0.account == "car" }?.change.market == d("-1393.97"))
+        #expect(august.accounts.first { $0.account == "car" }?.change.lost == d("-1393.97"))
         // Two years and two days on (2028 is a leap year), compounding: 10,000 × 0.88² × (1 − 0.12 × 2 / 365),
         // all of it lost.
         library.upsert(Valuation(account: "car", date: "2027-08-31", balance: 10000))
         let later = Valuator(library: library)
         #expect(later.saved(after: "2027-08-31", through: "2029-09-01").byAccount["car"] == 0)
         let years = later.change(from: "2027-08-31", to: "2029-09-01")
-        #expect(years.accounts.first { $0.account == "car" }?.change.market == d("-2261.09"))
+        #expect(years.accounts.first { $0.account == "car" }?.change.lost == d("-2261.09"))
     }
 
     /// A check-in fills in a new account's whole amount as its saved: only the

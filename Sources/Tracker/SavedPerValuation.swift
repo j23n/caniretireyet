@@ -83,8 +83,10 @@ extension Valuator {
         guard let previous else { return now.rounded(scale: 2) }
         guard let before = amountInAccountCurrency(of: previous, on: previous.date) else { return nil }
         let interest = rule == .changeLessInterest ? valuation.interest ?? 0 : 0
-        // What it's estimated to have lost from its depreciation is lost value, neither spent nor saved.
-        let lost = account.estimated(before, from: previous.date, on: valuation.date) - before
+        // What it's estimated to have lost from its depreciation is lost value, neither spent nor saved. Only a
+        // balance is estimated (Valuator.value(of:valuation:on:)).
+        let lost = previous.balance != nil
+            ? account.estimated(before, from: previous.date, on: valuation.date) - before : 0
         return (now - before - interest - lost).rounded(scale: 2)
     }
 }
