@@ -45,6 +45,25 @@ struct SavedTests {
         #expect(pace.perYear == 0)
     }
 
+    /// 1,500 moved from a current account that recorded its pay and
+    /// spending into a new broker, in a month the current account still
+    /// grew by 600: the broker's first value is saved, not started with.
+    @Test func aNewAccountFundedFromAnAccountThatGrewIsSaved() throws {
+        var library = library()
+        library.upsert(Valuation(account: "current", date: "2025-03-31", balance: 10_600, moneyIn: 3_000,
+                                 moneyOut: 900))
+        library.accounts["broker"] = Account(id: "broker", name: "Broker", kind: .brokerage, currency: .eur,
+                                             opened: "2025-03-01", valuation: .balance)
+        library.upsert(Valuation(account: "broker", date: "2025-03-31", balance: 1_500))
+        let valuator = Valuator(library: library)
+
+        let stretch = try #require(valuator.savedStretches(between: ["2025-02-28", "2025-03-31"], in: .netWorth).first)
+        #expect(stretch.saved == ["current": 600, "broker": 1_500])
+        #expect(stretch.startedWith == ["broker": 0])
+        let rate = try #require(valuator.savingsRate(from: "2025-03-01", through: "2025-03-31"))
+        #expect(rate.spent == 900)
+    }
+
     /// A loan of 5,000 paid out into the current account: nothing saved.
     @Test func aLoanPaidOutIntoATrackedAccountSavesNothing() throws {
         var library = library(march: 15_000)
