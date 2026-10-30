@@ -35,7 +35,7 @@ Plus the glance: "how am I doing?" in a widget or on Today.
 - **Today:** your last Monday at work, where you stand, what changed and what needs attention.
 - **So far:** how you've been doing, from your own records, against the main plan: the year, your savings rate, your money in and out, year by year, and your date at each check-in.
 - **Ahead:** the plan, with its chart to the plan's end, What if, and your life ahead, chapter by chapter, for each plan.
-- **Accounts** open from Today's *Net worth* row, on Today's stack: the list with net worth and the allocation, account details, adding and closing ([Accounts](#accounts)). The list's *More* menu has *Import Files…* and *Instruments*.
+- **Accounts** open from Today's *Net worth* row, on Today's stack: the list with net worth and the allocation, account details, adding and closing ([Accounts](#accounts)). The list's *More* menu has *Import Files…*, *Money In and Out* ([Your months](#your-months)) and *Instruments*.
 - **Settings** opens from a gear button in Today's toolbar. It's rarely needed, so it doesn't take a tab. *Sync & backups* is in it, under Library: the library's banners (a sync conflict, a file that couldn't be read) open it there with *Review* or *Show details*, also from the check-in, which closes first and stays open. In an import they open it over the import, which is as you left it when you go back.
 - The accessory shows the check-in's state, "October check-in · due in 3 days", "Continue check-in · 31 Oct", and opens it. It shows only while a check-in is due (within a few days of the month's end, or past it) or one is open, so it doesn't sit over every screen the rest of the month; then *Check In* in Today's toolbar starts one early. (Before iOS 26.1, which can hide it, it always shows: "Last check-in 30 Sep · next 31 Oct".)
 
@@ -56,6 +56,7 @@ Plans
   Base case                   63     ← the age of its latest answer
   Part-time from 50           62
 Library
+  Money In and Out
   Import…
   Instruments
   Sync & backups
@@ -448,6 +449,41 @@ Accounts added in the app open on the day they're added, unless you set an earli
 **Saved after an inserted value.** What a value saved is worked out from the value before it, except on an account that asks for it (pension funds, TFR, property, other), where it's recorded. So when a value is added before another one of the same account, or one is corrected, moved or deleted, what the next value saved follows, and a recorded one stays. Money in and out ([PROGRESS.md](PROGRESS.md#money-in-and-out)) stay as they are: the confirmation for deleting a value asks to check them on the value after it. An import adds values the same way, and undoing it puts them back ([IMPORT.md](IMPORT.md#preview-conflicts-and-undo)).
 
 **Answers and baselines are only recorded for the latest check-in.** The plan runs on today's data, so re-running it for a past date would record a made-up answer for a past check-in and a made-up January plan for its year. A check-in dated before the library's latest one records neither, and its confirmation says: "Saved a past check-in (31 Mar 2024). The answer isn't recorded for past dates."
+
+## Your months
+
+*Money In and Out* (the sidebar's Library, and the accounts' *More* menu on iPhone) checks the money that went through your cash and savings accounts and tax pots, a month at a time: one import per account per month (IMPORT.md, "Your months"). A check-in is the month's end; the check-in still to come is on top, then the past ones, newest first, six of them before *Show Older Months*.
+
+```
+October 2026                                   2 of 3 to do
+  Conto corrente     Not done · opens at 4.210,55   Type Totals…  Import CSV…
+  Conto deposito     Off by 35,05 €                                    Fix ›
+  Tax pot            Adds up · 4 lines                                Open ›
+September 2026                                     All done
+  Came in 3.400 €    Spent 1.312 €    Saved 2.088 €
+  …
+```
+
+- A month opens at the closing balance of the month before. It's **done** when its lines add up to the bank's balance and every line is checked, when its totals were typed, or when it has a balance alone.
+- A month not done offers **Import CSV…** and **Type Totals…**. Any other opens **its lines**, also a past month: fixing one changes what it saved, and the months after it follow, since each opens at the balance before it.
+- A past month shows what came in, was spent and was saved over it, as the savings rate counts them.
+
+### Import CSV
+
+The bank's CSV for one account's month, read as a statement of that account through the check-in's date, in a sheet: the file, the account, how it's read (*Change How It's Read…* opens the import's reading sheet), the balance before its first line when the file has no balances, and anything that stops it. *Import* writes its lines and values as the Import page would ([Import](#import-mac-first)), then *Continue to the Lines* opens the month's lines.
+
+### Typed totals
+
+*Type Totals…* is for a month without a CSV: what came in, what moved in from your other accounts, what was spent, the tax paid, what moved out, and the bank's closing balance. The totals have to lead from the opening balance to the closing one; while they don't, the sheet says by how much, with *Count as Spent* (the closing balance is lower) or *Count as Came In* (higher) to put the difference there. *Save* keeps the balance, what came in, the spending and the tax.
+
+### A month's lines
+
+One account's month: its lines in date order, each with its date, the bank's text, its amount and what it is (a chip: Income, Spending, Tax, Moved to *account*, One-off, Interest for an account that records it, Not counted). A suggestion's chip is dashed, with a question mark, until it's checked. Filters: All, To Check, Spending, Moved, Removed.
+
+- **Does it add up?** The opening balance, plus money in, less money out, is the closing balance the lines lead to; beside it the bank's balance on the check-in's date, which can be typed. A month that doesn't add up says by how much: a line is missing, listed twice, or a balance was typed wrong.
+- **A line** opens its editor, beside the lines on the Mac and iPad and as a sheet on iPhone: buttons for what it is; for money moved, to which of your accounts (it's saved right away, not spent); *The same for the other N lines* from the same words this month, and *Remember it* for the next statements (a rule in the account's import profile, when it has one); a note; *Remove Line* for one listed twice, or *Restore Line*; and *Confirm*, which checks it.
+- **Add Line** types in one the bank's export left out: its day in the month, money in or out, the amount, the bank's text and what it is. It's confirmed.
+- The side shows the month's totals (came in, interest, one-offs, tax, spent, moved, saved) and, for a past month, the months after it, which follow a change.
 
 ## Trade history
 
