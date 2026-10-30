@@ -71,7 +71,8 @@ struct MonthsDataTests {
 
         let lines = library.lines(for: "conto")
         let shops = lines.filter { $0.id != "pay" }
-        #expect(shops.allSatisfy { $0.statementClass == .transfer && $0.otherAccount == "risparmio" })
+        #expect(shops.map(\.statementClass) == [.transfer, .transfer])
+        #expect(shops.map(\.otherAccount) == ["risparmio", "risparmio"])
         #expect(shops.allSatisfy(\.isConfirmed))
         #expect(shops.map(\.note) == ["saved", nil])
         #expect(lines.first { $0.id == "pay" }?.isConfirmed == false)
