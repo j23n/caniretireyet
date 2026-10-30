@@ -66,6 +66,18 @@ struct CheckInDateMenuTests {
         let banner = CheckInDateMenu.banner(for: kind, on: "2025-12-31", latest: "2026-09-30", locale: Self.locale)
         #expect(banner?.title == "A check-in before your first")
         #expect(banner?.message.contains("only recorded at your latest check-in") == true)
+        let first = AmountFormat.mediumDate("2026-07-31", locale: Self.locale)
+        #expect(CheckInDateMenu.shortBanner(for: kind, on: "2025-12-31", locale: Self.locale)
+            == "A check-in before your first, on \(first).")
+    }
+
+    @Test func aDateBetweenTwoHasAShortBanner() {
+        let kind = CheckInDateMenu.kind(of: "2026-08-15", in: Self.library())
+        #expect(kind == .between("2026-07-31", "2026-08-31"))
+        let before = AmountFormat.mediumDate("2026-07-31", locale: Self.locale)
+        let after = AmountFormat.mediumDate("2026-08-31", locale: Self.locale)
+        #expect(CheckInDateMenu.shortBanner(for: kind, on: "2026-08-15", locale: Self.locale)
+            == "A check-in between \(before) and \(after).")
     }
 
     /// The check-in saves values on its date as it goes, which doesn't make
