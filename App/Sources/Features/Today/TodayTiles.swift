@@ -628,8 +628,10 @@ struct MilestoneTile: View {
 /// Net worth as a wide tile on the card (UI.md, "Tiles"): today's total,
 /// how it changed over the last 12 months and at the last check-in, and
 /// the 12 month ends as a line in sky blue with a wash under it, beside
-/// them, or under them filling a tall tile (`isTall`). While amounts are
-/// hidden, the changes show in per cent and the line keeps its shape.
+/// them, or under them filling a tall tile (`isTall`). With a pointer over
+/// the line, the figures are the month end under it: its total, its date
+/// and how it changed from the one before. While amounts are hidden, the
+/// changes show in per cent and the line keeps its shape.
 struct NetWorthTile: View {
     let netWorth: NetWorthGlance
     let today: CalendarDate
@@ -638,6 +640,8 @@ struct NetWorthTile: View {
 
     @Environment(\.redactionReasons) private var redactionReasons
     @Environment(\.locale) private var locale
+    /// The point under the pointer, by its index in ``points(_:)``.
+    @State private var hovered: Int?
 
     var body: some View {
         let values = Self.values(netWorth)
@@ -666,25 +670,70 @@ struct NetWorthTile: View {
         .accessibilityElement(children: .combine)
     }
 
-    /// The total, and how it changed in a year and at the last check-in.
+    /// The total, and how it changed in a year and at the last check-in;
+    /// with a pointer over the line, the point under it.
+    @ViewBuilder
     private var figures: some View {
-        VStack(alignment: .leading, spacing: 3) {
-            AmountText(netWorth.total, tabular: false, animatesChanges: true)
+        let points = Self.points(netWorth)
+        if let hovered, points.indices.contains(hovered) {
+            hoveredFigures(points, at: hovered)
+        } else {
+            VStack(alignment: .leading, spacing: 3) {
+                AmountText(netWorth.total, tabular: false, animatesChanges: true)
+                    .font(.system(size: 30, weight: .bold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+                yearChange
+                lastCheckIn
+            }
+        }
+    }
+
+    /// A point's total, its date, and how it changed from the point before.
+    private func hoveredFigures(_ points: [GlancePoint], at index: Int) -> some View {
+        let point = points[index]
+        return VStack(alignment: .leading, spacing: 3) {
+            AmountText(point.value, tabular: false)
                 .font(.system(size: 30, weight: .bold))
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
-            yearChange
-            lastCheckIn
+            Text(verbatim: AmountFormat.shortDate(point.date, relativeTo: today, locale: locale))
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Palette.secondaryInk)
+                .lineLimit(1)
+                .privacySensitiveInFeedback()
+            if index > 0 {
+                let before = points[index - 1]
+                let change = point.value - before.value
+                let amount = Group {
+                    if redactionReasons.hidesAmounts, before.value != 0 {
+                        DeltaText(percent: (change / abs(before.value)).doubleValue)
+                    } else {
+                        DeltaText(change)
+                    }
+                }
+                let since = Text(verbatim: "since \(AmountFormat.shortDate(before.date, relativeTo: today, locale: locale))")
+                    .foregroundStyle(Palette.secondaryInk)
+                    .privacySensitiveInFeedback()
+                LineOrStack(amount, since)
+                    .font(.caption)
+                    .lineLimit(1)
+            }
         }
     }
 
     /// The month ends of the last 12 months, and today.
-    static func values(_ netWorth: NetWorthGlance) -> [Double] {
-        var values = netWorth.history.map { $0.value.doubleValue }
+    static func points(_ netWorth: NetWorthGlance) -> [GlancePoint] {
+        var points = netWorth.history
         if netWorth.history.last?.date != netWorth.date {
-            values.append(netWorth.total.doubleValue)
+            points.append(GlancePoint(date: netWorth.date, value: netWorth.total))
         }
-        return values
+        return points
+    }
+
+    /// The points' values, for the line.
+    static func values(_ netWorth: NetWorthGlance) -> [Double] {
+        points(netWorth).map { $0.value.doubleValue }
     }
 
     /// "▲ +36.210 € in a year", or "since March" for a shorter history; in
@@ -733,7 +782,8 @@ struct NetWorthTile: View {
         }
     }
 
-    /// The line, a wash under it and a dot on today's value.
+    /// The line, a wash under it and a dot on today's value; with a
+    /// pointer over it, a rule and the dot on the point under the pointer.
     private func sparkline(_ values: [Double]) -> some View {
         let color = TileTint.sky.accent
         return ZStack {
@@ -741,8 +791,27 @@ struct NetWorthTile: View {
                 .fill(color.opacity(0.14))
             SparklineShape(values: values, closesArea: false)
                 .stroke(color, style: StrokeStyle(lineWidth: Metrics.lineWidth, lineCap: .round, lineJoin: .round))
-            SparklineDot(values: values, radius: 3.5)
+            if let hovered {
+                SparklineRule(values: values, index: hovered)
+                    .stroke(color.opacity(0.5), lineWidth: 1)
+            }
+            SparklineDot(values: values, radius: 3.5, index: hovered)
                 .fill(color)
+        }
+        .overlay {
+            GeometryReader { proxy in
+                Color.clear
+                    .contentShape(Rectangle())
+                    .onContinuousHover { phase in
+                        switch phase {
+                        case .active(let location):
+                            hovered = SparklineLayout.index(nearestTo: location.x, count: values.count,
+                                                            width: proxy.size.width)
+                        case .ended:
+                            hovered = nil
+                        }
+                    }
+            }
         }
         .privacySensitiveInFeedback()
         .accessibilityHidden(true)
