@@ -75,6 +75,9 @@ struct AccountsScreen: View {
                     }
                     .disabled(!library.canEdit)
                 }
+                ToolbarItem(placement: .primaryAction) {
+                    HideAmountsButton()
+                }
             }
             .navigationDestination(isPresented: $showsInstruments) {
                 InstrumentsScreen()

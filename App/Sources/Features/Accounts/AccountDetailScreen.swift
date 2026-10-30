@@ -512,7 +512,8 @@ struct AccountDetailScreen: View {
             .disabled(!library.canEdit)
     }
 
-    /// *Update Value* for an account that takes typed values, and *Edit Account*.
+    /// *Update Value* for an account that takes typed values, *Edit Account*,
+    /// and the eye.
     @ToolbarContentBuilder
     private func toolbarContent(offersUpdateValue: Bool) -> some ToolbarContent {
         ToolbarItemGroup(placement: .primaryAction) {
@@ -530,6 +531,7 @@ struct AccountDetailScreen: View {
                 Label("Edit Account", systemImage: "pencil")
             }
             .disabled(!library.canEdit)
+            HideAmountsButton()
         }
     }
 

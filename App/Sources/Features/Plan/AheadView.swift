@@ -4,7 +4,7 @@ import Planner
 import SwiftUI
 
 /// Ahead (UI.md, "Ahead"): the plan. On iPhone the title with the plan
-/// menu, your last Monday on a card with the plan's chart to its end,
+/// menu and the eye, your last Monday on a card with the plan's chart to its end,
 /// *What if…* and how far ahead of January's plan you are, which opens So
 /// far; then the key numbers as tiles (``PlanResultTiles``) and *Your life
 /// ahead*, the chapters and what changes along the way down a line, with
@@ -123,13 +123,16 @@ struct AheadView: View {
     @ViewBuilder
     private func narrow(state: PlanResultsState, derived: PlanDerived) -> some View {
         VStack(alignment: .leading, spacing: Metrics.m) {
-            HStack(alignment: .firstTextBaseline, spacing: Metrics.m) {
-                Text("Ahead")
-                    .font(.largeTitle.bold())
-                    .foregroundStyle(Palette.ink)
-                    .accessibilityAddTraits(.isHeader)
-                Spacer(minLength: Metrics.s)
-                PlanMenu(session: session, actions: menuActions)
+            HStack(alignment: .center, spacing: Metrics.s) {
+                HStack(alignment: .firstTextBaseline, spacing: Metrics.m) {
+                    Text("Ahead")
+                        .font(.largeTitle.bold())
+                        .foregroundStyle(Palette.ink)
+                        .accessibilityAddTraits(.isHeader)
+                    Spacer(minLength: Metrics.s)
+                    PlanMenu(session: session, actions: menuActions)
+                }
+                TitleHideAmountsButton()
             }
             .padding(.horizontal, Metrics.xs)
             .padding(.top, Metrics.s)
