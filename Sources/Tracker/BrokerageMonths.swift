@@ -178,25 +178,38 @@ extension Library {
     /// line that now moves money to such an account, and that no deposit
     /// or withdrawal matches, gets one (``addDeposit(for:)``); a line that
     /// no longer moves it there loses the one recorded for it by hand, on
-    /// its day, of its amount. A deposit from the broker's own file stays.
+    /// its day, of its amount. Another line that deposit answered, such as
+    /// the same move from the bank's statement, gets one back. A deposit
+    /// from the broker's own file stays, except one that matched a deposit
+    /// recorded by hand: it keeps that one's day, ID and source, so it goes
+    /// like it.
     mutating func recordDeposits(changing before: [BankLine], to after: [BankLine]) {
         let saved = Dictionary(after.map { ($0.key, $0) }) { $1 }
-        for old in before {
+        let gone = before.compactMap { old -> (account: AccountID, trade: TradeKey)? in
             guard let move = depositMove(old), depositMove(saved[old.key]) != move,
                   let trade = trades(for: move.account).first(where: move.isRecorded)
-            else { continue }
-            removeTradeRecord(trade.key)
+            else { return nil }
+            return (move.account, trade.key)
         }
         let moves = after.compactMap { line in depositMove(line).map { (line: line, move: $0) } }
-        guard let through = moves.map({ $0.line.date }).max() else { return }
-        let valuator = Valuator(library: self)
         let keys = Set(moves.map { $0.line.key })
-        for account in Set(moves.map { $0.move.account }).sorted() {
-            guard let ledger = valuator.ledger(for: account) else { continue }
-            let toAdd = Valuator.depositsToAdd(to: account, after: nil, through: through, ledger: ledger,
-                                               library: self)
-            for line in toAdd where keys.contains(line.key) { addDeposit(for: line) }
+        let accounts = Set(moves.map { $0.move.account } + gone.map { $0.account }).sorted()
+        // The lines waiting for a deposit already, before any is taken away.
+        let waiting = Set(accounts.flatMap { unmatchedMoves(to: $0) }.map { $0.key })
+        for removed in gone { removeTradeRecord(removed.trade) }
+        for account in accounts {
+            for line in unmatchedMoves(to: account) where keys.contains(line.key) || !waiting.contains(line.key) {
+                addDeposit(for: line)
+            }
         }
+    }
+
+    /// The lines moving money to `account` that no deposit or withdrawal
+    /// matches (``Valuator/depositsToAdd(to:after:through:ledger:library:)``), over all its months.
+    private func unmatchedMoves(to account: AccountID) -> [BankLine] {
+        guard let through = months.keys.max()?.lastDay,
+              let ledger = Valuator(library: self).ledger(for: account) else { return [] }
+        return Valuator.depositsToAdd(to: account, after: nil, through: through, ledger: ledger, library: self)
     }
 
     /// The deposit or withdrawal `line` stands for: money it moved to an

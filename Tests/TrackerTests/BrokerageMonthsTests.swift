@@ -151,6 +151,22 @@ struct BrokerageMonthsTests {
         #expect(Self.deposits(library).isEmpty)
     }
 
+    /// The same move typed by hand and read from the statement: removing
+    /// the typed line gives its deposit to the statement's.
+    @Test func removingADuplicateKeepsTheOthersDeposit() throws {
+        var library = Self.library()
+        var typed = BankLine(account: "conto", date: "2026-10-03", id: "typed", amount: -1500,
+                             statementClass: .transfer, otherAccount: "broker", confirmed: true, source: .manual)
+        library.save([typed])
+        #expect(Self.deposits(library).count == 1)
+
+        typed.removed = true
+        library.save([typed])
+        #expect(Self.deposits(library).count == 1)
+        let october = try Self.october(library)
+        #expect(october.depositsToAdd.isEmpty)
+    }
+
     /// A deposit from the broker's own file is the move's: saving the line
     /// adds none, and saving it as something else leaves it.
     @Test func theBrokersOwnDepositStays() throws {
