@@ -149,13 +149,13 @@ struct ImportReadingSheet: View {
                             .foregroundStyle(Palette.secondaryInk)
                             .fixedSize(horizontal: false, vertical: true)
                     }
-                    if !changes, !needsChanges {
+                    if !changes {
                         Button("Change…") { changes = true }
                     }
                 } header: {
                     Text("How is it read?")
                 }
-                if changes || needsChanges {
+                if changes {
                     changeSections(flow)
                 }
                 if !flow.statementLines.isEmpty {
@@ -170,6 +170,10 @@ struct ImportReadingSheet: View {
                 }
             }
             .formStyle(.grouped)
+            // Opened because the reading needs work, the menus stay open once it works.
+            .onChange(of: needsChanges, initial: true) { _, needs in
+                if needs { changes = true }
+            }
             .personalNavigationTitle(flow.readingTitle, hidden: "How It's Read")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
