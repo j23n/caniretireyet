@@ -120,5 +120,5 @@ extension Library {
 
 extension Valuation {
     /// The balance bank lines are checked against: the balance, else the cash.
-    fileprivate var amountForLines: Decimal? { balance ?? cash }
+    var amountForLines: Decimal? { balance ?? cash }
 }

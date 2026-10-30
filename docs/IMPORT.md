@@ -341,6 +341,16 @@ Lines are keyed by account, date and **ID**. An imported line's ID is made from 
 
 **After a line is changed** (`Library.countLines(of:)`), each value that records money in and out, whose stretch adds up, gets the sums of its lines, as a statement's import counts them ([Values](#values)), so the savings rate follows. A value without lines in its period keeps the money in and out it has: typed totals, or a check-in's. So does a value whose stretch doesn't add up, such as one whose money in and out were typed for a longer period than the lines cover, until it's fixed.
 
+### Your months
+
+The app shows each cash or savings account's and tax pot's money in and out up to each check-in (Tracker's `Library.moneyMonths(next:)`, `MoneyMonth`, `AccountMonth`): one row per account per check-in, newest first, with the check-in still to come on top. An account's month opens at its value before and holds its lines since then, through the check-in's date. It's **done** when its lines add up to the bank's balance on that date and every line is confirmed, or when its money in and out were typed without lines (**typed totals**), or when it has a balance alone. Otherwise it's not done yet, its lines wait for the bank's balance, or it's off by the difference.
+
+Each month opens at the balance before it, so changing a past month's balance or lines shows in the months after it (`Library.accountMonths(of:after:next:)`). Saving a line (`Library.save(_:)`) writes the money in and out of the account's values from its lines again ([Lines](#lines)). The bank's balance typed for a month without a value on that date (`Library.setBankBalance(_:of:on:)`) makes one that records money in and out, so its lines count into it.
+
+**Typed totals** (`Library.saveTypedTotals(of:on:balance:cameIn:spent:tax:)`) are the month's balance, what came in, what was spent and the tax paid, typed from the bank's app instead of a CSV: the value's `moneyIn`, `moneyOut` (spent and tax) and `tax`. What moved to and from your other accounts is the rest, so it isn't stored. A statement imported later replaces them.
+
+**Checking a line** (Importer's `LineEdits.swift`): a rule for a line matches the start of its text up to the first word with a digit (`BankLine.suggestedPhrase`). The same choice can go to every line of the month with those words (`Library.lines(of:matching:after:through:)`) and be remembered as a rule in the profile that reads the account's statements (`Library.rememberStatementRule(_:other:for:account:)`), so the next statement suggests it.
+
 ### Detecting a statement
 
 Without a profile, a file is read as a statement when it isn't a broker's transactions and has dates, a description or counterparty column (`Descrizione`, `Causale`, `Verwendungszweck`, `Description`, `Payee`, …), and either a signed amount column (`Importo`, `Betrag`, `Amount`) with money in and out, or columns for money in and out (`Entrate` and `Uscite`, `Avere` and `Dare`, `Haben` and `Soll`, `Credit` and `Debit`, `Paid in` and `Paid out`). It has no quantities or prices. A column whose header names accounts (`Account name`, or a bare `Name`) doesn't count as its description or counterparty. `--layout statement` reads any file this way, and a statement's `Name` column is then who was paid.
