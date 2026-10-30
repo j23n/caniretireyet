@@ -94,11 +94,11 @@ enum TradeWording {
         return QuantityFormat.unitPrice(price, currency: priceCurrency(of: trade, in: library), locale: locale)
     }
 
-    /// The line under a trade's title in the list: "at 101.437,76 € · 1 Oct
-    /// 2025 · note"; the date and note alone without a price.
+    /// The line under a trade's title in the list, date first: "1 Oct 2025
+    /// · at 101.437,76 € · note"; the date and note alone without a price.
     static func subtitle(of trade: Trade, in library: Library, locale: Locale = .current) -> String {
-        [price(of: trade, in: library, locale: locale).map { "at " + $0 },
-         AmountFormat.mediumDate(trade.date, locale: locale), trade.note]
+        [AmountFormat.mediumDate(trade.date, locale: locale),
+         price(of: trade, in: library, locale: locale).map { "at " + $0 }, trade.note]
             .compactMap { $0 }.joined(separator: " · ")
     }
 
@@ -132,7 +132,7 @@ struct TradeListItem: Hashable, Sendable, Identifiable {
     /// "Buy 10 VWCE" (``TradeWording/title(of:in:locale:)``): the quantity
     /// hides with the eye.
     var title: AmountSentence
-    /// "at 102,30 € · 12 Mar 2026 · note" (``TradeWording/subtitle(of:in:locale:)``).
+    /// "12 Mar 2026 · at 102,30 € · note" (``TradeWording/subtitle(of:in:locale:)``).
     var subtitle: String
     /// The unit price in its currency, "102,30 €"; `nil` without one (the
     /// Mac table's Price column).
