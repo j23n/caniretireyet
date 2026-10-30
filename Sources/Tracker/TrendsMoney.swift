@@ -163,6 +163,19 @@ public struct PlanMoneyInOut: Hashable, Sendable {
         periods.filter { !$0.isEmpty && $0.rate == nil }
     }
 
+    /// The periods whose savings rate is below zero: more was spent than
+    /// came in. *Savings rate* draws no bar for them, only a mark that
+    /// says so, and its callout reads the rate.
+    public var belowZero: [MoneyInOutPeriod] {
+        periods.filter { $0.rate.map { $0 < 0 } ?? false }
+    }
+
+    /// Whether *Savings rate* draws a bar for `period`: it has a rate, and
+    /// the rate isn't below zero (``belowZero``).
+    public static func hasBar(_ period: MoneyInOutPeriod) -> Bool {
+        period.rate.map { $0 >= 0 } ?? false
+    }
+
     /// Whether any period in the span covers more than itself.
     public var hasCoversMore: Bool { periods.contains { coversMore($0) } }
 
@@ -299,15 +312,15 @@ public struct PlanMoneyInOut: Hashable, Sendable {
     }
 
     /// The rates *Savings rate*'s value axis fits, as fractions: each
-    /// period's rate and its rate over the 12 months ending at it, kept
-    /// within its band (``rateAxisBands``), and the plan's own rate, which
-    /// is never cut.
+    /// bar's rate (``hasBar(_:)``, none below zero) and each period's rate
+    /// over the 12 months ending at it, kept within its band
+    /// (``rateAxisBands``), and the plan's own rate, which is never cut.
     public func rateAxisValues(planRate: Decimal?) -> [Double] {
         let bands = rateAxisBands
         func kept(_ rate: Decimal?, _ band: ClosedRange<Double>?) -> Double? {
             rate.map { rate in band.map { Self.clamped(rate.doubleValue, to: $0) } ?? rate.doubleValue }
         }
-        let bars = zip(periods, bands).compactMap { kept($0.rate, $1) }
+        let bars = zip(periods, bands).compactMap { Self.hasBar($0) ? kept($0.rate, $1) : nil }
         let lines = zip(periods, bands).compactMap { kept($0.lastTwelveMonths?.rate, $1) }
         return bars + lines + [planRate?.doubleValue].compactMap { $0 }
     }
@@ -318,13 +331,13 @@ public struct PlanMoneyInOut: Hashable, Sendable {
         AmountScale(values: rateAxisValues(planRate: planRate).map { $0 * 100 })
     }
 
-    /// Whether some period's rate, or its rate over the 12 months ending at
-    /// it, is beyond the value axis of *Savings rate*, and its bar or the
-    /// line drawn cut.
+    /// Whether some bar's rate, or a period's rate over the 12 months
+    /// ending at it, is beyond the value axis of *Savings rate*, and the
+    /// bar or the line drawn cut. A rate below zero has no bar to cut.
     public func cutsRates(planRate: Decimal?) -> Bool {
         let domain = rateScale(planRate: planRate).domain
         return periods.contains { period in
-            [period.rate, period.lastTwelveMonths?.rate].contains { rate in
+            [Self.hasBar(period) ? period.rate : nil, period.lastTwelveMonths?.rate].contains { rate in
                 rate.map { !domain.contains($0.doubleValue * 100) } ?? false
             }
         }

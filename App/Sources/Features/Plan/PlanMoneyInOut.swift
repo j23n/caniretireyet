@@ -45,6 +45,22 @@ extension PlanMoneyInOut {
         return "A line shows the rate over the 12 months ending at each month\(gap)."
     }
 
+    /// *Savings rate*'s periods whose rate is below zero, for its summary:
+    /// "The rate is below zero in Aug 2026, so it has no bar: more was spent
+    /// than came in."; `nil` without any.
+    func belowZeroWords(locale: Locale = .current) -> String? {
+        let periods = belowZero
+        guard !periods.isEmpty else { return nil }
+        let names = periods.map(\.from).map { from in
+            switch grain {
+            case .months: GlanceText.shortMonthAndYear(from, locale: locale)
+            case .years: String(from.year)
+            }
+        }
+        let bar = periods.count == 1 ? "it has no bar" : "they have no bar"
+        return "The rate is below zero in \(Wording.list(names)), so \(bar): more was spent than came in."
+    }
+
     /// *Savings rate*'s periods without a bar, for its summary, each with
     /// why: "No rate in Aug 2026 (nothing came in), so it has no bar; what
     /// was spent then counts in the rate over 12 months."; `nil` without
