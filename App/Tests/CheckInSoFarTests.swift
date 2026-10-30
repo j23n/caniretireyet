@@ -48,7 +48,7 @@ struct CheckInSoFarTests {
                                                                isUpdated: false)],
                                    others: [])
         let line = CheckInWording.savedLine(on: "2026-10-31", groups: groups, locale: locale)
-        #expect(line.hasSuffix(" · all 1 account done · change it later from the check-in\u{2019}s date menu"))
+        #expect(line.hasSuffix(" · 1 account done · change it later from the check-in\u{2019}s date menu"))
         groups.typed = [TypedCheckInAccount(account: "car", last: nil, estimate: nil, isUpdated: false)]
         #expect(CheckInWording.savedLine(on: "2026-10-31", groups: groups, locale: locale)
             .contains("0 of 1 account done"))

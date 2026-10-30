@@ -11,11 +11,14 @@ import Tracker
 /// The words the check-in shows, formatted for the locale.
 enum CheckInWording {
     /// The line under a saved check-in's title: "31 Oct 2026 · all 8
-    /// accounts done · change it later from the check-in's date menu".
+    /// accounts done · change it later from the check-in's date menu";
+    /// "1 account done" with one.
     static func savedLine(on date: CalendarDate, groups: CheckInGroups, locale: Locale = .current) -> String {
         var parts = [AmountFormat.mediumDate(date, locale: locale)]
         let accounts = Wording.count(groups.count, "account")
-        if groups.count > 0, groups.doneCount == groups.count {
+        if groups.count == 1, groups.doneCount == 1 {
+            parts.append("1 account done")
+        } else if groups.count > 0, groups.doneCount == groups.count {
             parts.append("all \(accounts) done")
         } else if groups.count > 0 {
             parts.append("\(groups.doneCount) of \(accounts) done")
