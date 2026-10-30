@@ -46,6 +46,10 @@ public struct StatementBatch: Sendable {
     /// The files read, in the order given.
     public private(set) var files: [File] = []
     public private(set) var unreadable: [UnreadableFile] = []
+    /// Which month ends before the library's first check-in get a value,
+    /// in every file (``ImportSession/statementCheckIns``); every month end
+    /// when `nil`.
+    public private(set) var checkIns: StatementCheckIns?
     /// How many files were given, read or not: the next file's ID.
     private var given = 0
     /// Each file's first day, from the previews ``pairTransfers(in:today:)``
@@ -89,6 +93,7 @@ public struct StatementBatch: Sendable {
             do {
                 var session = try Self.read(file.data, profiles: profiles)
                 session.statementCheckIn = checkIn
+                session.statementCheckIns = checkIns
                 added.insert(append(file.name, session))
             } catch {
                 given += 1
@@ -146,6 +151,17 @@ public struct StatementBatch: Sendable {
         files[index].session.profile.constants.account = account
         files[index].accountSource = account == nil ? nil : .chosen
         pairTransfers(in: library, today: today)
+    }
+
+    /// Sets which month ends before the library's first check-in get a
+    /// value in every file, and in files added later, then pairs the
+    /// transfers again.
+    public mutating func setCheckIns(_ checkIns: StatementCheckIns?, library: Library,
+                                     today: CalendarDate = .today()) {
+        self.checkIns = checkIns
+        editSessions(library: library, today: today) { _, session in
+            session.statementCheckIns = checkIns
+        }
     }
 
     /// Edits the session of the file `id` (its classes, days, answers),

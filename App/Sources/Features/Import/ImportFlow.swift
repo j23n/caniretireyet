@@ -233,6 +233,17 @@ struct ImportFlow: Sendable {
         refreshPreview()
     }
 
+    /// Sets where the values before the library's first check-in go, in
+    /// every file.
+    mutating func setFirstCheckInEnds(_ ends: StatementCheckIns.Ends) {
+        guard var batch else { return }
+        let checkIns = ends == .months ? nil : StatementCheckIns(ends: ends, before: library)
+        batch.setCheckIns(checkIns, library: library)
+        if let file = batch.files.first(where: { $0.id == batchFile }) { session = file.session }
+        self.batch = batch
+        refreshPreview()
+    }
+
     /// Records that a file couldn't be opened at all (e.g. no permission).
     mutating func failToOpen(fileName: String, message: String) {
         self = ImportFlow(library: library, checkIn: checkIn)

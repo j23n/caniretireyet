@@ -468,6 +468,7 @@ September 2026                                     All done
 - A month opens at the closing balance of the month before. It's **done** when its lines add up to the bank's balance and every line is checked, when its totals were typed, or when it has a balance alone.
 - A month not done offers **Import CSV…** and **Type Totals…**. The month still to come, whose check-in is after today, offers only *Import CSV…*: its balance goes in at the check-in, so nothing is dated after today. Any other opens **its lines**, also a past month: fixing one changes what it saved, and the months after it follow, since each opens at the balance before it.
 - A past month shows what came in, was spent and was saved over it, as the savings rate counts them.
+- **Add Past Statements…** in the toolbar opens the import with as many CSVs as you have ([Add past statements](#add-past-statements)).
 
 ### Import CSV
 
@@ -496,6 +497,10 @@ A brokerage, crypto or metals account that records its trades has a row in each 
 - **Does the cash add up?** The opening cash and the trades lead to a cash; the broker's cash on the check-in's date is typed beside it, and the month says whether it adds up or by how much it's off. The month still to come takes it at the check-in.
 - **Holdings** at the month's end: each instrument's quantity, price and value, then the cash.
 - *Import CSV…* opens the import with the broker's file; its types step asks once what each of the broker's words is, and remembers them for the next file ([IMPORT.md](IMPORT.md#types)). *Add Trade* types one in: a buy, a sale, a deposit, a withdrawal, a dividend, interest, a fee or a tax; the instrument, or *New Instrument…* with its price source; the quantity, price and fees, or the amount; and the cash it moves.
+
+### Add past statements
+
+Years of statements at once: *Add Past Statements…* on *Money In and Out* opens the import's *Files* step, with every account's files listed and their accounts found ([Import](#import-mac-first)). When the files reach back before the library's first check-in, a card under *Between these files* (a section on iPhone), "Before your first check-in (Jan 2024 – Jan 2026)", asks where balances should be compared there: *Every Month End*, *Every Quarter End* or *Don't Add Any* ([IMPORT.md](IMPORT.md#values)). Under it, what the choice adds: "25 check-ins added, one at each month end, with balances from the files. Most detail, most to check.", a difference within 3 months with a third of the checking, or only each file's last month end, so each file's lines are one stretch whose difference is only known as a whole. Each file's last month end always gets one, so the next file follows on from it. Then a row for each check-in added ("Mar 2025 · 58 lines · off by 12,40 €", "adds up", "no balance before to check" for an account's first value, or "No lines") and how many add up ("7 of 8 add up; Jun 2025 is off by 12,40 €."), as importing would leave them. Under *After your first check-in*, the library's check-ins the files reach: "Feb – Sep 2026: your 8 check-ins stay as they are. The lines fill in what came in and went out between them.", and how many of them add up. Each added date then has its months, as any check-in does.
 
 ## Trade history
 

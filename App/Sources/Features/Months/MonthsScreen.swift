@@ -14,9 +14,12 @@ import Tracker
 /// - Any other opens its lines (``MonthLinesScreen``), also a past month to
 ///   fix one: the months after it follow.
 /// - A past month shows what came in, was spent and was saved.
+/// - *Add Past Statements…* opens the import for as many CSVs as you have
+///   (UI.md, "Add past statements").
 struct MonthsScreen: View {
     @Environment(LibraryStore.self) private var library
     @Environment(CheckInStore.self) private var checkIn
+    @Environment(AppNavigation.self) private var navigation
     @Environment(\.pageLayout) private var layout
     @State private var showsOlder = false
     @State private var importing: MonthRoute?
@@ -49,6 +52,13 @@ struct MonthsScreen: View {
         }
         .background(Palette.page)
         .navigationTitle("Money In and Out")
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button("Add Past Statements…") { navigation.startImport() }
+                    .disabled(!library.canEdit)
+                    .help("Imports as many CSVs as you have, of any length")
+            }
+        }
         .navigationDestination(for: MonthRoute.self) { route in
             MonthLinesScreen(route: route)
         }

@@ -36,7 +36,9 @@ extension PreviewBuilder {
 
     /// Reads the lines, classifies them (``statementLines``) and works out
     /// the account's values: one at each of its values in the file's span,
-    /// and one at each month end of a month that has none. Then the other
+    /// and one at each month end of a month that has none (before the
+    /// library's first check-in, those ``ImportSession/statementCheckIns``
+    /// keeps). Then the other
     /// side of the money the answers move: a tax pot's values, a purchase's
     /// new account, an account sold.
     mutating func statementRecords(dateColumn: Int, dates: DateParser) -> [ImportRecordKey: Accumulator] {
@@ -753,7 +755,9 @@ extension PreviewBuilder {
     /// session gives them, from its first month's first day to its last
     /// month's last day, or today in the month that isn't over): one at
     /// each of the account's values in the span, one at the end of each
-    /// month without one, and one on the last day the session gives (or
+    /// month without one (before the first check-in, those
+    /// ``ImportSession/statementCheckIns`` keeps, and the file's last month
+    /// end), and one on the last day the session gives (or
     /// the check-in's date, ``ImportSession/statementCheckIn``). Each has the balance, and
     /// when the file covers its whole period, from the value before it,
     /// money in and out (and interest). Sets each line's
@@ -782,8 +786,15 @@ extension PreviewBuilder {
         let anchor = valuations.last { $0.date < start }
         var cuts = Set(valuations.map(\.date).filter { $0 >= start && $0 <= end })
         var month = start.yearMonth
+        let checkIns = session.statementCheckIns
         while month <= end.yearMonth {
-            if month.lastDay <= end, !cuts.contains(where: { month.contains($0) }) { cuts.insert(month.lastDay) }
+            // The file's last month end always gets a value, so the next file follows on from it, unless the
+            // file is said to end on a day, which gets the value instead.
+            let isLast = through == nil && month.next.lastDay > end
+            if month.lastDay <= end, !cuts.contains(where: { month.contains($0) }),
+               isLast || (checkIns?.includes(month) ?? true) {
+                cuts.insert(month.lastDay)
+            }
             month = month.next
         }
         // A file said to end on a day has a value on that day, which the next file follows on from.

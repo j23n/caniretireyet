@@ -43,6 +43,10 @@ public struct ImportSession: Sendable {
     /// and not after it, so the account gets a value on the check-in's
     /// date. Ignored when it's after today.
     public var statementCheckIn: CalendarDate?
+    /// Statement layout: which month ends before the library's first
+    /// check-in get a value (``StatementCheckIns``); every month end when
+    /// `nil`.
+    public var statementCheckIns: StatementCheckIns?
 
     /// Reads a file and proposes a mapping for it. Settings left `nil` are detected.
     public init(data: Data, settings: ImportFileSettings = ImportFileSettings()) throws(ImportError) {
