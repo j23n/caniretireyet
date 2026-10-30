@@ -14,10 +14,14 @@ struct CheckInSoFarTests {
         let from = try #require(valuator.checkInGroups(on: date, in: library).from)
         let rate = valuator.savingsRate(from: from.adding(days: 1), through: date)
         let change = valuator.change(from: from, to: date)
-        let soFar = CheckInSoFar(rate: rate, split: valuator.savedSplit(of: change))
-        let parts = soFar.netSaved + soFar.markets + soFar.lost
-        let total = change.total.change
-        #expect(parts == total)
+        let split = valuator.savedSplit(of: change)
+        let soFar = CheckInSoFar(rate: rate, split: split)
+        let markets = split.market + split.other
+        #expect(soFar.markets == markets)
+        // Decimal division leaves differences in the last of its 38 digits.
+        let gap = abs(soFar.netSaved + soFar.markets + soFar.lost - change.total.change)
+        let tolerance = Decimal(sign: .plus, exponent: -6, significand: 1)
+        #expect(gap < tolerance)
         #expect(soFar.saved == rate?.saved ?? 0)
         let amounts = soFar.wentTo.map(\.amount)
         let sorted = amounts.sorted(by: >)
