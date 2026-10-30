@@ -345,8 +345,6 @@ struct ImportStepContent: View {
             ImportColumnsStep(model: model)
         case .types:
             ImportTypesStep(model: model)
-        case .classify:
-            ImportClassifyStep(model: model)
         case .accounts:
             ImportAccountsStep(model: model)
         case .preview:
@@ -520,8 +518,7 @@ struct ImportBottomBar: View {
         }
     }
 
-    /// Why Continue waits, in the warning color; on Income, how lines
-    /// count until they're answered.
+    /// Why Continue waits, in the warning color.
     @ViewBuilder
     private func leading(_ flow: ImportFlow) -> some View {
         if let hint = flow.continueHint {
@@ -533,10 +530,6 @@ struct ImportBottomBar: View {
             }
             .foregroundStyle(Palette.warning)
             .lineLimit(2)
-        } else if flow.step == .classify, flow.layout == .statement {
-            Text(ImportFlow.incomeNote)
-                .foregroundStyle(Palette.secondaryInk)
-                .lineLimit(2)
         }
     }
 
