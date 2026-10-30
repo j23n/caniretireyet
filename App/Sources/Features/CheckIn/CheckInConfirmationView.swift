@@ -95,21 +95,23 @@ struct CheckInConfirmationView: View {
     private var answerAndTiles: some View {
         if let plan = library.mainPlan, answerRun?.headline != nil, let latest = plans.mainAnswer {
             TodayAnswerAndTiles(answer: latest.answer, plan: plan, results: latest.results, today: .today(),
-                                pageWidth: pageWidth)
+                                pageWidth: pageWidth, showsCheckIn: false)
         } else {
             answerCard
             TileGrid {
-                TodayTiles(part: .all, plan: library.mainPlan, results: plans.mainAnswer?.results, today: .today())
+                TodayTiles(part: .all, plan: library.mainPlan, results: plans.mainAnswer?.results, today: .today(),
+                           showsCheckIn: false)
             }
         }
     }
 
     /// The month the check-in closes: from the check-in before.
     private func soFar(_ groups: CheckInGroups) -> CheckInSoFar {
-        guard let from = groups.from else { return CheckInSoFar(rate: nil, change: nil) }
+        guard let from = groups.from else { return CheckInSoFar(rate: nil, split: nil) }
         let valuator = library.valuator
+        let split = valuator.savedSplit(of: valuator.change(from: from, to: result.date))
         return CheckInSoFar(rate: valuator.savingsRate(from: from.adding(days: 1), through: result.date),
-                            change: valuator.change(from: from, to: result.date))
+                            split: split)
     }
 
     /// Your last Monday at work, centered on its card: the date before,
