@@ -130,11 +130,12 @@ public struct StatementLine: Hashable, Sendable, Identifiable {
                         removed: isRemoved ? true : nil, confirmed: isConfirmed ? true : nil, source: .import)
     }
 
-    /// Whether the line's answer is a purchase or a sale.
+    /// Whether the line's answer is a purchase or a sale, also one the
+    /// import leaves out because it doesn't fit.
     private var isPurchaseOrSale: Bool {
         switch asset {
         case .purchase?, .sale?: true
-        case .moved?, nil: false
+        case .moved?, nil: assetLeftOut == .doesntFit
         }
     }
 
