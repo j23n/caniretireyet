@@ -64,10 +64,10 @@ struct SavedTests {
         #expect(rate.spent == 900)
     }
 
-    /// The same month's 1,500 moves to a broker tracked before, and a
-    /// pension worth 20,000 brought in from outside starts being tracked:
-    /// the 1,500 landed in the broker, so it doesn't pay for the pension,
-    /// which started with all of it.
+    /// The same month's 1,500 moves to a broker tracked before, and a fund
+    /// worth 20,000 brought in from outside starts being tracked: the 1,500
+    /// landed in the broker, so it doesn't pay for the fund, which started
+    /// with all of it.
     @Test func moneyThatLandedInATrackedAccountDoesntPayForANewOne() throws {
         var library = library()
         library.upsert(Valuation(account: "current", date: "2025-03-31", balance: 10_600, moneyIn: 3_000,
@@ -76,14 +76,14 @@ struct SavedTests {
                                              opened: "2024-01-01", valuation: .balance)
         library.upsert(Valuation(account: "broker", date: "2025-02-28", balance: 1_000))
         library.upsert(Valuation(account: "broker", date: "2025-03-31", balance: 2_500, saved: 1_500))
-        library.accounts["pension"] = Account(id: "pension", name: "Pension", kind: .brokerage, currency: .eur,
-                                              opened: "2025-03-01", valuation: .balance)
-        library.upsert(Valuation(account: "pension", date: "2025-03-31", balance: 20_000))
+        library.accounts["fund"] = Account(id: "fund", name: "Old fund", kind: .brokerage, currency: .eur,
+                                           opened: "2025-03-01", valuation: .balance)
+        library.upsert(Valuation(account: "fund", date: "2025-03-31", balance: 20_000))
         let valuator = Valuator(library: library)
 
         let stretch = try #require(valuator.savedStretches(between: ["2025-02-28", "2025-03-31"], in: .netWorth).first)
-        #expect(stretch.saved == ["current": 600, "broker": 1_500, "pension": 0])
-        #expect(stretch.startedWith == ["pension": 20_000])
+        #expect(stretch.saved == ["current": 600, "broker": 1_500, "fund": 0])
+        #expect(stretch.startedWith == ["fund": 20_000])
         let rate = try #require(valuator.savingsRate(from: "2025-03-01", through: "2025-03-31"))
         #expect(rate.spent == 900)
     }

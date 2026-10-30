@@ -14,10 +14,11 @@ import Model
 /// the stretch's first amounts on that side in proportion to them: above
 /// zero (an asset) as far as money moved out of their cash and savings
 /// accounts that record money in and out, added up, less what their other
-/// accounts saved but pension funds, which their pay fills, as that money
-/// may have landed there, and the money taken out of their other accounts; below zero (a debt, such as a loan paid
-/// out into the current account) as far as money moved into their cash and
-/// savings accounts, added up. So a transfer between two of them cancels
+/// assets saved, as that money may have landed there (pension funds,
+/// which pay fills, and debts, whose payments are money out, aside), and
+/// the money taken out of their other accounts; below zero (a debt, such
+/// as a loan paid out into the current account) as far as money moved
+/// into their cash and savings accounts, added up. So a transfer between two of them cancels
 /// out, a broker funded from a current account that also had pay come in
 /// is paid for, and a broker's deposit or a mortgage's principal, paid
 /// from the current account, doesn't offset a debt. The rest is what it
@@ -88,7 +89,8 @@ extension Valuator {
                     movedOut -= cash.amount
                 } else {
                     takenOut += max(-account.change.saved, 0)
-                    if let kind = accounts[account.account]?.kind, !SavingsRate.pensionKinds.contains(kind) {
+                    if let kind = accounts[account.account]?.kind, !kind.isLiability,
+                       !SavingsRate.pensionKinds.contains(kind) {
                         landed += max(account.change.saved, 0)
                     }
                 }

@@ -163,9 +163,9 @@ struct SavingsRateTests {
         var library = month
         library.accounts["car"] = Account(id: "car", name: "Car", kind: .belongings, currency: .eur,
                                           opened: "2026-01-10")
-        // Bought for 20,000 from the current account in January.
+        // Bought for 20,000 from the current account in January, which moved the broker's 1,000 deposit too.
         library.upsert(Valuation(account: "bank", date: "2026-01-31", balance: -10550, saved: -20550, moneyIn: 4000,
-                                 moneyOut: 4550))
+                                 moneyOut: 3550))
         library.upsert(Valuation(account: "car", date: "2026-01-31", balance: 20000, saved: 20000))
         // Worth 19,000 at the end of February, a value without a saved amount.
         library.upsert(Valuation(account: "car", date: "2026-02-28", balance: 19000))
@@ -233,14 +233,13 @@ struct SavingsRateTests {
         #expect(split.other == report.total.other + 20000)
         #expect(split.start + split.market + split.saved + split.other == split.end)
 
-        // 5,000 moved from the bank, as its values say, but 1,700 of it may have landed in the card, broker
-        // and mortgage tracked before, which saved that much: the rest is saved. Spent is the bank's money out.
+        // 6,000 moved from the bank, as its values say, and 1,000 of it landed in the broker tracked before:
+        // the other 5,000 are saved.
         library.upsert(Valuation(account: "bank", date: "2026-01-31", balance: 4450, saved: -5550, moneyIn: 4000,
-                                 moneyOut: 4550))
+                                 moneyOut: 3550))
         let moved = try #require(Valuator(library: library).savingsRate(from: "2026-01-01", through: "2026-01-31"))
-        #expect(moved.savedByAccount["old-savings"] == 3300)
-        #expect(moved.saved == -250)
-        #expect(moved.spent == 4550)
+        #expect(moved.savedByAccount["old-savings"] == 5000)
+        #expect(moved.saved == 1450)
     }
 
     /// A loan you start tracking at a check-in of its own owed what it owes
