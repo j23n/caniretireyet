@@ -193,10 +193,14 @@ extension Library {
 
 extension Library {
     /// Saves changed or new bank lines, then writes the money in and out
-    /// of their accounts' values from them again (``countLines(of:)``).
+    /// of their accounts' values from them again (``countLines(of:)``), and
+    /// keeps the deposits of money they move to an account that records
+    /// trades in step with them (``recordDeposits(changing:to:)``).
     public mutating func save(_ lines: [BankLine]) {
+        let before = lines.compactMap { line($0.key) }
         lines.forEach { upsert($0) }
         for account in Set(lines.map(\.account)) { countLines(of: account) }
+        recordDeposits(changing: before, to: lines)
     }
 
     /// Sets the balance the bank shows for `account` on `date`, the end of

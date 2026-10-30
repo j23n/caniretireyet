@@ -172,6 +172,60 @@ extension Library {
                      amount: -line.amount, source: .manual))
     }
 
+    /// Keeps the deposits that saved lines stand for in step with them
+    /// (docs/TRADES.md, "A brokerage month"), so money moved to an account
+    /// that records trades counts as saved as soon as the line says so: a
+    /// line that now moves money to such an account, and that no deposit
+    /// or withdrawal matches, gets one (``addDeposit(for:)``); a line that
+    /// no longer moves it there loses the one recorded for it by hand, on
+    /// its day, of its amount. A deposit from the broker's own file stays.
+    mutating func recordDeposits(changing before: [BankLine], to after: [BankLine]) {
+        let saved = Dictionary(after.map { ($0.key, $0) }) { $1 }
+        for old in before {
+            guard let move = depositMove(old), depositMove(saved[old.key]) != move,
+                  let trade = trades(for: move.account).first(where: move.isRecorded)
+            else { continue }
+            removeTradeRecord(trade.key)
+        }
+        let moves = after.compactMap { line in depositMove(line).map { (line: line, move: $0) } }
+        guard let through = moves.map({ $0.line.date }).max() else { return }
+        let valuator = Valuator(library: self)
+        let keys = Set(moves.map { $0.line.key })
+        for account in Set(moves.map { $0.move.account }).sorted() {
+            guard let ledger = valuator.ledger(for: account) else { continue }
+            let toAdd = Valuator.depositsToAdd(to: account, after: nil, through: through, ledger: ledger,
+                                               library: self)
+            for line in toAdd where keys.contains(line.key) { addDeposit(for: line) }
+        }
+    }
+
+    /// The deposit or withdrawal `line` stands for: money it moved to an
+    /// account that records trades, in its own account's currency and open
+    /// by the line's day. `nil` for any other line.
+    private func depositMove(_ line: BankLine?) -> DepositMove? {
+        guard let line, !line.isRemoved, line.statementClass == .transfer, line.amount != 0,
+              let other = line.otherAccount, let account = accounts[other], account.recordsTrades,
+              account.currency == accounts[line.account]?.currency, account.opened <= line.date
+        else { return nil }
+        return DepositMove(account: other, date: line.date, amount: -line.amount)
+    }
+}
+
+/// Money a line moved to an account that records trades: a deposit of
+/// ``amount``, or a withdrawal when it's below zero.
+private struct DepositMove: Hashable {
+    var account: AccountID
+    var date: CalendarDate
+    var amount: Decimal
+
+    /// Whether `trade` is the one ``Library/addDeposit(for:)`` recorded for it.
+    func isRecorded(_ trade: Trade) -> Bool {
+        trade.source == .manual && trade.date == date && trade.amount == amount
+            && trade.type == (amount > 0 ? .deposit : .withdrawal)
+    }
+}
+
+extension Library {
     /// Sets the cash the broker states for `account` on `date`: the `cash`
     /// of its value on that date; the value's other fields stay.
     public mutating func setBrokerCash(_ cash: Decimal, of account: AccountID, on date: CalendarDate) {

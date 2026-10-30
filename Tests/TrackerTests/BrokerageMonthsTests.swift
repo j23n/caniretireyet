@@ -119,6 +119,69 @@ struct BrokerageMonthsTests {
         #expect(!month.status.isDone)
     }
 
+    /// Saving a line that moves money to the broker adds its deposit, so
+    /// it counts as saved at once; saving it as something else takes the
+    /// deposit away again.
+    @Test func savingAMoveKeepsItsDeposit() throws {
+        var library = Self.library()
+        var line = try #require(library.lines(for: "conto").first)
+        library.save([line])
+        let deposit = try #require(Self.deposits(library).first)
+        #expect(deposit.amount == 1500)
+        #expect(deposit.date == "2026-10-03")
+        let october = try Self.october(library)
+        #expect(october.depositsToAdd.isEmpty)
+
+        library.save([line])
+        #expect(Self.deposits(library).count == 1)
+
+        line.statementClass = .spending
+        line.otherAccount = nil
+        library.save([line])
+        #expect(Self.deposits(library).isEmpty)
+    }
+
+    /// Removing the line takes its deposit away too.
+    @Test func removingAMoveTakesItsDepositAway() throws {
+        var library = Self.library()
+        var line = try #require(library.lines(for: "conto").first)
+        library.save([line])
+        line.removed = true
+        library.save([line])
+        #expect(Self.deposits(library).isEmpty)
+    }
+
+    /// A deposit from the broker's own file is the move's: saving the line
+    /// adds none, and saving it as something else leaves it.
+    @Test func theBrokersOwnDepositStays() throws {
+        var library = Self.library()
+        library.upsert(Trade(account: "broker", date: "2026-10-06", id: "dep", type: .deposit, amount: 1500,
+                             source: .import))
+        var line = try #require(library.lines(for: "conto").first)
+        library.save([line])
+        let ids: [TradeID] = Self.deposits(library).map(\.id)
+        #expect(ids == ["dep"])
+
+        line.statementClass = .spending
+        line.otherAccount = nil
+        library.save([line])
+        let left: [TradeID] = Self.deposits(library).map(\.id)
+        #expect(left == ["dep"])
+    }
+
+    /// Money moved to an account in another currency gets no deposit.
+    @Test func savingAMoveInAnotherCurrencyAddsNone() throws {
+        var library = Self.library()
+        library.accounts["broker"]?.currency = .usd
+        let line = try #require(library.lines(for: "conto").first)
+        library.save([line])
+        #expect(Self.deposits(library).isEmpty)
+    }
+
+    private static func deposits(_ library: Library) -> [Trade] {
+        library.trades(for: "broker").filter { $0.type == .deposit }
+    }
+
     @Test func monthsListTheTradesAccounts() {
         let library = Self.library()
         let months = Valuator(library: library).brokerageMonths(after: "2026-09-30", through: "2026-10-31",
