@@ -232,6 +232,8 @@ extension ImportPreview {
 
         for line in lines where library.accounts[line.account] != nil {
             var write = line
+            // A purchase's account that wasn't created can't be where the money went.
+            if let other = write.otherAccount, library.accounts[other] == nil { write.otherAccount = nil }
             if let existing = library.line(line.key) {
                 // What was removed, or confirmed since, stays as it is, unless this import chose it again.
                 if existing.isRemoved || (existing.isConfirmed && !line.isConfirmed) { continue }

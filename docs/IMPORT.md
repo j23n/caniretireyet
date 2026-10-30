@@ -337,7 +337,7 @@ A cash, savings or tax-pot account's statement lines can be kept in the monthly 
 
 Lines are keyed by account, date and **ID**. An imported line's ID is made from its account, date, amount and text, and its position among the file's lines with all of these equal (`BankLineID.stable`), so importing the same file again finds the same lines and keeps what you changed. A line typed in gets a random ID. Loading points out a line of an account, or moved to an account, that doesn't exist.
 
-**Importing** a statement writes its lines (`ImportPreview.lines`, `ImportResult.linesWritten`) when it writes the account's values. A line whose class was chosen in the import is confirmed; any other class, from a rule, the usual words or a sender's history, is a suggestion, with the other account when the import knows it. Importing a file again, or another file with some of the same lines, finds the library's lines by their IDs:
+**Importing** a statement writes its lines (`ImportPreview.lines`, `ImportResult.linesWritten`), also when the library's values are kept: a stretch that doesn't add up then shows the difference. A line whose class was chosen in the import, or remembered from an earlier one, is confirmed; any other class, from a rule, the usual words or a sender's history, is a suggestion, with the other account when the import knows it and it exists. Importing a file again, or another file with some of the same lines, finds the library's lines by their IDs:
 
 - a **removed** line stays removed, whatever the import chooses for it: it counts in nothing, and isn't in the balance the lines lead to;
 - a **confirmed** line keeps what it is, money moved to its other account included, unless the import chooses again;

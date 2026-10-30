@@ -119,6 +119,19 @@ struct StatementLinesTests {
         #expect(kept.isConfirmed)
     }
 
+    /// A line moved to an account the import doesn't create, such as a
+    /// purchase's whose new account was turned off, names no account.
+    @Test func aLineKeepsOnlyAnAccountThatExists() throws {
+        var preview = ImportPreview()
+        preview.lines = [BankLine(account: "conto", date: "2026-01-05", id: "a", amount: -900,
+                                  statementClass: .transfer, otherAccount: "auto-nuova", confirmed: true)]
+        let line = try #require(preview.apply(to: Self.library()).library.line(BankLineKey(account: "conto",
+                                                                                          date: "2026-01-05",
+                                                                                          id: "a")))
+        #expect(line.otherAccount == nil)
+        #expect(line.statementClass == .transfer)
+    }
+
     /// A line no one confirmed is the import's suggestion, which a new
     /// import replaces; its note stays.
     @Test func anUnconfirmedLineTakesTheNewSuggestion() throws {
