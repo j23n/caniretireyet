@@ -65,7 +65,8 @@ struct IncomeSummary: Hashable, Sendable {
     /// "2025 · 3 accounts".
     var title: String
     var cameIn: Decimal
-    /// Tax paid and set aside, a positive amount.
+    /// Tax for the days covered: bills spread over the year before each,
+    /// and what was set aside in tax pots, a positive amount.
     var tax: Decimal
     var afterTax: Decimal
     var spent: Decimal
