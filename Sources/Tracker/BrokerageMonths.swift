@@ -116,26 +116,46 @@ extension Valuator {
     /// ``BrokerageMonth/matchingDays``. Each trade matches one line.
     static func depositsToAdd(to account: AccountID, after from: CalendarDate?, through: CalendarDate,
                               ledger: TradeLedger, library: Library) -> [BankLine] {
-        let moved = library.accounts.keys.filter { $0 != account }.flatMap { library.lines(for: $0) }
-            .filter { line in
-                line.statementClass == .transfer && line.otherAccount == account && !line.isRemoved
-                    && line.date <= through && (from.map { line.date > $0 } ?? true)
+        var moved: [BankLine] = []
+        for other in library.accounts.keys where other != account {
+            moved += library.lines(for: other).filter { line in
+                isMove(line, to: account, after: from, through: through)
             }
-            .sorted { $0.key < $1.key }
-        guard !moved.isEmpty else { return [] }
-        let days = BrokerageMonth.matchingDays
-        var flows = ledger.entries(after: moved[0].date.adding(days: -days - 1),
-                                   through: through.adding(days: days))
-            .filter { $0.type == .deposit || $0.type == .withdrawal }
-        return moved.filter { line in
-            let index = flows.firstIndex { entry in
-                entry.amount == -line.amount && entry.date >= line.date.adding(days: -days)
-                    && entry.date <= line.date.adding(days: days)
-            }
-            guard let index else { return true }
-            flows.remove(at: index)
-            return false
         }
+        guard let first = moved.map(\.date).min() else { return [] }
+        moved.sort { $0.key < $1.key }
+        let days = BrokerageMonth.matchingDays
+        let nearby: ArraySlice<TradeEntry> = ledger.entries(after: first.adding(days: -days - 1),
+                                                            through: through.adding(days: days))
+        var flows: [TradeEntry] = nearby.filter { $0.type == .deposit || $0.type == .withdrawal }
+        var unmatched: [BankLine] = []
+        for line in moved {
+            if let index = flows.firstIndex(where: { matches($0, line, days: days) }) {
+                flows.remove(at: index)
+            } else {
+                unmatched.append(line)
+            }
+        }
+        return unmatched
+    }
+
+    /// Whether `line` moved money to or from `account` after `from`
+    /// through `through`.
+    private static func isMove(_ line: BankLine, to account: AccountID, after from: CalendarDate?,
+                               through: CalendarDate) -> Bool {
+        guard line.statementClass == .transfer, line.otherAccount == account, !line.isRemoved else { return false }
+        guard line.date <= through else { return false }
+        guard let from else { return true }
+        return line.date > from
+    }
+
+    /// Whether `entry` is the other side of `line`: the same amount the
+    /// other way, within `days` days of it.
+    private static func matches(_ entry: TradeEntry, _ line: BankLine, days: Int) -> Bool {
+        guard let amount = entry.amount, amount == -line.amount else { return false }
+        let earliest: CalendarDate = line.date.adding(days: -days)
+        let latest: CalendarDate = line.date.adding(days: days)
+        return entry.date >= earliest && entry.date <= latest
     }
 }
 
