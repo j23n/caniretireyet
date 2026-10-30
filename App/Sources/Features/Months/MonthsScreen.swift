@@ -10,10 +10,13 @@ import Tracker
 ///
 /// - A month not done offers *Import CSV…*, which reads a bank's statement
 ///   into lines (``MonthImportSheet``), and *Type Totals…* for a month
-///   without a CSV (``MonthTypedTotalsSheet``).
+///   without a CSV (``MonthTypedTotalsSheet``). On iPhone its row says
+///   *Start* and opens the month, which asks which (``MonthStartView``).
 /// - Any other opens its lines (``MonthLinesScreen``), also a past month to
 ///   fix one: the months after it follow.
-/// - A past month shows what came in, was spent and was saved.
+/// - A past month shows what came in, was spent and was saved. On iPhone
+///   the months before the newest are a row each, which opens the month
+///   (``MoneyMonthScreen``).
 /// - *Add Past Statements…* opens the import for as many CSVs as you have
 ///   (UI.md, "Add past statements").
 struct MonthsScreen: View {
@@ -35,12 +38,19 @@ struct MonthsScreen: View {
         let count = library.library.moneyMonthCount(next: nextCheckIn)
         ScrollView {
             VStack(alignment: .leading, spacing: Metrics.xl) {
-                Text("One import per account per month. Each month opens at the closing balance before it, and "
-                    + "it's done when it adds up and every line is checked.")
-                    .foregroundStyle(Palette.secondaryInk)
-                    .fixedSize(horizontal: false, vertical: true)
-                ForEach(shown) { month in
-                    MoneyMonthSection(month: month, importCSV: { importing = $0 }, typeTotals: { typing = $0 })
+                if layout.isWide {
+                    Text("One import per account per month. Each month opens at the closing balance before it, "
+                        + "and it's done when it adds up and every line is checked.")
+                        .foregroundStyle(Palette.secondaryInk)
+                        .fixedSize(horizontal: false, vertical: true)
+                    ForEach(shown) { month in
+                        MoneyMonthSection(month: month, importCSV: { importing = $0 }, typeTotals: { typing = $0 })
+                    }
+                } else if let newest = shown.first {
+                    MoneyMonthSection(month: newest, importCSV: { importing = $0 }, typeTotals: { typing = $0 })
+                    if shown.count > 1 {
+                        EarlierMonths(months: Array(shown.dropFirst()))
+                    }
                 }
                 if shown.count < count {
                     Button("Show Older Months") { showsOlder = true }
@@ -64,6 +74,9 @@ struct MonthsScreen: View {
         }
         .navigationDestination(for: BrokerageRoute.self) { route in
             BrokerageMonthScreen(route: route)
+        }
+        .navigationDestination(for: MoneyMonthRoute.self) { route in
+            MoneyMonthScreen(route: route, next: nextCheckIn)
         }
         .navigationDestination(item: $opened) { route in
             MonthLinesScreen(route: route)
@@ -96,10 +109,16 @@ extension MonthRoute: Identifiable {
     var id: String { "\(account) \(through)" }
 }
 
+/// A check-in's months on iPhone, opened from its row under *Earlier*.
+struct MoneyMonthRoute: Hashable, Sendable {
+    var through: CalendarDate
+}
+
 /// One check-in's months: its title, how many are left to do or what came
 /// in, was spent and saved, and a row per account.
 private struct MoneyMonthSection: View {
     let month: MoneyMonth
+    var showsTitle = true
     let importCSV: (MonthRoute) -> Void
     let typeTotals: (MonthRoute) -> Void
 
@@ -112,9 +131,11 @@ private struct MoneyMonthSection: View {
         let allDone = month.toDo.isEmpty && brokerage.allSatisfy(\.status.isDone)
         VStack(alignment: .leading, spacing: Metrics.s) {
             HStack(alignment: .firstTextBaseline) {
-                Text(MonthText.title(month.through, locale: locale))
-                    .font(.title3.bold())
-                    .privacySensitiveInFeedback()
+                if showsTitle {
+                    Text(MonthText.title(month.through, locale: locale))
+                        .font(.title3.bold())
+                        .privacySensitiveInFeedback()
+                }
                 Spacer(minLength: Metrics.s)
                 Text(MonthText.progress(month, brokerage: brokerage))
                     .font(.subheadline.weight(.semibold))
@@ -145,6 +166,107 @@ private struct MoneyMonthSection: View {
     private var totals: SavingsRate? {
         guard let from = month.from else { return nil }
         return library.valuator.savingsRate(from: from.adding(days: 1), through: month.through)
+    }
+}
+
+/// *Earlier* on iPhone: each check-in before the newest as one row, with
+/// how many of its months are left to do or what it saved, opening it.
+private struct EarlierMonths: View {
+    let months: [MoneyMonth]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Metrics.s) {
+            Text("Earlier")
+                .font(.title3.bold())
+            CardRows {
+                ForEach(months) { month in
+                    EarlierMonthRow(month: month)
+                }
+            }
+        }
+    }
+}
+
+/// "September 2026 · All done · saved 1.346 €", opening the check-in's
+/// months.
+private struct EarlierMonthRow: View {
+    let month: MoneyMonth
+
+    @Environment(LibraryStore.self) private var library
+    @Environment(\.baseCurrency) private var baseCurrency
+    @Environment(\.locale) private var locale
+
+    var body: some View {
+        let brokerage = library.valuator.brokerageMonths(after: month.from, through: month.through,
+                                                         in: library.library)
+        let toDo = month.toDo.count + brokerage.filter { !$0.status.isDone }.count
+        let hasOff = month.accounts.contains { if case .off = $0.status { true } else { false } }
+        NavigationLink(value: MoneyMonthRoute(through: month.through)) {
+            HStack(spacing: Metrics.s) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(MonthText.title(month.through, locale: locale))
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(Palette.ink)
+                        .privacySensitiveInFeedback()
+                    AmountSentenceText(status(toDo: toDo, brokerage: brokerage))
+                        .font(.subheadline)
+                        .foregroundStyle(toDo == 0 ? Palette.good : hasOff ? Palette.warning : Palette.secondaryInk)
+                }
+                Spacer(minLength: Metrics.s)
+                Text(toDo == 0 ? "Open" : hasOff ? "Fix" : "Check")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(toDo > 0 && hasOff ? Palette.warning : Palette.accent)
+                Image(systemName: "chevron.right")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(Palette.mutedInk)
+                    .accessibilityHidden(true)
+            }
+            .padding(.vertical, Metrics.m)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    /// "All done · saved 1.346 €", or "1 of 5 to do".
+    private func status(toDo: Int, brokerage: [BrokerageMonth]) -> AmountSentence {
+        let progress = AmountSentence(MonthText.progress(month, brokerage: brokerage))
+        guard toDo == 0, let from = month.from,
+              let rate = library.valuator.savingsRate(from: from.adding(days: 1), through: month.through)
+        else { return progress }
+        let amount = AmountFormat.amount(rate.saved, currency: baseCurrency, precision: .whole, locale: locale)
+        return progress + " · saved \(amount: amount)"
+    }
+}
+
+/// One check-in's months on iPhone, opened from *Earlier*: what came in,
+/// was spent and saved, and a row per account.
+struct MoneyMonthScreen: View {
+    let route: MoneyMonthRoute
+    /// The check-in still to come, as *Money In and Out* lists it.
+    let next: CalendarDate
+
+    @Environment(LibraryStore.self) private var library
+    @Environment(\.pageLayout) private var layout
+    @Environment(\.locale) private var locale
+    @State private var importing: MonthRoute?
+    @State private var typing: MonthRoute?
+
+    var body: some View {
+        ScrollView {
+            if let month = library.library.moneyMonths(next: next).first(where: { $0.through == route.through }) {
+                MoneyMonthSection(month: month, showsTitle: false, importCSV: { importing = $0 },
+                                  typeTotals: { typing = $0 })
+                    .padding(layout.gutter)
+            }
+        }
+        .background(Palette.page)
+        .personalNavigationTitle(MonthText.title(route.through, locale: locale), hidden: "Month")
+        .sheet(item: $importing) { route in
+            MonthImportSheet(route: route)
+        }
+        .sheet(item: $typing) { route in
+            MonthTypedTotalsSheet(route: route)
+        }
     }
 }
 
@@ -181,16 +303,19 @@ struct MonthTotalsStrip: View {
 
 /// An account's month: its name and where it stands, with *Import CSV…*
 /// and *Type Totals…* while it's not done, and opening its lines otherwise.
+/// On iPhone it always opens the month, with one word: *Start*, *Fix*,
+/// *Check* or *Open*.
 struct MonthAccountRow: View {
     let month: AccountMonth
     let importCSV: () -> Void
     let typeTotals: () -> Void
 
     @Environment(LibraryStore.self) private var library
+    @Environment(\.pageLayout) private var layout
     @Environment(\.locale) private var locale
 
     var body: some View {
-        if month.status == .notDone {
+        if month.status == .notDone, layout.isWide {
             // The buttons go under the label when the line is too narrow
             // for both, so neither is cut short.
             ViewThatFits(in: .horizontal) {
@@ -213,7 +338,7 @@ struct MonthAccountRow: View {
                 HStack(spacing: Metrics.s) {
                     label
                     Spacer(minLength: Metrics.s)
-                    Text(month.status.isDone ? "Open" : isOff ? "Fix" : "Check")
+                    Text(action)
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(isOff ? Palette.warning : Palette.accent)
                     Image(systemName: "chevron.right")
@@ -230,6 +355,12 @@ struct MonthAccountRow: View {
 
     private var isOff: Bool {
         if case .off = month.status { true } else { false }
+    }
+
+    /// The row's one word.
+    private var action: String {
+        if month.status == .notDone { return "Start" }
+        return month.status.isDone ? "Open" : isOff ? "Fix" : "Check"
     }
 
     @ViewBuilder

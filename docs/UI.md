@@ -468,6 +468,7 @@ September 2026                                     All done
 - A month opens at the closing balance of the month before. It's **done** when its lines add up to the bank's balance and every line is checked, when its totals were typed, or when it has a balance alone.
 - A month not done offers **Import CSV…** and **Type Totals…**. The month still to come, whose check-in is after today, offers only *Import CSV…*: its balance goes in at the check-in, so nothing is dated after today. Any other opens **its lines**, also a past month: fixing one changes what it saved, and the months after it follow, since each opens at the balance before it.
 - A past month shows what came in, was spent and was saved over it, as the savings rate counts them.
+- **On iPhone** there's no introduction, and each row ends in one word: *Start*, *Fix*, *Check* or *Open*. *Start* opens the month, which asks how to fill it in: "Opens at 412,30 €. How do you want to fill in October?", with a card for *Import CSV* ("Your bank's export for the month. Every line is kept, to check one by one.") and one for *Type Totals* ("Four numbers from your bank's app, when there's no CSV."), not for the month still to come. Only the newest check-in shows its months; the ones before it are a row each under *Earlier* ("September 2026 · All done · saved 1.346 €", "1 of 5 to do"), which opens that check-in's months.
 - **Add Past Statements…** in the toolbar opens the import with as many CSVs as you have ([Add past statements](#add-past-statements)).
 
 ### Import CSV
@@ -476,14 +477,16 @@ The bank's CSV for one account's month, read as a statement of that account thro
 
 ### Typed totals
 
-*Type Totals…* is for a month without a CSV: what came in, what moved in from your other accounts, what was spent, the tax paid, what moved out, and the bank's closing balance. The totals have to lead from the opening balance to the closing one; while they don't, the sheet says by how much, with *Count as Spent* (the closing balance is lower) or *Count as Came In* (higher) to put the difference there. *Save* keeps the balance, what came in, the spending and the tax.
+*Type Totals…* is for a month without a CSV, under "Revolut · October · opens at 412,30 €": four numbers from the bank's app, what came in, what was spent, the tax paid, and the bank's balance. The rest moved between your accounts, and the sheet shows it as one line ("The rest moved between your accounts +300,00 €"): it's neither income nor spending. *Save* keeps the balance, what came in, the spending and the tax.
 
 ### A month's lines
 
-One account's month: its lines in date order, each with its date, the bank's text, its amount and what it is (a chip: Income, Spending, Tax, Moved to *account*, One-off, Interest for an account that records it, Not counted). A suggestion's chip is dashed, with a question mark, until it's checked. Filters: All, To Check, Spending, Moved, Removed.
+One account's month: its lines in date order, each with the bank's text and its amount, then its date and what it is (a chip: Income, Spending, Tax, Moved to *account*, One-off, Interest for an account that records it, Not counted): "3 Oct · Moved to Directa?". A suggestion's chip is dashed, with a question mark, until it's checked. Filters: All, To Check, Spending, Moved, Removed.
+
+On iPhone the screen is one column: a banner saying whether it adds up, the filters *All* and *To Check*, the lines (two lines each, without notes), then *Does it add up?* with the bank's balance and the months after it. *Add Line* is the + in the toolbar and *Import CSV…* is in its menu; the one button at the bottom is *Accept N Suggestions*, while there are any.
 
 - **Does it add up?** The opening balance, plus money in, less money out, is the closing balance the lines lead to; beside it the bank's balance on the check-in's date, which can be typed. A month that doesn't add up says by how much: a line is missing, listed twice, or a balance was typed wrong.
-- **A line** opens its editor, beside the lines on the Mac and iPad and as a sheet on iPhone: buttons for what it is; for money moved, to which of your accounts (it's saved right away, not spent); *The same for the other N lines* from the same words this month, and *Remember it* for the next statements (a rule in the account's import profile, when it has one); a note; *Remove Line* for one listed twice, or *Restore Line*; and *Confirm*, which checks it.
+- **A line** opens its editor, beside the lines on the Mac and iPad and as a sheet on iPhone: buttons for what it is; for money moved, to which of your accounts (it's saved right away, not spent); *The same for the other N lines* from the same words this month, and *Remember it* for the next statements (a rule in the account's import profile, when it has one), on iPhone only for money moved; a note; *Remove Line* for one listed twice, or *Restore Line*; and *Confirm*, which checks it.
 - **Add Line** types in one the bank's export left out: its day in the month, money in or out, the amount, the bank's text and what it is. It's confirmed.
 - The side shows the month's totals (came in, interest, one-offs, tax, spent, moved, saved) and, for a past month, the months after it, which follow a change.
 
@@ -925,7 +928,7 @@ At most one note a day: the monthly note keeps its day, and a yearly note that f
 
 **Changes.** Always a sign and an arrow as well as colour: ▲ +4.210 in the success-green text colour, ▼ −240 in red. Never colour alone. A change that shows as zero gets neither: `0 €`, in grey.
 
-**Fields.** Every field you can type in looks like one. In a form, its row has its label on the left and the field on the right, with a grey prompt ("0") while it's empty and the currency or unit after it, so the label stays once a value is typed (`FormNumberField`, `FormTextField`). Outside a form, on a card, a field has a rounded 1 pt outline that turns into a 2 pt outline in the accent while you type, with the currency's symbol before an amount when the account is known (`OutlinedAmountField`, `typedFieldOutline`): a check-in's typed balances, the bank's balance and the broker's cash in a month, the balance before a file's first line in the import, a line's note.
+**Fields.** Every field you can type in looks like one: it has a rounded 1 pt outline that turns into a 2 pt outline in the accent while you type (`typedFieldOutline`). In a form, its row has its label on the left and the outlined field on the right, with a grey prompt ("0") while it's empty and the currency or unit after it, so the label stays once a value is typed (`FormNumberField`, `FormTextField`). Outside a form, on a card, an amount's field has the currency's symbol before it when the account is known (`OutlinedAmountField`): a check-in's typed balances, the bank's balance and the broker's cash in a month, the balance before a file's first line in the import, a line's note.
 
 **Colour in charts** follows the dataviz reference palette, in light and dark variants.
 
