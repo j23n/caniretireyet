@@ -169,6 +169,21 @@ struct MonthLineEdit: Hashable, Sendable {
         phrase = line.suggestedPhrase
     }
 
+    /// Whether the editor offers *The same for the other lines* and
+    /// *Remember it*: always on the Mac and iPad, on iPhone only for money
+    /// moved.
+    func offersSimilar(isWide: Bool) -> Bool {
+        isWide || statementClass == .transfer
+    }
+
+    /// Turns off ``appliesToSimilar`` and ``remembers`` while the editor
+    /// doesn't offer them, so a toggle that isn't on screen changes nothing.
+    mutating func dropSimilarNotOffered(isWide: Bool) {
+        guard !offersSimilar(isWide: isWide) else { return }
+        appliesToSimilar = false
+        remembers = false
+    }
+
     /// The lines it changes in `library`: `line`, and with
     /// ``appliesToSimilar`` the month's other lines with ``phrase`` that
     /// aren't confirmed, each confirmed with the class chosen.

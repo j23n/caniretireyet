@@ -38,7 +38,7 @@ struct MonthLineEditor: View {
             if edit.statementClass == .transfer {
                 otherAccountPicker
             }
-            if layout.isWide || edit.statementClass == .transfer {
+            if edit.offersSimilar(isWide: layout.isWide) {
                 similarToggles
             }
             TextField("Note (optional)", text: $edit.note, axis: .vertical)
@@ -62,6 +62,9 @@ struct MonthLineEditor: View {
                 .disabled(line.isRemoved)
             }
             .disabled(!library.canEdit)
+        }
+        .onChange(of: edit.statementClass) { _, _ in
+            edit.dropSimilarNotOffered(isWide: layout.isWide)
         }
     }
 

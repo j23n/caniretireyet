@@ -100,6 +100,26 @@ struct MonthsDataTests {
         #expect(changed.first?.statementClass == .oneOff)
     }
 
+    /// On iPhone the same-words toggles are only for money moved: leaving
+    /// it turns them off, so hidden toggles change nothing.
+    @Test func similarTogglesOnlyForMovedOnIPhone() {
+        var edit = MonthLineEdit(Self.line("2026-09-03", "move", -400, "Bonifico Directa", .transfer))
+        edit.appliesToSimilar = true
+        edit.remembers = true
+        #expect(edit.offersSimilar(isWide: false))
+        edit.dropSimilarNotOffered(isWide: false)
+        #expect(edit.appliesToSimilar && edit.remembers)
+
+        edit.statementClass = .spending
+        #expect(edit.offersSimilar(isWide: true))
+        edit.dropSimilarNotOffered(isWide: true)
+        #expect(edit.appliesToSimilar && edit.remembers)
+
+        #expect(!edit.offersSimilar(isWide: false))
+        edit.dropSimilarNotOffered(isWide: false)
+        #expect(!edit.appliesToSimilar && !edit.remembers)
+    }
+
     /// Four typed numbers: what moved between your accounts is the rest.
     @Test func typedTotalsMoveTheRest() {
         let totals = MonthTypedTotals(opening: PreviewLibrary.d("412.30"), spent: PreviewLibrary.d("287.40"),
