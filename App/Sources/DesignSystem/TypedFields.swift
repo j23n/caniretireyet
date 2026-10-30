@@ -183,12 +183,15 @@ struct PillLabel: View {
 }
 
 /// A text field outside the shared fields: plain, in the rounded outline,
-/// focus and all (`typedFieldOutline(isFocused:)`).
+/// focus and all (`typedFieldOutline(isFocused:)`). Its label is hidden,
+/// so in a Mac form the outline holds the field alone: its prompt says
+/// what it's for.
 private struct OutlinedField: ViewModifier {
     @FocusState private var isFocused: Bool
 
     func body(content: Content) -> some View {
         content
+            .labelsHidden()
             .textFieldStyle(.plain)
             .focused($isFocused)
             .typedFieldOutline(isFocused: isFocused)
