@@ -401,7 +401,7 @@ Once a month: import the month's files, update the values you type, look at what
   - **Stale** means the latest value is older than the threshold (45 days by default). An account that holds nothing (a zero balance, or no cash and no quantity) has nothing to check in, so it's never stale: not in the list, the sidebar, its detail or *Needs attention*.
   - Swipe actions (iPhone): *Close*. The context menu adds *Edit Account…*. Values are typed on the account's page, for an account that takes them.
   - Closed accounts sit under *Closed* at the bottom.
-  - On iPhone the toolbar has *More*, with *Import Files…* and *Instruments*, and *New Account*.
+  - On iPhone the toolbar has *More*, with *Import Files…* and *Instruments*, *New Account* and the eye.
   - **Collapsing.** Tapping a group's name, or *Closed*'s, collapses it to a row (name, subtotal or count, and a clock when one of its accounts is stale); collapsed groups next to each other share one card, and tapping a row expands its group again, with an animation. The groups start expanded and *Closed* collapsed. The device remembers which are collapsed, and the sidebar shares them: collapsing Cash in the accounts list collapses it in the sidebar too (on an iPad that switches layouts), and the other way round.
   - On the Mac the cards are a scrolling page; on iPhone and iPad they're a grouped list.
 - **Account detail.**
@@ -504,7 +504,7 @@ A brokerage, crypto or metals account records its **trades** ([TRADES.md](TRADES
 
 ## Ahead
 
-The plan. Its name is its menu (Base case ▾: the plans, then New Plan, Duplicate, Rename…, Set as Main Plan, then what every chapter shares, *Assumptions…*, *Target Mix…* and *Flexible Spending…*, then *Export Calculations…* under how the results shown were calculated, "Calculated at 09:41 with 2.000 runs" or "Not calculated yet", and Delete…, whose confirmation says "The dates it worked out at your check-ins stay in the library."). Then one page: your last Monday with the plan's chart to its end, What if, the key numbers, and your life ahead. On iPhone the page has no navigation bar: it draws "Ahead" as its large title, with the plan menu beside it. On the Mac and iPad a header row holds "Ahead", the plan menu under it and how the results were calculated; the toolbar has *Calculate* (*Recalculate* once there are results). *New Plan*, *Duplicate*, moving the levers, *Save as a New Plan…* and *Export Calculations…* come with [Plus](#plus); without it they open the paywall.
+The plan. Its name is its menu (Base case ▾: the plans, then New Plan, Duplicate, Rename…, Set as Main Plan, then what every chapter shares, *Assumptions…*, *Target Mix…* and *Flexible Spending…*, then *Export Calculations…* under how the results shown were calculated, "Calculated at 09:41 with 2.000 runs" or "Not calculated yet", and Delete…, whose confirmation says "The dates it worked out at your check-ins stay in the library."). Then one page: your last Monday with the plan's chart to its end, What if, the key numbers, and your life ahead. On iPhone the page has no navigation bar: it draws "Ahead" as its large title, with the plan menu and the eye beside it. On the Mac and iPad a header row holds "Ahead", the plan menu under it and how the results were calculated; the toolbar has *Calculate* (*Recalculate* once there are results) and the eye. *New Plan*, *Duplicate*, moving the levers, *Save as a New Plan…* and *Export Calculations…* come with [Plus](#plus); without it they open the paywall.
 
 ### Calculating
 
