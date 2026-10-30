@@ -57,6 +57,8 @@ struct ImportFirstCheckInTests {
         let quarters = try #require(flow.firstCheckIn)
         #expect(quarters.ends == .quarters)
         #expect(quarters.values.count < months.values.count)
+        #expect(quarters.note.contains("past check-in"))
+        #expect(quarters.note.contains("one at each quarter end, and at the end of each file"))
         let checked = quarters.before.map(\.date)
         #expect(checked == quarters.values)
     }
