@@ -73,10 +73,11 @@ extension NetWorthGlance {
 }
 
 extension NetWorthChange {
-    /// The change between two check-ins, from Tracker's report.
+    /// The change between two check-ins, from Tracker's report, with lost
+    /// value under other.
     public init(_ report: ChangeReport) {
         self.init(from: report.from, to: report.to, start: report.total.start, markets: report.total.market,
-                  saved: report.total.saved, other: report.total.other, end: report.total.end)
+                  saved: report.total.saved, other: report.total.other + report.total.lost, end: report.total.end)
     }
 }
 

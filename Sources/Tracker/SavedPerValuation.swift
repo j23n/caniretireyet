@@ -56,7 +56,9 @@ extension Valuator {
     /// (``saved(_:previous:)``).
     ///
     /// - Whole change (current accounts, cards, loans, mortgages, belongings):
-    ///   the new amount minus the previous one.
+    ///   the new amount minus the previous one. For belongings with a
+    ///   depreciation, less the loss of value it gives since the previous
+    ///   one: that's lost, neither spent nor saved.
     /// - Change less interest (savings): the whole change minus the
     ///   valuation's `interest`, so the interest counts as market.
     /// - Asked (pension fund, TFR, property, other): `nil`, i.e. unknown until
@@ -81,7 +83,11 @@ extension Valuator {
         guard let previous else { return now.rounded(scale: 2) }
         guard let before = amountInAccountCurrency(of: previous, on: previous.date) else { return nil }
         let interest = rule == .changeLessInterest ? valuation.interest ?? 0 : 0
-        return (now - before - interest).rounded(scale: 2)
+        // What it's estimated to have lost from its depreciation is lost value, neither spent nor saved. Only a
+        // balance is estimated (Valuator.value(of:valuation:on:)).
+        let lost = previous.balance != nil
+            ? account.estimated(before, from: previous.date, on: valuation.date) - before : 0
+        return (now - before - interest - lost).rounded(scale: 2)
     }
 }
 

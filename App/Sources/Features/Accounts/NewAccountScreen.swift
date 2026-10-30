@@ -231,8 +231,8 @@ struct AccountPlanFields: View {
             } header: {
                 Text("Loss of value")
             } footer: {
-                Text("Between the values you import, its value is estimated from this, and its loss of value counts as "
-                    + "spent. The next value imported corrects the estimate.")
+                Text("Between the values you import, its value is estimated from this. What it loses is lost value, "
+                    + "neither spent nor saved. The next value imported corrects the estimate.")
             }
         }
         if form.takesAssetMix {

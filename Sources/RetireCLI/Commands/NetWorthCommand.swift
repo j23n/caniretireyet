@@ -209,6 +209,7 @@ struct NetWorthCommand: RetireSubcommand {
             table.add(["Market", Format.signed(parts.market)])
             table.add(["Saved", Format.signed(parts.saved)])
             table.add(["Other", Format.signed(parts.other)])
+            if parts.lost != 0 { table.add(["Lost value", Format.signed(parts.lost)]) }
             table.add(["End", Format.amount(parts.end)])
             lines += table.lines()
             lines.append("  Change \(Format.signed(parts.change))\(relative)")
@@ -373,6 +374,7 @@ struct NetWorthCommand: RetireSubcommand {
                 var market: String
                 var saved: String
                 var other: String
+                var lost: String
                 var end: String
                 var savedKnown: Bool?
 
@@ -382,6 +384,7 @@ struct NetWorthCommand: RetireSubcommand {
                     market = Format.json(change.market)
                     saved = Format.json(change.saved)
                     other = Format.json(change.other)
+                    lost = Format.json(change.lost)
                     end = Format.json(change.end)
                     savedKnown = account?.isSavedKnown
                 }

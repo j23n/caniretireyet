@@ -16,13 +16,18 @@ public struct ValueChange: Hashable, Sendable {
     /// asks for it and has none, or one whose saved amount needs a missing
     /// price or exchange rate.
     public var other: Decimal
+    /// Lost value: what a belongings account with a depreciation is
+    /// estimated to have lost (``Model/Account/depreciation``), neither
+    /// spent nor saved, and not markets.
+    public var lost: Decimal
     public var end: Decimal
 
-    public init(start: Decimal, market: Decimal, saved: Decimal, other: Decimal, end: Decimal) {
+    public init(start: Decimal, market: Decimal, saved: Decimal, other: Decimal, lost: Decimal = 0, end: Decimal) {
         self.start = start
         self.market = market
         self.saved = saved
         self.other = other
+        self.lost = lost
         self.end = end
     }
 
@@ -41,7 +46,8 @@ public struct ValueChange: Hashable, Sendable {
     /// Two changes added part by part, e.g. two accounts.
     public static func + (lhs: ValueChange, rhs: ValueChange) -> ValueChange {
         ValueChange(start: lhs.start + rhs.start, market: lhs.market + rhs.market,
-                    saved: lhs.saved + rhs.saved, other: lhs.other + rhs.other, end: lhs.end + rhs.end)
+                    saved: lhs.saved + rhs.saved, other: lhs.other + rhs.other, lost: lhs.lost + rhs.lost,
+                    end: lhs.end + rhs.end)
     }
 }
 
@@ -214,6 +220,10 @@ extension Valuator {
         if account.changeIsSaved {
             parts.saved += parts.market
             parts.market = 0
+        } else if account.lossOfValue != nil {
+            // Its value moves only by the estimate: no markets.
+            parts.lost = parts.market
+            parts.market = 0
         }
         if closing != nil {
             parts.saved -= end
@@ -286,11 +296,13 @@ extension Valuator {
 
 extension Account {
     /// Whether all of the account's change in value is saved, never
-    /// markets: belongings'. So its loss of value is spent (PROGRESS.md,
-    /// "Savings rate"), and a typed value trues up what was estimated
-    /// before it.
+    /// markets: belongings' without a depreciation. So their loss of value
+    /// is spent (PROGRESS.md, "Savings rate"). With one
+    /// (``lossOfValue``), the loss it gives is lost value
+    /// (``ValueChange/lost``), and only what a typed value differs from
+    /// the estimate by is saved.
     var changeIsSaved: Bool {
-        kind == .belongings
+        kind == .belongings && lossOfValue == nil
     }
 
     /// The share of its value the account is estimated to lose a year
