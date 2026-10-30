@@ -48,6 +48,21 @@ enum CheckInDateMenu {
     /// How many saved check-ins the menu lists, newest first.
     static let savedShown = 3
 
+    /// How many dates the menu lists on iPhone, before *Another Date…*.
+    static let compactShown = 4
+
+    /// The dates the menu lists on iPhone: the first ``compactShown``, with
+    /// the one picked in place of the last when it's further down, so it
+    /// keeps its check.
+    static func compactOptions(_ all: [CheckInDateOption], picked: CalendarDate) -> [CheckInDateOption] {
+        var shown = Array(all.prefix(compactShown))
+        if !shown.isEmpty, !shown.contains(where: { $0.date == picked }),
+           let option = all.first(where: { $0.date == picked }) {
+            shown[shown.count - 1] = option
+        }
+        return shown
+    }
+
     /// The suggested date, today when it's another, then the latest saved
     /// check-ins before them, each with whether its money adds up.
     static func options(suggested: CalendarDate, today: CalendarDate, library: Library) -> [CheckInDateOption] {
@@ -99,6 +114,26 @@ enum CheckInDateMenu {
             guard let off else { return "\(month) check-in, saved: edit it" }
             let amount = AmountFormat.amount(abs(off), currency: currency ?? .eur, precision: .cents, locale: locale)
             return "\(month) check-in, saved: off by \(amount: amount)"
+        }
+    }
+
+    /// The banner of a check-in that isn't a new one on iPhone, in one
+    /// sentence: "Editing September's check-in. October opens at its
+    /// balances, so changes carry forward."
+    static func shortBanner(for kind: CheckInDateKind, on date: CalendarDate,
+                            locale: Locale = .current) -> String? {
+        switch kind {
+        case .new:
+            return nil
+        case .editing:
+            let month = AmountFormat.monthName(date, locale: locale)
+            let next = AmountFormat.monthName(date.adding(months: 1), locale: locale)
+            return "Editing \(month)'s check-in. \(next) opens at its balances, so changes carry forward."
+        case .beforeFirst(let first):
+            return "A check-in before your first, on \(AmountFormat.mediumDate(first, locale: locale))."
+        case .between(let before, let after):
+            return "A check-in between \(AmountFormat.mediumDate(before, locale: locale)) and "
+                + "\(AmountFormat.mediumDate(after, locale: locale))."
         }
     }
 

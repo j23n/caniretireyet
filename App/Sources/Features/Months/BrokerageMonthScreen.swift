@@ -81,7 +81,7 @@ struct BrokerageMonthScreen: View {
                 Menu {
                     importButton
                 } label: {
-                    Label("More", systemImage: "ellipsis.circle")
+                    Label("More", systemImage: "ellipsis")
                 }
             }
         }
@@ -303,7 +303,7 @@ private struct BrokerageDepositCard: View {
             AmountSentenceText(sentence)
                 .font(.body.weight(.semibold))
             if layout.isWide {
-                    Text(line.amount < 0 ? "Add it here as a deposit, so both accounts show the same move."
+                Text(line.amount < 0 ? "Add it here as a deposit, so both accounts show the same move."
                     : "Add it here as a withdrawal, so both accounts show the same move.")
                     .font(.subheadline)
                     .foregroundStyle(Palette.secondaryInk)

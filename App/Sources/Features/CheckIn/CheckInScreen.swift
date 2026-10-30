@@ -211,8 +211,10 @@ private struct CheckInTitle: View {
 /// (Tracker's `CheckInGroups`): the money accounts' months, imported or
 /// typed; the trades accounts' months; the values you type, each in a
 /// field; and the accounts valued from their files. The month so far
-/// shows beside them on the Mac and iPad, above them on iPhone, and net
-/// worth so far in a bar at the bottom.
+/// shows beside them on the Mac and iPad, and net worth so far in a bar at
+/// the bottom. On iPhone one line says how many are done and what was
+/// saved, with the prices and *Import Files…* as links under it, and the
+/// bar has net worth and its change alone.
 struct CheckInPage: View {
     let summary: CheckInSummary
     @Binding var saveError: String?
@@ -241,16 +243,21 @@ struct CheckInPage: View {
         ScrollView {
             VStack(alignment: .leading, spacing: Metrics.l) {
                 banners
-                actions
-                if layout.isRoomy {
-                    HStack(alignment: .top, spacing: Metrics.xl) {
-                        sections(groups)
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                if layout.isWide {
+                    actions
+                    if layout.isRoomy {
+                        HStack(alignment: .top, spacing: Metrics.xl) {
+                            sections(groups)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            CheckInSoFarCard(soFar: soFar, date: summary.date)
+                                .frame(width: 300)
+                        }
+                    } else {
                         CheckInSoFarCard(soFar: soFar, date: summary.date)
-                            .frame(width: 300)
+                        sections(groups)
                     }
                 } else {
-                    CheckInSoFarChips(soFar: soFar, groups: groups)
+                    progress(groups, soFar: soFar)
                     sections(groups)
                 }
             }
@@ -293,8 +300,12 @@ struct CheckInPage: View {
         }
         // Worked out when the check-in began: the values it saves on its date make it a saved one.
         let kind = checkIn.dateKind ?? CheckInDateMenu.kind(of: summary.date, in: library.library)
-        if let banner = CheckInDateMenu.banner(for: kind, on: summary.date, latest: library.latestCheckIn,
-                                               locale: locale) {
+        if !layout.isWide {
+            if let banner = CheckInDateMenu.shortBanner(for: kind, on: summary.date, locale: locale) {
+                StatusBanner(.info, banner, personal: [.title])
+            }
+        } else if let banner = CheckInDateMenu.banner(for: kind, on: summary.date, latest: library.latestCheckIn,
+                                                      locale: locale) {
             StatusBanner(.info, banner.title, message: banner.message, personal: [.title, .message])
         }
     }
@@ -356,18 +367,61 @@ struct CheckInPage: View {
         }
     }
 
+    /// iPhone: "2 of 8 done · saved 984 € so far", and under it the
+    /// prices' status and *Import Files…*, as links.
+    private func progress(_ groups: CheckInGroups, soFar: CheckInSoFar) -> some View {
+        let list = CheckInPriceList.make(date: summary.date, fetched: checkIn.priceList, library: library.library,
+                                         locale: locale)
+        let status = CheckInPriceStatus.make(list, isFetching: checkIn.isFetchingPrices, locale: locale)
+        return VStack(alignment: .leading, spacing: Metrics.xs) {
+            AmountSentenceText(CheckInWording.progress(groups, saved: soFar.saved, currency: library.baseCurrency,
+                                                       locale: locale))
+                .font(.body.weight(.semibold))
+                .foregroundStyle(groups.count > 0 && groups.doneCount == groups.count ? Palette.good : Palette.ink)
+            HStack(spacing: Metrics.xs) {
+                if let status {
+                    Button {
+                        showsPrices = true
+                    } label: {
+                        Label {
+                            Text(verbatim: status.shortTitle)
+                                .foregroundStyle(status.kind == .updated ? Palette.good : Palette.ink)
+                        } icon: {
+                            CheckInPriceStatusIcon(kind: status.kind)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(Text(verbatim: status.title))
+                    .accessibilityHint("Opens the prices and exchange rates")
+                    Text(verbatim: "·")
+                        .foregroundStyle(Palette.secondaryInk)
+                        .accessibilityHidden(true)
+                }
+                Button("Import Files…") { showsImport = true }
+                    .buttonStyle(.borderless)
+                    .disabled(!library.canEdit)
+                    .accessibilityHint("Imports this month's statements and exports, each with a backup")
+            }
+            .font(.subheadline)
+            .lineLimit(1)
+        }
+    }
+
     // MARK: Accounts
 
-    /// The accounts by what each needs, under how many are done.
+    /// The accounts by what each needs, under how many are done; on
+    /// iPhone without the count, which the line above says, and without
+    /// the footnotes.
     private func sections(_ groups: CheckInGroups) -> some View {
         VStack(alignment: .leading, spacing: Metrics.l) {
-            if groups.count > 0 {
+            if groups.count > 0, layout.isWide {
                 Text(verbatim: CheckInWording.doneCount(groups))
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(groups.doneCount == groups.count ? Palette.good : Palette.secondaryInk)
             }
             if !groups.money.isEmpty {
-                CheckInSection(title: "Money in and out", footer: "Import a CSV, or type the month's totals.") {
+                CheckInSection(title: "Money in and out",
+                               footer: footer("Import a CSV, or type the month's totals.")) {
                     ForEach(groups.money) { month in
                         let route = MonthRoute(account: month.account, through: month.through)
                         MonthAccountRow(month: month, importCSV: { importing = route },
@@ -376,7 +430,8 @@ struct CheckInPage: View {
                 }
             }
             if !groups.investments.isEmpty {
-                CheckInSection(title: "Investments", footer: "Import the broker's trades, or add them by hand.") {
+                CheckInSection(title: "Investments",
+                               footer: footer("Import the broker's trades, or add them by hand.")) {
                     ForEach(groups.investments) { month in
                         BrokerageMonthRow(month: month)
                     }
@@ -384,7 +439,7 @@ struct CheckInPage: View {
             }
             if !groups.typed.isEmpty {
                 CheckInSection(title: "Values you type",
-                               footer: "Type what the statement says, or your estimate.") {
+                               footer: footer("Type what the statement says, or your estimate.")) {
                     ForEach(groups.typed) { typed in
                         if let account = library.library.accounts[typed.account] {
                             CheckInTypedRow(account: account, date: summary.date,
@@ -402,8 +457,8 @@ struct CheckInPage: View {
             }
             if !groups.others.isEmpty {
                 CheckInSection(title: "Other accounts",
-                               footer: "Valued from their files: Import Files updates them. Those without a "
-                                   + "file this month keep their last values.") {
+                               footer: footer("Valued from their files: Import Files updates them. Those without "
+                                   + "a file this month keep their last values.")) {
                     ForEach(groups.others, id: \.self) { id in
                         let isUpdated = summary.updated.contains(id)
                         CheckInAccountRow(name: name(of: id), value: value(of: id),
@@ -415,13 +470,18 @@ struct CheckInPage: View {
         }
     }
 
+    /// A section's footnote, on the Mac and iPad.
+    private func footer(_ text: String) -> String? {
+        layout.isWide ? text : nil
+    }
+
     /// "Net worth so far 336.850 € ▲ +4.395 €", and under it what moved
     /// it: "saved 983,69 € · markets +1.307,15 € · lost value −230,00 €".
-    /// Pinned to the bottom.
+    /// Pinned to the bottom. On iPhone "Net worth" and its change alone.
     private func netWorthBar(_ soFar: CheckInSoFar) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
-                Text("Net worth so far")
+                Text(layout.isWide ? "Net worth so far" : "Net worth")
                     .foregroundStyle(Palette.secondaryInk)
                     .lineLimit(1)
                 Spacer(minLength: Metrics.s)
@@ -437,7 +497,7 @@ struct CheckInPage: View {
                         .fixedSize()
                 }
             }
-            if summary.change != nil {
+            if summary.change != nil, layout.isWide {
                 AmountSentenceText(soFar.split(currency: library.baseCurrency, locale: locale))
                     .font(.footnote)
                     .foregroundStyle(Palette.secondaryInk)

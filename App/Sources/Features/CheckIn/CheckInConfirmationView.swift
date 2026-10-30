@@ -7,8 +7,9 @@ import Tracker
 /// The monthly moment (UI.md, "After saving"): the check-in ends on your
 /// date, moved, on the same page as Today: the answer as the hero, and
 /// the tiles on the same grid (``TodayAnswerAndTiles``), with what lost
-/// value and where what you saved went, then *Coming up*. A line under
-/// the title says the date, how many accounts are done, and that the
+/// value and where what you saved went, then *Coming up*. On iPhone only
+/// the answer, what moved, the next milestone and the savings rate. A line
+/// under the title says the date, how many accounts are done, and that the
 /// date menu changes it later; *Done* is pinned to the bottom.
 ///
 /// It shows as soon as the check-in is written. The main plan then runs to
@@ -55,6 +56,12 @@ struct CheckInConfirmationView: View {
                         pastCheckIn
                     }
                     CheckInJourneyCards(result: result)
+                } else if !layout.isWide {
+                    answerCard
+                    TileGrid {
+                        TodayTiles(part: .saved, plan: library.mainPlan, results: plans.mainAnswer?.results,
+                                   today: .today(), showsCheckIn: false)
+                    }
                 } else {
                     answerAndTiles
                     CheckInSavedTiles(soFar: soFar(groups))

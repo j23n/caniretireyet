@@ -152,46 +152,6 @@ struct CheckInSoFarCard: View {
     }
 }
 
-/// The month so far on iPhone, above the groups: what was saved and spent,
-/// and how many accounts are done, side by side.
-struct CheckInSoFarChips: View {
-    let soFar: CheckInSoFar
-    let groups: CheckInGroups
-
-    @Environment(LibraryStore.self) private var library
-
-    var body: some View {
-        HStack(spacing: Metrics.s) {
-            chip("Saved so far") {
-                AmountText(soFar.saved, currency: library.baseCurrency, precision: .cents)
-            }
-            chip("Spent") {
-                AmountText(soFar.spent, currency: library.baseCurrency, precision: .cents)
-            }
-            chip("Done") {
-                Text(verbatim: "\(groups.doneCount) of \(groups.count)")
-            }
-        }
-    }
-
-    private func chip(_ title: String, @ViewBuilder value: () -> some View) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(title)
-                .font(.caption)
-                .foregroundStyle(Palette.secondaryInk)
-            value()
-                .font(.body.weight(.semibold))
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, Metrics.m)
-        .padding(.vertical, Metrics.s)
-        .cardSurface()
-        .accessibilityElement(children: .combine)
-    }
-}
-
 /// The saved check-in's own tiles (UI.md, "After saving"), after Today's:
 /// what lost value, small and gray, and where what you saved went, wide.
 struct CheckInSavedTiles: View {

@@ -50,7 +50,7 @@ struct AddTradeSheet: View {
         #if os(macOS)
         .frame(minWidth: 440, minHeight: 520)
         #endif
-        .instrumentEditorSheet(item: $newInstrument)
+        .instrumentEditorSheet(item: $newInstrument, currency: account?.currency)
         .onChange(of: library.library.instruments.count) { old, new in
             // An instrument made with *New Instrument…* is the one chosen.
             guard new > old, !instrumentsBefore.isEmpty,
