@@ -103,10 +103,13 @@ struct TodayScreen: View {
 
 // MARK: - The answer and the tiles
 
-/// The answer with net worth and what moved beside it where a row has
-/// four slots or six, and the other tiles under them; else the answer, or
-/// before there's one the next step, above every tile. Today shows it, and
-/// so does the check-in once it's saved.
+/// Where a row has four slots or six: the answer, then net worth on a tile
+/// two slots wide and two rows high, then your pay and how net worth moved
+/// at the last check-in one above the other where there's room for them
+/// (six slots), else under them with the other tiles. Before there's an
+/// answer, the next step goes above them. Where a row has two slots, the
+/// answer or the next step above every tile. Today shows it, and so does
+/// the check-in once it's saved.
 struct TodayAnswerAndTiles: View {
     let answer: RetirementAnswer?
     let plan: PlanDocument?
@@ -119,22 +122,38 @@ struct TodayAnswerAndTiles: View {
 
     var body: some View {
         let slots = TileGrid.slots(width: pageWidth)
-        if let answer, let plan, slots >= 4 {
+        if slots >= 4 {
+            let small = TileGrid.smallWidth(width: pageWidth)
+            let pair = 2 * small + Metrics.m
+            // Two rows of the grid: net worth's tile is never less.
+            let twoRows = 2 * min(small, TileGrid.rowHeight) + Metrics.m
+            let answered = answer.flatMap { answer in plan.map { (answer: answer, plan: $0) } }
+            let movedBeside = slots >= 6 || answered == nil
             VStack(alignment: .leading, spacing: Metrics.m) {
-                let answerWidth = 2 * TileGrid.smallWidth(width: pageWidth) + Metrics.m
+                if answered == nil {
+                    TodayPlanCard()
+                }
                 HStack(alignment: .top, spacing: Metrics.m) {
-                    TodayAnswerCard(answer: answer, plan: plan, results: results, today: today)
-                        .frame(width: answerWidth)
-                    TileGrid(fillsHeight: true) {
-                        TodayTiles(part: .beside(slots: slots - 2), plan: plan, results: results, today: today)
+                    if let answered {
+                        TodayAnswerCard(answer: answered.answer, plan: answered.plan, results: results, today: today)
+                            .frame(width: pair)
                     }
-                    // At most the rest of the page: never unbounded while the
-                    // stack measures it, and narrowing with the page.
-                    .frame(maxWidth: max(0, pageWidth - answerWidth - Metrics.m))
+                    TileGrid(fillsHeight: true) {
+                        TodayTiles(part: .netWorth, plan: plan, results: results, today: today)
+                    }
+                    .frame(width: pair)
+                    .frame(minHeight: twoRows)
+                    if movedBeside {
+                        TileGrid(fillsHeight: true) {
+                            TodayTiles(part: .moved, plan: plan, results: results, today: today)
+                        }
+                        .frame(width: pair)
+                    }
                 }
                 .fixedSize(horizontal: false, vertical: true)
                 TileGrid {
-                    TodayTiles(part: .under, plan: plan, results: results, today: today, showsCheckIn: showsCheckIn)
+                    TodayTiles(part: .under(withMoved: !movedBeside), plan: plan, results: results, today: today,
+                               showsCheckIn: showsCheckIn)
                 }
             }
         } else {

@@ -13,25 +13,27 @@ import Tracker
 /// Where you stand, as tiles: net worth (opening the accounts), the next
 /// milestone (opening So far), the savings rate over the last 12 months
 /// (opening So far too), this year so far, the next
-/// check-in and saving nothing more as half tiles, and what moved at the
-/// last check-in (opening the accounts). The tiles go into the page's
-/// ``TileGrid``s, in parts:
+/// check-in and saving nothing more as half tiles, and your pay and how
+/// net worth moved at the last check-in (opening the accounts). The tiles
+/// go into the page's ``TileGrid``s, in parts:
 ///
-/// - ``Part/all``: every tile, under the answer, where a row has two
-///   slots, or before there's an answer. Net worth and what moved are wide; the milestone and
-///   the savings rate are wide when only one has something to show.
-/// - ``Part/beside(slots:)``: net worth and what moved, tall, beside the
-///   answer in `slots` (two or four); with four each takes two, with two
-///   one each, and net worth alone takes both.
-/// - ``Part/under``: the rest, small and half tiles, under the answer and
-///   those two.
-/// - ``Part/saved``: a saved check-in's on iPhone: what moved, wide, then
-///   the next milestone and the savings rate.
+/// - ``Part/all``: every tile, where a row has two slots. Net worth and
+///   the two of the last check-in are wide; the milestone and the savings
+///   rate are wide when only one has something to show.
+/// - ``Part/netWorth``: net worth alone, tall, two slots wide and two rows
+///   high where a row has four slots or six (``TodayAnswerAndTiles``).
+/// - ``Part/moved``: your pay and how net worth moved, wide, one above the
+///   other.
+/// - ``Part/under(withMoved:)``: the rest, small and half tiles, after the
+///   two of the last check-in when `withMoved`.
+/// - ``Part/saved``: a saved check-in's on iPhone: the two of the check-in,
+///   wide, then the next milestone and the savings rate.
 struct TodayTiles: View {
     enum Part {
         case all
-        case beside(slots: Int)
-        case under
+        case netWorth
+        case moved
+        case under(withMoved: Bool)
         case saved
     }
 
@@ -49,7 +51,6 @@ struct TodayTiles: View {
     @Environment(\.locale) private var locale
 
     var body: some View {
-        let moved = library.valuator.changeSinceLastCheckIn(asOf: today)
         switch part {
         case .all:
             let twelveMonths = self.twelveMonths
@@ -58,26 +59,21 @@ struct TodayTiles: View {
             figures(twelveMonths, pairSize: plan != nil && twelveMonths != nil ? .small : .wide)
             year
             halves
-            if let moved {
-                movedTile(moved, isTall: false)
-                    .tileSize(.wide)
-            }
-        case .beside(let slots):
+            movedTiles
+        case .netWorth:
             netWorth(isTall: true)
-                .tileSize(moved == nil || slots >= 4 ? .wide : .small)
-            if let moved {
-                movedTile(moved, isTall: true)
-                    .tileSize(slots >= 4 ? .wide : .small)
+                .tileSize(.wide)
+        case .moved:
+            movedTiles
+        case .under(let withMoved):
+            if withMoved {
+                movedTiles
             }
-        case .under:
             figures(twelveMonths, pairSize: .small)
             year
             halves
         case .saved:
-            if let moved {
-                movedTile(moved, isTall: false)
-                    .tileSize(.wide)
-            }
+            movedTiles
             let twelveMonths = self.twelveMonths
             figures(twelveMonths, pairSize: plan != nil && twelveMonths != nil ? .small : .wide)
         }
@@ -166,15 +162,32 @@ struct TodayTiles: View {
         }
     }
 
-    private func movedTile(_ change: ChangeReport, isTall: Bool) -> some View {
-        Button {
-            navigation.showAccounts()
-        } label: {
-            TodayMovedTile(report: change, split: library.valuator.savedSplit(of: change),
-                           yearlySpending: plan.flatMap(MilestoneLadder.spending(of:)), isTall: isTall)
+    /// Your pay and how net worth moved at the last check-in, wide; pay
+    /// only when money in and out was recorded.
+    @ViewBuilder
+    private var movedTiles: some View {
+        let valuator = library.valuator
+        if let report = valuator.changeSinceLastCheckIn(asOf: today) {
+            let moved = valuator.whatMoved(report)
+            if let pay = moved.pay {
+                Button {
+                    navigation.showAccounts()
+                } label: {
+                    TodayPayTile(moved: moved, pay: pay)
+                }
+                .buttonStyle(.plain)
+                .accessibilityHint("Shows your accounts")
+                .tileSize(.wide)
+            }
+            Button {
+                navigation.showAccounts()
+            } label: {
+                TodayMovedTile(moved: moved)
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint("Shows your accounts")
+            .tileSize(.wide)
         }
-        .buttonStyle(.plain)
-        .accessibilityHint("Shows your accounts")
     }
 
     /// The last 12 months' money in and out, as So far has them (through
@@ -615,8 +628,10 @@ struct MilestoneTile: View {
 /// Net worth as a wide tile on the card (UI.md, "Tiles"): today's total,
 /// how it changed over the last 12 months and at the last check-in, and
 /// the 12 month ends as a line in sky blue with a wash under it, beside
-/// them, or under them filling a tall tile (`isTall`). While amounts are
-/// hidden, the changes show in per cent and the line keeps its shape.
+/// them, or under them filling a tall tile (`isTall`). With a pointer over
+/// the line, the figures are the month end under it: its total, its date
+/// and how it changed from the one before. While amounts are hidden, the
+/// changes show in per cent and the line keeps its shape.
 struct NetWorthTile: View {
     let netWorth: NetWorthGlance
     let today: CalendarDate
@@ -625,6 +640,8 @@ struct NetWorthTile: View {
 
     @Environment(\.redactionReasons) private var redactionReasons
     @Environment(\.locale) private var locale
+    /// The point under the pointer, by its index in ``points(_:)``.
+    @State private var hovered: Int?
 
     var body: some View {
         let values = Self.values(netWorth)
@@ -653,25 +670,70 @@ struct NetWorthTile: View {
         .accessibilityElement(children: .combine)
     }
 
-    /// The total, and how it changed in a year and at the last check-in.
+    /// The total, and how it changed in a year and at the last check-in;
+    /// with a pointer over the line, the point under it.
+    @ViewBuilder
     private var figures: some View {
-        VStack(alignment: .leading, spacing: 3) {
-            AmountText(netWorth.total, tabular: false, animatesChanges: true)
+        let points = Self.points(netWorth)
+        if let hovered, points.indices.contains(hovered) {
+            hoveredFigures(points, at: hovered)
+        } else {
+            VStack(alignment: .leading, spacing: 3) {
+                AmountText(netWorth.total, tabular: false, animatesChanges: true)
+                    .font(.system(size: 30, weight: .bold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+                yearChange
+                lastCheckIn
+            }
+        }
+    }
+
+    /// A point's total, its date, and how it changed from the point before.
+    private func hoveredFigures(_ points: [GlancePoint], at index: Int) -> some View {
+        let point = points[index]
+        return VStack(alignment: .leading, spacing: 3) {
+            AmountText(point.value, tabular: false)
                 .font(.system(size: 30, weight: .bold))
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
-            yearChange
-            lastCheckIn
+            Text(verbatim: AmountFormat.shortDate(point.date, relativeTo: today, locale: locale))
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Palette.secondaryInk)
+                .lineLimit(1)
+                .privacySensitiveInFeedback()
+            if index > 0 {
+                let before = points[index - 1]
+                let change = point.value - before.value
+                let amount = Group {
+                    if redactionReasons.hidesAmounts, before.value != 0 {
+                        DeltaText(percent: (change / abs(before.value)).doubleValue)
+                    } else {
+                        DeltaText(change)
+                    }
+                }
+                let since = Text(verbatim: "since \(AmountFormat.shortDate(before.date, relativeTo: today, locale: locale))")
+                    .foregroundStyle(Palette.secondaryInk)
+                    .privacySensitiveInFeedback()
+                LineOrStack(amount, since)
+                    .font(.caption)
+                    .lineLimit(1)
+            }
         }
     }
 
     /// The month ends of the last 12 months, and today.
-    static func values(_ netWorth: NetWorthGlance) -> [Double] {
-        var values = netWorth.history.map { $0.value.doubleValue }
+    static func points(_ netWorth: NetWorthGlance) -> [GlancePoint] {
+        var points = netWorth.history
         if netWorth.history.last?.date != netWorth.date {
-            values.append(netWorth.total.doubleValue)
+            points.append(GlancePoint(date: netWorth.date, value: netWorth.total))
         }
-        return values
+        return points
+    }
+
+    /// The points' values, for the line.
+    static func values(_ netWorth: NetWorthGlance) -> [Double] {
+        points(netWorth).map { $0.value.doubleValue }
     }
 
     /// "▲ +36.210 € in a year", or "since March" for a shorter history; in
@@ -720,7 +782,8 @@ struct NetWorthTile: View {
         }
     }
 
-    /// The line, a wash under it and a dot on today's value.
+    /// The line, a wash under it and a dot on today's value; with a
+    /// pointer over it, a rule and the dot on the point under the pointer.
     private func sparkline(_ values: [Double]) -> some View {
         let color = TileTint.sky.accent
         return ZStack {
@@ -728,8 +791,27 @@ struct NetWorthTile: View {
                 .fill(color.opacity(0.14))
             SparklineShape(values: values, closesArea: false)
                 .stroke(color, style: StrokeStyle(lineWidth: Metrics.lineWidth, lineCap: .round, lineJoin: .round))
-            SparklineDot(values: values, radius: 3.5)
+            if let hovered {
+                SparklineRule(values: values, index: hovered)
+                    .stroke(color.opacity(0.5), lineWidth: 1)
+            }
+            SparklineDot(values: values, radius: 3.5, index: hovered)
                 .fill(color)
+        }
+        .overlay {
+            GeometryReader { proxy in
+                Color.clear
+                    .contentShape(Rectangle())
+                    .onContinuousHover { phase in
+                        switch phase {
+                        case .active(let location):
+                            hovered = SparklineLayout.index(nearestTo: location.x, count: values.count,
+                                                            width: proxy.size.width)
+                        case .ended:
+                            hovered = nil
+                        }
+                    }
+            }
         }
         .privacySensitiveInFeedback()
         .accessibilityHidden(true)

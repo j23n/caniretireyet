@@ -22,22 +22,12 @@ struct TodayWordsTests {
     }
 
     @Test func whatMovedNamesTheMonthItCovers() {
-        #expect(TodayText.movedTitle(from: "2026-08-31", to: "2026-09-30", today: "2026-10-24", saysIt: true,
-                                     locale: english) == "What moved it in September")
-        #expect(TodayText.movedTitle(from: "2026-08-31", to: "2026-09-30", today: "2026-10-24", saysIt: false,
-                                     locale: english) == "What moved in September")
-        #expect(TodayText.movedTitle(from: "2026-08-15", to: "2026-09-30", today: "2026-10-24", saysIt: true,
-                                     locale: english).hasPrefix("What moved it since "))
-    }
-
-    @Test func savingIsSaidAsTimeOfThePlansSpending() {
-        // 36.500 € a year is 100 € a day: 1.400 € is 2 weeks.
-        #expect(TodayText.savedAsTime(saved: 1400, markets: 0, yearlySpending: 36500)?
-            .hasPrefix("You saved about 2 weeks") == true)
-        #expect(TodayText.savedAsTime(saved: 1400, markets: 0, yearlySpending: 36500)?
-            .hasSuffix(" of the life you plan.") == true)
-        #expect(TodayText.savedAsTime(saved: 1400, markets: 0, yearlySpending: nil) == nil)
-        #expect(TodayText.savedAsTime(saved: 0, markets: 500, yearlySpending: 36500) == nil)
+        #expect(TodayText.payTitle(from: "2026-08-31", to: "2026-09-30", today: "2026-10-24",
+                                   locale: english) == "Your pay in September")
+        #expect(TodayText.netWorthMovedTitle(from: "2026-08-31", to: "2026-09-30", today: "2026-10-24",
+                                             locale: english) == "Your net worth in September")
+        #expect(TodayText.payTitle(from: "2026-08-15", to: "2026-09-30", today: "2026-10-24",
+                                   locale: english).hasPrefix("Your pay since "))
     }
 
     @Test func theCheckInTileSaysWhenItsDue() {
