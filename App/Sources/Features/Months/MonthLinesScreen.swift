@@ -19,6 +19,8 @@ import Tracker
 ///   this month shows at once whether the next still adds up.
 /// - *Add Line* adds one the statement missed; *Accept Suggestions* checks
 ///   every line still a suggestion as it is.
+/// - On iPhone, a month with nothing in it yet asks how to fill it in
+///   instead (``MonthStartView``).
 struct MonthLinesScreen: View {
     let route: MonthRoute
 
@@ -31,6 +33,7 @@ struct MonthLinesScreen: View {
     @State private var editing: MonthLineSelection?
     @State private var addsLine = false
     @State private var importsCSV = false
+    @State private var typesTotals = false
     @State private var errorMessage: String?
 
     var body: some View {
@@ -51,6 +54,9 @@ struct MonthLinesScreen: View {
         }
         .sheet(isPresented: $importsCSV) {
             MonthImportSheet(route: route)
+        }
+        .sheet(isPresented: $typesTotals) {
+            MonthTypedTotalsSheet(route: route)
         }
         .sheet(item: $editing) { selection in
             if let month, let account, let line = month.lines.first(where: { $0.key == selection.key }) {
@@ -93,23 +99,31 @@ struct MonthLinesScreen: View {
         Binding { errorMessage != nil } set: { if !$0 { errorMessage = nil } }
     }
 
+    /// Whether iPhone asks how to fill the month in (``MonthStartView``):
+    /// nothing is in it yet.
+    private var isStarting: Bool {
+        !layout.isWide && month?.status == .notDone
+    }
+
     @ToolbarContentBuilder
     private var toolbar: some ToolbarContent {
-        ToolbarItem(placement: .primaryAction) {
-            Button {
-                addsLine = true
-            } label: {
-                Label("Add Line", systemImage: "plus")
+        if !isStarting {
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    addsLine = true
+                } label: {
+                    Label("Add Line", systemImage: "plus")
+                }
+                .disabled(!library.canEdit)
             }
-            .disabled(!library.canEdit)
-        }
-        ToolbarItem(placement: .secondaryAction) {
-            Button {
-                importsCSV = true
-            } label: {
-                Label("Import CSV…", systemImage: AppSymbol.importData)
+            ToolbarItem(placement: .secondaryAction) {
+                Button {
+                    importsCSV = true
+                } label: {
+                    Label("Import CSV…", systemImage: AppSymbol.importData)
+                }
+                .disabled(!library.canEdit)
             }
-            .disabled(!library.canEdit)
         }
     }
 
@@ -138,20 +152,26 @@ struct MonthLinesScreen: View {
                 }
                 .frame(width: 360)
             }
+        } else if isStarting {
+            MonthStartView(month: month, currency: account.currency, importCSV: { importsCSV = true },
+                           typeTotals: { typesTotals = true })
         } else {
+            // iPhone: the banner, the lines, then the month's balances and
+            // the months after it; *Accept* is the one button at the bottom.
             ScrollView {
                 VStack(alignment: .leading, spacing: Metrics.m) {
-                    let totals = MonthTotals(month)
-                    MonthTotalsStrip(cameIn: totals.cameIn + totals.interest, spent: totals.spent,
-                                     saved: totals.saved, currency: account.currency)
                     MonthAddsUpBanner(month: month, currency: account.currency)
                     linesColumn(month, account: account)
-                    sideCards(month, account: account)
+                    MonthAddsUpCard(month: month, currency: account.currency)
+                    MonthsAfterCard(month: month, next: checkIn.status.openDate ?? checkIn.status.nextCheckIn,
+                                    currency: account.currency)
                 }
                 .padding(layout.gutter)
             }
             .safeAreaInset(edge: .bottom, spacing: 0) {
-                bottomBar(month)
+                if month.linesToCheck > 0 {
+                    bottomBar(month)
+                }
             }
         }
     }
@@ -193,29 +213,16 @@ struct MonthLinesScreen: View {
         return "\(span) · \(Wording.count(month.lines.count, "line"))"
     }
 
-    /// The filters as segments, or as a menu when they don't fit in full.
+    /// The filters as segments: every one on the Mac and iPad, *All* and
+    /// *To Check* on iPhone.
     private func filterPicker(_ month: AccountMonth) -> some View {
-        ViewThatFits(in: .horizontal) {
-            filterChoices(month)
-                .pickerStyle(.segmented)
-                .labelsHidden()
-            HStack {
-                Text("Show")
-                    .foregroundStyle(Palette.secondaryInk)
-                filterChoices(month)
-                    .pickerStyle(.menu)
-                    .labelsHidden()
-                Spacer(minLength: 0)
-            }
-        }
-    }
-
-    private func filterChoices(_ month: AccountMonth) -> some View {
         Picker("Show", selection: $filter) {
-            ForEach(MonthLineFilter.allCases) { filter in
+            ForEach(layout.isWide ? MonthLineFilter.allCases : [.all, .toCheck]) { filter in
                 Text(filterTitle(filter, month: month)).tag(filter)
             }
         }
+        .pickerStyle(.segmented)
+        .labelsHidden()
     }
 
     private func filterTitle(_ filter: MonthLineFilter, month: AccountMonth) -> String {
@@ -231,35 +238,21 @@ struct MonthLinesScreen: View {
         .disabled(month.linesToCheck == 0 || !library.canEdit)
     }
 
-    /// *Add Line* and *Accept*, side by side, or one over the other when
-    /// they don't fit in full.
+    /// *Accept N Suggestions* across the bottom, on iPhone while lines are
+    /// still suggestions; *Add Line* is in the toolbar.
     private func bottomBar(_ month: AccountMonth) -> some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(spacing: Metrics.s) {
-                bottomBarButtons(month)
-            }
-            VStack(spacing: Metrics.s) {
-                bottomBarButtons(month)
-            }
+        Button {
+            acceptSuggestions(month)
+        } label: {
+            Text("Accept \(Wording.count(month.linesToCheck, "Suggestion"))")
+                .frame(maxWidth: .infinity)
         }
+        .buttonStyle(.borderedProminent)
         .controlSize(.large)
+        .disabled(!library.canEdit)
         .padding(.horizontal, layout.gutter)
         .padding(.vertical, Metrics.s)
         .background(.bar)
-    }
-
-    @ViewBuilder
-    private func bottomBarButtons(_ month: AccountMonth) -> some View {
-        Button {
-            addsLine = true
-        } label: {
-            Label("Add Line", systemImage: "plus")
-                .frame(maxWidth: .infinity)
-        }
-        .buttonStyle(.bordered)
-        .disabled(!library.canEdit)
-        acceptButton(month)
-            .frame(maxWidth: .infinity)
     }
 
     // MARK: Editing
@@ -288,7 +281,8 @@ struct MonthLineSelection: Identifiable, Hashable {
 // MARK: - The lines
 
 /// The month's lines between its opening and closing balances, as the
-/// filter shows them. Selecting one edits it.
+/// filter shows them; on iPhone the lines alone, with the balances in the
+/// card under them. Selecting one edits it.
 private struct MonthLinesList: View {
     let month: AccountMonth
     let account: Account
@@ -297,13 +291,16 @@ private struct MonthLinesList: View {
     let select: (BankLine) -> Void
 
     @Environment(LibraryStore.self) private var library
+    @Environment(\.pageLayout) private var layout
     @Environment(\.locale) private var locale
 
     var body: some View {
         let lines = month.lines.filter(filter.shows)
         VStack(alignment: .leading, spacing: 0) {
-            balanceRow("Opening balance", detail: openingDetail, amount: month.opening)
-            Divider()
+            if layout.isWide {
+                balanceRow("Opening balance", detail: openingDetail, amount: month.opening)
+                Divider()
+            }
             ForEach(lines, id: \.key) { line in
                 Button {
                     select(line)
@@ -321,7 +318,9 @@ private struct MonthLinesList: View {
                     .padding(Metrics.m)
                 Divider()
             }
-            balanceRow("Closing balance from these lines", detail: nil, amount: month.stretch.expectedClosing)
+            if layout.isWide {
+                balanceRow("Closing balance from these lines", detail: nil, amount: month.stretch.expectedClosing)
+            }
         }
         .cardSurface()
     }
@@ -360,12 +359,14 @@ private struct MonthLinesList: View {
     }
 }
 
-/// One line: the bank's text, its class, its date and its amount.
+/// One line: the bank's text and its amount, then its date and its class,
+/// and its note on the Mac and iPad.
 private struct MonthLineRow: View {
     let line: BankLine
     let currency: CurrencyCode
     let otherName: String?
 
+    @Environment(\.pageLayout) private var layout
     @Environment(\.locale) private var locale
 
     var body: some View {
@@ -377,12 +378,12 @@ private struct MonthLineRow: View {
                     .lineLimit(2)
                     .privacySensitiveInFeedback()
                 HStack(spacing: Metrics.s) {
-                    MonthLineChip(line: line, otherName: otherName)
                     Text(AmountFormat.shortDate(line.date, locale: locale))
                         .font(.caption)
                         .foregroundStyle(Palette.secondaryInk)
                         .privacySensitiveInFeedback()
-                    if let note = line.note {
+                    MonthLineChip(line: line, otherName: otherName)
+                    if layout.isWide, let note = line.note {
                         Text(note)
                             .font(.caption)
                             .foregroundStyle(Palette.secondaryInk)
