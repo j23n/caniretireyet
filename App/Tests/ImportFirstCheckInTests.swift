@@ -32,6 +32,17 @@ struct ImportFirstCheckInTests {
         #expect(ImportCheckInCheck.summary([], locale: locale) == nil)
     }
 
+    /// A check-in with nothing to check its lines against, such as an
+    /// account's first value, says so and isn't counted as adding up.
+    @Test func aCheckInWithoutABalanceBeforeIsLeftOut() {
+        var first = ImportCheckInCheck(date: "2025-03-31", lines: 3)
+        first.unchecked = true
+        #expect(first.status(locale: locale).text == "3 lines · no balance before to check")
+        #expect(ImportCheckInCheck.summary([first], locale: locale) == nil)
+        let summary = ImportCheckInCheck.summary([first, checks[0]], locale: locale)
+        #expect(summary?.text == "It adds up.")
+    }
+
     @Test func quarterEndsAddFewerCheckIns() throws {
         var library = Library()
         library.accounts["conto"] = Account(id: "conto", name: "Conto", kind: .cash, currency: .eur,

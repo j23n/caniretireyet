@@ -90,7 +90,8 @@ struct ImportFirstCheckIn: Hashable, Sendable {
     /// they stay, and the files' lines fill them in.
     var after: [ImportCheckInCheck] = []
 
-    /// "8 check-ins added, one at each quarter end. …"
+    /// "8 check-ins added, one at each quarter end. …"; each file's last
+    /// month end gets one too, so the next file follows on from it.
     var note: String {
         let count = Wording.count(values.count, "check-in")
         switch ends {
@@ -98,11 +99,11 @@ struct ImportFirstCheckIn: Hashable, Sendable {
             return "\(count) added, one at each month end, with balances from the files. Most detail, most to "
                 + "check."
         case .quarters:
-            return "\(count) added, one at each quarter end. A difference shows within 3 months, with a third of "
-                + "the checking."
+            return "\(count) added, one at each quarter end and at each file's last month end. A difference shows "
+                + "within 3 months, with a third of the checking."
         case .never:
-            return "No check-ins are added: the lines count as one long stretch. A difference is only known for the "
-                + "whole stretch."
+            return "\(count) added, one at each file's last month end: each file's lines count as one stretch. A "
+                + "difference is only known for each file as a whole."
         }
     }
 }
@@ -117,6 +118,9 @@ struct ImportCheckInCheck: Hashable, Sendable, Identifiable {
     /// the balance less what they lead to, in that account's currency.
     var off: Decimal?
     var currency: CurrencyCode?
+    /// Whether none of its accounts has a balance before and on the date
+    /// to check its lines against, such as an account's first value.
+    var unchecked = false
 
     var id: CalendarDate { date }
 
@@ -128,14 +132,15 @@ struct ImportCheckInCheck: Hashable, Sendable, Identifiable {
     /// "412 lines · adds up", "58 lines · off by 12,40 €".
     func status(locale: Locale = .current) -> AmountSentence {
         let count = Wording.count(lines, "line")
-        guard let off else { return "\(count) · adds up" }
+        guard let off else { return unchecked ? "\(count) · no balance before to check" : "\(count) · adds up" }
         let amount = AmountFormat.amount(abs(off), currency: currency ?? .eur, precision: .cents, locale: locale)
         return "\(count) · off by \(amount: amount)"
     }
 
     /// "7 add up; Mar 2025 is off by 12,40 €.", "All 8 add up.", or `nil`
-    /// for none.
-    static func summary(_ checks: [ImportCheckInCheck], locale: Locale = .current) -> AmountSentence? {
+    /// for none; those without a balance before to check are left out.
+    static func summary(_ all: [ImportCheckInCheck], locale: Locale = .current) -> AmountSentence? {
+        let checks = all.filter { !$0.unchecked }
         guard !checks.isEmpty else { return nil }
         let offs = checks.filter { $0.off != nil }
         guard let first = offs.first, let off = first.off else {
@@ -153,20 +158,29 @@ struct ImportCheckInCheck: Hashable, Sendable, Identifiable {
 
 extension ImportFlow {
     /// Whether the files' lines add up at each of `dates`, in the library
-    /// as importing would leave it.
+    /// as importing would leave it: of the accounts with a value on the
+    /// date, whose lines lead to it.
     func checkInChecks(on dates: [CalendarDate]) -> [ImportCheckInCheck] {
         guard let batch, let after = planned?.library else { return [] }
         let accounts = Set(batch.files.compactMap(\.account)).sorted()
         return dates.map { date in
             var check = ImportCheckInCheck(date: date)
+            var checked = false
             for account in accounts {
-                guard let month = after.accountMonth(of: account, through: date) else { continue }
+                guard let month = after.accountMonth(of: account, through: date), month.value != nil else { continue }
                 check.lines += month.lines.count
-                if check.off == nil, case .off(let difference) = month.status {
-                    check.off = difference
-                    check.currency = after.accounts[account]?.currency
+                switch month.status {
+                case .off(let difference):
+                    checked = true
+                    if check.off == nil {
+                        check.off = difference
+                        check.currency = after.accounts[account]?.currency
+                    }
+                case .toCheck, .checked: checked = true
+                default: break
                 }
             }
+            check.unchecked = !checked
             return check
         }
     }
