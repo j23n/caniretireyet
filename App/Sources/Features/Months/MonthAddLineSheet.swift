@@ -25,7 +25,7 @@ struct MonthAddLineSheet: View {
     init(month: AccountMonth, account: Account) {
         self.month = month
         self.account = account
-        _date = State(initialValue: month.through)
+        _date = State(initialValue: min(month.through, .today()))
     }
 
     var body: some View {
@@ -95,10 +95,12 @@ struct MonthAddLineSheet: View {
         .formStyle(.grouped)
     }
 
-    /// The month's days: after the check-in before it, through its own.
+    /// The month's days so far: after the check-in before it, through its
+    /// own or today.
     private var range: ClosedRange<Date> {
-        let first = month.from.map { $0.adding(days: 1) } ?? month.through.adding(days: -30)
-        return first.dateValue...month.through.dateValue
+        let last = min(month.through, .today())
+        let first = min(month.from.map { $0.adding(days: 1) } ?? month.through.adding(days: -30), last)
+        return first.dateValue...last.dateValue
     }
 
     private var otherAccounts: [Account] {

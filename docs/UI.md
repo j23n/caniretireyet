@@ -465,7 +465,7 @@ September 2026                                     All done
 ```
 
 - A month opens at the closing balance of the month before. It's **done** when its lines add up to the bank's balance and every line is checked, when its totals were typed, or when it has a balance alone.
-- A month not done offers **Import CSV…** and **Type Totals…**. Any other opens **its lines**, also a past month: fixing one changes what it saved, and the months after it follow, since each opens at the balance before it.
+- A month not done offers **Import CSV…** and **Type Totals…**. The month still to come, whose check-in is after today, offers only *Import CSV…*: its balance goes in at the check-in, so nothing is dated after today. Any other opens **its lines**, also a past month: fixing one changes what it saved, and the months after it follow, since each opens at the balance before it.
 - A past month shows what came in, was spent and was saved over it, as the savings rate counts them.
 
 ### Import CSV

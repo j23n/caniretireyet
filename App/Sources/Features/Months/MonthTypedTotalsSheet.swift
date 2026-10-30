@@ -159,7 +159,7 @@ struct MonthTypedTotalsSheet: View {
     /// Whether every amount typed is a number, and the closing balance is
     /// there and the totals lead to it.
     private var canSave: Bool {
-        guard library.canEdit, value(.closing) != nil else { return false }
+        guard library.canEdit, value(.closing) != nil, !MonthText.isStillToCome(route.through) else { return false }
         let typed = Field.allCases.allSatisfy { field in
             (texts[field] ?? "").trimmingCharacters(in: .whitespaces).isEmpty || value(field) != nil
         }

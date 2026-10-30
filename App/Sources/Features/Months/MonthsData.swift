@@ -12,6 +12,12 @@ struct MonthRoute: Hashable, Sendable {
 
 /// The words the months screens use (UI.md, "Your months").
 enum MonthText {
+    /// Whether the month ending on `date` is still to come: its balance
+    /// goes in at the check-in, and nothing is dated after today.
+    static func isStillToCome(_ date: CalendarDate, today: CalendarDate = .today()) -> Bool {
+        date > today
+    }
+
     /// "October 2026": the month of a check-in's date.
     static func title(_ date: CalendarDate, locale: Locale = .current) -> String {
         date.dateValue.formatted(.dateTime.month(.wide).year().locale(locale))
@@ -38,6 +44,9 @@ enum MonthText {
             return "Adds up · \(Wording.count(count, "line")) to check"
         case .checked:
             return "Adds up · \(Wording.count(month.lines.count, "line"))"
+        case .firstMonth(let count):
+            return count == 0 ? "First month · \(Wording.count(month.lines.count, "line"))"
+                : "First month · \(Wording.count(count, "line")) to check"
         }
     }
 

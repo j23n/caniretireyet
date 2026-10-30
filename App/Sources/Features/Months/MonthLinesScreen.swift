@@ -128,7 +128,7 @@ struct MonthLinesScreen: View {
                         if let selection, let line = month.lines.first(where: { $0.key == selection }) {
                             Card {
                                 MonthLineEditor(line: line, month: month, account: account) { self.selection = nil }
-                                    .id(line.key)
+                                    .id(line)
                             }
                         }
                         sideCards(month, account: account)
@@ -470,18 +470,25 @@ private struct MonthAddsUpCard: View {
                 row("+ Money in", totals.moneyIn)
                 row("− Money out", totals.moneyOut)
                 row("= Closing balance", month.stretch.expectedClosing, bold: true)
-                HStack {
-                    Text("The bank says on \(AmountFormat.shortDate(month.through, locale: locale))")
+                if MonthText.isStillToCome(month.through) {
+                    Text("The bank's balance goes in at the check-in, on "
+                        + "\(AmountFormat.mediumDate(month.through, locale: locale)).")
+                        .font(.subheadline)
                         .foregroundStyle(Palette.secondaryInk)
-                    Spacer(minLength: Metrics.s)
-                    TextField("Balance", text: $bankText)
-                        .multilineTextAlignment(.trailing)
-                        .frame(maxWidth: 140)
-                        .focused($isEditing)
-                        .onSubmit { saveBank() }
-                        #if os(iOS)
-                        .numberKeyboard(.numbersAndPunctuation)
-                        #endif
+                } else {
+                    HStack {
+                        Text("The bank says on \(AmountFormat.shortDate(month.through, locale: locale))")
+                            .foregroundStyle(Palette.secondaryInk)
+                        Spacer(minLength: Metrics.s)
+                        TextField("Balance", text: $bankText)
+                            .multilineTextAlignment(.trailing)
+                            .frame(maxWidth: 140)
+                            .focused($isEditing)
+                            .onSubmit { saveBank() }
+                            #if os(iOS)
+                            .numberKeyboard(.numbersAndPunctuation)
+                            #endif
+                    }
                 }
                 status
                 if let errorMessage {
@@ -541,7 +548,7 @@ private struct MonthAddsUpCard: View {
             return
         }
         errorMessage = nil
-        guard balance != month.closing else { return }
+        guard balance != month.closing, !MonthText.isStillToCome(month.through) else { return }
         do {
             try library.update { $0.setBankBalance(balance, of: month.account, on: month.through) }
         } catch {

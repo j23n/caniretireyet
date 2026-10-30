@@ -120,3 +120,34 @@ struct MoneyMonthsTests {
         #expect(february.status == .typed)
     }
 }
+
+extension MoneyMonthsTests {
+    @Test func aLimitKeepsTheNewestMonths() {
+        let library = Self.library()
+        let all = library.moneyMonths(next: "2026-02-28")
+        #expect(library.moneyMonths(next: "2026-02-28", limit: 2) == Array(all.prefix(2)))
+        #expect(library.moneyMonths(next: "2026-02-28", limit: 9) == all)
+        #expect(library.moneyMonthCount(next: "2026-02-28") == 3)
+        #expect(library.moneyMonthCount() == 2)
+    }
+
+    /// Lines before an account's first value can't be checked against a
+    /// balance: the month is done once they're all confirmed.
+    @Test func theFirstMonthIsDoneOnceItsLinesAreChecked() throws {
+        var library = Self.library()
+        library.accounts["nuovo"] = Account(id: "nuovo", name: "Nuovo", kind: .cash, currency: .eur,
+                                            opened: "2026-01-01")
+        library.upsert(Valuation(account: "nuovo", date: "2026-01-31", balance: 200))
+        var shop = BankLine(account: "nuovo", date: "2026-01-10", id: "shop", amount: -50,
+                            statementClass: .spending)
+        library.upsert(shop)
+        let month = try #require(library.accountMonth(of: "nuovo", through: "2026-01-31"))
+        #expect(month.status == .firstMonth(1))
+        #expect(!month.status.isDone)
+
+        shop.confirmed = true
+        library.upsert(shop)
+        #expect(library.accountMonth(of: "nuovo", through: "2026-01-31")?.status == .firstMonth(0))
+        #expect(library.accountMonth(of: "nuovo", through: "2026-01-31")?.status.isDone == true)
+    }
+}

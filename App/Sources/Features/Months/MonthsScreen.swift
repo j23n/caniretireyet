@@ -28,8 +28,8 @@ struct MonthsScreen: View {
     private static let recentCount = 6
 
     var body: some View {
-        let months = library.library.moneyMonths(next: nextCheckIn)
-        let shown = showsOlder ? months : Array(months.prefix(Self.recentCount))
+        let shown = library.library.moneyMonths(next: nextCheckIn, limit: showsOlder ? nil : Self.recentCount)
+        let count = library.library.moneyMonthCount(next: nextCheckIn)
         ScrollView {
             VStack(alignment: .leading, spacing: Metrics.xl) {
                 Text("One import per account per month. Each month opens at the closing balance before it, and "
@@ -39,7 +39,7 @@ struct MonthsScreen: View {
                 ForEach(shown) { month in
                     MoneyMonthSection(month: month, importCSV: { importing = $0 }, typeTotals: { typing = $0 })
                 }
-                if shown.count < months.count {
+                if shown.count < count {
                     Button("Show Older Months") { showsOlder = true }
                 }
             }
@@ -62,7 +62,7 @@ struct MonthsScreen: View {
             MonthTypedTotalsSheet(route: route)
         }
         .overlay {
-            if months.isEmpty {
+            if count == 0 {
                 ContentUnavailableView {
                     Label("No months yet", systemImage: "calendar")
                 } description: {
@@ -175,8 +175,10 @@ private struct MonthAccountRow: View {
             HStack(spacing: Metrics.s) {
                 label
                 Spacer(minLength: Metrics.s)
-                Button("Type Totals…", action: typeTotals)
-                    .disabled(!library.canEdit)
+                if !MonthText.isStillToCome(month.through) {
+                    Button("Type Totals…", action: typeTotals)
+                        .disabled(!library.canEdit)
+                }
                 Button("Import CSV…", action: importCSV)
                     .disabled(!library.canEdit)
             }
