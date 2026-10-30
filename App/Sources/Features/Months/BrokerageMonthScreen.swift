@@ -14,6 +14,7 @@ struct BrokerageMonthScreen: View {
     let route: BrokerageRoute
 
     @Environment(LibraryStore.self) private var library
+    @Environment(CheckInStore.self) private var checkIn
     @Environment(AppNavigation.self) private var navigation
     @Environment(\.pageLayout) private var layout
     @Environment(\.locale) private var locale
@@ -62,8 +63,8 @@ struct BrokerageMonthScreen: View {
 
     /// The month, from the check-in before this one.
     private var month: BrokerageMonth? {
-        library.valuator.brokerageMonth(of: route.account, after: route.from, through: route.through,
-                                        in: library.library)
+        checkIn.valuator(on: route.through).brokerageMonth(of: route.account, after: route.from,
+                                                           through: route.through, in: library.library)
     }
 
     private var title: String {
@@ -143,10 +144,11 @@ private struct BrokerageSummaryCard: View {
     let from: CalendarDate
     let through: CalendarDate
 
-    @Environment(LibraryStore.self) private var library
+    @Environment(CheckInStore.self) private var checkIn
 
     var body: some View {
-        if let change = library.valuator.change(of: account.id, from: from, to: through, in: .account)?.change {
+        let valuator = checkIn.valuator(on: through)
+        if let change = valuator.change(of: account.id, from: from, to: through, in: .account)?.change {
             Card {
                 VStack(alignment: .leading, spacing: Metrics.s) {
                     row("Opened at", change.start)
@@ -333,10 +335,12 @@ private struct BrokerageHoldingsCard: View {
     let through: CalendarDate
 
     @Environment(LibraryStore.self) private var library
+    @Environment(CheckInStore.self) private var checkIn
     @Environment(\.locale) private var locale
 
     var body: some View {
-        let holdings = library.valuator.holdings(of: account.id, on: through)
+        let valuator = checkIn.valuator(on: through)
+        let holdings = valuator.holdings(of: account.id, on: through)
         Card("Holdings on \(AmountFormat.shortDate(through, locale: locale))") {
             CardRows {
                 ForEach(holdings, id: \.instrument) { holding in
@@ -345,7 +349,7 @@ private struct BrokerageHoldingsCard: View {
                 HStack {
                     Text("Cash")
                     Spacer(minLength: Metrics.s)
-                    if let cash = library.valuator.tradeCash(of: account.id, on: through) {
+                    if let cash = valuator.tradeCash(of: account.id, on: through) {
                         AmountText(cash, currency: account.currency, precision: .cents)
                     }
                 }

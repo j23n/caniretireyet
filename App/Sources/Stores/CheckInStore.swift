@@ -36,6 +36,7 @@ final class CheckInStore {
     private let plans: PlanStore
     private let preferences: AppPreferences
     @ObservationIgnored private var fetchTask: Task<Void, Never>?
+    @ObservationIgnored private let pricedValuators = Memo<PricedKey, Valuator>()
 
     init(library: LibraryStore, prices: PriceStore, plans: PlanStore, preferences: AppPreferences) {
         self.library = library
@@ -68,6 +69,29 @@ final class CheckInStore {
         let fetched = priceList?.date == date ? priceList : nil
         return CheckInSummary(date: date, library: library.library, prices: fetched?.prices ?? [],
                               fxRates: fetched?.fx ?? [])
+    }
+
+    /// What a check-in's pages value with on `date`: on the open check-in's
+    /// date, the library with the prices and rates fetched for it on top,
+    /// so its groups, the month so far and an investment's month show what
+    /// markets did before it's saved. A price typed in by hand for the date
+    /// stays, as ``save()`` keeps it. On any other date, or without a
+    /// fetch, the library's own valuator.
+    func valuator(on date: CalendarDate) -> Valuator {
+        guard date == self.date, let fetched = priceList, fetched.date == date,
+              !fetched.prices.isEmpty || !fetched.fx.isEmpty
+        else { return library.valuator }
+        return pricedValuators.value(for: PricedKey(revision: library.revision, fetched: fetched)) {
+            var priced = library.library
+            fetched.merge(into: &priced, policy: .replaceFetched)
+            return Valuator(library: priced)
+        }
+    }
+
+    /// A library revision with a fetch on top (``valuator(on:)``).
+    private struct PricedKey: Equatable {
+        var revision: Int
+        var fetched: FetchedPrices
     }
 
     // MARK: Starting
