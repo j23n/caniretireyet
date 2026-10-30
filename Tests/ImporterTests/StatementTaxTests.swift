@@ -181,6 +181,9 @@ struct StatementTaxTests {
         #expect(try Self.line(preview, "Affitto marzo").statementClass == .spending)
         #expect(try Self.line(preview, "Affitto marzo").assetLeftOut == .accountCantTakeMoves)
         #expect(preview.issues.contains { $0.kind == .statementMoveLeftOut(row: row, account: "conto") })
+        // Left out, it's kept as a suggestion, to check on its month.
+        let line = try Self.line(preview, "Affitto marzo")
+        #expect(preview.lines.first { $0.id == line.lineID }?.isConfirmed == false)
     }
 
     @Test func aRulesMoveItCantTakeIsLeftOutAndStaysATransfer() throws {

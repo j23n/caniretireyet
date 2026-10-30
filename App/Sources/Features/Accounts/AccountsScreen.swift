@@ -58,6 +58,11 @@ struct AccountsScreen: View {
                             }
                             .disabled(!library.canEdit)
                             Button {
+                                navigation.showMonths()
+                            } label: {
+                                Label("Money In and Out", systemImage: "calendar")
+                            }
+                            Button {
                                 showsInstruments = true
                             } label: {
                                 Label("Instruments", systemImage: AppSymbol.instruments)

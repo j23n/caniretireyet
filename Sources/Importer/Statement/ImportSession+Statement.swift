@@ -64,11 +64,7 @@ extension ImportSession {
     }
 
     private mutating func setStatementRule(_ rule: StatementRule?, for phrase: String) {
-        let words = TextTools.words(phrase)
-        profile.rules.removeAll { TextTools.words($0.match) == words }
-        guard var rule, !words.isEmpty else { return }
-        rule.match = TextTools.trim(phrase)
-        profile.rules.append(rule)
+        profile.setStatementRule(rule, for: phrase)
     }
 
     /// Chooses the class of one line, by its 1-based row, for this file

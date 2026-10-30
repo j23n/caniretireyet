@@ -92,20 +92,19 @@ extension Library {
 
     /// Writes the money in and out of `account`'s values from their bank
     /// lines (docs/IMPORT.md, "Lines"), after a line is changed: each value
-    /// that records money in and out, whose stretch of lines since the
-    /// value before adds up, gets their sums, as a statement's import
-    /// counts them. Money out below zero, more paid back than spent, is 0.
-    /// A tax pot records no tax: a bill paid from it is its money out.
-    /// Values without lines or without money in and out are left as they
-    /// are, and so is a value whose stretch doesn't add up, such as one
-    /// whose money in and out were typed for a longer period than the
-    /// lines cover. A value keeps its source, which says where its balance
-    /// came from.
+    /// whose stretch of lines since the value before adds up gets their
+    /// sums, as a statement's import counts them, also a balance typed
+    /// without money in and out. Money out below zero, more paid back than
+    /// spent, is 0. A tax pot records no tax: a bill paid from it is its
+    /// money out. Values without lines are left as they are, and so is a
+    /// value whose stretch doesn't add up, such as one whose money in and
+    /// out were typed for a longer period than the lines cover. A value
+    /// keeps its source, which says where its balance came from.
     public mutating func countLines(of account: AccountID) {
         guard let kind = accounts[account]?.kind else { return }
         for stretch in lineStretches(of: account) {
             guard stretch.addsUp, let through = stretch.through,
-                  var value = valuations(for: account).first(where: { $0.date == through }), value.hasMoneyInOut
+                  var value = valuations(for: account).first(where: { $0.date == through })
             else { continue }
             let amounts = stretch.amounts
             value.moneyIn = amounts.moneyIn
@@ -120,5 +119,5 @@ extension Library {
 
 extension Valuation {
     /// The balance bank lines are checked against: the balance, else the cash.
-    fileprivate var amountForLines: Decimal? { balance ?? cash }
+    var amountForLines: Decimal? { balance ?? cash }
 }
