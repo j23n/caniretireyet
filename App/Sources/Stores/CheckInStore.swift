@@ -74,7 +74,8 @@ final class CheckInStore {
     /// What a check-in's pages value with on `date`: on the open check-in's
     /// date, the library with the prices and rates fetched for it on top,
     /// so its groups, the month so far and an investment's month show what
-    /// markets did before it's saved; on any other date, or without a
+    /// markets did before it's saved. A price typed in by hand for the date
+    /// stays, as ``save()`` keeps it. On any other date, or without a
     /// fetch, the library's own valuator.
     func valuator(on date: CalendarDate) -> Valuator {
         guard date == self.date, let fetched = priceList, fetched.date == date,
@@ -82,8 +83,7 @@ final class CheckInStore {
         else { return library.valuator }
         return pricedValuators.value(for: PricedKey(revision: library.revision, fetched: fetched)) {
             var priced = library.library
-            for price in fetched.prices { priced.upsert(price) }
-            for rate in fetched.fx { priced.upsert(rate) }
+            fetched.merge(into: &priced, policy: .replaceFetched)
             return Valuator(library: priced)
         }
     }
