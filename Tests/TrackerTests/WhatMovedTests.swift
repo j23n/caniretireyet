@@ -87,7 +87,7 @@ struct WhatMovedTests {
         let valuator = Valuator(library: library)
         #expect(valuator.savedSplit(of: valuator.change(from: "2025-12-31", to: "2026-01-31")).saved == 250)
         // And the check-in's month so far.
-        let paid = try #require(valuator.savingsRate(from: "2026-01-01", through: "2026-01-31", spreadsTax: false))
+        let paid = try #require(valuator.savingsRate(from: "2026-01-01", through: "2026-01-31"))
         #expect(paid.tax == 1200)
         #expect(paid.saved == 250)
         #expect(paid.spent == 2850)

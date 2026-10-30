@@ -12,7 +12,7 @@ struct CheckInSoFarTests {
         let valuator = Valuator(library: library)
         let date = PreviewLibrary.latestCheckIn
         let from = try #require(valuator.checkInGroups(on: date, in: library).from)
-        let rate = valuator.savingsRate(from: from.adding(days: 1), through: date, spreadsTax: false)
+        let rate = valuator.savingsRate(from: from.adding(days: 1), through: date)
         let change = valuator.change(from: from, to: date)
         let split = valuator.savedSplit(of: change)
         let soFar = CheckInSoFar(rate: rate, split: split)

@@ -8,10 +8,10 @@ import Model
 /// `saved + markets + oneOffs + startedWith + lost + unexplained == change`,
 /// and with pay, `pay.cameIn - pay.tax - pay.spent == saved`.
 ///
-/// Unlike the savings rate (``SavingsRate``), tax counts when it's paid: a
+/// As in the savings rate (``SavingsRate``), tax counts when it's paid: a
 /// bill paid from a cash or savings account in the days is tax of those
-/// days, not spread over the year before it, so the parts add up to what
-/// net worth did. What moved into a tax pot outside net worth is tax too.
+/// days, so the parts add up to what net worth did. What moved into a tax
+/// pot outside net worth is tax too.
 /// In the base currency.
 public struct WhatMoved: Hashable, Sendable {
     public let from: CalendarDate

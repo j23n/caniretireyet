@@ -117,8 +117,7 @@ struct CheckInConfirmationView: View {
         guard let from = groups.from else { return CheckInSoFar(rate: nil, split: nil) }
         let valuator = library.valuator
         let split = valuator.savedSplit(of: valuator.change(from: from, to: result.date))
-        return CheckInSoFar(rate: valuator.savingsRate(from: from.adding(days: 1), through: result.date,
-                                                       spreadsTax: false),
+        return CheckInSoFar(rate: valuator.savingsRate(from: from.adding(days: 1), through: result.date),
                             split: split)
     }
 
