@@ -36,6 +36,17 @@ struct CheckInSoFarTests {
         #expect(CheckInWording.doneCount(one) == "0 of 1 account done")
     }
 
+    @Test func theProgressLineSaysDoneAndSaved() {
+        let locale = Locale(identifier: "en_US")
+        let car = TypedCheckInAccount(account: "car", last: nil, estimate: nil, isUpdated: false)
+        let groups = CheckInGroups(date: "2026-10-31", from: nil, money: [], investments: [], typed: [car],
+                                   others: [])
+        #expect(CheckInWording.progress(groups, saved: 984, currency: .eur, locale: locale).text
+            == "0 of 1 done · saved €984 so far")
+        let none = CheckInGroups(date: "2026-10-31", from: nil, money: [], investments: [], typed: [], others: [])
+        #expect(CheckInWording.progress(none, saved: 0, currency: .eur, locale: locale).text == "Saved €0 so far")
+    }
+
     @Test func withoutAMonthItsAllZero() {
         let soFar = CheckInSoFar(rate: nil, split: nil)
         #expect(soFar.saved == 0)

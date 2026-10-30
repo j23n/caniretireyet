@@ -46,6 +46,9 @@ struct CheckInDateMenuTests {
                                              locale: Self.locale)
         #expect(editing?.title == "Editing August's check-in")
         #expect(editing?.message.contains("only recorded at your latest check-in") == true)
+        #expect(CheckInDateMenu.shortBanner(for: .editing, on: "2026-08-31", locale: Self.locale)
+            == "Editing August's check-in. September opens at its balances, so changes carry forward.")
+        #expect(CheckInDateMenu.shortBanner(for: .new, on: "2026-10-31") == nil)
     }
 
     @Test func aDateBeforeTheFirstHasABannerToo() {

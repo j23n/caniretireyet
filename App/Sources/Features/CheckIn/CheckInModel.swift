@@ -32,6 +32,16 @@ enum CheckInWording {
         "\(groups.doneCount) of \(Wording.count(groups.count, "account")) done"
     }
 
+    /// The check-in's one line on iPhone: "2 of 8 done · saved 984 € so
+    /// far"; without accounts to do, what was saved alone.
+    static func progress(_ groups: CheckInGroups, saved: Decimal, currency: CurrencyCode,
+                         locale: Locale = .current) -> AmountSentence {
+        let amount = AmountFormat.amount(saved, currency: currency, locale: locale)
+        let savedSoFar: AmountSentence = "saved \(amount: amount) so far"
+        guard groups.count > 0 else { return "Saved \(amount: amount) so far" }
+        return "\(groups.doneCount) of \(groups.count) done · " + savedSoFar
+    }
+
     /// The confirmation of a past check-in, in place of the answer: "Saved a
     /// past check-in (31 Mar 2024). The answer isn't recorded for past dates."
     static func pastCheckInSaved(on date: CalendarDate, latest: CalendarDate?, locale: Locale = .current) -> String {

@@ -65,7 +65,8 @@ struct CheckInMoveChip: View {
 /// the latest saved check-ins to edit (one whose money is off says by how
 /// much), or any other day in the calendar, which adds a check-in between
 /// two you have. Tapping a date picks it; *Done* takes the calendar's.
-/// Prices are fetched again for the new date.
+/// Prices are fetched again for the new date. On iPhone it lists four
+/// dates, and the calendar is behind *Another Date…*.
 struct CheckInDatePanel: View {
     let date: CalendarDate
     let suggested: CalendarDate
@@ -76,6 +77,7 @@ struct CheckInDatePanel: View {
 
     @Environment(LibraryStore.self) private var library
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.pageLayout) private var layout
     @Environment(\.locale) private var locale
     @State private var selection: Date
     @State private var applies = false
@@ -92,8 +94,7 @@ struct CheckInDatePanel: View {
         NavigationStack {
             Form {
                 Section {
-                    ForEach(CheckInDateMenu.options(suggested: suggested, today: .today(), library: library.library)) {
-                        option in
+                    ForEach(options) { option in
                         Button {
                             selection = option.date.dateValue
                             apply()
@@ -102,16 +103,19 @@ struct CheckInDatePanel: View {
                         }
                         .buttonStyle(.plain)
                     }
+                    if !layout.isWide {
+                        NavigationLink("Another Date…") {
+                            Form {
+                                calendar
+                            }
+                            .formStyle(.grouped)
+                            .navigationTitle("Another Date")
+                            .toolbar { toolbar }
+                        }
+                    }
                 }
-                Section {
-                    DatePicker("Check-in date", selection: $selection, in: ...latest, displayedComponents: .date)
-                        .datePickerStyle(.graphical)
-                        .labelsHidden()
-                        .personalControl()
-                } footer: {
-                    Text("Any other day adds a check-in between two you have: your lines stay where they are, and "
-                        + "balances are compared there too. Values are as of the end of the day, and prices are "
-                        + "fetched again for it.")
+                if layout.isWide {
+                    calendar
                 }
             }
             .formStyle(.grouped)
@@ -119,20 +123,43 @@ struct CheckInDatePanel: View {
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { apply() }
-                        .fontWeight(.semibold)
-                        .keyboardShortcut(.defaultAction)
-                }
-            }
+            .toolbar { toolbar }
         }
         .frame(minWidth: 360, idealWidth: 400, minHeight: 600)
         .onDisappear {
             if applies, picked != date { onPick(picked) }
+        }
+    }
+
+    /// The dates offered: four on iPhone.
+    private var options: [CheckInDateOption] {
+        let all = CheckInDateMenu.options(suggested: suggested, today: .today(), library: library.library)
+        return layout.isWide ? all : Array(all.prefix(CheckInDateMenu.compactShown))
+    }
+
+    /// Any other day, in a calendar, with what picking one does.
+    private var calendar: some View {
+        Section {
+            DatePicker("Check-in date", selection: $selection, in: ...latest, displayedComponents: .date)
+                .datePickerStyle(.graphical)
+                .labelsHidden()
+                .personalControl()
+        } footer: {
+            Text("Any other day adds a check-in between two you have: your lines stay where they are, and "
+                + "balances are compared there too. Values are as of the end of the day, and prices are "
+                + "fetched again for it.")
+        }
+    }
+
+    @ToolbarContentBuilder
+    private var toolbar: some ToolbarContent {
+        ToolbarItem(placement: .cancellationAction) {
+            Button("Cancel") { dismiss() }
+        }
+        ToolbarItem(placement: .confirmationAction) {
+            Button("Done") { apply() }
+                .fontWeight(.semibold)
+                .keyboardShortcut(.defaultAction)
         }
     }
 
