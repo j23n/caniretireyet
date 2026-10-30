@@ -193,14 +193,29 @@ struct MonthLinesScreen: View {
         return "\(span) · \(Wording.count(month.lines.count, "line"))"
     }
 
+    /// The filters as segments, or as a menu when they don't fit in full.
     private func filterPicker(_ month: AccountMonth) -> some View {
+        ViewThatFits(in: .horizontal) {
+            filterChoices(month)
+                .pickerStyle(.segmented)
+                .labelsHidden()
+            HStack {
+                Text("Show")
+                    .foregroundStyle(Palette.secondaryInk)
+                filterChoices(month)
+                    .pickerStyle(.menu)
+                    .labelsHidden()
+                Spacer(minLength: 0)
+            }
+        }
+    }
+
+    private func filterChoices(_ month: AccountMonth) -> some View {
         Picker("Show", selection: $filter) {
             ForEach(MonthLineFilter.allCases) { filter in
                 Text(filterTitle(filter, month: month)).tag(filter)
             }
         }
-        .pickerStyle(.segmented)
-        .labelsHidden()
     }
 
     private func filterTitle(_ filter: MonthLineFilter, month: AccountMonth) -> String {
@@ -216,23 +231,35 @@ struct MonthLinesScreen: View {
         .disabled(month.linesToCheck == 0 || !library.canEdit)
     }
 
+    /// *Add Line* and *Accept*, side by side, or one over the other when
+    /// they don't fit in full.
     private func bottomBar(_ month: AccountMonth) -> some View {
-        HStack(spacing: Metrics.s) {
-            Button {
-                addsLine = true
-            } label: {
-                Label("Add Line", systemImage: "plus")
-                    .frame(maxWidth: .infinity)
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: Metrics.s) {
+                bottomBarButtons(month)
             }
-            .buttonStyle(.bordered)
-            .disabled(!library.canEdit)
-            acceptButton(month)
-                .frame(maxWidth: .infinity)
+            VStack(spacing: Metrics.s) {
+                bottomBarButtons(month)
+            }
         }
         .controlSize(.large)
         .padding(.horizontal, layout.gutter)
         .padding(.vertical, Metrics.s)
         .background(.bar)
+    }
+
+    @ViewBuilder
+    private func bottomBarButtons(_ month: AccountMonth) -> some View {
+        Button {
+            addsLine = true
+        } label: {
+            Label("Add Line", systemImage: "plus")
+                .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.bordered)
+        .disabled(!library.canEdit)
+        acceptButton(month)
+            .frame(maxWidth: .infinity)
     }
 
     // MARK: Editing

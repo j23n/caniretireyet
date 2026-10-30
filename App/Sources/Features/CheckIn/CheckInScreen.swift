@@ -308,12 +308,25 @@ struct CheckInPage: View {
 
     // MARK: Files and prices
 
-    /// *Import Files* and the prices' status, side by side.
+    /// *Import Files* and the prices' status, side by side, or one over the
+    /// other when they don't fit in full.
     private var actions: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: Metrics.m) {
+                actionButtons
+            }
+            VStack(spacing: Metrics.s) {
+                actionButtons
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var actionButtons: some View {
         let list = CheckInPriceList.make(date: summary.date, fetched: checkIn.priceList, library: library.library,
                                          locale: locale)
         let status = CheckInPriceStatus.make(list, isFetching: checkIn.isFetchingPrices, locale: locale)
-        return HStack(spacing: Metrics.m) {
+        Group {
             Button {
                 showsImport = true
             } label: {
@@ -428,8 +441,8 @@ struct CheckInPage: View {
                 AmountSentenceText(soFar.split(currency: library.baseCurrency, locale: locale))
                     .font(.footnote)
                     .foregroundStyle(Palette.secondaryInk)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
+                    .multilineTextAlignment(.trailing)
+                    .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity, alignment: .trailing)
             }
         }
@@ -513,13 +526,13 @@ private struct CheckInAccountRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(verbatim: name)
                     .foregroundStyle(Palette.ink)
-                    .lineLimit(1)
+                    .lineLimit(2)
                     .privacySensitiveInFeedback()
                 if let lastValue {
                     Text(verbatim: lastValue)
                         .font(.subheadline)
                         .foregroundStyle(isStale ? Palette.warning : Palette.secondaryInk)
-                        .lineLimit(1)
+                        .fixedSize(horizontal: false, vertical: true)
                         .privacySensitiveInFeedback()
                 }
             }

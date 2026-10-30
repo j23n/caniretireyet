@@ -191,15 +191,20 @@ struct MonthAccountRow: View {
 
     var body: some View {
         if month.status == .notDone {
-            HStack(spacing: Metrics.s) {
-                label
-                Spacer(minLength: Metrics.s)
-                if !MonthText.isStillToCome(month.through) {
-                    Button("Type Totals…", action: typeTotals)
-                        .disabled(!library.canEdit)
+            // The buttons go under the label when the line is too narrow
+            // for both, so neither is cut short.
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: Metrics.s) {
+                    label
+                    Spacer(minLength: Metrics.s)
+                    buttons
                 }
-                Button("Import CSV…", action: importCSV)
-                    .disabled(!library.canEdit)
+                VStack(alignment: .leading, spacing: Metrics.s) {
+                    label
+                    HStack(spacing: Metrics.l) {
+                        buttons
+                    }
+                }
             }
             .buttonStyle(.borderless)
             .padding(.vertical, Metrics.m)
@@ -225,6 +230,16 @@ struct MonthAccountRow: View {
 
     private var isOff: Bool {
         if case .off = month.status { true } else { false }
+    }
+
+    @ViewBuilder
+    private var buttons: some View {
+        if !MonthText.isStillToCome(month.through) {
+            Button("Type Totals…", action: typeTotals)
+                .disabled(!library.canEdit)
+        }
+        Button("Import CSV…", action: importCSV)
+            .disabled(!library.canEdit)
     }
 
     private var label: some View {
