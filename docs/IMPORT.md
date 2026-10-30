@@ -343,9 +343,9 @@ Lines are keyed by account, date and **ID**. An imported line's ID is made from 
 - a **confirmed** line keeps what it is, money moved to its other account included, unless the import chooses again;
 - a line that is still a suggestion takes the import's new one; its note stays.
 
-**Between two values** (Tracker's `Library.lineStretches(of:)`, `LineStretch`) an account's lines are checked against its balances: the value before, plus every line that counts, has to be the value after. The difference is a line missing, one listed twice, or a balance typed wrong. Each stretch starts from the value before it, so a value corrected later carries into the next stretch. A stretch's **spent** is its spending lines, less money paid back, and what it **moved** is its transfers. Lines after the account's last value wait for the next one.
+**Between two values** (Tracker's `Library.lineStretches(of:)`, `LineStretch`) an account's lines are checked against its balances: the value before, plus every line that counts, has to be the value after. The difference is a line missing, one listed twice, or a balance typed wrong. Each stretch starts from the value before it, so a value corrected later carries into the next stretch. A stretch's **spent** is its money out less the tax in it, and what it **moved** is its transfers. Lines after the account's last value wait for the next one.
 
-**After a line is changed** (`Library.countLines(of:)`), each value that records money in and out and has lines since the value before gets their sums, as a statement's import counts them ([Values](#values)), so the savings rate follows. A value without lines in its period keeps the money in and out it has: typed totals, or a check-in's.
+**After a line is changed** (`Library.countLines(of:)`), each value that records money in and out, whose stretch adds up, gets the sums of its lines, as a statement's import counts them ([Values](#values)), so the savings rate follows. A value without lines in its period keeps the money in and out it has: typed totals, or a check-in's. So does a value whose stretch doesn't add up, such as one whose money in and out were typed for a longer period than the lines cover, until it's fixed.
 
 ### Detecting a statement
 

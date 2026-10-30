@@ -54,6 +54,11 @@ struct LineStretchTests {
         #expect(stretches[1].from == "2026-01-31")
         #expect(stretches[1].closing == nil)
         #expect(stretches[1].difference == nil)
+
+        // A stretch that doesn't add up isn't counted again.
+        var library = Self.library()
+        library.countLines(of: "conto")
+        #expect(library.valuations(for: "conto").last?.moneyOut == 960)
     }
 
     @Test func removingTheLineMakesItAddUpAndCountsAgain() throws {
@@ -94,6 +99,34 @@ struct LineStretchTests {
         library.countLines(of: "conto")
         #expect(library.valuations(for: "conto").last?.moneyOut == nil)
         #expect(Library().lineStretches(of: "conto").isEmpty)
+    }
+
+    /// A savings account's interest is its own, and a tax pot's bill is
+    /// only its money out.
+    @Test func interestAndATaxPotsBillAreCounted() throws {
+        var library = Library(accounts: [
+            Account(id: "deposito", name: "Deposito", kind: .savings, currency: .eur, opened: "2020-01-01"),
+            Account(id: "pot", name: "Tax pot", kind: .taxPot, currency: .eur, opened: "2020-01-01"),
+        ])
+        library.upsert(Valuation(account: "deposito", date: "2025-12-31", balance: 1000))
+        library.upsert(Valuation(account: "deposito", date: "2026-01-31", balance: d("1012.5"), moneyIn: 0,
+                                 moneyOut: 0))
+        library.upsert(BankLine(account: "deposito", date: "2026-01-31", id: "i", amount: d("12.5"),
+                                statementClass: .interest))
+        library.upsert(Valuation(account: "pot", date: "2025-12-31", balance: 1000))
+        library.upsert(Valuation(account: "pot", date: "2026-01-31", balance: 700, moneyIn: 0, moneyOut: 0))
+        library.upsert(BankLine(account: "pot", date: "2026-01-20", id: "t", amount: -300, statementClass: .tax))
+        library.upsert(BankLine(account: "pot", date: "2026-01-25", id: "g", amount: 50, statementClass: .oneOff))
+        library.upsert(BankLine(account: "pot", date: "2026-01-26", id: "h", amount: -50, statementClass: .transfer))
+        library.countLines(of: "deposito")
+        library.countLines(of: "pot")
+        let deposito = try #require(library.valuations(for: "deposito").last)
+        #expect(deposito.interest == d("12.5"))
+        #expect(deposito.moneyIn == 0)
+        let pot = try #require(library.valuations(for: "pot").last)
+        #expect(pot.moneyOut == 300)
+        #expect(pot.tax == nil)
+        #expect(pot.oneOff == 50)
     }
 
     @Test func theExampleLibrarysSeptemberAddsUp() throws {
