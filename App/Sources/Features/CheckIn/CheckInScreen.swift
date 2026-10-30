@@ -234,8 +234,9 @@ struct CheckInPage: View {
     @State private var opened: MonthRoute?
 
     var body: some View {
-        let groups = library.valuator.checkInGroups(on: summary.date, in: library.library)
-        let split = summary.change.map { library.valuator.savedSplit(of: $0) }
+        let valuator = checkIn.valuator(on: summary.date)
+        let groups = valuator.checkInGroups(on: summary.date, in: library.library)
+        let split = summary.change.map { valuator.savedSplit(of: $0) }
         let soFar = CheckInSoFar(rate: savingsRate(groups), split: split)
         ScrollView {
             VStack(alignment: .leading, spacing: Metrics.l) {
@@ -302,7 +303,7 @@ struct CheckInPage: View {
     /// one's date.
     private func savingsRate(_ groups: CheckInGroups) -> SavingsRate? {
         guard let from = groups.from else { return nil }
-        return library.valuator.savingsRate(from: from.adding(days: 1), through: summary.date)
+        return checkIn.valuator(on: summary.date).savingsRate(from: from.adding(days: 1), through: summary.date)
     }
 
     // MARK: Files and prices
