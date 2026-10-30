@@ -251,14 +251,9 @@ private struct BrokerageCashCard: View {
                             .foregroundStyle(Palette.secondaryInk)
                             .privacySensitiveInFeedback()
                         Spacer(minLength: Metrics.s)
-                        TextField("Cash", text: $statedText)
-                            .multilineTextAlignment(.trailing)
-                            .frame(maxWidth: 140)
-                            .focused($isEditing)
+                        OutlinedAmountField(title: "Cash", text: $statedText, currency: account.currency,
+                                            isFocused: $isEditing)
                             .onSubmit { save() }
-                            #if os(iOS)
-                            .numberKeyboard(.numbersAndPunctuation)
-                            #endif
                     }
                     .disabled(!library.canEdit)
                 }

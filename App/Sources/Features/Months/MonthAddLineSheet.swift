@@ -60,12 +60,10 @@ struct MonthAddLineSheet: View {
                     Text("In").tag(true)
                 }
                 .pickerStyle(.segmented)
-                TextField("Amount", text: $amountText, prompt: Text("0"))
-                    .multilineTextAlignment(.trailing)
-                    #if os(iOS)
-                    .numberKeyboard(.decimalPad)
-                    #endif
-                TextField("The bank's text", text: $text)
+                FormNumberField(title: "Amount", text: $amountText, prompt: "0",
+                                suffix: AmountFormat.symbol(for: account.currency, locale: locale),
+                                allowsNegative: false)
+                FormTextField(title: "The bank's text", text: $text, prompt: "As on the statement")
             } header: {
                 Text("\(account.name) · \(MonthText.title(month.through, locale: locale))")
                     .privacySensitiveInFeedback()

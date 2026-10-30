@@ -96,8 +96,8 @@ struct TypedValueSheet: View {
                     .privacySensitiveInFeedback()
             }
             Section {
-                AccountsNumberField(title: account.kind.isLiability ? "Owed" : "Balance", text: form.balance,
-                                    prompt: "0", suffix: AmountFormat.symbol(for: account.currency, locale: locale))
+                FormNumberField(title: account.kind.isLiability ? "Owed" : "Balance", text: form.balance,
+                                prompt: "0", suffix: AmountFormat.symbol(for: account.currency, locale: locale))
             } footer: {
                 Text(verbatim: account.kind.isLiability
                     ? AmountInput.debtBalanceFooter + " " + Self.balanceOnlyNote : Self.balanceOnlyNote)

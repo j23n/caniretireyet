@@ -480,14 +480,9 @@ private struct MonthAddsUpCard: View {
                         Text("The bank says on \(AmountFormat.shortDate(month.through, locale: locale))")
                             .foregroundStyle(Palette.secondaryInk)
                         Spacer(minLength: Metrics.s)
-                        TextField("Balance", text: $bankText)
-                            .multilineTextAlignment(.trailing)
-                            .frame(maxWidth: 140)
-                            .focused($isEditing)
+                        OutlinedAmountField(title: "Balance", text: $bankText, currency: currency,
+                                            isFocused: $isEditing)
                             .onSubmit { saveBank() }
-                            #if os(iOS)
-                            .numberKeyboard(.numbersAndPunctuation)
-                            #endif
                     }
                 }
                 status
