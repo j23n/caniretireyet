@@ -33,13 +33,16 @@ enum CheckInWording {
     }
 
     /// The check-in's one line on iPhone: "2 of 8 done · saved 984 € so
-    /// far"; without accounts to do, what was saved alone.
+    /// far", or "spent 500 € more than came in so far"; without accounts to
+    /// do, what was saved alone.
     static func progress(_ groups: CheckInGroups, saved: Decimal, currency: CurrencyCode,
                          locale: Locale = .current) -> AmountSentence {
-        let amount = AmountFormat.amount(saved, currency: currency, locale: locale)
-        let savedSoFar: AmountSentence = "saved \(amount: amount) so far"
-        guard groups.count > 0 else { return "Saved \(amount: amount) so far" }
-        return "\(groups.doneCount) of \(groups.count) done · " + savedSoFar
+        let verb = saved < 0 ? "spent" : "saved"
+        let amount = AmountFormat.amount(abs(saved), currency: currency, locale: locale)
+        let rest: AmountSentence = saved < 0 ? " \(amount: amount) more than came in so far"
+            : " \(amount: amount) so far"
+        guard groups.count > 0 else { return AmountSentence(verb.capitalized) + rest }
+        return AmountSentence("\(groups.doneCount) of \(groups.count) done · \(verb)") + rest
     }
 
     /// The confirmation of a past check-in, in place of the answer: "Saved a
