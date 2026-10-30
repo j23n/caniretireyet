@@ -499,7 +499,8 @@ A brokerage, crypto or metals account that records its trades has a row in each 
 - **Trades**: the opening cash, then the month's trades as the account's page lists them. Right-click or long-press one to delete it.
 - **Does the cash add up?** The opening cash and the trades lead to a cash; the broker's cash on the check-in's date is typed beside it, and the month says whether it adds up or by how much it's off. The month still to come takes it at the check-in.
 - **Holdings** at the month's end: each instrument's quantity, price and value, then the cash.
-- *Import CSV…* opens the import with the broker's file; its types step asks once what each of the broker's words is, and remembers them for the next file ([IMPORT.md](IMPORT.md#types)). *Add Trade* types one in: a buy, a sale, a deposit, a withdrawal, a dividend, interest, a fee or a tax; the instrument, or *New Instrument…* with its price source; the quantity, price and fees, or the amount; and the cash it moves.
+- *Import CSV…* opens the import with the broker's file; its types step asks once what each of the broker's words is, and remembers them for the next file ([IMPORT.md](IMPORT.md#types)). *Add Trade* types one in: a buy, a sale, a deposit, a withdrawal, a dividend, interest, a fee or a tax; the instrument, chosen from a picker, or *New Instrument…* with its price source (pushed on iPhone and iPad, a sheet on the Mac); the quantity in its unit ("sh"), the price and fees in their currency, or the amount; and the cash it moves.
+- **On iPhone** the month is shorter: a deposit to add ("Conto Fineco moved 1.500,00 € to Directa on 3 Oct", *Add as Deposit*), the broker's cash ("Directa says on 31 Oct", typed in its field, with "Cash adds up" or how much it's off under it), the trades, and one row, "Holdings and value 62.255 €", which opens the account. *Add Trade* is the button at the bottom; *Import CSV…* is in the ••• menu.
 
 ### Add past statements
 
