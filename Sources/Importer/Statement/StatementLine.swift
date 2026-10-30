@@ -124,18 +124,18 @@ public struct StatementLine: Hashable, Sendable, Identifiable {
     /// sale stays a suggestion, so importing the file again asks for it
     /// again and finds the value it made.
     func bankLine(account: AccountID) -> BankLine {
-        let isConfirmed = source == .chosen && !isRemoved && !isPurchaseOrSale
+        let isConfirmed = source == .chosen && !isRemoved && !staysSuggestion
         return BankLine(account: account, date: date, id: lineID, amount: amount, text: text,
                         statementClass: statementClass, otherAccount: otherAccount, note: note,
                         removed: isRemoved ? true : nil, confirmed: isConfirmed ? true : nil, source: .import)
     }
 
-    /// Whether the line's answer is a purchase or a sale, also one the
-    /// import leaves out because it doesn't fit.
-    private var isPurchaseOrSale: Bool {
+    /// Whether the line stays a suggestion: its answer is a purchase or a
+    /// sale, or one the import leaves out, which then names no account.
+    private var staysSuggestion: Bool {
         switch asset {
         case .purchase?, .sale?: true
-        case .moved?, nil: assetLeftOut == .doesntFit
+        case .moved?, nil: assetLeftOut != nil
         }
     }
 

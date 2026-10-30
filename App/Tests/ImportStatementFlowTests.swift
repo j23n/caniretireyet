@@ -388,6 +388,8 @@ struct ImportStatementFlowTests {
         #expect(answered.line.asset == nil)
         #expect(flow.answerDetail(answered)?.isProblem == true)
         #expect(flow.answerDetail(answered)?.opensSheet == true)
+        // Left out, it's written as a suggestion, to check on its month.
+        #expect(flow.preview?.lines.first { $0.id == answered.line.lineID }?.isConfirmed == false)
         flow.setStatementAsset(.purchase(name: "Car", kind: .belongings), for: answered)
         let bought = try #require(flow.statementQuestions.first)
         #expect(flow.answerDetail(bought)?.isProblem == false)
