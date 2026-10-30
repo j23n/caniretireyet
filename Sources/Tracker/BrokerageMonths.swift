@@ -177,12 +177,11 @@ extension Library {
     /// that records trades counts as saved as soon as the line says so: a
     /// line that now moves money to such an account, and that no deposit
     /// or withdrawal matches, gets one (``addDeposit(for:)``); a line that
-    /// no longer moves it there loses the one recorded for it by hand, on
-    /// its day, of its amount. Another line that deposit answered, such as
-    /// the same move from the bank's statement, gets one back. A deposit
-    /// from the broker's own file stays, except one that matched a deposit
-    /// recorded by hand: it keeps that one's day, ID and source, so it goes
-    /// like it.
+    /// no longer moves it there loses the one recorded for it
+    /// (``DepositMove/isRecorded(_:)``). Another line that deposit answered,
+    /// such as the same move typed by hand, gets one back. A deposit from
+    /// the broker's own file that matched the line's has its day and ID, so
+    /// it goes too, and comes back when that file is imported again.
     mutating func recordDeposits(changing before: [BankLine], to after: [BankLine]) {
         let saved = Dictionary(after.map { ($0.key, $0) }) { $1 }
         let gone = before.compactMap { old -> (account: AccountID, trade: TradeKey)? in
@@ -231,11 +230,23 @@ private struct DepositMove: Hashable {
     var date: CalendarDate
     var amount: Decimal
 
-    /// Whether `trade` is the one ``Library/addDeposit(for:)`` recorded for it.
+    var type: TradeType { amount > 0 ? .deposit : .withdrawal }
+
+    /// Whether `trade` is the one recorded for it, on its day, of its
+    /// amount: by hand (``Library/addDeposit(for:)``), or by the
+    /// statement's import, with the import's stable ID (docs/IMPORT.md,
+    /// "Moved to or from an account").
     func isRecorded(_ trade: Trade) -> Bool {
-        trade.source == .manual && trade.date == date && trade.amount == amount
-            && trade.type == (amount > 0 ? .deposit : .withdrawal)
+        guard trade.date == date, trade.amount == amount, trade.type == type else { return false }
+        if trade.source == .manual { return true }
+        guard trade.source == .import else { return false }
+        let identity = Trade(account: account, date: date, type: type, amount: amount, source: .import)
+        // Moves of the same amount on one day are numbered by the import.
+        return (0..<Self.ordinals).contains { TradeID.stable(for: identity, ordinal: $0) == trade.id }
     }
+
+    /// How many moves of one amount on one day ``isRecorded(_:)`` looks for.
+    private static let ordinals = 8
 }
 
 extension Library {

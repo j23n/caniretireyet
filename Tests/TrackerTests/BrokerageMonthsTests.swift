@@ -194,6 +194,23 @@ struct BrokerageMonthsTests {
         #expect(october.depositsToAdd.isEmpty)
     }
 
+    /// The deposit the statement's import added for a move goes when the
+    /// line is changed to spending.
+    @Test func theImportsDepositGoesWithItsMove() throws {
+        var library = Self.library()
+        var line = try #require(library.lines(for: "conto").first)
+        var deposit = Trade(account: "broker", date: "2026-10-03", type: .deposit, amount: 1500, source: .import)
+        deposit.id = TradeID.stable(for: deposit)
+        library.upsert(deposit)
+        library.save([line])
+        #expect(Self.deposits(library).count == 1)
+
+        line.statementClass = .spending
+        line.otherAccount = nil
+        library.save([line])
+        #expect(Self.deposits(library).isEmpty)
+    }
+
     /// A deposit from the broker's own file is the move's: saving the line
     /// adds none, and saving it as something else leaves it.
     @Test func theBrokersOwnDepositStays() throws {
