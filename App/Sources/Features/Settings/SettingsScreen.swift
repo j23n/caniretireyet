@@ -116,7 +116,7 @@ private struct YouSection: View {
         let settings = library.settings
         let birthDate = settings.person?.birthDate
         Section {
-            TextField("Name", text: nameBinding)
+            FormTextField(title: "Name", text: nameBinding)
                 .onSubmit(saveName)
             Toggle("Birth date", isOn: hasBirthDateBinding)
             if birthDate != nil || addsBirthDate {

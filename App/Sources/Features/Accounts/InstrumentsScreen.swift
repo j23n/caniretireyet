@@ -449,7 +449,7 @@ struct InstrumentEditor: View {
                 Text("Instrument")
             }
             Section {
-                Picker("Currency", selection: form.currency) {
+                PillPicker("Currency", selection: form.currency, value: form.wrappedValue.currency.rawValue) {
                     ForEach(CurrencyChoices.common.including(form.wrappedValue.currency), id: \.self) { code in
                         Text(CurrencyChoices.name(of: code, locale: locale)).tag(code)
                     }

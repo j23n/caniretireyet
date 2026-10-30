@@ -132,7 +132,7 @@ struct MonthLineEditor: View {
 
     private var otherAccountPicker: some View {
         VStack(alignment: .leading, spacing: Metrics.s) {
-            Picker("To which account?", selection: $edit.other) {
+            PillPicker("To", selection: $edit.other, value: otherName, isPersonal: true) {
                 Text("Not one of mine").tag(AccountID?.none)
                 ForEach(otherAccounts) { other in
                     Text(other.name).tag(AccountID?.some(other.id))
@@ -144,6 +144,11 @@ struct MonthLineEditor: View {
                 .foregroundStyle(Palette.secondaryInk)
                 .fixedSize(horizontal: false, vertical: true)
         }
+    }
+
+    /// What the account's pill says: its name, or "Not one of mine".
+    private var otherName: String {
+        edit.other.flatMap { library.library.accounts[$0]?.name } ?? "Not one of mine"
     }
 
     private var movedNote: String {

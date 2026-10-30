@@ -147,17 +147,17 @@ struct PlanAssumptionsEditor: View {
                     Spacer(minLength: Metrics.s)
                     PlanNumberField("\(name) mean real return",
                                     value: $plan.assumptions[planReal: assetClass], kind: .percent)
-                        .frame(maxWidth: 52)
+                        .frame(maxWidth: 68)
                     Text("% ·")
                         .foregroundStyle(Palette.secondaryInk)
                     PlanNumberField("\(name) median real return",
                                     value: $plan.assumptions[planMedianReal: assetClass], kind: .percent)
-                        .frame(maxWidth: 52)
+                        .frame(maxWidth: 68)
                     Text("% ·")
                         .foregroundStyle(Palette.secondaryInk)
                     PlanNumberField("\(name) volatility",
                                     value: $plan.assumptions[planVolatility: assetClass], kind: .percent)
-                        .frame(maxWidth: 52)
+                        .frame(maxWidth: 68)
                     Text("%")
                         .foregroundStyle(Palette.secondaryInk)
                 }
@@ -176,7 +176,7 @@ struct PlanAssumptionsEditor: View {
                     Spacer(minLength: Metrics.s)
                     PlanNumberField("\(name) income yield", value: $plan.assumptions[planIncomeYield: assetClass],
                                     kind: .percent, prompt: "–", isOptional: true)
-                        .frame(maxWidth: 56)
+                        .frame(maxWidth: 72)
                     Text("%")
                         .foregroundStyle(Palette.secondaryInk)
                 }

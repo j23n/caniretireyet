@@ -326,6 +326,7 @@ struct EditAccountSheet: View {
             Section {
                 TextField("Notes", text: form.notes, prompt: Text("Optional"), axis: .vertical)
                     .lineLimit(2...6)
+                    .outlinedField()
             } header: {
                 Text("Notes")
             }

@@ -65,9 +65,9 @@ private struct ImportTypeRowView: View {
 
     var body: some View {
         LabeledContent {
-            Picker(row.value, selection: Binding(get: { row.type }, set: { type in
+            PillPicker(row.value, selection: Binding(get: { row.type }, set: { type in
                 model.flow.setTradeType(type, for: row.value)
-            })) {
+            }), value: ImportFlow.typeChoiceName(row.type), showsTitle: false) {
                 if row.type == nil {
                     Text(ImportFlow.typeChoiceName(nil)).tag(TradeType?.none)
                 }
@@ -75,8 +75,6 @@ private struct ImportTypeRowView: View {
                     Text(ImportFlow.typeChoiceName(type)).tag(TradeType?.some(type))
                 }
             }
-            .labelsHidden()
-            .pickerStyle(.menu)
         } label: {
             VStack(alignment: .leading, spacing: 2) {
                 Label("“\(row.value)”", systemImage: row.type == nil ? "exclamationmark.triangle.fill"
