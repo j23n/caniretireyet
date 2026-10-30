@@ -73,6 +73,29 @@ struct BrokerageMonthsTests {
         #expect(try Self.october(library).depositsToAdd.count == 1)
     }
 
+    /// Money moved from a euro account to a dollar account isn't a deposit
+    /// to add: the two amounts are in different currencies.
+    @Test func aMoveInAnotherCurrencyIsLeftAlone() throws {
+        var library = Self.library()
+        library.accounts["broker"]?.currency = .usd
+        #expect(try Self.october(library).depositsToAdd.isEmpty)
+        let line = try #require(library.lines(for: "conto").first)
+        library.addDeposit(for: line)
+        #expect(library.trades(for: "broker").allSatisfy { $0.type != .deposit })
+    }
+
+    /// One deposit near a check-in answers one move, not one in each month.
+    @Test func aDepositMatchesOneMoveAcrossMonths() throws {
+        var library = Self.library()
+        library.upsert(BankLine(account: "conto", date: "2026-09-28", id: "early", amount: -500,
+                                statementClass: .transfer, otherAccount: "broker", confirmed: true))
+        library.upsert(BankLine(account: "conto", date: "2026-10-02", id: "late", amount: -500,
+                                statementClass: .transfer, otherAccount: "broker", confirmed: true))
+        library.upsert(Trade(account: "broker", date: "2026-10-01", id: "dep", type: .deposit, amount: 500))
+        let ids = try Self.october(library).depositsToAdd.map(\.id)
+        #expect(ids == ["late", "move"])
+    }
+
     @Test func theBrokersCashChecksTheTrades() throws {
         var library = Self.library()
         let line = try #require(library.lines(for: "conto").first)
