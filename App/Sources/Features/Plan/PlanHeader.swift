@@ -121,8 +121,8 @@ struct PlanMenu: View {
                 .foregroundStyle(inToolbar ? Palette.ink : Palette.secondaryInk)
                 .accessibilityHidden(true)
         }
-        .contentShape(Rectangle())
         .padding(.horizontal, inToolbar ? Metrics.xs : 0)
+        .contentShape(Rectangle())
     }
 }
 
