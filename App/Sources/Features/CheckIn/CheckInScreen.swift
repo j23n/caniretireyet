@@ -129,6 +129,7 @@ struct CheckInScreen: View {
 
     private func start(on date: CalendarDate?) {
         saved = nil
+        navigation.isCheckInSaved = false
         saveError = nil
         checkIn.begin(on: date)
     }
@@ -150,6 +151,7 @@ struct CheckInScreen: View {
                 // doesn't end a field's editing.
                 try await typedEdits.saveAll(to: library, locale: locale)
                 saved = try await checkIn.save()
+                navigation.isCheckInSaved = true
             } catch {
                 saveError = error.localizedDescription
             }

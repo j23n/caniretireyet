@@ -126,6 +126,9 @@ final class AppNavigation {
     /// The check-in as a full-screen sheet (tab layout); in the sidebar
     /// layout it's the Check-in page.
     var isCheckInPresented = false
+    /// Whether the open check-in is saved: its saved page shows, whose
+    /// tiles open other places (``waitsForCheckIn(then:)``).
+    var isCheckInSaved = false
     /// A place in a plan to open once (``showPlan(_:at:)``): the plan's
     /// screen takes it when it appears, or at once when it's already open,
     /// and clears it.
@@ -140,6 +143,7 @@ final class AppNavigation {
 
     /// Opens the check-in: full screen with tabs, the Check-in page with a sidebar.
     func startCheckIn() {
+        if !isCheckInPresented { isCheckInSaved = false }
         switch layout {
         case .tabs: isCheckInPresented = true
         case .sidebar: sidebarSelection = .checkIn
@@ -149,6 +153,7 @@ final class AppNavigation {
     /// Closes the full-screen check-in, or leaves the Check-in page for Today.
     func finishCheckIn() {
         isCheckInPresented = false
+        isCheckInSaved = false
         if sidebarSelection == .checkIn { sidebarSelection = .today }
     }
 
@@ -163,19 +168,26 @@ final class AppNavigation {
     }
 
     func showToday() {
+        if waitsForCheckIn(then: { $0.showToday() }) { return }
         tab = .today
         todayPath = NavigationPath()
         sidebarSelection = .today
     }
 
-    /// Shows So far at `year`, or at the latest year. Each place below
-    /// closes the full-screen check-in first, as the sidebar leaves the
-    /// Check-in page: the saved check-in's tiles open them.
+    /// Whether a place waits for the full-screen check-in (tab layout),
+    /// which can only be saved or cancelled: a link or a widget opens
+    /// nothing while it's open. Once it's saved, its saved page's tiles
+    /// close it first, then `next` opens the place.
+    private func waitsForCheckIn(then next: @escaping @MainActor @Sendable (AppNavigation) -> Void) -> Bool {
+        guard isCheckInPresented else { return false }
+        if isCheckInSaved { finishCheckIn(then: next) }
+        return true
+    }
+
+    /// Shows So far at `year`, or at the latest year. This and the places
+    /// below wait for the full-screen check-in (``waitsForCheckIn(then:)``).
     func showSoFar(year: Int? = nil) {
-        guard !isCheckInPresented else {
-            finishCheckIn { $0.showSoFar(year: year) }
-            return
-        }
+        if waitsForCheckIn(then: { $0.showSoFar(year: year) }) { return }
         soFarOpening = SoFarOpening(year: year)
         tab = .soFar
         sidebarSelection = .soFar
@@ -184,10 +196,7 @@ final class AppNavigation {
     /// Shows an account's detail, pushed over the accounts: on iPhone on
     /// Today's stack, in the sidebar over *All Accounts*.
     func showAccount(_ id: AccountID) {
-        guard !isCheckInPresented else {
-            finishCheckIn { $0.showAccount(id) }
-            return
-        }
+        if waitsForCheckIn(then: { $0.showAccount(id) }) { return }
         switch layout {
         case .tabs:
             tab = .today
@@ -206,10 +215,7 @@ final class AppNavigation {
     /// Shows *Money In and Out*: on iPhone pushed on Today's stack, in the
     /// sidebar its own page.
     func showMonths() {
-        guard !isCheckInPresented else {
-            finishCheckIn { $0.showMonths() }
-            return
-        }
+        if waitsForCheckIn(then: { $0.showMonths() }) { return }
         switch layout {
         case .tabs:
             tab = .today
@@ -225,10 +231,7 @@ final class AppNavigation {
     /// the sidebar *All Accounts*, with `account`'s detail over it when
     /// there's one.
     func showAccounts(selecting account: AccountID? = nil) {
-        guard !isCheckInPresented else {
-            finishCheckIn { $0.showAccounts(selecting: account) }
-            return
-        }
+        if waitsForCheckIn(then: { $0.showAccounts(selecting: account) }) { return }
         switch layout {
         case .tabs:
             tab = .today
@@ -265,10 +268,7 @@ final class AppNavigation {
     /// Shows a plan on Ahead (`nil`: the main plan), with `route`'s sheet
     /// over it when one is given.
     func showPlan(_ id: PlanID? = nil, at route: PlanRoute? = nil) {
-        guard !isCheckInPresented else {
-            finishCheckIn { $0.showPlan(id, at: route) }
-            return
-        }
+        if waitsForCheckIn(then: { $0.showPlan(id, at: route) }) { return }
         selectedPlan = id
         planRoute = route.map { route in
             var route = route

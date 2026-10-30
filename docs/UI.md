@@ -314,7 +314,7 @@ The points you pass on the way ([PROGRESS.md](PROGRESS.md#milestones)): round am
 
 ## Check-in
 
-Once a month: bring each account up to date, by importing its CSV, typing its totals or trades, or typing its value; look at what the month did; save. It opens as a full-screen sheet on iPhone and as the Check-in page on the Mac and iPad, one scrolling page.
+Once a month: bring each account up to date, by importing its CSV, typing its totals or trades, or typing its value; look at what the month did; save. It opens as a full-screen sheet on iPhone and as the Check-in page on the Mac and iPad, one scrolling page. On iPhone it takes over until it's saved or cancelled: a widget or a link opens nothing while it's open. Once it's saved, the saved page's tiles close it, then open their place.
 
 ```
 ┌──────────────────────────────────────────┐

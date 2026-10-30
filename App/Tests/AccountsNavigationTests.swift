@@ -56,3 +56,36 @@ struct AccountsNavigationTests {
         #expect(navigation.accountsPath.isEmpty)
     }
 }
+
+/// The full-screen check-in on iPhone (UI.md, "Check-in"): it can only be
+/// saved or cancelled, so a link or a widget opens nothing while it's open;
+/// once it's saved, the saved page's tiles close it, then open their place.
+@MainActor
+struct CheckInNavigationTests {
+    private func openCheckIn() -> AppNavigation {
+        let navigation = AppNavigation()
+        navigation.layout = .tabs
+        navigation.startCheckIn()
+        return navigation
+    }
+
+    @Test func anOpenCheckInKeepsLinksOut() {
+        let navigation = openCheckIn()
+        navigation.showPlan()
+        navigation.showSoFar()
+        navigation.showToday()
+        #expect(navigation.isCheckInPresented)
+        #expect(navigation.tab == .today)
+        #expect(navigation.planRoute == nil)
+    }
+
+    @Test func aSavedCheckInClosesForALink() async throws {
+        let navigation = openCheckIn()
+        navigation.isCheckInSaved = true
+        navigation.showPlan()
+        #expect(!navigation.isCheckInPresented)
+        #expect(!navigation.isCheckInSaved)
+        try await Task.sleep(for: .milliseconds(500))
+        #expect(navigation.tab == .ahead)
+    }
+}
