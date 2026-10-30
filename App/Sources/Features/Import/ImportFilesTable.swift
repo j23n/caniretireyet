@@ -518,7 +518,7 @@ struct ImportFilesList: View {
             }
             if let first = flow.firstCheckIn {
                 Section {
-                    ImportFirstCheckInPicker(model: model, first: first)
+                    ImportFirstCheckInPicker(model: model, first: first, isRow: true)
                 } header: {
                     Text(ImportFirstCheckInCard.title(first))
                         .privacySensitiveInFeedback()
@@ -672,21 +672,37 @@ private struct ImportAfterFirstCheckIn: View {
     }
 }
 
-/// Monthly | Quarterly | Once per File.
+/// Monthly | Quarterly | Once per File: segments on the Mac and iPad; on
+/// iPhone one row, "Past check-ins  Quarterly ›", with the choices behind
+/// it.
 private struct ImportFirstCheckInPicker: View {
     let model: ImportController
     let first: ImportFirstCheckIn
+    var isRow = false
 
     var body: some View {
-        Picker("How often to add past check-ins", selection: Binding(get: { first.ends }, set: { ends in
+        if isRow {
+            picker
+                #if os(iOS)
+                .pickerStyle(.navigationLink)
+                #else
+                .pickerStyle(.menu)
+                #endif
+        } else {
+            picker
+                .pickerStyle(.segmented)
+                .labelsHidden()
+        }
+    }
+
+    private var picker: some View {
+        Picker("Past check-ins", selection: Binding(get: { first.ends }, set: { ends in
             model.flow.setFirstCheckInEnds(ends)
         })) {
             Text("Monthly").tag(StatementCheckIns.Ends.months)
             Text("Quarterly").tag(StatementCheckIns.Ends.quarters)
             Text("Once per File").tag(StatementCheckIns.Ends.never)
         }
-        .pickerStyle(.segmented)
-        .labelsHidden()
         .disabled(model.isWorking)
     }
 }
@@ -714,8 +730,9 @@ private struct ImportFileCompactRow: View {
                 HStack(spacing: Metrics.s) {
                     Text(verbatim: row.name)
                         .foregroundStyle(Palette.ink)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
+                        .lineLimit(3)
+                        .multilineTextAlignment(.leading)
+                        .fixedSize(horizontal: false, vertical: true)
                     Spacer(minLength: Metrics.s)
                     if row.needsAccount {
                         HStack(spacing: Metrics.xs) {

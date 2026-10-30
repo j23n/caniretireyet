@@ -11,16 +11,24 @@ import SwiftUI
 /// (encoding, header row, rows left out, month-only dates, empty cells) is
 /// behind *More Options…*. It edits the import as you go: *Cancel* puts it
 /// back as it was when the sheet opened, *Use* keeps it.
+///
+/// On iPhone it says what it recognized ("6 columns recognized", what they
+/// are and how dates and numbers read) over the first three lines as read;
+/// the pickers and the columns show after *Change…*, or at once when the
+/// reading needs work (`ImportFlow.readingNeedsChanges(today:)`).
 struct ImportReadingSheet: View {
     let model: ImportController
     @Environment(\.pageLayout) private var layout
     private var isCompact: Bool { !layout.isWide }
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.locale) private var locale
     @Environment(LibraryStore.self) private var library
     /// The import as the sheet opened it, for *Cancel*.
     @State private var saved: ImportFlow?
     @State private var showsMoreOptions = false
+    /// iPhone: whether the pickers and columns show, after *Change…*.
+    @State private var changes = false
 
     var body: some View {
         Group {
@@ -127,38 +135,33 @@ struct ImportReadingSheet: View {
 
     private var compact: some View {
         let flow = model.flow
+        let needsChanges = flow.readingNeedsChanges()
         return NavigationStack {
             Form {
                 Section {
-                    Text(flow.readingSubtitle)
-                        .foregroundStyle(Palette.secondaryInk)
-                        .privacySensitiveInFeedback(flow.shownFileBank != nil)
-                }
-                Section {
-                    ImportReadingFormatPickers(model: model)
-                    Button("More Options…") {
-                        showsMoreOptions = true
+                    VStack(alignment: .leading, spacing: Metrics.xs) {
+                        Label(flow.recognizedTitle, systemImage: needsChanges ? "exclamationmark.triangle.fill"
+                            : "checkmark.circle.fill")
+                            .font(.body.weight(.semibold))
+                            .foregroundStyle(needsChanges ? Palette.warning : Palette.positive)
+                        Text(flow.recognizedSummary)
+                            .font(.subheadline)
+                            .foregroundStyle(Palette.secondaryInk)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
-                }
-                if let problem = flow.problem {
-                    Section {
-                        StatusBanner(.error, "That setting doesn't work for this file", message: problem,
-                                     personal: .message)
+                    if !changes {
+                        Button("Change…") { changes = true }
                     }
+                } header: {
+                    Text("How is it read?")
                 }
-                Section("Columns") {
-                    ForEach(flow.columnRows) { row in
-                        LabeledContent {
-                            ImportColumnUseMenu(model: model, row: row)
-                        } label: {
-                            VStack(alignment: .leading, spacing: 2) {
-                                ImportColumnTitle(row: row)
-                                Text(row.samples.prefix(3).joined(separator: " · "))
-                                    .font(.caption)
-                                    .foregroundStyle(Palette.secondaryInk)
-                                    .lineLimit(1)
-                                    .privacySensitiveInFeedback()
-                            }
+                if changes {
+                    changeSections(flow)
+                }
+                if !flow.statementLines.isEmpty {
+                    Section("Read as") {
+                        ForEach(flow.statementLines.prefix(3)) { line in
+                            readLine(line)
                         }
                     }
                 }
@@ -167,6 +170,10 @@ struct ImportReadingSheet: View {
                 }
             }
             .formStyle(.grouped)
+            // Opened because the reading needs work, the menus stay open once it works.
+            .onChange(of: needsChanges, initial: true) { _, needs in
+                if needs { changes = true }
+            }
             .personalNavigationTitle(flow.readingTitle, hidden: "How It's Read")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
@@ -178,6 +185,55 @@ struct ImportReadingSheet: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Use") {
                         dismiss()
+                    }
+                }
+            }
+        }
+    }
+
+    /// "1 Oct · Rossi Immobiliare   −950,00": a line as it's read.
+    private func readLine(_ line: StatementLine) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
+            Text(verbatim: "\(AmountFormat.shortDate(line.date, locale: locale)) · \(line.text)")
+                .lineLimit(1)
+                .privacySensitiveInFeedback()
+            Spacer(minLength: Metrics.s)
+            AmountText(line.amount, currency: model.flow.statementAccount?.currency, precision: .cents,
+                       signed: true)
+        }
+    }
+
+    /// iPhone, after *Change…* or when the reading needs work: the
+    /// pickers, *More Options…* and what each column holds.
+    @ViewBuilder
+    private func changeSections(_ flow: ImportFlow) -> some View {
+        Section {
+            Text(flow.readingSubtitle)
+                .foregroundStyle(Palette.secondaryInk)
+                .privacySensitiveInFeedback(flow.shownFileBank != nil)
+            ImportReadingFormatPickers(model: model)
+            Button("More Options…") {
+                showsMoreOptions = true
+            }
+        }
+        if let problem = flow.problem {
+            Section {
+                StatusBanner(.error, "That setting doesn't work for this file", message: problem,
+                             personal: .message)
+            }
+        }
+        Section("Columns") {
+            ForEach(flow.columnRows) { row in
+                LabeledContent {
+                    ImportColumnUseMenu(model: model, row: row)
+                } label: {
+                    VStack(alignment: .leading, spacing: 2) {
+                        ImportColumnTitle(row: row)
+                        Text(row.samples.prefix(3).joined(separator: " · "))
+                            .font(.caption)
+                            .foregroundStyle(Palette.secondaryInk)
+                            .lineLimit(1)
+                            .privacySensitiveInFeedback()
                     }
                 }
             }
