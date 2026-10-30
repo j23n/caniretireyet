@@ -340,7 +340,7 @@ struct ImportFileDaysSheet: View {
     .previewEnvironment()
 }
 
-/// Several statements: the file Income and Review show, by name and
+/// Several statements: the file Review shows, by name and
 /// account, in the order they're imported.
 struct ImportBatchFilePicker: View {
     let model: ImportController

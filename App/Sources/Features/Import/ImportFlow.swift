@@ -4,7 +4,7 @@ import Model
 
 /// A step of the import, shown along the top (UI.md, "Import"; IMPORT.md, "Steps").
 /// A broker's transactions (the trades layout) have Types after Columns. Bank
-/// statements (the statement layout) have Files, Income and Review, with
+/// statements (the statement layout) have Files and Review, with
 /// Format and Columns in a sheet the Files step opens. Done follows the last
 /// step, and isn't one along the top (``ImportFlow/barSteps``).
 enum ImportStep: Int, Hashable, Sendable, Comparable {
@@ -12,7 +12,6 @@ enum ImportStep: Int, Hashable, Sendable, Comparable {
     case format
     case columns
     case types
-    case classify
     case accounts
     case preview
     case done
@@ -23,7 +22,6 @@ enum ImportStep: Int, Hashable, Sendable, Comparable {
         case .format: "Format"
         case .columns: "Columns"
         case .types: "Types"
-        case .classify: "Income"
         case .accounts: "Accounts"
         case .preview: "Review"
         case .done: "Done"
@@ -214,7 +212,7 @@ struct ImportFlow: Sendable {
     }
 
     /// Shows one of the batch's files on the steps that show one file:
-    /// its lines on Income, its preview on Preview, how it's read.
+    /// its preview on Review, how it's read.
     mutating func showBatchFile(_ id: Int) {
         guard let file = batch?.files.first(where: { $0.id == id }) else { return }
         batchFile = id
@@ -324,10 +322,10 @@ struct ImportFlow: Sendable {
     var steps: [ImportStep] {
         if session?.profile.layout == .trades { return [.file, .format, .columns, .types, .accounts, .preview, .done] }
         if session?.profile.layout == .statement {
-            // Accounts only for a proposed opening or closing; Income answers a sale's.
+            // Accounts only for a proposed opening or closing.
             let proposed = previews.contains { Self.proposesAccountChange($0.preview) }
             let accounts: [ImportStep] = proposed ? [.accounts] : []
-            return [.file, .classify] + accounts + [.preview, .done]
+            return [.file] + accounts + [.preview, .done]
         }
         return [.file, .format, .columns, .accounts, .preview, .done]
     }
@@ -398,7 +396,8 @@ struct ImportFlow: Sendable {
     }
 
     /// Whether `preview` proposes opening an account earlier or closing one,
-    /// which Accounts answers; Income answers a sale's.
+    /// which Accounts answers. A sale's comes only from the command line
+    /// (`--sale`).
     static func proposesAccountChange(_ preview: ImportPreview?) -> Bool {
         preview?.accountChanges.contains { $0.statementRow == nil } ?? false
     }

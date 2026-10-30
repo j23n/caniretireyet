@@ -5,7 +5,7 @@ import Tracker
 
 /// Several bank statements opened at once (IMPORT.md, "Several statements
 /// at once"; UI.md, "Import"): the files in the order they're imported,
-/// the file picker of Income and Review, and what stops the import. The
+/// the file picker of Review, and what stops the import. The
 /// Files step's rows are ``ImportFileRow``s (`ImportFlow+Files`).
 extension ImportFlow {
     /// Whether several statements are open.

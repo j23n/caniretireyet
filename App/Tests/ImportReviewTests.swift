@@ -89,6 +89,8 @@ struct ImportReviewTests {
         #expect(accounts.map(\.change) == [Decimal(string: "1768.4"), Decimal(string: "260.15")])
     }
 
+    /// An account money moves to by a saved rule, such as one
+    /// `retire import --move` remembers, is listed from the transfers.
     @Test func anAccountMoneyMovesToIsListedFromTransfers() throws {
         var library = PreviewLibrary.library
         library.accounts["tasse"] = Account(id: "tasse", name: "Tax pot", kind: .taxPot, currency: .eur,
@@ -96,8 +98,8 @@ struct ImportReviewTests {
         var flow = ImportFlow(library: library)
         flow.open(Data((Self.current + "\n15/09/2026;-6.000,00;Accantonamento tasse").utf8), fileName: "settembre.csv")
         flow.setConstants { $0.account = "conto-fineco" }
-        let question = try #require(flow.statementQuestions.first)
-        flow.setStatementAsset(.moved("tasse"), forRow: question.row)
+        let rule = StatementRule(match: "Accantonamento tasse", statementClass: .transfer, account: "tasse")
+        flow.editSession { $0.profile.rules.append(rule) }
         let pot = try #require(flow.reviewAccounts.first { $0.account == "tasse" })
         #expect(pot.isNew)
         #expect(pot.fromTransfers)
@@ -138,18 +140,16 @@ struct ImportReviewTests {
         #expect(flow.blockers.count == blockers - 1)
     }
 
-    @Test func doneRemembersHowEachFileIsReadAndTheRulesMade() throws {
+    @Test func doneRemembersHowEachFileIsRead() throws {
         var flow = flow()
         flow.showBatchFile(0)
-        flow.setStatementRule(.income, for: "Stipendio")
         let batch = try #require(flow.batch)
         let profiles = batch.rememberedProfiles(in: PreviewLibrary.library)
         let names = Dictionary(uniqueKeysWithValues: batch.files.map { ($0.id, $0.name) })
         let remembered = ImportRemembered.list(profiles, fileNames: names, before: PreviewLibrary.library,
                                                after: PreviewLibrary.library)
-        #expect(remembered.map(\.title) == ["How fineco-settembre.csv is read", "How esempio-settembre.csv is read",
-                                            "Stipendio is income"])
-        #expect(remembered.map(\.scope) == ["its bank's next statement", "its bank's next statement", "every account"])
+        #expect(remembered.map(\.title) == ["How fineco-settembre.csv is read", "How esempio-settembre.csv is read"])
+        #expect(remembered.map(\.scope) == ["its bank's next statement", "its bank's next statement"])
 
         // Saved, they're known: nothing new to remember.
         var library = PreviewLibrary.library
