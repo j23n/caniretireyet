@@ -22,6 +22,10 @@ import Tracker
 final class CheckInStore {
     /// The date of the check-in in progress; `nil` when none is open.
     private(set) var date: CalendarDate?
+    /// What a check-in on ``date`` was when it began: new, editing a saved
+    /// one, or between or before them (``CheckInDateMenu/kind(of:in:)``).
+    /// Kept, since the check-in saves values on its date as it goes.
+    private(set) var dateKind: CheckInDateKind?
     /// The latest fetch for ``date``: prices, FX rates and index values,
     /// with each one's source and time, or why it failed.
     private(set) var priceList: FetchedPrices?
@@ -79,6 +83,7 @@ final class CheckInStore {
             isFetchingPrices = false
             priceList = nil
             self.date = date
+            dateKind = CheckInDateMenu.kind(of: date, in: library.library)
         }
         if preferences.fetchPricesOnCheckIn { fetchPrices() }
     }
@@ -89,6 +94,7 @@ final class CheckInStore {
         fetchTask?.cancel()
         fetchTask = nil
         date = nil
+        dateKind = nil
         priceList = nil
         isFetchingPrices = false
     }

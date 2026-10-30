@@ -33,8 +33,11 @@ struct CheckInDateOption: Hashable, Sendable, Identifiable {
 
 /// What a check-in on a date is, against the check-ins saved.
 enum CheckInDateKind: Hashable, Sendable {
-    /// After the latest saved check-in, or before the first.
+    /// After the latest saved check-in, or the first one.
     case new
+    /// Before the first saved check-in, whose date it carries: history
+    /// added before it.
+    case beforeFirst(CalendarDate)
     /// A saved check-in, edited.
     case editing
     /// Between two saved check-ins: it adds one.
@@ -75,6 +78,7 @@ enum CheckInDateMenu {
     static func kind(of date: CalendarDate, in library: Library) -> CheckInDateKind {
         let dates = library.checkInDates
         if dates.contains(date) { return .editing }
+        if let first = dates.first, date < first { return .beforeFirst(first) }
         guard let before = dates.last(where: { $0 < date }), let after = dates.first(where: { $0 > date }) else {
             return .new
         }
@@ -118,6 +122,11 @@ enum CheckInDateMenu {
                     "Open any account to change its lines, totals, trades or value. The month after opens at this "
                         + "one's closing balances, so a change here shows up there too: its check says whether it "
                         + "still adds up." + answer)
+        case .beforeFirst(let first):
+            return ("A check-in before your first",
+                    "A check-in on \(AmountFormat.mediumDate(date, locale: locale)), before your first one on "
+                        + "\(AmountFormat.mediumDate(first, locale: locale)). Values saved after this date stay as "
+                        + "they are." + answer)
         case .between(let before, let after):
             return ("A check-in between two you have",
                     "A check-in on \(AmountFormat.mediumDate(date, locale: locale)), between "

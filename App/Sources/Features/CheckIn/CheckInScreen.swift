@@ -288,7 +288,8 @@ struct CheckInPage: View {
                 saveError = nil
             }
         }
-        let kind = CheckInDateMenu.kind(of: summary.date, in: library.library)
+        // Worked out when the check-in began: the values it saves on its date make it a saved one.
+        let kind = checkIn.dateKind ?? CheckInDateMenu.kind(of: summary.date, in: library.library)
         if let banner = CheckInDateMenu.banner(for: kind, on: summary.date, latest: library.latestCheckIn,
                                                locale: locale) {
             StatusBanner(.info, banner.title, message: banner.message, personal: [.title, .message])
