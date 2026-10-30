@@ -211,6 +211,22 @@ struct BrokerageMonthsTests {
         #expect(Self.deposits(library).isEmpty)
     }
 
+    /// Two moves of one day and amount each take their own deposit away.
+    @Test func twoLikeMovesTakeTwoDepositsAway() throws {
+        var library = Self.library()
+        var first = BankLine(account: "conto", date: "2026-10-10", id: "first", amount: -500,
+                             statementClass: .transfer, otherAccount: "broker", confirmed: true)
+        var second = first
+        second.id = "second"
+        library.save([first, second])
+        #expect(Self.deposits(library).count == 2)
+
+        first.removed = true
+        second.removed = true
+        library.save([first, second])
+        #expect(Self.deposits(library).isEmpty)
+    }
+
     /// A deposit from the broker's own file is the move's: saving the line
     /// adds none, and saving it as something else leaves it.
     @Test func theBrokersOwnDepositStays() throws {

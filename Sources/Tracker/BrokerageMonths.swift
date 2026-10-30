@@ -184,11 +184,15 @@ extension Library {
     /// it goes too, and comes back when that file is imported again.
     mutating func recordDeposits(changing before: [BankLine], to after: [BankLine]) {
         let saved = Dictionary(after.map { ($0.key, $0) }) { $1 }
-        let gone = before.compactMap { old -> (account: AccountID, trade: TradeKey)? in
+        // Each line's own: two lines of one day and amount take two trades.
+        var gone: [(account: AccountID, trade: TradeKey)] = []
+        for old in before {
             guard let move = depositMove(old), depositMove(saved[old.key]) != move,
-                  let trade = trades(for: move.account).first(where: move.isRecorded)
-            else { return nil }
-            return (move.account, trade.key)
+                  let trade = trades(for: move.account).first(where: { trade in
+                      move.isRecorded(trade) && !gone.contains { $0.trade == trade.key }
+                  })
+            else { continue }
+            gone.append((move.account, trade.key))
         }
         let moves = after.compactMap { line in depositMove(line).map { (line: line, move: $0) } }
         let keys = Set(moves.map { $0.line.key })
