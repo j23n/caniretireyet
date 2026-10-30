@@ -202,12 +202,13 @@ struct TypedValuesTests {
 
     @Test func theCheckInListsTheTypedAccountsApart() {
         let library = PreviewLibrary.library
-        let summary = CheckInSummary(date: PreviewLibrary.latestCheckIn, library: library)
-        #expect(summary.typedAccounts(in: library) == ["casa"])
+        let date = PreviewLibrary.latestCheckIn
+        let groups = Valuator(library: library).checkInGroups(on: date, in: library)
+        #expect(groups.typed.map(\.account) == ["casa"])
         var withEstimate = library
         withEstimate.accounts["fondo-pensione"]?.tags = [Account.startingEstimateTag]
-        let estimates = CheckInSummary(date: PreviewLibrary.latestCheckIn, library: withEstimate)
-        #expect(Set(estimates.typedAccounts(in: withEstimate)) == ["casa", "fondo-pensione"])
+        let estimates = Valuator(library: withEstimate).checkInGroups(on: date, in: withEstimate)
+        #expect(Set(estimates.typed.map(\.account)) == ["casa", "fondo-pensione"])
     }
 
     @Test func typedSavingsOrInvestmentsTurnTrendsOff() {

@@ -171,7 +171,7 @@ struct MonthTotalsStrip: View {
 
 /// An account's month: its name and where it stands, with *Import CSV…*
 /// and *Type Totals…* while it's not done, and opening its lines otherwise.
-private struct MonthAccountRow: View {
+struct MonthAccountRow: View {
     let month: AccountMonth
     let importCSV: () -> Void
     let typeTotals: () -> Void
@@ -233,7 +233,7 @@ private struct MonthAccountRow: View {
 
 /// A trades account's month: its name and where it stands, opening the
 /// brokerage month.
-private struct BrokerageMonthRow: View {
+struct BrokerageMonthRow: View {
     let month: BrokerageMonth
 
     @Environment(LibraryStore.self) private var library

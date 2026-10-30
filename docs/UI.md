@@ -314,37 +314,44 @@ The points you pass on the way ([PROGRESS.md](PROGRESS.md#milestones)): round am
 
 ## Check-in
 
-Once a month: import the month's files, update the values you type, look at what they did, save. It opens as a full-screen sheet on iPhone and as the Check-in page on the Mac and iPad, one scrolling page.
+Once a month: bring each account up to date, by importing its CSV, typing its totals or trades, or typing its value; look at what the month did; save. It opens as a full-screen sheet on iPhone and as the Check-in page on the Mac and iPad, one scrolling page.
 
 ```
 ┌──────────────────────────────────────────┐
 │ Cancel    October check-in          Save │
 │           31 Oct 2026 ▾                  │
 │ ╭ ⤓ Import Files ───╮╭ ✓ Prices updated ╮ │
-│ TO CONFIRM · 2                           │
-│ ╭──────────────────────────────────────╮ │
-│ │ Home                  € [ 312.000 ]  │ │  ← typed: a field
-│ │ Last value 30 Jun                    │ │
-│ │ Fondo pensione             24.300    │ │  ← no file this month
-│ │ Last value 31 May                    │ │
-│ ╰──────────────────────────────────────╯ │
-│ UPDATED · 5                              │
-│ ╭──────────────────────────────────────╮ │
-│ │ Conto Fineco                6.012    │ │
-│ │ Conto deposito             17.901    │ │
-│ │ Directa                    59.448    │ │
-│ │ 2 more                           ›   │ │
-│ ╰──────────────────────────────────────╯ │
-│ Net worth so far     312.480 € ▲ +4.210  │  ← pinned to the bottom
+│ ╭ Saved so far ╮╭ Spent ──╮╭ Done ─╮      │  ← iPhone; beside the groups on the Mac
+│ │ 983,69 €     ││ 1.197 € ││ 2 of 8│      │
+│ MONEY IN AND OUT                         │
+│ │ Conto Fineco  Adds up · 16 lines  Open›│ │
+│ │ Revolut  Not done   Type Totals… Import CSV… │
+│ INVESTMENTS                              │
+│ │ Directa  1 deposit to add        Check›│ │
+│ VALUES YOU TYPE                          │
+│ │ Fondo pensione         € [ 24.650 ]   │ │
+│ │ Car                    € [ 18.400 ]   │ │
+│ │ Loses 15% a year · was 18.630,00 €    │ │
+│ │ The 230,00 € it lost is lost value…   │ │
+│ OTHER ACCOUNTS                           │
+│ │ TFR                        12.300     │ │
+│ Net worth so far   424.261 € ▲ +2.060,84 │  ← pinned to the bottom
+│   saved 983,69 € · markets +1.307,15 € · lost value −230,00 € │
 └──────────────────────────────────────────┘
 ```
 
 - **Date.** Defaults to today. In the first days of a month it suggests the end of the previous month (`CheckInDates.suggested(today:lastCheckIn:)`). The title says the month, with the date under it ("October check-in", "31 Oct 2026"); tapping the date picks another; an earlier date fills in history: see [Adding history](#adding-history).
 - ***Import Files*** opens the import ([Import](#import-mac-first)) in a sheet for the check-in's date: bank statements are read through that date ([IMPORT.md](IMPORT.md#bank-statements)), and broker exports, pension spreadsheets and any other file import as they do anywhere. Each import is written when you tap *Import*, with its own backup, and undone from its Done step or with `retire import --undo`. Import as many files as the month has; the page follows each one.
 - **Prices.** Fetched for the date as soon as the check-in opens, and again after each import, for what the accounts hold then (Settings can turn this off). The button beside *Import Files* says their status in a few words ("Prices updated", "Check prices") and opens the price list, read-only: each price, rate and inflation value with its source and time, or why it couldn't be fetched. A price that couldn't be fetched uses the latest one known. An instrument without a price source gets its price on the Instruments screen.
-- **Net worth so far**, on the date with the fetched prices, and its change since the previous check-in, in a bar pinned to the bottom.
-- **To confirm:** first the open accounts whose values you type (`Account.acceptsTypedValues`: those set to *Typed by you*, and starting estimates), each with the date of its latest value and its balance on the check-in's date in a field, prefilled from that value. Changing it and pressing Return, or leaving the field, saves it as a typed value on the check-in's date with its own backup, as *Update Value* does ([Accounts](#accounts)), which the row's context menu also opens; a balance that can't be read says so under the name. Then the accounts no file this month covered, which keep their last values (an account that holds nothing isn't listed), in gray, the date of the last value in the warning color when it's stale.
-- **Updated:** the other open accounts with a value, or for a trades account a trade, in the date's month on or before the date, with their value; past three, the rest behind "2 more". Imported values aren't edited here: a wrong one comes from a file, so fix the file and import it again, or delete the value on the account's page.
+- **Net worth so far**, on the date with the fetched prices, and its change since the previous check-in, in a bar pinned to the bottom, with what moved it under it: "saved 983,69 € · markets +1.307,15 € · lost value −230,00 €". The parts add up to the change: they split it as Saved counts it (`Valuator.savedSplit(of:)`), so a one-off counts with markets and what nothing explains, and *saved* can differ from the month so far's, which counts only the accounts done.
+- **The accounts, by what each needs** (Tracker's `Valuator.checkInGroups(on:in:)`, `CheckInGroups`), under how many are done ("2 of 8 accounts done"):
+  - **Money in and out:** the cash and savings accounts and tax pots, each with its month up to the check-in's date, as *Money In and Out* lists them ([Your months](#your-months)): *Import CSV…* and *Type Totals…* while it's not done, else where it stands ("Adds up · 16 lines", "Off by 35,05 €"), opening its lines.
+  - **Investments:** the accounts that record trades, each with its month ([A brokerage month](#a-brokerage-month)).
+  - **Values you type:** the other open accounts that take typed values (`Account.acceptsTypedValues`: those set to *Typed by you*, and starting estimates), each with the date of its latest value and its balance on the check-in's date in a field, prefilled from that value. Changing it and pressing Return, or leaving the field, saves it as a typed value on the check-in's date with its own backup, as *Update Value* does ([Accounts](#accounts)), which the row's context menu also opens; a balance that can't be read says so under the name. A belongings account with a loss of value a year (`depreciation`) and no value on the date has its estimate in the field instead, "Loses 15% a year · was 18.630,00 €" under its name, and "Estimated from 15% a year: type over it if you know better. The 230,00 € it lost is lost value: not spent, not saved." Kept, the estimate isn't saved: its value is estimated between values anyway. It counts as done.
+  - **Other accounts:** the rest, valued from their files, with their value; those no file this month covered keep their last values (an account that holds nothing isn't listed), in gray, the date of the last value in the warning color when it's stale. Imported values aren't edited here: a wrong one comes from a file, so fix the file and import it again, or delete the value on the account's page.
+
+  An account is done when its month is ([Your months](#your-months), [A brokerage month](#a-brokerage-month)), or for a typed one when it has a value since the check-in before or an estimate.
+- **The month so far** (`CheckInSoFar`), beside the accounts on the Mac and iPad: *Came in* (before tax), *Tax*, *Spent*, *Saved* and the savings rate, as the savings rate counts them from the check-in before ([PROGRESS.md](PROGRESS.md#money-in-and-out)), "Counts only the accounts done so far."; *Things that lost value*, the lost value since the check-in before, "Not spent and not saved: it lowers net worth only."; and *Where the saved money went*, what each account saved, largest first, with their total. On iPhone, three chips above the accounts: *Saved so far*, *Spent* and *Done*.
 - **Save** writes the fetched prices, FX rates and inflation values (a price you set by hand for the date stays) and records this month's answer. *Cancel* drops the fetched prices; what the imports wrote stays. Nothing is kept on the device: an open check-in is its date and its prices.
 - **After saving.** The confirmation shows as soon as the prices are written, titled "October saved": a card with your date, then the milestones passed since the check-in before ([Milestones](#milestones)), then *What moved it* with net worth and its change, and *Done* pinned to the bottom. The main plan then runs to record this month's answer (only for the latest check-in: see [Adding history](#adding-history)), and the card *Your last Monday at work* shows its progress ([Calculating](#calculating)) in the meantime, the same as on Ahead, without a Cancel button, and "You can close this now: the answer is recorded when it's ready." Then it ends with your date, moved:
 

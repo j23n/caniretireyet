@@ -205,10 +205,12 @@ private struct CheckInTitle: View {
 }
 
 /// The open check-in (UI.md, "Check-in"): *Import Files* and the prices
-/// side by side; the accounts to confirm, those whose values you type each
-/// with its value in a field, and those this month's files didn't cover;
-/// the accounts this month's files updated; and net worth so far in a bar
-/// at the bottom.
+/// side by side, then the accounts by what each needs
+/// (Tracker's `CheckInGroups`): the money accounts' months, imported or
+/// typed; the trades accounts' months; the values you type, each in a
+/// field; and the accounts valued from their files. The month so far
+/// shows beside them on the Mac and iPad, above them on iPhone, and net
+/// worth so far in a bar at the bottom.
 struct CheckInPage: View {
     let summary: CheckInSummary
     @Binding var saveError: String?
@@ -218,38 +220,62 @@ struct CheckInPage: View {
     @Environment(CheckInStore.self) private var checkIn
     @Environment(LibraryStore.self) private var library
     @Environment(AppPreferences.self) private var preferences
+    @Environment(\.pageLayout) private var layout
     @Environment(\.locale) private var locale
 
     /// *Update Value* for one of the typed accounts, open in a sheet.
     @State private var typing: AccountAction?
-    @State private var showsAllUpdated = false
-
-    /// How many updated accounts show before "3 more".
-    private static let updatedShown = 3
+    /// A money account's month: its CSV to import, or its totals to type.
+    @State private var importing: MonthRoute?
+    @State private var typingTotals: MonthRoute?
+    /// The month whose lines open after its CSV is imported.
+    @State private var opened: MonthRoute?
 
     var body: some View {
-        let typed = summary.typedAccounts(in: library.library)
-        let notUpdated = summary.notUpdated.filter { !typed.contains($0) }
-        let updated = summary.updated.filter { !typed.contains($0) }
+        let groups = library.valuator.checkInGroups(on: summary.date, in: library.library)
+        let split = summary.change.map { library.valuator.savedSplit(of: $0) }
+        let soFar = CheckInSoFar(rate: savingsRate(groups), split: split)
         ScrollView {
             VStack(alignment: .leading, spacing: Metrics.l) {
                 banners
                 actions
-                if !typed.isEmpty || !notUpdated.isEmpty {
-                    toConfirm(typed: typed, notUpdated: notUpdated)
+                if layout.isRoomy {
+                    HStack(alignment: .top, spacing: Metrics.xl) {
+                        sections(groups)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        CheckInSoFarCard(soFar: soFar, date: summary.date)
+                            .frame(width: 300)
+                    }
+                } else {
+                    CheckInSoFarChips(soFar: soFar, groups: groups)
+                    sections(groups)
                 }
-                updatedAccounts(updated)
             }
             .padding(Metrics.l)
-            .frame(maxWidth: Metrics.readableWidth)
+            .frame(maxWidth: layout.isRoomy ? Metrics.wideReadableWidth : Metrics.readableWidth)
             .frame(maxWidth: .infinity)
         }
         .background(Palette.page)
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            netWorthBar
+            netWorthBar(soFar)
         }
         .sheet(item: $typing) { action in
             AccountActionSheet(action: action)
+        }
+        .sheet(item: $importing, onDismiss: { checkIn.begin() }) { route in
+            MonthImportSheet(route: route) { opened = route }
+        }
+        .sheet(item: $typingTotals) { route in
+            MonthTypedTotalsSheet(route: route)
+        }
+        .navigationDestination(for: MonthRoute.self) { route in
+            MonthLinesScreen(route: route)
+        }
+        .navigationDestination(for: BrokerageRoute.self) { route in
+            BrokerageMonthScreen(route: route)
+        }
+        .navigationDestination(item: $opened) { route in
+            MonthLinesScreen(route: route)
         }
     }
 
@@ -265,6 +291,13 @@ struct CheckInPage: View {
         if let note = CheckInWording.pastCheckInNote(on: summary.date, in: library.library, locale: locale) {
             StatusBanner(.info, "A past check-in", message: note, personal: .message)
         }
+    }
+
+    /// What the month did so far: from the check-in before through this
+    /// one's date.
+    private func savingsRate(_ groups: CheckInGroups) -> SavingsRate? {
+        guard let from = groups.from else { return nil }
+        return library.valuator.savingsRate(from: from.adding(days: 1), through: summary.date)
     }
 
     // MARK: Files and prices
@@ -306,84 +339,92 @@ struct CheckInPage: View {
 
     // MARK: Accounts
 
-    /// The accounts whose values you type, each with its value in a field,
-    /// then those this month's files didn't cover, which keep their last
-    /// values.
-    private func toConfirm(typed: [AccountID], notUpdated: [AccountID]) -> some View {
-        CheckInSection(title: "To confirm · \(typed.count + notUpdated.count)",
-                       footer: notUpdated.isEmpty ? nil
-                           : "No file this month covered the accounts without a field: they keep their last values.") {
-            ForEach(typed, id: \.self) { id in
-                if let account = library.library.accounts[id] {
-                    CheckInTypedRow(account: account, date: summary.date, lastValue: lastValue(of: id),
-                                    isStale: isStale(id))
-                        .contextMenu {
-                            Button("Update Value…") {
-                                typing = AccountAction(.updateValue, id, date: summary.date)
-                            }
-                            .disabled(!library.canEdit)
-                        }
-                }
+    /// The accounts by what each needs, under how many are done.
+    private func sections(_ groups: CheckInGroups) -> some View {
+        VStack(alignment: .leading, spacing: Metrics.l) {
+            if groups.count > 0 {
+                Text(verbatim: CheckInWording.doneCount(groups))
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(groups.doneCount == groups.count ? Palette.good : Palette.secondaryInk)
             }
-            ForEach(notUpdated, id: \.self) { id in
-                CheckInAccountRow(name: name(of: id), value: value(of: id), lastValue: lastValue(of: id),
-                                  isStale: isStale(id), dimmed: true)
-            }
-        }
-    }
-
-    /// The accounts this month's files updated; past three, the rest
-    /// behind "2 more".
-    private func updatedAccounts(_ ids: [AccountID]) -> some View {
-        let hidden = showsAllUpdated ? 0 : max(ids.count - Self.updatedShown - 1, 0)
-        let shown = hidden > 0 ? Array(ids.prefix(Self.updatedShown)) : ids
-        return CheckInSection(title: ids.isEmpty ? "Updated" : "Updated · \(ids.count)") {
-            if ids.isEmpty {
-                Text("No file imported for this month yet.")
-                    .foregroundStyle(Palette.secondaryInk)
-                    .padding(.vertical, Metrics.m)
-            }
-            ForEach(shown, id: \.self) { id in
-                CheckInAccountRow(name: name(of: id), value: value(of: id))
-            }
-            if hidden > 0 {
-                Button {
-                    withAnimation { showsAllUpdated = true }
-                } label: {
-                    HStack {
-                        Text(verbatim: "\(hidden) more")
-                            .foregroundStyle(Palette.secondaryInk)
-                        Spacer(minLength: Metrics.s)
-                        Image(systemName: "chevron.right")
-                            .font(.footnote.weight(.semibold))
-                            .foregroundStyle(Palette.mutedInk)
-                            .accessibilityHidden(true)
+            if !groups.money.isEmpty {
+                CheckInSection(title: "Money in and out", footer: "Import a CSV, or type the month's totals.") {
+                    ForEach(groups.money) { month in
+                        let route = MonthRoute(account: month.account, through: month.through)
+                        MonthAccountRow(month: month, importCSV: { importing = route },
+                                        typeTotals: { typingTotals = route })
                     }
-                    .padding(.vertical, Metrics.m)
-                    .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
+            }
+            if !groups.investments.isEmpty {
+                CheckInSection(title: "Investments", footer: "Import the broker's trades, or add them by hand.") {
+                    ForEach(groups.investments) { month in
+                        BrokerageMonthRow(month: month)
+                    }
+                }
+            }
+            if !groups.typed.isEmpty {
+                CheckInSection(title: "Values you type",
+                               footer: "Type what the statement says, or your estimate.") {
+                    ForEach(groups.typed) { typed in
+                        if let account = library.library.accounts[typed.account] {
+                            CheckInTypedRow(account: account, date: summary.date,
+                                            lastValue: lastValue(of: typed.account),
+                                            isStale: isStale(typed.account), typed: typed)
+                                .contextMenu {
+                                    Button("Update Value…") {
+                                        typing = AccountAction(.updateValue, typed.account, date: summary.date)
+                                    }
+                                    .disabled(!library.canEdit)
+                                }
+                        }
+                    }
+                }
+            }
+            if !groups.others.isEmpty {
+                CheckInSection(title: "Other accounts",
+                               footer: "Valued from their files: Import Files updates them. Those without a "
+                                   + "file this month keep their last values.") {
+                    ForEach(groups.others, id: \.self) { id in
+                        let isUpdated = summary.updated.contains(id)
+                        CheckInAccountRow(name: name(of: id), value: value(of: id),
+                                          lastValue: isUpdated ? nil : lastValue(of: id),
+                                          isStale: !isUpdated && isStale(id), dimmed: !isUpdated)
+                    }
+                }
             }
         }
     }
 
-    /// "Net worth so far 336.850 € ▲ +4.395 €", pinned to the bottom.
-    private var netWorthBar: some View {
-        HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
-            Text("Net worth so far")
-                .foregroundStyle(Palette.secondaryInk)
-                .lineLimit(1)
-            Spacer(minLength: Metrics.s)
-            AmountText(summary.netWorth.total, tabular: false)
-                .font(.headline)
-                .foregroundStyle(Palette.ink)
-                .lineLimit(1)
-                .fixedSize()
-            if let change = summary.change {
-                DeltaText(change.total.change)
-                    .font(.subheadline)
+    /// "Net worth so far 336.850 € ▲ +4.395 €", and under it what moved
+    /// it: "saved 983,69 € · markets +1.307,15 € · lost value −230,00 €".
+    /// Pinned to the bottom.
+    private func netWorthBar(_ soFar: CheckInSoFar) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
+                Text("Net worth so far")
+                    .foregroundStyle(Palette.secondaryInk)
+                    .lineLimit(1)
+                Spacer(minLength: Metrics.s)
+                AmountText(summary.netWorth.total, tabular: false)
+                    .font(.headline)
+                    .foregroundStyle(Palette.ink)
                     .lineLimit(1)
                     .fixedSize()
+                if let change = summary.change {
+                    DeltaText(change.total.change)
+                        .font(.subheadline)
+                        .lineLimit(1)
+                        .fixedSize()
+                }
+            }
+            if summary.change != nil {
+                AmountSentenceText(soFar.split(currency: library.baseCurrency, locale: locale))
+                    .font(.footnote)
+                    .foregroundStyle(Palette.secondaryInk)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
             }
         }
         .padding(.horizontal, Metrics.xl)
