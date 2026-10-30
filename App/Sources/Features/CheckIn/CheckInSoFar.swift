@@ -183,3 +183,75 @@ struct CheckInSoFarChips: View {
         .accessibilityElement(children: .combine)
     }
 }
+
+/// The saved check-in's own tiles (UI.md, "After saving"), after Today's:
+/// what lost value, small and gray, and where what you saved went, wide.
+struct CheckInSavedTiles: View {
+    let soFar: CheckInSoFar
+
+    var body: some View {
+        if soFar.lost != 0 || !soFar.wentTo.isEmpty {
+            TileGrid {
+                if soFar.lost != 0 {
+                    ColorTile {
+                        TileLabel("Lost value", emoji: "🚗")
+                        Spacer(minLength: Metrics.s)
+                        AmountText(soFar.lost, signed: true, tabular: false)
+                            .font(.title2.bold())
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.6)
+                        TileCaption("Not spent, not saved: it lowers net worth only.")
+                            .padding(.top, Metrics.xs)
+                    }
+                    .accessibilityElement(children: .combine)
+                    .tileSize(.small)
+                }
+                if !soFar.wentTo.isEmpty {
+                    CheckInWentToTile(soFar: soFar)
+                        .tileSize(.wide)
+                }
+            }
+        }
+    }
+}
+
+/// "Where the 1.060 € you saved went": what each account saved, in two
+/// columns, at most six.
+private struct CheckInWentToTile: View {
+    let soFar: CheckInSoFar
+
+    @Environment(LibraryStore.self) private var library
+    @Environment(\.locale) private var locale
+
+    var body: some View {
+        ColorTile {
+            AmountSentenceText(title)
+                .font(.caption.weight(.semibold))
+                .opacity(0.8)
+                .lineLimit(1)
+            LazyVGrid(columns: [GridItem(.flexible(), spacing: Metrics.l), GridItem(.flexible())],
+                      alignment: .leading, spacing: Metrics.xs) {
+                ForEach(soFar.wentTo.prefix(6)) { share in
+                    HStack(spacing: Metrics.xs) {
+                        Text(verbatim: library.library.accounts[share.account]?.name ?? share.account.rawValue)
+                            .opacity(0.8)
+                            .lineLimit(1)
+                            .privacySensitiveInFeedback()
+                        Spacer(minLength: Metrics.xs)
+                        AmountText(share.amount, signed: true)
+                            .lineLimit(1)
+                            .fixedSize()
+                    }
+                    .font(.subheadline)
+                }
+            }
+            .padding(.top, Metrics.s)
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    private var title: AmountSentence {
+        let amount = AmountFormat.amount(soFar.saved, currency: library.baseCurrency, locale: locale)
+        return "💰 Where the \(amount: amount) you saved went"
+    }
+}
