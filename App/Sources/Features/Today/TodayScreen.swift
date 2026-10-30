@@ -71,37 +71,7 @@ struct TodayScreen: View {
         let results = latest?.results
         let slots = TileGrid.slots(width: pageWidth)
         return VStack(alignment: .leading, spacing: Metrics.l) {
-            if let answer, let mainPlan, slots >= 4 {
-                VStack(alignment: .leading, spacing: Metrics.m) {
-                    let answerWidth = 2 * TileGrid.smallWidth(width: pageWidth) + Metrics.m
-                    HStack(alignment: .top, spacing: Metrics.m) {
-                        TodayAnswerCard(answer: answer, plan: mainPlan, results: results, today: today)
-                            .frame(width: answerWidth)
-                        TileGrid(fillsHeight: true) {
-                            TodayTiles(part: .beside(slots: slots - 2), plan: mainPlan, results: results,
-                                       today: today)
-                        }
-                        // At most the rest of the page: never unbounded while the
-                        // stack measures it, and narrowing with the page.
-                        .frame(maxWidth: max(0, pageWidth - answerWidth - Metrics.m))
-                    }
-                    .fixedSize(horizontal: false, vertical: true)
-                    TileGrid {
-                        TodayTiles(part: .under, plan: mainPlan, results: results, today: today)
-                    }
-                }
-            } else {
-                VStack(alignment: .leading, spacing: Metrics.m) {
-                    if let answer, let mainPlan {
-                        TodayAnswerCard(answer: answer, plan: mainPlan, results: results, today: today)
-                    } else {
-                        TodayPlanCard()
-                    }
-                    TileGrid {
-                        TodayTiles(part: .all, plan: mainPlan, results: results, today: today)
-                    }
-                }
-            }
+            TodayAnswerAndTiles(answer: answer, plan: mainPlan, results: results, today: today, pageWidth: pageWidth)
             TodayAttentionCard(today: today)
             TodayComingUp(plan: mainPlan, results: results, slots: slots)
             notesAndFirstValues(hasAnswer: answer != nil)
@@ -128,6 +98,57 @@ struct TodayScreen: View {
               !plans.isRunning(plan, .base), !plans.isRunning(plan, .checkIn) else { return }
         guard plans.results(of: plan) == nil || !plans.staleReasons(of: plan).isEmpty else { return }
         _ = await plans.run(plan)
+    }
+}
+
+// MARK: - The answer and the tiles
+
+/// The answer with net worth and what moved beside it where a row has
+/// four slots or six, and the other tiles under them; else the answer, or
+/// before there's one the next step, above every tile. Today shows it, and
+/// so does the check-in once it's saved.
+struct TodayAnswerAndTiles: View {
+    let answer: RetirementAnswer?
+    let plan: PlanDocument?
+    let results: PlanResults?
+    let today: CalendarDate
+    /// The page's width inside its margins, which sets the slots.
+    let pageWidth: CGFloat
+    /// Whether the next check-in's tile shows: not on the saved check-in.
+    var showsCheckIn = true
+
+    var body: some View {
+        let slots = TileGrid.slots(width: pageWidth)
+        if let answer, let plan, slots >= 4 {
+            VStack(alignment: .leading, spacing: Metrics.m) {
+                let answerWidth = 2 * TileGrid.smallWidth(width: pageWidth) + Metrics.m
+                HStack(alignment: .top, spacing: Metrics.m) {
+                    TodayAnswerCard(answer: answer, plan: plan, results: results, today: today)
+                        .frame(width: answerWidth)
+                    TileGrid(fillsHeight: true) {
+                        TodayTiles(part: .beside(slots: slots - 2), plan: plan, results: results, today: today)
+                    }
+                    // At most the rest of the page: never unbounded while the
+                    // stack measures it, and narrowing with the page.
+                    .frame(maxWidth: max(0, pageWidth - answerWidth - Metrics.m))
+                }
+                .fixedSize(horizontal: false, vertical: true)
+                TileGrid {
+                    TodayTiles(part: .under, plan: plan, results: results, today: today, showsCheckIn: showsCheckIn)
+                }
+            }
+        } else {
+            VStack(alignment: .leading, spacing: Metrics.m) {
+                if let answer, let plan {
+                    TodayAnswerCard(answer: answer, plan: plan, results: results, today: today)
+                } else {
+                    TodayPlanCard()
+                }
+                TileGrid {
+                    TodayTiles(part: .all, plan: plan, results: results, today: today, showsCheckIn: showsCheckIn)
+                }
+            }
+        }
     }
 }
 

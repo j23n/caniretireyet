@@ -168,8 +168,14 @@ final class AppNavigation {
         sidebarSelection = .today
     }
 
-    /// Shows So far at `year`, or at the latest year.
+    /// Shows So far at `year`, or at the latest year. Each place below
+    /// closes the full-screen check-in first, as the sidebar leaves the
+    /// Check-in page: the saved check-in's tiles open them.
     func showSoFar(year: Int? = nil) {
+        guard !isCheckInPresented else {
+            finishCheckIn { $0.showSoFar(year: year) }
+            return
+        }
         soFarOpening = SoFarOpening(year: year)
         tab = .soFar
         sidebarSelection = .soFar
@@ -178,6 +184,10 @@ final class AppNavigation {
     /// Shows an account's detail, pushed over the accounts: on iPhone on
     /// Today's stack, in the sidebar over *All Accounts*.
     func showAccount(_ id: AccountID) {
+        guard !isCheckInPresented else {
+            finishCheckIn { $0.showAccount(id) }
+            return
+        }
         switch layout {
         case .tabs:
             tab = .today
@@ -196,6 +206,10 @@ final class AppNavigation {
     /// Shows *Money In and Out*: on iPhone pushed on Today's stack, in the
     /// sidebar its own page.
     func showMonths() {
+        guard !isCheckInPresented else {
+            finishCheckIn { $0.showMonths() }
+            return
+        }
         switch layout {
         case .tabs:
             tab = .today
@@ -211,6 +225,10 @@ final class AppNavigation {
     /// the sidebar *All Accounts*, with `account`'s detail over it when
     /// there's one.
     func showAccounts(selecting account: AccountID? = nil) {
+        guard !isCheckInPresented else {
+            finishCheckIn { $0.showAccounts(selecting: account) }
+            return
+        }
         switch layout {
         case .tabs:
             tab = .today
@@ -247,6 +265,10 @@ final class AppNavigation {
     /// Shows a plan on Ahead (`nil`: the main plan), with `route`'s sheet
     /// over it when one is given.
     func showPlan(_ id: PlanID? = nil, at route: PlanRoute? = nil) {
+        guard !isCheckInPresented else {
+            finishCheckIn { $0.showPlan(id, at: route) }
+            return
+        }
         selectedPlan = id
         planRoute = route.map { route in
             var route = route

@@ -5,25 +5,23 @@ import SwiftUI
 import Tracker
 
 /// The monthly moment (UI.md, "After saving"): the check-in ends on your
-/// date, moved, as the hero of its card.
-///
-/// > Your last Monday at work
-/// > ~~3 April 2051~~ ↓ **27 March 2051**
-/// > A year sooner · Still at 63, in 9 of 10 futures.
-///
-/// Then what moved it, net worth and what you saved and markets did, said
-/// as time of the life you plan, and the next milestone
-/// (``CheckInJourneyCards``); *Done* is pinned to the bottom.
+/// date, moved, on the same page as Today: the answer as the hero, and
+/// the tiles on the same grid (``TodayAnswerAndTiles``), with what lost
+/// value and where what you saved went, then *Coming up*. A line under
+/// the title says the date, how many accounts are done, and that the
+/// date menu changes it later; *Done* is pinned to the bottom.
 ///
 /// It shows as soon as the check-in is written. The main plan then runs to
 /// record the month's answer (`PlanStore.checkInAnswer`): its progress shows
-/// in place of the answer, the same as on the Plan screen, until the answer
-/// is there. Done closes it meanwhile; the run goes on and records the answer.
+/// on a card in place of the answer, the same as on the Plan screen, until
+/// the answer is there. Done closes it meanwhile; the run goes on and
+/// records the answer.
 ///
-/// Without an answer it says why, calmly: there's no main plan yet, plans
-/// can't run in this version (the last recorded answer is shown), or the
-/// plan couldn't run. A past check-in (one before the library's latest)
-/// records no answer, and says so instead:
+/// Without an answer the card says why, calmly: there's no main plan yet,
+/// plans can't run in this version (the last recorded answer is shown),
+/// or the plan couldn't run. A past check-in (one before the library's
+/// latest) records no answer, and says so instead, over what moved it
+/// (``CheckInJourneyCards``):
 ///
 /// > Saved a past check-in (31 Mar 2024). The answer isn't recorded for past dates.
 struct CheckInConfirmationView: View {
@@ -33,7 +31,10 @@ struct CheckInConfirmationView: View {
     @Environment(LibraryStore.self) private var library
     @Environment(PlanStore.self) private var plans
     @Environment(AppNavigation.self) private var navigation
+    @Environment(\.pageLayout) private var layout
     @Environment(\.locale) private var locale
+    /// The page's width inside its margins, which sets the tiles' slots.
+    @State private var pageWidth: CGFloat = 0
 
     init(result: CheckInSaveResult, done: @escaping () -> Void) {
         self.result = result
@@ -41,24 +42,30 @@ struct CheckInConfirmationView: View {
     }
 
     var body: some View {
+        let groups = library.valuator.checkInGroups(on: result.date, in: library.library)
         ScrollView {
             VStack(alignment: .leading, spacing: Metrics.l) {
+                Text(verbatim: CheckInWording.savedLine(on: result.date, groups: groups, locale: locale))
+                    .font(.subheadline)
+                    .foregroundStyle(Palette.secondaryInk)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .privacySensitiveInFeedback()
                 if result.isPast {
                     Card {
                         pastCheckIn
                     }
+                    CheckInJourneyCards(result: result)
                 } else {
-                    answerCard
+                    answerAndTiles
+                    CheckInSavedTiles(soFar: soFar(groups))
+                    TodayComingUp(plan: library.mainPlan, results: plans.mainAnswer?.results,
+                                  slots: TileGrid.slots(width: pageWidth))
                 }
-                let reached = result.isPast ? [] : reachedMilestones
-                if !reached.isEmpty {
-                    milestones(reached)
-                }
-                CheckInJourneyCards(result: result)
                 LibraryStatusBanners()
             }
-            .padding(Metrics.l)
-            .frame(maxWidth: Metrics.readableWidth)
+            .measuringWidth($pageWidth)
+            .padding(layout.gutter)
+            .frame(maxWidth: layout.isWide ? Metrics.wideReadableWidth : Metrics.readableWidth, alignment: .leading)
             .frame(maxWidth: .infinity)
         }
         .background(Palette.page)
@@ -81,6 +88,32 @@ struct CheckInConfirmationView: View {
         }
     }
 
+    /// Once this month's answer is recorded, the answer as Today shows it
+    /// with the tiles; until then the card that works it out, over the
+    /// tiles.
+    @ViewBuilder
+    private var answerAndTiles: some View {
+        if let plan = library.mainPlan, answerRun?.headline != nil, let latest = plans.mainAnswer {
+            TodayAnswerAndTiles(answer: latest.answer, plan: plan, results: latest.results, today: .today(),
+                                pageWidth: pageWidth, showsCheckIn: false)
+        } else {
+            answerCard
+            TileGrid {
+                TodayTiles(part: .all, plan: library.mainPlan, results: plans.mainAnswer?.results, today: .today(),
+                           showsCheckIn: false)
+            }
+        }
+    }
+
+    /// The month the check-in closes: from the check-in before.
+    private func soFar(_ groups: CheckInGroups) -> CheckInSoFar {
+        guard let from = groups.from else { return CheckInSoFar(rate: nil, split: nil) }
+        let valuator = library.valuator
+        let split = valuator.savedSplit(of: valuator.change(from: from, to: result.date))
+        return CheckInSoFar(rate: valuator.savingsRate(from: from.adding(days: 1), through: result.date),
+                            split: split)
+    }
+
     /// Your last Monday at work, centered on its card: the date before,
     /// struck through, the date now as the hero, how it moved and how sure;
     /// or the plan's progress while it works the answer out.
@@ -96,38 +129,6 @@ struct CheckInConfirmationView: View {
         .padding(.vertical, Metrics.xl)
         .frame(maxWidth: .infinity)
         .cardSurface()
-    }
-
-    // MARK: Milestones
-
-    /// The main plan's milestones this check-in reached (UI.md,
-    /// "Milestones"): the amounts passed since the check-in before, on its
-    /// day or at a month end between them. The shares of what retiring
-    /// today needs come with the answer, and show on Progress.
-    private var reachedMilestones: [ReachedMilestone] {
-        guard let plan = library.mainPlan else { return [] }
-        let previous = library.valuator.previousCheckIn(before: result.date, in: .planAssets)
-        return PlanMilestones.reached(by: plan, library: library.library, valuator: library.valuator,
-                                      since: previous, through: result.date)
-    }
-
-    /// "Passed 300.000 €."
-    private func milestones(_ reached: [ReachedMilestone]) -> some View {
-        let text = PlanMilestoneText(currency: library.baseCurrency, locale: locale)
-        return Card {
-            ForEach(reached) { milestone in
-                Label {
-                    AmountSentenceText(text.reached(milestone.milestone))
-                        .font(.headline)
-                        .fixedSize(horizontal: false, vertical: true)
-                } icon: {
-                    Image(systemName: "flag.fill")
-                        .foregroundStyle(Palette.accent)
-                }
-            }
-        } header: {
-            SectionHeader(reached.count == 1 ? "A milestone" : "Milestones")
-        }
     }
 
     // MARK: The answer
