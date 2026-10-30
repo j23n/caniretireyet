@@ -131,10 +131,10 @@ struct CheckInDatePanel: View {
         }
     }
 
-    /// The dates offered: four on iPhone.
+    /// The dates offered: four on iPhone, the one picked among them.
     private var options: [CheckInDateOption] {
         let all = CheckInDateMenu.options(suggested: suggested, today: .today(), library: library.library)
-        return layout.isWide ? all : Array(all.prefix(CheckInDateMenu.compactShown))
+        return layout.isWide ? all : CheckInDateMenu.compactOptions(all, picked: picked)
     }
 
     /// Any other day, in a calendar, with what picking one does.

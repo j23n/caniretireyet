@@ -36,6 +36,14 @@ struct CheckInDateMenuTests {
         #expect(CheckInDateMenu.hint(options[3], locale: Self.locale).parts.count == 2)
     }
 
+    @Test func iPhoneListsFourDatesWithThePickedOne() {
+        let options = CheckInDateMenu.options(suggested: "2026-10-31", today: "2026-10-30", library: Self.library())
+        #expect(CheckInDateMenu.compactOptions(options, picked: "2026-10-31").map(\.date)
+            == ["2026-10-31", "2026-10-30", "2026-09-30", "2026-08-31"])
+        #expect(CheckInDateMenu.compactOptions(options, picked: "2026-07-31").map(\.date)
+            == ["2026-10-31", "2026-10-30", "2026-09-30", "2026-07-31"])
+    }
+
     @Test func aDateIsNewEditedOrBetweenTwo() {
         let library = Self.library()
         #expect(CheckInDateMenu.kind(of: "2026-10-31", in: library) == .new)

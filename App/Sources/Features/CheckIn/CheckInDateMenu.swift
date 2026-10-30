@@ -51,6 +51,18 @@ enum CheckInDateMenu {
     /// How many dates the menu lists on iPhone, before *Another Date…*.
     static let compactShown = 4
 
+    /// The dates the menu lists on iPhone: the first ``compactShown``, with
+    /// the one picked in place of the last when it's further down, so it
+    /// keeps its check.
+    static func compactOptions(_ all: [CheckInDateOption], picked: CalendarDate) -> [CheckInDateOption] {
+        var shown = Array(all.prefix(compactShown))
+        if !shown.isEmpty, !shown.contains(where: { $0.date == picked }),
+           let option = all.first(where: { $0.date == picked }) {
+            shown[shown.count - 1] = option
+        }
+        return shown
+    }
+
     /// The suggested date, today when it's another, then the latest saved
     /// check-ins before them, each with whether its money adds up.
     static func options(suggested: CalendarDate, today: CalendarDate, library: Library) -> [CheckInDateOption] {
