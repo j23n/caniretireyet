@@ -28,6 +28,9 @@ enum SidebarItem: Hashable, Sendable {
     /// there are none. The sidebar replaces it with the plan's own row once
     /// one exists.
     case plans
+    /// *Money In and Out*: each check-in's months of the cash and savings
+    /// accounts and tax pots.
+    case months
     case importData
     case instruments
     case sync
@@ -61,6 +64,8 @@ enum AppSheet: Hashable, Sendable, Identifiable {
 /// now that they have no tab: the list, from the net worth row.
 enum TodayPage: Hashable, Sendable {
     case accounts
+    /// *Money In and Out*.
+    case months
 }
 
 /// Where in a plan to open (``AppNavigation/planRoute``): a sheet over Ahead.
@@ -188,6 +193,20 @@ final class AppNavigation {
         }
     }
 
+    /// Shows *Money In and Out*: on iPhone pushed on Today's stack, in the
+    /// sidebar its own page.
+    func showMonths() {
+        switch layout {
+        case .tabs:
+            tab = .today
+            var path = NavigationPath()
+            path.append(TodayPage.months)
+            todayPath = path
+        case .sidebar:
+            sidebarSelection = .months
+        }
+    }
+
     /// Shows the accounts: on iPhone the list, pushed on Today's stack; in
     /// the sidebar *All Accounts*, with `account`'s detail over it when
     /// there's one.
@@ -288,6 +307,7 @@ final class AppNavigation {
         case .plan(let id): showPlan(id)
         case .plans: showPlan()
         case .importData: startImport()
+        case .months: showMonths()
         }
     }
 

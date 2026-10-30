@@ -62,6 +62,8 @@ struct SidebarRoot: View {
                 }
 
                 Section("Library") {
+                    Text("Money In and Out")
+                        .tag(SidebarItem.months)
                     Text("Import…")
                         .tag(SidebarItem.importData)
                     Text("Instruments")
@@ -285,6 +287,11 @@ private struct SidebarDetail: View {
                 PlanScreen(planID: item.plan)
                     .appDestinations()
             }
+        case .months:
+            NavigationStack {
+                MonthsScreen()
+                    .appDestinations()
+            }
         case .importData:
             NavigationStack {
                 ImportScreen(file: navigation.pendingImport)
@@ -304,8 +311,8 @@ private struct SidebarDetail: View {
 
 extension View {
     /// Registers the pages any screen can push: account details (push an
-    /// `AccountID`), plans (push a `PlanID`) and the accounts (push
-    /// ``TodayPage/accounts``).
+    /// `AccountID`), plans (push a `PlanID`), the accounts (push
+    /// ``TodayPage/accounts``) and *Money In and Out* (``TodayPage/months``).
     func appDestinations() -> some View {
         navigationDestination(for: AccountID.self) { id in
             AccountDetailScreen(accountID: id)
@@ -316,6 +323,7 @@ extension View {
         .navigationDestination(for: TodayPage.self) { page in
             switch page {
             case .accounts: AccountsScreen()
+            case .months: MonthsScreen()
             }
         }
     }
