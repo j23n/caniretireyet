@@ -84,7 +84,7 @@ extension Library {
             guard !inside.isEmpty else { continue }
             let amounts = inside.reduce(LineAmounts()) { $0 + $1.amounts(recordsInterest: recordsInterest) }
             stretches.append(LineStretch(account: account, from: previous?.date, through: value?.date,
-                                         opening: previous.map(\.amountForLines), closing: value?.amountForLines,
+                                         opening: previous?.amountForLines, closing: value?.amountForLines,
                                          lines: inside, amounts: amounts))
         }
         return stretches
