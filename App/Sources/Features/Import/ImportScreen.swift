@@ -8,7 +8,7 @@ import UniformTypeIdentifiers
 /// Importing a spreadsheet or CSV export (UI.md, "Import"; IMPORT.md, "Steps"),
 /// or a broker's transactions (IMPORT.md, "Broker transactions": a Types step
 /// after Columns), or bank statements (IMPORT.md, "Bank statements": Files,
-/// Income and Review, with how a file is read in a sheet).
+/// then Review, with how a file is read in a sheet).
 ///
 /// - **Mac and iPad:** a page. The steps are a capsule in the toolbar's
 ///   middle, with *Add Files…* on the Files step; the window's subtitle
