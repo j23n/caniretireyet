@@ -314,7 +314,8 @@ struct CheckInPage: View {
     /// one's date.
     private func savingsRate(_ groups: CheckInGroups) -> SavingsRate? {
         guard let from = groups.from else { return nil }
-        return checkIn.valuator(on: summary.date).savingsRate(from: from.adding(days: 1), through: summary.date)
+        return checkIn.valuator(on: summary.date).savingsRate(from: from.adding(days: 1), through: summary.date,
+                                                                      spreadsTax: false)
     }
 
     // MARK: Files and prices

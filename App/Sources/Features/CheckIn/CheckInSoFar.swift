@@ -33,7 +33,8 @@ struct CheckInSoFar: Hashable, Sendable {
     /// those with none left out.
     var wentTo: [Share] = []
 
-    /// From the savings rate over the month, and the change since the
+    /// From the savings rate over the month, with a tax bill counted when
+    /// it's paid (`spreadsTax: false`), and the change since the
     /// check-in before split as Saved counts it (``Tracker/Valuator/savedSplit(of:)``);
     /// zeros without them.
     init(rate savings: SavingsRate?, split: ValueChange?) {

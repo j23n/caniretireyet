@@ -127,7 +127,11 @@ extension Valuator {
     /// days the pay covers: those of the account the most came into, so an
     /// account checked rarely, or recording money in for longer, doesn't
     /// stretch them. `nil` when no money in and out was counted.
-    public func savingsRate(from: CalendarDate, through: CalendarDate) -> SavingsRate? {
+    ///
+    /// With `spreadsTax` false, a tax bill counts in the days it's paid, as
+    /// ``WhatMoved`` counts it: all of it is tax, and out of saved. The
+    /// check-in's month so far counts it so.
+    public func savingsRate(from: CalendarDate, through: CalendarDate, spreadsTax: Bool = true) -> SavingsRate? {
         let counted = cameInAccounts
         let cash = accounts.values.filter { counted.contains($0.id) }
         let money = moneyInOut(from: from, through: through, accounts: counted)
@@ -144,7 +148,8 @@ extension Valuator {
         }
         let tax = taxSetAside(after: start, through: through)
         return SavingsRate(moneyInOut: money, from: start, through: through, pensionContributions: contributions,
-                           taxSetAside: tax.amount, spreadTaxes: spreadTax(after: start, through: through),
+                           taxSetAside: tax.amount,
+                           spreadTaxes: spreadsTax ? spreadTax(after: start, through: through) : nil,
                            savedByAccount: saved.byAccount, isPriced: saved.isPriced && tax.isPriced)
     }
 
