@@ -189,8 +189,7 @@ struct ImportFilesTests {
     @Test func aDateGuessToConfirmOpensHowItsRead() {
         var flow = ImportFlow(library: PreviewLibrary.library)
         let csv = "Data;Importo;Descrizione\n01/02/2026;-10,00;Spesa\n01/03/2026;-20,00;Spesa\n"
-        flow.open(files: [(name: "export.csv", data: Data(csv.utf8))])
-        flow.showBatchFile(0)
+        flow.open(statements: [(name: "export.csv", data: Data(csv.utf8))])
         #expect(flow.dateAmbiguity != nil)
         #expect(flow.readingNeedsChanges(today: today))
         flow.useDatePattern("dd/MM/yyyy")
