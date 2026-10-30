@@ -7,8 +7,9 @@ import Tracker
 /// amount and date, and what it is, chosen from buttons. Money moved asks
 /// to which of your accounts: it's saved at once, not spent. The same can
 /// go to the month's other lines with the same words and be remembered for
-/// the next statement (on iPhone, only for money moved). A note, *Remove Line* for a line listed twice (or
-/// *Restore Line*), and *Confirm*, which checks it.
+/// the next statement (on iPhone, only for money moved). A note, *Remove
+/// Line* for a line listed twice (or *Restore Line*), and *Confirm*, which
+/// checks it.
 struct MonthLineEditor: View {
     let line: BankLine
     let month: AccountMonth
@@ -65,6 +66,9 @@ struct MonthLineEditor: View {
         }
         .onChange(of: edit.statementClass) { _, _ in
             edit.dropSimilarNotOffered(isWide: layout.isWide)
+        }
+        .onChange(of: layout.isWide) { _, isWide in
+            edit.dropSimilarNotOffered(isWide: isWide)
         }
     }
 
