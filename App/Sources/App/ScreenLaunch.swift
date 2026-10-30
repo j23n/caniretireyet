@@ -210,7 +210,8 @@ struct ScreenLaunch {
                 navigation.tab = .today
                 navigation.todayPath.append(TodayPage.accounts)
                 navigation.todayPath.append(account)
-                navigation.sidebarSelection = .account(account)
+                navigation.sidebarSelection = .accounts
+                navigation.accountsPath.append(account)
             }
         case .checkIn:
             CheckInPreviewData.fill(model)

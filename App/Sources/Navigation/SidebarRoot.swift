@@ -11,37 +11,29 @@ import Tracker
 ///     Check-in                      •     ← only while one is due or under way
 ///     Accounts             97.330     ← the total of the open accounts
 ///       All Accounts            9         ← how many are open
-///       ▾ ● Cash               12.990     ← a group's dot and subtotal
-///           Conto deposito      8.200
-///           Conto Fineco     ◷  4.790     ← ◷ when the value is stale
-///       ▸ ● Investments        71.300     ← collapsed
+///       ● Cash          ◷  12.990         ← a group's dot and subtotal; ◷ when
+///       ● Investments      71.300            one of its values is stale
 ///       …
-///       ▸ Closed                    1     ← collapsed at first
 ///     Plans                               ← when there are plans
 ///       Base case                  63     ← the age of its latest answer
 ///     Library
 ///       Import… · Instruments · Sync & backups
 ///
-/// - Selecting an account shows its detail in the content area, in a stack
-///   of its own (`SidebarItem.account`). *All Accounts* is the list with
-///   the net-worth chart and the allocation (`SidebarItem.accounts`).
+/// - *All Accounts* is the list with the net-worth chart and the allocation
+///   (`SidebarItem.accounts`); a group's row is that group's accounts, open
+///   and closed (`SidebarItem.accountGroup`). An account's detail is pushed
+///   over either (`navigation.accountsPath`).
 /// - *Ahead* opens the main plan (`SidebarItem.plans`), which then selects
 ///   that plan's row under *Plans*.
-/// - A group's row expands or collapses it (click it, or its disclosure
-///   triangle); which ones are collapsed is remembered on the device
-///   (`AppPreferences.collapsedAccountFolders`). Showing an account
-///   (`navigation.showAccount(_:)`) expands its group.
-/// - The sidebar follows the library: accounts added or closed, here or on
-///   the other device, appear in their place at once. A selected account
-///   that's closed moves under *Closed* and stays selected; one that's
-///   deleted gives way to *All Accounts*.
+/// - The sidebar follows the library: a group appears once it has an open
+///   account, here or on the other device. A selected group left without
+///   open accounts gives way to *All Accounts*.
 ///
 /// Settings is the Settings window on the Mac (⌘,) and a toolbar button on iPad.
 struct SidebarRoot: View {
     @Environment(AppNavigation.self) private var navigation
     @Environment(LibraryStore.self) private var library
     @Environment(CheckInStore.self) private var checkIn
-    @Environment(AppPreferences.self) private var preferences
     @Environment(PlanStore.self) private var plans
 
     var body: some View {
@@ -85,26 +77,18 @@ struct SidebarRoot: View {
         }
         .onChange(of: navigation.sidebarSelection, initial: true) { selectPlanRow() }
         .onChange(of: library.sortedPlans.map(\.id)) { selectPlanRow() }
-        .onChange(of: library.revision, initial: true) { navigation.libraryChanged(library.library) }
-        .onChange(of: accountReveal, initial: true) { _, reveal in
-            if let reveal { preferences.setExpanded(true, reveal.folder) }
+        .onChange(of: library.revision, initial: true) {
+            navigation.libraryChanged(library.library, today: .today())
         }
     }
 
     /// The list's selection, `navigation.sidebarSelection`, which the list
-    /// never clears: collapsing the group of the selected account keeps its
-    /// detail on screen.
+    /// never clears.
     private var selection: Binding<SidebarItem?> {
         Binding(get: { navigation.sidebarSelection },
                 set: { item in
                     if let item { navigation.sidebarSelection = item }
                 })
-    }
-
-    /// The selected account and its group (or *Closed*), which is expanded
-    /// whenever either changes, so the selected row shows.
-    private var accountReveal: SidebarAccountReveal? {
-        SidebarAccountReveal(selection: navigation.sidebarSelection, library: library.library, today: .today())
     }
 
     /// "The main plan" becomes that plan's row, so the sidebar highlights it.
@@ -130,11 +114,10 @@ struct SidebarRoot: View {
 }
 
 /// The sidebar's Accounts section: the total of the open accounts on its
-/// header, *All Accounts* with how many are open, a collapsible row per
-/// group that has open accounts, with its color dot, its subtotal and its
-/// accounts, then *Closed* with its count. The values and staleness are
-/// the Accounts list's (`AccountList`, without sparklines); amounts are
-/// left out while they're hidden.
+/// header, *All Accounts* with how many are open, then a row per group that
+/// has open accounts, with its color dot and its subtotal. The values and
+/// staleness are the Accounts list's (`AccountList`, without sparklines);
+/// amounts are left out while they're hidden.
 private struct SidebarAccountsSection: View {
     @Environment(LibraryStore.self) private var library
     @Environment(AppPreferences.self) private var preferences
@@ -146,42 +129,12 @@ private struct SidebarAccountsSection: View {
             SidebarCountRow(title: "All Accounts", count: accounts.openCount)
                 .tag(SidebarItem.accounts)
             ForEach(accounts.sections) { section in
-                let isExpanded = expansion(of: .group(section.group))
-                DisclosureGroup(isExpanded: isExpanded) {
-                    ForEach(section.items) { item in
-                        SidebarAccountRow(item: item)
-                            .tag(SidebarItem.account(item.id))
-                    }
-                } label: {
-                    SidebarFolderLabel(title: section.group.description, dot: section.group.color,
-                                       isExpanded: isExpanded) {
-                        AmountText(section.subtotal)
-                    }
-                }
-            }
-            if !accounts.closed.isEmpty {
-                let isExpanded = expansion(of: .closed)
-                DisclosureGroup(isExpanded: isExpanded) {
-                    ForEach(accounts.closed) { item in
-                        SidebarAccountRow(item: item, showsValue: false)
-                            .tag(SidebarItem.account(item.id))
-                    }
-                } label: {
-                    SidebarFolderLabel(title: "Closed", isExpanded: isExpanded) {
-                        Text(accounts.closed.count, format: .number)
-                    }
-                    .accessibilityLabel(accounts.closedTitle)
-                }
+                SidebarGroupRow(section: section)
+                    .tag(SidebarItem.accountGroup(section.group))
             }
         } header: {
             SidebarAccountsHeader(total: accounts.sections.isEmpty ? nil : accounts.openTotal)
         }
-    }
-
-    /// Whether a group (or *Closed*) is expanded, remembered on the device.
-    private func expansion(of folder: SidebarAccountFolder) -> Binding<Bool> {
-        Binding(get: { preferences.isExpanded(folder) },
-                set: { preferences.setExpanded($0, folder) })
     }
 }
 
@@ -255,73 +208,35 @@ private struct SidebarPlanRow: View {
     }
 }
 
-/// A group's row, or *Closed*'s: a color dot for a group, the name, and
-/// on the right what it adds up to (a group's subtotal, *Closed*'s count);
-/// a long name wraps rather than being cut short. On the Mac, clicking it expands or collapses it like its
-/// disclosure triangle (on iPad, tapping the row does that already).
-private struct SidebarFolderLabel<Trailing: View>: View {
-    let title: String
-    var dot: Color?
-    @Binding var isExpanded: Bool
-    @ViewBuilder var trailing: Trailing
+/// A group's row: its color dot, its name, a clock when one of its
+/// accounts is stale, and its subtotal on the right; a long name wraps
+/// rather than being cut short.
+private struct SidebarGroupRow: View {
+    let section: AccountListSection
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
-            if let dot {
-                Circle()
-                    .fill(dot)
-                    .frame(width: 8, height: 8)
-                    .alignmentGuide(.firstTextBaseline) { $0[VerticalAlignment.center] + 4 }
-                    .accessibilityHidden(true)
-            }
-            Text(title)
+            Circle()
+                .fill(section.group.color)
+                .frame(width: 8, height: 8)
+                .alignmentGuide(.firstTextBaseline) { $0[VerticalAlignment.center] + 4 }
+                .accessibilityHidden(true)
+            Text(section.group.description)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: Metrics.xs)
-            trailing
+            if section.isStale {
+                Image(systemName: "clock")
+                    .font(.caption)
+                    .foregroundStyle(Palette.warning)
+                    .help("Stale: an account's latest value is too old")
+                    .accessibilityLabel("Stale")
+            }
+            AmountText(section.subtotal)
                 .monospacedDigit()
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
                 .fixedSize()
                 .layoutPriority(1)
-        }
-        .accessibilityElement(children: .combine)
-        .sidebarAccountFont()
-        #if os(macOS)
-        .contentShape(Rectangle())
-        .onTapGesture {
-            withAnimation { isExpanded.toggle() }
-        }
-        #endif
-    }
-}
-
-/// An account under its group (or *Closed*): its name, a clock when its
-/// latest value is stale, and its value on the right (open accounts) on
-/// the name's first line; a long name wraps rather than being cut short.
-private struct SidebarAccountRow: View {
-    let item: AccountListItem
-    var showsValue = true
-
-    var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
-            Text(item.account.name)
-                .fixedSize(horizontal: false, vertical: true)
-                .privacySensitiveInFeedback()
-            Spacer(minLength: Metrics.xs)
-            if item.stale != nil {
-                Image(systemName: "clock")
-                    .font(.caption)
-                    .foregroundStyle(Palette.warning)
-                    .help("Stale: the latest value is too old")
-                    .accessibilityLabel("Stale")
-            }
-            if showsValue {
-                AmountText(item.value)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .fixedSize()
-                    .layoutPriority(1)
-            }
         }
         .accessibilityElement(children: .combine)
         .sidebarAccountFont()
@@ -348,7 +263,7 @@ private struct SidebarDetail: View {
                     .appDestinations()
             }
         case .accounts:
-            NavigationStack {
+            NavigationStack(path: $navigation.accountsPath) {
                 AccountsScreen()
                     .appDestinations()
             }
@@ -356,13 +271,13 @@ private struct SidebarDetail: View {
             NavigationStack {
                 CheckInScreen()
             }
-        case .account(let id):
-            NavigationStack {
-                AccountDetailScreen(accountID: id)
+        case .accountGroup(let group):
+            NavigationStack(path: $navigation.accountsPath) {
+                AccountsScreen(group: group)
                     .appDestinations()
             }
-            // A fresh stack and screen state for each account.
-            .id(id)
+            // A fresh stack and screen state for each group.
+            .id(group)
         case .plan, .plans:
             // One branch for both: when "the main plan" becomes its row, its
             // screen stays, with the part or What if it opened on.
@@ -491,7 +406,7 @@ struct SettingsButton: View {
 
 private extension View {
     /// The accounts' rows on iPad a size smaller than the places above
-    /// them, so a group's or an account's name has room beside its amount
+    /// them, so a group's name has room beside its amount
     /// in the sidebar's width. The Mac's sidebar type is small already.
     @ViewBuilder
     func sidebarAccountFont() -> some View {
