@@ -129,6 +129,7 @@ To open the library in a spreadsheet or take it to another app, Settings › Lib
 | `valuations.csv` | valuation | `date`, `account`, `balance`, `cash`, `positions` (how many, in `positions.csv`), `saved` (as recorded), `money_in`, `money_out`, `one_off`, `tax`, `interest`, `note`, `source` |
 | `positions.csv` | position in a valuation | `date`, `account`, `instrument`, `quantity`, `cost_basis` |
 | `trades.csv` | trade | `date`, `account`, `id`, `type`, `instrument`, `quantity`, `price`, `currency`, `amount`, `fees`, `tax`, `cost`, `ratio`, `settlement`, `note`, `source` |
+| `lines.csv` | bank statement line, removed ones too | `date`, `account`, `id`, `amount`, `text`, `class`, `other_account`, `note`, `removed`, `confirmed` (`yes` or `no`), `source` |
 | `prices.csv` | price | `date`, `instrument`, `price`, `currency`, `source` |
 | `fx.csv` | exchange rate | `date`, `base`, `quote`, `rate` (1 base = rate × quote), `source` |
 | `inflation.csv` | index value | `date`, `index`, `value`, `source` |

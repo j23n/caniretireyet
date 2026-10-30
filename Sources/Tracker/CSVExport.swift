@@ -34,6 +34,7 @@ public enum CSVExport {
             valuations(months),
             positions(months),
             trades(months),
+            lines(months),
             prices(months),
             fx(months),
             inflation(months),
@@ -142,6 +143,17 @@ public enum CSVExport {
         }
         return table("trades.csv", ["date", "account", "id", "type", "instrument", "quantity", "price", "currency",
                                     "amount", "fees", "tax", "cost", "ratio", "settlement", "note", "source"], rows)
+    }
+
+    /// `lines.csv`: every bank statement line, as kept, removed ones too.
+    static func lines(_ months: [MonthFile]) -> File {
+        let rows = months.flatMap(\.lines).sortedByKey().map { line in
+            [line.date.description, line.account.rawValue, line.id.rawValue, line.amount.fileString, line.text,
+             line.statementClass.rawValue, line.otherAccount?.rawValue ?? "", line.note ?? "",
+             yesNo(line.isRemoved), yesNo(line.isConfirmed), line.source?.rawValue ?? ""]
+        }
+        return table("lines.csv", ["date", "account", "id", "amount", "text", "class", "other_account", "note",
+                                   "removed", "confirmed", "source"], rows)
     }
 
     /// `prices.csv`: every recorded price, per the instrument's unit.

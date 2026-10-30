@@ -26,7 +26,7 @@ import TestSupport
         let files = CSVExport.files(of: library, through: date)
         #expect(files.map(\.name) == [
             "net-worth.csv", "account-values.csv", "accounts.csv", "instruments.csv", "valuations.csv",
-            "positions.csv", "trades.csv", "prices.csv", "fx.csv", "inflation.csv",
+            "positions.csv", "trades.csv", "lines.csv", "prices.csv", "fx.csv", "inflation.csv",
         ])
         for file in files {
             #expect(file.text.hasSuffix("\r\n"), "\(file.name)")
@@ -74,6 +74,9 @@ import TestSupport
         #expect(rows(try file("prices.csv")).count == months.flatMap(\.prices).count + 1)
         #expect(rows(try file("fx.csv")).count == months.flatMap(\.fx).count + 1)
         #expect(rows(try file("inflation.csv")).count == months.flatMap(\.indices).count + 1)
+        let lines = rows(try file("lines.csv"))
+        #expect(lines.count == months.flatMap(\.lines).count + 1)
+        #expect(lines.filter { $0[8] == "yes" }.count == 1)
 
         let trade = try #require(months.flatMap(\.trades).first { $0.id == "q4nkf6gi" })
         let row = try #require(rows(try file("trades.csv")).first { $0[2] == "q4nkf6gi" })
