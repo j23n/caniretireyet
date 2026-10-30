@@ -2,6 +2,9 @@ import CloudSync
 import Model
 import Storage
 import SwiftUI
+#if os(macOS)
+import AppKit
+#endif
 
 /// Library → Sync & backups (PLAN.md, "Resolving conflicts": merges are
 /// listed so you can check them). Where the library is, whether it's
@@ -236,17 +239,28 @@ struct SyncScreen: View {
 /// Sync screen.
 struct LibraryLocationRows: View {
     @Environment(LibraryStore.self) private var library
-    @Environment(\.openURL) private var openURL
     @State private var isMoving = false
     @State private var isSwitching = false
     @State private var moveError: String?
+    /// Why *Show in Files* didn't open the folder.
+    @State private var showError: String?
 
     init() {}
 
     var body: some View {
         LabeledContent("Location", value: library.location?.kind.description ?? "Not open")
-        if let url = library.location?.url {
-            Button(showInFilesTitle) { show(url) }
+        if let location = library.location {
+            if Self.canShow(location) {
+                Button(showInFilesTitle) { show(location.url) }
+            }
+            if let whereText = Self.whereText(location) {
+                Text(whereText)
+                    .font(.footnote)
+                    .foregroundStyle(Palette.secondaryInk)
+            }
+        }
+        if let showError {
+            Text(showError).font(.footnote).foregroundStyle(Palette.critical)
         }
         if library.location?.kind == .local && library.isICloudAvailable {
             Button {
@@ -305,13 +319,58 @@ struct LibraryLocationRows: View {
         #endif
     }
 
-    private func show(_ folder: URL) {
+    /// Whether *Show in Files* or *Show in Finder* is offered. Files only
+    /// shows iCloud Drive and the apps' own Documents folders, so on the
+    /// iPhone and iPad a library on this device (in Application Support) has
+    /// nothing to show.
+    static func canShow(_ location: LibraryLocation) -> Bool {
         #if os(macOS)
-        openURL(folder)
+        return true
         #else
-        // The Files app opens a folder given as a shareddocuments:// URL.
-        if let files = URL(string: "shareddocuments://" + folder.path) {
-            openURL(files)
+        return location.kind == .iCloud
+        #endif
+    }
+
+    /// Where to find the library yourself: in iCloud Drive, the folder named
+    /// after the app; on this device, nowhere Files can see.
+    static func whereText(_ location: LibraryLocation) -> String? {
+        switch location.kind {
+        case .iCloud:
+            return "In Files and Finder: iCloud Drive › Last Monday."
+        case .local:
+            #if os(macOS)
+            return nil
+            #else
+            return "Files can't show a library kept on this device."
+            #endif
+        }
+    }
+
+    /// The Files app's URL for `folder`: the file URL with its scheme
+    /// swapped for `shareddocuments`, still percent-encoded (`Mobile
+    /// Documents` has a space).
+    static func filesAppURL(for folder: URL) -> URL? {
+        let prefix = "file://"
+        let file = folder.absoluteString
+        guard folder.isFileURL, file.hasPrefix(prefix) else { return nil }
+        return URL(string: "shareddocuments://" + file.dropFirst(prefix.count))
+    }
+
+    private func show(_ folder: URL) {
+        showError = nil
+        #if os(macOS)
+        // Finder opens the library folder with library.json selected, not
+        // the folder's parent.
+        let settings = folder.appendingPathComponent(LibraryFile.settings.path)
+        let item = FileManager.default.fileExists(atPath: settings.path) ? settings : folder
+        NSWorkspace.shared.activateFileViewerSelecting([item])
+        #else
+        guard let files = Self.filesAppURL(for: folder) else { return }
+        Task {
+            let opened = await UIApplication.shared.open(files)
+            if !opened {
+                showError = "Files didn't open. Open the Files app, then iCloud Drive › Last Monday."
+            }
         }
         #endif
     }

@@ -436,7 +436,8 @@ extension PreviewBuilder {
     /// from an account is a transfer, at the file's value the line counts
     /// in (``StatementLine/period``), and a cash or savings account's or a
     /// tax pot's values follow from it (``movedRecords(_:moves:)``), unless
-    /// its own statement is imported with this one. A purchase or a sale is
+    /// its own statement is imported with this one; an account that records
+    /// trades gets it as a deposit or a withdrawal (``movedTrades(_:)``). A purchase or a sale is
     /// recorded on the line's own day, whatever the file's values cover: a
     /// purchase starts a new account (proposed, accepted), opened and worth
     /// 0 the day before, then worth the line's amount, with the amount as
@@ -459,6 +460,7 @@ extension PreviewBuilder {
         var taken = Set(library.accounts.keys.map(\.rawValue) + accountProposals.map(\.account.id.rawValue))
         var found = Set<AccountID>()
         var moves: [AccountID: [StatementMove]] = [:]
+        var tradeMoves: [TradeMove] = []
         // The accounts this file's purchases start, by the purchase's day.
         var started: [AccountID: CalendarDate] = [:]
         // Sales come after the purchases, so a sale of an account a purchase starts finds its ID.
@@ -482,6 +484,9 @@ extension PreviewBuilder {
                         lines[index].assetLeftOut = .notCovered
                         continue
                     }
+                } else if let to = library.accounts[other], Self.recordsMovesAsTrades(to, of: account, on: line.date),
+                          line.period != nil, line.amount != 0 {
+                    tradeMoves.append(TradeMove(account: other, date: line.date, amount: -line.amount, cells: cells))
                 }
                 lines[index].asset = answered[row]
                 lines[index].assetAccount = other
@@ -571,7 +576,70 @@ extension PreviewBuilder {
         for (other, otherMoves) in moves {
             records.merge(movedRecords(other, moves: otherMoves)) { $1 }
         }
+        trades.append(contentsOf: movedTrades(tradeMoves))
         return records
+    }
+
+    /// Money a statement's line moved into an account that records trades
+    /// (negative: taken out), on the line's day, in the account's currency.
+    private struct TradeMove {
+        var account: AccountID
+        var date: CalendarDate
+        var amount: Decimal
+        var cells: [ImportCellRef]
+
+        /// The trade that moves it: a deposit, or a withdrawal for money taken out.
+        var type: TradeType { amount > 0 ? .deposit : .withdrawal }
+    }
+
+    /// Whether money a statement of `statement` moves to and from `account`
+    /// on `date` is the account's deposit or withdrawal: an account that
+    /// records trades, in the statement's currency, opened by then.
+    static func recordsMovesAsTrades(_ account: Account, of statement: Account, on date: CalendarDate) -> Bool {
+        account.recordsTrades && account.currency == statement.currency && account.opened <= date
+    }
+
+    /// The deposits and withdrawals of the accounts that record trades that
+    /// the file moved money to and from (docs/IMPORT.md, "Moved to or from
+    /// an account"): one on each line's day, of its amount, so the money
+    /// counts as saved when it leaves the bank, whether or not the
+    /// account's own trades have it yet. Each has the ID its account's own
+    /// file gives the same deposit on the same day (`TradeID.stable`), so
+    /// importing either file again finds it. A deposit or withdrawal of the
+    /// same amount that the account has already, within ``transferDays``,
+    /// is the line's, and nothing is added: each stands for one line, the
+    /// nearest in date first.
+    private func movedTrades(_ moves: [TradeMove]) -> [(record: ImportedRecord, cells: [ImportCellRef])] {
+        var pairs: [(move: Int, days: Int, trade: TradeKey)] = []
+        for (index, move) in moves.enumerated() {
+            for trade in library.trades(for: move.account)
+            where trade.type == move.type && trade.amount == move.amount {
+                let days = abs(trade.date.days(to: move.date))
+                if days <= Self.transferDays { pairs.append((index, days, trade.key)) }
+            }
+        }
+        var recorded = Set<Int>()
+        var used = Set<TradeKey>()
+        for pair in pairs.sorted(by: { ($0.days, $0.move, $0.trade) < ($1.days, $1.move, $1.trade) })
+        where !recorded.contains(pair.move) && !used.contains(pair.trade) {
+            recorded.insert(pair.move)
+            used.insert(pair.trade)
+        }
+        // Moves that would get the same ID are numbered, the ones recorded already too, so the IDs don't
+        // depend on which were.
+        var ordinals: [TradeID: Int] = [:]
+        var made: [(record: ImportedRecord, cells: [ImportCellRef])] = []
+        for (index, move) in moves.enumerated() {
+            var trade = Trade(account: move.account, date: move.date, type: move.type, amount: move.amount,
+                              source: .import)
+            let identity = TradeID.stable(for: trade)
+            let ordinal = ordinals[identity, default: 0]
+            ordinals[identity] = ordinal + 1
+            guard !recorded.contains(index) else { continue }
+            trade.id = TradeID.stable(for: trade, ordinal: ordinal)
+            made.append((ImportedRecord(trade: trade), move.cells))
+        }
+        return made
     }
 
     /// Money a statement's line moved into another account (negative: taken out),
@@ -706,15 +774,10 @@ extension PreviewBuilder {
             record.balance = balance
             var cells = inPeriod.flatMap { read[$0].cells }
             if covered, previous != nil {
-                var total = StatementLine.Counted()
+                var total = LineAmounts()
                 for index in inPeriod {
                     lines[index].period = cut
-                    let counted = lines[index].counted(recordsInterest: account.kind.recordsInterest)
-                    total.moneyIn += counted.moneyIn
-                    total.moneyOut += counted.moneyOut
-                    total.oneOff += counted.oneOff
-                    total.tax += counted.tax
-                    total.interest += counted.interest
+                    total = total + lines[index].counted(recordsInterest: account.kind.recordsInterest)
                 }
                 let interest = total.interest
                 record.moneyIn = total.moneyIn

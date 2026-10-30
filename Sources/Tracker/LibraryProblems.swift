@@ -53,7 +53,8 @@ private struct LibraryChecks {
     /// Records that refer to accounts, instruments or plans that don't exist.
     mutating func references() {
         for (month, file) in sortedMonths {
-            let accounts = Set(file.valuations.map(\.account) + file.trades.map(\.account))
+            let accounts = Set(file.valuations.map(\.account) + file.trades.map(\.account)
+                + file.lines.flatMap { [$0.account] + [$0.otherAccount].compactMap { $0 } })
                 .filter { library.accounts[$0] == nil }
             let instruments = Set(file.valuations.flatMap { $0.positions.map(\.instrument) }
                 + file.prices.map(\.instrument) + file.trades.compactMap(\.instrument))

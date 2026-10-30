@@ -3,6 +3,126 @@
     { "base": "EUR", "date": "2026-09-30", "quote": "USD", "rate": "1.1398", "source": "ecb" }
   ],
   "indices": [],
+  "lines": [
+    {
+      "account": "conto-fineco",
+      "amount": "-120.35",
+      "class": "spending",
+      "date": "2026-09-01",
+      "id": "3shhuxcd",
+      "source": "import",
+      "text": "Enel Energia bolletta agosto"
+    },
+    {
+      "account": "conto-fineco",
+      "amount": "-650",
+      "class": "transfer",
+      "confirmed": true,
+      "date": "2026-09-02",
+      "id": "bszjelqo",
+      "otherAccount": "mutuo-casa",
+      "source": "import",
+      "text": "Rata mutuo casa settembre"
+    },
+    {
+      "account": "conto-fineco",
+      "amount": "-500",
+      "class": "transfer",
+      "confirmed": true,
+      "date": "2026-09-04",
+      "id": "jzfjdhnp",
+      "otherAccount": "conto-deposito",
+      "source": "import",
+      "text": "Giroconto a Conto deposito"
+    },
+    {
+      "account": "conto-fineco",
+      "amount": "-86.4",
+      "class": "spending",
+      "date": "2026-09-05",
+      "id": "fb5r6eap",
+      "source": "import",
+      "text": "Esselunga Milano"
+    },
+    {
+      "account": "conto-fineco",
+      "amount": "-1250",
+      "class": "spending",
+      "confirmed": true,
+      "date": "2026-09-10",
+      "id": "6vjtg6ez",
+      "source": "import",
+      "text": "Asilo nido settembre"
+    },
+    {
+      "account": "conto-fineco",
+      "amount": "-64.9",
+      "class": "spending",
+      "date": "2026-09-12",
+      "id": "wt6pto5r",
+      "source": "import",
+      "text": "Farmacia Comunale"
+    },
+    {
+      "account": "conto-fineco",
+      "amount": "-312",
+      "class": "spending",
+      "confirmed": true,
+      "date": "2026-09-15",
+      "id": "5ak6shs7",
+      "note": "yearly",
+      "source": "import",
+      "text": "Assicurazione auto"
+    },
+    {
+      "account": "conto-fineco",
+      "amount": "-93.2",
+      "class": "spending",
+      "date": "2026-09-19",
+      "id": "fbuterrn",
+      "note": "in the export twice",
+      "removed": true,
+      "source": "import",
+      "text": "Esselunga Milano"
+    },
+    {
+      "account": "conto-fineco",
+      "amount": "-93.2",
+      "class": "spending",
+      "date": "2026-09-19",
+      "id": "jropcpq6",
+      "source": "import",
+      "text": "Esselunga Milano"
+    },
+    {
+      "account": "conto-fineco",
+      "amount": "-48",
+      "class": "spending",
+      "date": "2026-09-23",
+      "id": "fdeqnzxp",
+      "source": "import",
+      "text": "Ristorante Da Gino"
+    },
+    {
+      "account": "conto-fineco",
+      "amount": "-579.8",
+      "class": "spending",
+      "date": "2026-09-26",
+      "id": "pz6d3pt5",
+      "source": "import",
+      "text": "Amazon EU"
+    },
+    {
+      "account": "conto-fineco",
+      "amount": "3400",
+      "class": "income",
+      "confirmed": true,
+      "date": "2026-09-27",
+      "id": "dkllr6q2",
+      "source": "import",
+      "text": "Stipendio ACME Srl settembre"
+    }
+  ],
   "month": "2026-09",
   "prices": [
     { "currency": "USD", "date": "2026-09-30", "instrument": "btc", "price": "111400", "source": "yahoo" },

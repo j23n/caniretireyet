@@ -5,10 +5,12 @@ import Model
 /// accounts, a purchase you keep or a sale (docs/IMPORT.md, "Moved to or
 /// from an account"). The line is money moved between your accounts, and
 /// the import records the other account's side where the account has no
-/// statement of its own: a tax pot's, a purchase's or a sale's.
+/// statement of its own: a tax pot's, a trades account's deposit, a
+/// purchase's or a sale's.
 public enum StatementAsset: Hashable, Sendable {
     /// Money moved to or from an account of the library: a transfer. A tax
-    /// pot's value follows from the money moved (``Model/AccountKind/taxPot``).
+    /// pot's value follows from the money moved (``Model/AccountKind/taxPot``),
+    /// and an account that records trades gets it as a deposit or a withdrawal.
     case moved(AccountID)
     /// Money out for something you keep: a new account of `kind` named
     /// `name`, worth the line's amount from the line's day.

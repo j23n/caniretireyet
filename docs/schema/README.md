@@ -40,7 +40,7 @@ Last Monday/                        ← the app's folder in iCloud Drive
 ├── instruments/                    one file per thing you hold a quantity of
 │   ├── vwce.json
 │   └── …
-├── history/                        valuations, trades, prices, FX rates and inflation, by month
+├── history/                        valuations, trades, bank lines, prices, FX rates and inflation, by month
 │   └── 2026/
 │       ├── 2026-01.json
 │       └── …

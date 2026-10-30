@@ -324,11 +324,16 @@ extension TradeID {
     /// it: a file that corrects them gives the same ID, and the import
     /// compares the values (a conflict, or values filled in).
     public static func stable(for trade: Trade, ordinal: Int = 0) -> TradeID {
-        let fields = [
+        TradeID(rawValue: hashed([
             trade.account.rawValue, trade.date.description, trade.type.rawValue, trade.instrument?.rawValue ?? "",
             trade.quantity?.fileString ?? "", trade.amount?.fileString ?? "", trade.price?.fileString ?? "",
             String(ordinal),
-        ]
+        ]))
+    }
+
+    /// 8 lowercase base32 characters from a hash of `fields`: FNV-1a
+    /// (64-bit) of the fields joined, mixed with MurmurHash3's finalizer.
+    static func hashed(_ fields: [String]) -> String {
         var hash = FNV1a.hash(Data(fields.joined(separator: "\u{1F}").utf8))
         // MurmurHash3's finalizer, so a change in the last field (the
         // ordinal) changes every character, then the top 40 bits, 5 per character.
@@ -342,6 +347,6 @@ extension TradeID {
         for index in 0..<randomLength {
             text.append(alphabet[Int((bits >> UInt64(5 * (randomLength - 1 - index))) & 31)])
         }
-        return TradeID(rawValue: String(text))
+        return String(text)
     }
 }

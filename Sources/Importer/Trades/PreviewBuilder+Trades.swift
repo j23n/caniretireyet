@@ -357,6 +357,40 @@ extension PreviewBuilder {
         }
     }
 
+    /// The file's deposits and withdrawals that the account has already,
+    /// on a day up to ``transferDays`` away, such as one a bank statement's
+    /// line moved to it recorded (docs/IMPORT.md, "Moved to or from an
+    /// account"): a trade of the same type and amount that isn't one of
+    /// the file's own. The row takes that trade's day and ID, so the money
+    /// counts once, and importing the file again finds it. Each trade
+    /// stands for one row, the nearest in date first.
+    mutating func matchRecordedTransfers() {
+        let ownKeys = Set(trades.compactMap { $0.record.trade?.key })
+        var pairs: [(row: Int, days: Int, trade: TradeKey)] = []
+        for (index, item) in trades.enumerated() {
+            guard let trade = item.record.trade, trade.type == .deposit || trade.type == .withdrawal,
+                  library.trade(trade.key) == nil
+            else { continue }
+            for recorded in library.trades(for: trade.account)
+            where recorded.type == trade.type && recorded.amount == trade.amount
+                && !ownKeys.contains(recorded.key) {
+                let days = abs(recorded.date.days(to: trade.date))
+                if days <= Self.transferDays { pairs.append((index, days, recorded.key)) }
+            }
+        }
+        var matched = Set<Int>()
+        var used = Set<TradeKey>()
+        for pair in pairs.sorted(by: { ($0.days, $0.row, $0.trade) < ($1.days, $1.row, $1.trade) })
+        where !matched.contains(pair.row) && !used.contains(pair.trade) {
+            guard var trade = trades[pair.row].record.trade else { continue }
+            matched.insert(pair.row)
+            used.insert(pair.trade)
+            trade.date = pair.trade.date
+            trade.id = pair.trade.id
+            trades[pair.row].record = ImportedRecord(trade: trade)
+        }
+    }
+
     /// The currency a column's amounts are in, when its mapping or header says.
     private func columnCurrency(_ column: Int) -> CurrencyCode? {
         session.mapping(forColumn: column)?.currency ?? table.header(of: column).flatMap(CurrencyMarkers.currency(inHeader:))

@@ -140,6 +140,7 @@ struct PreviewBuilder {
         let records = fromStatement ?? (profile.layout == .statement ? [:] : aggregate())
         if profile.layout == .trades {
             makeTrades()
+            matchRecordedTransfers()
             preview.tradeTypes = session.tradeTypeValues
         }
         compare(records, into: &preview)

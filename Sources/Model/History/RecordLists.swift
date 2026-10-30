@@ -9,6 +9,7 @@ extension PriceRecord: FileRecord {}
 extension FXRecord: FileRecord {}
 extension IndexRecord: FileRecord {}
 extension Trade: FileRecord {}
+extension BankLine: FileRecord {}
 extension Headline: FileRecord {}
 
 /// One list of records in a ``RecordFile``: its name in the file's JSON,
