@@ -50,11 +50,13 @@ struct LineEditsTests {
 
     @Test func aRuleIsRememberedInTheAccountsProfile() throws {
         var library = Self.library()
-        #expect(library.rememberStatementRule(.transfer, other: "broker", for: "Broker SIM", account: "conto"))
+        let remembered = library.rememberStatementRule(.transfer, other: "broker", for: "Broker SIM", account: "conto")
+        #expect(remembered)
         let rules = try #require(library.importProfiles["bank"]?.rules)
         #expect(rules == [StatementRule(match: "Broker SIM", statementClass: .transfer, account: "broker")])
 
         // An account without a statement profile has nowhere to keep it.
-        #expect(!library.rememberStatementRule(.spending, for: "Broker", account: "broker"))
+        let elsewhere = library.rememberStatementRule(.spending, for: "Broker", account: "broker")
+        #expect(!elsewhere)
     }
 }
