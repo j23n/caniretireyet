@@ -45,6 +45,8 @@ struct CheckInSoFarTests {
             == "0 of 1 done · saved €984 so far")
         let none = CheckInGroups(date: "2026-10-31", from: nil, money: [], investments: [], typed: [], others: [])
         #expect(CheckInWording.progress(none, saved: 0, currency: .eur, locale: locale).text == "Saved €0 so far")
+        #expect(CheckInWording.progress(none, saved: -500, currency: .eur, locale: locale).text
+            == "€500 more went out than came in so far")
         #expect(CheckInWording.progress(groups, saved: -500, currency: .eur, locale: locale).text
             == "0 of 1 done · €500 more went out than came in so far")
     }

@@ -177,8 +177,8 @@ struct ImportFilesTests {
         var flow = threeStatements()
         flow.showBatchFile(2)
         #expect(flow.recognizedTitle == "3 columns recognized")
-        #expect(flow.recognizedSummary.hasSuffix(". Dates read as 31/12/2025, numbers as 1.234,56."))
-        #expect(flow.recognizedSummary.hasPrefix("Date, "))
+        #expect(flow.recognizedSummary
+            == "Date, amount (+ in, − out), description. Dates read as 31/12/2025, numbers as 1.234,56.")
         #expect(!flow.readingNeedsChanges)
         for row in flow.columnRows {
             flow.setUse(.ignore, forColumn: row.column)
