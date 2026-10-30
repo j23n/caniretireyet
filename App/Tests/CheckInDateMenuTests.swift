@@ -15,11 +15,11 @@ struct CheckInDateMenuTests {
             Account(id: "conto", name: "Conto", kind: .cash, currency: .eur, opened: "2020-01-01"),
         ])
         library.upsert(Valuation(account: "conto", date: "2026-07-31", balance: 1000))
-        library.upsert(Valuation(account: "conto", date: "2026-08-31", balance: d("964.95")))
+        library.upsert(Valuation(account: "conto", date: "2026-08-31", balance: PreviewLibrary.d("964.95")))
         library.upsert(Valuation(account: "conto", date: "2026-09-30", balance: 900))
         library.upsert(BankLine(account: "conto", date: "2026-08-10", id: "shop", amount: -70,
                                 statementClass: .spending, confirmed: true))
-        library.upsert(BankLine(account: "conto", date: "2026-09-10", id: "shop", amount: d("-64.95"),
+        library.upsert(BankLine(account: "conto", date: "2026-09-10", id: "shop", amount: PreviewLibrary.d("-64.95"),
                                 statementClass: .spending, confirmed: true))
         return library
     }
