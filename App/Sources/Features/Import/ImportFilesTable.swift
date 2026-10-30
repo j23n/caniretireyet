@@ -523,7 +523,17 @@ struct ImportFilesList: View {
                     Text(ImportFirstCheckInCard.title(first))
                         .privacySensitiveInFeedback()
                 } footer: {
-                    Text(verbatim: first.note)
+                    VStack(alignment: .leading, spacing: Metrics.xs) {
+                        Text(verbatim: first.note)
+                        if let summary = ImportCheckInCheck.summary(first.before) {
+                            AmountSentenceText(summary)
+                        }
+                    }
+                }
+                if !first.after.isEmpty {
+                    Section("After your first check-in") {
+                        ImportAfterFirstCheckIn(checks: first.after)
+                    }
                 }
             }
             if !notes.isEmpty {
@@ -568,6 +578,16 @@ struct ImportFirstCheckInCard: View {
                 Text(verbatim: first.note)
                     .foregroundStyle(Palette.secondaryInk)
                     .fixedSize(horizontal: false, vertical: true)
+                if !first.before.isEmpty {
+                    ImportCheckInChecks(checks: first.before)
+                }
+                if !first.after.isEmpty {
+                    Divider()
+                        .padding(.vertical, Metrics.xs)
+                    Text("After your first check-in")
+                        .font(.headline)
+                    ImportAfterFirstCheckIn(checks: first.after)
+                }
             }
             .padding(Metrics.l)
             .background(Palette.card, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
@@ -585,6 +605,70 @@ struct ImportFirstCheckInCard: View {
         let from = first.from.dateValue.formatted(.dateTime.month(.abbreviated).year().locale(locale))
         let through = firstCheckIn.dateValue.formatted(.dateTime.month(.abbreviated).year().locale(locale))
         return "Before your first check-in (\(from) – \(through))"
+    }
+}
+
+/// The check-ins the files add before the first, a row each, with how
+/// many lines lead to it and whether they add up; then how many do.
+private struct ImportCheckInChecks: View {
+    let checks: [ImportCheckInCheck]
+
+    @Environment(\.locale) private var locale
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Metrics.xs) {
+            ForEach(checks) { check in
+                HStack(spacing: Metrics.s) {
+                    Image(systemName: check.off == nil ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                        .foregroundStyle(check.off == nil ? Palette.good : Palette.warning)
+                        .accessibilityHidden(true)
+                    Text(verbatim: check.title(locale: locale))
+                        .frame(minWidth: 80, alignment: .leading)
+                        .privacySensitiveInFeedback()
+                    AmountSentenceText(check.status(locale: locale))
+                        .foregroundStyle(check.off == nil ? Palette.secondaryInk : Palette.warning)
+                    Spacer(minLength: 0)
+                }
+                .font(.subheadline)
+                .accessibilityElement(children: .combine)
+            }
+            if let summary = ImportCheckInCheck.summary(checks, locale: locale) {
+                AmountSentenceText(summary)
+                    .font(.subheadline.weight(.semibold))
+                    .padding(.top, Metrics.xs)
+            }
+        }
+    }
+}
+
+/// The library's check-ins the files reach: they stay as they are, the
+/// lines fill them in, and how many add up.
+private struct ImportAfterFirstCheckIn: View {
+    let checks: [ImportCheckInCheck]
+
+    @Environment(\.locale) private var locale
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Metrics.xs) {
+            AmountSentenceText(intro)
+                .foregroundStyle(Palette.secondaryInk)
+                .fixedSize(horizontal: false, vertical: true)
+            if let summary = ImportCheckInCheck.summary(checks, locale: locale) {
+                AmountSentenceText(summary)
+                    .foregroundStyle(checks.contains { $0.off != nil } ? Palette.warning : Palette.good)
+            }
+        }
+    }
+
+    /// "Feb – Sep 2026: your 8 check-ins stay as they are. …"
+    private var intro: AmountSentence {
+        let count = Wording.count(checks.count, "check-in")
+        var sentence: AmountSentence = ""
+        if let first = checks.first, let last = checks.last {
+            sentence += "\(first.title(locale: locale)) – \(last.title(locale: locale)): "
+        }
+        sentence += "your \(count) stay as they are. The lines fill in what came in and went out between them."
+        return sentence
     }
 }
 
