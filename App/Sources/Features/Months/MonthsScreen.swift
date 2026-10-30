@@ -201,6 +201,7 @@ private struct EarlierMonthRow: View {
                                                          in: library.library)
         let toDo = month.toDo.count + brokerage.filter { !$0.status.isDone }.count
         let hasOff = month.accounts.contains { if case .off = $0.status { true } else { false } }
+            || brokerage.contains { if case .off = $0.status { true } else { false } }
         NavigationLink(value: MoneyMonthRoute(through: month.through)) {
             HStack(spacing: Metrics.s) {
                 VStack(alignment: .leading, spacing: 2) {
@@ -250,6 +251,8 @@ struct MoneyMonthScreen: View {
     @Environment(\.locale) private var locale
     @State private var importing: MonthRoute?
     @State private var typing: MonthRoute?
+    /// The month whose lines open after its CSV is imported.
+    @State private var opened: MonthRoute?
 
     var body: some View {
         ScrollView {
@@ -261,8 +264,11 @@ struct MoneyMonthScreen: View {
         }
         .background(Palette.page)
         .personalNavigationTitle(MonthText.title(route.through, locale: locale), hidden: "Month")
+        .navigationDestination(item: $opened) { route in
+            MonthLinesScreen(route: route)
+        }
         .sheet(item: $importing) { route in
-            MonthImportSheet(route: route)
+            MonthImportSheet(route: route) { opened = route }
         }
         .sheet(item: $typing) { route in
             MonthTypedTotalsSheet(route: route)
