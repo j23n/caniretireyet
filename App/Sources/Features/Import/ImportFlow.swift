@@ -396,7 +396,8 @@ struct ImportFlow: Sendable {
     }
 
     /// Whether `preview` proposes opening an account earlier or closing one,
-    /// which Accounts answers; Income answers a sale's.
+    /// which Accounts answers. A sale's comes only from the command line
+    /// (`--sale`).
     static func proposesAccountChange(_ preview: ImportPreview?) -> Bool {
         preview?.accountChanges.contains { $0.statementRow == nil } ?? false
     }

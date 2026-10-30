@@ -441,7 +441,7 @@ Several files can be imported together (`StatementBatch`), such as every account
 
 A file that can't be read is listed with its error, and the others still import. Files can be added to a batch later (`StatementBatch.add(files:library:checkIn:today:)`) or taken out (`remove(file:library:today:)`): the files already there keep their accounts and answers, and the transfers are paired again. A file's ID is its place among every file given, read or not.
 
-A line that needs an answer stays one once it's answered (`StatementLine.wasAsked`), so the app can list the questions with their answers.
+A line that needs an answer stays one once it's answered (`StatementLine.wasAsked`).
 
 Rules live in each file's profile. A rule made for every statement is made in each file's (`StatementBatch.editSessions(library:today:_:)`, which edits every file and pairs the transfers once), and `ImportSession.statementRule(matching:)` finds a profile's rule for a phrase itself, the one a new rule with the phrase replaces.
 

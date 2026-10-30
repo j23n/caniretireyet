@@ -89,6 +89,29 @@ struct ImportReviewTests {
         #expect(accounts.map(\.change) == [Decimal(string: "1768.4"), Decimal(string: "260.15")])
     }
 
+    /// An account money moves to by a saved rule, such as one
+    /// `retire import --move` remembers, is listed from the transfers.
+    @Test func anAccountMoneyMovesToIsListedFromTransfers() throws {
+        var library = PreviewLibrary.library
+        library.accounts["tasse"] = Account(id: "tasse", name: "Tax pot", kind: .taxPot, currency: .eur,
+                                            opened: "2026-01-01")
+        var flow = ImportFlow(library: library)
+        flow.open(Data((Self.current + "\n15/09/2026;-6.000,00;Accantonamento tasse").utf8), fileName: "settembre.csv")
+        flow.setConstants { $0.account = "conto-fineco" }
+        let rule = StatementRule(match: "Accantonamento tasse", statementClass: .transfer, account: "tasse")
+        flow.editSession { $0.profile.rules.append(rule) }
+        let pot = try #require(flow.reviewAccounts.first { $0.account == "tasse" })
+        #expect(pot.isNew)
+        #expect(pot.fromTransfers)
+        #expect(pot.months == 1)
+        #expect(pot.balance == 6000)
+        #expect(pot.change == 6000)
+
+        let conflict = try #require(flow.reviewConflicts().first)
+        flow.setReviewResolution(usesFile: true, for: conflict.key)
+        #expect(flow.planned?.hasChanges == true)
+    }
+
     @Test func theChartsShowTheFirstAccountThatDisagreesOverTheYear() throws {
         let charts = try #require(flow().statementCharts)
         #expect(charts.year == 2026)
