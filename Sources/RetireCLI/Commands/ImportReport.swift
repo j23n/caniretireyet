@@ -495,6 +495,7 @@ struct ImportReport: CommandReport {
                 + (result.undecided > 0 ? " (\(result.undecided) undecided)" : "")
                 + (result.removed > 0 ? ", \(result.removed) removed" : "")
                 + ", \(result.identical) identical, \(result.skipped) left out.")
+            if result.linesWritten > 0 { lines.append("Bank lines written: \(result.linesWritten).") }
         }
         if !result.createdAccounts.isEmpty {
             lines.append("Created accounts: \(result.createdAccounts.map(\.rawValue).joined(separator: ", ")).")
@@ -862,6 +863,7 @@ struct ImportReport: CommandReport {
             var removed: Int
             var identical: Int
             var skipped: Int
+            var linesWritten: Int
             var createdAccounts: [String]
             var closedAccounts: [String]
             var createdInstruments: [String]
@@ -880,6 +882,7 @@ struct ImportReport: CommandReport {
                 removed = result.removed
                 identical = result.identical
                 skipped = result.skipped
+                linesWritten = result.linesWritten
                 createdAccounts = result.createdAccounts.map(\.rawValue)
                 closedAccounts = result.closedAccounts.map(\.rawValue)
                 createdInstruments = result.createdInstruments.map(\.rawValue)

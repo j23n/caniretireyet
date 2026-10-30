@@ -95,8 +95,38 @@ public struct StatementLine: Hashable, Sendable, Identifiable {
     /// Why the line's answer is left out; `nil` when it's taken or there
     /// is none.
     public var assetLeftOut: AssetLeftOut?
+    /// Its ID among the account's lines kept in the library (docs/IMPORT.md,
+    /// "Lines"): made from its account, date, amount and text, so importing
+    /// the file again finds it.
+    public var lineID: BankLineID = ""
+    /// Whether the library's line was removed, such as one listed twice: it
+    /// counts in nothing, and isn't in the balance.
+    public var isRemoved = false
+    /// The note of the library's line.
+    public var note: String?
 
     public var id: Int { row }
+
+    /// The other account the line moves money to or from, when it's a
+    /// transfer and it's known.
+    public var otherAccount: AccountID? {
+        guard statementClass == .transfer else { return nil }
+        if let assetAccount { return assetAccount }
+        switch source {
+        case .trade(let key): return key.account
+        case .paired(let account), .account(let account): return account
+        default: return nil
+        }
+    }
+
+    /// The line as the library keeps it: what it is, confirmed when it
+    /// was chosen, and the import's suggestion otherwise.
+    func bankLine(account: AccountID) -> BankLine {
+        BankLine(account: account, date: date, id: lineID, amount: amount, text: text,
+                 statementClass: statementClass, otherAccount: otherAccount, note: note,
+                 removed: isRemoved ? true : nil, confirmed: source == .chosen && !isRemoved ? true : nil,
+                 source: .import)
+    }
 
     /// Whether the text has `phrase` as whole words, ignoring case, accents
     /// and punctuation, as a rule matches it.

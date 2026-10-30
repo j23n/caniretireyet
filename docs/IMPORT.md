@@ -324,7 +324,7 @@ The importer is tested with made-up exports in the shapes of real ones (`Tests/I
 
 ## Bank statements
 
-A bank's statement export for one cash or savings account is read in the **statement layout**: each row is a line of the statement, and each line is classified as money in, money out or neither. The lines become the account's values, with the balance and money in and out ([PROGRESS.md](PROGRESS.md#money-in-and-out)). The import doesn't store the lines yet: correcting a past month means importing its file again. The library can hold them ([Lines](#lines)).
+A bank's statement export for one cash or savings account is read in the **statement layout**: each row is a line of the statement, and each line is classified as money in, money out or neither. The lines become the account's values, with the balance and money in and out ([PROGRESS.md](PROGRESS.md#money-in-and-out)). The import keeps the lines too ([Lines](#lines)), so a past month can be checked and corrected later.
 
 ### Lines
 
@@ -336,6 +336,12 @@ A cash, savings or tax-pot account's statement lines can be kept in the monthly 
 - a **note**; whether it was **removed**, such as a line a bank's export has twice: it stays in the file, so importing the statement again doesn't bring it back, but counts in nothing; and whether what it is was **confirmed**, or is still the import's suggestion.
 
 Lines are keyed by account, date and **ID**. An imported line's ID is made from its account, date, amount and text, and its position among the file's lines with all of these equal (`BankLineID.stable`), so importing the same file again finds the same lines and keeps what you changed. A line typed in gets a random ID. Loading points out a line of an account, or moved to an account, that doesn't exist.
+
+**Importing** a statement writes its lines (`ImportPreview.lines`, `ImportResult.linesWritten`) when it writes the account's values. A line whose class was chosen in the import is confirmed; any other class, from a rule, the usual words or a sender's history, is a suggestion, with the other account when the import knows it. Importing a file again, or another file with some of the same lines, finds the library's lines by their IDs:
+
+- a **removed** line stays removed: it counts in nothing, and isn't in the balance the lines lead to;
+- a **confirmed** line keeps what it is, money moved to its other account included, unless the import chooses again;
+- a line that is still a suggestion takes the import's new one; its note stays.
 
 **Between two values** (Tracker's `Library.lineStretches(of:)`, `LineStretch`) an account's lines are checked against its balances: the value before, plus every line that counts, has to be the value after. The difference is a line missing, one listed twice, or a balance typed wrong. Each stretch starts from the value before it, so a value corrected later carries into the next stretch. A stretch's **spent** is its spending lines, less money paid back, and what it **moved** is its transfers. Lines after the account's last value wait for the next one.
 

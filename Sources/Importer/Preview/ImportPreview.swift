@@ -38,6 +38,10 @@ public struct ImportPreview: Hashable, Sendable {
     /// Statement layout: the file's lines in date order, each with its
     /// class and the value it counts in.
     public var statementLines: [StatementLine] = []
+    /// A statement's lines as the library keeps them (docs/IMPORT.md,
+    /// "Lines"), which applying writes: new lines, and the import's
+    /// suggestion for lines not confirmed or removed since.
+    public var lines: [BankLine] = []
     /// Statement layout: the days the file is read as covering; `nil` until
     /// it has an account and its lines fit the days.
     public var statementPeriod: StatementPeriod?
