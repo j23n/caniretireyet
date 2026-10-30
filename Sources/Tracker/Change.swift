@@ -286,11 +286,13 @@ extension Valuator {
 
 extension Account {
     /// Whether all of the account's change in value is saved, never
-    /// markets: belongings'. So its loss of value is spent (PROGRESS.md,
-    /// "Savings rate"), and a typed value trues up what was estimated
-    /// before it.
+    /// markets: belongings' without a depreciation. So their loss of value
+    /// is spent (PROGRESS.md, "Savings rate"). With one
+    /// (``lossOfValue``), the loss it gives is lost value, counted with
+    /// markets, and only what a typed value differs from the estimate by
+    /// is saved.
     var changeIsSaved: Bool {
-        kind == .belongings
+        kind == .belongings && lossOfValue == nil
     }
 
     /// The share of its value the account is estimated to lose a year
