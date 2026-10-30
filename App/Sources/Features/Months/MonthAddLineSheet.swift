@@ -28,6 +28,11 @@ struct MonthAddLineSheet: View {
         _date = State(initialValue: min(month.through, .today()))
     }
 
+    /// What the account pill says: the account's name, or "Not one of mine".
+    private var otherName: String {
+        other.flatMap { library.library.accounts[$0]?.name } ?? "Not one of mine"
+    }
+
     var body: some View {
         NavigationStack {
             form
@@ -75,7 +80,7 @@ struct MonthAddLineSheet: View {
                     }
                 }
                 if statementClass == .transfer {
-                    Picker("To which account?", selection: $other) {
+                    PillPicker("To which account?", selection: $other, value: otherName, isPersonal: true) {
                         Text("Not one of mine").tag(AccountID?.none)
                         ForEach(otherAccounts) { other in
                             Text(other.name).tag(AccountID?.some(other.id))
