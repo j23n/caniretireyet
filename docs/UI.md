@@ -925,7 +925,7 @@ At most one note a day: the monthly note keeps its day, and a yearly note that f
 
 **Changes.** Always a sign and an arrow as well as colour: ▲ +4.210 in the success-green text colour, ▼ −240 in red. Never colour alone. A change that shows as zero gets neither: `0 €`, in grey.
 
-**Fields.** Every field you can type in looks like one. In a form, its row has its label on the left and the field on the right, with a grey prompt ("0") while it's empty and the currency or unit after it, so the label stays once a value is typed (`FormNumberField`, `FormTextField`). Outside a form, on a card, a field has a rounded 1 pt outline that turns into a 2 pt outline in the accent while you type, with the currency's symbol before an amount (`OutlinedAmountField`, `typedFieldOutline`): a check-in's typed balances, the bank's balance and the broker's cash in a month, the balance before a file's first line in the import, a line's note.
+**Fields.** Every field you can type in looks like one. In a form, its row has its label on the left and the field on the right, with a grey prompt ("0") while it's empty and the currency or unit after it, so the label stays once a value is typed (`FormNumberField`, `FormTextField`). Outside a form, on a card, a field has a rounded 1 pt outline that turns into a 2 pt outline in the accent while you type, with the currency's symbol before an amount when the account is known (`OutlinedAmountField`, `typedFieldOutline`): a check-in's typed balances, the bank's balance and the broker's cash in a month, the balance before a file's first line in the import, a line's note.
 
 **Colour in charts** follows the dataviz reference palette, in light and dark variants.
 

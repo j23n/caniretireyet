@@ -114,6 +114,9 @@ private struct ImportReviewOpeningBalanceField: View {
                     .labelsHidden()
                     .multilineTextAlignment(.trailing)
                     .monospacedDigit()
+                    #if os(iOS)
+                    .numberKeyboard(.numbersAndPunctuation)
+                    #endif
                     .focused($isEditing)
                     .onSubmit(apply)
                     .frame(maxWidth: 136)

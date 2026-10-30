@@ -54,8 +54,8 @@ struct FormTextField: View {
 
 /// An amount typed on a card, outside a form: the currency's symbol, then
 /// the field, in a rounded outline (`typedFieldOutline(isFocused:)`).
-/// Tapping anywhere in the outline edits it. Not `.privacySensitive()`:
-/// what you type shows while amounts are hidden.
+/// Not `.privacySensitive()`: what you type shows while amounts are
+/// hidden.
 struct OutlinedAmountField: View {
     let title: String
     @Binding var text: String
@@ -79,8 +79,6 @@ struct OutlinedAmountField: View {
         }
         .frame(width: 136)
         .typedFieldOutline(isFocused: isFocused.wrappedValue)
-        .contentShape(Rectangle())
-        .onTapGesture { isFocused.wrappedValue = true }
     }
 }
 
