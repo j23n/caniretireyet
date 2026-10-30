@@ -24,7 +24,7 @@ struct OnboardingNumberRow: View {
     var body: some View {
         LabeledContent {
             HStack(spacing: Metrics.xs) {
-                PlanNumberField(title, value: $value, kind: kind, prompt: prompt, isOptional: true)
+                PlanNumberField(title, value: $value, kind: kind, prompt: prompt, isOptional: true, isOutlined: false)
                 Text(unit)
                     .foregroundStyle(Palette.secondaryInk)
                     .accessibilityHidden(true)

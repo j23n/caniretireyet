@@ -15,18 +15,22 @@ struct PlanNumberField: View {
     var kind: PlanNumberText.Kind = .amount
     var prompt: String = ""
     var isOptional = false
+    /// Whether it draws the field's outline; off where the row draws a box
+    /// of its own around the field and its unit.
+    var isOutlined = true
 
     @State private var text = ""
     @FocusState private var isFocused: Bool
     @Environment(\.locale) private var locale
 
     init(_ title: String, value: Binding<Decimal?>, kind: PlanNumberText.Kind = .amount, prompt: String = "",
-         isOptional: Bool = false) {
+         isOptional: Bool = false, isOutlined: Bool = true) {
         self.title = title
         _value = value
         self.kind = kind
         self.prompt = prompt
         self.isOptional = isOptional
+        self.isOutlined = isOutlined
     }
 
     /// A field for a value that's always set: an empty field keeps it.
@@ -35,6 +39,15 @@ struct PlanNumberField: View {
     }
 
     var body: some View {
+        if isOutlined {
+            field
+                .typedFieldOutline(isFocused: isFocused)
+        } else {
+            field
+        }
+    }
+
+    private var field: some View {
         TextField(title, text: $text, prompt: Text(prompt))
             .labelsHidden()
             .textFieldStyle(.plain)
@@ -65,7 +78,6 @@ struct PlanNumberField: View {
             .onChange(of: isFocused) { _, focused in
                 if !focused { text = PlanNumberText.text(value, kind: kind, locale: locale) }
             }
-            .typedFieldOutline(isFocused: isFocused)
     }
 }
 
