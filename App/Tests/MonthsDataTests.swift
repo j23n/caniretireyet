@@ -71,11 +71,19 @@ struct MonthsDataTests {
 
         let lines = library.lines(for: "conto")
         let shops = lines.filter { $0.id != "pay" }
-        #expect(shops.allSatisfy { $0.statementClass == .transfer && $0.otherAccount == "risparmio" })
-        #expect(shops.allSatisfy(\.isConfirmed))
-        #expect(shops.map(\.note) == ["saved", nil])
-        #expect(lines.first { $0.id == "pay" }?.isConfirmed == false)
-        #expect(try Self.september(library).status == .toCheck(1))
+        let classes = shops.map(\.statementClass)
+        let others = shops.map(\.otherAccount)
+        let confirmed = shops.map(\.isConfirmed)
+        let notes = shops.map(\.note)
+        let pay = lines.first { $0.id == "pay" }
+        let september = try Self.september(library)
+        let risparmio: AccountID = "risparmio"
+        #expect(classes == [StatementClass.transfer, StatementClass.transfer])
+        #expect(others == [risparmio, risparmio])
+        #expect(confirmed == [true, true])
+        #expect(notes == ["saved", nil])
+        #expect(pay?.isConfirmed == false)
+        #expect(september.status == .toCheck(1))
     }
 
     @Test func aClassOtherThanMovedForgetsTheOtherAccount() throws {
