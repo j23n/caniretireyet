@@ -22,15 +22,21 @@ struct CheckInSoFar: Hashable, Sendable {
     var rate: Decimal?
     /// What things that lose value lost, below zero (``Tracker/ValueChange/lost``).
     var lost: Decimal = 0
-    /// What markets did: price and FX movement, and what nothing explains.
+    /// What net worth's change since the check-in before counts as saved
+    /// (``Tracker/Valuator/savedSplit(of:)``): with the one-offs left out,
+    /// so the bar's parts add up to the change.
+    var netSaved: Decimal = 0
+    /// What markets did: price and FX movement, and what nothing explains,
+    /// the one-offs among it.
     var markets: Decimal = 0
     /// Where what was saved went: each account's share, largest first,
     /// those with none left out.
     var wentTo: [Share] = []
 
     /// From the savings rate over the month, and the change since the
-    /// check-in before; zeros without them.
-    init(rate savings: SavingsRate?, change: ChangeReport?) {
+    /// check-in before split as Saved counts it (``Tracker/Valuator/savedSplit(of:)``);
+    /// zeros without them.
+    init(rate savings: SavingsRate?, split: ValueChange?) {
         if let savings {
             cameIn = savings.income + savings.tax
             tax = savings.tax
@@ -42,9 +48,10 @@ struct CheckInSoFar: Hashable, Sendable {
                 .map { Share(account: $0.key, amount: $0.value) }
                 .sorted { ($1.amount, $0.account) < ($0.amount, $1.account) }
         }
-        if let total = change?.total {
-            lost = total.lost
-            markets = total.market + total.other
+        if let split {
+            lost = split.lost
+            netSaved = split.saved
+            markets = split.market + split.other
         }
     }
 
@@ -52,13 +59,13 @@ struct CheckInSoFar: Hashable, Sendable {
     var wentToTotal: Decimal { wentTo.reduce(0) { $0 + $1.amount } }
 
     /// "saved 983,69 € · markets +1.307,15 € · lost value −230,00 €": what
-    /// moved net worth, under it.
+    /// moved net worth, under it; the parts add up to the change.
     func split(currency: CurrencyCode, locale: Locale = .current) -> AmountSentence {
         func amount(_ value: Decimal, signed: Bool) -> String {
             signed ? AmountFormat.signedAmount(value, currency: currency, precision: .cents, locale: locale)
                 : AmountFormat.amount(value, currency: currency, precision: .cents, locale: locale)
         }
-        var sentence: AmountSentence = "saved \(amount: amount(saved, signed: false))"
+        var sentence: AmountSentence = "saved \(amount: amount(netSaved, signed: false))"
         sentence += " · markets \(amount: amount(markets, signed: true))"
         if lost != 0 { sentence += " · lost value \(amount: amount(lost, signed: true))" }
         return sentence
@@ -97,6 +104,7 @@ struct CheckInSoFarCard: View {
                 }
             } header: {
                 SectionHeader("\(AmountFormat.monthName(date, locale: locale)) so far")
+                    .privacySensitiveInFeedback()
             }
             if soFar.lost != 0 {
                 Card {

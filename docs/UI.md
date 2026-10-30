@@ -335,7 +335,7 @@ Once a month: bring each account up to date, by importing its CSV, typing its to
 │ │ The 230,00 € it lost is lost value…   │ │
 │ OTHER ACCOUNTS                           │
 │ │ TFR                        12.300     │ │
-│ Net worth so far     424.261 € ▲ +983,69 │  ← pinned to the bottom
+│ Net worth so far   424.261 € ▲ +2.060,84 │  ← pinned to the bottom
 │   saved 983,69 € · markets +1.307,15 € · lost value −230,00 € │
 └──────────────────────────────────────────┘
 ```
@@ -343,7 +343,7 @@ Once a month: bring each account up to date, by importing its CSV, typing its to
 - **Date.** Defaults to today. In the first days of a month it suggests the end of the previous month (`CheckInDates.suggested(today:lastCheckIn:)`). The title says the month, with the date under it ("October check-in", "31 Oct 2026"); tapping the date picks another; an earlier date fills in history: see [Adding history](#adding-history).
 - ***Import Files*** opens the import ([Import](#import-mac-first)) in a sheet for the check-in's date: bank statements are read through that date ([IMPORT.md](IMPORT.md#bank-statements)), and broker exports, pension spreadsheets and any other file import as they do anywhere. Each import is written when you tap *Import*, with its own backup, and undone from its Done step or with `retire import --undo`. Import as many files as the month has; the page follows each one.
 - **Prices.** Fetched for the date as soon as the check-in opens, and again after each import, for what the accounts hold then (Settings can turn this off). The button beside *Import Files* says their status in a few words ("Prices updated", "Check prices") and opens the price list, read-only: each price, rate and inflation value with its source and time, or why it couldn't be fetched. A price that couldn't be fetched uses the latest one known. An instrument without a price source gets its price on the Instruments screen.
-- **Net worth so far**, on the date with the fetched prices, and its change since the previous check-in, in a bar pinned to the bottom, with what moved it under it: "saved 983,69 € · markets +1.307,15 € · lost value −230,00 €".
+- **Net worth so far**, on the date with the fetched prices, and its change since the previous check-in, in a bar pinned to the bottom, with what moved it under it: "saved 983,69 € · markets +1.307,15 € · lost value −230,00 €". The parts add up to the change: they split it as Saved counts it (`Valuator.savedSplit(of:)`), so a one-off counts with markets and what nothing explains, and *saved* can differ from the month so far's, which counts only the accounts done.
 - **The accounts, by what each needs** (Tracker's `Valuator.checkInGroups(on:in:)`, `CheckInGroups`), under how many are done ("2 of 8 accounts done"):
   - **Money in and out:** the cash and savings accounts and tax pots, each with its month up to the check-in's date, as *Money In and Out* lists them ([Your months](#your-months)): *Import CSV…* and *Type Totals…* while it's not done, else where it stands ("Adds up · 16 lines", "Off by 35,05 €"), opening its lines.
   - **Investments:** the accounts that record trades, each with its month ([A brokerage month](#a-brokerage-month)).

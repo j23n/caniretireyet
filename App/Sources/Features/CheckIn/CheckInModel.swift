@@ -10,6 +10,11 @@ import Tracker
 
 /// The words the check-in shows, formatted for the locale.
 enum CheckInWording {
+    /// "3 of 8 accounts done", "1 of 1 account done".
+    static func doneCount(_ groups: CheckInGroups) -> String {
+        "\(groups.doneCount) of \(Wording.count(groups.count, "account")) done"
+    }
+
     /// The banner of a past check-in, one dated before the library's latest
     /// (`latest`): later values stay, and no answer is recorded. `nil` when
     /// the check-in isn't a past one.
