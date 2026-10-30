@@ -24,6 +24,11 @@ enum CheckInWording {
         return parts.joined(separator: " · ")
     }
 
+    /// "3 of 8 accounts done", "1 of 1 account done".
+    static func doneCount(_ groups: CheckInGroups) -> String {
+        "\(groups.doneCount) of \(Wording.count(groups.count, "account")) done"
+    }
+
     /// The confirmation of a past check-in, in place of the answer: "Saved a
     /// past check-in (31 Mar 2024). The answer isn't recorded for past dates."
     static func pastCheckInSaved(on date: CalendarDate, latest: CalendarDate?, locale: Locale = .current) -> String {
