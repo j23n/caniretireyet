@@ -38,6 +38,18 @@ struct LibraryProblemsTests {
         }
     }
 
+    /// A bank line of an account that doesn't exist, and one moved to one.
+    @Test func linesReferToAccountsThatExist() throws {
+        var library = try Fixtures.exampleLibrary()
+        library.upsert(BankLine(account: "conto-perso", date: "2026-09-20", id: "a", amount: -10,
+                                statementClass: .spending))
+        library.upsert(BankLine(account: "conto-fineco", date: "2026-09-21", id: "b", amount: -20,
+                                statementClass: .transfer, otherAccount: "risparmio-perso"))
+        let problems = library.problems()
+        #expect(problems.map(\.message) == ["Refers to accounts that don't exist: conto-perso, risparmio-perso."])
+        #expect(problems.first?.path == september)
+    }
+
     @Test func referencesAndTradesAreCheckedInTheFileOfTheRecord() throws {
         var library = try Fixtures.exampleLibrary()
         library.instruments["btc"] = nil
