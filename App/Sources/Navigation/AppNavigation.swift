@@ -126,8 +126,8 @@ final class AppNavigation {
     /// The check-in as a full-screen sheet (tab layout); in the sidebar
     /// layout it's the Check-in page.
     var isCheckInPresented = false
-    /// Whether the open check-in is saved: its saved page shows, whose
-    /// tiles open other places (``waitsForCheckIn(then:)``).
+    /// Whether the open check-in is saved: its saved page shows, and a
+    /// link closes it (``waitsForCheckIn(then:)``).
     var isCheckInSaved = false
     /// A place in a plan to open once (``showPlan(_:at:)``): the plan's
     /// screen takes it when it appears, or at once when it's already open,
@@ -176,8 +176,8 @@ final class AppNavigation {
 
     /// Whether a place waits for the full-screen check-in (tab layout),
     /// which can only be saved or cancelled: a link or a widget opens
-    /// nothing while it's open. Once it's saved, its saved page's tiles
-    /// close it first, then `next` opens the place.
+    /// nothing while it's unsaved. Once it's saved, the link closes it
+    /// first, then `next` opens the place.
     private func waitsForCheckIn(then next: @escaping @MainActor @Sendable (AppNavigation) -> Void) -> Bool {
         guard isCheckInPresented else { return false }
         if isCheckInSaved { finishCheckIn(then: next) }
