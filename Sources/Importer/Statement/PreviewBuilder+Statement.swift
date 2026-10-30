@@ -774,15 +774,10 @@ extension PreviewBuilder {
             record.balance = balance
             var cells = inPeriod.flatMap { read[$0].cells }
             if covered, previous != nil {
-                var total = StatementLine.Counted()
+                var total = LineAmounts()
                 for index in inPeriod {
                     lines[index].period = cut
-                    let counted = lines[index].counted(recordsInterest: account.kind.recordsInterest)
-                    total.moneyIn += counted.moneyIn
-                    total.moneyOut += counted.moneyOut
-                    total.oneOff += counted.oneOff
-                    total.tax += counted.tax
-                    total.interest += counted.interest
+                    total = total + lines[index].counted(recordsInterest: account.kind.recordsInterest)
                 }
                 let interest = total.interest
                 record.moneyIn = total.moneyIn

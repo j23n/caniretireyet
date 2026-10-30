@@ -105,42 +105,10 @@ public struct StatementLine: Hashable, Sendable, Identifiable {
         return !words.isEmpty && TextTools.contains(TextTools.words(text), anyOf: [words.joined(separator: " ")])
     }
 
-    /// What a line adds to its value's amounts (docs/IMPORT.md, "Classes").
-    struct Counted {
-        var moneyIn: Decimal = 0
-        /// Lowered by money paid back, so it can be negative.
-        var moneyOut: Decimal = 0
-        var oneOff: Decimal = 0
-        /// Tax paid, lowered by a refund: part of money out.
-        var tax: Decimal = 0
-        var interest: Decimal = 0
-    }
-
     /// What the line adds to money in, money out, one-offs, tax and
-    /// interest. Income that came in is money in, and so is interest unless
-    /// the account records interest (`recordsInterest`); a one-off that
-    /// came in is a one-off. Money in that is spending lowers money out.
-    /// Any of them that went out is money out. Tax is money out and tax
-    /// both ways: paid, it adds to them; refunded, it lowers them.
-    func counted(recordsInterest: Bool) -> Counted {
-        var counted = Counted()
-        switch statementClass {
-        case .interest where recordsInterest: counted.interest = amount
-        case .income, .interest, .oneOff:
-            if amount < 0 {
-                counted.moneyOut = -amount
-            } else if statementClass == .oneOff {
-                counted.oneOff = amount
-            } else {
-                counted.moneyIn = amount
-            }
-        case .spending: counted.moneyOut = -amount
-        case .tax:
-            counted.moneyOut = -amount
-            counted.tax = -amount
-        default: break
-        }
-        return counted
+    /// interest (``Model/LineAmounts``).
+    func counted(recordsInterest: Bool) -> LineAmounts {
+        LineAmounts(statementClass, amount: amount, recordsInterest: recordsInterest)
     }
 }
 
