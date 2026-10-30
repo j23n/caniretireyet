@@ -164,12 +164,13 @@ struct ImportStatementFlowTests {
         flow.setStatementOpeningBalance(Decimal(string: "4515.2"), forFile: 0)
         #expect(!flow.needsOpeningBalance)
         // The file's closing balance, 4.515,20 + 1.589,60, isn't the library's on 30 September, so that value is a
-        // conflict the library's balance is kept for until it's overwritten: the blocker that's left.
+        // conflict the library's balance is kept for until it's overwritten. The lines are written either way, so
+        // nothing blocks the import: the month then shows the difference.
         let closing = flow.preview?.records.first { $0.imported.key.date == "2026-09-30" }
         #expect(closing?.imported.balance == Decimal(string: "6104.8"))
         #expect(flow.planned?.kept == 1)
         #expect(flow.planned?.overwritten == 0)
-        #expect(!flow.blockers.isEmpty)
+        #expect(flow.blockers.isEmpty)
     }
 
     @Test func incomeIsListedBySender() throws {
