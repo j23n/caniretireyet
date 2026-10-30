@@ -186,13 +186,13 @@ extension Library {
     }
 
     /// Sets the balance the bank shows for `account` on `date`, the end of
-    /// a month whose lines are checked against it. A new value records
-    /// money in and out, so its lines count into it; an existing one keeps
-    /// what it has. Then the account's money in and out are written from
-    /// its lines again.
+    /// a month whose lines are checked against it; a value already on that
+    /// date keeps its other fields. Then the account's money in and out
+    /// are written from its lines again, so the month's lines count into
+    /// it once they add up.
     public mutating func setBankBalance(_ balance: Decimal, of account: AccountID, on date: CalendarDate) {
         var value = valuations(for: account).first { $0.date == date }
-            ?? Valuation(account: account, date: date, moneyIn: 0, moneyOut: 0, source: .manual)
+            ?? Valuation(account: account, date: date, source: .manual)
         value.balance = balance
         upsert(value)
         countLines(of: account)
