@@ -141,6 +141,33 @@ struct BrokerageMonthsTests {
         #expect(Self.deposits(library).isEmpty)
     }
 
+    /// Money moved back from the broker is its withdrawal.
+    @Test func savingMoneyMovedBackKeepsItsWithdrawal() throws {
+        var library = Self.library()
+        var back = BankLine(account: "conto", date: "2026-10-20", id: "back", amount: 500,
+                            statementClass: .transfer, otherAccount: "broker", confirmed: true)
+        library.save([back])
+        let withdrawal = try #require(library.trades(for: "broker").first { $0.type == .withdrawal })
+        #expect(withdrawal.amount == -500)
+        #expect(withdrawal.date == "2026-10-20")
+
+        back.statementClass = .income
+        back.otherAccount = nil
+        library.save([back])
+        #expect(library.trades(for: "broker").allSatisfy { $0.type != .withdrawal })
+    }
+
+    /// A move whose amount changes gets a deposit of the new amount.
+    @Test func aChangedAmountChangesTheDeposit() throws {
+        var library = Self.library()
+        var line = try #require(library.lines(for: "conto").first)
+        library.save([line])
+        line.amount = -1600
+        library.save([line])
+        let amounts: [Decimal?] = Self.deposits(library).map(\.amount)
+        #expect(amounts == [1600])
+    }
+
     /// Removing the line takes its deposit away too.
     @Test func removingAMoveTakesItsDepositAway() throws {
         var library = Self.library()
