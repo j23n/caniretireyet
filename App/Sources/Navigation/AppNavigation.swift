@@ -210,13 +210,19 @@ final class AppNavigation {
     /// Keeps the sidebar on a place that exists: when the selected group
     /// has no open accounts left on `today` (closed or deleted, here or on
     /// another device), shows every account, as the sidebar no longer lists
-    /// the group. The sidebar calls it whenever the library changes.
+    /// the group. An account's detail pushed over the group stays, over
+    /// *All Accounts*: closing a group's last account from its detail
+    /// leaves it on screen. The sidebar calls it whenever the library
+    /// changes.
     func libraryChanged(_ library: Library, today: CalendarDate) {
         guard case .accountGroup(let group)? = sidebarSelection else { return }
         let hasOpenAccounts = library.accounts.values.contains { account in
             account.group == group && !AccountList.listsAsClosed(account, today: today)
         }
-        if !hasOpenAccounts { sidebarSelection = .accounts }
+        guard !hasOpenAccounts else { return }
+        let path = accountsPath
+        sidebarSelection = .accounts
+        accountsPath = path
     }
 
     /// Shows a plan on Ahead (`nil`: the main plan), with `route`'s sheet

@@ -68,7 +68,7 @@ Library
   - *All Accounts* opens the accounts list ([Accounts](#accounts)), with net worth, its chart and the allocation at its top, and shows how many accounts are open.
   - Under it, a row per group that has open accounts (Cash, Investments, Crypto & gold, Pension, Property, Debts), with its color dot, a small clock when one of its accounts' values is stale, and its subtotal on the right, on one line; a long name wraps. On iPad these rows are a size smaller than the places above them, so names have room beside their amounts. Subtotals and staleness are the same as in the list. Amounts are placeholders while they're hidden.
   - Selecting a group shows the list of its accounts alone, open and closed, without the net worth card. Selecting an account in either list shows its detail over it. Opening an account from elsewhere in the app shows its detail over *All Accounts*.
-  - The sidebar follows the library, also when it changes on the other device: a group appears once it has an open account, and a selected group left without open accounts gives way to *All Accounts*.
+  - The sidebar follows the library, also when it changes on the other device: a group appears once it has an open account, and a selected group left without open accounts gives way to *All Accounts*. An account's detail open over it stays, so closing a group's last account leaves its detail on screen, over *All Accounts*.
 - **Settings** is the standard Settings window (⌘,).
 - **Menu commands:**
 

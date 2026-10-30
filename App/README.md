@@ -207,7 +207,7 @@ The notes (UI.md, "Notifications") are local notifications worked out from the s
 - **Accounts section** (`SidebarAccountsSection`): its header (`SidebarAccountsHeader`) is "Accounts" with the total of the open accounts on the right (`AccountList.openTotal`, the groups' subtotals added up), then *All Accounts* with how many are open, then a row per group with open accounts (`SidebarGroupRow`: color dot, name, a clock when one of its accounts is stale, subtotal). The sidebar lists no accounts. Amounts are placeholders while hidden. The rows are `AccountList`'s sections (`Features/Accounts/AccountListData.swift`, Foundation only) without sparklines, so subtotals and staleness match the list.
 - **An account's detail** is pushed over *All Accounts* or a group's list, on `navigation.accountsPath`, which both stacks share; selecting another sidebar place clears it. `navigation.showAccount(_:)` selects *All Accounts* and pushes the account.
 - **The Accounts list** (`AccountsScreen`) shows every group as a card (or a list section on iPhone and iPad) with its name and subtotal at the top, then *Closed* with its count. Nothing collapses.
-- **Keeping the selection valid:** on every `LibraryStore.revision` the sidebar calls `navigation.libraryChanged(_:today:)`, which shows *All Accounts* when the selected group has no open accounts left. An account deleted from its detail pops it (`dismiss()`).
+- **Keeping the selection valid:** on every `LibraryStore.revision` the sidebar calls `navigation.libraryChanged(_:today:)`, which shows *All Accounts* when the selected group has no open accounts left, keeping `accountsPath`, so a detail pushed over the group stays. An account deleted from its detail pops it (`dismiss()`).
 
 ## Menu commands
 

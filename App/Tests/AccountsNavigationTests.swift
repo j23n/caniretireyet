@@ -37,8 +37,11 @@ struct AccountsNavigationTests {
         for (id, account) in library.accounts where account.group == group {
             library.accounts[id]?.closed = PreviewLibrary.latestCheckIn.adding(days: -1)
         }
+        navigation.accountsPath.append(try #require(library.accounts.values.first { $0.group == group }).id)
         navigation.libraryChanged(library, today: PreviewLibrary.latestCheckIn)
         #expect(navigation.sidebarSelection == .accounts)
+        // The detail pushed over the group stays, over All Accounts.
+        #expect(navigation.accountsPath.count == 1)
     }
 
     @Test func showingAnAccountPushesItOverAllAccounts() throws {
