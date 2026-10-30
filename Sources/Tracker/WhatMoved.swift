@@ -103,12 +103,6 @@ public struct WhatMoved: Hashable, Sendable {
 
     /// Everything but what was saved and markets.
     public var other: Decimal { oneOffs + startedWith + lost + unexplained }
-
-    /// The change as a fraction of net worth on `from`, e.g. 0.012 for
-    /// +1.2%; `nil` when that was zero.
-    public var relativeChange: Decimal? {
-        start == 0 ? nil : change / abs(start)
-    }
 }
 
 extension Valuator {
@@ -126,6 +120,8 @@ extension Valuator {
             isPriced = isPriced && stretch.report.isPriced
         }
         let money = moneyInOut(from: report.from.adding(days: 1), through: report.to, accounts: cameInAccounts)
+        // A value without an exchange rate is left out of money in and the tax.
+        isPriced = isPriced && money.unconverted.isEmpty
         let saved = byAccount.keys.sorted().reduce(Decimal(0)) { $0 + (byAccount[$1] ?? 0) } - money.oneOffs
         var pay: WhatMoved.Pay?
         if !money.isEmpty {
