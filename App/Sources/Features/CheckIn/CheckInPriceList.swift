@@ -233,8 +233,8 @@ struct CheckInPriceStatus: Hashable, Sendable {
     var title: String
     var subtitle: String?
 
-    /// The few words of the check-in's button, half the width: "Prices
-    /// updated", "Check prices". ``title`` is what VoiceOver reads.
+    /// The few words of the check-in's button: "Prices updated", "Check
+    /// prices". ``title`` is what VoiceOver reads.
     var shortTitle: String {
         switch kind {
         case .fetching: "Fetching prices…"

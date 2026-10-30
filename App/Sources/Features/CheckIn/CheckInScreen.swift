@@ -550,7 +550,7 @@ private struct CheckInAccountRow: View {
 
 extension View {
     /// The surface of the check-in's two buttons at the top: a white card,
-    /// half the width each.
+    /// half the width each side by side, the full width when stacked.
     fileprivate func checkInActionSurface() -> some View {
         lineLimit(1)
             .frame(maxWidth: .infinity, minHeight: 44)
