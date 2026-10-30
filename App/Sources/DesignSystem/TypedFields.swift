@@ -66,14 +66,17 @@ struct FormTextField: View {
 }
 
 /// An amount typed on a card, outside a form: the currency's symbol, then
-/// the field, in a rounded outline (`typedFieldOutline(isFocused:)`).
-/// Not `.privacySensitive()`: what you type shows while amounts are
-/// hidden.
+/// the field, in a rounded outline (`typedFieldOutline(isFocused:)`). An
+/// estimate the app filled in is in the accent, in a dashed outline, until
+/// it's typed over. Not `.privacySensitive()`: what you type shows while
+/// amounts are hidden.
 struct OutlinedAmountField: View {
     let title: String
     @Binding var text: String
     let currency: CurrencyCode
     var isFocused: FocusState<Bool>.Binding
+    /// Whether the field holds an estimate rather than a value you typed.
+    var isEstimate = false
 
     @Environment(\.locale) private var locale
 
@@ -86,25 +89,29 @@ struct OutlinedAmountField: View {
                 .textFieldStyle(.plain)
                 .multilineTextAlignment(.trailing)
                 .monospacedDigit()
+                .foregroundStyle(isEstimate ? Palette.accent : Palette.ink)
                 #if os(iOS)
                 .numberKeyboard(.numbersAndPunctuation)
                 #endif
                 .focused(isFocused)
         }
         .frame(width: 136)
-        .typedFieldOutline(isFocused: isFocused.wrappedValue)
+        .typedFieldOutline(isFocused: isFocused.wrappedValue, isEstimate: isEstimate)
     }
 }
 
 extension View {
     /// A field outside a form: a rounded 1-pt outline, 2 pt in the accent
-    /// while it's edited, so it reads as a place to type.
-    func typedFieldOutline(isFocused: Bool) -> some View {
+    /// while it's edited, so it reads as a place to type. An estimate's
+    /// outline is dashed, in the accent.
+    func typedFieldOutline(isFocused: Bool, isEstimate: Bool = false) -> some View {
         padding(.horizontal, Metrics.s)
             .padding(.vertical, 6)
             .overlay {
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .strokeBorder(isFocused ? Palette.accent : Palette.border, lineWidth: isFocused ? 2 : 1)
+                    .strokeBorder(isFocused || isEstimate ? Palette.accent : Palette.border,
+                                  style: StrokeStyle(lineWidth: isFocused ? 2 : 1,
+                                                     dash: isEstimate && !isFocused ? [4, 3] : []))
             }
     }
 }

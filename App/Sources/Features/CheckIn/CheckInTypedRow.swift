@@ -93,7 +93,7 @@ struct CheckInTypedRow: View {
     /// edited.
     private var field: some View {
         OutlinedAmountField(title: account.kind.isLiability ? "Owed" : "Balance", text: $text,
-                            currency: account.currency, isFocused: $isFocused)
+                            currency: account.currency, isFocused: $isFocused, isEstimate: isEstimate)
             .onSubmit(save)
             .disabled(!library.canEdit || isSaving)
             .onChange(of: isFocused) { _, focused in
@@ -101,6 +101,12 @@ struct CheckInTypedRow: View {
             }
             .accessibilityElement(children: .combine)
             .accessibilityLabel(Text(verbatim: "\(account.name), \(account.kind.isLiability ? "owed" : "balance")"))
+    }
+
+    /// Whether the field still holds the account's estimate: it loses
+    /// value, has no value on the date, and nothing was typed over it.
+    private var isEstimate: Bool {
+        typed?.estimate != nil && text == form?.balance
     }
 
     private func load() {
