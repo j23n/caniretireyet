@@ -49,7 +49,7 @@ struct ImportFirstCheckInTests {
         library.accounts["conto"] = Account(id: "conto", name: "Conto", kind: .cash, currency: .eur,
                                             opened: "2025-01-01")
         var flow = ImportFlow(library: library)
-        flow.open(Data(Self.csv.utf8), fileName: "conto.csv")
+        flow.open(statements: [(name: "conto.csv", data: Data(Self.csv.utf8))])
         flow.setBatchAccount("conto", forFile: 0)
         let months = try #require(flow.firstCheckIn)
         #expect(months.ends == .months)
