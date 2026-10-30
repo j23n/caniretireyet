@@ -95,7 +95,7 @@ struct AddTradeSheet: View {
                 if draft.isSecurity {
                     numberField("Quantity", text: $quantityText) { draft.quantity = $0 }
                     numberField("Price", text: $priceText, currency: priceCurrency) { draft.price = $0 }
-                    numberField("Fees", text: $feesText, currency: priceCurrency) { draft.fees = $0 }
+                    numberField("Fees", text: $feesText, currency: account?.currency) { draft.fees = $0 }
                 } else {
                     numberField("Amount", text: $amountText, currency: account?.currency) { draft.amount = $0 }
                 }
@@ -154,7 +154,8 @@ struct AddTradeSheet: View {
         draft.instrument.flatMap { library.library.instruments[$0]?.currency }
     }
 
-    /// The currency of the price and fees: the instrument's, else the account's.
+    /// The currency of the price: the instrument's, else the account's. Fees
+    /// are in the account's.
     private var priceCurrency: CurrencyCode? { instrumentCurrency ?? account?.currency }
 
     private var sameCurrency: Bool {
