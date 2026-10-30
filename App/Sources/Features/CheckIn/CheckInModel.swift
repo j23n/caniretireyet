@@ -10,16 +10,6 @@ import Tracker
 
 /// The words the check-in shows, formatted for the locale.
 enum CheckInWording {
-    /// The banner of a past check-in, one dated before the library's latest
-    /// (`latest`): later values stay, and no answer is recorded. `nil` when
-    /// the check-in isn't a past one.
-    static func pastCheckInNote(on date: CalendarDate, in library: Library, locale: Locale = .current) -> String? {
-        guard let latest = CheckInStore.laterCheckIn(than: date, in: library) else { return nil }
-        return "Your latest check-in is \(AmountFormat.longDate(latest, locale: locale)). Values saved after this "
-            + "date stay as they are, and the answer to \u{201C}Can I retire yet?\u{201D} is only recorded at the "
-            + "latest check-in."
-    }
-
     /// The confirmation of a past check-in, in place of the answer: "Saved a
     /// past check-in (31 Mar 2024). The answer isn't recorded for past dates."
     static func pastCheckInSaved(on date: CalendarDate, latest: CalendarDate?, locale: Locale = .current) -> String {
