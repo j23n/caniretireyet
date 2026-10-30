@@ -181,8 +181,9 @@ struct PlanContentView: View {
 
     // MARK: Toolbar
 
-    /// *Calculate* or *Recalculate* on the Mac and iPad. The plan menu is the
-    /// page's title (``PlanMenu``); on iPhone the page has no bar.
+    /// *Calculate* or *Recalculate* and the eye on the Mac and iPad. The plan
+    /// menu is the page's title (``PlanMenu``); on iPhone the page has no
+    /// bar, and the eye is beside the title.
     @ToolbarContentBuilder
     private var planToolbar: some ToolbarContent {
         if isWide {
@@ -195,6 +196,7 @@ struct PlanContentView: View {
                 }
                 .help("Calculate the plan with its inputs and your latest data (⌘R)")
                 .disabled(session.isRunning)
+                HideAmountsButton()
             }
         }
     }
