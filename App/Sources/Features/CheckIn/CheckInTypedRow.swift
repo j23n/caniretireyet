@@ -9,12 +9,19 @@ import Tracker
 /// value on that date (`LibraryStore.saveTypedValue(_:replacing:)`, with
 /// its backup), as *Update Value* does; a value that can't be read or
 /// saved says so under the name.
+///
+/// An account that loses value (``TypedCheckInAccount/estimate``) has its
+/// estimate on the date in the field, "Loses 15% a year · was 20.000 €"
+/// under its name, and a note that what it lost is lost value. Kept, the
+/// estimate isn't saved: the account's value is estimated between values.
 struct CheckInTypedRow: View {
     let account: Account
     let date: CalendarDate
     /// "Last value 30 Jun".
     var lastValue: String?
     var isStale = false
+    /// Its estimate on the date, for an account that loses value.
+    var typed: TypedCheckInAccount?
 
     @Environment(LibraryStore.self) private var library
     @Environment(CheckInTypedEdits.self) private var edits: CheckInTypedEdits?
@@ -29,6 +36,19 @@ struct CheckInTypedRow: View {
     @FocusState private var isFocused: Bool
 
     var body: some View {
+        VStack(alignment: .leading, spacing: Metrics.xs) {
+            row
+            if problem == nil, let note = CheckInTypedText.lostNote(typed, account: account, locale: locale) {
+                AmountSentenceText(note)
+                    .font(.footnote)
+                    .foregroundStyle(Palette.secondaryInk)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.bottom, Metrics.xs)
+            }
+        }
+    }
+
+    private var row: some View {
         HStack(alignment: .center, spacing: Metrics.s) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(verbatim: account.name)
@@ -40,6 +60,11 @@ struct CheckInTypedRow: View {
                         .font(.subheadline)
                         .foregroundStyle(Palette.critical)
                         .fixedSize(horizontal: false, vertical: true)
+                } else if let loses = CheckInTypedText.loses(typed, account: account, locale: locale) {
+                    AmountSentenceText(loses)
+                        .font(.subheadline)
+                        .foregroundStyle(Palette.secondaryInk)
+                        .lineLimit(1)
                 } else if let lastValue {
                     Text(verbatim: lastValue)
                         .font(.subheadline)
@@ -98,7 +123,8 @@ struct CheckInTypedRow: View {
 
     private func load() {
         guard form == nil else { return }
-        let loaded = CheckInTypedValue.form(for: account, on: date, valuator: library.valuator, locale: locale)
+        let loaded = CheckInTypedValue.form(for: account, on: date, valuator: library.valuator,
+                                            estimate: typed?.estimate, locale: locale)
         form = loaded
         text = loaded.balance
         edits?.note(account, form: loaded, text: loaded.balance)
@@ -148,12 +174,45 @@ struct CheckInTypedRow: View {
 enum CheckInTypedValue {
     /// A new value of `account` on `date` (or the day it closed, if
     /// earlier), its balance prefilled from the latest value on or before
-    /// then.
-    static func form(for account: Account, on date: CalendarDate, valuator: Valuator,
+    /// then, or from `estimate`, the value estimated for an account that
+    /// loses value.
+    static func form(for account: Account, on date: CalendarDate, valuator: Valuator, estimate: Decimal? = nil,
                      today: CalendarDate = .today(), locale: Locale = .current) -> TypedValueForm {
         let day = min(date, TypedValueForm.latestDate(of: account, today: today))
         let previous = valuator.latestValuation(for: account.id, onOrBefore: day)
-        return TypedValueForm(new: account, on: day, previous: previous, locale: locale)
+        var form = TypedValueForm(new: account, on: day, previous: previous, locale: locale)
+        if let estimate {
+            form.balance = AmountInput.balanceText(for: estimate, isLiability: account.kind.isLiability,
+                                                   locale: locale)
+        }
+        return form
+    }
+}
+
+/// The words of a typed row for an account that loses value.
+enum CheckInTypedText {
+    /// "Loses 15% a year · was 20.000,00 €": under the name of an account
+    /// with an estimate. `nil` without one.
+    static func loses(_ typed: TypedCheckInAccount?, account: Account,
+                      locale: Locale = .current) -> AmountSentence? {
+        guard typed?.estimate != nil, let rate = account.depreciation, let was = typed?.last?.balance else {
+            return nil
+        }
+        let percent = AmountFormat.percent(rate, digits: 0, locale: locale)
+        let amount = AmountFormat.amount(was, currency: account.currency, precision: .cents, locale: locale)
+        return "Loses \(percent) a year · was \(amount: amount)"
+    }
+
+    /// "Estimated from 15% a year: type over it if you know better. The
+    /// 230,00 € it lost is lost value: not spent, not saved."
+    static func lostNote(_ typed: TypedCheckInAccount?, account: Account,
+                         locale: Locale = .current) -> AmountSentence? {
+        guard let lost = typed?.lost, lost > 0, let rate = account.depreciation else { return nil }
+        let percent = AmountFormat.percent(rate, digits: 0, locale: locale)
+        let amount = AmountFormat.amount(lost, currency: account.currency, precision: .cents, locale: locale)
+        var note: AmountSentence = "Estimated from \(percent) a year: type over it if you know better. "
+        note += "The \(amount: amount) it lost is lost value: not spent, not saved."
+        return note
     }
 }
 
