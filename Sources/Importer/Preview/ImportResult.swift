@@ -19,6 +19,9 @@ public struct ImportResult: Hashable, Sendable {
     public var added = 0
     /// Trades among the records added, filled in or overwritten.
     public var tradesWritten = 0
+    /// Bank lines written (``ImportPreview/lines``): new, or with the
+    /// import's suggestion changed.
+    public var linesWritten = 0
     /// Records with values filled in.
     public var updated = 0
     /// Conflicts overwritten with the file's values.
@@ -227,6 +230,25 @@ extension ImportPreview {
             }
         }
 
+        for line in lines where library.accounts[line.account] != nil {
+            var write = line
+            // A purchase's account that wasn't created can't be where the money went.
+            if let other = write.otherAccount, library.accounts[other] == nil { write.otherAccount = nil }
+            if let existing = library.line(line.key) {
+                // What was removed, or confirmed since, stays as it is, unless this import chose it again.
+                if existing.isRemoved || (existing.isConfirmed && !line.isConfirmed) { continue }
+                write.note = existing.note
+                write.source = existing.source
+                if write.otherAccount == nil, write.statementClass == existing.statementClass {
+                    write.otherAccount = existing.otherAccount
+                }
+                if write == existing { continue }
+            }
+            library.upsert(write)
+            result.linesWritten += 1
+            changedMonths.insert(line.date.yearMonth)
+        }
+
         for proposal in accountChanges where proposal.isAccepted {
             guard var account = library.accounts[proposal.account] else { continue }
             switch proposal.change {
@@ -282,6 +304,7 @@ extension ImportResult {
         tradesAccounts = Set(tradesAccounts + next.tradesAccounts).sorted()
         added += next.added
         tradesWritten += next.tradesWritten
+        linesWritten += next.linesWritten
         updated += next.updated
         overwritten += next.overwritten
         kept += next.kept

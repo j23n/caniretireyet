@@ -48,14 +48,15 @@ struct ImportReviewTests {
         #expect(savings.existing == Decimal(string: "17365.55"))
         #expect(savings.headline(locale: Self.locale).hasAmounts)
         #expect(conflicts.allSatisfy { !$0.usesFile })
-        #expect(flow.planned?.hasChanges == false)
+        // Only the files' lines are written; the library's values are kept.
+        #expect(flow.planned?.overwritten == 0)
 
         // The current account's file isn't the one on screen.
         let current = try #require(conflicts.last)
         #expect(flow.batchFile != 0)
         flow.setReviewResolution(usesFile: true, for: current.key)
         #expect(flow.reviewConflicts().map(\.usesFile) == [false, true])
-        #expect(flow.planned?.hasChanges == true)
+        #expect((flow.planned?.overwritten ?? 0) > 0)
         flow.setReviewResolution(usesFile: false, for: current.key)
         #expect(flow.reviewConflicts().map(\.usesFile) == [false, false])
         #expect(flow.reviewConflicts().last?.resolution == .keep)

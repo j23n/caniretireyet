@@ -325,6 +325,10 @@ struct ImportTests {
         let written = try #require(values.last)
         #expect(written == Valuation(account: "conto-fineco", date: "2026-10-31", balance: d("5480.15"),
                                      moneyIn: 3400, moneyOut: d("1380.4"), source: .import))
+        // The statement's lines are kept.
+        #expect(applied.all.contains("Bank lines written: 5."))
+        #expect(loaded.lines(for: "conto-fineco").filter { $0.date.yearMonth == "2026-10" }.map(\.statementClass)
+            == ["spending", "income", "transfer", "transfer", "spending"])
         // What it saved is worked out from the value before.
         #expect(Valuator(library: loaded).saved(written, previous: values.dropLast().last) == d("1269.6"))
         let afterApply = try library.snapshot()

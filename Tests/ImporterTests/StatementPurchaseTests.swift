@@ -74,6 +74,25 @@ struct StatementPurchaseTests {
         #expect(try !Self.line(preview, "Bonifico a Autosalone Neri").needsAnswer)
     }
 
+    /// A purchase's line is kept as a suggestion that names the account it
+    /// starts, so importing the file again asks for it again.
+    @Test func aPurchaseLineStaysASuggestion() throws {
+        var session = try Self.session()
+        let row = try Self.line(session.preview(against: Self.library(), today: Self.today), "Bonifico a Autosalone")
+            .row
+        session.setStatementAsset(.purchase(name: "Auto", kind: .belongings), forRow: row)
+        let preview = session.preview(against: Self.library(), today: Self.today)
+        let car = try #require(preview.lines.first { $0.text.hasPrefix("Bonifico a Autosalone") })
+        #expect(car.statementClass == .transfer)
+        #expect(car.otherAccount == "auto")
+        #expect(!car.isConfirmed)
+        // The other lines' classes chosen in the import are confirmed.
+        let gift = try Self.line(preview, "Bonifico da Mario Verdi")
+        session.setStatementClass(.income, forRow: gift.row)
+        let chosen = session.preview(against: Self.library(), today: Self.today)
+        #expect(chosen.lines.first { $0.text.hasPrefix("Bonifico da Mario Verdi") }?.isConfirmed == true)
+    }
+
     @Test func aPurchaseStartsAnAccountWorthTheAmount() throws {
         var session = try Self.session()
         let row = try Self.line(session.preview(against: Self.library(), today: Self.today), "Bonifico a Autosalone")

@@ -97,6 +97,7 @@ struct PreviewBuilder {
     var removedTrades: [(trade: Trade, cells: [ImportCellRef])] = []
     /// Statement layout: the lines read, with their classes.
     var statementLines: [StatementLine] = []
+    var bankLines: [BankLine] = []
     /// Statement layout: the days the file covers, and its balance's breaks.
     var statementPeriod: StatementPeriod?
     var runningBalanceBreaks = 0
@@ -145,6 +146,7 @@ struct PreviewBuilder {
         }
         compare(records, into: &preview)
         preview.statementLines = statementLines
+        preview.lines = bankLines
         preview.statementPeriod = statementPeriod
         preview.runningBalanceBreaks = runningBalanceBreaks
         preview.cellErrors = errors.sorted { $0.cell < $1.cell }

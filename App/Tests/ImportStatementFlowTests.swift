@@ -164,12 +164,13 @@ struct ImportStatementFlowTests {
         flow.setStatementOpeningBalance(Decimal(string: "4515.2"), forFile: 0)
         #expect(!flow.needsOpeningBalance)
         // The file's closing balance, 4.515,20 + 1.589,60, isn't the library's on 30 September, so that value is a
-        // conflict the library's balance is kept for until it's overwritten: the blocker that's left.
+        // conflict the library's balance is kept for until it's overwritten. The lines are written either way, so
+        // nothing blocks the import: the month then shows the difference.
         let closing = flow.preview?.records.first { $0.imported.key.date == "2026-09-30" }
         #expect(closing?.imported.balance == Decimal(string: "6104.8"))
         #expect(flow.planned?.kept == 1)
-        #expect(flow.planned?.hasChanges == false)
-        #expect(!flow.blockers.isEmpty)
+        #expect(flow.planned?.overwritten == 0)
+        #expect(flow.blockers.isEmpty)
     }
 
     @Test func incomeIsListedBySender() throws {
@@ -532,10 +533,10 @@ struct ImportStatementFlowTests {
         // A change to one file's lines keeps the pair.
         flow.setStatementClass(.spending, forRow: try line(flow, "Affitto").row)
         #expect(try line(flow, "Giroconto").source == .paired("conto-deposito"))
-        // The example library has both accounts' September values: overwritten, they change.
-        #expect(flow.planned?.hasChanges == false)
+        // The example library has both accounts' September values: kept until they're overwritten.
+        #expect(flow.planned?.overwritten == 0)
         flow.setConflictPolicy(.overwrite)
-        #expect(flow.planned?.hasChanges == true)
+        #expect((flow.planned?.overwritten ?? 0) > 0)
 
         // A file nothing recognizes waits for its account.
         var unknown = ImportFlow(library: PreviewLibrary.library)
