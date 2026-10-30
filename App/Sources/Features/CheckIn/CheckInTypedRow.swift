@@ -53,7 +53,7 @@ struct CheckInTypedRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(verbatim: account.name)
                     .foregroundStyle(Palette.ink)
-                    .lineLimit(1)
+                    .lineLimit(2)
                     .privacySensitiveInFeedback()
                 if let problem {
                     Text(verbatim: problem)
@@ -64,12 +64,12 @@ struct CheckInTypedRow: View {
                     AmountSentenceText(loses)
                         .font(.subheadline)
                         .foregroundStyle(Palette.secondaryInk)
-                        .lineLimit(1)
+                        .fixedSize(horizontal: false, vertical: true)
                 } else if let lastValue {
                     Text(verbatim: lastValue)
                         .font(.subheadline)
                         .foregroundStyle(isStale ? Palette.warning : Palette.secondaryInk)
-                        .lineLimit(1)
+                        .fixedSize(horizontal: false, vertical: true)
                         .privacySensitiveInFeedback()
                 }
             }
