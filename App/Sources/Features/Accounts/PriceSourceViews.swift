@@ -64,6 +64,7 @@ private struct SymbolQueryField: View {
     var body: some View {
         HStack(spacing: Metrics.s) {
             TextField("ISIN, ticker or name", text: $query)
+                .outlinedField()
                 .autocorrectionDisabled()
                 #if os(iOS)
                 .textInputAutocapitalization(.never)

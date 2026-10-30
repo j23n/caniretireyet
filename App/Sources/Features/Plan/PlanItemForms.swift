@@ -153,7 +153,7 @@ struct PlanWorkPhaseForm: View {
 
     var body: some View {
         Section("Work") {
-            TextField("Name", text: $phase.name.orEmpty, prompt: Text("Work"))
+            FormTextField(title: "Name", text: $phase.name.orEmpty, prompt: "Work")
             DatePicker("From", selection: $phase.from.planDate, displayedComponents: .date)
                 .personalControl()
             Toggle("Until retirement", isOn: $phase.planUntilRetirement)
@@ -184,7 +184,7 @@ struct PlanPensionForm: View {
 
     var body: some View {
         Section {
-            TextField("Name", text: $pension.name.orEmpty, prompt: Text("Pension"))
+            FormTextField(title: "Name", text: $pension.name.orEmpty, prompt: "Pension")
             Stepper("Paid from \(pension.planFromAge)", value: $pension.planFromAge, in: 40...90)
                 .personalControl()
             PlanNumberRow("After tax, a month", value: $pension.perYear.perMonth, unit: "/month")
@@ -207,7 +207,7 @@ struct PlanIncomeForm: View {
 
     var body: some View {
         Section {
-            TextField("Name", text: $income.name.orEmpty, prompt: Text("Other income"))
+            FormTextField(title: "Name", text: $income.name.orEmpty, prompt: "Other income")
             Toggle("From when you stop working", isOn: $income.planFromRetirement)
             if !income.planFromRetirement {
                 Stepper("From \(income.planFromAge)", value: $income.planFromAge, in: 18...100)
@@ -294,7 +294,7 @@ struct PlanEventForm: View {
 
     var body: some View {
         Section("Event") {
-            TextField("Name", text: $event.name)
+            FormTextField(title: "Name", text: $event.name)
             Picker("Type", selection: $event.planType) {
                 ForEach(PlanEventType.allCases, id: \.self) { type in
                     Text(type.title).tag(type)

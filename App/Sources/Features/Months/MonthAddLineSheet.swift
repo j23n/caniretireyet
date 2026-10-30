@@ -84,6 +84,7 @@ struct MonthAddLineSheet: View {
                     .personalControl()
                 }
                 TextField("Note (optional)", text: $note, axis: .vertical)
+                    .outlinedField()
             }
             if let errorMessage {
                 Section {

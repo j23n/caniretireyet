@@ -73,6 +73,7 @@ struct ImportFormatStep: View {
             ImportSampleCells(title: flow.headerRowInUse == 0 ? "First row" : "Headers", cells: flow.headerSample)
             ImportSampleCells(title: "First values", cells: flow.firstRowSample)
             TextField("Leave out rows starting with", text: $footerRule)
+                .outlinedField()
                 .autocorrectionDisabled()
                 .onSubmit {
                     model.flow.setExcludedRows(footerRule)
@@ -132,6 +133,7 @@ struct ImportFormatStep: View {
             }
             HStack {
                 TextField("Other pattern, e.g. d.M.yy", text: $customPattern)
+                    .outlinedField()
                     .autocorrectionDisabled()
                     .onSubmit { useCustomPattern() }
                 Button("Use") { useCustomPattern() }

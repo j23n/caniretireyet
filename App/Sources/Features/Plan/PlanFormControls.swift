@@ -8,6 +8,7 @@ import SwiftUI
 /// A number typed by hand: an amount, a percentage (typed as 4,5 for 4.5%)
 /// or a whole number. The value changes as you type valid text; leaving
 /// the field shows the value again. An empty field is `nil` if `isOptional`.
+/// It's in the rounded outline every field has (UI.md, "Fields").
 struct PlanNumberField: View {
     let title: String
     @Binding var value: Decimal?
@@ -36,6 +37,7 @@ struct PlanNumberField: View {
     var body: some View {
         TextField(title, text: $text, prompt: Text(prompt))
             .labelsHidden()
+            .textFieldStyle(.plain)
             .focused($isFocused)
             .multilineTextAlignment(.trailing)
             .monospacedDigit()
@@ -63,6 +65,7 @@ struct PlanNumberField: View {
             .onChange(of: isFocused) { _, focused in
                 if !focused { text = PlanNumberText.text(value, kind: kind, locale: locale) }
             }
+            .typedFieldOutline(isFocused: isFocused)
     }
 }
 
