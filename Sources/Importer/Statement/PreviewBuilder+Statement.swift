@@ -755,7 +755,9 @@ extension PreviewBuilder {
     /// session gives them, from its first month's first day to its last
     /// month's last day, or today in the month that isn't over): one at
     /// each of the account's values in the span, one at the end of each
-    /// month without one, and one on the last day the session gives (or
+    /// month without one (before the first check-in, those
+    /// ``ImportSession/statementCheckIns`` keeps, and the file's last month
+    /// end), and one on the last day the session gives (or
     /// the check-in's date, ``ImportSession/statementCheckIn``). Each has the balance, and
     /// when the file covers its whole period, from the value before it,
     /// money in and out (and interest). Sets each line's
@@ -786,14 +788,14 @@ extension PreviewBuilder {
         var month = start.yearMonth
         let checkIns = session.statementCheckIns
         while month <= end.yearMonth {
+            // The file's last month end always gets a value, so the next file follows on from it.
+            let isLast = month.next.lastDay > end
             if month.lastDay <= end, !cuts.contains(where: { month.contains($0) }),
-               checkIns?.includes(month) ?? true {
+               isLast || (checkIns?.includes(month) ?? true) {
                 cuts.insert(month.lastDay)
             }
             month = month.next
         }
-        // Left without a month end before the first check-in, the lines are one stretch up to the file's last day.
-        if cuts.isEmpty, let checkIns, checkIns.ends != .months { cuts.insert(end) }
         // A file said to end on a day has a value on that day, which the next file follows on from.
         if through != nil { cuts.insert(end) }
         // A removed line, such as one the bank's export lists twice, isn't in the balance either.

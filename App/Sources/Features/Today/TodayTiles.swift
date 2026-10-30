@@ -36,6 +36,8 @@ struct TodayTiles: View {
     let plan: PlanDocument?
     let results: PlanResults?
     let today: CalendarDate
+    /// Whether the next check-in's tile shows: not on the saved check-in.
+    var showsCheckIn = true
 
     @Environment(LibraryStore.self) private var library
     @Environment(PlanStore.self) private var plans
@@ -131,7 +133,7 @@ struct TodayTiles: View {
     @ViewBuilder
     private var halves: some View {
         let status = checkIn.status
-        if status.lastCheckIn != nil {
+        if showsCheckIn, status.lastCheckIn != nil {
             Button {
                 navigation.startCheckIn()
             } label: {

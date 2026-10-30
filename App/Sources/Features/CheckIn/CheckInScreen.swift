@@ -233,7 +233,8 @@ struct CheckInPage: View {
 
     var body: some View {
         let groups = library.valuator.checkInGroups(on: summary.date, in: library.library)
-        let soFar = CheckInSoFar(rate: savingsRate(groups), change: summary.change)
+        let split = summary.change.map { library.valuator.savedSplit(of: $0) }
+        let soFar = CheckInSoFar(rate: savingsRate(groups), split: split)
         ScrollView {
             VStack(alignment: .leading, spacing: Metrics.l) {
                 banners
@@ -287,7 +288,8 @@ struct CheckInPage: View {
                 saveError = nil
             }
         }
-        let kind = CheckInDateMenu.kind(of: summary.date, in: library.library)
+        // Worked out when the check-in began: the values it saves on its date make it a saved one.
+        let kind = checkIn.dateKind ?? CheckInDateMenu.kind(of: summary.date, in: library.library)
         if let banner = CheckInDateMenu.banner(for: kind, on: summary.date, latest: library.latestCheckIn,
                                                locale: locale) {
             StatusBanner(.info, banner.title, message: banner.message, personal: [.title, .message])
@@ -343,9 +345,11 @@ struct CheckInPage: View {
     /// The accounts by what each needs, under how many are done.
     private func sections(_ groups: CheckInGroups) -> some View {
         VStack(alignment: .leading, spacing: Metrics.l) {
-            Text(verbatim: "\(groups.doneCount) of \(groups.count) accounts done")
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(groups.doneCount == groups.count ? Palette.good : Palette.secondaryInk)
+            if groups.count > 0 {
+                Text(verbatim: CheckInWording.doneCount(groups))
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(groups.doneCount == groups.count ? Palette.good : Palette.secondaryInk)
+            }
             if !groups.money.isEmpty {
                 CheckInSection(title: "Money in and out", footer: "Import a CSV, or type the month's totals.") {
                     ForEach(groups.money) { month in
@@ -382,7 +386,7 @@ struct CheckInPage: View {
             }
             if !groups.others.isEmpty {
                 CheckInSection(title: "Other accounts",
-                               footer: "Valued from their files: *Import Files* updates them. Those without a "
+                               footer: "Valued from their files: Import Files updates them. Those without a "
                                    + "file this month keep their last values.") {
                     ForEach(groups.others, id: \.self) { id in
                         let isUpdated = summary.updated.contains(id)
