@@ -340,8 +340,7 @@ extension View {
 
 /// The eye button: hides or shows every amount (⌘⇧H). It's in the toolbar
 /// of every primary view: Today, So far, Ahead, the accounts and an
-/// account's page; on iPhone, So far and Ahead have no bar, so it's beside
-/// their title (``TitleHideAmountsButton``).
+/// account's page.
 struct HideAmountsButton: View {
     @Environment(AppPreferences.self) private var preferences
 
@@ -353,17 +352,6 @@ struct HideAmountsButton: View {
                   systemImage: preferences.hidesAmounts ? AppSymbol.hideAmounts : AppSymbol.showAmounts)
         }
         .help(preferences.hidesAmounts ? "Show amounts" : "Hide amounts")
-    }
-}
-
-/// The eye beside a title a page draws itself (So far and Ahead on iPhone),
-/// drawn as a toolbar button is.
-struct TitleHideAmountsButton: View {
-    var body: some View {
-        HideAmountsButton()
-            .labelStyle(.iconOnly)
-            .buttonStyle(.glass)
-            .buttonBorderShape(.circle)
     }
 }
 

@@ -28,6 +28,9 @@ struct PlanActions {
 struct PlanMenu: View {
     let session: PlanSession
     let actions: PlanActions
+    /// In the bar (iPhone), where the toolbar draws the button, not in the
+    /// page's header row.
+    var inToolbar = false
 
     @Environment(LibraryStore.self) private var library
     @Environment(AppNavigation.self) private var navigation
@@ -110,15 +113,16 @@ struct PlanMenu: View {
                     .accessibilityLabel("Main plan")
             }
             Text(name)
-                .font(.subheadline)
-                .foregroundStyle(Palette.secondaryInk)
+                .font(inToolbar ? .body : .subheadline)
+                .foregroundStyle(inToolbar ? Palette.ink : Palette.secondaryInk)
                 .lineLimit(1)
             Image(systemName: "chevron.down")
                 .font(.caption2.weight(.semibold))
-                .foregroundStyle(Palette.secondaryInk)
+                .foregroundStyle(inToolbar ? Palette.ink : Palette.secondaryInk)
                 .accessibilityHidden(true)
         }
         .contentShape(Rectangle())
+        .padding(.horizontal, inToolbar ? Metrics.xs : 0)
     }
 }
 

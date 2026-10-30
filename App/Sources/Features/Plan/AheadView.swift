@@ -3,8 +3,8 @@ import Model
 import Planner
 import SwiftUI
 
-/// Ahead (UI.md, "Ahead"): the plan. On iPhone the title with the plan
-/// menu and the eye, your last Monday on a card with the plan's chart to its end,
+/// Ahead (UI.md, "Ahead"): the plan. On iPhone the plan menu and the eye
+/// in the bar, your last Monday on a card with the plan's chart to its end,
 /// *What if…* and how far ahead of January's plan you are, which opens So
 /// far; then the key numbers as tiles (``PlanResultTiles``) and *Your life
 /// ahead*, the chapters and what changes along the way down a line, with
@@ -74,6 +74,7 @@ struct AheadView: View {
             .frame(maxWidth: .infinity)
         }
         .background(Palette.page)
+        .toolbar { narrowToolbar }
         .task(id: AutoRun(revision: library.revision, upToDate: session.baseIsUpToDate, running: state.isRunning)) {
             // A moment's pause, so a burst of edits runs once.
             try? await Task.sleep(for: .milliseconds(600))
@@ -120,22 +121,24 @@ struct AheadView: View {
 
     // MARK: iPhone
 
+    /// The plan menu and the eye in the bar on iPhone, as Today has its
+    /// buttons there.
+    @ToolbarContentBuilder
+    private var narrowToolbar: some ToolbarContent {
+        if !layout.isWide {
+            ToolbarItem(placement: .primaryAction) {
+                PlanMenu(session: session, actions: menuActions, inToolbar: true)
+            }
+            ToolbarSpacer(.fixed, placement: .primaryAction)
+            ToolbarItem(placement: .primaryAction) {
+                HideAmountsButton()
+            }
+        }
+    }
+
     @ViewBuilder
     private func narrow(state: PlanResultsState, derived: PlanDerived) -> some View {
         VStack(alignment: .leading, spacing: Metrics.m) {
-            HStack(alignment: .center, spacing: Metrics.s) {
-                HStack(alignment: .firstTextBaseline, spacing: Metrics.m) {
-                    Text("Ahead")
-                        .font(.largeTitle.bold())
-                        .foregroundStyle(Palette.ink)
-                        .accessibilityAddTraits(.isHeader)
-                    Spacer(minLength: Metrics.s)
-                    PlanMenu(session: session, actions: menuActions)
-                }
-                TitleHideAmountsButton()
-            }
-            .padding(.horizontal, Metrics.xs)
-            .padding(.top, Metrics.s)
             PlanResultsBanners(session: session)
             tryAgain(state: state)
             if let plan = session.plan {
