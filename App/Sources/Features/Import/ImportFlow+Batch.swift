@@ -129,7 +129,8 @@ struct ImportCheckInCheck: Hashable, Sendable, Identifiable {
         date.dateValue.formatted(.dateTime.month(.abbreviated).year().locale(locale))
     }
 
-    /// "412 lines · adds up", "58 lines · off by 12,40 €".
+    /// "412 lines · adds up", "58 lines · off by 12,40 €", "3 lines · no
+    /// balance before to check", or "No lines".
     func status(locale: Locale = .current) -> AmountSentence {
         let count = Wording.count(lines, "line")
         guard let off else {
