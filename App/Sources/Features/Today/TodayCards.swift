@@ -5,133 +5,204 @@ import Storage
 import SwiftUI
 import Tracker
 
-// Today's cards (UI.md, "Today"): what moved at the last check-in, as a
-// tile, the plan before there is an answer, and what needs attention. The
+// Today's cards (UI.md, "Today"): what moved at the last check-in, as two
+// tiles, the plan before there is an answer, and what needs attention. The
 // answer itself is `TodayAnswerCard`; the other tiles are in
 // TodayTiles.swift.
 
 // MARK: - What moved
 
-/// What moved at the last check-in, as a tile (UI.md, "What moved it"):
-/// "🌤️ What moved in September", how net worth changed, then a bar each
-/// for what you saved and what markets did, to one scale, and one sentence
-/// saying what was saved as time of the plan's spending. Wide under the
-/// answer; tall beside it on a wide page (`isTall`), each bar under its
-/// name. The change is in per cent while amounts are hidden.
-struct TodayMovedTile: View {
-    let report: ChangeReport
-    /// Its split with saved as the savings rate counts it (Tracker's
-    /// `Valuator.savedSplit(of:)`).
-    let split: ValueChange
-    /// The main plan's retirement spending a year, to say what was saved as
-    /// time; `nil` without a main plan.
-    var yearlySpending: Decimal?
-    /// Whether it's a tall, narrow tile beside the answer.
-    var isTall = false
+/// Your pay at the last check-in, as a wide tile (UI.md, "What moved it"):
+/// "💶 Your pay in September", a line each for what came in, what went
+/// into a pension and the tax when there's some, and what was spent, then
+/// what that left saved; beside them a ring of what came in, split into
+/// saved, spent and tax, with what was saved of the pay after tax in its
+/// middle. Only when money in and out was recorded.
+struct TodayPayTile: View {
+    let moved: WhatMoved
+    let pay: WhatMoved.Pay
 
-    @Environment(\.redactionReasons) private var redactionReasons
     @Environment(\.locale) private var locale
 
     var body: some View {
-        let largest = max(abs(split.saved), abs(split.market))
-        let total = report.total
         ColorTile {
-            TileLabel(TodayText.movedTitle(from: report.from, to: report.to, today: .today(), saysIt: false,
-                                           locale: locale),
-                      emoji: "🌤️")
+            TileLabel(TodayText.payTitle(from: moved.from, to: moved.to, today: .today(), locale: locale),
+                      emoji: "💶")
                 .privacySensitiveInFeedback()
             Spacer(minLength: Metrics.s)
-            Group {
-                if redactionReasons.hidesAmounts, let relative = total.relativeChange {
-                    Text(verbatim: AmountFormat.percent(relative, signed: true, locale: locale))
-                        .privacySensitiveInFeedback()
-                } else {
-                    AmountText(total.change, signed: true, tabular: false)
-                }
+            HStack(alignment: .center, spacing: Metrics.l) {
+                TodayMovedLedger(lines: TodayMoved.payLines(pay), signed: false)
+                TodayPayRing(pay: pay)
+                    .frame(width: 88, height: 88)
             }
-            .font(.title2.bold())
-            .lineLimit(1)
-            .minimumScaleFactor(0.6)
-            TileCaption("in net worth")
-            Group {
-                if isTall {
-                    VStack(alignment: .leading, spacing: Metrics.s) {
-                        tallBar("💰 You saved", split.saved, largest: largest, color: Palette.accent)
-                        tallBar("📈 Markets", split.market, largest: largest, color: Palette.accent.opacity(0.45))
-                    }
-                } else {
-                    Grid(alignment: .leading, horizontalSpacing: Metrics.m, verticalSpacing: Metrics.s) {
-                        bar("💰 You saved", split.saved, largest: largest, color: Palette.accent)
-                        bar("📈 Markets", split.market, largest: largest, color: Palette.accent.opacity(0.45))
-                    }
-                }
-            }
-            .padding(.top, Metrics.m)
-            if let sentence = TodayText.savedAsTime(saved: split.saved, markets: split.market,
-                                                    yearlySpending: yearlySpending) {
-                Text(sentence)
-                    .font(.footnote)
-                    .foregroundStyle(Palette.secondaryInk)
-                    .lineLimit(isTall ? 4 : 2)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .privacySensitiveInFeedback()
-                    .padding(.top, Metrics.m)
-            }
+            Spacer(minLength: 0)
         }
         .accessibilityElement(children: .combine)
     }
+}
 
-    /// A row: its name, its bar against the larger of the two, its amount.
-    private func bar(_ label: String, _ value: Decimal, largest: Decimal, color: Color) -> GridRow<some View> {
-        // No modifiers on the row itself: they'd turn it into one cell.
-        GridRow {
-            Text(label)
-                .font(.subheadline)
-                .foregroundStyle(Palette.secondaryInk)
-                .lineLimit(1)
-                .fixedSize()
-            TodayShareBar(share: share(of: value, largest: largest), color: color)
-                .frame(maxWidth: .infinity)
-            AmountText(value)
-                .font(.subheadline)
-                .foregroundStyle(Palette.ink)
-                .lineLimit(1)
-                .fixedSize()
-                .gridColumnAlignment(.trailing)
+/// How net worth moved at the last check-in, as a wide tile (UI.md, "What
+/// moved it"): "🌤️ Your net worth in September", a line each for what was
+/// saved, markets and the rest, then net worth's change, which they add up
+/// to; beside them the same as steps.
+struct TodayMovedTile: View {
+    let moved: WhatMoved
+
+    @Environment(\.locale) private var locale
+
+    var body: some View {
+        let lines = TodayMoved.netWorthLines(moved)
+        ColorTile {
+            TileLabel(TodayText.netWorthMovedTitle(from: moved.from, to: moved.to, today: .today(), locale: locale),
+                      emoji: "🌤️")
+                .privacySensitiveInFeedback()
+            Spacer(minLength: Metrics.s)
+            HStack(alignment: .center, spacing: Metrics.l) {
+                TodayMovedLedger(lines: lines, signed: true)
+                TodayMovedSteps(lines: lines)
+                    .frame(width: 88, height: 80)
+            }
+            Spacer(minLength: 0)
         }
-    }
-
-    /// Its name and amount on a line, its bar under them.
-    private func tallBar(_ label: String, _ value: Decimal, largest: Decimal, color: Color) -> some View {
-        VStack(alignment: .leading, spacing: Metrics.xs) {
-            LineOrStack(Text(label).foregroundStyle(Palette.secondaryInk),
-                        AmountText(value).foregroundStyle(Palette.ink), spread: true)
-                .font(.subheadline)
-                .lineLimit(1)
-            TodayShareBar(share: share(of: value, largest: largest), color: color)
-        }
-    }
-
-    private func share(of value: Decimal, largest: Decimal) -> Double {
-        largest > 0 ? (abs(value) / largest).doubleValue : 0
+        .accessibilityElement(children: .combine)
     }
 }
 
-/// A thin bar from the leading edge, `share` of the width: 0 to 1. While
-/// amounts are hidden it keeps its length; in a feedback screenshot it hides.
-struct TodayShareBar: View {
-    let share: Double
-    let color: Color
+/// A *What moved* tile's lines: a dot in the line's color, its name and its
+/// amount; a rule over a line that adds up the ones above it. With
+/// `signed`, every amount has its sign.
+struct TodayMovedLedger: View {
+    let lines: [TodayMovedLine]
+    let signed: Bool
 
     var body: some View {
-        GeometryReader { proxy in
-            Capsule()
-                .fill(color)
-                .frame(width: share > 0 ? max(proxy.size.width * min(share, 1), 8) : 0)
+        Grid(alignment: .leading, horizontalSpacing: Metrics.s, verticalSpacing: 3) {
+            ForEach(lines) { line in
+                if line.isSum {
+                    Rectangle()
+                        .fill(Palette.ink.opacity(line.kind == .total ? 0.9 : 0.3))
+                        .frame(height: line.kind == .total ? 1.5 : 1)
+                        .gridCellUnsizedAxes(.horizontal)
+                }
+                // No modifiers on the row itself: they'd turn it into one cell.
+                GridRow {
+                    Circle()
+                        .fill(line.kind.color)
+                        .frame(width: 7, height: 7)
+                        .accessibilityHidden(true)
+                    Text(line.title)
+                        .font(font(line))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    AmountText(line.amount, signed: signed)
+                        .font(font(line))
+                        .lineLimit(1)
+                        .fixedSize()
+                        .gridColumnAlignment(.trailing)
+                }
+            }
         }
-        .frame(height: 8)
+    }
+
+    private func font(_ line: TodayMovedLine) -> Font {
+        .footnote.weight(line.isSum ? .semibold : .regular)
+    }
+}
+
+/// The pay tile's ring: what came in, split into saved, spent and tax
+/// (``TodayMoved/ring(_:)``), and what was saved of the pay after tax in
+/// its middle, "39%". While amounts are hidden it keeps its proportions;
+/// in a feedback screenshot it hides.
+struct TodayPayRing: View {
+    let pay: WhatMoved.Pay
+
+    @Environment(\.locale) private var locale
+
+    private let lineWidth: CGFloat = 13
+
+    var body: some View {
+        let slices = TodayMoved.ring(pay)
+        ZStack {
+            Circle()
+                .stroke(Palette.gridline, lineWidth: lineWidth)
+            ForEach(Array(slices.enumerated()), id: \.offset) { index, slice in
+                let start = slices[..<index].reduce(0) { $0 + $1.share }
+                Circle()
+                    .trim(from: start, to: start + slice.share)
+                    .stroke(slice.kind.color, style: StrokeStyle(lineWidth: lineWidth, lineCap: .butt))
+                    .rotationEffect(.degrees(-90))
+            }
+            if let share = pay.savedShare {
+                VStack(spacing: 0) {
+                    Text(verbatim: AmountFormat.percent(share, digits: 0, locale: locale))
+                        .font(.headline.bold())
+                    Text("saved")
+                        .font(.caption2)
+                        .opacity(0.8)
+                }
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+                .padding(lineWidth)
+            }
+        }
+        .padding(lineWidth / 2)
+        .privacySensitiveInFeedback()
+    }
+}
+
+/// The net worth tile's steps: a bar for each line, from where the one
+/// before it ended (``TodayMoved/steps(_:)``), and the change from zero,
+/// to one scale with a line at zero. While amounts are hidden it keeps its
+/// proportions; in a feedback screenshot it hides.
+struct TodayMovedSteps: View {
+    let lines: [TodayMovedLine]
+
+    var body: some View {
+        let steps = TodayMoved.steps(lines)
+        let low = min(steps.map(\.lowerBound).min() ?? 0, 0)
+        let high = max(steps.map(\.upperBound).max() ?? 0, 0)
+        let colors = lines.map(\.kind.color)
+        Canvas { context, size in
+            let span = (high - low).doubleValue
+            guard span > 0, !steps.isEmpty else { return }
+            let gap: CGFloat = 4
+            let width = (size.width - gap * CGFloat(steps.count - 1)) / CGFloat(steps.count)
+            func y(_ value: Decimal) -> CGFloat {
+                size.height * CGFloat(1 - (value - low).doubleValue / span)
+            }
+            for (index, step) in steps.enumerated() {
+                let top = y(step.upperBound)
+                let height = max(y(step.lowerBound) - top, 2)
+                let bar = CGRect(x: CGFloat(index) * (width + gap), y: top, width: width, height: height)
+                context.fill(Path(roundedRect: bar, cornerRadius: 3), with: .color(colors[index]))
+            }
+            var zero = Path()
+            zero.move(to: CGPoint(x: 0, y: y(0)))
+            zero.addLine(to: CGPoint(x: size.width, y: y(0)))
+            context.stroke(zero, with: .color(Palette.axis), lineWidth: 1)
+        }
         .privacySensitiveInFeedback()
         .accessibilityHidden(true)
+    }
+}
+
+extension TodayMovedLine.Kind {
+    /// The line's dot, its slice of the ring and its bar.
+    var color: Color {
+        switch self {
+        case .cameIn: Palette.green
+        case .pension: Palette.green.opacity(0.5)
+        case .tax: Palette.orange
+        case .spent: Palette.orange.opacity(0.5)
+        case .saved: Palette.accent
+        case .markets: Palette.aqua
+        case .oneOff: Palette.yellow
+        case .startedWith: Palette.violet
+        case .lost: Palette.magenta
+        case .other: Palette.mutedInk
+        case .total: Palette.ink
+        }
     }
 }
 
@@ -489,8 +560,13 @@ private struct TodayAttentionRow: View {
         ScrollView {
             VStack(spacing: Metrics.m) {
                 if let report = valuator.changeSinceLastCheckIn(asOf: date) {
+                    let moved = valuator.whatMoved(report)
                     TileGrid {
-                        TodayMovedTile(report: report, split: valuator.savedSplit(of: report))
+                        if let pay = moved.pay {
+                            TodayPayTile(moved: moved, pay: pay)
+                                .tileSize(.wide)
+                        }
+                        TodayMovedTile(moved: moved)
                             .tileSize(.wide)
                     }
                 }

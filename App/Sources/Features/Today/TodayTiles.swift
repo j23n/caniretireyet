@@ -13,25 +13,27 @@ import Tracker
 /// Where you stand, as tiles: net worth (opening the accounts), the next
 /// milestone (opening So far), the savings rate over the last 12 months
 /// (opening So far too), this year so far, the next
-/// check-in and saving nothing more as half tiles, and what moved at the
-/// last check-in (opening the accounts). The tiles go into the page's
-/// ``TileGrid``s, in parts:
+/// check-in and saving nothing more as half tiles, and your pay and how
+/// net worth moved at the last check-in (opening the accounts). The tiles
+/// go into the page's ``TileGrid``s, in parts:
 ///
-/// - ``Part/all``: every tile, under the answer, where a row has two
-///   slots, or before there's an answer. Net worth and what moved are wide; the milestone and
-///   the savings rate are wide when only one has something to show.
-/// - ``Part/beside(slots:)``: net worth and what moved, tall, beside the
-///   answer in `slots` (two or four); with four each takes two, with two
-///   one each, and net worth alone takes both.
-/// - ``Part/under``: the rest, small and half tiles, under the answer and
-///   those two.
-/// - ``Part/saved``: a saved check-in's on iPhone: what moved, wide, then
-///   the next milestone and the savings rate.
+/// - ``Part/all``: every tile, where a row has two slots. Net worth and
+///   the two of the last check-in are wide; the milestone and the savings
+///   rate are wide when only one has something to show.
+/// - ``Part/netWorth``: net worth alone, tall, two slots wide and two rows
+///   high where a row has four slots or six (``TodayAnswerAndTiles``).
+/// - ``Part/moved``: your pay and how net worth moved, wide, one above the
+///   other.
+/// - ``Part/under(withMoved:)``: the rest, small and half tiles, after the
+///   two of the last check-in when `withMoved`.
+/// - ``Part/saved``: a saved check-in's on iPhone: the two of the check-in,
+///   wide, then the next milestone and the savings rate.
 struct TodayTiles: View {
     enum Part {
         case all
-        case beside(slots: Int)
-        case under
+        case netWorth
+        case moved
+        case under(withMoved: Bool)
         case saved
     }
 
@@ -49,7 +51,6 @@ struct TodayTiles: View {
     @Environment(\.locale) private var locale
 
     var body: some View {
-        let moved = library.valuator.changeSinceLastCheckIn(asOf: today)
         switch part {
         case .all:
             let twelveMonths = self.twelveMonths
@@ -58,26 +59,21 @@ struct TodayTiles: View {
             figures(twelveMonths, pairSize: plan != nil && twelveMonths != nil ? .small : .wide)
             year
             halves
-            if let moved {
-                movedTile(moved, isTall: false)
-                    .tileSize(.wide)
-            }
-        case .beside(let slots):
+            movedTiles
+        case .netWorth:
             netWorth(isTall: true)
-                .tileSize(moved == nil || slots >= 4 ? .wide : .small)
-            if let moved {
-                movedTile(moved, isTall: true)
-                    .tileSize(slots >= 4 ? .wide : .small)
+                .tileSize(.wide)
+        case .moved:
+            movedTiles
+        case .under(let withMoved):
+            if withMoved {
+                movedTiles
             }
-        case .under:
             figures(twelveMonths, pairSize: .small)
             year
             halves
         case .saved:
-            if let moved {
-                movedTile(moved, isTall: false)
-                    .tileSize(.wide)
-            }
+            movedTiles
             let twelveMonths = self.twelveMonths
             figures(twelveMonths, pairSize: plan != nil && twelveMonths != nil ? .small : .wide)
         }
@@ -166,15 +162,32 @@ struct TodayTiles: View {
         }
     }
 
-    private func movedTile(_ change: ChangeReport, isTall: Bool) -> some View {
-        Button {
-            navigation.showAccounts()
-        } label: {
-            TodayMovedTile(report: change, split: library.valuator.savedSplit(of: change),
-                           yearlySpending: plan.flatMap(MilestoneLadder.spending(of:)), isTall: isTall)
+    /// Your pay and how net worth moved at the last check-in, wide; pay
+    /// only when money in and out was recorded.
+    @ViewBuilder
+    private var movedTiles: some View {
+        let valuator = library.valuator
+        if let report = valuator.changeSinceLastCheckIn(asOf: today) {
+            let moved = valuator.whatMoved(report)
+            if let pay = moved.pay {
+                Button {
+                    navigation.showAccounts()
+                } label: {
+                    TodayPayTile(moved: moved, pay: pay)
+                }
+                .buttonStyle(.plain)
+                .accessibilityHint("Shows your accounts")
+                .tileSize(.wide)
+            }
+            Button {
+                navigation.showAccounts()
+            } label: {
+                TodayMovedTile(moved: moved)
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint("Shows your accounts")
+            .tileSize(.wide)
         }
-        .buttonStyle(.plain)
-        .accessibilityHint("Shows your accounts")
     }
 
     /// The last 12 months' money in and out, as So far has them (through

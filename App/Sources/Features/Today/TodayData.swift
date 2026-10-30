@@ -77,25 +77,126 @@ enum TodayText {
         "At \(lastMonday.age) · in \(GlanceText.futures(lastMonday.confidence)) futures"
     }
 
-    /// The title over what moved at the last check-in: "What moved it in
-    /// September" when the check-in before was the end of the month
-    /// before, else "What moved it since 15 Aug". With `saysIt` the title
-    /// points at the date above it (iPhone); else "What moved in September".
-    static func movedTitle(from: CalendarDate, to: CalendarDate, today: CalendarDate, saysIt: Bool,
-                           locale: Locale = .current) -> String {
-        let moved = saysIt ? "What moved it" : "What moved"
-        guard let month = GlanceText.coveredMonth(from: from, to: to) else {
-            return "\(moved) since \(AmountFormat.shortDate(from, relativeTo: today, locale: locale))"
-        }
-        return "\(moved) in \(GlanceText.month(month, relativeTo: today, locale: locale))"
+    /// The title over your pay at the last check-in: "Your pay in
+    /// September", or "Your pay since 15 Aug".
+    static func payTitle(from: CalendarDate, to: CalendarDate, today: CalendarDate,
+                         locale: Locale = .current) -> String {
+        inPeriod("Your pay", from: from, to: to, today: today, locale: locale)
     }
 
-    /// What a check-in saved, said as time of the plan's spending: "You
-    /// saved about 2 weeks of the life you plan." `nil` without a saving or
-    /// without the plan's spending (Glance's `SavingAsTime`).
-    static func savedAsTime(saved: Decimal, markets: Decimal, yearlySpending: Decimal?) -> String? {
-        SavingAsTime(saved: saved, markets: markets, yearlySpending: yearlySpending)
-            .map { "You saved \($0.saved.text) of the life you plan." }
+    /// The title over how net worth moved at the last check-in: "Your net
+    /// worth in September", or "Your net worth since 15 Aug".
+    static func netWorthMovedTitle(from: CalendarDate, to: CalendarDate, today: CalendarDate,
+                                   locale: Locale = .current) -> String {
+        inPeriod("Your net worth", from: from, to: to, today: today, locale: locale)
+    }
+
+    /// `words` and the month the days cover, "in September", or the day
+    /// they start, "since 15 Aug".
+    private static func inPeriod(_ words: String, from: CalendarDate, to: CalendarDate, today: CalendarDate,
+                                 locale: Locale) -> String {
+        guard let month = GlanceText.coveredMonth(from: from, to: to) else {
+            return "\(words) since \(AmountFormat.shortDate(from, relativeTo: today, locale: locale))"
+        }
+        return "\(words) in \(GlanceText.month(month, relativeTo: today, locale: locale))"
+    }
+}
+
+// MARK: - What moved
+
+/// A line of the *Your pay* or *Your net worth* tile (UI.md, "What moved
+/// it"): what it is and its amount, signed by what it did to the money:
+/// tax and spent are below zero.
+struct TodayMovedLine: Hashable, Sendable, Identifiable {
+    enum Kind: Hashable, Sendable {
+        case cameIn, pension, tax, spent, saved, markets, oneOff, startedWith, lost, other, total
+    }
+
+    let kind: Kind
+    let amount: Decimal
+    /// Whether it adds up the lines above it: *You saved* on the pay tile,
+    /// *Net worth* on the other.
+    var isSum = false
+
+    var id: Kind { kind }
+
+    var title: String {
+        switch kind {
+        case .cameIn: "Came in"
+        case .pension: "Into your pension"
+        case .tax: "Tax"
+        case .spent: "Spent"
+        case .saved: "You saved"
+        case .markets: "Markets"
+        case .oneOff: "One-off"
+        case .startedWith: "New accounts"
+        case .lost: "Lost value"
+        case .other: "Other"
+        case .total: "Net worth"
+        }
+    }
+}
+
+/// The lines of the *Your pay* and *Your net worth* tiles, from Tracker's
+/// `WhatMoved`, which add up exactly.
+enum TodayMoved {
+    /// What came in, the tax and what was spent, then what that left
+    /// saved. The pension contributions are a line of their own when there
+    /// are some; tax only when there's some.
+    static func payLines(_ pay: WhatMoved.Pay) -> [TodayMovedLine] {
+        var lines = [TodayMovedLine(kind: .cameIn, amount: pay.moneyIn)]
+        if pay.pension != 0 { lines.append(TodayMovedLine(kind: .pension, amount: pay.pension)) }
+        if pay.tax != 0 { lines.append(TodayMovedLine(kind: .tax, amount: -pay.tax)) }
+        lines.append(TodayMovedLine(kind: .spent, amount: -pay.spent))
+        lines.append(TodayMovedLine(kind: .saved, amount: pay.saved, isSum: true))
+        return lines
+    }
+
+    /// The most lines between what was saved and markets, and net worth,
+    /// before they fold into one *Other*: so the tile stays one row tall.
+    static let otherLines = 2
+
+    /// What was saved and markets, the rest when it isn't zero, then net
+    /// worth's change. The rest is a line each (a one-off, what new
+    /// accounts started with, lost value, what nothing explains), or one
+    /// *Other* when there are more than ``otherLines``.
+    static func netWorthLines(_ moved: WhatMoved) -> [TodayMovedLine] {
+        var lines = [TodayMovedLine(kind: .saved, amount: moved.saved)]
+        if moved.markets != 0 { lines.append(TodayMovedLine(kind: .markets, amount: moved.markets)) }
+        let rest = [TodayMovedLine(kind: .oneOff, amount: moved.oneOffs),
+                    TodayMovedLine(kind: .startedWith, amount: moved.startedWith),
+                    TodayMovedLine(kind: .lost, amount: moved.lost),
+                    TodayMovedLine(kind: .other, amount: moved.unexplained)]
+            .filter { $0.amount != 0 }
+        if rest.count > otherLines {
+            lines.append(TodayMovedLine(kind: .other, amount: moved.other))
+        } else {
+            lines += rest
+        }
+        lines.append(TodayMovedLine(kind: .total, amount: moved.change, isSum: true))
+        return lines
+    }
+
+    /// Where each line's bar runs on the net worth tile's steps: each
+    /// line from where the one before it ended, and a sum from zero.
+    static func steps(_ lines: [TodayMovedLine]) -> [ClosedRange<Decimal>] {
+        var running: Decimal = 0
+        return lines.map { line in
+            if line.isSum { return min(0, line.amount)...max(0, line.amount) }
+            let from = running
+            running += line.amount
+            return min(from, running)...max(from, running)
+        }
+    }
+
+    /// The pay tile's ring: what was saved, spent and paid in tax, each as
+    /// a share of what came in, as far as they're above zero.
+    static func ring(_ pay: WhatMoved.Pay) -> [(kind: TodayMovedLine.Kind, share: Double)] {
+        let parts: [(TodayMovedLine.Kind, Decimal)] = [(.saved, pay.saved), (.spent, pay.spent), (.tax, pay.tax)]
+        let positive = parts.map { ($0.0, max($0.1, 0)) }
+        let total = positive.reduce(Decimal(0)) { $0 + $1.1 }
+        guard total > 0 else { return [] }
+        return positive.filter { $0.1 > 0 }.map { (kind: $0.0, share: ($0.1 / total).doubleValue) }
     }
 }
 
