@@ -25,11 +25,14 @@ import Tracker
 ///   one each, and net worth alone takes both.
 /// - ``Part/under``: the rest, small and half tiles, under the answer and
 ///   those two.
+/// - ``Part/saved``: a saved check-in's on iPhone: what moved, wide, then
+///   the next milestone and the savings rate.
 struct TodayTiles: View {
     enum Part {
         case all
         case beside(slots: Int)
         case under
+        case saved
     }
 
     let part: Part
@@ -70,6 +73,12 @@ struct TodayTiles: View {
             figures(twelveMonths, pairSize: .small)
             year
             halves
+        case .saved:
+            if let moved {
+                movedTile(moved, isTall: false)
+                    .tileSize(.wide)
+            }
+            figures(twelveMonths, pairSize: .small)
         }
     }
 
