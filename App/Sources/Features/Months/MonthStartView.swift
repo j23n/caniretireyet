@@ -7,7 +7,7 @@ import Tracker
 /// reads the bank's export into lines (``MonthImportSheet``); *Type Totals*
 /// takes four numbers from the bank's app (``MonthTypedTotalsSheet``),
 /// except for the month still to come. Once either is in, the month's lines
-/// screen shows its lines or totals in its place.
+/// screen shows its lines, or the totals typed, in its place.
 struct MonthStartView: View {
     let month: AccountMonth
     let currency: CurrencyCode

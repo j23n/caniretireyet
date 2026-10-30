@@ -47,6 +47,10 @@ struct MonthLinesScreen: View {
         .background(Palette.page)
         .personalNavigationTitle(title, hidden: "Month")
         .toolbar { toolbar }
+        .onChange(of: layout.isWide) { _, isWide in
+            // iPhone's segments are only All and To Check.
+            if !isWide, filter != .toCheck { filter = .all }
+        }
         .sheet(isPresented: $addsLine) {
             if let month, let account {
                 MonthAddLineSheet(month: month, account: account)
@@ -155,6 +159,16 @@ struct MonthLinesScreen: View {
         } else if isStarting {
             MonthStartView(month: month, currency: account.currency, importCSV: { importsCSV = true },
                            typeTotals: { typesTotals = true })
+        } else if month.status == .typed, let value = month.value {
+            // iPhone, totals typed without lines: those totals.
+            ScrollView {
+                VStack(alignment: .leading, spacing: Metrics.m) {
+                    MonthTypedCard(value: value, currency: account.currency) { typesTotals = true }
+                    MonthsAfterCard(month: month, next: checkIn.status.openDate ?? checkIn.status.nextCheckIn,
+                                    currency: account.currency)
+                }
+                .padding(layout.gutter)
+            }
         } else {
             // iPhone: the banner, the lines, then the month's balances and
             // the months after it; *Accept* is the one button at the bottom.
@@ -581,6 +595,41 @@ private struct MonthAddsUpCard: View {
 }
 
 // MARK: - Totals
+
+/// A month's totals typed without lines, on iPhone: what came in, was
+/// spent and paid in tax, and the bank's balance, with *Change Totals…*.
+private struct MonthTypedCard: View {
+    let value: Valuation
+    let currency: CurrencyCode
+    let change: () -> Void
+
+    @Environment(LibraryStore.self) private var library
+
+    var body: some View {
+        let tax = value.tax ?? 0
+        Card("Totals typed") {
+            VStack(alignment: .leading, spacing: Metrics.s) {
+                row("Came in", value.moneyIn ?? 0)
+                row("Spent", (value.moneyOut ?? 0) - tax)
+                row("Tax", tax)
+                if let balance = value.balance {
+                    row("Bank's balance", balance)
+                }
+                Button("Change Totals…", action: change)
+                    .disabled(!library.canEdit)
+            }
+        }
+    }
+
+    private func row(_ title: String, _ amount: Decimal) -> some View {
+        HStack {
+            Text(title)
+                .foregroundStyle(Palette.secondaryInk)
+            Spacer(minLength: Metrics.s)
+            AmountText(amount, currency: currency, precision: .cents)
+        }
+    }
+}
 
 /// What the month's lines add up to.
 private struct MonthTotalsCard: View {
