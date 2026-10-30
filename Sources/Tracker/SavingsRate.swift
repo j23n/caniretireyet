@@ -219,18 +219,18 @@ extension Valuator {
         Set(accounts.values.filter { $0.kind.recordsMoneyInOut && $0.includedInNetWorth }.map(\.id))
     }
 
-    /// `report`'s split of net worth's change with what it saved as the
-    /// savings rate counts what was saved (``saved(after:through:)``) over
-    /// its days: the part of new accounts' first values counted as what
-    /// they already held, and the one-offs (``MoneyInOutSummary/oneOffs``),
-    /// move to other, and a tax bill paid in them counts as set aside over
-    /// the year before it (``SavingsRate/saved``), the difference in
-    /// other too. For the Overview's bars.
+    /// `report`'s split of net worth's change with what it saved as
+    /// ``WhatMoved/saved`` counts it (``saved(after:through:)`` over its
+    /// days): the part of new accounts' first values counted as what they
+    /// already held, and the one-offs (``MoneyInOutSummary/oneOffs``), move
+    /// to other. A tax bill paid in the days is out of saved then, not
+    /// spread over the year before it as the savings rate spreads it. For
+    /// the Overview's bars and the check-in's.
     public func savedSplit(of report: ChangeReport) -> ValueChange {
         var change = report.total
         let money = moneyInOut(from: report.from.adding(days: 1), through: report.to, accounts: cameInAccounts)
         let saved = saved(after: report.from, through: report.to).byAccount.values.reduce(Decimal(0), +)
-            - money.oneOffs + money.taxes - spreadTax(after: report.from, through: report.to)
+            - money.oneOffs
         change.other += change.saved - saved
         change.saved = saved
         return change

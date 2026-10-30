@@ -469,10 +469,13 @@ struct SavingsRateTests {
         #expect(february.noRate == nil)
         #expect(february.rate.map { $0 > 0 } == true)
 
-        // The Overview's Saved bar counts it the same way, the difference under Other.
+        // The Overview's Saved bar counts the bill when it's paid: the 3,650 are out of February's saved, and
+        // neither month takes out a share of it. −200: 1,450 in January, −1,650 in February.
         let report = valuator.change(from: "2025-12-31", to: "2026-02-28")
         let split = valuator.savedSplit(of: report)
-        #expect(split.saved == january.saved + february.saved)
+        #expect(split.saved == january.saved + january.spreadTaxes + february.saved + february.spreadTaxes
+            - february.moneyInOut.taxes)
+        #expect(split.saved == -200)
         #expect(split.other == report.total.other + report.total.saved - split.saved)
         #expect(split.start + split.market + split.saved + split.other == split.end)
     }

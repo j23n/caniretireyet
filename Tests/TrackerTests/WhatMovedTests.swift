@@ -83,6 +83,9 @@ struct WhatMovedTests {
         #expect(pay.spent == 2850)
         // 250 of the 3,100 after tax.
         #expect(pay.savedShare?.rounded(scale: 4) == d("0.0806"))
+        // The check-in's and the Overview's bars count it the same way.
+        let valuator = Valuator(library: library)
+        #expect(valuator.savedSplit(of: valuator.change(from: "2025-12-31", to: "2026-01-31")).saved == 250)
         #expect(moved.change == 250)
         #expect(moved.unexplained == 0)
         expectAddsUp(moved)
