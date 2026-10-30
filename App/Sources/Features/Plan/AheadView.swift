@@ -10,7 +10,8 @@ import SwiftUI
 /// ahead*, the chapters and what changes along the way down a line, with
 /// when you stop on it (``AheadLifeSection``). On the Mac and iPad a
 /// header row, your date beside What if's levers, the chart on a card of
-/// its own, your life ahead in columns, then the tiles.
+/// its own, your life ahead on the same line with what changes in a
+/// chapter beside it, then the tiles.
 ///
 /// What every chapter shares (*Assumptions…*, *Target Mix…*, *Flexible
 /// Spending…*) is in the plan menu. The plan calculates on its own: when it
