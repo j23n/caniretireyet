@@ -169,6 +169,21 @@ struct MonthLineEdit: Hashable, Sendable {
         phrase = line.suggestedPhrase
     }
 
+    /// Whether the editor offers *The same for the other lines* and
+    /// *Remember it*: always on the Mac and iPad, on iPhone only for money
+    /// moved.
+    func offersSimilar(isWide: Bool) -> Bool {
+        isWide || statementClass == .transfer
+    }
+
+    /// Turns off ``appliesToSimilar`` and ``remembers`` while the editor
+    /// doesn't offer them, so a toggle that isn't on screen changes nothing.
+    mutating func dropSimilarNotOffered(isWide: Bool) {
+        guard !offersSimilar(isWide: isWide) else { return }
+        appliesToSimilar = false
+        remembers = false
+    }
+
     /// The lines it changes in `library`: `line`, and with
     /// ``appliesToSimilar`` the month's other lines with ``phrase`` that
     /// aren't confirmed, each confirmed with the class chosen.
@@ -201,36 +216,26 @@ struct MonthLineEdit: Hashable, Sendable {
 }
 
 /// A month's totals typed without a CSV (UI.md, "Typed totals"): what came
-/// in, moved in, was spent, paid in tax and moved out, and the bank's
-/// closing balance, checked against the month's opening balance.
+/// in, was spent and paid in tax, and the bank's closing balance; what
+/// moved between your accounts is the rest.
 struct MonthTypedTotals: Hashable, Sendable {
     var opening: Decimal?
     var cameIn: Decimal = 0
-    var movedIn: Decimal = 0
     var spent: Decimal = 0
     var tax: Decimal = 0
-    var movedOut: Decimal = 0
     var closing: Decimal?
 
-    /// The closing balance the totals lead to from the opening balance.
+    /// The closing balance what came in, was spent and paid in tax lead to
+    /// from the opening balance.
     var expectedClosing: Decimal? {
-        opening.map { $0 + cameIn + movedIn - spent - tax - movedOut }
+        opening.map { $0 + cameIn - spent - tax }
     }
 
-    /// The bank's closing balance less the one the totals lead to: money
-    /// in missing when positive, money out missing when negative. Zero
-    /// when there's no opening balance to check against.
-    var difference: Decimal {
-        guard let closing, let expectedClosing else { return 0 }
+    /// What moved between your accounts: the rest of the change from the
+    /// opening balance to the closing one, money in positive. `nil` without
+    /// both balances.
+    var moved: Decimal? {
+        guard let closing, let expectedClosing else { return nil }
         return closing - expectedClosing
-    }
-
-    var addsUp: Bool { difference == 0 }
-
-    /// Counts the difference as spent (money out missing) or as came in
-    /// (money in missing), so the totals add up.
-    mutating func countDifference() {
-        let difference = difference
-        if difference < 0 { spent -= difference } else { cameIn += difference }
     }
 }

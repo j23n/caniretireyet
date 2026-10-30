@@ -100,22 +100,35 @@ struct MonthsDataTests {
         #expect(changed.first?.statementClass == .oneOff)
     }
 
-    @Test func typedTotalsCountTheDifference() {
-        var totals = MonthTypedTotals(opening: 1000, cameIn: 2000, spent: 800, closing: 1500)
-        #expect(totals.expectedClosing == 2200)
-        #expect(totals.difference == -700)
-        totals.countDifference()
-        #expect(totals.spent == 1500)
-        #expect(totals.addsUp)
+    /// On iPhone the same-words toggles are only for money moved: leaving
+    /// it turns them off, so hidden toggles change nothing.
+    @Test func similarTogglesOnlyForMovedOnIPhone() {
+        var edit = MonthLineEdit(Self.line("2026-09-03", "move", -400, "Bonifico Directa", .transfer))
+        edit.appliesToSimilar = true
+        edit.remembers = true
+        #expect(edit.offersSimilar(isWide: false))
+        edit.dropSimilarNotOffered(isWide: false)
+        #expect(edit.appliesToSimilar && edit.remembers)
 
-        var short = MonthTypedTotals(opening: 1000, cameIn: 100, movedIn: 50, tax: 20, movedOut: 30, closing: 1300)
-        #expect(short.difference == 200)
-        short.countDifference()
-        #expect(short.cameIn == 300)
-        #expect(short.addsUp)
+        edit.statementClass = .spending
+        #expect(edit.offersSimilar(isWide: true))
+        edit.dropSimilarNotOffered(isWide: true)
+        #expect(edit.appliesToSimilar && edit.remembers)
 
-        // Without an opening balance there's nothing to check against.
-        #expect(MonthTypedTotals(opening: nil, cameIn: 5, closing: 1).addsUp)
+        #expect(!edit.offersSimilar(isWide: false))
+        edit.dropSimilarNotOffered(isWide: false)
+        #expect(!edit.appliesToSimilar && !edit.remembers)
+    }
+
+    /// Four typed numbers: what moved between your accounts is the rest.
+    @Test func typedTotalsMoveTheRest() {
+        let totals = MonthTypedTotals(opening: PreviewLibrary.d("412.30"), spent: PreviewLibrary.d("287.40"),
+                                      closing: PreviewLibrary.d("424.90"))
+        #expect(totals.expectedClosing == PreviewLibrary.d("124.90"))
+        #expect(totals.moved == 300)
+        #expect(MonthTypedTotals(opening: 1000, cameIn: 100, spent: 50, tax: 20, closing: 900).moved == -130)
+        #expect(MonthTypedTotals(opening: nil, closing: 10).moved == nil)
+        #expect(MonthTypedTotals(opening: 10, closing: nil).moved == nil)
     }
 
     @Test func monthWords() {

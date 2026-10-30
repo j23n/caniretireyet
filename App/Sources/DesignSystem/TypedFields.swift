@@ -1,13 +1,14 @@
 import Model
 import SwiftUI
 
-// Fields you type into (UI.md, "Fields"): each looks like a place to type.
-// In a form, a row keeps its label beside the field; outside a form, the
-// field has a rounded outline that turns the accent while it's edited.
+// Fields you type into (UI.md, "Fields"): each looks like a place to type,
+// in a rounded outline that turns the accent while it's edited. In a form,
+// a row keeps its label beside the field.
 
-/// A number typed in a form row: the label on the left, the field on the
-/// right, with the currency or unit after it. Accepts `1.234,56` and
-/// `1234.56` (see `AmountInput`).
+/// A number typed in a form row: the label on the left, and on the right
+/// the field in its outline (`typedFieldOutline(isFocused:)`) with the
+/// currency or unit after it. Accepts `1.234,56` and `1234.56` (see
+/// `AmountInput`).
 struct FormNumberField: View {
     let title: String
     @Binding var text: String
@@ -17,13 +18,17 @@ struct FormNumberField: View {
     /// Whether a minus sign can be typed (balances of debts).
     var allowsNegative = true
 
+    @FocusState private var isFocused: Bool
+
     var body: some View {
         LabeledContent(title) {
             HStack(spacing: Metrics.xs) {
                 TextField(title, text: $text, prompt: Text(prompt))
                     .labelsHidden()
+                    .textFieldStyle(.plain)
                     .multilineTextAlignment(.trailing)
                     .monospacedDigit()
+                    .focused($isFocused)
                     // Not `.privacySensitive()`: what you type shows while amounts are hidden.
                     #if os(iOS)
                     .numberKeyboard(allowsNegative ? .numbersAndPunctuation : .decimalPad)
@@ -33,21 +38,29 @@ struct FormNumberField: View {
                         .foregroundStyle(Palette.secondaryInk)
                 }
             }
+            .frame(maxWidth: 160)
+            .typedFieldOutline(isFocused: isFocused)
         }
     }
 }
 
-/// A text typed in a form row, with the label on the left.
+/// A text typed in a form row: the label on the left, the field in its
+/// outline on the right.
 struct FormTextField: View {
     let title: String
     @Binding var text: String
     var prompt: String = ""
 
+    @FocusState private var isFocused: Bool
+
     var body: some View {
         LabeledContent(title) {
             TextField(title, text: $text, prompt: Text(prompt))
                 .labelsHidden()
+                .textFieldStyle(.plain)
                 .multilineTextAlignment(.trailing)
+                .focused($isFocused)
+                .typedFieldOutline(isFocused: isFocused)
         }
     }
 }
@@ -70,6 +83,7 @@ struct OutlinedAmountField: View {
                 .foregroundStyle(Palette.secondaryInk)
             TextField(title, text: $text, prompt: Text(verbatim: "0"))
                 .labelsHidden()
+                .textFieldStyle(.plain)
                 .multilineTextAlignment(.trailing)
                 .monospacedDigit()
                 #if os(iOS)

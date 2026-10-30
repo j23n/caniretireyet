@@ -7,7 +7,7 @@ import Tracker
 /// amount and date, and what it is, chosen from buttons. Money moved asks
 /// to which of your accounts: it's saved at once, not spent. The same can
 /// go to the month's other lines with the same words and be remembered for
-/// the next statement. A note, *Remove Line* for a line listed twice (or
+/// the next statement (on iPhone, only for money moved). A note, *Remove Line* for a line listed twice (or
 /// *Restore Line*), and *Confirm*, which checks it.
 struct MonthLineEditor: View {
     let line: BankLine
@@ -17,6 +17,7 @@ struct MonthLineEditor: View {
     let done: () -> Void
 
     @Environment(LibraryStore.self) private var library
+    @Environment(\.pageLayout) private var layout
     @Environment(\.locale) private var locale
     @State private var edit: MonthLineEdit
     @State private var errorMessage: String?
@@ -37,7 +38,9 @@ struct MonthLineEditor: View {
             if edit.statementClass == .transfer {
                 otherAccountPicker
             }
-            similarToggles
+            if edit.offersSimilar(isWide: layout.isWide) {
+                similarToggles
+            }
             TextField("Note (optional)", text: $edit.note, axis: .vertical)
                 .textFieldStyle(.plain)
                 .focused($isEditingNote)
@@ -59,6 +62,9 @@ struct MonthLineEditor: View {
                 .disabled(line.isRemoved)
             }
             .disabled(!library.canEdit)
+        }
+        .onChange(of: edit.statementClass) { _, _ in
+            edit.dropSimilarNotOffered(isWide: layout.isWide)
         }
     }
 

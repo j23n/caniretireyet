@@ -2,13 +2,12 @@ import Model
 import SwiftUI
 import Tracker
 
-/// *Type Totals…* (UI.md, "Typed totals"): a month without a CSV, from the
-/// numbers on a paper or PDF statement. What came in, moved in from your
-/// other accounts, was spent, paid in tax and moved out, and the bank's
-/// closing balance; the totals have to lead from the month's opening
-/// balance to it. When they don't, the difference can be counted as spent
-/// or as came in. Saving keeps the balance, what came in, the spending and
-/// the tax (`Library.saveTypedTotals`); what moved is the rest.
+/// *Type Totals* (UI.md, "Typed totals"): a month without a CSV, from four
+/// numbers on a statement or in the bank's app: what came in, was spent
+/// and paid in tax, and the bank's balance. What moved between your
+/// accounts is the rest, from the balance the month opens at, and shows as
+/// one line. Saving keeps the balance, what came in, the spending and the
+/// tax (`Library.saveTypedTotals`).
 struct MonthTypedTotalsSheet: View {
     let route: MonthRoute
 
@@ -19,16 +18,14 @@ struct MonthTypedTotalsSheet: View {
     @State private var errorMessage: String?
 
     enum Field: CaseIterable, Hashable {
-        case cameIn, movedIn, spent, tax, movedOut, closing
+        case cameIn, spent, tax, closing
 
         var title: String {
             switch self {
             case .cameIn: "Came in"
-            case .movedIn: "Moved in from your accounts"
             case .spent: "Spent"
-            case .tax: "Tax paid"
-            case .movedOut: "Moved out to your accounts"
-            case .closing: "Closing balance"
+            case .tax: "Tax"
+            case .closing: "Bank's balance"
             }
         }
     }
@@ -63,32 +60,24 @@ struct MonthTypedTotalsSheet: View {
     private var form: some View {
         Form {
             Section {
-                HStack {
-                    Text("Opening balance")
-                    Spacer(minLength: Metrics.s)
-                    if let opening = month?.opening {
-                        AmountText(opening, currency: currency, precision: .cents)
-                    } else {
-                        Text("None yet")
-                            .foregroundStyle(Palette.secondaryInk)
-                    }
-                }
-            } header: {
-                Text("\(account?.name ?? route.account.rawValue) · \(MonthText.title(route.through, locale: locale))")
-                    .privacySensitiveInFeedback()
-            } footer: {
-                Text("The closing balance of the month before.")
-            }
-            Section {
-                ForEach([Field.cameIn, .movedIn, .spent, .tax, .movedOut], id: \.self) { field in
+                ForEach(Field.allCases, id: \.self) { field in
                     amountField(field)
                 }
-            } footer: {
-                Text("Moved means between your own accounts: it's neither income nor spending.")
+            } header: {
+                AmountSentenceText(header)
+                    .privacySensitiveInFeedback()
             }
-            Section {
-                amountField(.closing)
-                check
+            if let moved = totals.moved {
+                Section {
+                    HStack {
+                        Text("The rest moved between your accounts")
+                            .foregroundStyle(Palette.secondaryInk)
+                        Spacer(minLength: Metrics.s)
+                        AmountText(moved, currency: currency, precision: .cents, signed: true)
+                    }
+                } footer: {
+                    Text("Moved means between your own accounts: it's neither income nor spending.")
+                }
             }
             if let errorMessage {
                 Section {
@@ -109,34 +98,6 @@ struct MonthTypedTotalsSheet: View {
         Binding { texts[field] ?? "" } set: { texts[field] = $0 }
     }
 
-    @ViewBuilder
-    private var check: some View {
-        let totals = self.totals
-        if totals.closing != nil, totals.opening != nil {
-            if totals.addsUp {
-                Label("Adds up", systemImage: "checkmark.circle.fill")
-                    .foregroundStyle(Palette.good)
-            } else {
-                let off = AmountFormat.amount(abs(totals.difference), currency: currency, precision: .cents,
-                                              locale: locale)
-                VStack(alignment: .leading, spacing: Metrics.s) {
-                    Label {
-                        AmountSentenceText("Off by \(amount: off) from the opening balance and the totals")
-                    } icon: {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                    }
-                    .foregroundStyle(Palette.warning)
-                    Button(totals.difference < 0 ? "Count as Spent" : "Count as Came In") {
-                        var counted = totals
-                        counted.countDifference()
-                        set(.cameIn, counted.cameIn)
-                        set(.spent, counted.spent)
-                    }
-                }
-            }
-        }
-    }
-
     // MARK: Values
 
     private func value(_ field: Field) -> Decimal? {
@@ -150,19 +111,26 @@ struct MonthTypedTotalsSheet: View {
     }
 
     private var totals: MonthTypedTotals {
-        MonthTypedTotals(opening: month?.opening, cameIn: value(.cameIn) ?? 0, movedIn: value(.movedIn) ?? 0,
-                         spent: value(.spent) ?? 0, tax: value(.tax) ?? 0, movedOut: value(.movedOut) ?? 0,
-                         closing: value(.closing))
+        MonthTypedTotals(opening: month?.opening, cameIn: value(.cameIn) ?? 0, spent: value(.spent) ?? 0,
+                         tax: value(.tax) ?? 0, closing: value(.closing))
     }
 
-    /// Whether every amount typed is a number, and the closing balance is
-    /// there and the totals lead to it.
+    /// "Revolut · October · opens at 412,30 €".
+    private var header: AmountSentence {
+        let name = account?.name ?? route.account.rawValue
+        let title = AmountSentence("\(name) · \(AmountFormat.monthName(route.through, locale: locale))")
+        guard let opening = month?.opening else { return title }
+        let amount = AmountFormat.amount(opening, currency: currency, precision: .cents, locale: locale)
+        return title + " · opens at \(amount: amount)"
+    }
+
+    /// Whether every amount typed is a number and the bank's balance is
+    /// there.
     private var canSave: Bool {
         guard library.canEdit, value(.closing) != nil, !MonthText.isStillToCome(route.through) else { return false }
-        let typed = Field.allCases.allSatisfy { field in
+        return Field.allCases.allSatisfy { field in
             (texts[field] ?? "").trimmingCharacters(in: .whitespaces).isEmpty || value(field) != nil
         }
-        return typed && totals.addsUp
     }
 
     /// The month's value as it is: its balance, and what came in, was spent
