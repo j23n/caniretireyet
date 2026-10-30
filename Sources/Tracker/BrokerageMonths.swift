@@ -113,40 +113,38 @@ extension Valuator {
     /// The lines of other accounts moved to or from `account` after `from`
     /// through `through` that no deposit or withdrawal of the account
     /// matches: the same amount the other way, within
-    /// ``BrokerageMonth/matchingDays``. Each trade matches one line.
+    /// ``BrokerageMonth/matchingDays``. Each trade matches one line, over
+    /// all the account's months at once, so a deposit near a month's end
+    /// isn't matched in both months. Only lines of accounts in the trades
+    /// account's currency count: a trade's amount is in its own account's.
     static func depositsToAdd(to account: AccountID, after from: CalendarDate?, through: CalendarDate,
                               ledger: TradeLedger, library: Library) -> [BankLine] {
+        guard let currency = library.accounts[account]?.currency else { return [] }
         var moved: [BankLine] = []
-        for other in library.accounts.keys where other != account {
-            moved += library.lines(for: other).filter { line in
-                isMove(line, to: account, after: from, through: through)
-            }
+        for (id, other) in library.accounts where id != account && other.currency == currency {
+            moved += library.lines(for: id).filter { isMove($0, to: account) }
         }
-        guard let first = moved.map(\.date).min() else { return [] }
+        let dates = moved.map(\.date)
+        guard let first = dates.min(), let last = dates.max() else { return [] }
         moved.sort { $0.key < $1.key }
         let days = BrokerageMonth.matchingDays
         let nearby: ArraySlice<TradeEntry> = ledger.entries(after: first.adding(days: -days - 1),
-                                                            through: through.adding(days: days))
+                                                            through: last.adding(days: days))
         var flows: [TradeEntry] = nearby.filter { $0.type == .deposit || $0.type == .withdrawal }
         var unmatched: [BankLine] = []
         for line in moved {
             if let index = flows.firstIndex(where: { matches($0, line, days: days) }) {
                 flows.remove(at: index)
-            } else {
+            } else if line.date <= through, from.map({ line.date > $0 }) ?? true {
                 unmatched.append(line)
             }
         }
         return unmatched
     }
 
-    /// Whether `line` moved money to or from `account` after `from`
-    /// through `through`.
-    private static func isMove(_ line: BankLine, to account: AccountID, after from: CalendarDate?,
-                               through: CalendarDate) -> Bool {
-        guard line.statementClass == .transfer, line.otherAccount == account, !line.isRemoved else { return false }
-        guard line.date <= through else { return false }
-        guard let from else { return true }
-        return line.date > from
+    /// Whether `line` moved money to or from `account`.
+    private static func isMove(_ line: BankLine, to account: AccountID) -> Bool {
+        line.statementClass == .transfer && line.otherAccount == account && !line.isRemoved
     }
 
     /// Whether `entry` is the other side of `line`: the same amount the
@@ -165,8 +163,11 @@ extension Library {
     /// Records `line`, money moved to or from its other account, as that
     /// account's deposit (money out of `line`'s account) or withdrawal, on
     /// the line's day. Nothing for a line that moved money to no account.
+    /// Nothing when the two accounts' currencies differ, since a trade's
+    /// amount is in its own account's currency.
     public mutating func addDeposit(for line: BankLine) {
-        guard let other = line.otherAccount, line.amount != 0 else { return }
+        guard let other = line.otherAccount, line.amount != 0,
+              accounts[other]?.currency == accounts[line.account]?.currency else { return }
         upsert(Trade(account: other, date: line.date, type: line.amount < 0 ? .deposit : .withdrawal,
                      amount: -line.amount, source: .manual))
     }
