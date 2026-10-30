@@ -90,20 +90,21 @@ struct ImportFirstCheckIn: Hashable, Sendable {
     /// they stay, and the files' lines fill them in.
     var after: [ImportCheckInCheck] = []
 
-    /// "8 check-ins added, one at each quarter end. …"; each file's last
-    /// month end gets one too, so the next file follows on from it.
+    /// "8 past check-ins: one at each quarter end, and at the end of each
+    /// file. …"; each file's last month end gets one, so the next file
+    /// follows on from it.
     var note: String {
-        let count = Wording.count(values.count, "check-in")
+        let count = Wording.count(values.count, "past check-in")
         switch ends {
         case .months:
-            return "\(count) added, one at each month end, with balances from the files. Most detail, most to "
-                + "check."
+            return "\(count), with balances from the files. Your history shows every month, and a missing line is "
+                + "easy to find."
         case .quarters:
-            return "\(count) added, one at each quarter end and at each file's last month end. A difference shows "
-                + "within 3 months, with a third of the checking."
+            return "\(count): one at each quarter end, and at the end of each file. A third of the checking, and a "
+                + "missing line shows up within 3 months."
         case .never:
-            return "\(count) added, one at each file's last month end: each file's lines count as one stretch. A "
-                + "difference is only known for each file as a whole."
+            return "\(count): one at the end of each file. The least checking, but a missing line can only be traced "
+                + "to the whole file."
         }
     }
 }

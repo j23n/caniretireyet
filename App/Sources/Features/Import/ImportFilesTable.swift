@@ -555,8 +555,8 @@ struct ImportFilesList: View {
 }
 
 /// The statements' days before the library's first check-in (UI.md, "Add
-/// past statements"): where balances are compared there, at every month
-/// end, every quarter end or nowhere, and what that adds.
+/// past statements"): how often past check-ins are added there, monthly,
+/// quarterly or once per file, and what that adds.
 struct ImportFirstCheckInCard: View {
     let model: ImportController
 
@@ -568,7 +568,7 @@ struct ImportFirstCheckInCard: View {
                         Text(Self.title(first))
                             .font(.headline)
                             .privacySensitiveInFeedback()
-                        Text("Where should balances be compared?")
+                        Text("How often should past check-ins be added?")
                             .foregroundStyle(Palette.secondaryInk)
                     }
                     Spacer(minLength: Metrics.s)
@@ -672,18 +672,18 @@ private struct ImportAfterFirstCheckIn: View {
     }
 }
 
-/// Every month end | Every quarter end | Don't add any.
+/// Monthly | Quarterly | Once per File.
 private struct ImportFirstCheckInPicker: View {
     let model: ImportController
     let first: ImportFirstCheckIn
 
     var body: some View {
-        Picker("Check-ins before the first", selection: Binding(get: { first.ends }, set: { ends in
+        Picker("How often to add past check-ins", selection: Binding(get: { first.ends }, set: { ends in
             model.flow.setFirstCheckInEnds(ends)
         })) {
-            Text("Every Month End").tag(StatementCheckIns.Ends.months)
-            Text("Every Quarter End").tag(StatementCheckIns.Ends.quarters)
-            Text("Don't Add Any").tag(StatementCheckIns.Ends.never)
+            Text("Monthly").tag(StatementCheckIns.Ends.months)
+            Text("Quarterly").tag(StatementCheckIns.Ends.quarters)
+            Text("Once per File").tag(StatementCheckIns.Ends.never)
         }
         .pickerStyle(.segmented)
         .labelsHidden()
