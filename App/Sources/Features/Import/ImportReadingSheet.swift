@@ -15,7 +15,7 @@ import SwiftUI
 /// On iPhone it says what it recognized ("6 columns recognized", what they
 /// are and how dates and numbers read) over the first three lines as read;
 /// the pickers and the columns show after *Change…*, or at once when the
-/// reading needs work (`ImportFlow.readingNeedsChanges`).
+/// reading needs work (`ImportFlow.readingNeedsChanges(today:)`).
 struct ImportReadingSheet: View {
     let model: ImportController
     @Environment(\.pageLayout) private var layout
@@ -135,7 +135,7 @@ struct ImportReadingSheet: View {
 
     private var compact: some View {
         let flow = model.flow
-        let needsChanges = flow.readingNeedsChanges
+        let needsChanges = flow.readingNeedsChanges()
         return NavigationStack {
             Form {
                 Section {

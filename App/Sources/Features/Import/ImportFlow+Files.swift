@@ -426,10 +426,11 @@ extension ImportFlow {
     }
 
     /// Whether How It's Read on iPhone opens on its menus, with a warning in
-    /// place of the check: a setting that doesn't work, no line read, or a
-    /// guess still to confirm.
-    var readingNeedsChanges: Bool {
-        problem != nil || !ambiguities.isEmpty || readingStatus().isProblem
+    /// place of the check: a setting that doesn't work, a guess still to
+    /// confirm, no line read, lines that can't be read, or a balance column
+    /// that doesn't add up.
+    func readingNeedsChanges(today: CalendarDate = .today()) -> Bool {
+        problem != nil || !ambiguities.isEmpty || readingStatus(today: today).isProblem
     }
 
     /// What the columns read are and how dates and numbers read: "Date,

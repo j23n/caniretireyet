@@ -179,11 +179,23 @@ struct ImportFilesTests {
         #expect(flow.recognizedTitle == "3 columns recognized")
         #expect(flow.recognizedSummary
             == "Date, amount (+ in, − out), description. Dates read as 31/12/2025, numbers as 1.234,56.")
-        #expect(!flow.readingNeedsChanges)
+        #expect(!flow.readingNeedsChanges(today: today))
         for row in flow.columnRows {
             flow.setUse(.ignore, forColumn: row.column)
         }
-        #expect(flow.readingNeedsChanges)
+        #expect(flow.readingNeedsChanges(today: today))
+    }
+
+    @Test func aDateGuessToConfirmOpensHowItsRead() {
+        var flow = ImportFlow(library: PreviewLibrary.library)
+        let csv = "Data;Importo;Descrizione\n01/02/2026;-10,00;Spesa\n01/03/2026;-20,00;Spesa\n"
+        flow.open(files: [(name: "export.csv", data: Data(csv.utf8))])
+        flow.showBatchFile(0)
+        #expect(flow.dateAmbiguity != nil)
+        #expect(flow.readingNeedsChanges(today: today))
+        flow.useDatePattern("dd/MM/yyyy")
+        #expect(flow.dateAmbiguity == nil)
+        #expect(!flow.readingNeedsChanges(today: today))
     }
 
     @Test func howItsReadShowsEachFormatByAnExample() {
