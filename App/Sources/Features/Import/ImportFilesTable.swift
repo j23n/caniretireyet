@@ -23,6 +23,7 @@ struct ImportFilesPage: View {
                 ImportFilesTable(model: model, rows: flow.fileRows(), showReading: showReading, showDays: showDays)
                 ImportDropMoreZone(isTargeted: isTargeted)
                 ImportBetweenFiles(model: model)
+                ImportFirstCheckInCard(model: model)
             }
             .padding(.horizontal, 48)
             .padding(.top, 28)
@@ -515,6 +516,16 @@ struct ImportFilesList: View {
                     Label("Add Files…", systemImage: "plus.circle.fill")
                 }
             }
+            if let first = flow.firstCheckIn {
+                Section {
+                    ImportFirstCheckInPicker(model: model, first: first)
+                } header: {
+                    Text(ImportFirstCheckInCard.title(first))
+                        .privacySensitiveInFeedback()
+                } footer: {
+                    Text(verbatim: first.note)
+                }
+            }
             if !notes.isEmpty {
                 Section("Between these files") {
                     ForEach(notes) { note in
@@ -530,6 +541,69 @@ struct ImportFilesList: View {
             }
         }
         .formStyle(.grouped)
+    }
+}
+
+/// The statements' days before the library's first check-in (UI.md, "Add
+/// past statements"): where balances are compared there, at every month
+/// end, every quarter end or nowhere, and what that adds.
+struct ImportFirstCheckInCard: View {
+    let model: ImportController
+
+    var body: some View {
+        if let first = model.flow.firstCheckIn {
+            VStack(alignment: .leading, spacing: Metrics.s) {
+                HStack(alignment: .center, spacing: Metrics.l) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(Self.title(first))
+                            .font(.headline)
+                            .privacySensitiveInFeedback()
+                        Text("Where should balances be compared?")
+                            .foregroundStyle(Palette.secondaryInk)
+                    }
+                    Spacer(minLength: Metrics.s)
+                    ImportFirstCheckInPicker(model: model, first: first)
+                        .fixedSize()
+                }
+                Text(verbatim: first.note)
+                    .foregroundStyle(Palette.secondaryInk)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(Metrics.l)
+            .background(Palette.card, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .strokeBorder(Palette.border, lineWidth: 0.5)
+            }
+        }
+    }
+
+    /// "Before your first check-in (Jan 2024 – Jan 2026)", or "No
+    /// check-ins yet" without one.
+    static func title(_ first: ImportFirstCheckIn, locale: Locale = .current) -> String {
+        guard let firstCheckIn = first.firstCheckIn else { return "No check-ins yet" }
+        let from = first.from.dateValue.formatted(.dateTime.month(.abbreviated).year().locale(locale))
+        let through = firstCheckIn.dateValue.formatted(.dateTime.month(.abbreviated).year().locale(locale))
+        return "Before your first check-in (\(from) – \(through))"
+    }
+}
+
+/// Every month end | Every quarter end | Don't add any.
+private struct ImportFirstCheckInPicker: View {
+    let model: ImportController
+    let first: ImportFirstCheckIn
+
+    var body: some View {
+        Picker("Check-ins before the first", selection: Binding(get: { first.ends }, set: { ends in
+            model.flow.setFirstCheckInEnds(ends)
+        })) {
+            Text("Every Month End").tag(StatementCheckIns.Ends.months)
+            Text("Every Quarter End").tag(StatementCheckIns.Ends.quarters)
+            Text("Don't Add Any").tag(StatementCheckIns.Ends.never)
+        }
+        .pickerStyle(.segmented)
+        .labelsHidden()
+        .disabled(model.isWorking)
     }
 }
 

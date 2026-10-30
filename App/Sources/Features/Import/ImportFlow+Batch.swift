@@ -68,3 +68,56 @@ extension ImportFlow {
         return reasons
     }
 }
+
+// MARK: - Before the first check-in
+
+/// The statements' days before the library's first check-in (UI.md,
+/// "Add past statements"): where their values go, at every month end,
+/// every quarter end or none (Importer's `StatementCheckIns`).
+struct ImportFirstCheckIn: Hashable, Sendable {
+    /// The first day a file covers.
+    var from: CalendarDate
+    /// The library's first check-in; `nil` when it has none.
+    var firstCheckIn: CalendarDate?
+    /// The month ends that get a value.
+    var ends: StatementCheckIns.Ends
+    /// The dates of the values the files add before the first check-in.
+    var values: [CalendarDate]
+
+    /// "8 check-ins added, one at each quarter end. …"
+    var note: String {
+        let count = Wording.count(values.count, "check-in")
+        switch ends {
+        case .months:
+            return "\(count) added, one at each month end, with balances from the files. Most detail, most to "
+                + "check."
+        case .quarters:
+            return "\(count) added, one at each quarter end. A difference shows within 3 months, with a third of "
+                + "the checking."
+        case .never:
+            return "No check-ins are added: the lines count as one long stretch. A difference is only known for the "
+                + "whole stretch."
+        }
+    }
+}
+
+extension ImportFlow {
+    /// The files' days before the library's first check-in, and where
+    /// their values go; `nil` when no file has any.
+    var firstCheckIn: ImportFirstCheckIn? {
+        guard let batch else { return nil }
+        let first = library.checkInDates.first
+        let starts = previews.compactMap(\.preview.statementPeriod?.from)
+        guard let from = starts.min(), first.map({ from < $0 }) ?? true else { return nil }
+        var values: Set<CalendarDate> = []
+        for entry in previews {
+            for record in entry.preview.records {
+                if case .valuation(let key) = record.imported.key, first.map({ key.date < $0 }) ?? true {
+                    values.insert(key.date)
+                }
+            }
+        }
+        return ImportFirstCheckIn(from: from, firstCheckIn: first, ends: batch.checkIns?.ends ?? .months,
+                                  values: values.sorted())
+    }
+}
