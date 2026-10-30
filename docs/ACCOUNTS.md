@@ -19,7 +19,7 @@ The rules are in `Sources/Model/Accounts/`: `AccountKind.defaultValuationMode`, 
 | `pensionFund` | Balance, and what was saved, from its file ("Paid in since …") | Recorded, from a spreadsheet's saved column ([IMPORT.md](IMPORT.md#saved)); left out, unknown, and the change counts as other |
 | `tfr` | As a pension fund | As a pension fund |
 | `property` | As a pension fund (usually nothing paid in) | As a pension fund |
-| `belongings` | Things you own that lose value and might sell (a car, a bike, a boat, electronics): balance, and optionally an estimated loss of value a year (`depreciation`) | The whole change, so its loss of value is spent; between values, the estimated loss |
+| `belongings` | Things you own that lose value and might sell (a car, a bike, a boat, electronics): balance, and optionally an estimated loss of value a year (`depreciation`) | The whole change, so its loss of value is spent; with a `depreciation`, the change less the loss it gives, which is lost value, neither spent nor saved |
 | `taxPot` | Money set aside for a tax bill paid later, such as once a year: balance, money in (a refund of tax) and money out (tax paid from it), in neither net worth nor plans unless `includeIn` says so; what moves into it from your other accounts is tax, so came in is after it and it isn't spent ([PROGRESS.md](PROGRESS.md#money-in-and-out)) | The whole change |
 | `other` | As a pension fund | As a pension fund |
 

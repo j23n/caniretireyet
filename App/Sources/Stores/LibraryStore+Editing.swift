@@ -33,7 +33,7 @@ extension LibraryStore {
     /// The backup label of deleting an account.
     static let deleteAccountBackupLabel = "delete-account"
 
-    /// Deletes an account with all its valuations and trades, and what
+    /// Deletes an account with all its valuations, trades and bank lines, and what
     /// refers to it (``Library/removeReferences(to:)``). For mistakes only.
     /// The files it changes are backed up first (`delete-account`), so the
     /// account can be restored from *Sync & backups*, and it waits for the
@@ -46,6 +46,9 @@ extension LibraryStore {
             }
             for trade in library.trades(for: id) {
                 library.removeTradeRecord(trade.key)
+            }
+            for line in library.lines(for: id) {
+                library.removeLineRecord(line.key)
             }
             library.removeReferences(to: id)
         }
@@ -318,13 +321,17 @@ extension Library {
     }
 
     /// Removes what refers to an account that's being deleted: other
-    /// accounts' `successor`, plans' `portfolio.exclude` and contributions
+    /// accounts' `successor` and bank lines' `otherAccount`, plans' `portfolio.exclude` and contributions
     /// into it, and import profiles' remembered name matches and column or
     /// constant mappings (the importer then goes by the column's header).
     /// Baselines keep their account lists: they're a record of the past.
     mutating func removeReferences(to id: AccountID) {
         for (key, account) in accounts where account.successor == id {
             accounts[key]?.successor = nil
+        }
+        for var line in allLines where line.otherAccount == id {
+            line.otherAccount = nil
+            upsert(line)
         }
         for (key, plan) in plans where plan.portfolio.exclude.contains(id) || plan.contributions.contains(where: {
             $0.account == id

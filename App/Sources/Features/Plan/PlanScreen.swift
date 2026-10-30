@@ -103,9 +103,9 @@ struct PlanContentView: View {
         planLayout
             .navigationTitle("Ahead")
             #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
-            // On iPhone the page draws its title, with the plan menu beside it.
-            .toolbar(isWide ? .automatic : .hidden, for: .navigationBar)
+            // On the Mac and iPad the page's header row shows "Ahead" large;
+            // on iPhone the bar does, as Today's.
+            .navigationBarTitleDisplayMode(isWide ? .inline : .automatic)
             #endif
             .toolbar { planToolbar }
             .task(id: library.revision) {
@@ -181,9 +181,9 @@ struct PlanContentView: View {
 
     // MARK: Toolbar
 
-    /// *Calculate* or *Recalculate* and the eye on the Mac and iPad. The plan
-    /// menu is the page's title (``PlanMenu``); on iPhone the page has no
-    /// bar, and the eye is beside the title.
+    /// *Calculate* or *Recalculate* and the eye on the Mac and iPad, where
+    /// the plan menu is in the page's header row (``PlanMenu``). On iPhone
+    /// ``AheadView`` puts the plan menu and the eye in the bar.
     @ToolbarContentBuilder
     private var planToolbar: some ToolbarContent {
         if isWide {

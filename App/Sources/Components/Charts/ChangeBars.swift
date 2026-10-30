@@ -52,12 +52,14 @@ struct ChangeBars: Hashable, Sendable {
         }
     }
 
-    /// Markets, saved and other, from Tracker's split of a change. Net
-    /// worth's saved is as the savings rate counts it: money moved between your
-    /// accounts cancels out, so its bar is *Saved*.
+    /// Markets, saved and other, from Tracker's split of a change, and lost
+    /// value when there's any. Net worth's saved is as the savings rate
+    /// counts it: money moved between your accounts cancels out, so its bar
+    /// is *Saved*.
     init(_ change: ValueChange) {
-        self.init(start: change.start.doubleValue, end: change.end.doubleValue,
-                  parts: [("Markets", change.market.doubleValue), ("Saved", change.saved.doubleValue),
-                          ("Other", change.other.doubleValue)])
+        var parts = [("Markets", change.market.doubleValue), ("Saved", change.saved.doubleValue),
+                     ("Other", change.other.doubleValue)]
+        if change.lost != 0 { parts.append(("Lost value", change.lost.doubleValue)) }
+        self.init(start: change.start.doubleValue, end: change.end.doubleValue, parts: parts)
     }
 }

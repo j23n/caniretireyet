@@ -23,6 +23,15 @@ extension PreviewBuilder {
         var senderWords: [String]
         /// The profile's rule for the text (``ImportSession/statementRule(for:)``).
         var rule: StatementRule?
+        /// Its ID among the account's lines (``identify(_:account:)``).
+        var lineID: BankLineID = ""
+        /// The library's line with that ID: a line imported before, maybe
+        /// changed since.
+        var stored: BankLine?
+
+        /// The stored line when it was confirmed or removed: what it is
+        /// was decided, and comes before anything the import would suggest.
+        var decided: BankLine? { stored.flatMap { $0.isConfirmed || $0.isRemoved ? $0 : nil } }
     }
 
     /// Reads the lines, classifies them (``statementLines``) and works out
@@ -43,14 +52,33 @@ extension PreviewBuilder {
             issues.append(ImportIssue(kind: .noMoneyInOut(id)))
             return [:]
         }
-        let read = readStatementLines(dateColumn: dateColumn, dates: dates)
+        var read = readStatementLines(dateColumn: dateColumn, dates: dates)
         guard !read.isEmpty else { return [:] }
+        identify(&read, account: id)
         var lines = classify(read, account: account)
         markAsked(&lines, read: read, account: account)
         var records = statementValues(&lines, read: read, account: account)
         records.merge(statementAssetRecords(&lines, read: read, account: account)) { $1 }
         statementLines = lines
+        if !records.isEmpty { bankLines = lines.map { $0.bankLine(account: id) } }
         return records
+    }
+
+    /// Gives each line its stable ID (``Model/BankLineID/stable(account:date:amount:text:ordinal:)``),
+    /// numbering the file's lines with the same date, amount and text in
+    /// the order they're read, and finds the library's line with it.
+    private func identify(_ read: inout [ReadLine], account: AccountID) {
+        var seen: [String: Int] = [:]
+        for index in read.indices {
+            let line = read[index]
+            let same = "\(line.date) \(line.amount) \(line.text)"
+            let ordinal = seen[same, default: 0]
+            seen[same] = ordinal + 1
+            let id = BankLineID.stable(account: account, date: line.date, amount: line.amount, text: line.text,
+                                       ordinal: ordinal)
+            read[index].lineID = id
+            read[index].stored = library.line(BankLineKey(account: account, date: line.date, id: id))
+        }
     }
 
     // MARK: - Reading
@@ -134,8 +162,8 @@ extension PreviewBuilder {
         let names = accountNames(excluding: account)
         let answered = answeredAssets(read, account: account)
         let open = read.indices.filter { index in
-            session.statementLineClasses[read[index].row] == nil && remembered(read[index]) == nil
-                && read[index].rule == nil
+            session.statementLineClasses[read[index].row] == nil && read[index].decided == nil
+                && remembered(read[index]) == nil && read[index].rule == nil
                 && answered[read[index].row] == nil && batch.pairs[read[index].row] == nil
         }
         let trades = matchTrades(read, lines: open, excluding: account.id)
@@ -143,15 +171,20 @@ extension PreviewBuilder {
             let line = read[index]
             let rule = line.rule
             let chosen: (StatementClass, StatementLine.Source)
-            if answered[line.row] != nil {
+            if line.stored?.isRemoved == true {
+                // Removed, it counts in nothing, whatever this import chooses for it.
+                chosen = (.ignore, .chosen)
+            } else if answered[line.row] != nil {
                 // Money moved to or from an account, a purchase or a sale moves money between your accounts.
-                if session.statementAssets[line.row] == nil, let rule {
+                if session.statementAssets[line.row] == nil, line.decided == nil, let rule {
                     chosen = (.transfer, .rule(rule.match))
                 } else {
                     chosen = (.transfer, .chosen)
                 }
             } else if let statementClass = session.statementLineClasses[line.row] {
                 chosen = (statementClass, .chosen)
+            } else if let decided = line.decided {
+                chosen = (decided.statementClass, .chosen)
             } else if let answer = remembered(line) {
                 chosen = (answer.statementClass, .chosen)
             } else if let rule {
@@ -170,9 +203,13 @@ extension PreviewBuilder {
             } else {
                 chosen = (.spending, .sign)
             }
-            return StatementLine(row: line.row, date: line.date, amount: line.amount, text: line.text,
-                                 sender: line.sender, balance: line.balance, statementClass: chosen.0,
-                                 source: chosen.1)
+            var classified = StatementLine(row: line.row, date: line.date, amount: line.amount, text: line.text,
+                                           sender: line.sender, balance: line.balance, statementClass: chosen.0,
+                                           source: chosen.1)
+            classified.lineID = line.lineID
+            classified.isRemoved = line.stored?.isRemoved == true
+            classified.note = line.stored?.note
+            return classified
         }
         Self.markRecurring(&lines)
         Self.markQuestions(&lines)
@@ -400,8 +437,9 @@ extension PreviewBuilder {
             guard case .purchase? = session.statementAssets[line.row] else { return false }
             return line.amount < 0
         }
-        for line in read {
-            guard let asset = session.statementAssets[line.row] ?? ruleMove(for: line), asset.fits(line.amount)
+        for line in read where line.stored?.isRemoved != true {
+            guard let asset = session.statementAssets[line.row] ?? decidedMove(for: line) ?? ruleMove(for: line),
+                  asset.fits(line.amount)
             else { continue }
             switch asset {
             case .moved(let id):
@@ -423,11 +461,20 @@ extension PreviewBuilder {
         return answered
     }
 
+    /// The move the library's line confirmed, when nothing chosen for the
+    /// line in this import comes first: money moved to or from its other account.
+    private func decidedMove(for line: ReadLine) -> StatementAsset? {
+        guard session.statementLineClasses[line.row] == nil, session.statementAssets[line.row] == nil,
+              let decided = line.decided, !decided.isRemoved, decided.statementClass == .transfer
+        else { return nil }
+        return decided.otherAccount.map(StatementAsset.moved)
+    }
+
     /// The move a rule makes of `line`, when nothing chosen for the line
     /// comes first: money moved to or from the rule's account.
     private func ruleMove(for line: ReadLine) -> StatementAsset? {
         guard session.statementLineClasses[line.row] == nil, session.statementAssets[line.row] == nil,
-              remembered(line) == nil, let rule = line.rule, rule.statementClass == .transfer
+              line.decided == nil, remembered(line) == nil, let rule = line.rule, rule.statementClass == .transfer
         else { return nil }
         return rule.account.map(StatementAsset.moved)
     }
@@ -741,7 +788,8 @@ extension PreviewBuilder {
         }
         // A file said to end on a day has a value on that day, which the next file follows on from.
         if through != nil { cuts.insert(end) }
-        let balances = RunningBalances(lines)
+        // A removed line, such as one the bank's export lists twice, isn't in the balance either.
+        let balances = RunningBalances(lines.filter { !$0.isRemoved })
         runningBalanceBreaks = balances.breaks
         if balances.breaks > 0 { issues.append(ImportIssue(kind: .runningBalanceBreaks(count: balances.breaks))) }
         let fromFile = balances.opening
