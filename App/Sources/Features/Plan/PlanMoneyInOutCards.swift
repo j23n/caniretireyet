@@ -125,8 +125,8 @@ struct PlanMoneyInOutEmptyCard: View {
         }
     }
 
-    /// The account the sidebar selects, which lists the accounts: the first
-    /// open cash or savings account.
+    /// The account whose detail opens over *All Accounts* in the sidebar
+    /// layout: the first open cash or savings account.
     private var firstMoneyAccount: AccountID? {
         library.library.accounts.values.filter { $0.kind.recordsMoneyInOut && !$0.isClosed }.map(\.id).sorted().first
     }

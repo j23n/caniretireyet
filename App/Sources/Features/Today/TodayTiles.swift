@@ -21,8 +21,8 @@ import Tracker
 ///   slots, or before there's an answer. Net worth and what moved are wide; the milestone and
 ///   the savings rate are wide when only one has something to show.
 /// - ``Part/beside(slots:)``: net worth and what moved, tall, beside the
-///   answer in `slots`; each takes two slots when there are enough, what
-///   moved first, and with one slot the page stacks them in it.
+///   answer in `slots` (two or four); with four each takes two, with two
+///   one each, and net worth alone takes both.
 /// - ``Part/under``: the rest, small and half tiles, under the answer and
 ///   those two.
 struct TodayTiles: View {
@@ -59,10 +59,10 @@ struct TodayTiles: View {
             }
         case .beside(let slots):
             netWorth(isTall: true)
-                .tileSize(moved == nil ? (slots >= 2 ? .wide : .small) : (slots >= 4 ? .wide : .small))
+                .tileSize(moved == nil || slots >= 4 ? .wide : .small)
             if let moved {
                 movedTile(moved, isTall: true)
-                    .tileSize(slots >= 3 ? .wide : .small)
+                    .tileSize(slots >= 4 ? .wide : .small)
             }
         case .under:
             figures(twelveMonths, pairSize: .small)

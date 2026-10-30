@@ -16,7 +16,8 @@ import SwiftUI
 /// retired chapter, *You stop working* (``AheadStopCard``); after the last,
 /// the plan's end. A chapter opens in a sheet, a change in its own, the
 /// stop and the end in their small editors. On the Mac and iPad
-/// (`columns`) the cards flow in columns, in the same order.
+/// (`columns`) what changes in a chapter sits beside it, on the same line,
+/// when the page is wide enough for two columns.
 struct AheadLifeSection: View {
     let session: PlanSession
     let model: PlanChaptersModel
@@ -61,6 +62,31 @@ struct AheadLifeSection: View {
         return stops
     }
 
+    /// A row on the line: a stop, and beside it, on the Mac and iPad,
+    /// what changes in the chapter.
+    private struct Row: Identifiable {
+        var stop: Stop
+        var beside: Stop?
+
+        var id: String { stop.id }
+    }
+
+    /// The stops a row each, what changes in a chapter beside it.
+    private static func pairs(_ stops: [Stop]) -> [Row] {
+        var rows: [Row] = []
+        for stop in stops {
+            if case .changes = stop, let last = rows.indices.last, case .chapter = rows[last].stop {
+                rows[last].beside = stop
+            } else {
+                rows.append(Row(stop: stop))
+            }
+        }
+        return rows
+    }
+
+    /// The narrowest a column of cards gets beside another.
+    private static let columnWidth: CGFloat = 280
+
     /// Whether an input is a change along the way: other income,
     /// contributions, one-offs, later spending and changes of mix. Not
     /// work, nor pensions, which the sheet of the chapter they start in
@@ -92,25 +118,14 @@ struct AheadLifeSection: View {
                 .foregroundStyle(Palette.secondaryInk)
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.horizontal, Metrics.xs)
+            let single = stops.map { Row(stop: $0) }
             if columns {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 240), spacing: Metrics.m, alignment: .top)],
-                          alignment: .leading, spacing: Metrics.m) {
-                    ForEach(stops) { stop in
-                        card(stop, lines: lines)
-                    }
+                ViewThatFits(in: .horizontal) {
+                    line(Self.pairs(stops), lines: lines, twoColumns: true)
+                    line(single, lines: lines, twoColumns: false)
                 }
             } else {
-                VStack(alignment: .leading, spacing: 0) {
-                    ForEach(Array(stops.enumerated()), id: \.element.id) { offset, stop in
-                        HStack(alignment: .top, spacing: Metrics.m) {
-                            rail(stop, lines: lines, isLast: offset == stops.count - 1)
-                            card(stop, lines: lines)
-                                .padding(.bottom, Metrics.s)
-                        }
-                        // As tall as the card, so the line reaches the next dot.
-                        .fixedSize(horizontal: false, vertical: true)
-                    }
-                }
+                line(single, lines: lines, twoColumns: false)
             }
         }
     }
@@ -132,6 +147,41 @@ struct AheadLifeSection: View {
     }
 
     // MARK: The line
+
+    /// The rows down the line. With `twoColumns`, every row has a second
+    /// column, empty where a stop has nothing beside it, so the cards line up.
+    private func line(_ rows: [Row], lines: [PlanChapterLine], twoColumns: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(Array(rows.enumerated()), id: \.element.id) { offset, row in
+                HStack(alignment: .top, spacing: Metrics.m) {
+                    rail(row.stop, lines: lines, isLast: offset == rows.count - 1)
+                    Group {
+                        if twoColumns {
+                            HStack(alignment: .top, spacing: Metrics.m) {
+                                card(row.stop, lines: lines)
+                                    .frame(minWidth: Self.columnWidth, idealWidth: Self.columnWidth,
+                                           maxWidth: .infinity, alignment: .topLeading)
+                                Group {
+                                    if let beside = row.beside {
+                                        card(beside, lines: lines)
+                                    } else {
+                                        Color.clear.frame(height: 0)
+                                    }
+                                }
+                                .frame(minWidth: Self.columnWidth, idealWidth: Self.columnWidth,
+                                       maxWidth: .infinity, alignment: .topLeading)
+                            }
+                        } else {
+                            card(row.stop, lines: lines)
+                        }
+                    }
+                    .padding(.bottom, Metrics.s)
+                }
+                // As tall as the cards, so the line reaches the next dot.
+                .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
 
     /// The line down the left: a dot in the chapter's colour, a small one
     /// for its changes, the accent for when you stop, a ring at the end.

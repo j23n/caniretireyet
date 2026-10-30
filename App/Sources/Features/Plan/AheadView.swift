@@ -4,13 +4,14 @@ import Planner
 import SwiftUI
 
 /// Ahead (UI.md, "Ahead"): the plan. On iPhone the title with the plan
-/// menu, your last Monday on a card with the plan's chart to its end,
+/// menu and the eye, your last Monday on a card with the plan's chart to its end,
 /// *What if…* and how far ahead of January's plan you are, which opens So
 /// far; then the key numbers as tiles (``PlanResultTiles``) and *Your life
 /// ahead*, the chapters and what changes along the way down a line, with
 /// when you stop on it (``AheadLifeSection``). On the Mac and iPad a
 /// header row, your date beside What if's levers, the chart on a card of
-/// its own, your life ahead in columns, then the tiles.
+/// its own, your life ahead on the same line with what changes in a
+/// chapter beside it, then the tiles.
 ///
 /// What every chapter shares (*Assumptions…*, *Target Mix…*, *Flexible
 /// Spending…*) is in the plan menu. The plan calculates on its own: when it
@@ -122,13 +123,16 @@ struct AheadView: View {
     @ViewBuilder
     private func narrow(state: PlanResultsState, derived: PlanDerived) -> some View {
         VStack(alignment: .leading, spacing: Metrics.m) {
-            HStack(alignment: .firstTextBaseline, spacing: Metrics.m) {
-                Text("Ahead")
-                    .font(.largeTitle.bold())
-                    .foregroundStyle(Palette.ink)
-                    .accessibilityAddTraits(.isHeader)
-                Spacer(minLength: Metrics.s)
-                PlanMenu(session: session, actions: menuActions)
+            HStack(alignment: .center, spacing: Metrics.s) {
+                HStack(alignment: .firstTextBaseline, spacing: Metrics.m) {
+                    Text("Ahead")
+                        .font(.largeTitle.bold())
+                        .foregroundStyle(Palette.ink)
+                        .accessibilityAddTraits(.isHeader)
+                    Spacer(minLength: Metrics.s)
+                    PlanMenu(session: session, actions: menuActions)
+                }
+                TitleHideAmountsButton()
             }
             .padding(.horizontal, Metrics.xs)
             .padding(.top, Metrics.s)

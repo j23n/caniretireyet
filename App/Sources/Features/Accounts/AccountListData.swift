@@ -81,6 +81,12 @@ struct AccountListSection: Hashable, Sendable, Identifiable {
     var subtotal: Decimal {
         items.reduce(Decimal(0)) { $0 + $1.value }
     }
+
+    /// Whether one of its accounts is stale: the sidebar's group row shows
+    /// a clock.
+    var isStale: Bool {
+        items.contains { $0.stale != nil }
+    }
 }
 
 /// The account list for a search (UI.md, "Accounts"): the Accounts tab's,
@@ -117,16 +123,15 @@ struct AccountList: Hashable, Sendable {
         sections.reduce(Decimal(0)) { $0 + $1.subtotal }
     }
 
-    /// *Closed (3)*.
-    var closedTitle: String {
-        "Closed (\(closed.count))"
-    }
-
-    /// `includesSparklines: false` leaves every row's sparkline empty.
-    init(library: Library, valuator: Valuator, query: String = "", today: CalendarDate, stalenessThreshold: Int,
-         includesSparklines: Bool = true) {
+    /// `group` lists only that group's accounts, open and closed: a group's
+    /// page in the sidebar layout. `includesSparklines: false` leaves every
+    /// row's sparkline empty.
+    init(library: Library, valuator: Valuator, query: String = "", group: AccountGroup? = nil,
+         today: CalendarDate, stalenessThreshold: Int, includesSparklines: Bool = true) {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        let accounts = library.accounts.values.filter { Self.matches($0, query: trimmed) }
+        let accounts = library.accounts.values.filter { account in
+            (group == nil || account.group == group) && Self.matches(account, query: trimmed)
+        }
         let open = accounts.filter { !Self.listsAsClosed($0, today: today) }.sortedForDisplay()
         let closedAccounts = accounts.filter { Self.listsAsClosed($0, today: today) }
             .sorted { ($0.closed ?? $0.opened, $1.name) > ($1.closed ?? $1.opened, $0.name) }
@@ -148,12 +153,6 @@ struct AccountList: Hashable, Sendable {
         }
     }
 
-    /// Whether `query` searches: it has more than spaces. A blank query
-    /// lists every account, as an empty one does.
-    static func isSearching(_ query: String) -> Bool {
-        !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-    }
-
     /// Whether `account` is listed with the closed accounts on `today`: it
     /// closed before today. One closing today or later is still open.
     static func listsAsClosed(_ account: Account, today: CalendarDate) -> Bool {
@@ -172,72 +171,5 @@ struct AccountList: Hashable, Sendable {
         return words.allSatisfy { word in
             haystack.range(of: word, options: [.caseInsensitive, .diacriticInsensitive]) != nil
         }
-    }
-}
-
-// MARK: - Cards
-
-/// A collapsed group, or *Closed*, as one row of the accounts list: its
-/// name and what it adds up to, and a clock when one of its accounts is
-/// stale. Tapping it expands it.
-struct AccountListFolderRow: Hashable, Sendable, Identifiable {
-    var folder: SidebarAccountFolder
-    var title: String
-    /// A group's subtotal; `nil` for *Closed*, which shows its count.
-    var subtotal: Decimal?
-    var count: Int
-    var isStale: Bool
-
-    var id: String { folder.key }
-}
-
-/// A card of the accounts list (UI.md, "Accounts"): an expanded group with
-/// its accounts, the collapsed groups next to each other as one row each,
-/// or the expanded *Closed* with its accounts.
-enum AccountListCard: Hashable, Sendable, Identifiable {
-    case group(AccountListSection)
-    case collapsed([AccountListFolderRow])
-    case closed([AccountListItem])
-
-    var id: String {
-        switch self {
-        case .group(let section): section.group.rawValue
-        case .collapsed(let rows): "collapsed " + rows.map(\.id).joined(separator: " ")
-        case .closed: "closed"
-        }
-    }
-}
-
-extension AccountList {
-    /// The list's cards, in order: each expanded group a card of its own,
-    /// and the collapsed groups (and a collapsed *Closed*) next to each
-    /// other one card of rows.
-    func cards(isExpanded: (SidebarAccountFolder) -> Bool) -> [AccountListCard] {
-        var cards: [AccountListCard] = []
-        var collapsed: [AccountListFolderRow] = []
-        for section in sections {
-            let folder = SidebarAccountFolder.group(section.group)
-            if isExpanded(folder) {
-                if !collapsed.isEmpty { cards.append(.collapsed(collapsed)) }
-                collapsed = []
-                cards.append(.group(section))
-            } else {
-                collapsed.append(AccountListFolderRow(folder: folder, title: section.group.description,
-                                                      subtotal: section.subtotal, count: section.items.count,
-                                                      isStale: section.items.contains { $0.stale != nil }))
-            }
-        }
-        if !closed.isEmpty {
-            if isExpanded(.closed) {
-                if !collapsed.isEmpty { cards.append(.collapsed(collapsed)) }
-                collapsed = []
-                cards.append(.closed(closed))
-            } else {
-                collapsed.append(AccountListFolderRow(folder: .closed, title: "Closed", subtotal: nil,
-                                                      count: closed.count, isStale: false))
-            }
-        }
-        if !collapsed.isEmpty { cards.append(.collapsed(collapsed)) }
-        return cards
     }
 }
