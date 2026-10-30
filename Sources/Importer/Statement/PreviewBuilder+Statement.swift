@@ -171,7 +171,10 @@ extension PreviewBuilder {
             let line = read[index]
             let rule = line.rule
             let chosen: (StatementClass, StatementLine.Source)
-            if answered[line.row] != nil {
+            if line.stored?.isRemoved == true {
+                // Removed, it counts in nothing, whatever this import chooses for it.
+                chosen = (.ignore, .chosen)
+            } else if answered[line.row] != nil {
                 // Money moved to or from an account, a purchase or a sale moves money between your accounts.
                 if session.statementAssets[line.row] == nil, line.decided == nil, let rule {
                     chosen = (.transfer, .rule(rule.match))
@@ -181,8 +184,7 @@ extension PreviewBuilder {
             } else if let statementClass = session.statementLineClasses[line.row] {
                 chosen = (statementClass, .chosen)
             } else if let decided = line.decided {
-                // Removed, it counts in nothing; confirmed, it's what was confirmed.
-                chosen = (decided.isRemoved ? .ignore : decided.statementClass, .chosen)
+                chosen = (decided.statementClass, .chosen)
             } else if let answer = remembered(line) {
                 chosen = (answer.statementClass, .chosen)
             } else if let rule {
@@ -435,7 +437,7 @@ extension PreviewBuilder {
             guard case .purchase? = session.statementAssets[line.row] else { return false }
             return line.amount < 0
         }
-        for line in read {
+        for line in read where line.stored?.isRemoved != true {
             guard let asset = session.statementAssets[line.row] ?? decidedMove(for: line) ?? ruleMove(for: line),
                   asset.fits(line.amount)
             else { continue }

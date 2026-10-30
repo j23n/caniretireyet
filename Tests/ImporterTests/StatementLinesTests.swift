@@ -85,6 +85,18 @@ struct StatementLinesTests {
         #expect(Self.january(preview)?.balance == 12040)
         let result = preview.apply(to: library)
         #expect(result.library.line(Self.twice)?.isRemoved == true)
+
+        // A class chosen for it in the import doesn't count it either.
+        var session = try ImportSession(data: Data(Self.statement.utf8))
+        session.proposeMapping(layout: .statement)
+        session.profile.constants.account = "conto"
+        let rows = session.preview(against: library, today: Self.today).statementLines
+        let pay = try #require(rows.first { $0.text.hasPrefix("Bonifico SEPA") })
+        session.setStatementClass(.income, forRow: pay.row)
+        session.setStatementClass(.spending, forRow: line.row)
+        let chosen = session.preview(against: library, today: Self.today)
+        #expect(Self.january(chosen)?.moneyOut == 960)
+        #expect(Self.january(chosen)?.balance == 12040)
     }
 
     @Test func aConfirmedLineKeepsWhatItIs() throws {
