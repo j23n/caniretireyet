@@ -40,14 +40,11 @@ struct SoFarScreen: View {
     }
 }
 
-/// So far for one plan: its session, the page, and on iPhone the large
-/// title drawn on the page, as Ahead draws its own, with the eye beside it;
-/// on the Mac and iPad the eye is in the toolbar.
+/// So far for one plan: its session, the page, and the eye in the bar.
 private struct SoFarContentView: View {
     let planID: PlanID
 
     @Environment(LibraryStore.self) private var library
-    @Environment(\.pageLayout) private var layout
     @State private var session: PlanSession
 
     init(planID: PlanID, library: LibraryStore, plans: PlanStore) {
@@ -57,14 +54,9 @@ private struct SoFarContentView: View {
 
     var body: some View {
         SoFarView(session: session)
-            #if os(iOS)
-            .toolbar(layout.isWide ? .automatic : .hidden, for: .navigationBar)
-            #endif
             .toolbar {
-                if layout.isWide {
-                    ToolbarItem(placement: .primaryAction) {
-                        HideAmountsButton()
-                    }
+                ToolbarItem(placement: .primaryAction) {
+                    HideAmountsButton()
                 }
             }
             .task(id: library.revision) {
@@ -101,18 +93,6 @@ struct SoFarView: View {
         ScrollViewReader { proxy in
             ScrollView {
                 VStack(alignment: .leading, spacing: Metrics.m) {
-                    if !isWide {
-                        HStack(alignment: .center, spacing: Metrics.m) {
-                            Text("So far")
-                                .font(.largeTitle.bold())
-                                .foregroundStyle(Palette.ink)
-                                .accessibilityAddTraits(.isHeader)
-                            Spacer(minLength: Metrics.s)
-                            TitleHideAmountsButton()
-                        }
-                        .padding(.horizontal, Metrics.xs)
-                        .padding(.top, Metrics.s)
-                    }
                     content(timeline, history: progress.history) { year in
                         selectedYear = year
                         withAnimation(.snappy) { proxy.scrollTo(Self.yearCard, anchor: .top) }
