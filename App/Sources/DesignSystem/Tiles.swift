@@ -231,9 +231,10 @@ extension View {
 /// Tiles in rows, as widgets on the home screen: a small tile takes one
 /// slot, a wide one two and a full one the row (``View/tileSize(_:)``);
 /// two half tiles in a row stack in one slot. On iPhone in portrait a row
-/// has two slots; a wider page fits more, so a tile keeps about the size it
-/// has on iPhone (``minimumSmallWidth``) instead of growing with the page,
-/// and a row that isn't full leaves its last slots empty. A row is as tall
+/// has two slots; a wider page fits four or six, never three or five, so a
+/// tile stays near the size it has on iPhone (at least
+/// ``minimumSmallWidth``) instead of growing with the page, and a row that
+/// isn't full leaves its last slots empty. A row is as tall
 /// as a small tile is wide, at most ``rowHeight``, so a slot wider than an
 /// iPhone's doesn't make its tiles taller; or taller when a tile's content
 /// needs it (larger Dynamic Type sizes). Every tile in it takes its height,
@@ -251,11 +252,13 @@ struct TileGrid: Layout {
     /// need, as beside Today's answer, so the two end together.
     var fillsHeight = false
 
-    /// The narrowest a small tile gets before a row drops a slot: a little
-    /// under an iPhone's in portrait, so iPhones keep two slots and wider
-    /// pages (iPhone in landscape, iPad, the Mac's side columns once they
-    /// stack) take three or more.
+    /// The narrowest a small tile gets before a row drops to fewer slots: a
+    /// little under an iPhone's in portrait, so iPhones keep two slots and
+    /// wider pages (iPhone in landscape, iPad, the Mac) take four or six.
     static let minimumSmallWidth: CGFloat = 160
+
+    /// The most slots a row has. Wider pages widen the slots instead.
+    static let maximumSlots = 6
 
     /// The tallest a row gets for its slots' width: about a small tile's on
     /// the larger iPhones.
@@ -319,11 +322,14 @@ struct TileGrid: Layout {
         return max(0, (width - spacing * CGFloat(slots - 1)) / CGFloat(slots))
     }
 
-    /// The small tiles a row of `width` holds: two, or more while each
-    /// keeps ``minimumSmallWidth``.
+    /// The small tiles a row of `width` holds: two, four or six, the most
+    /// that each keep ``minimumSmallWidth``. Never an odd number, so a wide
+    /// tile or two half tiles always line up with the rows above and below.
     static func slots(width: CGFloat, spacing: CGFloat = Metrics.m) -> Int {
         let fit = (width + spacing) / (minimumSmallWidth + spacing)
-        return fit.isFinite ? max(2, Int(fit)) : 2
+        guard fit.isFinite else { return 2 }
+        let even = Int(fit) / 2 * 2
+        return min(maximumSlots, max(2, even))
     }
 
     /// The tiles in rows of up to ``slots(width:spacing:)``, in order, each

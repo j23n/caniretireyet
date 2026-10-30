@@ -10,10 +10,9 @@ import Tracker
 /// One layout at every width: the answer as a date on the app icon's dusk
 /// (``TodayAnswerCard``), or before there's one the next step
 /// (``TodayPlanCard``); then tiles (``TodayTiles``) on a grid of slots as
-/// wide as an iPhone's (``TileGrid``). Where a row has three slots or more
+/// wide as an iPhone's (``TileGrid``). Where a row has four slots or six
 /// the answer takes two of them, with net worth and what moved beside it
-/// as tall tiles that end with it (one above the other in a third slot),
-/// and the smaller tiles under them. Then
+/// as tall tiles that end with it, and the smaller tiles under them. Then
 /// what needs attention, only while something does, and *Coming up*, the
 /// milestones ahead as tiles (``TodayComingUp``).
 ///
@@ -63,8 +62,8 @@ struct TodayScreen: View {
     }
 
     /// The answer with net worth and what moved beside it where a row has
-    /// three slots, and the other tiles; then what needs attention and
-    /// *Coming up*.
+    /// four slots or six, and the other tiles; then what needs attention
+    /// and *Coming up*.
     private func page(today: CalendarDate) -> some View {
         let mainPlan = library.mainPlan
         let latest = mainPlan == nil ? nil : plans.mainAnswer
@@ -72,24 +71,15 @@ struct TodayScreen: View {
         let results = latest?.results
         let slots = TileGrid.slots(width: pageWidth)
         return VStack(alignment: .leading, spacing: Metrics.l) {
-            if let answer, let mainPlan, slots >= 3 {
+            if let answer, let mainPlan, slots >= 4 {
                 VStack(alignment: .leading, spacing: Metrics.m) {
                     let answerWidth = 2 * TileGrid.smallWidth(width: pageWidth) + Metrics.m
                     HStack(alignment: .top, spacing: Metrics.m) {
                         TodayAnswerCard(answer: answer, plan: mainPlan, results: results, today: today)
                             .frame(width: answerWidth)
-                        Group {
-                            if slots >= 4 {
-                                TileGrid(fillsHeight: true) {
-                                    TodayTiles(part: .beside(slots: slots - 2), plan: mainPlan, results: results,
-                                               today: today)
-                                }
-                            } else {
-                                VStack(spacing: Metrics.m) {
-                                    TodayTiles(part: .beside(slots: 1), plan: mainPlan, results: results,
-                                               today: today)
-                                }
-                            }
+                        TileGrid(fillsHeight: true) {
+                            TodayTiles(part: .beside(slots: slots - 2), plan: mainPlan, results: results,
+                                       today: today)
                         }
                         // At most the rest of the page: never unbounded while the
                         // stack measures it, and narrowing with the page.
