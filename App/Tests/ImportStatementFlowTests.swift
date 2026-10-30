@@ -168,7 +168,7 @@ struct ImportStatementFlowTests {
         let closing = flow.preview?.records.first { $0.imported.key.date == "2026-09-30" }
         #expect(closing?.imported.balance == Decimal(string: "6104.8"))
         #expect(flow.planned?.kept == 1)
-        #expect(flow.planned?.hasChanges == false)
+        #expect(flow.planned?.overwritten == 0)
         #expect(!flow.blockers.isEmpty)
     }
 
@@ -532,10 +532,10 @@ struct ImportStatementFlowTests {
         // A change to one file's lines keeps the pair.
         flow.setStatementClass(.spending, forRow: try line(flow, "Affitto").row)
         #expect(try line(flow, "Giroconto").source == .paired("conto-deposito"))
-        // The example library has both accounts' September values: overwritten, they change.
-        #expect(flow.planned?.hasChanges == false)
+        // The example library has both accounts' September values: kept until they're overwritten.
+        #expect(flow.planned?.overwritten == 0)
         flow.setConflictPolicy(.overwrite)
-        #expect(flow.planned?.hasChanges == true)
+        #expect((flow.planned?.overwritten ?? 0) > 0)
 
         // A file nothing recognizes waits for its account.
         var unknown = ImportFlow(library: PreviewLibrary.library)

@@ -120,12 +120,22 @@ public struct StatementLine: Hashable, Sendable, Identifiable {
     }
 
     /// The line as the library keeps it: what it is, confirmed when it
-    /// was chosen, and the import's suggestion otherwise.
+    /// was chosen, and the import's suggestion otherwise. A purchase or a
+    /// sale stays a suggestion, so importing the file again asks for it
+    /// again and finds the value it made.
     func bankLine(account: AccountID) -> BankLine {
-        BankLine(account: account, date: date, id: lineID, amount: amount, text: text,
-                 statementClass: statementClass, otherAccount: otherAccount, note: note,
-                 removed: isRemoved ? true : nil, confirmed: source == .chosen && !isRemoved ? true : nil,
-                 source: .import)
+        let isConfirmed = source == .chosen && !isRemoved && !isPurchaseOrSale
+        return BankLine(account: account, date: date, id: lineID, amount: amount, text: text,
+                        statementClass: statementClass, otherAccount: otherAccount, note: note,
+                        removed: isRemoved ? true : nil, confirmed: isConfirmed ? true : nil, source: .import)
+    }
+
+    /// Whether the line's answer is a purchase or a sale.
+    private var isPurchaseOrSale: Bool {
+        switch asset {
+        case .purchase?, .sale?: true
+        case .moved?, nil: false
+        }
     }
 
     /// Whether the text has `phrase` as whole words, ignoring case, accents
