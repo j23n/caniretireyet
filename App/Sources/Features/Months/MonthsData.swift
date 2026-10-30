@@ -50,10 +50,12 @@ enum MonthText {
         }
     }
 
-    /// "4 of 5 to do", or "All done".
-    static func progress(_ month: MoneyMonth) -> String {
-        let toDo = month.toDo.count
-        return toDo == 0 ? "All done" : "\(toDo) of \(month.accounts.count) to do"
+    /// "4 of 5 to do", or "All done": a check-in's cash and savings
+    /// months, and its brokerage months.
+    static func progress(_ month: MoneyMonth, brokerage: [BrokerageMonth] = []) -> String {
+        let toDo = month.toDo.count + brokerage.filter { !$0.status.isDone }.count
+        let total = month.accounts.count + brokerage.count
+        return toDo == 0 ? "All done" : "\(toDo) of \(total) to do"
     }
 
     /// A line's class as its chip says it: "Spending", "Moved to Directa",

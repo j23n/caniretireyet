@@ -157,6 +157,18 @@ struct TradeListItem: Hashable, Sendable, Identifiable {
     var type: TradeType { trade.type }
 }
 
+extension TradeListItem {
+    /// `entry` as the ledger applied it, described with `library`'s names.
+    init(_ entry: TradeEntry, in library: Library, hasIssue: Bool, locale: Locale = .current) {
+        self.init(trade: entry.trade, title: TradeWording.title(of: entry.trade, in: library, locale: locale),
+                  subtitle: TradeWording.subtitle(of: entry.trade, in: library, locale: locale),
+                  priceText: TradeWording.price(of: entry.trade, in: library, locale: locale),
+                  instrumentLabel: entry.trade.instrument.map { TradeWording.instrumentLabel($0, in: library) },
+                  amount: entry.amount, settlementLabel: TradeWording.settlementLabel(of: entry.trade),
+                  realizedGain: entry.realizedGain, hasIssue: hasIssue)
+    }
+}
+
 /// The trades of one month, newest first.
 struct TradeMonthSection: Hashable, Sendable, Identifiable {
     var month: YearMonth
@@ -217,14 +229,7 @@ struct TradeList: Hashable, Sendable {
         let flagged = Set(valuator.tradeIssues(for: account).filter { $0.severity == .error }.compactMap(\.trade))
         // Newest first: the reverse of the order they apply in.
         let items = entries.reversed().filter { filter.includes($0.trade) }.map { entry in
-            TradeListItem(
-                trade: entry.trade, title: TradeWording.title(of: entry.trade, in: library, locale: locale),
-                subtitle: TradeWording.subtitle(of: entry.trade, in: library, locale: locale),
-                priceText: TradeWording.price(of: entry.trade, in: library, locale: locale),
-                instrumentLabel: entry.trade.instrument.map { TradeWording.instrumentLabel($0, in: library) },
-                amount: entry.amount, settlementLabel: TradeWording.settlementLabel(of: entry.trade),
-                realizedGain: entry.realizedGain,
-                hasIssue: flagged.contains(entry.trade.key))
+            TradeListItem(entry, in: library, hasIssue: flagged.contains(entry.trade.key), locale: locale)
         }
         var sections: [TradeMonthSection] = []
         for item in items {

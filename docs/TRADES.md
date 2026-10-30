@@ -164,9 +164,17 @@ A valuation of a trades account that lists `positions` is a check: `Valuator.rec
 
 A trades account needs no value at a check-in: its value is its trades at the check-in's prices. Its trades come from the broker's export, imported during the check-in ([UI.md](UI.md#check-in)), and a broker statement's cash and positions, imported too, anchor its cash and check its quantities. The check-in lists it as updated when it has a trade or a value in the check-in's month.
 
+## A brokerage month
+
+The app's *Money In and Out* lists each trades account's month up to each check-in (Tracker's `Valuator.brokerageMonth(of:after:through:in:)`, `brokerageMonths(after:through:in:)`, `BrokerageMonth`), beside the cash and savings accounts' months ([IMPORT.md](IMPORT.md#your-months)). A month holds the trades dated after the check-in before through the check-in's date, and its cash: the [cash](#cash) on the check-in before (`openingCash`), plus what the month's trades did to it (`tradesCash`), is the cash from trades (`cashFromTrades`). The cash the broker states on the check-in's date (`statedCash`, the `cash` of the account's value on that date, set by `Library.setBrokerCash(_:of:on:)`) checks it: the difference is a trade missing or wrong, and it counts as a [residual](#flows), as any statement's cash does.
+
+Money a current or savings account's statement moved to the account (a line of class `transfer` whose `otherAccount` is the trades account) that no deposit or withdrawal of the account matches, the same amount within four days, is a **deposit to add** (`depositsToAdd`). Each deposit matches one line, over all the account's months at once. Only lines of accounts in the trades account's currency count, since a trade's amount is in its own account's currency: money moved from another currency is left for the broker's own deposit. `Library.addDeposit(for:)` records it as a deposit (or a withdrawal, for money moved back) on the line's day, so both accounts show the same move. Saved counts the move once either way ([PROGRESS.md](PROGRESS.md#money-in-and-out)).
+
+A month is **done** when the trades lead to the broker's cash and it has no deposit to add. Otherwise it has deposits to add, waits for the broker's cash, is off by the difference, or has nothing yet.
+
 ## Deleting a trade
 
-The app doesn't type or edit trades: a wrong one is fixed in its file and imported again, or deleted from the account's page. Tracker's `Library.removeTrade(_:)` removes one and returns the trade issues the removal brought in, e.g. a later sale now taking away more than is held; what the account's valuations saved follows, since it's worked out from the trades. To preview it, remove it from a copy of the library. `Library.upsert(_:)` and `removeTradeRecord(_:)` (Model) write the record alone.
+The app types trades only on a brokerage month (*Add Trade*, with `manual` as their source), and doesn't edit them: a wrong one is fixed in its file and imported again, or deleted from the account's page or its month. Tracker's `Library.removeTrade(_:)` removes one and returns the trade issues the removal brought in, e.g. a later sale now taking away more than is held; what the account's valuations saved follows, since it's worked out from the trades. To preview it, remove it from a copy of the library. `Library.upsert(_:)` and `removeTradeRecord(_:)` (Model) write the record alone.
 
 ## Checks
 
