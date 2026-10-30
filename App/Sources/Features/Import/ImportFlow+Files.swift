@@ -419,6 +419,28 @@ extension ImportFlow {
             + "read the same way."
     }
 
+    /// How many of the file's columns are read, on iPhone's *How It's
+    /// Read*: "6 columns recognized".
+    var recognizedTitle: String {
+        "\(Wording.count(columnRows.count { $0.use != .ignore }, "column")) recognized"
+    }
+
+    /// What the columns read are and how dates and numbers read: "Date,
+    /// money in, money out, description, balance. Dates read as
+    /// 31/12/2025, numbers as 1.234,56."
+    var recognizedSummary: String {
+        let uses = columnRows.filter { $0.use != .ignore }.enumerated().map { index, row in
+            let title = row.use.title(in: layout)
+            let isWord = title.dropFirst().first?.isLowercase == true
+            return index == 0 || !isWord ? title : title.prefix(1).lowercased() + title.dropFirst()
+        }
+        var formats: [String] = []
+        if let pattern = datePatternInUse { formats.append("dates read as " + ImportChoices.dateExample(of: pattern)) }
+        formats.append("numbers as " + ImportChoices.numberExample(numberStyle ?? detectedNumberStyle))
+        let read = formats.joined(separator: ", ").capitalizedFirst + "."
+        return uses.isEmpty ? read : uses.joined(separator: ", ") + ". " + read
+    }
+
     /// The first rows of the file on screen as written, one cell per column.
     func sampleRows(limit: Int = 12) -> [ImportSampleRow] {
         guard let table = session?.table else { return [] }
