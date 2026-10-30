@@ -1,8 +1,8 @@
-/// `history/YYYY/YYYY-MM.json`: the valuations, trades, prices, FX rates
-/// and index values dated in one calendar month.
+/// `history/YYYY/YYYY-MM.json`: the valuations, trades, bank lines, prices,
+/// FX rates and index values dated in one calendar month.
 ///
 /// The valuation, price, FX and index lists are always written, even when
-/// empty; `trades` is left out when empty. Records are kept sorted by date,
+/// empty; `trades` and `lines` are left out when empty. Records are kept sorted by date,
 /// then by ID (see ``RecordFile/sortRecords()``).
 public struct MonthFile: Hashable, Sendable, KnownKeysProviding {
     public var month: YearMonth
@@ -13,10 +13,13 @@ public struct MonthFile: Hashable, Sendable, KnownKeysProviding {
     /// The trades of accounts whose holdings come from trades
     /// (``ValuationMode/trades``), sorted by key: date, account, ID.
     public var trades: [Trade]
+    /// The lines of cash, savings and tax-pot accounts' statements
+    /// (``BankLine``), sorted by key: date, account, ID.
+    public var lines: [BankLine]
 
     public init(
         month: YearMonth, valuations: [Valuation] = [], prices: [PriceRecord] = [], fx: [FXRecord] = [],
-        indices: [IndexRecord] = [], trades: [Trade] = []
+        indices: [IndexRecord] = [], trades: [Trade] = [], lines: [BankLine] = []
     ) {
         self.month = month
         self.valuations = valuations
@@ -24,6 +27,7 @@ public struct MonthFile: Hashable, Sendable, KnownKeysProviding {
         self.fx = fx
         self.indices = indices
         self.trades = trades
+        self.lines = lines
     }
 
     /// The dates of all records that don't belong in this month.
@@ -40,6 +44,7 @@ extension MonthFile: RecordFile {
             RecordList("fx", \MonthFile.fx, key: ["date", "base", "quote"]),
             RecordList("indices", \MonthFile.indices, key: ["date", "index"]),
             RecordList("trades", \MonthFile.trades, key: ["date", "account", "id"]),
+            RecordList("lines", \MonthFile.lines, key: ["date", "account", "id"]),
         ]
     }
 
@@ -50,7 +55,7 @@ extension MonthFile: RecordFile {
 
 extension MonthFile: Codable {
     enum CodingKeys: String, CodingKey, CaseIterable {
-        case month, valuations, prices, fx, indices, trades
+        case month, valuations, prices, fx, indices, trades, lines
     }
 
     public static var knownKeys: Set<String> { Set(CodingKeys.allCases.map(\.stringValue)) }
@@ -63,6 +68,7 @@ extension MonthFile: Codable {
         fx = try c.decodeArray([FXRecord].self, forKey: .fx)
         indices = try c.decodeArray([IndexRecord].self, forKey: .indices)
         trades = try c.decodeArray([Trade].self, forKey: .trades)
+        lines = try c.decodeArray([BankLine].self, forKey: .lines)
     }
 
     public func encode(to encoder: any Encoder) throws {
@@ -73,5 +79,6 @@ extension MonthFile: Codable {
         try c.encode(fx, forKey: .fx)
         try c.encode(indices, forKey: .indices)
         try c.encodeIfNotEmpty(trades, forKey: .trades)
+        try c.encodeIfNotEmpty(lines, forKey: .lines)
     }
 }

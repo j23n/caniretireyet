@@ -91,6 +91,21 @@ extension Library {
         months[key.date.yearMonth]?.trades.first { $0.key == key }
     }
 
+    /// Every bank line, sorted by key: date, account, ID.
+    public var allLines: [BankLine] {
+        months.values.flatMap(\.lines).sortedByKey()
+    }
+
+    /// An account's bank lines, sorted by key (date, then ID).
+    public func lines(for account: AccountID) -> [BankLine] {
+        months.values.flatMap { $0.lines.filter { $0.account == account } }.sortedByKey()
+    }
+
+    /// The bank line with this key, if there is one.
+    public func line(_ key: BankLineKey) -> BankLine? {
+        months[key.date.yearMonth]?.lines.first { $0.key == key }
+    }
+
     /// The price with this key (instrument and date), if there is one.
     public func price(_ key: PriceKey) -> PriceRecord? {
         months[key.date.yearMonth]?.prices.first { $0.key == key }
@@ -177,6 +192,20 @@ extension Library {
     /// and ID). It goes into its date's month file, which stays sorted.
     public mutating func upsert(_ trade: Trade) {
         upsert(trade, on: trade.date, in: \.trades)
+    }
+
+    /// Adds a bank line, or replaces the one with the same key (account,
+    /// date and ID). It goes into its date's month file, which stays sorted.
+    public mutating func upsert(_ line: BankLine) {
+        upsert(line, on: line.date, in: \.lines)
+    }
+
+    /// Removes the bank line with this key, returning it if there was one.
+    /// An emptied month file stays in `months`. Removing a line you don't
+    /// want counted is ``BankLine/removed``, which keeps it in the file.
+    @discardableResult
+    public mutating func removeLineRecord(_ key: BankLineKey) -> BankLine? {
+        remove(key, on: key.date, from: \.lines)
     }
 
     /// Removes the trade record with this key, returning it if there was
