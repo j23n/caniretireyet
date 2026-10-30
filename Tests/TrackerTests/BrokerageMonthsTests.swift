@@ -119,6 +119,145 @@ struct BrokerageMonthsTests {
         #expect(!month.status.isDone)
     }
 
+    /// Saving a line that moves money to the broker adds its deposit, so
+    /// it counts as saved at once; saving it as something else takes the
+    /// deposit away again.
+    @Test func savingAMoveKeepsItsDeposit() throws {
+        var library = Self.library()
+        var line = try #require(library.lines(for: "conto").first)
+        library.save([line])
+        let deposit = try #require(Self.deposits(library).first)
+        #expect(deposit.amount == 1500)
+        #expect(deposit.date == "2026-10-03")
+        let october = try Self.october(library)
+        #expect(october.depositsToAdd.isEmpty)
+
+        library.save([line])
+        #expect(Self.deposits(library).count == 1)
+
+        line.statementClass = .spending
+        line.otherAccount = nil
+        library.save([line])
+        #expect(Self.deposits(library).isEmpty)
+    }
+
+    /// Money moved back from the broker is its withdrawal.
+    @Test func savingMoneyMovedBackKeepsItsWithdrawal() throws {
+        var library = Self.library()
+        var back = BankLine(account: "conto", date: "2026-10-20", id: "back", amount: 500,
+                            statementClass: .transfer, otherAccount: "broker", confirmed: true)
+        library.save([back])
+        let withdrawal = try #require(library.trades(for: "broker").first { $0.type == .withdrawal })
+        #expect(withdrawal.amount == -500)
+        #expect(withdrawal.date == "2026-10-20")
+
+        back.statementClass = .income
+        back.otherAccount = nil
+        library.save([back])
+        #expect(library.trades(for: "broker").allSatisfy { $0.type != .withdrawal })
+    }
+
+    /// A move whose amount changes gets a deposit of the new amount.
+    @Test func aChangedAmountChangesTheDeposit() throws {
+        var library = Self.library()
+        var line = try #require(library.lines(for: "conto").first)
+        library.save([line])
+        line.amount = -1600
+        library.save([line])
+        let amounts: [Decimal?] = Self.deposits(library).map(\.amount)
+        #expect(amounts == [1600])
+    }
+
+    /// Removing the line takes its deposit away too.
+    @Test func removingAMoveTakesItsDepositAway() throws {
+        var library = Self.library()
+        var line = try #require(library.lines(for: "conto").first)
+        library.save([line])
+        line.removed = true
+        library.save([line])
+        #expect(Self.deposits(library).isEmpty)
+    }
+
+    /// The same move typed by hand and read from the statement: removing
+    /// the typed line gives its deposit to the statement's.
+    @Test func removingADuplicateKeepsTheOthersDeposit() throws {
+        var library = Self.library()
+        var typed = BankLine(account: "conto", date: "2026-10-03", id: "typed", amount: -1500,
+                             statementClass: .transfer, otherAccount: "broker", confirmed: true, source: .manual)
+        library.save([typed])
+        #expect(Self.deposits(library).count == 1)
+
+        typed.removed = true
+        library.save([typed])
+        #expect(Self.deposits(library).count == 1)
+        let october = try Self.october(library)
+        #expect(october.depositsToAdd.isEmpty)
+    }
+
+    /// The deposit the statement's import added for a move goes when the
+    /// line is changed to spending.
+    @Test func theImportsDepositGoesWithItsMove() throws {
+        var library = Self.library()
+        var line = try #require(library.lines(for: "conto").first)
+        var deposit = Trade(account: "broker", date: "2026-10-03", type: .deposit, amount: 1500, source: .import)
+        deposit.id = TradeID.stable(for: deposit)
+        library.upsert(deposit)
+        library.save([line])
+        #expect(Self.deposits(library).count == 1)
+
+        line.statementClass = .spending
+        line.otherAccount = nil
+        library.save([line])
+        #expect(Self.deposits(library).isEmpty)
+    }
+
+    /// Two moves of one day and amount each take their own deposit away.
+    @Test func twoLikeMovesTakeTwoDepositsAway() throws {
+        var library = Self.library()
+        var first = BankLine(account: "conto", date: "2026-10-10", id: "first", amount: -500,
+                             statementClass: .transfer, otherAccount: "broker", confirmed: true)
+        var second = first
+        second.id = "second"
+        library.save([first, second])
+        #expect(Self.deposits(library).count == 2)
+
+        first.removed = true
+        second.removed = true
+        library.save([first, second])
+        #expect(Self.deposits(library).isEmpty)
+    }
+
+    /// A deposit from the broker's own file is the move's: saving the line
+    /// adds none, and saving it as something else leaves it.
+    @Test func theBrokersOwnDepositStays() throws {
+        var library = Self.library()
+        library.upsert(Trade(account: "broker", date: "2026-10-06", id: "dep", type: .deposit, amount: 1500,
+                             source: .import))
+        var line = try #require(library.lines(for: "conto").first)
+        library.save([line])
+        let ids: [TradeID] = Self.deposits(library).map(\.id)
+        #expect(ids == ["dep"])
+
+        line.statementClass = .spending
+        line.otherAccount = nil
+        library.save([line])
+        let left: [TradeID] = Self.deposits(library).map(\.id)
+        #expect(left == ["dep"])
+    }
+
+    /// Money moved to an account in another currency gets no deposit.
+    @Test func savingAMoveInAnotherCurrencyAddsNone() throws {
+        var library = Self.library()
+        library.accounts["broker"]?.currency = .usd
+        let line = try #require(library.lines(for: "conto").first)
+        library.save([line])
+        #expect(Self.deposits(library).isEmpty)
+    }
+
+    private static func deposits(_ library: Library) -> [Trade] {
+        library.trades(for: "broker").filter { $0.type == .deposit }
+    }
+
     @Test func monthsListTheTradesAccounts() {
         let library = Self.library()
         let months = Valuator(library: library).brokerageMonths(after: "2026-09-30", through: "2026-10-31",

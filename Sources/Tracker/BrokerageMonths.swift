@@ -172,6 +172,90 @@ extension Library {
                      amount: -line.amount, source: .manual))
     }
 
+    /// Keeps the deposits that saved lines stand for in step with them
+    /// (docs/TRADES.md, "A brokerage month"), so money moved to an account
+    /// that records trades counts as saved as soon as the line says so: a
+    /// line that now moves money to such an account, and that no deposit
+    /// or withdrawal matches, gets one (``addDeposit(for:)``); a line that
+    /// no longer moves it there loses the one recorded for it
+    /// (``DepositMove/isRecorded(_:)``). Another line that deposit answered,
+    /// such as the same move typed by hand, gets one back. A deposit from
+    /// the broker's own file that matched the line's has its day and ID, so
+    /// it goes too, and comes back when that file is imported again.
+    mutating func recordDeposits(changing before: [BankLine], to after: [BankLine]) {
+        let saved = Dictionary(after.map { ($0.key, $0) }) { $1 }
+        // Each line's own: two lines of one day and amount take two trades.
+        var gone: [(account: AccountID, trade: TradeKey)] = []
+        for old in before {
+            guard let move = depositMove(old), depositMove(saved[old.key]) != move,
+                  let trade = trades(for: move.account).first(where: { trade in
+                      move.isRecorded(trade) && !gone.contains { $0.trade == trade.key }
+                  })
+            else { continue }
+            gone.append((move.account, trade.key))
+        }
+        let moves = after.compactMap { line in depositMove(line).map { (line: line, move: $0) } }
+        let keys = Set(moves.map { $0.line.key })
+        let accounts = Set(moves.map { $0.move.account } + gone.map { $0.account }).sorted()
+        // The lines waiting for a deposit already, before any is taken away.
+        let firstPass = accounts.map { unmatchedMoves(to: $0) }
+        let waiting = Set(firstPass.joined().map { $0.key })
+        for removed in gone { removeTradeRecord(removed.trade) }
+        for (account, unmatched) in zip(accounts, firstPass) {
+            let now = gone.isEmpty ? unmatched : unmatchedMoves(to: account)
+            for line in now where keys.contains(line.key) || !waiting.contains(line.key) {
+                addDeposit(for: line)
+            }
+        }
+    }
+
+    /// The lines moving money to `account` that no deposit or withdrawal
+    /// matches (``Valuator/depositsToAdd(to:after:through:ledger:library:)``), over all its months.
+    private func unmatchedMoves(to account: AccountID) -> [BankLine] {
+        guard let through = months.keys.max()?.lastDay,
+              let ledger = Valuator(library: self).ledger(for: account) else { return [] }
+        return Valuator.depositsToAdd(to: account, after: nil, through: through, ledger: ledger, library: self)
+    }
+
+    /// The deposit or withdrawal `line` stands for: money it moved to an
+    /// account that records trades, in its own account's currency and open
+    /// by the line's day. `nil` for any other line.
+    private func depositMove(_ line: BankLine?) -> DepositMove? {
+        guard let line, !line.isRemoved, line.statementClass == .transfer, line.amount != 0,
+              let other = line.otherAccount, let account = accounts[other], account.recordsTrades,
+              account.currency == accounts[line.account]?.currency, account.opened <= line.date
+        else { return nil }
+        return DepositMove(account: other, date: line.date, amount: -line.amount)
+    }
+}
+
+/// Money a line moved to an account that records trades: a deposit of
+/// ``amount``, or a withdrawal when it's below zero.
+private struct DepositMove: Hashable {
+    var account: AccountID
+    var date: CalendarDate
+    var amount: Decimal
+
+    var type: TradeType { amount > 0 ? .deposit : .withdrawal }
+
+    /// Whether `trade` is the one recorded for it, on its day, of its
+    /// amount: by hand (``Library/addDeposit(for:)``), or by the
+    /// statement's import, with the import's stable ID (docs/IMPORT.md,
+    /// "Moved to or from an account").
+    func isRecorded(_ trade: Trade) -> Bool {
+        guard trade.date == date, trade.amount == amount, trade.type == type else { return false }
+        if trade.source == .manual { return true }
+        guard trade.source == .import else { return false }
+        let identity = Trade(account: account, date: date, type: type, amount: amount, source: .import)
+        // Moves of the same amount on one day are numbered by the import.
+        return (0..<Self.ordinals).contains { TradeID.stable(for: identity, ordinal: $0) == trade.id }
+    }
+
+    /// How many moves of one amount on one day ``isRecorded(_:)`` looks for.
+    private static let ordinals = 8
+}
+
+extension Library {
     /// Sets the cash the broker states for `account` on `date`: the `cash`
     /// of its value on that date; the value's other fields stay.
     public mutating func setBrokerCash(_ cash: Decimal, of account: AccountID, on date: CalendarDate) {
