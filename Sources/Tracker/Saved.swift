@@ -13,8 +13,9 @@ import Model
 /// money moved from the accounts tracked before it pays for it, shared over
 /// the stretch's first amounts on that side in proportion to them: above
 /// zero (an asset) as far as money moved out of their cash and savings
-/// accounts that record money in and out, added up, and the money taken
-/// out of their other accounts; below zero (a debt, such as a loan paid
+/// accounts that record money in and out, added up, less what their other
+/// accounts saved but pension funds, which their pay fills, as that money
+/// may have landed there, and the money taken out of their other accounts; below zero (a debt, such as a loan paid
 /// out into the current account) as far as money moved into their cash and
 /// savings accounts, added up. So a transfer between two of them cancels
 /// out, a broker funded from a current account that also had pay come in
@@ -75,6 +76,7 @@ extension Valuator {
         var takenOut: Decimal = 0
         var movedIn: Decimal = 0
         var movedOut: Decimal = 0
+        var landed: Decimal = 0
         for account in report.accounts {
             if let record = firstRecordDate(of: account.account), record > from, record <= through {
                 firsts.append((account.account, account.change.other + account.change.saved))
@@ -86,10 +88,13 @@ extension Valuator {
                     movedOut -= cash.amount
                 } else {
                     takenOut += max(-account.change.saved, 0)
+                    if let kind = accounts[account.account]?.kind, !SavingsRate.pensionKinds.contains(kind) {
+                        landed += max(account.change.saved, 0)
+                    }
                 }
             }
         }
-        takenOut += max(movedOut, 0)
+        takenOut += max(movedOut - landed, 0)
         let paidIn = max(movedIn, 0)
         let assets = firsts.reduce(Decimal(0)) { $0 + max($1.amount, 0) }
         let debts = firsts.reduce(Decimal(0)) { $0 - min($1.amount, 0) }

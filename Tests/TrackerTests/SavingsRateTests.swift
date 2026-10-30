@@ -233,12 +233,14 @@ struct SavingsRateTests {
         #expect(split.other == report.total.other + 20000)
         #expect(split.start + split.market + split.saved + split.other == split.end)
 
-        // 5,000 of them moved from the bank, as its values say: that much is saved.
+        // 5,000 moved from the bank, as its values say, but 1,700 of it may have landed in the card, broker
+        // and mortgage tracked before, which saved that much: the rest is saved. Spent is the bank's money out.
         library.upsert(Valuation(account: "bank", date: "2026-01-31", balance: 4450, saved: -5550, moneyIn: 4000,
                                  moneyOut: 4550))
         let moved = try #require(Valuator(library: library).savingsRate(from: "2026-01-01", through: "2026-01-31"))
-        #expect(moved.savedByAccount["old-savings"] == 5000)
-        #expect(moved.saved == 1450)
+        #expect(moved.savedByAccount["old-savings"] == 3300)
+        #expect(moved.saved == -250)
+        #expect(moved.spent == 4550)
     }
 
     /// A loan you start tracking at a check-in of its own owed what it owes

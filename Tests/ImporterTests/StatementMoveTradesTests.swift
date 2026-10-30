@@ -144,6 +144,60 @@ struct StatementMoveTradesTests {
         #expect(january.spent == 900)
     }
 
+    /// Money in from the broker is its withdrawal, found by the broker's
+    /// own file whichever is imported first: 500 back on 20 January.
+    @Test func moneyInFromATradesAccountIsItsWithdrawal() throws {
+        let statement = """
+            Data;Importo;Descrizione
+            05/01/2026;-900,00;Affitto gennaio
+            20/01/2026;500,00;Bonifico da broker
+            27/01/2026;3.000,00;Bonifico SEPA da ACME GmbH rif 0126
+            """
+        func statementSession(against library: Library) throws -> ImportSession {
+            var session = try ImportSession(data: Data(statement.utf8))
+            session.proposeMapping(layout: .statement)
+            session.profile.constants.account = "conto"
+            let lines = session.preview(against: library, today: Self.today).statementLines
+            let pay = try #require(lines.first { $0.text.hasPrefix("Bonifico SEPA") })
+            let moved = try #require(lines.first { $0.text.hasPrefix("Bonifico da broker") })
+            session.setStatementClass(.income, forRow: pay.row)
+            session.setStatementAsset(.moved("broker"), forRow: moved.row)
+            return session
+        }
+        func brokerSession() throws -> ImportSession {
+            var session = try ImportSession(data: Data("""
+                Tipo;Data;Titolo;Quantità;Prezzo;Importo
+                Prelievo;21/01/2026;;;;-500,00
+                """.utf8))
+            if session.profile.layout != .trades { session.proposeMapping(layout: .trades) }
+            session.profile.constants.account = "broker"
+            return session
+        }
+        let trade = Trade(account: "broker", date: "2026-01-20", type: .withdrawal, amount: -500)
+        let withdrawal = TradeKey(account: "broker", date: "2026-01-20", id: TradeID.stable(for: trade))
+
+        // The statement first, then the broker's file.
+        var library = Self.library()
+        library = try statementSession(against: library).preview(against: library, today: Self.today)
+            .apply(to: library).library
+        #expect(library.trade(withdrawal)?.amount == -500)
+        var preview = try brokerSession().preview(against: library)
+        #expect(preview.records.map(\.imported.key) == [.trade(withdrawal)])
+        #expect(preview.records.allSatisfy { $0.status != .new })
+        library = preview.apply(to: library).library
+        #expect(library.trades(for: "broker").count == 2)
+        #expect(try Self.january(library).spent == 900)
+
+        // The broker's file first, then the statement.
+        library = try brokerSession().preview(against: Self.library()).apply(to: Self.library()).library
+        #expect(library.trades(for: "broker").map(\.date) == ["2025-06-02", "2026-01-21"])
+        preview = try statementSession(against: library).preview(against: library, today: Self.today)
+        #expect(!preview.records.contains { $0.imported.key.isTrade })
+        library = preview.apply(to: library).library
+        #expect(library.trades(for: "broker").count == 2)
+        #expect(try Self.january(library).spent == 900)
+    }
+
     /// A broker in another currency, or not yet opened, records its side itself.
     @Test func aBrokerItCantRecordADepositInIsLeftAsItIs() throws {
         var library = Self.library()
