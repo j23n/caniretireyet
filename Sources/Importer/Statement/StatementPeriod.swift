@@ -19,15 +19,15 @@ public struct StatementPeriod: Hashable, Sendable {
 
 /// Where a statement's values go before the library's first check-in
 /// (IMPORT.md, "Values"): at every month end, at every quarter end, or
-/// never. Month ends from the first check-in on always get one, as does
-/// every value the account has.
+/// never. Month ends from the first check-in on always get one, as do
+/// every value the account has and the file's last month end.
 public struct StatementCheckIns: Hashable, Sendable {
     /// Which month ends before the first check-in get a value.
     public enum Ends: String, Hashable, Sendable, CaseIterable {
         case months
         case quarters
         /// None: the lines count as one stretch, up to the account's next
-        /// value or the file's last day.
+        /// value or the file's last month end.
         case never
     }
 
