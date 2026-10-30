@@ -27,7 +27,8 @@ struct ImportReadingSheet: View {
     /// The import as the sheet opened it, for *Cancel*.
     @State private var saved: ImportFlow?
     @State private var showsMoreOptions = false
-    /// iPhone: whether the pickers and columns show, after *Change…*.
+    /// iPhone: whether the pickers and columns show: after *Change…*, or
+    /// once the reading needed work.
     @State private var changes = false
 
     var body: some View {
