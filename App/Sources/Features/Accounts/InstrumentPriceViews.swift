@@ -321,8 +321,8 @@ struct InstrumentSetPriceSheet: View {
             Section {
                 DatePicker("Date", selection: $form.pickedDate, in: ...Date(), displayedComponents: .date)
                     .personalControl()
-                AccountsNumberField(title: "Price", text: $form.amount, prompt: prompt,
-                                    suffix: "per " + InstrumentForm.name(of: unit), allowsNegative: false)
+                FormNumberField(title: "Price", text: $form.amount, prompt: prompt,
+                                suffix: "per " + InstrumentForm.name(of: unit), allowsNegative: false)
                 Picker("Currency", selection: $form.currency) {
                     ForEach(currencies, id: \.self) { code in
                         Text(CurrencyChoices.name(of: code, locale: locale)).tag(code)

@@ -229,8 +229,8 @@ struct ImportDoneStep: View {
     private func profileSection(_ receipt: ImportReceipt) -> some View {
         let problem = model.problemSaving(id: profileID, name: profileName)
         return Section {
-            TextField("Name", text: $profileName)
-            TextField("ID", text: Binding(get: { profileID }, set: { id in
+            FormTextField(title: "Name", text: $profileName)
+            FormTextField(title: "ID", text: Binding(get: { profileID }, set: { id in
                 profileID = id
                 isIDEdited = true
             }))

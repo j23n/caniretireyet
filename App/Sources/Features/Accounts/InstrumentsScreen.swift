@@ -437,14 +437,14 @@ struct InstrumentEditor: View {
         let problems = form.wrappedValue.problems(locale: locale)
         return Form {
             Section {
-                AccountsTextField(title: "Name", text: form.name, prompt: "e.g. Vanguard FTSE All-World")
+                FormTextField(title: "Name", text: form.name, prompt: "e.g. Vanguard FTSE All-World")
                 Picker("Kind", selection: form.chosenKind) {
                     ForEach(InstrumentKind.knownValues.including(form.wrappedValue.kind), id: \.self) { kind in
                         Text(InstrumentForm.name(of: kind)).tag(kind)
                     }
                 }
-                AccountsTextField(title: "ISIN", text: form.isin, prompt: "Optional")
-                AccountsTextField(title: "Ticker", text: form.ticker, prompt: "Optional")
+                FormTextField(title: "ISIN", text: form.isin, prompt: "Optional")
+                FormTextField(title: "Ticker", text: form.ticker, prompt: "Optional")
             } header: {
                 Text("Instrument")
             }
@@ -454,7 +454,7 @@ struct InstrumentEditor: View {
                         Text(CurrencyChoices.name(of: code, locale: locale)).tag(code)
                     }
                 }
-                AccountsTextField(title: "Unit", text: form.unit, prompt: "share")
+                FormTextField(title: "Unit", text: form.unit, prompt: "share")
                 Menu {
                     ForEach(InstrumentForm.units, id: \.self) { unit in
                         Button(InstrumentForm.name(of: unit)) { form.wrappedValue.unit = unit.rawValue }
@@ -554,7 +554,7 @@ struct InstrumentEditor: View {
             }
             if form.wrappedValue.provider != nil {
                 HStack(spacing: Metrics.s) {
-                    AccountsTextField(title: "Symbol", text: form.symbol, prompt: form.wrappedValue.symbolPrompt)
+                    FormTextField(title: "Symbol", text: form.symbol, prompt: form.wrappedValue.symbolPrompt)
                     Button("Find…") { findsSymbol = true }
                         .buttonStyle(.borderless)
                 }

@@ -105,13 +105,22 @@ private struct ImportReviewOpeningBalanceField: View {
     let asked: ImportReviewOpeningBalance
 
     @State private var text = ""
+    @FocusState private var isEditing: Bool
 
     var body: some View {
         LabeledContent("Balance before the first line") {
             HStack(spacing: Metrics.s) {
-                TextField("Balance", text: $text)
+                TextField("Balance", text: $text, prompt: Text(verbatim: "0"))
+                    .labelsHidden()
                     .multilineTextAlignment(.trailing)
+                    .monospacedDigit()
+                    #if os(iOS)
+                    .numberKeyboard(.numbersAndPunctuation)
+                    #endif
+                    .focused($isEditing)
                     .onSubmit(apply)
+                    .frame(maxWidth: 136)
+                    .typedFieldOutline(isFocused: isEditing)
                 Button("Use", action: apply)
                     .disabled(AmountInput.parse(text).value == asked.balance)
             }

@@ -101,11 +101,8 @@ struct MonthTypedTotalsSheet: View {
     }
 
     private func amountField(_ field: Field) -> some View {
-        TextField(field.title, text: binding(field), prompt: Text("0"))
-            .multilineTextAlignment(.trailing)
-            #if os(iOS)
-            .numberKeyboard(.decimalPad)
-            #endif
+        FormNumberField(title: field.title, text: binding(field), prompt: "0",
+                        suffix: AmountFormat.symbol(for: currency, locale: locale), allowsNegative: field == .closing)
     }
 
     private func binding(_ field: Field) -> Binding<String> {

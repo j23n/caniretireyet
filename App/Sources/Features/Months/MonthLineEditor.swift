@@ -20,6 +20,7 @@ struct MonthLineEditor: View {
     @Environment(\.locale) private var locale
     @State private var edit: MonthLineEdit
     @State private var errorMessage: String?
+    @FocusState private var isEditingNote: Bool
 
     init(line: BankLine, month: AccountMonth, account: Account, done: @escaping () -> Void) {
         self.line = line
@@ -38,7 +39,9 @@ struct MonthLineEditor: View {
             }
             similarToggles
             TextField("Note (optional)", text: $edit.note, axis: .vertical)
-                .textFieldStyle(.roundedBorder)
+                .textFieldStyle(.plain)
+                .focused($isEditingNote)
+                .typedFieldOutline(isFocused: isEditingNote)
             if let errorMessage {
                 Text(errorMessage)
                     .font(.caption)

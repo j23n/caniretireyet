@@ -140,7 +140,7 @@ struct ImportNewAccountRow: View {
                 .privacySensitiveInFeedback()
             }
             if proposal.isAccepted {
-                TextField("Name", text: Binding(get: { proposal.account.name }, set: { name in
+                FormTextField(title: "Name", text: Binding(get: { proposal.account.name }, set: { name in
                     model.flow.editNewAccount(id) { $0.name = name }
                 }))
                 Picker("Kind", selection: Binding(get: { proposal.account.kind }, set: { kind in
@@ -190,7 +190,7 @@ struct ImportNewInstrumentRow: View {
                 .privacySensitiveInFeedback()
             }
             if proposal.isAccepted {
-                TextField("Name", text: Binding(get: { proposal.instrument.name }, set: { name in
+                FormTextField(title: "Name", text: Binding(get: { proposal.instrument.name }, set: { name in
                     model.flow.editNewInstrument(id) { $0.name = name }
                 }))
                 Picker("Kind", selection: Binding(get: { proposal.instrument.kind }, set: { kind in

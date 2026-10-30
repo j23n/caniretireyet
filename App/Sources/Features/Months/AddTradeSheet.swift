@@ -94,10 +94,10 @@ struct AddTradeSheet: View {
             Section {
                 if draft.isSecurity {
                     numberField("Quantity", text: $quantityText) { draft.quantity = $0 }
-                    numberField("Price", text: $priceText) { draft.price = $0 }
-                    numberField("Fees", text: $feesText) { draft.fees = $0 }
+                    numberField("Price", text: $priceText, currency: priceCurrency) { draft.price = $0 }
+                    numberField("Fees", text: $feesText, currency: account?.currency) { draft.fees = $0 }
                 } else {
-                    numberField("Amount", text: $amountText) { draft.amount = $0 }
+                    numberField("Amount", text: $amountText, currency: account?.currency) { draft.amount = $0 }
                 }
             } footer: {
                 if draft.isSecurity, !sameCurrency, let currency = instrumentCurrency {
@@ -128,13 +128,11 @@ struct AddTradeSheet: View {
         .formStyle(.grouped)
     }
 
-    private func numberField(_ title: String, text: Binding<String>,
+    /// A number with its label beside it, and the currency after it.
+    private func numberField(_ title: String, text: Binding<String>, currency: CurrencyCode? = nil,
                              set: @escaping (Decimal?) -> Void) -> some View {
-        TextField(title, text: text, prompt: Text("0"))
-            .multilineTextAlignment(.trailing)
-            #if os(iOS)
-            .numberKeyboard(.decimalPad)
-            #endif
+        FormNumberField(title: title, text: text, prompt: "0",
+                        suffix: currency.map { AmountFormat.symbol(for: $0, locale: locale) }, allowsNegative: false)
             .onChange(of: text.wrappedValue) { _, typed in
                 set(AmountInput.decimal(from: typed, locale: locale))
             }
@@ -155,6 +153,10 @@ struct AddTradeSheet: View {
     private var instrumentCurrency: CurrencyCode? {
         draft.instrument.flatMap { library.library.instruments[$0]?.currency }
     }
+
+    /// The currency of the price: the instrument's, else the account's. Fees
+    /// are in the account's.
+    private var priceCurrency: CurrencyCode? { instrumentCurrency ?? account?.currency }
 
     private var sameCurrency: Bool {
         instrumentCurrency == nil || instrumentCurrency == account?.currency

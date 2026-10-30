@@ -157,8 +157,8 @@ struct AccountDetailsFields: View {
                     }
                 }
             }
-            AccountsTextField(title: "Name", text: $form.name, prompt: "e.g. Conto Fineco")
-            AccountsTextField(title: "Institution", text: $form.institution, prompt: "Bank or broker")
+            FormTextField(title: "Name", text: $form.name, prompt: "e.g. Conto Fineco")
+            FormTextField(title: "Institution", text: $form.institution, prompt: "Bank or broker")
             Picker("Currency", selection: $form.currency) {
                 ForEach(CurrencyChoices.common.including(form.currency), id: \.self) { code in
                     Text(CurrencyChoices.name(of: code, locale: locale)).tag(code)
@@ -214,8 +214,8 @@ struct AccountPlanFields: View {
         }
         if form.takesWithdrawalTaxRate {
             Section {
-                AccountsNumberField(title: "Tax on withdrawals", text: $form.withdrawalTaxRate, prompt: "None",
-                                    suffix: "%", allowsNegative: false)
+                FormNumberField(title: "Tax on withdrawals", text: $form.withdrawalTaxRate, prompt: "None",
+                                suffix: "%", allowsNegative: false)
             } header: {
                 Text("Taxes")
             } footer: {
@@ -226,8 +226,8 @@ struct AccountPlanFields: View {
         }
         if form.takesDepreciation {
             Section {
-                AccountsNumberField(title: "Loses a year", text: $form.depreciation, prompt: "None", suffix: "%",
-                                    allowsNegative: false)
+                FormNumberField(title: "Loses a year", text: $form.depreciation, prompt: "None", suffix: "%",
+                                allowsNegative: false)
             } header: {
                 Text("Loss of value")
             } footer: {

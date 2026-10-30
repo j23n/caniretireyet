@@ -90,35 +90,17 @@ struct CheckInTypedRow: View {
     }
 
     /// The balance, in a rounded field that turns the accent while it's
-    /// edited. Not `.privacySensitive()`: what you type shows while
-    /// amounts are hidden.
+    /// edited.
     private var field: some View {
-        HStack(spacing: Metrics.xs) {
-            Text(verbatim: AmountFormat.symbol(for: account.currency, locale: locale))
-                .foregroundStyle(Palette.secondaryInk)
-            TextField(account.kind.isLiability ? "Owed" : "Balance", text: $text, prompt: Text(verbatim: "0"))
-                .labelsHidden()
-                .multilineTextAlignment(.trailing)
-                .monospacedDigit()
-                #if os(iOS)
-                .numberKeyboard(.numbersAndPunctuation)
-                #endif
-                .focused($isFocused)
-                .onSubmit(save)
-                .disabled(!library.canEdit || isSaving)
-        }
-        .frame(width: 136)
-        .padding(.horizontal, Metrics.s)
-        .padding(.vertical, 6)
-        .overlay {
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .strokeBorder(isFocused ? Palette.accent : Palette.border, lineWidth: isFocused ? 2 : 1)
-        }
-        .onChange(of: isFocused) { _, focused in
-            if !focused { save() }
-        }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(Text(verbatim: "\(account.name), \(account.kind.isLiability ? "owed" : "balance")"))
+        OutlinedAmountField(title: account.kind.isLiability ? "Owed" : "Balance", text: $text,
+                            currency: account.currency, isFocused: $isFocused)
+            .onSubmit(save)
+            .disabled(!library.canEdit || isSaving)
+            .onChange(of: isFocused) { _, focused in
+                if !focused { save() }
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(Text(verbatim: "\(account.name), \(account.kind.isLiability ? "owed" : "balance")"))
     }
 
     private func load() {

@@ -119,12 +119,10 @@ struct MonthImportSheet: View {
             }
             if model.flow.needsOpeningBalance {
                 Section {
-                    TextField("Balance before the first line", text: $openingText)
-                        .multilineTextAlignment(.trailing)
+                    FormNumberField(title: "Balance before the first line", text: $openingText, prompt: "0",
+                                    suffix: library.library.accounts[route.account]
+                                        .map { AmountFormat.symbol(for: $0.currency, locale: locale) })
                         .onSubmit { setOpening(model) }
-                        #if os(iOS)
-                        .numberKeyboard(.numbersAndPunctuation)
-                        #endif
                     Button("Use") { setOpening(model) }
                 } footer: {
                     Text("The file has no balances. Give the balance before its first line, as the statement "
