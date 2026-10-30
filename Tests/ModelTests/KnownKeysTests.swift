@@ -16,6 +16,9 @@ struct KnownKeysTests {
         account: "directa", date: "2026-03-12", id: "k3q7vz2m", type: .buy, instrument: "vwce", quantity: 10,
         price: d("127.35"), currency: .eur, amount: d("-1278.5"), fees: 5, tax: 0, cost: 1, ratio: 1, note: "n",
         source: .manual, settlement: .external)
+    private static let line = BankLine(
+        account: "conto", date: "2026-03-05", id: "affitto", amount: -900, text: "Affitto", statementClass: .transfer,
+        otherAccount: "risparmio", note: "n", removed: true, confirmed: true, source: .import)
     private static let summary = HeadlineSummary(confidence: d("0.9"), earliestAge: 54, successAtTarget: d("0.86"),
                                                  readiness: d("0.58"))
     private static let format = ImportFormat(
@@ -66,7 +69,8 @@ struct KnownKeysTests {
                     isin: "X", ticker: "V", priceSource: PriceSource(provider: .yahoo, symbol: "V")),
          Instrument.knownKeys),
         (PriceSource(provider: .yahoo, symbol: "V"), PriceSource.knownKeys),
-        (MonthFile(month: "2026-09", trades: [trade]), MonthFile.knownKeys),
+        (MonthFile(month: "2026-09", trades: [trade], lines: [line]), MonthFile.knownKeys),
+        (line, BankLine.knownKeys),
         (trade, Trade.knownKeys),
         (valuation, Valuation.knownKeys),
         (position, Position.knownKeys),
