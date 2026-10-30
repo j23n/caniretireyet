@@ -233,8 +233,9 @@ extension View {
 /// two half tiles in a row stack in one slot. On iPhone in portrait a row
 /// has two slots; a wider page fits four or six, never three or five, so a
 /// tile stays near the size it has on iPhone (at least
-/// ``minimumSmallWidth``) instead of growing with the page, and a row that
-/// isn't full leaves its last slots empty. A row is as tall
+/// ``minimumSmallWidth``) instead of growing with the page. A page with
+/// room for three but not four keeps two wider slots. A row that isn't
+/// full leaves its last slots empty. A row is as tall
 /// as a small tile is wide, at most ``rowHeight``, so a slot wider than an
 /// iPhone's doesn't make its tiles taller; or taller when a tile's content
 /// needs it (larger Dynamic Type sizes). Every tile in it takes its height,
@@ -254,7 +255,8 @@ struct TileGrid: Layout {
 
     /// The narrowest a small tile gets before a row drops to fewer slots: a
     /// little under an iPhone's in portrait, so iPhones keep two slots and
-    /// wider pages (iPhone in landscape, iPad, the Mac) take four or six.
+    /// wider pages (the larger iPhones in landscape, iPad, the Mac) take
+    /// four or six.
     static let minimumSmallWidth: CGFloat = 160
 
     /// The most slots a row has. Wider pages widen the slots instead.
