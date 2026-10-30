@@ -144,29 +144,51 @@ struct PlanMoneyInOutTests {
     }
 
     @Test func theRateAxisFitsBarsAroundTheTypicalRate() {
+        // July and August save 25%; September 5 € came in and 2.000 € was saved: 40.000%.
+        let money = series([period("2026-07", moneyIn: 4_000, spent: 3_000),
+                            period("2026-08", moneyIn: 4_000, spent: 3_000),
+                            period("2026-09", moneyIn: 5, spent: -1_995)])
+        // Typically 25%, give or take 50 points, and 50 points below zero.
+        #expect(money.rateAxisBands.allSatisfy { $0 == -0.5...0.75 })
+        let values = money.rateAxisValues(planRate: Decimal(string: "0.1"))
+        #expect(percents(values) == [25, 25, 75, 10])
+        #expect(money.cutsRates(planRate: Decimal(string: "0.1")))
+        // The bar is drawn to the axis's edge.
+        let domain = money.rateScale(planRate: Decimal(string: "0.1")).domain
+        #expect(domain.upperBound < 90)
+        #expect(PlanMoneyInOut.clamped(40_000, to: domain) == domain.upperBound)
+        #expect(PlanMoneyInOut.clamped(25, to: domain) == 25)
+    }
+
+    @Test func aRateBelowZeroHasNoBar() throws {
         // July saves 30%, August 25%, September 5 € in and 2.000 € spent: −39.900%.
         let money = series([period("2026-07", moneyIn: 3_000, spent: 2_100),
                             period("2026-08", moneyIn: 4_000, spent: 3_000),
                             period("2026-09", moneyIn: 5, spent: 2_000)])
-        // Typically 25%, give or take 50 points, and 50 points below zero.
-        #expect(money.rateAxisBands.allSatisfy { $0 == -0.5...0.75 })
-        let values = money.rateAxisValues(planRate: Decimal(string: "0.1"))
-        #expect(percents(values) == [30, 25, -50, 10])
-        #expect(money.cutsRates(planRate: Decimal(string: "0.1")))
-        // The bar is drawn to the axis's edge.
-        let domain = money.rateScale(planRate: Decimal(string: "0.1")).domain
-        #expect(domain.lowerBound > -60)
-        #expect(PlanMoneyInOut.clamped(-39_900, to: domain) == domain.lowerBound)
-        #expect(PlanMoneyInOut.clamped(30, to: domain) == 30)
+        let september = try #require(money.periods.last)
+        #expect(money.belowZero == [september])
+        #expect(!PlanMoneyInOut.hasBar(september))
+        #expect(money.periods.dropLast().allSatisfy(PlanMoneyInOut.hasBar))
+        // It has a rate, so it isn't a period without one.
+        #expect(money.countedWithoutRate.isEmpty)
+        // The value axis leaves it out: it starts at zero, and nothing is cut.
+        #expect(percents(money.rateAxisValues(planRate: Decimal(string: "0.1"))) == [30, 25, 10])
+        #expect(!money.cutsRates(planRate: Decimal(string: "0.1")))
+        #expect(money.rateScale(planRate: Decimal(string: "0.1")).domain.lowerBound == 0)
+        // A month that saves nothing still has its bar, of nothing.
+        let nothingSaved = series([period("2026-09", moneyIn: 3_000, spent: 3_000)])
+        #expect(nothingSaved.periods.allSatisfy(PlanMoneyInOut.hasBar))
+        #expect(nothingSaved.belowZero.isEmpty)
     }
 
     @Test func theRateAxisKeepsRatesThatVaryTogether() {
-        // A rate that swings from −40% to 70% month to month isn't cut.
+        // A rate that swings from −40% to 70% month to month isn't cut, and the months below zero have no bar.
         let money = series([period("2026-05", moneyIn: 3_000, spent: 4_200),
                             period("2026-06", moneyIn: 3_000, spent: 900),
                             period("2026-07", moneyIn: 3_000, spent: 2_100),
                             period("2026-08", moneyIn: 3_000, spent: 3_300)])
-        #expect(percents(money.rateAxisValues(planRate: nil)) == [-40, 70, 30, -10])
+        #expect(percents(money.rateAxisValues(planRate: nil)) == [70, 30])
+        #expect(money.belowZero.map(\.from) == ["2026-05-01", "2026-08-01"])
         #expect(!money.cutsRates(planRate: nil))
     }
 

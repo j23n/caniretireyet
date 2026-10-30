@@ -395,7 +395,7 @@ struct SavingsRateTests {
     }
 
     /// Tax paid straight from the current account, and a refund of it, are
-    /// tax, not spending.
+    /// tax, not spending, spread over the year before they were paid.
     @Test func taxPaidFromACurrentAccountIsNotSpent() throws {
         var library = month
         // January also paid 1,200 of tax from the current account, which is in its money out.
@@ -403,17 +403,59 @@ struct SavingsRateTests {
                                  moneyOut: 5750, tax: 1200))
         var savings = try #require(Valuator(library: library).savingsRate(from: "2026-01-01", through: "2026-01-31"))
         #expect(savings.moneyInOut.taxes == 1200)
-        #expect(savings.tax == 1200)
-        #expect(savings.income == 3100)
-        #expect(savings.saved == 250)
+        // January's 31 days of the 365 the bill pays for: 1,200 × 31 / 365.
+        #expect(savings.spreadTaxes == d("101.92"))
+        #expect(savings.tax == d("101.92"))
+        #expect(savings.income == d("4198.08"))
+        // The 1,750 the current account lost, less the bill, plus January's share set aside.
+        #expect(savings.saved == d("1348.08"))
         // As in the month without the tax.
         #expect(savings.spent == 2850)
         // A refund of 300 instead lowers money out and the tax.
         library.upsert(Valuation(account: "bank", date: "2026-01-31", balance: 9750, saved: -250, moneyIn: 4000,
                                  moneyOut: 4250, tax: -300))
         savings = try #require(Valuator(library: library).savingsRate(from: "2026-01-01", through: "2026-01-31"))
-        #expect(savings.tax == -300)
-        #expect(savings.income == 4600)
+        #expect(savings.tax == d("-25.48"))
+        #expect(savings.income == d("4325.48"))
         #expect(savings.spent == 2850)
+    }
+
+    /// A yearly bill of 3,650 paid from the current account in February
+    /// counts as tax a little in each day of the year before it, as if it
+    /// had been set aside, so neither month goes below nothing coming in.
+    @Test func aTaxBillCountsOverTheYearBeforeIt() throws {
+        var library = month
+        // February: pay of 4,000, 2,000 spent and the bill.
+        library.upsert(Valuation(account: "bank", date: "2026-02-28", balance: 7800, saved: -1650, moneyIn: 4000,
+                                 moneyOut: 5650, tax: 3650))
+        let valuator = Valuator(library: library)
+        #expect(valuator.spreadTax(after: "2025-02-28", through: "2026-02-28") == 3650)
+        #expect(valuator.spreadTax(after: "2025-11-30", through: "2025-12-31") == 310)
+        #expect(valuator.spreadTax(after: "2026-02-28", through: "2026-03-31") == 0)
+
+        // January holds 31 of its 365 days: 310, though it paid none.
+        let january = try #require(valuator.savingsRate(from: "2026-01-01", through: "2026-01-31"))
+        #expect(january.moneyInOut.taxes == 0)
+        #expect(january.tax == 310)
+        #expect(january.income == 3990)
+        #expect(january.saved == 1140)
+        #expect(january.spent == 2850)
+
+        // February holds 28: 280. The bill's 3,650 is added back to what was saved.
+        let february = try #require(valuator.savingsRate(from: "2026-02-01", through: "2026-02-28"))
+        #expect(february.moneyInOut.taxes == 3650)
+        #expect(february.tax == 280)
+        #expect(february.income == 3720)
+        #expect(february.saved == 1720)
+        #expect(february.spent == 2000)
+        #expect(february.noRate == nil)
+        #expect(february.rate.map { $0 > 0 } == true)
+
+        // The Overview's Saved bar counts it the same way, the difference under Other.
+        let report = valuator.change(from: "2025-12-31", to: "2026-02-28")
+        let split = valuator.savedSplit(of: report)
+        #expect(split.saved == january.saved + february.saved)
+        #expect(split.other == report.total.other + report.total.saved - split.saved)
+        #expect(split.start + split.market + split.saved + split.other == split.end)
     }
 }

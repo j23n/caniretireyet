@@ -138,6 +138,20 @@ struct PlanMoneyInOutTests {
         #expect(example.withoutRateWords(locale: locale) == nil)
     }
 
+    /// A rate below zero has no bar, and the summary says so.
+    @Test func theSummaryNamesTheMonthsBelowZero() {
+        let money = series([month("2026-07", moneyIn: 3_000, spent: 2_100),
+                            month("2026-08", moneyIn: 3_000, spent: 4_000)])
+        #expect(money.belowZeroWords(locale: locale)
+            == "The rate is below zero in Aug 2026, so it has no bar: more was spent than came in.")
+        #expect(money.withoutRateWords(locale: locale) == nil)
+        let both = series([month("2026-08", moneyIn: 3_000, spent: 4_000),
+                           month("2026-09", moneyIn: 1_000, spent: 1_500)])
+        #expect(both.belowZeroWords(locale: locale)
+            == "The rate is below zero in Aug 2026 and Sep 2026, so they have no bar: more was spent than came in.")
+        #expect(series([month("2026-07", moneyIn: 3_000, spent: 2_100)]).belowZeroWords(locale: locale) == nil)
+    }
+
     /// With the line drawn, the summary says what was spent counts in it,
     /// and says the line has a gap only when it breaks.
     @Test func theSummaryDescribesTheLineAndItsGaps() {

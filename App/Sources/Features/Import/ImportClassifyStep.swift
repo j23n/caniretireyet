@@ -409,7 +409,7 @@ private struct ImportIncomeSummaryCard: View {
                 .foregroundStyle(Palette.secondaryInk)
                 .privacySensitiveInFeedback()
             row("Came in", summary.cameIn)
-            row("Tax, paid and set aside", -summary.tax, signed: true)
+            row("Tax for these months", -summary.tax, signed: true)
             Divider()
             VStack(alignment: .leading, spacing: 2) {
                 Text("Came in after tax")
