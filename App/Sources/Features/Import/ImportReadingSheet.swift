@@ -14,7 +14,8 @@ import SwiftUI
 ///
 /// On iPhone it says what it recognized ("6 columns recognized", what they
 /// are and how dates and numbers read) over the first three lines as read;
-/// the pickers and the columns show after *Change…*.
+/// the pickers and the columns show after *Change…*, or at once when the
+/// reading needs work (`ImportFlow.readingNeedsChanges`).
 struct ImportReadingSheet: View {
     let model: ImportController
     @Environment(\.pageLayout) private var layout
@@ -134,25 +135,27 @@ struct ImportReadingSheet: View {
 
     private var compact: some View {
         let flow = model.flow
+        let needsChanges = flow.readingNeedsChanges
         return NavigationStack {
             Form {
                 Section {
                     VStack(alignment: .leading, spacing: Metrics.xs) {
-                        Label(flow.recognizedTitle, systemImage: "checkmark.circle.fill")
+                        Label(flow.recognizedTitle, systemImage: needsChanges ? "exclamationmark.triangle.fill"
+                            : "checkmark.circle.fill")
                             .font(.body.weight(.semibold))
-                            .foregroundStyle(Palette.positive)
+                            .foregroundStyle(needsChanges ? Palette.warning : Palette.positive)
                         Text(flow.recognizedSummary)
                             .font(.subheadline)
                             .foregroundStyle(Palette.secondaryInk)
                             .fixedSize(horizontal: false, vertical: true)
                     }
-                    if !changes {
+                    if !changes, !needsChanges {
                         Button("Change…") { changes = true }
                     }
                 } header: {
                     Text("How is it read?")
                 }
-                if changes || flow.problem != nil {
+                if changes || needsChanges {
                     changeSections(flow)
                 }
                 if !flow.statementLines.isEmpty {
@@ -196,7 +199,7 @@ struct ImportReadingSheet: View {
         }
     }
 
-    /// iPhone, after *Change…* or when a setting doesn't work: the
+    /// iPhone, after *Change…* or when the reading needs work: the
     /// pickers, *More Options…* and what each column holds.
     @ViewBuilder
     private func changeSections(_ flow: ImportFlow) -> some View {

@@ -179,6 +179,11 @@ struct ImportFilesTests {
         #expect(flow.recognizedTitle == "3 columns recognized")
         #expect(flow.recognizedSummary.hasSuffix(". Dates read as 31/12/2025, numbers as 1.234,56."))
         #expect(flow.recognizedSummary.hasPrefix("Date, "))
+        #expect(!flow.readingNeedsChanges)
+        for row in flow.columnRows {
+            flow.setUse(.ignore, forColumn: row.column)
+        }
+        #expect(flow.readingNeedsChanges)
     }
 
     @Test func howItsReadShowsEachFormatByAnExample() {

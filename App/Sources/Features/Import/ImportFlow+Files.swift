@@ -425,6 +425,13 @@ extension ImportFlow {
         "\(Wording.count(columnRows.count { $0.use != .ignore }, "column")) recognized"
     }
 
+    /// Whether How It's Read on iPhone opens on its menus, with a warning in
+    /// place of the check: a setting that doesn't work, no line read, or a
+    /// guess still to confirm.
+    var readingNeedsChanges: Bool {
+        problem != nil || !ambiguities.isEmpty || readingStatus().isProblem
+    }
+
     /// What the columns read are and how dates and numbers read: "Date,
     /// money in, money out, description, balance. Dates read as
     /// 31/12/2025, numbers as 1.234,56."
