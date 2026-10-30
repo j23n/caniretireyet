@@ -221,16 +221,24 @@ struct SavingsRateTests {
                                                   currency: .eur, opened: "2026-01-15")
         library.upsert(Valuation(account: "old-savings", date: "2026-01-31", balance: 20000, saved: 20000))
         let savings = try #require(Valuator(library: library).savingsRate(from: "2026-01-01", through: "2026-01-31"))
-        // The bank's 550 drop is the only negative saved amount at that check-in.
-        #expect(savings.savedByAccount["old-savings"] == 550)
-        #expect(savings.saved == 2000)
+        // The bank's money in and out say nothing moved out of it: its 550 drop was spent, so the old savings'
+        // 20,000 were all there already.
+        #expect(savings.savedByAccount["old-savings"] == 0)
+        #expect(savings.saved == 1450)
         // The Overview's bars move what it already held from saved to other.
         let valuator = Valuator(library: library)
         let report = valuator.change(from: "2025-12-31", to: "2026-01-31")
         let split = valuator.savedSplit(of: report)
-        #expect(split.saved == 2000)
-        #expect(split.other == report.total.other + 19450)
+        #expect(split.saved == 1450)
+        #expect(split.other == report.total.other + 20000)
         #expect(split.start + split.market + split.saved + split.other == split.end)
+
+        // 5,000 of them moved from the bank, as its values say: that much is saved.
+        library.upsert(Valuation(account: "bank", date: "2026-01-31", balance: 4450, saved: -5550, moneyIn: 4000,
+                                 moneyOut: 4550))
+        let moved = try #require(Valuator(library: library).savingsRate(from: "2026-01-01", through: "2026-01-31"))
+        #expect(moved.savedByAccount["old-savings"] == 5000)
+        #expect(moved.saved == 1450)
     }
 
     /// A loan you start tracking at a check-in of its own owed what it owes
