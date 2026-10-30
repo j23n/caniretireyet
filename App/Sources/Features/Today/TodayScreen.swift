@@ -114,6 +114,8 @@ struct TodayAnswerAndTiles: View {
     let today: CalendarDate
     /// The page's width inside its margins, which sets the slots.
     let pageWidth: CGFloat
+    /// Whether the next check-in's tile shows: not on the saved check-in.
+    var showsCheckIn = true
 
     var body: some View {
         let slots = TileGrid.slots(width: pageWidth)
@@ -132,7 +134,7 @@ struct TodayAnswerAndTiles: View {
                 }
                 .fixedSize(horizontal: false, vertical: true)
                 TileGrid {
-                    TodayTiles(part: .under, plan: plan, results: results, today: today)
+                    TodayTiles(part: .under, plan: plan, results: results, today: today, showsCheckIn: showsCheckIn)
                 }
             }
         } else {
@@ -143,7 +145,7 @@ struct TodayAnswerAndTiles: View {
                     TodayPlanCard()
                 }
                 TileGrid {
-                    TodayTiles(part: .all, plan: plan, results: results, today: today)
+                    TodayTiles(part: .all, plan: plan, results: results, today: today, showsCheckIn: showsCheckIn)
                 }
             }
         }
