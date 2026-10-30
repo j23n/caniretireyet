@@ -74,6 +74,7 @@ import TestSupport
         ("Valuation", Valuation.knownKeys, "history-month.schema.json", "/$defs/valuation"),
         ("Position", Position.knownKeys, "history-month.schema.json", "/$defs/position"),
         ("Trade", Trade.knownKeys, "history-month.schema.json", "/$defs/trade"),
+        ("BankLine", BankLine.knownKeys, "history-month.schema.json", "/$defs/bankLine"),
         ("PriceRecord", PriceRecord.knownKeys, "history-month.schema.json", "/$defs/price"),
         ("FXRecord", FXRecord.knownKeys, "history-month.schema.json", "/$defs/fx"),
         ("IndexRecord", IndexRecord.knownKeys, "history-month.schema.json", "/$defs/index"),

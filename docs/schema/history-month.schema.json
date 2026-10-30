@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "history/YYYY/YYYY-MM.json",
-  "description": "One calendar month: the account valuations, trades, prices, FX rates and inflation-index values dated in it. A record's date decides its file (2026-09-30 goes in history/2026/2026-09.json). Records are sorted by date, then by ID. Keys: one valuation per account and date, one price per instrument and date, one FX rate per currency pair and date, one value per index and date; trades are keyed by account, date and id. How an account's value and net worth are worked out from these records is in README.md, How values are computed; how a trades account's holdings, cost and cash follow from its trades is in TRADES.md.",
+  "description": "One calendar month: the account valuations, trades, bank lines, prices, FX rates and inflation-index values dated in it. A record's date decides its file (2026-09-30 goes in history/2026/2026-09.json). Records are sorted by date, then by ID. Keys: one valuation per account and date, one price per instrument and date, one FX rate per currency pair and date, one value per index and date; trades and bank lines are keyed by account, date and id. How an account's value and net worth are worked out from these records is in README.md, How values are computed; how a trades account's holdings, cost and cash follow from its trades is in TRADES.md.",
   "type": "object",
   "required": ["month", "valuations", "prices", "fx", "indices"],
   "properties": {
@@ -16,6 +16,11 @@
       "type": "array",
       "items": { "$ref": "#/$defs/trade" }
     },
+    "lines": {
+      "description": "The lines of cash, savings and tax-pot accounts' statements, kept so they can be checked and changed (IMPORT.md, Lines). Left out when empty.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/bankLine" }
+    },
     "prices": { "description": "Always written, even when empty.", "type": "array", "items": { "$ref": "#/$defs/price" } },
     "fx": { "description": "Always written, even when empty.", "type": "array", "items": { "$ref": "#/$defs/fx" } },
     "indices": { "description": "Always written, even when empty.", "type": "array", "items": { "$ref": "#/$defs/index" } }
@@ -24,6 +29,11 @@
     {
       "fx": [{ "base": "EUR", "date": "2026-09-30", "quote": "USD", "rate": "1.1712", "source": "ecb" }],
       "indices": [{ "date": "2026-09-30", "index": "hicp-it", "source": "eurostat", "value": "128.41" }],
+      "lines": [
+        { "account": "conto-fineco", "amount": "-200.6", "class": "transfer", "confirmed": true, "date": "2026-09-03", "id": "m2c7qk4a", "otherAccount": "directa", "source": "import", "text": "Bonifico a Directa SIM" },
+        { "account": "conto-fineco", "amount": "-58.4", "class": "spending", "date": "2026-09-05", "id": "t6hw3bq2", "source": "import", "text": "Esselunga Milano" },
+        { "account": "conto-fineco", "amount": "-58.4", "class": "spending", "date": "2026-09-05", "id": "zx5rnd7e", "note": "charged twice", "removed": true, "source": "import", "text": "Esselunga Milano" }
+      ],
       "month": "2026-09",
       "prices": [
         { "currency": "EUR", "date": "2026-09-30", "instrument": "btc", "price": "95120", "source": "coingecko" },
@@ -151,7 +161,38 @@
           "description": "Units, always positive: the type says the direction.",
           "$ref": "common.schema.json#/$defs/decimal"
         },
-        "price": { "description": "Per unit, in currency.", "$ref": "common.schema.json#/$defs/decimal" },
+        "bankLine": {
+      "description": "One line of a cash, savings or tax-pot account's statement (IMPORT.md, Lines): a payment, a salary, money moved to another of your accounts. It keeps its own date, whatever check-ins the account has. What it is is the import's suggestion until confirmed. A removed line stays, so importing the statement again doesn't bring it back, but counts in nothing.",
+      "type": "object",
+      "required": ["account", "date", "id", "amount", "class"],
+      "properties": {
+        "account": { "$ref": "common.schema.json#/$defs/slug" },
+        "date": { "description": "The day the bank booked it.", "$ref": "common.schema.json#/$defs/date" },
+        "id": {
+          "description": "Unique among the account's lines on its date. An imported line gets a stable ID made from its account, date, amount and text, and its position among the file's lines with all of these equal, so importing the file again finds it and keeps its changes. A line typed in gets 8 random lowercase base32 characters, as a trade does.",
+          "$ref": "common.schema.json#/$defs/slug"
+        },
+        "amount": {
+          "description": "Money in positive, money out negative, in the account's currency.",
+          "$ref": "common.schema.json#/$defs/decimal"
+        },
+        "text": { "description": "The bank's text: its description and counterparty, as the file writes them. Left out when empty.", "type": "string" },
+        "class": {
+          "description": "What the line is. income: pay, a pension, rent. spending: money out, a credit card, loan or mortgage payment too; money in that is spending, such as a refund, lowers it. oneOff: an inheritance, a gift, the sale of something untracked. tax: tax paid; a refund lowers it. transfer: moved between your accounts, to or from otherAccount. interest: interest earned. ignore: not counted, still in the balance.",
+          "$comment": "Open enum: a class this version doesn't know is kept and counted as ignore.",
+          "enum": ["income", "spending", "oneOff", "tax", "transfer", "interest", "ignore"]
+        },
+        "otherAccount": {
+          "description": "For a transfer: the account the money moved to or from, when known.",
+          "$ref": "common.schema.json#/$defs/slug"
+        },
+        "note": { "type": "string" },
+        "removed": { "description": "Removed, such as a duplicate: it counts in nothing. Written only when true.", "const": true },
+        "confirmed": { "description": "What it is was confirmed; without it, it's the import's suggestion. Written only when true.", "const": true },
+        "source": { "description": "import, or manual for a line typed in.", "$ref": "common.schema.json#/$defs/dataSource" }
+      }
+    },
+    "price": { "description": "Per unit, in currency.", "$ref": "common.schema.json#/$defs/decimal" },
         "currency": {
           "description": "The price's currency. Default: the instrument's (the account's without an instrument).",
           "$ref": "common.schema.json#/$defs/currency"

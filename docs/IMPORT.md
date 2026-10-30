@@ -324,7 +324,18 @@ The importer is tested with made-up exports in the shapes of real ones (`Tests/I
 
 ## Bank statements
 
-A bank's statement export for one cash or savings account is read in the **statement layout**: each row is a line of the statement, and each line is classified as money in, money out or neither. The lines become the account's values, with the balance and money in and out ([PROGRESS.md](PROGRESS.md#money-in-and-out)). The lines themselves aren't stored: correcting a past month means importing its file again.
+A bank's statement export for one cash or savings account is read in the **statement layout**: each row is a line of the statement, and each line is classified as money in, money out or neither. The lines become the account's values, with the balance and money in and out ([PROGRESS.md](PROGRESS.md#money-in-and-out)). The import doesn't store the lines yet: correcting a past month means importing its file again. The library can hold them ([Lines](#lines)).
+
+### Lines
+
+A cash, savings or tax-pot account's statement lines can be kept in the monthly history files (`lines`, Model's `BankLine`, [the schema](schema/history-month.schema.json)), so each one can be checked and changed later. A line keeps:
+
+- its **account**, its **date** (the day the bank booked it) and its **amount**: money in positive, money out negative, in the account's currency. Each line keeps its own date, whatever check-ins the account has: check-ins are when balances are compared, not the shape of the data;
+- the bank's **text**, its description and counterparty as the file writes them;
+- what it **is** (`class`): income, spending, tax, interest, a one-off, money moved between your accounts (`transfer`, with the other account in `otherAccount` when it's known) or not counted (`ignore`). There are no spending categories ([PLAN.md](PLAN.md#non-goals)), and a line isn't split: a note says what a mixed line was;
+- a **note**; whether it was **removed**, such as a line a bank's export has twice: it stays in the file, so importing the statement again doesn't bring it back, but counts in nothing; and whether what it is was **confirmed**, or is still the import's suggestion.
+
+Lines are keyed by account, date and **ID**. An imported line's ID is made from its account, date, amount and text, and its position among the file's lines with all of these equal (`BankLineID.stable`), so importing the same file again finds the same lines and keeps what you changed. A line typed in gets a random ID. Loading points out a line of an account, or moved to an account, that doesn't exist.
 
 ### Detecting a statement
 
