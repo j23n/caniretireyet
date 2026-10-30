@@ -4,9 +4,10 @@ import Tracker
 
 /// *Add Trade* (UI.md, "A brokerage month"): a trade typed in. Its type, its
 /// day in the month, the instrument (or *New Instrument…*, the instrument
-/// editor with its price source), and the quantity, price and fees of a buy
-/// or a sale, or the amount of the others. The cash it moves shows as it's
-/// typed. It's saved with `manual` as its source.
+/// editor with its price source, pushed on iPhone and iPad and in a sheet
+/// on the Mac), and the quantity, price and fees of a buy or a sale, each
+/// with its unit, or the amount of the others. The cash it moves shows as
+/// it's typed. It's saved with `manual` as its source.
 struct AddTradeSheet: View {
     let route: BrokerageRoute
 
@@ -84,16 +85,23 @@ struct AddTradeSheet: View {
                         }
                     }
                     .personalControl()
+                    #if os(iOS)
+                    NavigationLink("New Instrument…") {
+                        InstrumentEditor(instrumentID: nil, currency: account?.currency) { draft.instrument = $0 }
+                    }
+                    .disabled(!library.canEdit)
+                    #else
                     Button("New Instrument…") {
                         instrumentsBefore = Set(library.library.instruments.keys)
                         newInstrument = InstrumentEditTarget(instrument: nil)
                     }
                     .disabled(!library.canEdit)
+                    #endif
                 }
             }
             Section {
                 if draft.isSecurity {
-                    numberField("Quantity", text: $quantityText) { draft.quantity = $0 }
+                    numberField("Quantity", text: $quantityText, unit: quantityUnit) { draft.quantity = $0 }
                     numberField("Price", text: $priceText, currency: priceCurrency) { draft.price = $0 }
                     numberField("Fees", text: $feesText, currency: account?.currency) { draft.fees = $0 }
                 } else {
@@ -128,11 +136,12 @@ struct AddTradeSheet: View {
         .formStyle(.grouped)
     }
 
-    /// A number with its label beside it, and the currency after it.
+    /// A number with its label beside it, and the currency or unit after it.
     private func numberField(_ title: String, text: Binding<String>, currency: CurrencyCode? = nil,
-                             set: @escaping (Decimal?) -> Void) -> some View {
+                             unit: String? = nil, set: @escaping (Decimal?) -> Void) -> some View {
         FormNumberField(title: title, text: text, prompt: "0",
-                        suffix: currency.map { AmountFormat.symbol(for: $0, locale: locale) }, allowsNegative: false)
+                        suffix: currency.map { AmountFormat.symbol(for: $0, locale: locale) } ?? unit,
+                        allowsNegative: false)
             .onChange(of: text.wrappedValue) { _, typed in
                 set(AmountInput.decimal(from: typed, locale: locale))
             }
@@ -148,6 +157,11 @@ struct AddTradeSheet: View {
 
     private var instruments: [Instrument] {
         library.library.instruments.values.sorted { ($0.name, $0.id) < ($1.name, $1.id) }
+    }
+
+    /// The unit the quantity is counted in: "sh", "g", "BTC".
+    private var quantityUnit: String? {
+        QuantityFormat.unit(of: draft.instrument.flatMap { library.library.instruments[$0] })
     }
 
     private var instrumentCurrency: CurrencyCode? {

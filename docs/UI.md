@@ -499,7 +499,8 @@ A brokerage, crypto or metals account that records its trades has a row in each 
 - **Trades**: the opening cash, then the month's trades as the account's page lists them. Right-click or long-press one to delete it.
 - **Does the cash add up?** The opening cash and the trades lead to a cash; the broker's cash on the check-in's date is typed beside it, and the month says whether it adds up or by how much it's off. The month still to come takes it at the check-in.
 - **Holdings** at the month's end: each instrument's quantity, price and value, then the cash.
-- *Import CSV…* opens the import with the broker's file; its types step asks once what each of the broker's words is, and remembers them for the next file ([IMPORT.md](IMPORT.md#types)). *Add Trade* types one in: a buy, a sale, a deposit, a withdrawal, a dividend, interest, a fee or a tax; the instrument, or *New Instrument…* with its price source; the quantity, price and fees, or the amount; and the cash it moves.
+- *Import CSV…* opens the import with the broker's file; its types step asks once what each of the broker's words is, and remembers them for the next file ([IMPORT.md](IMPORT.md#types)). *Add Trade* types one in: a buy, a sale, a deposit, a withdrawal, a dividend, interest, a fee or a tax; the instrument, chosen from a picker, or *New Instrument…* with its price source (pushed on iPhone and iPad, a sheet on the Mac); the quantity in its unit ("sh"), the price and fees in their currency, or the amount; and the cash it moves.
+- **On iPhone** the month is shorter: a deposit to add ("Conto Fineco moved 1.500,00 € to Directa on 3 Oct", *Add as Deposit*), the broker's cash ("Directa says on 31 Oct", typed in its field, with "Cash adds up" or how much it's off under it), the trades, and one row, "Holdings and value 62.255 €", which opens the account. *Add Trade* is the button at the bottom; *Import CSV…* is in the ••• menu.
 
 ### Add past statements
 
@@ -530,12 +531,12 @@ A brokerage, crypto or metals account records its **trades** ([TRADES.md](TRADES
 │                       20 trades Filter ▾ │
 │ AUGUST 2026                              │
 │ ⊕ Buy 10 VWCE                −1.352,50 € │
-│   at 134,75 € · 12 Aug 2026              │
+│   12 Aug 2026 · at 134,75 €              │
 │ ↓ Deposit                      +200,60 € │
 │   4 Aug 2026                             │
 │ JULY 2026                                │
 │ ⊖ Sell 8,5 VWCE              +1.162,80 € │
-│   at 144,56 € · 14 Jul 2026 gain +234,42 │
+│   14 Jul 2026 · at 144,56 € gain +234,42 │
 │ …                                        │
 │ INCOME & GAINS                           │
 │ 2026   Realised gains · Dividends ·      │
@@ -549,7 +550,7 @@ A brokerage, crypto or metals account records its **trades** ([TRADES.md](TRADES
 ```
 
 - **Holdings**: per instrument, the quantity, price, average cost (*costo medio*: what was paid per unit, fees included), value and unrealised gain; then the cash and the unrealised gain of them all. On iPhone each position is two lines: the name, wrapping when it's long, and the value; "412,5 sh at 138,42 €, paid 116,85 € each" and the gain ("▲ +8.898 €"), the gain under it when they don't fit. On the Mac, a grid with those columns, its share of the account and the total; a long name wraps in its column.
-- **Trades**: grouped by month, newest first; each row shows the type's icon, what it was ("Buy 0,10383916 BTC") over its price, date and note ("at 101.437,76 € · 1 Oct 2025", the price in its own currency), and on the other side the cash it moved, with a sale's realised gain. A trade paid from outside the account shows what was paid or received, marked "paid from outside" (a sale: "proceeds paid out"); on the Mac the mark leads its note. At the largest text sizes the amount goes under the description. *Filter* shows one instrument or one type. Swipe or long-press a trade to delete it (the confirmation says what deleting brings in, e.g. a later sale now selling more than is held). On the Mac, a table (date, type, instrument, quantity, price, amount, note) as long as its trades, which scrolls with the page: right-click deletes.
+- **Trades**: grouped by month, newest first; each row shows the type's icon, what it was ("Buy 0,10383916 BTC") over its date, price and note ("1 Oct 2025 · at 101.437,76 €", the price in its own currency), and on the other side the cash it moved, with a sale's realised gain. A trade paid from outside the account shows what was paid or received, marked "paid from outside" (a sale: "proceeds paid out"); on the Mac the mark leads its note. At the largest text sizes the amount goes under the description. *Filter* shows one instrument or one type. Swipe or long-press a trade to delete it (the confirmation says what deleting brings in, e.g. a later sale now selling more than is held). On the Mac, a table (date, type, instrument, quantity, price, amount, note) as long as its trades, which scrolls with the page: right-click deletes.
 - **Income & gains**, by year: realised gains, dividends, interest, fees and taxes, and the net; a sale whose cost is unknown is left out and said so. In the account's currency.
 - **What needs a look**, as banners with the fix: a trade missing a price or amount, a sale of more than was held, an opening without cost, a missing exchange rate, a trade outside the account's dates, a value with a balance (which isn't used), and a statement that differs from the trades ("The statement on 30 Jun shows 12 VWCE; your trades give 10. Import the missing trade."). The fix is in the file: correct it and import it again, or delete the trade. A trade outside the account's dates offers *Edit Account…*. Today's *Needs attention* points to an account with any of these ("Directa: 2 problems with trades").
 - **Statements**, in place of the values at check-ins: the values that record a broker statement, newest first. The account's other values only follow the trades, so they aren't listed. A statement is a value whose cash differs from what the trades give on its day ("cash 312,10 €", and "not in the trades +11,30 €", which counts as money added or taken out), or one that lists positions ("1 position listed, 1 differs from the trades"; [Reconciliation](TRADES.md#reconciliation)). An import of a broker statement records one. Swipe one to delete it; on the Mac, a table (date, cash, not in the trades, positions, note), where right-click deletes. Without any, the section isn't shown. The history chart, the header's change and the new-money ticks come from the Valuator (deposits and transfers on their own dates).
