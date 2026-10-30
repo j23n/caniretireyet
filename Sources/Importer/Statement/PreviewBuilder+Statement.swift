@@ -36,7 +36,9 @@ extension PreviewBuilder {
 
     /// Reads the lines, classifies them (``statementLines``) and works out
     /// the account's values: one at each of its values in the file's span,
-    /// and one at each month end of a month that has none. Then the other
+    /// and one at each month end of a month that has none (before the
+    /// library's first check-in, those ``ImportSession/statementCheckIns``
+    /// keeps). Then the other
     /// side of the money the answers move: a tax pot's values, a purchase's
     /// new account, an account sold.
     mutating func statementRecords(dateColumn: Int, dates: DateParser) -> [ImportRecordKey: Accumulator] {
@@ -782,10 +784,16 @@ extension PreviewBuilder {
         let anchor = valuations.last { $0.date < start }
         var cuts = Set(valuations.map(\.date).filter { $0 >= start && $0 <= end })
         var month = start.yearMonth
+        let checkIns = session.statementCheckIns
         while month <= end.yearMonth {
-            if month.lastDay <= end, !cuts.contains(where: { month.contains($0) }) { cuts.insert(month.lastDay) }
+            if month.lastDay <= end, !cuts.contains(where: { month.contains($0) }),
+               checkIns?.includes(month) ?? true {
+                cuts.insert(month.lastDay)
+            }
             month = month.next
         }
+        // Left without a month end before the first check-in, the lines are one stretch up to the file's last day.
+        if cuts.isEmpty, let checkIns, checkIns.ends != .months { cuts.insert(end) }
         // A file said to end on a day has a value on that day, which the next file follows on from.
         if through != nil { cuts.insert(end) }
         // A removed line, such as one the bank's export lists twice, isn't in the balance either.
