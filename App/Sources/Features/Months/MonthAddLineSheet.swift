@@ -45,7 +45,9 @@ struct MonthAddLineSheet: View {
                     }
                 }
         }
+        #if os(macOS)
         .frame(minWidth: 420, minHeight: 460)
+        #endif
     }
 
     private var form: some View {

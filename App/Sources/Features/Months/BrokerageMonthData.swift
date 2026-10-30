@@ -63,7 +63,8 @@ struct TradeDraft: Hashable, Sendable {
         if isSecurity {
             guard sameCurrency, let quantity, let price else { return nil }
             let gross = quantity * price
-            return type == .buy ? -(gross + (fees ?? 0)) : gross - (fees ?? 0)
+            let fees = abs(fees ?? 0)
+            return type == .buy ? -(gross + fees) : gross - fees
         }
         guard let amount else { return nil }
         return Self.isMoneyOut(type) ? -abs(amount) : abs(amount)
