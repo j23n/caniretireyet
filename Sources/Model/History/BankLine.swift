@@ -152,3 +152,67 @@ public struct BankLineID: StringValue {
         ]))
     }
 }
+
+/// What statement lines add to a value's money in, money out, one-off, tax
+/// and interest (docs/IMPORT.md, "Classes"), added up.
+public struct LineAmounts: Hashable, Sendable {
+    public var moneyIn: Decimal = 0
+    /// Lowered by money paid back, so it can be below zero.
+    public var moneyOut: Decimal = 0
+    public var oneOff: Decimal = 0
+    /// Tax paid, lowered by a refund: part of money out.
+    public var tax: Decimal = 0
+    public var interest: Decimal = 0
+
+    public init(moneyIn: Decimal = 0, moneyOut: Decimal = 0, oneOff: Decimal = 0, tax: Decimal = 0,
+                interest: Decimal = 0) {
+        self.moneyIn = moneyIn
+        self.moneyOut = moneyOut
+        self.oneOff = oneOff
+        self.tax = tax
+        self.interest = interest
+    }
+
+    /// What one line of `amount` (money in positive) adds. Income that came
+    /// in is money in, and so is interest unless the account records
+    /// interest (`recordsInterest`); a one-off that came in is a one-off.
+    /// Money in that is spending lowers money out. Any of them that went
+    /// out is money out. Tax is money out and tax both ways: paid, it adds
+    /// to them; refunded, it lowers them. A transfer, a line not counted and
+    /// a class this version doesn't know add nothing.
+    public init(_ statementClass: StatementClass, amount: Decimal, recordsInterest: Bool) {
+        switch statementClass {
+        case .interest where recordsInterest: interest = amount
+        case .income, .interest, .oneOff:
+            if amount < 0 {
+                moneyOut = -amount
+            } else if statementClass == .oneOff {
+                oneOff = amount
+            } else {
+                moneyIn = amount
+            }
+        case .spending: moneyOut = -amount
+        case .tax:
+            moneyOut = -amount
+            tax = -amount
+        default: break
+        }
+    }
+
+    /// Both added up.
+    public static func + (lhs: Self, rhs: Self) -> Self {
+        LineAmounts(moneyIn: lhs.moneyIn + rhs.moneyIn, moneyOut: lhs.moneyOut + rhs.moneyOut,
+                    oneOff: lhs.oneOff + rhs.oneOff, tax: lhs.tax + rhs.tax, interest: lhs.interest + rhs.interest)
+    }
+
+    /// What was spent: money out less the tax in it.
+    public var spent: Decimal { moneyOut - tax }
+}
+
+extension BankLine {
+    /// What the line adds to its value's amounts (``LineAmounts``): nothing
+    /// once it's removed.
+    public func amounts(recordsInterest: Bool) -> LineAmounts {
+        isRemoved ? LineAmounts() : LineAmounts(statementClass, amount: amount, recordsInterest: recordsInterest)
+    }
+}

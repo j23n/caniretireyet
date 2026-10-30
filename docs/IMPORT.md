@@ -337,6 +337,10 @@ A cash, savings or tax-pot account's statement lines can be kept in the monthly 
 
 Lines are keyed by account, date and **ID**. An imported line's ID is made from its account, date, amount and text, and its position among the file's lines with all of these equal (`BankLineID.stable`), so importing the same file again finds the same lines and keeps what you changed. A line typed in gets a random ID. Loading points out a line of an account, or moved to an account, that doesn't exist.
 
+**Between two values** (Tracker's `Library.lineStretches(of:)`, `LineStretch`) an account's lines are checked against its balances: the value before, plus every line that counts, has to be the value after. The difference is a line missing, one listed twice, or a balance typed wrong. Each stretch starts from the value before it, so a value corrected later carries into the next stretch. A stretch's **spent** is its spending lines, less money paid back, and what it **moved** is its transfers. Lines after the account's last value wait for the next one.
+
+**After a line is changed** (`Library.countLines(of:)`), each value that records money in and out and has lines since the value before gets their sums, as a statement's import counts them ([Values](#values)), so the savings rate follows. A value without lines in its period keeps the money in and out it has: typed totals, or a check-in's.
+
 ### Detecting a statement
 
 Without a profile, a file is read as a statement when it isn't a broker's transactions and has dates, a description or counterparty column (`Descrizione`, `Causale`, `Verwendungszweck`, `Description`, `Payee`, …), and either a signed amount column (`Importo`, `Betrag`, `Amount`) with money in and out, or columns for money in and out (`Entrate` and `Uscite`, `Avere` and `Dare`, `Haben` and `Soll`, `Credit` and `Debit`, `Paid in` and `Paid out`). It has no quantities or prices. A column whose header names accounts (`Account name`, or a bare `Name`) doesn't count as its description or counterparty. `--layout statement` reads any file this way, and a statement's `Name` column is then who was paid.
