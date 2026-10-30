@@ -89,6 +89,22 @@ struct StatementCheckInsTests {
         #expect(dates == expected)
     }
 
+    /// A file said to end on a day gets its value there, not at the month
+    /// end before it.
+    @Test func aGivenLastDayTakesThePlaceOfTheLastMonthEnd() throws {
+        var session = try ImportSession(data: Data(Self.csv.utf8))
+        session.proposeMapping(layout: .statement)
+        session.profile.constants.account = "conto"
+        session.statementOpeningBalance = 1000
+        session.statementThrough = "2026-04-15"
+        session.statementCheckIns = StatementCheckIns(ends: .never, before: Self.library())
+        let preview = session.preview(against: Self.library(), today: Self.today)
+        let dates = preview.records.compactMap { record -> CalendarDate? in
+            if case .valuation(let key) = record.imported.key { key.date } else { nil }
+        }
+        #expect(dates == ["2026-04-15"])
+    }
+
     /// A month that isn't over gets no value, as with every month end.
     @Test func aMonthThatIsntOverGetsNone() throws {
         var session = try ImportSession(data: Data("Data;Importo;Descrizione\n05/05/2026;-100,00;Spesa".utf8))

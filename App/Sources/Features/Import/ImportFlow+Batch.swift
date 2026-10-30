@@ -132,7 +132,10 @@ struct ImportCheckInCheck: Hashable, Sendable, Identifiable {
     /// "412 lines · adds up", "58 lines · off by 12,40 €".
     func status(locale: Locale = .current) -> AmountSentence {
         let count = Wording.count(lines, "line")
-        guard let off else { return unchecked ? "\(count) · no balance before to check" : "\(count) · adds up" }
+        guard let off else {
+            if lines == 0 { return "No lines" }
+            return unchecked ? "\(count) · no balance before to check" : "\(count) · adds up"
+        }
         let amount = AmountFormat.amount(abs(off), currency: currency ?? .eur, precision: .cents, locale: locale)
         return "\(count) · off by \(amount: amount)"
     }

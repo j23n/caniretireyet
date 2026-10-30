@@ -788,8 +788,9 @@ extension PreviewBuilder {
         var month = start.yearMonth
         let checkIns = session.statementCheckIns
         while month <= end.yearMonth {
-            // The file's last month end always gets a value, so the next file follows on from it.
-            let isLast = month.next.lastDay > end
+            // The file's last month end always gets a value, so the next file follows on from it, unless the
+            // file is said to end on a day, which gets the value instead.
+            let isLast = through == nil && month.next.lastDay > end
             if month.lastDay <= end, !cuts.contains(where: { month.contains($0) }),
                isLast || (checkIns?.includes(month) ?? true) {
                 cuts.insert(month.lastDay)
