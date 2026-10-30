@@ -69,7 +69,7 @@ struct CheckInScreen: View {
                     CheckInDatePanel(date: date, suggested: checkIn.suggestedDate) { picked in
                         checkIn.begin(on: picked)
                     }
-                    .presentationDetents([.medium, .large])
+                    .presentationDetents([.large])
                 }
             }
     }
@@ -288,8 +288,11 @@ struct CheckInPage: View {
                 saveError = nil
             }
         }
-        if let note = CheckInWording.pastCheckInNote(on: summary.date, in: library.library, locale: locale) {
-            StatusBanner(.info, "A past check-in", message: note, personal: .message)
+        // Worked out when the check-in began: the values it saves on its date make it a saved one.
+        let kind = checkIn.dateKind ?? CheckInDateMenu.kind(of: summary.date, in: library.library)
+        if let banner = CheckInDateMenu.banner(for: kind, on: summary.date, latest: library.latestCheckIn,
+                                               locale: locale) {
+            StatusBanner(.info, banner.title, message: banner.message, personal: [.title, .message])
         }
     }
 

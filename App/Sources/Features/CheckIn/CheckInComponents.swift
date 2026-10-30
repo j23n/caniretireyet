@@ -61,9 +61,11 @@ struct CheckInMoveChip: View {
 
 // MARK: - Date
 
-/// Picks the check-in's date (UI.md, "Date": today by default, the end of
-/// last month in a month's first days). The new date is applied when the
-/// panel closes, and prices are fetched again.
+/// Picks the check-in's date (UI.md, "Date"): the suggested date, today,
+/// the latest saved check-ins to edit (one whose money is off says by how
+/// much), or any other day in the calendar, which adds a check-in between
+/// two you have. Tapping a date picks it; *Done* takes the calendar's.
+/// Prices are fetched again for the new date.
 struct CheckInDatePanel: View {
     let date: CalendarDate
     let suggested: CalendarDate
@@ -72,51 +74,100 @@ struct CheckInDatePanel: View {
     /// The latest date offered: today, or the check-in's date if it's later.
     private let latest: Date
 
+    @Environment(LibraryStore.self) private var library
     @Environment(\.dismiss) private var dismiss
     @Environment(\.locale) private var locale
     @State private var selection: Date
+    @State private var applies = false
 
     init(date: CalendarDate, suggested: CalendarDate, onPick: @escaping (CalendarDate) -> Void) {
         self.date = date
         self.suggested = suggested
         self.onPick = onPick
-        latest = max(Date(), date.dateValue)
+        latest = max(Date(), date.dateValue, suggested.dateValue)
         _selection = State(initialValue: date.dateValue)
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Metrics.m) {
-            HStack {
-                Text("Check-in date")
-                    .font(.headline)
-                Spacer()
-                Button("Done") { dismiss() }
-                    .fontWeight(.semibold)
-                    .keyboardShortcut(.defaultAction)
-            }
-            DatePicker("Check-in date", selection: $selection, in: ...latest, displayedComponents: .date)
-                .datePickerStyle(.graphical)
-                .labelsHidden()
-                .personalControl()
-            if picked != suggested {
-                Button {
-                    selection = suggested.dateValue
-                } label: {
-                    Text(verbatim: "Use \(AmountFormat.longDate(suggested, locale: locale)) (suggested)")
+        NavigationStack {
+            Form {
+                Section {
+                    ForEach(CheckInDateMenu.options(suggested: suggested, today: .today(), library: library.library)) {
+                        option in
+                        Button {
+                            selection = option.date.dateValue
+                            apply()
+                        } label: {
+                            optionRow(option)
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
-                .personalControl()
+                Section {
+                    DatePicker("Check-in date", selection: $selection, in: ...latest, displayedComponents: .date)
+                        .datePickerStyle(.graphical)
+                        .labelsHidden()
+                        .personalControl()
+                } footer: {
+                    Text("Any other day adds a check-in between two you have: your lines stay where they are, and "
+                        + "balances are compared there too. Values are as of the end of the day, and prices are "
+                        + "fetched again for it.")
+                }
             }
-            Text("Values are as of the end of this day, and prices are fetched again for the new date. "
-                + "An earlier date fills in your history.")
-                .font(.footnote)
-                .foregroundStyle(Palette.secondaryInk)
-                .fixedSize(horizontal: false, vertical: true)
+            .formStyle(.grouped)
+            .navigationTitle("Check-in date")
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { apply() }
+                        .fontWeight(.semibold)
+                        .keyboardShortcut(.defaultAction)
+                }
+            }
         }
-        .padding(Metrics.l)
-        .frame(minWidth: 300, idealWidth: 340)
+        .frame(minWidth: 360, idealWidth: 400, minHeight: 600)
         .onDisappear {
-            if picked != date { onPick(picked) }
+            if applies, picked != date { onPick(picked) }
         }
+    }
+
+    /// A date, the line under it, and a check for the one picked, or
+    /// *Edit* or *Fix* for a saved check-in.
+    private func optionRow(_ option: CheckInDateOption) -> some View {
+        HStack(spacing: Metrics.s) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(verbatim: AmountFormat.mediumDate(option.date, locale: locale))
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(Palette.ink)
+                AmountSentenceText(CheckInDateMenu.hint(option, locale: locale))
+                    .font(.subheadline)
+                    .foregroundStyle(option.isOff ? Palette.warning : Palette.secondaryInk)
+            }
+            .privacySensitiveInFeedback()
+            Spacer(minLength: Metrics.s)
+            if picked == option.date {
+                Image(systemName: "checkmark")
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(Palette.accent)
+                    .accessibilityLabel("Picked")
+            } else if option.isSaved {
+                Text(option.isOff ? "Fix" : "Edit")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(option.isOff ? Palette.warning : Palette.accent)
+            }
+        }
+        .padding(.vertical, 2)
+        .contentShape(Rectangle())
+    }
+
+    private func apply() {
+        applies = true
+        dismiss()
     }
 
     private var picked: CalendarDate {
