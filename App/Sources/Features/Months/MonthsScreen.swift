@@ -52,6 +52,9 @@ struct MonthsScreen: View {
         .navigationDestination(for: MonthRoute.self) { route in
             MonthLinesScreen(route: route)
         }
+        .navigationDestination(for: BrokerageRoute.self) { route in
+            BrokerageMonthScreen(route: route)
+        }
         .navigationDestination(item: $opened) { route in
             MonthLinesScreen(route: route)
         }
@@ -94,15 +97,18 @@ private struct MoneyMonthSection: View {
     @Environment(\.locale) private var locale
 
     var body: some View {
+        let brokerage = library.valuator.brokerageMonths(after: month.from, through: month.through,
+                                                         in: library.library)
+        let allDone = month.toDo.isEmpty && brokerage.allSatisfy(\.status.isDone)
         VStack(alignment: .leading, spacing: Metrics.s) {
             HStack(alignment: .firstTextBaseline) {
                 Text(MonthText.title(month.through, locale: locale))
                     .font(.title3.bold())
                     .privacySensitiveInFeedback()
                 Spacer(minLength: Metrics.s)
-                Text(MonthText.progress(month))
+                Text(MonthText.progress(month, brokerage: brokerage))
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(month.toDo.isEmpty ? Palette.good : Palette.secondaryInk)
+                    .foregroundStyle(allDone ? Palette.good : Palette.secondaryInk)
             }
             if month.isCheckedIn, let totals {
                 MonthTotalsStrip(cameIn: totals.income, spent: totals.spent, saved: totals.saved)
@@ -112,6 +118,9 @@ private struct MoneyMonthSection: View {
                     MonthAccountRow(month: accountMonth,
                                     importCSV: { importCSV(route(accountMonth)) },
                                     typeTotals: { typeTotals(route(accountMonth)) })
+                }
+                ForEach(brokerage) { brokerageMonth in
+                    BrokerageMonthRow(month: brokerageMonth)
                 }
             }
         }
@@ -219,5 +228,45 @@ private struct MonthAccountRow: View {
                 .font(.subheadline)
                 .foregroundStyle(isOff ? Palette.warning : month.status.isDone ? Palette.good : Palette.secondaryInk)
         }
+    }
+}
+
+/// A trades account's month: its name and where it stands, opening the
+/// brokerage month.
+private struct BrokerageMonthRow: View {
+    let month: BrokerageMonth
+
+    @Environment(LibraryStore.self) private var library
+    @Environment(\.locale) private var locale
+
+    var body: some View {
+        let account = library.library.accounts[month.account]
+        let isOff = if case .off = month.status { true } else { false }
+        NavigationLink(value: BrokerageRoute(account: month.account, from: month.from, through: month.through)) {
+            HStack(spacing: Metrics.s) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(account?.name ?? month.account.rawValue)
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(Palette.ink)
+                        .privacySensitiveInFeedback()
+                    AmountSentenceText(BrokerageText.status(month, currency: account?.currency ?? .eur,
+                                                            locale: locale))
+                        .font(.subheadline)
+                        .foregroundStyle(isOff ? Palette.warning
+                            : month.status.isDone ? Palette.good : Palette.secondaryInk)
+                }
+                Spacer(minLength: Metrics.s)
+                Text(month.status.isDone ? "Open" : "Check")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(isOff ? Palette.warning : Palette.accent)
+                Image(systemName: "chevron.right")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(Palette.mutedInk)
+                    .accessibilityHidden(true)
+            }
+            .padding(.vertical, Metrics.m)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 }
