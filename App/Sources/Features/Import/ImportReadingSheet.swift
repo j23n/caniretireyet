@@ -364,8 +364,8 @@ private struct ImportReadingGrid: View {
     }
 }
 
-/// What a column holds, as a menu in the accent color over the column
-/// ("Date ▾", "Money out ▾"), secondary while it's ignored.
+/// What a column holds, as a menu in a tinted pill over the column
+/// ("Date ⌄", "Money out ⌄"), grey while it's ignored.
 struct ImportColumnUseMenu: View {
     let model: ImportController
     let row: ImportColumnRow
@@ -383,13 +383,7 @@ struct ImportColumnUseMenu: View {
             .pickerStyle(.inline)
             .labelsHidden()
         } label: {
-            HStack(spacing: 3) {
-                Text(row.use.title(in: layout))
-                    .fontWeight(.semibold)
-                Image(systemName: "chevron.down")
-                    .font(.caption2.weight(.semibold))
-            }
-            .foregroundStyle(row.use == .ignore ? Palette.secondaryInk : Palette.accent)
+            PillLabel(row.use.title(in: layout), isMuted: row.use == .ignore)
         }
         .menuStyle(.button)
         .buttonStyle(.plain)

@@ -78,7 +78,7 @@ struct AddTradeSheet: View {
             }
             if draft.needsInstrument {
                 Section("Instrument") {
-                    Picker("Instrument", selection: $draft.instrument) {
+                    PillPicker("Instrument", selection: $draft.instrument, value: instrumentName, isPersonal: true) {
                         Text("Choose…").tag(InstrumentID?.none)
                         ForEach(instruments) { instrument in
                             Text(instrument.name).tag(InstrumentID?.some(instrument.id))
@@ -153,6 +153,11 @@ struct AddTradeSheet: View {
         let last = min(route.through, .today())
         let first = min(route.from.map { $0.adding(days: 1) } ?? route.through.adding(days: -30), last)
         return first.dateValue...last.dateValue
+    }
+
+    /// What the instrument's pill says: its name, or "Choose".
+    private var instrumentName: String {
+        draft.instrument.flatMap { library.library.instruments[$0]?.name } ?? "Choose"
     }
 
     private var instruments: [Instrument] {
