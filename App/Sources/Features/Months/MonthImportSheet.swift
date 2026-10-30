@@ -43,7 +43,9 @@ struct MonthImportSheet: View {
                     }
                 }
         }
+        #if os(macOS)
         .frame(minWidth: 480, minHeight: 420)
+        #endif
         .fileImporter(isPresented: $choosesFile, allowedContentTypes: ImportFileReader.contentTypes) { result in
             if case .success(let url) = result { open(url) }
         }

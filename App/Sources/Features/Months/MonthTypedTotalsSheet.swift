@@ -50,7 +50,9 @@ struct MonthTypedTotalsSheet: View {
                     }
                 }
         }
+        #if os(macOS)
         .frame(minWidth: 420, minHeight: 480)
+        #endif
         .onAppear(perform: fill)
     }
 
