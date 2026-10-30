@@ -205,13 +205,13 @@ struct SavingsRateTests {
         #expect(valuator.saved(after: "2026-01-31", through: "2026-07-31").byAccount["car"] == 0)
         let july = valuator.change(from: "2026-01-31", to: "2026-07-31")
         #expect(july.accounts.first { $0.account == "car" }?.change.market == d("-1190.14"))
-        // Worth 17,000 at the end of August, against 18,402.19 estimated after 243 days: the rest is saved.
+        // Worth 17,000 at the end of August, against 18,606.03 estimated after 212 days: the rest is saved.
         library.upsert(Valuation(account: "car", date: "2026-08-31", balance: 17000))
         let typed = Valuator(library: library)
-        #expect(typed.saved(after: "2026-07-31", through: "2026-08-31").byAccount["car"] == d("-1402.19"))
-        #expect(typed.saved(after: "2026-01-31", through: "2026-08-31").byAccount["car"] == d("-1402.19"))
+        #expect(typed.saved(after: "2026-07-31", through: "2026-08-31").byAccount["car"] == d("-1606.03"))
+        #expect(typed.saved(after: "2026-01-31", through: "2026-08-31").byAccount["car"] == d("-1606.03"))
         let august = typed.change(from: "2026-01-31", to: "2026-08-31")
-        #expect(august.accounts.first { $0.account == "car" }?.change.market == d("-1597.81"))
+        #expect(august.accounts.first { $0.account == "car" }?.change.market == d("-1393.97"))
         // Two years and two days on (2028 is a leap year), compounding: 10,000 × 0.88² × (1 − 0.12 × 2 / 365),
         // all of it lost.
         library.upsert(Valuation(account: "car", date: "2027-08-31", balance: 10000))
