@@ -89,8 +89,8 @@ struct ImportFirstCheckIn: Hashable, Sendable {
     /// The library's check-ins the files' days reach, from the first on:
     /// they stay, and the files' lines fill them in.
     var after: [ImportCheckInCheck] = []
-    /// The check-ins the files add from the first check-in on, at month
-    /// ends without one.
+    /// The check-ins the files add from the first check-in on, on days
+    /// without one: month ends, and a file's own last day.
     var added: [ImportCheckInCheck] = []
 
     /// "8 past check-ins: one at each quarter end, and at the end of each
