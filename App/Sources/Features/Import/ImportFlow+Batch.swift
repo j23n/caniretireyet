@@ -89,6 +89,9 @@ struct ImportFirstCheckIn: Hashable, Sendable {
     /// The library's check-ins the files' days reach, from the first on:
     /// they stay, and the files' lines fill them in.
     var after: [ImportCheckInCheck] = []
+    /// The check-ins the files add from the first check-in on, on days
+    /// without one: month ends, and a file's own last day.
+    var added: [ImportCheckInCheck] = []
 
     /// "8 past check-ins: one at each quarter end, and at the end of each
     /// file. …"; each file's last month end gets one, so the next file
@@ -106,6 +109,33 @@ struct ImportFirstCheckIn: Hashable, Sendable {
             return "\(count): one at the end of each file. The least checking, but a missing line can only be traced "
                 + "to the whole file."
         }
+    }
+
+    /// "Feb 2026 – Sep 2026: your 8 check-ins stay as they are. The lines
+    /// fill in what came in and went out between them."
+    /// With one, "Jan 2026: your check-in stays as it is. …".
+    func afterNote(locale: Locale = .current) -> String {
+        let span = Self.span(after, locale: locale)
+        guard after.count != 1 else {
+            return span + "your check-in stays as it is. The lines fill in what came in and went out up to it."
+        }
+        return span + "your \(Wording.count(after.count, "check-in")) stay as they are. "
+            + "The lines fill in what came in and went out between them."
+    }
+
+    /// "Mar 2026 – Jun 2026: 2 new check-ins, with balances from the files."
+    func addedNote(locale: Locale = .current) -> String {
+        "\(Self.span(added, locale: locale))\(Wording.count(added.count, "new check-in")), "
+            + "with balances from the files."
+    }
+
+    /// "Feb 2026 – Sep 2026: ", or "Feb 2026: " when they're all in one
+    /// month.
+    private static func span(_ checks: [ImportCheckInCheck], locale: Locale) -> String {
+        guard let first = checks.first?.title(locale: locale), let last = checks.last?.title(locale: locale) else {
+            return ""
+        }
+        return first == last ? "\(first): " : "\(first) – \(last): "
     }
 }
 
@@ -197,11 +227,16 @@ extension ImportFlow {
         let first = library.checkInDates.first
         let starts = previews.compactMap(\.preview.statementPeriod?.from)
         guard let from = starts.min(), first.map({ from < $0 }) ?? true else { return nil }
+        let existing = Set(library.checkInDates)
         var values: Set<CalendarDate> = []
+        var added: Set<CalendarDate> = []
         for entry in previews {
             for record in entry.preview.records {
-                if case .valuation(let key) = record.imported.key, first.map({ key.date < $0 }) ?? true {
+                guard case .valuation(let key) = record.imported.key else { continue }
+                if first.map({ key.date < $0 }) ?? true {
                     values.insert(key.date)
+                } else if !existing.contains(key.date) {
+                    added.insert(key.date)
                 }
             }
         }
@@ -211,6 +246,7 @@ extension ImportFlow {
         if let first, let through = statementsPeriod?.through {
             result.after = checkInChecks(on: library.checkInDates.filter { $0 >= first && $0 <= through })
         }
+        result.added = checkInChecks(on: added.sorted())
         return result
     }
 }

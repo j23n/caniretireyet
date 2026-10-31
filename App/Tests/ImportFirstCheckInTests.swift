@@ -63,6 +63,38 @@ struct ImportFirstCheckInTests {
         #expect(checked == quarters.values)
     }
 
+    /// Month ends the files reach after the first check-in get check-ins
+    /// too, and the card lists them apart from the library's own.
+    @Test func checkInsAddedAfterTheFirstAreListed() throws {
+        var library = Library()
+        library.accounts["conto"] = Account(id: "conto", name: "Conto", kind: .cash, currency: .eur,
+                                            opened: "2025-01-01")
+        library.upsert(Valuation(account: "conto", date: "2026-01-31", balance: 900))
+        var flow = ImportFlow(library: library)
+        flow.open(statements: [(name: "conto.csv", data: Data(Self.csv.utf8))])
+        flow.setBatchAccount("conto", forFile: 0)
+        let first = try #require(flow.firstCheckIn)
+        #expect(first.firstCheckIn == "2026-01-31")
+        #expect(first.after.map(\.date) == ["2026-01-31"])
+        // The file's period runs to the end of its last month, Apr 30.
+        #expect(first.added.map(\.date) == ["2026-02-28", "2026-03-31", "2026-04-30"])
+        #expect(first.addedNote(locale: locale)
+            == "Feb 2026 – Apr 2026: 3 new check-ins, with balances from the files.")
+        #expect(first.afterNote(locale: locale) == "Jan 2026: your check-in stays as it is. "
+            + "The lines fill in what came in and went out up to it.")
+    }
+
+    @Test func theNotesAfterTheFirstNameTheirSpan() {
+        var first = ImportFirstCheckIn(from: "2025-01-05", firstCheckIn: "2026-01-31", ends: .months, values: [])
+        first.added = Array(checks.prefix(2))
+        #expect(first.addedNote(locale: locale)
+            == "Mar 2025 – Jun 2025: 2 new check-ins, with balances from the files.")
+        first.added = Array(checks.prefix(1))
+        #expect(first.addedNote(locale: locale) == "Mar 2025: 1 new check-in, with balances from the files.")
+        first.added = [ImportCheckInCheck(date: "2025-03-15"), ImportCheckInCheck(date: "2025-03-31")]
+        #expect(first.addedNote(locale: locale) == "Mar 2025: 2 new check-ins, with balances from the files.")
+    }
+
     private static let csv = """
         Data;Importo;Descrizione;Saldo
         05/01/2026;-100,00;Spesa gennaio;900,00
