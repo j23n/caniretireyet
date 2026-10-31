@@ -232,7 +232,7 @@ public struct PlanMoneyInOut: Hashable, Sendable {
 
     /// How far *Money in and out*'s value axis fits a period's values
     /// either side of zero: 2.5 times its typical amount, the larger of the
-    /// medians of came in and of spent over its periods, each for a month
+    /// medians of what came in before tax and of spent over its periods, each for a month
     /// (or year) of what it holds, times the months (or years) it holds
     /// (``length(of:)``). A month with a bonus of a month's pay still fits,
     /// and so does a quarter's money after skipped check-ins.
@@ -254,7 +254,7 @@ public struct PlanMoneyInOut: Hashable, Sendable {
         let counted = self.counted
         let lengths = counted.map { length(of: $0) }
         // What came in and was spent a month (or year) of what each holds.
-        let cameIn = Self.typicalWindows(zip(counted, lengths).map { $0.cameIn.doubleValue / $1 })
+        let cameIn = Self.typicalWindows(zip(counted, lengths).map { $0.beforeTax.doubleValue / $1 })
         let spent = Self.typicalWindows(zip(counted, lengths).map { $0.spent.doubleValue / $1 })
         return lengths.indices.map { index in
             let typical = max(Self.median(Array(cameIn[index])) ?? 0, Self.median(Array(spent[index])) ?? 0)
@@ -262,12 +262,13 @@ public struct PlanMoneyInOut: Hashable, Sendable {
         }
     }
 
-    /// The amounts *Money in and out*'s value axis fits: each counted
-    /// period's came in, spent and saved, kept within its limit
+    /// The amounts *Money in and out*'s value axis fits: where each
+    /// counted period's bar ends above and below zero (``PayStack``) and
+    /// what came in before tax, kept within its limit
     /// (``amountAxisLimits``), and the plan's spending, which is never cut.
     public func amountAxisValues(planSpending: Decimal?) -> [Double] {
         let values: [Double] = zip(counted, amountAxisLimits).flatMap { period, limit in
-            [period.cameIn, period.spent, period.saved].map { value in
+            Self.drawnAmounts(period).map { value in
                 limit.map { Self.clamped(value.doubleValue, to: -$0...$0) } ?? value.doubleValue
             }
         }
@@ -279,13 +280,20 @@ public struct PlanMoneyInOut: Hashable, Sendable {
         AmountScale(values: amountAxisValues(planSpending: planSpending))
     }
 
-    /// Whether some period's came in, spent or saved is beyond the value
-    /// axis of *Money in and out*, and drawn cut.
+    /// Whether some period's bar or what came in before tax is beyond the
+    /// value axis of *Money in and out*, and drawn cut.
     public func cutsAmounts(planSpending: Decimal?) -> Bool {
         let domain = amountScale(planSpending: planSpending).domain
         return counted.contains { period in
-            [period.cameIn, period.spent, period.saved].contains { !domain.contains($0.doubleValue) }
+            Self.drawnAmounts(period).contains { !domain.contains($0.doubleValue) }
         }
+    }
+
+    /// What *Money in and out* draws of `period` on its value axis: where
+    /// its bar ends above zero and below, and what came in before tax.
+    static func drawnAmounts(_ period: MoneyInOutPeriod) -> [Decimal] {
+        guard let stack = period.stack else { return [] }
+        return [stack.top, stack.bottom, stack.cameIn]
     }
 
     /// For each period, the rates *Savings rate*'s value axis fits its bar
@@ -368,11 +376,11 @@ public struct PlanMoneyInOut: Hashable, Sendable {
         return sorted.count.isMultiple(of: 2) ? (sorted[middle - 1] + sorted[middle]) / 2 : sorted[middle]
     }
 
-    /// What typically came in in a period counted, the median, so one
-    /// month with an inheritance doesn't move it: the 1× of the value axis
-    /// of *Money in and out* while amounts are hidden.
+    /// What typically came in before tax in a period counted, the median,
+    /// so one month with an inheritance doesn't move it: the 1× of the
+    /// value axis of *Money in and out* while amounts are hidden.
     public var relativeBase: Double? {
-        Self.median(counted.map(\.cameIn.doubleValue)).flatMap { $0 > 0 ? $0 : nil }
+        Self.median(counted.map(\.beforeTax.doubleValue)).flatMap { $0 > 0 ? $0 : nil }
     }
 }
 

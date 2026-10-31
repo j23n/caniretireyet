@@ -76,6 +76,13 @@ public struct SavingsRate: Hashable, Sendable {
     /// recorded.
     public var spent: Decimal { income - saved }
 
+    /// What came in, the tax, what was spent and what was saved, as Today's
+    /// *Your pay* splits them (``WhatMoved/Pay``): its ``WhatMoved/Pay/spent``
+    /// is ``spent`` and its ``WhatMoved/Pay/savedShare`` is ``rate``.
+    public var pay: WhatMoved.Pay {
+        WhatMoved.Pay(moneyIn: moneyInOut.moneyIn, pension: pensionContributions, tax: tax, saved: saved)
+    }
+
     /// ``spent`` scaled to a year by the days counted, rounded to cents.
     public var spentPerYear: Decimal {
         (spent * 365 / Decimal(max(1, from.days(to: through)))).rounded(scale: 2)
