@@ -76,10 +76,10 @@ struct ImportFirstCheckInTests {
         let first = try #require(flow.firstCheckIn)
         #expect(first.firstCheckIn == "2026-01-31")
         #expect(first.after.map(\.date) == ["2026-01-31"])
-        #expect(!first.added.isEmpty)
-        #expect(first.added.allSatisfy { $0.date > "2026-01-31" })
-        #expect(first.added.map(\.date) == first.added.map(\.date).sorted())
-        #expect(first.addedNote(locale: locale).contains("new check-in"))
+        // The file's period runs to the end of its last month, Apr 30.
+        #expect(first.added.map(\.date) == ["2026-02-28", "2026-03-31", "2026-04-30"])
+        #expect(first.addedNote(locale: locale)
+            == "Feb 2026 – Apr 2026: 3 new check-ins, with balances from the files.")
         #expect(first.afterNote(locale: locale) == "Jan 2026: your check-in stays as it is. "
             + "The lines fill in what came in and went out up to it.")
     }
