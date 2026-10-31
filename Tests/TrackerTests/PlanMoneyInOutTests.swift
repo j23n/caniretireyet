@@ -342,10 +342,10 @@ struct PlanMoneyInOutTests {
         let limits = money.amountAxisLimits
         #expect(limits.first == 5_000)
         #expect(limits.last == 15_000)
-        // The bonus and what it saved are kept to the first year's limit, so the axis
-        // fits the second year's months and the bonus is cut.
+        // The bonus's bar and what came in are kept to the first year's limit, so the
+        // axis fits the second year's months and the bonus is cut. Nothing is below zero.
         let values = money.amountAxisValues(planSpending: nil)
-        #expect(Array(values.prefix(3)) == [5_000, 1_500, 5_000])
+        #expect(Array(values.prefix(3)) == [5_000, 0, 5_000])
         #expect(values.max() == 6_000)
         #expect(money.cutsAmounts(planSpending: nil))
     }

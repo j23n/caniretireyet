@@ -317,6 +317,8 @@ enum ChartSwatch: Hashable {
     case bar(ChartColor)
     /// A bar of the colour, hatched (``ChartHatch``).
     case hatchedBar(ChartColor)
+    /// A bar of the colour at an opacity: a lighter part of a stacked bar.
+    case fadedBar(ChartColor, opacity: Double)
     /// A dot of the colour.
     case dot(ChartColor)
 }
@@ -475,6 +477,10 @@ struct ChartLegendLabel: View {
         case .hatchedBar(let color):
             RoundedRectangle(cornerRadius: 2, style: .continuous)
                 .fill(ChartHatch.style(Palette.color(for: color)))
+                .frame(width: 8)
+        case .fadedBar(let color, let opacity):
+            RoundedRectangle(cornerRadius: 2, style: .continuous)
+                .fill(Palette.color(for: color).opacity(opacity))
                 .frame(width: 8)
         case .dot(let color):
             Circle()

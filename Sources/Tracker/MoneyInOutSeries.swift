@@ -38,9 +38,26 @@ public struct MoneyInOutPeriod: Hashable, Sendable {
     /// What was paid into pension funds and TFR over the days the pay covers.
     public var pensionContributions: Decimal { savings?.pensionContributions ?? 0 }
 
-    /// What came in: money in plus the pension contributions
-    /// (``SavingsRate/income``).
+    /// What came in after tax: money in plus the pension contributions,
+    /// less the tax (``SavingsRate/income``).
     public var cameIn: Decimal { savings?.income ?? 0 }
+
+    /// What came in before tax: money in plus the pension contributions.
+    public var beforeTax: Decimal { moneyIn + pensionContributions }
+
+    /// The tax paid in the period (``SavingsRate/tax``).
+    public var tax: Decimal { savings?.tax ?? 0 }
+
+    /// One-offs, neither came in nor saved (``SavingsRate/oneOffs``).
+    public var oneOffs: Decimal { savings?.oneOffs ?? 0 }
+
+    /// What came in, the tax, what was spent and what was saved
+    /// (``SavingsRate/pay``); `nil` when none was counted.
+    public var pay: WhatMoved.Pay? { savings?.pay }
+
+    /// The period's pay as one bar (``PayStack``); `nil` when none was
+    /// counted.
+    public var stack: PayStack? { pay.map(PayStack.init) }
 
     /// What was saved: what every account saved (``SavingsRate/saved``).
     public var saved: Decimal { savings?.saved ?? 0 }

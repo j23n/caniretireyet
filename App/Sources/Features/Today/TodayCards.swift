@@ -112,10 +112,13 @@ struct TodayMovedLedger: View {
 
 /// The pay tile's ring: what came in, split into saved, spent and tax
 /// (``TodayMoved/ring(_:)``), and what was saved of the pay after tax in
-/// its middle, "39%". While amounts are hidden it keeps its proportions;
-/// in a feedback screenshot it hides.
+/// its middle, "39%", over the plan's own rate when it's given ("plan
+/// 28%"). While amounts are hidden it keeps its proportions; in a feedback
+/// screenshot it hides.
 struct TodayPayRing: View {
     let pay: WhatMoved.Pay
+    /// The plan's own savings rate, under what was saved.
+    var planRate: Decimal?
 
     @Environment(\.locale) private var locale
 
@@ -140,6 +143,11 @@ struct TodayPayRing: View {
                     Text("saved")
                         .font(.caption2)
                         .opacity(0.8)
+                    if let planRate {
+                        Text(verbatim: "plan \(AmountFormat.percent(planRate, digits: 0, locale: locale))")
+                            .font(.caption2)
+                            .foregroundStyle(Palette.accent)
+                    }
                 }
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
