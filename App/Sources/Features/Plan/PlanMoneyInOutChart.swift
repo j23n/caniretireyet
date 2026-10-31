@@ -293,9 +293,9 @@ struct PlanMoneyInOutLegend: View {
 /// What a period of *Money in and out* reads where the pointer or a finger
 /// is (UI.md, "So far"): its last day, with "so far" or what it covers,
 /// then its rows: "Came in 5.240 €", "Pension 520 €", "Tax −4.310 €",
-/// "Spent −3.000 €", then what that left over, "Left over −1.550 €"; one-offs
-/// it didn't count; and its savings rate, "−107%", and the rate over 12
-/// months. Rates stay with the eye; amounts hide.
+/// "Spent −3.000 €", then what that left, "You saved −1.550 €", as the pay
+/// tile says it; one-offs it didn't count; and its savings rate, "−107%",
+/// and the rate over 12 months. Rates stay with the eye; amounts hide.
 struct PlanMoneyInOutCallout: View {
     let money: PlanMoneyInOut
     let period: MoneyInOutPeriod
@@ -319,7 +319,7 @@ struct PlanMoneyInOutCallout: View {
                 ChartCalloutRow("Spent", swatch: PlanMoneyInOutChart.color(.spent),
                                 amount: (-pay.spent).doubleValue, currency: money.currency)
                 Divider()
-                ChartCalloutRow("Left over", amount: pay.saved.doubleValue, currency: money.currency)
+                ChartCalloutRow("You saved", amount: pay.saved.doubleValue, currency: money.currency)
                 if period.oneOffs != 0 {
                     ChartCalloutRow("Not counted: one-offs", amount: period.oneOffs.doubleValue,
                                     currency: money.currency)

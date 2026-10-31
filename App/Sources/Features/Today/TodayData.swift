@@ -123,7 +123,7 @@ struct TodayMovedLine: Hashable, Sendable, Identifiable {
     var title: String {
         switch kind {
         case .cameIn: "Came in"
-        case .pension: "Into your pension"
+        case .pension: "Pension"
         case .tax: "Tax"
         case .spent: "Spent"
         case .saved: "You saved"
