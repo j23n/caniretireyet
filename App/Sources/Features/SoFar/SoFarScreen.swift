@@ -263,7 +263,7 @@ struct SoFarView: View {
             SoFarYearByYear(money: money, years: years, select: select)
         } header: {
             SectionHeader("Year by year") {
-                Text("what came in, split")
+                Text("in and out")
                     .font(.footnote)
                     .foregroundStyle(Palette.secondaryInk)
             }
@@ -280,11 +280,10 @@ struct SoFarView: View {
 }
 
 /// *Year by year* (UI.md, "So far"): a row for each year with money in and
-/// out recorded, newest first: the year ("2026 so far" for this one), a bar
-/// of what came in before tax split into what was saved (what went into
-/// pensions lighter, first), what was spent and the tax, as *Money in and
-/// out* stacks a month (``PayStack``), to the scale of the year that took
-/// in most, and the year's savings rate. A year with a check-in opens on
+/// out recorded, newest first: the year ("2026 so far" for this one), the
+/// year's two bars as *Money in and out* draws a month's
+/// (``MoneyInOutBars``), what came in over what went out, to the scale of
+/// the year that took in or spent the most, and the year's savings rate. A year with a check-in opens on
 /// the year's card at the top of the page.
 struct SoFarYearByYear: View {
     let money: PlanMoneyInOut
@@ -296,7 +295,7 @@ struct SoFarYearByYear: View {
 
     var body: some View {
         let periods = money.counted.reversed()
-        let largest = max(periods.compactMap { $0.stack?.top }.max() ?? 0, 1)
+        let largest = max(periods.compactMap { $0.bars?.top }.max() ?? 0, 1)
         VStack(alignment: .leading, spacing: 0) {
             ForEach(Array(periods.enumerated()), id: \.element.from) { offset, period in
                 if offset > 0 { Divider() }
@@ -349,28 +348,36 @@ struct SoFarYearByYear: View {
         .accessibilityHint(opens ? Text("Shows the year at the top") : Text(""))
     }
 
-    /// The parts of the year's bar above zero, in *Money in and out*'s
-    /// colours, to the scale of `largest`.
+    /// What came in over what went out, in *Money in and out*'s colours,
+    /// to the scale of `largest`: the parts above zero.
     private func bar(_ period: MoneyInOutPeriod, largest: Decimal) -> some View {
-        let segments = period.stack?.aboveZero ?? []
+        VStack(spacing: 2) {
+            line(period.bars?.cameIn ?? [], largest: largest)
+            line(period.bars?.wentOut ?? [], largest: largest)
+        }
+        .privacySensitiveInFeedback()
+        .accessibilityHidden(true)
+    }
+
+    /// One of a year's two bars: its `segments` above zero, side by side.
+    private func line(_ segments: [MoneyInOutBars.Segment], largest: Decimal) -> some View {
+        let shown = segments.filter { $0.to > 0 }
         let scale = largest.doubleValue
         return GeometryReader { proxy in
             let width = proxy.size.width
             HStack(spacing: 0) {
                 HStack(spacing: 0) {
-                    ForEach(segments, id: \.self) { segment in
+                    ForEach(shown, id: \.self) { segment in
                         Rectangle()
                             .fill(PlanMoneyInOutChart.color(segment.part))
                             .frame(width: width * CGFloat(segment.length.doubleValue / scale))
                     }
                 }
-                .clipShape(RoundedRectangle(cornerRadius: 3, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: 2, style: .continuous))
                 Spacer(minLength: 0)
             }
         }
-        .frame(height: 12)
-        .privacySensitiveInFeedback()
-        .accessibilityHidden(true)
+        .frame(height: 6)
     }
 
     /// "2025: saved 31% of what came in after tax", without amounts, which
