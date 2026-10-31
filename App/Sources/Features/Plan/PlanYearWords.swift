@@ -147,7 +147,7 @@ struct PlanYearTiles: View {
 
     /// "Your pay in 2026 so far", "Your pay in 2025".
     private var payTitle: String {
-        "Your pay in \(String(year.year))" + (year.isLatest ? " so far" : "")
+        "Your pay in \(String(year.year))" + (year.isSoFar ? " so far" : "")
     }
 
     /// The tax as a share of what came in before tax, e.g. 0.17; `nil`

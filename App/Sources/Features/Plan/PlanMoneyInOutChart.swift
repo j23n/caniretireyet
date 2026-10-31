@@ -220,7 +220,7 @@ struct PlanMoneyInOutChart: View {
             summary: "What came in, the tax, what was spent and what you saved, each \(unit).",
             xTitle: "Date", yTitle: "Amount",
             series: [
-                ChartSummary.Series(name: "Came in", points: spoken(\.beforeTax)),
+                ChartSummary.Series(name: "Came in before tax", points: spoken(\.beforeTax)),
                 ChartSummary.Series(name: "Tax", points: spoken(\.tax)),
                 ChartSummary.Series(name: "Spent", points: spoken(\.spent)),
                 ChartSummary.Series(name: "Saved", points: spoken(\.saved)),
@@ -230,7 +230,7 @@ struct PlanMoneyInOutChart: View {
 }
 
 /// The key of *Money in and out*: saved and its pension part, spent, tax
-/// and what came in; the hatching when a period covers more than itself;
+/// and what came in before tax; the hatching when a period covers more than itself;
 /// and a note when a value is cut at the edge.
 struct PlanMoneyInOutLegend: View {
     let money: PlanMoneyInOut
@@ -255,7 +255,8 @@ struct PlanMoneyInOutLegend: View {
 
     var body: some View {
         var items = Self.parts
-        items.append(ChartLegendItem(name: "Came in", swatch: .line(PlanMoneyInOutChart.cameInColor, dashed: false)))
+        items.append(ChartLegendItem(name: "Came in before tax",
+                                     swatch: .line(PlanMoneyInOutChart.cameInColor, dashed: false)))
         if money.hasCoversMore {
             items.append(ChartLegendItem(name: money.grain == .months ? "More than a month" : "More than a year",
                                          swatch: .hatchedBar(.neutral)))
@@ -280,8 +281,7 @@ struct PlanMoneyInOutCallout: View {
         ChartCallout {
             ChartCalloutDate(period.through.dateValue, detail: money.calloutDetail(period, locale: locale))
             if let pay = period.pay {
-                ChartCalloutRow("Came in", swatch: Palette.stroke(for: PlanMoneyInOutChart.cameInColor),
-                                amount: pay.moneyIn.doubleValue, currency: money.currency)
+                ChartCalloutRow("Came in", amount: pay.moneyIn.doubleValue, currency: money.currency)
                 if pay.pension != 0 {
                     ChartCalloutRow("Into your pension", swatch: PlanMoneyInOutChart.color(.pension),
                                     amount: pay.pension.doubleValue, currency: money.currency)
