@@ -530,9 +530,9 @@ struct ImportFilesList: View {
                         }
                     }
                 }
-                if !first.after.isEmpty {
+                if !first.after.isEmpty || !first.added.isEmpty {
                     Section("After your first check-in") {
-                        ImportAfterFirstCheckIn(checks: first.after)
+                        ImportAfterFirstCheckIn(first: first)
                     }
                 }
             }
@@ -581,12 +581,12 @@ struct ImportFirstCheckInCard: View {
                 if !first.before.isEmpty {
                     ImportCheckInChecks(checks: first.before)
                 }
-                if !first.after.isEmpty {
+                if !first.after.isEmpty || !first.added.isEmpty {
                     Divider()
                         .padding(.vertical, Metrics.xs)
                     Text("After your first check-in")
                         .font(.headline)
-                    ImportAfterFirstCheckIn(checks: first.after)
+                    ImportAfterFirstCheckIn(first: first)
                 }
             }
             .padding(Metrics.l)
@@ -608,8 +608,8 @@ struct ImportFirstCheckInCard: View {
     }
 }
 
-/// The check-ins the files add before the first, a row each, with how
-/// many lines lead to it and whether they add up; then how many do.
+/// The check-ins the files add, a row each, with how many lines lead to
+/// it and whether they add up; then how many do.
 private struct ImportCheckInChecks: View {
     let checks: [ImportCheckInCheck]
 
@@ -641,34 +641,35 @@ private struct ImportCheckInChecks: View {
     }
 }
 
-/// The library's check-ins the files reach: they stay as they are, the
-/// lines fill them in, and how many add up.
+/// From the library's first check-in on: its check-ins the files reach,
+/// which stay as they are while the lines fill them in, and how many add
+/// up; then the check-ins the files add there, a row each.
 private struct ImportAfterFirstCheckIn: View {
-    let checks: [ImportCheckInCheck]
+    let first: ImportFirstCheckIn
 
     @Environment(\.locale) private var locale
 
     var body: some View {
         VStack(alignment: .leading, spacing: Metrics.xs) {
-            AmountSentenceText(intro)
-                .foregroundStyle(Palette.secondaryInk)
-                .fixedSize(horizontal: false, vertical: true)
-            if let summary = ImportCheckInCheck.summary(checks, locale: locale) {
-                AmountSentenceText(summary)
-                    .foregroundStyle(checks.contains { $0.off != nil } ? Palette.warning : Palette.good)
+            if !first.after.isEmpty {
+                Text(verbatim: first.afterNote(locale: locale))
+                    .foregroundStyle(Palette.secondaryInk)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .privacySensitiveInFeedback()
+                if let summary = ImportCheckInCheck.summary(first.after, locale: locale) {
+                    AmountSentenceText(summary)
+                        .foregroundStyle(first.after.contains { $0.off != nil } ? Palette.warning : Palette.good)
+                }
+            }
+            if !first.added.isEmpty {
+                Text(verbatim: first.addedNote(locale: locale))
+                    .foregroundStyle(Palette.secondaryInk)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .privacySensitiveInFeedback()
+                    .padding(.top, first.after.isEmpty ? 0 : Metrics.xs)
+                ImportCheckInChecks(checks: first.added)
             }
         }
-    }
-
-    /// "Feb – Sep 2026: your 8 check-ins stay as they are. …"
-    private var intro: AmountSentence {
-        let count = Wording.count(checks.count, "check-in")
-        var sentence: AmountSentence = ""
-        if let first = checks.first, let last = checks.last {
-            sentence += "\(first.title(locale: locale)) – \(last.title(locale: locale)): "
-        }
-        sentence += "your \(count) stay as they are. The lines fill in what came in and went out between them."
-        return sentence
     }
 }
 
