@@ -91,6 +91,8 @@ struct ImportFirstCheckInTests {
             == "Mar 2025 – Jun 2025: 2 new check-ins, with balances from the files.")
         first.added = Array(checks.prefix(1))
         #expect(first.addedNote(locale: locale) == "Mar 2025: 1 new check-in, with balances from the files.")
+        first.added = [ImportCheckInCheck(date: "2025-03-15"), ImportCheckInCheck(date: "2025-03-31")]
+        #expect(first.addedNote(locale: locale) == "Mar 2025: 2 new check-ins, with balances from the files.")
     }
 
     private static let csv = """

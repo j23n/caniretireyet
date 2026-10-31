@@ -129,11 +129,13 @@ struct ImportFirstCheckIn: Hashable, Sendable {
             + "with balances from the files."
     }
 
-    /// "Feb 2026 – Sep 2026: ", or "Feb 2026: " for one.
+    /// "Feb 2026 – Sep 2026: ", or "Feb 2026: " when they're all in one
+    /// month.
     private static func span(_ checks: [ImportCheckInCheck], locale: Locale) -> String {
-        guard let first = checks.first, let last = checks.last else { return "" }
-        guard first.date != last.date else { return "\(first.title(locale: locale)): " }
-        return "\(first.title(locale: locale)) – \(last.title(locale: locale)): "
+        guard let first = checks.first?.title(locale: locale), let last = checks.last?.title(locale: locale) else {
+            return ""
+        }
+        return first == last ? "\(first): " : "\(first) – \(last): "
     }
 }
 
