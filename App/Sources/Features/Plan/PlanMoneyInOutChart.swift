@@ -3,25 +3,22 @@ import Model
 import SwiftUI
 import Tracker
 
-/// Trends' *Money in and out* (UI.md, "Money in and out, year by year"): per month or year, what
-/// came in and what was spent as a pair of bars from zero, and what was saved
-/// as a dot, counted as the savings rate counts them (came in and saved
-/// include the pension contributions), in the base currency at each value's
-/// date. A dashed rule at the plan's spending while working, for a month or
-/// a year. A period whose values cover more than it, after a skipped
-/// check-in, has hatched bars, and its callout says what they cover. The
-/// current month or year is drawn lighter ("so far"). The value axis fits
-/// what's typical around each period and the plan's rule
+/// So far's *Money in and out* (UI.md, "So far"): per month, what came in
+/// as one bar from zero (``PayStack``), split into what was saved, with
+/// the part paid into pensions lighter at its bottom, what was spent and
+/// the tax; and a green mark at what came in before tax. A part below zero
+/// (a month whose tax bill took more than it saved) hangs below the zero
+/// line. In the base currency at each value's date. A period whose values
+/// cover more than it, after a skipped check-in, has a hatched bar, and its
+/// callout says what it covers. The current month is drawn lighter ("so
+/// far"). The value axis fits what's typical around each period
 /// (``PlanMoneyInOut/amountAxisValues(planSpending:)``); a bar beyond is
-/// drawn to the axis's edge with a gap, a dot as a triangle (``ChartCut``),
-/// and the callout and VoiceOver read the real amounts. While amounts are
-/// hidden the value axis reads in multiples of what typically came in in a
-/// period (``PlanMoneyInOut/relativeBase``).
+/// drawn to the axis's edge with a gap (``ChartCut``), and the callout and
+/// VoiceOver read the real amounts. While amounts are hidden the value axis
+/// reads in multiples of what typically came in in a period
+/// (``PlanMoneyInOut/relativeBase``).
 struct PlanMoneyInOutChart: View {
     let money: PlanMoneyInOut
-    /// The plan's spending while working, for a month or a year; `nil` when
-    /// it's past working.
-    var planSpending: Decimal?
 
     @State private var selectedDate: Date?
     @State private var width: CGFloat = ChartStyle.defaultWidth
@@ -31,64 +28,86 @@ struct PlanMoneyInOutChart: View {
 
     static let height: CGFloat = 200
 
-    /// Came in: the accent; spent: orange; saved: ink.
-    static let cameInColor = ChartColor.accent
+    /// Saved: the accent, the pension part of it lighter; spent: orange,
+    /// lighter; tax: orange; what came in: green.
+    static let savedColor = ChartColor.accent
     static let spentColor = ChartColor.series(1)
-    static let savedColor = ChartColor.ink
+    static let taxColor = ChartColor.series(1)
+    static let cameInColor = ChartColor.series(5)
+    /// How much of their colour the pension part and what was spent keep.
+    static let pensionOpacity = 0.45
+    static let spentOpacity = 0.5
+
+    /// A part's colour.
+    static func color(_ part: PayStack.Part) -> Color {
+        switch part {
+        case .pension: Palette.color(for: savedColor).opacity(pensionOpacity)
+        case .saved: Palette.color(for: savedColor)
+        case .spent: Palette.color(for: spentColor).opacity(spentOpacity)
+        case .tax: Palette.color(for: taxColor)
+        }
+    }
+
+    /// A part's name, as the legend and the callout say it.
+    static func name(_ part: PayStack.Part) -> String {
+        switch part {
+        case .pension: "Into your pension"
+        case .saved: "Saved"
+        case .spent: "Spent"
+        case .tax: "Tax"
+        }
+    }
 
     private var hidesAmounts: Bool { redactionReasons.hidesAmounts }
 
-    /// One period's pair of bars and its dot.
-    private struct Pair: Identifiable {
+    /// One period's bar and its came-in mark.
+    private struct Bar: Identifiable {
         var period: MoneyInOutPeriod
-        var cameInStart: Date
-        var cameInEnd: Date
-        var spentStart: Date
-        var spentEnd: Date
+        var stack: PayStack
+        var start: Date
+        var end: Date
+        var markStart: Date
+        var markEnd: Date
         var middle: Date
-        var cameIn: Double
-        var spent: Double
-        var saved: Double
         var isSoFar: Bool
         var coversMore: Bool
 
         var id: Date { middle }
-        /// Keeps the pair's areas apart from the others'.
+        /// Keeps the bar's areas apart from the others'.
         var key: String { period.from.description }
     }
 
-    private var pairs: [Pair] {
-        money.counted.map { period in
+    private var bars: [Bar] {
+        money.counted.compactMap { period in
+            guard let stack = period.stack else { return nil }
             let span = money.timeSpan(of: period)
-            return Pair(period: period, cameInStart: PlanMoneyInOut.date(0.12, across: span),
-                        cameInEnd: PlanMoneyInOut.date(0.47, across: span),
-                        spentStart: PlanMoneyInOut.date(0.53, across: span),
-                        spentEnd: PlanMoneyInOut.date(0.88, across: span), middle: money.middle(of: period),
-                        cameIn: period.cameIn.doubleValue, spent: period.spent.doubleValue,
-                        saved: period.saved.doubleValue, isSoFar: money.isSoFar(period),
-                        coversMore: money.coversMore(period))
+            return Bar(period: period, stack: stack, start: PlanMoneyInOut.date(0.16, across: span),
+                       end: PlanMoneyInOut.date(0.84, across: span),
+                       markStart: PlanMoneyInOut.date(0.08, across: span),
+                       markEnd: PlanMoneyInOut.date(0.92, across: span), middle: money.middle(of: period),
+                       isSoFar: money.isSoFar(period), coversMore: money.coversMore(period))
         }
     }
 
     var body: some View {
-        let pairs = self.pairs
-        let scale = money.amountScale(planSpending: planSpending)
+        let bars = self.bars
+        let scale = money.amountScale(planSpending: nil)
         let domain = money.domain ?? (Date.now...Date.now.addingTimeInterval(31 * 86_400))
-        chart(pairs, scale: scale, domain: domain)
+        chart(bars, scale: scale, domain: domain)
             .frame(height: Self.height)
             .measuringWidth($width)
-            .accessibilityChartDescriptor(summary(pairs))
+            .accessibilityChartDescriptor(summary(bars))
             .privacySensitiveInFeedback()
     }
 
     /// How much of its colour the "so far" period keeps.
     private static let soFarOpacity = 0.45
 
-    /// A bar's fill: its colour, hatched when its period covers more, and
+    /// A part's fill: its colour, hatched when its period covers more, and
     /// lighter while it's so far.
-    private static func fill(_ role: ChartColor, of pair: Pair) -> AnyShapeStyle {
-        let color: Color = Palette.color(for: role).opacity(pair.isSoFar ? soFarOpacity : 1)
-        if pair.coversMore {
+    private static func fill(_ part: PayStack.Part, of bar: Bar) -> AnyShapeStyle {
+        let color = Self.color(part).opacity(bar.isSoFar ? soFarOpacity : 1)
+        if bar.coversMore {
             return AnyShapeStyle(ChartHatch.style(color))
         }
         return AnyShapeStyle(color)
@@ -100,15 +119,13 @@ struct PlanMoneyInOutChart: View {
         return money.period(nearest: selectedDate)
     }
 
-    private func chart(_ pairs: [Pair], scale: AmountScale, domain: ClosedRange<Date>) -> some View {
+    private func chart(_ bars: [Bar], scale: AmountScale, domain: ClosedRange<Date>) -> some View {
         let ticks = TimeTicks(domain: domain, plotWidth: max(Double(width) - 48, 1))
         let base: Double? = money.relativeBase
         return Chart {
-            cameInBars(pairs, within: scale.domain)
-            spentBars(pairs, within: scale.domain)
+            stacks(bars, within: scale.domain)
             zeroRule()
-            planRule()
-            savedDots(pairs, within: scale.domain)
+            cameInMarks(bars, within: scale.domain)
             selectionRule(selectedPeriod)
         }
         .chartLegend(.hidden)
@@ -119,43 +136,31 @@ struct PlanMoneyInOutChart: View {
         .chartXAxis { dateAxis(ticks) }
     }
 
-    /// Each period's came in, an area from zero between the bar's start and
-    /// end, drawn to the edge of the value axis's `domain` with a gap when
-    /// it's beyond it; `key` keeps a bar's area apart from the others'.
+    /// Each period's bar: each part an area between the bar's start and
+    /// end, kept within the value axis's `domain`, with a gap where the bar
+    /// goes beyond it; the part's name and the bar's `key` keep an area
+    /// apart from the others.
     @ChartContentBuilder
-    private func cameInBars(_ pairs: [Pair], within domain: ClosedRange<Double>) -> some ChartContent {
-        ForEach(pairs) { pair in
-            let height = PlanMoneyInOut.clamped(pair.cameIn, to: domain)
-            AreaMark(x: .value("Date", pair.cameInStart), yStart: .value("From", 0.0),
-                     yEnd: .value("Came in", height), series: .value("Bar", "Came in " + pair.key))
-                .foregroundStyle(Self.fill(Self.cameInColor, of: pair))
-                .spokenValue(spokenAmount(pair.cameIn, within: domain))
-            AreaMark(x: .value("Date", pair.cameInEnd), yStart: .value("From", 0.0),
-                     yEnd: .value("Came in", height), series: .value("Bar", "Came in " + pair.key))
-                .foregroundStyle(Self.fill(Self.cameInColor, of: pair))
-                .spokenValue(spokenAmount(pair.cameIn, within: domain))
-            if let gap = ChartCut.gap(pair.cameIn, within: domain) {
-                ChartCut.gapMark(from: pair.cameInStart, to: pair.cameInEnd, at: gap, surface: surface)
+    private func stacks(_ bars: [Bar], within domain: ClosedRange<Double>) -> some ChartContent {
+        ForEach(bars) { bar in
+            ForEach(bar.stack.segments, id: \.self) { segment in
+                let low = PlanMoneyInOut.clamped(min(segment.from, segment.to).doubleValue, to: domain)
+                let high = PlanMoneyInOut.clamped(max(segment.from, segment.to).doubleValue, to: domain)
+                let series = Self.name(segment.part) + " " + bar.key
+                AreaMark(x: .value("Date", bar.start), yStart: .value("From", low), yEnd: .value("To", high),
+                         series: .value("Bar", series))
+                    .foregroundStyle(Self.fill(segment.part, of: bar))
+                    .spokenValue(spokenAmount(segment.length.doubleValue, within: domain))
+                AreaMark(x: .value("Date", bar.end), yStart: .value("From", low), yEnd: .value("To", high),
+                         series: .value("Bar", series))
+                    .foregroundStyle(Self.fill(segment.part, of: bar))
+                    .spokenValue(spokenAmount(segment.length.doubleValue, within: domain))
             }
-        }
-    }
-
-    /// What each period spent, drawn as ``cameInBars(_:within:)`` draws
-    /// came in.
-    @ChartContentBuilder
-    private func spentBars(_ pairs: [Pair], within domain: ClosedRange<Double>) -> some ChartContent {
-        ForEach(pairs) { pair in
-            let height = PlanMoneyInOut.clamped(pair.spent, to: domain)
-            AreaMark(x: .value("Date", pair.spentStart), yStart: .value("From", 0.0),
-                     yEnd: .value("Spent", height), series: .value("Bar", "Spent " + pair.key))
-                .foregroundStyle(Self.fill(Self.spentColor, of: pair))
-                .spokenValue(spokenAmount(pair.spent, within: domain))
-            AreaMark(x: .value("Date", pair.spentEnd), yStart: .value("From", 0.0),
-                     yEnd: .value("Spent", height), series: .value("Bar", "Spent " + pair.key))
-                .foregroundStyle(Self.fill(Self.spentColor, of: pair))
-                .spokenValue(spokenAmount(pair.spent, within: domain))
-            if let gap = ChartCut.gap(pair.spent, within: domain) {
-                ChartCut.gapMark(from: pair.spentStart, to: pair.spentEnd, at: gap, surface: surface)
+            if let gap = ChartCut.gap(bar.stack.top.doubleValue, within: domain) {
+                ChartCut.gapMark(from: bar.start, to: bar.end, at: gap, surface: surface)
+            }
+            if let gap = ChartCut.gap(bar.stack.bottom.doubleValue, within: domain) {
+                ChartCut.gapMark(from: bar.start, to: bar.end, at: gap, surface: surface)
             }
         }
     }
@@ -167,34 +172,17 @@ struct PlanMoneyInOutChart: View {
             .lineStyle(StrokeStyle(lineWidth: 1))
     }
 
-    /// The plan's spending while working, dashed.
+    /// What came in before tax: a green mark across each bar, at the
+    /// value axis's edge when it's beyond it.
     @ChartContentBuilder
-    private func planRule() -> some ChartContent {
-        if let planSpending {
-            RuleMark(y: .value("Your plan's spending while working", planSpending.doubleValue))
-                .foregroundStyle(Palette.secondaryInk)
-                .lineStyle(StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
-                .spokenValueHidden(hidesAmounts)
-        }
-    }
-
-    /// What each period saved, a dot; beyond the value axis's `domain`, a
-    /// triangle at its edge pointing past it.
-    @ChartContentBuilder
-    private func savedDots(_ pairs: [Pair], within domain: ClosedRange<Double>) -> some ChartContent {
-        ForEach(pairs) { pair in
-            let color = Palette.stroke(for: Self.savedColor).opacity(pair.isSoFar ? Self.soFarOpacity : 1)
-            if domain.contains(pair.saved) {
-                PointMark(x: .value("Date", pair.middle), y: .value("Saved", pair.saved))
-                    .foregroundStyle(color)
-                    .symbolSize(36)
-                    .spokenValue(spokenAmount(pair.saved, within: domain))
-            } else {
-                PointMark(x: .value("Date", pair.middle),
-                          y: .value("Saved", PlanMoneyInOut.clamped(pair.saved, to: domain)))
-                    .symbol { ChartCut.arrow(up: pair.saved > domain.upperBound, color: color) }
-                    .spokenValue(spokenAmount(pair.saved, within: domain))
-            }
+    private func cameInMarks(_ bars: [Bar], within domain: ClosedRange<Double>) -> some ChartContent {
+        ForEach(bars) { bar in
+            let cameIn = bar.stack.cameIn.doubleValue
+            RuleMark(xStart: .value("Date", bar.markStart), xEnd: .value("Date", bar.markEnd),
+                     y: .value("Came in", PlanMoneyInOut.clamped(cameIn, to: domain)))
+                .foregroundStyle(Palette.stroke(for: Self.cameInColor).opacity(bar.isSoFar ? Self.soFarOpacity : 1))
+                .lineStyle(StrokeStyle(lineWidth: 2, lineCap: .round))
+                .spokenValue(spokenAmount(cameIn, within: domain))
         }
     }
 
@@ -216,27 +204,24 @@ struct PlanMoneyInOutChart: View {
                 .lineStyle(StrokeStyle(lineWidth: 1))
                 .annotation(position: .top, spacing: 4,
                             overflowResolution: .init(x: .fit(to: .chart), y: .fit(to: .chart))) {
-                    callout(for: period)
+                    PlanMoneyInOutCallout(money: money, period: period)
                 }
         }
     }
 
-    private func callout(for period: MoneyInOutPeriod) -> some View {
-        PlanMoneyInOutCallout(money: money, period: period)
-    }
-
-    private func summary(_ pairs: [Pair]) -> ChartSummary {
+    private func summary(_ bars: [Bar]) -> ChartSummary {
         let locale = self.locale
-        func spoken(_ value: KeyPath<Pair, Double>) -> [(String, Double)] {
-            pairs.map { (AmountFormat.mediumDate($0.period.through, locale: locale), $0[keyPath: value]) }
+        func spoken(_ value: (MoneyInOutPeriod) -> Decimal) -> [(String, Double)] {
+            bars.map { (AmountFormat.mediumDate($0.period.through, locale: locale), value($0.period).doubleValue) }
         }
         let unit = money.grain == .months ? "month" : "year"
         return ChartSummary(
             title: "Money in and out",
-            summary: "What came in, what was spent and what you saved, each \(unit).",
+            summary: "What came in, the tax, what was spent and what you saved, each \(unit).",
             xTitle: "Date", yTitle: "Amount",
             series: [
-                ChartSummary.Series(name: "Came in", points: spoken(\.cameIn)),
+                ChartSummary.Series(name: "Came in", points: spoken(\.beforeTax)),
+                ChartSummary.Series(name: "Tax", points: spoken(\.tax)),
                 ChartSummary.Series(name: "Spent", points: spoken(\.spent)),
                 ChartSummary.Series(name: "Saved", points: spoken(\.saved)),
             ],
@@ -244,26 +229,33 @@ struct PlanMoneyInOutChart: View {
     }
 }
 
-/// The key of *Money in and out*: came in, spent and saved; the plan's
-/// spending while working when it's drawn; the hatching when a period
-/// covers more than itself; and a note when a value is cut at the edge.
+/// The key of *Money in and out*: saved and its pension part, spent, tax
+/// and what came in; the hatching when a period covers more than itself;
+/// and a note when a value is cut at the edge.
 struct PlanMoneyInOutLegend: View {
     let money: PlanMoneyInOut
-    let showsPlanSpending: Bool
     /// Whether a value is beyond the value axis
     /// (``PlanMoneyInOut/cutsAmounts(planSpending:)``).
     var cuts = false
 
-    var body: some View {
-        var items = [
-            ChartLegendItem(name: "Came in", swatch: .bar(PlanMoneyInOutChart.cameInColor)),
-            ChartLegendItem(name: "Spent", swatch: .bar(PlanMoneyInOutChart.spentColor)),
-            ChartLegendItem(name: "Saved", swatch: .dot(PlanMoneyInOutChart.savedColor)),
+    /// The bar's parts: saved and its pension part, spent and tax. *Year
+    /// by year* has them alone.
+    static var parts: [ChartLegendItem] {
+        [
+            ChartLegendItem(name: "Saved", swatch: .bar(PlanMoneyInOutChart.savedColor)),
+            ChartLegendItem(name: "of it into your pension",
+                            swatch: .fadedBar(PlanMoneyInOutChart.savedColor,
+                                              opacity: PlanMoneyInOutChart.pensionOpacity)),
+            ChartLegendItem(name: "Spent",
+                            swatch: .fadedBar(PlanMoneyInOutChart.spentColor,
+                                              opacity: PlanMoneyInOutChart.spentOpacity)),
+            ChartLegendItem(name: "Tax", swatch: .bar(PlanMoneyInOutChart.taxColor)),
         ]
-        if showsPlanSpending {
-            items.append(ChartLegendItem(name: "Your plan's spending while working",
-                                         swatch: .line(.taxes, dashed: true)))
-        }
+    }
+
+    var body: some View {
+        var items = Self.parts
+        items.append(ChartLegendItem(name: "Came in", swatch: .line(PlanMoneyInOutChart.cameInColor, dashed: false)))
         if money.hasCoversMore {
             items.append(ChartLegendItem(name: money.grain == .months ? "More than a month" : "More than a year",
                                          swatch: .hatchedBar(.neutral)))
@@ -272,11 +264,12 @@ struct PlanMoneyInOutLegend: View {
     }
 }
 
-/// What a period of *Money in and out* reads where the
-/// pointer or a finger is (UI.md, "Money in and out, year by year"): its last day, with "so far"
-/// or what it covers, then its rows: "Savings rate 34%", "Rate over 12
-/// months 31%", "Came in 4.100 €", "Spent 2.600 €", "Saved 1.500 €". Rates
-/// stay with the eye; amounts hide.
+/// What a period of *Money in and out* reads where the pointer or a finger
+/// is (UI.md, "So far"): its last day, with "so far" or what it covers,
+/// then its pay as Today's *Your pay* tile has it: "Came in 5.240 €", "Into
+/// your pension 520 €", "Tax −4.310 €", "Spent −3.000 €", then "You saved
+/// −1.550 €"; one-offs it didn't count; and its savings rate, "−107%", and
+/// the rate over 12 months. Rates stay with the eye; amounts hide.
 struct PlanMoneyInOutCallout: View {
     let money: PlanMoneyInOut
     let period: MoneyInOutPeriod
@@ -286,23 +279,36 @@ struct PlanMoneyInOutCallout: View {
     var body: some View {
         ChartCallout {
             ChartCalloutDate(period.through.dateValue, detail: money.calloutDetail(period, locale: locale))
-            if period.isEmpty {
-                Text("No money in and out recorded")
-                    .font(.caption2)
-                    .foregroundStyle(Palette.secondaryInk)
-            } else {
+            if let pay = period.pay {
+                ChartCalloutRow("Came in", swatch: Palette.stroke(for: PlanMoneyInOutChart.cameInColor),
+                                amount: pay.moneyIn.doubleValue, currency: money.currency)
+                if pay.pension != 0 {
+                    ChartCalloutRow("Into your pension", swatch: PlanMoneyInOutChart.color(.pension),
+                                    amount: pay.pension.doubleValue, currency: money.currency)
+                }
+                if pay.tax != 0 {
+                    ChartCalloutRow("Tax", swatch: PlanMoneyInOutChart.color(.tax),
+                                    amount: (-pay.tax).doubleValue, currency: money.currency)
+                }
+                ChartCalloutRow("Spent", swatch: PlanMoneyInOutChart.color(.spent),
+                                amount: (-pay.spent).doubleValue, currency: money.currency)
+                Divider()
+                ChartCalloutRow("You saved", swatch: PlanMoneyInOutChart.color(.saved),
+                                amount: pay.saved.doubleValue, currency: money.currency)
+                if period.oneOffs != 0 {
+                    ChartCalloutRow("Not counted: one-offs", amount: period.oneOffs.doubleValue,
+                                    currency: money.currency)
+                }
                 if let rate = period.rate {
                     rateRow("Savings rate", rate)
                 }
                 if let lastTwelveMonths = period.lastTwelveMonths?.rate {
                     rateRow("Rate over 12 months", lastTwelveMonths)
                 }
-                ChartCalloutRow("Came in", swatch: Palette.color(for: PlanMoneyInOutChart.cameInColor),
-                                amount: period.cameIn.doubleValue, currency: money.currency)
-                ChartCalloutRow("Spent", swatch: Palette.color(for: PlanMoneyInOutChart.spentColor),
-                                amount: period.spent.doubleValue, currency: money.currency)
-                ChartCalloutRow("Saved", swatch: Palette.stroke(for: PlanMoneyInOutChart.savedColor),
-                                amount: period.saved.doubleValue, currency: money.currency)
+            } else {
+                Text("No money in and out recorded")
+                    .font(.caption2)
+                    .foregroundStyle(Palette.secondaryInk)
             }
         }
     }
@@ -333,11 +339,11 @@ struct PlanMoneyInOutCallout: View {
             PlanSavingsRateChart(money: money, planRate: planRate)
         }
         Card("Money in and out") {
-            PlanMoneyInOutLegend(money: money, showsPlanSpending: true, cuts: money.cutsAmounts(planSpending: 3_000))
-            PlanMoneyInOutChart(money: money, planSpending: 3_000)
+            PlanMoneyInOutLegend(money: money, cuts: money.cutsAmounts(planSpending: nil))
+            PlanMoneyInOutChart(money: money)
         }
         Card("Amounts hidden") {
-            PlanMoneyInOutChart(money: money, planSpending: 3_000)
+            PlanMoneyInOutChart(money: money)
                 .redacted(reason: .privacy)
         }
     }

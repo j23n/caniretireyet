@@ -10,10 +10,10 @@ import Tracker
 /// The year as tiles: what you saved and what markets did, half tiles
 /// ("💰 You saved", "15.890 €", "planned 13.463 € by now"; "📈 Markets
 /// added", "8.940 €", "expected 1.982 €"); your money now or at the year's
-/// end, small; then the year's savings rate and spending a month against
-/// the plan's, when money in and out was recorded in it, and the earliest
-/// age at its end and its check-ins, half tiles, the check-ins opening
-/// their table.
+/// end, small; then, when money in and out was recorded in it, the year's
+/// pay, wide (``SoFarPayTile``), its spending a month against the plan's
+/// and its tax as a share of what came in; and the earliest age at its end
+/// and its check-ins, half tiles, the check-ins opening their table.
 struct PlanYearTiles: View {
     let card: PlanProgressTimeline.Card
     let history: PlanAnswerHistory
@@ -43,23 +43,25 @@ struct PlanYearTiles: View {
                 .tileSize(.half)
             moneyTile
                 .tileSize(.small)
-            if let money, !money.isEmpty {
-                HalfTile(tint: .lilac, title: "Savings rate", emoji: "🐷") {
-                    Text(verbatim: money.rate.map { AmountFormat.percent($0, digits: 0, locale: locale) } ?? "—")
-                        .monospacedDigit()
-                        .privacySensitiveInFeedback()
-                } caption: {
-                    Text(verbatim: planRate.map { "your plan's \(AmountFormat.percent($0, digits: 0, locale: locale))" }
-                         ?? "of what came in")
-                        .privacySensitiveInFeedback(planRate != nil)
-                }
-                .tileSize(.half)
+            if let money, let pay = money.pay {
+                SoFarPayTile(title: payTitle, pay: pay, oneOffs: money.oneOffs, planRate: planRate)
+                    .tileSize(.wide)
                 HalfTile(tint: .peach, title: "Spent", emoji: "🛒") {
                     AmountText(spentAMonth(money), currency: card.currency, tabular: false)
                 } caption: {
                     AmountSentenceText(spentDetail)
                 }
                 .tileSize(.half)
+                if let taxShare = Self.taxShare(money) {
+                    HalfTile(tint: .peach, title: "Tax", emoji: "🧾") {
+                        Text(verbatim: AmountFormat.percent(taxShare, digits: 0, locale: locale))
+                            .monospacedDigit()
+                            .privacySensitiveInFeedback()
+                    } caption: {
+                        Text("of what came in")
+                    }
+                    .tileSize(.half)
+                }
             }
             if let to = year.answerTo?.earliestAge {
                 HalfTile(tint: .lilac, title: "Earliest age to stop", emoji: "🧭") {
@@ -141,6 +143,18 @@ struct PlanYearTiles: View {
 
     private func amount(_ value: Decimal) -> String {
         AmountFormat.amount(abs(value), currency: card.currency, locale: locale)
+    }
+
+    /// "Your pay in 2026 so far", "Your pay in 2025".
+    private var payTitle: String {
+        "Your pay in \(String(year.year))" + (year.isLatest ? " so far" : "")
+    }
+
+    /// The tax as a share of what came in before tax, e.g. 0.17; `nil`
+    /// without tax or without anything coming in.
+    static func taxShare(_ money: MoneyInOutPeriod) -> Decimal? {
+        guard money.tax > 0, money.beforeTax > 0 else { return nil }
+        return money.tax / money.beforeTax
     }
 
     /// What the year spent a month: what it spent scaled to a year, over 12.

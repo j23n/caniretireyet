@@ -161,7 +161,7 @@ struct SoFarView: View {
         } else {
             let months = monthly.year(year)
             savingsRateCard(months, year: year, planRate: reference.savingsRate)
-            moneyCard(months, year: year, planSpending: reference.spending(per: months.grain))
+            moneyCard(months, year: year)
             yearByYear(yearly, years: Set(cards.map(\.year.year)), select: selectYear)
         }
     }
@@ -216,14 +216,13 @@ struct SoFarView: View {
     }
 
     /// "Money in and out" over the year's months.
-    private func moneyCard(_ money: PlanMoneyInOut, year: Int, planSpending: Decimal?) -> some View {
+    private func moneyCard(_ money: PlanMoneyInOut, year: Int) -> some View {
         Card {
             if money.counted.isEmpty {
                 notYet("No money in and out was recorded in \(String(year)).")
             } else {
-                PlanMoneyInOutLegend(money: money, showsPlanSpending: planSpending != nil,
-                                     cuts: money.cutsAmounts(planSpending: planSpending))
-                PlanMoneyInOutChart(money: money, planSpending: planSpending)
+                PlanMoneyInOutLegend(money: money, cuts: money.cutsAmounts(planSpending: nil))
+                PlanMoneyInOutChart(money: money)
             }
             whereItStarts(money)
         } header: {
@@ -264,7 +263,7 @@ struct SoFarView: View {
             SoFarYearByYear(money: money, years: years, select: select)
         } header: {
             SectionHeader("Year by year") {
-                Text("saved and spent")
+                Text("what came in, split")
                     .font(.footnote)
                     .foregroundStyle(Palette.secondaryInk)
             }
@@ -282,9 +281,11 @@ struct SoFarView: View {
 
 /// *Year by year* (UI.md, "So far"): a row for each year with money in and
 /// out recorded, newest first: the year ("2026 so far" for this one), a bar
-/// of what came in split into what was saved and what was spent, to the
-/// scale of the year that took in most, and the year's savings rate. A
-/// year with a check-in opens on the year's card at the top of the page.
+/// of what came in before tax split into what was saved (what went into
+/// pensions lighter, first), what was spent and the tax, as *Money in and
+/// out* stacks a month (``PayStack``), to the scale of the year that took
+/// in most, and the year's savings rate. A year with a check-in opens on
+/// the year's card at the top of the page.
 struct SoFarYearByYear: View {
     let money: PlanMoneyInOut
     /// The years the page has a card for.
@@ -295,14 +296,15 @@ struct SoFarYearByYear: View {
 
     var body: some View {
         let periods = money.counted.reversed()
-        let largest = max(periods.map { max($0.cameIn, $0.saved + max(0, $0.spent)) }.max() ?? 0, 1)
+        let largest = max(periods.compactMap { $0.stack?.top }.max() ?? 0, 1)
         VStack(alignment: .leading, spacing: 0) {
             ForEach(Array(periods.enumerated()), id: \.element.from) { offset, period in
                 if offset > 0 { Divider() }
                 row(period, largest: largest)
             }
         }
-        Text("The percentage is that year's savings rate. Tap a year to see it at the top.")
+        ChartLegendRow(items: PlanMoneyInOutLegend.parts)
+        Text("The percentage is what you saved of your pay after tax. Tap a year to see it at the top.")
             .font(PlanProgressFont.caption)
             .foregroundStyle(Palette.secondaryInk)
             .fixedSize(horizontal: false, vertical: true)
@@ -347,34 +349,36 @@ struct SoFarYearByYear: View {
         .accessibilityHint(opens ? Text("Shows the year at the top") : Text(""))
     }
 
-    /// What was saved, in the accent, then what was spent, in grey, to the
-    /// scale of `largest`.
+    /// The parts of the year's bar above zero, in *Money in and out*'s
+    /// colours, to the scale of `largest`.
     private func bar(_ period: MoneyInOutPeriod, largest: Decimal) -> some View {
-        let saved = max(0, period.saved.doubleValue)
-        let spent = max(0, period.spent.doubleValue)
+        let segments = period.stack?.aboveZero ?? []
         let scale = largest.doubleValue
         return GeometryReader { proxy in
             let width = proxy.size.width
-            HStack(spacing: 2) {
-                Capsule()
-                    .fill(Palette.accent)
-                    .frame(width: max(saved > 0 ? 3 : 0, width * CGFloat(saved / scale)))
-                Capsule()
-                    .fill(Palette.mutedInk.opacity(0.45))
-                    .frame(width: max(spent > 0 ? 3 : 0, width * CGFloat(spent / scale)))
+            HStack(spacing: 0) {
+                HStack(spacing: 0) {
+                    ForEach(segments, id: \.self) { segment in
+                        Rectangle()
+                            .fill(PlanMoneyInOutChart.color(segment.part))
+                            .frame(width: width * CGFloat(segment.length.doubleValue / scale))
+                    }
+                }
+                .clipShape(RoundedRectangle(cornerRadius: 3, style: .continuous))
                 Spacer(minLength: 0)
             }
         }
-        .frame(height: 10)
+        .frame(height: 12)
         .privacySensitiveInFeedback()
         .accessibilityHidden(true)
     }
 
-    /// "2025: saved 31% of what came in", without amounts, which hide.
+    /// "2025: saved 31% of what came in after tax", without amounts, which
+    /// hide.
     private func spoken(_ period: MoneyInOutPeriod) -> String {
         let year = String(period.from.year)
         guard let rate = period.rate else { return "\(year): no savings rate" }
-        return "\(year): saved \(AmountFormat.percent(rate, digits: 0, locale: locale)) of what came in"
+        return "\(year): saved \(AmountFormat.percent(rate, digits: 0, locale: locale)) of what came in after tax"
     }
 }
 
