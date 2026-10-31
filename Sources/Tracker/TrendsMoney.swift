@@ -263,8 +263,8 @@ public struct PlanMoneyInOut: Hashable, Sendable {
     }
 
     /// The amounts *Money in and out*'s value axis fits: where each
-    /// counted period's bar ends above and below zero (``PayStack``) and
-    /// what came in before tax, kept within its limit
+    /// counted period's bars end above and below zero (``MoneyInOutBars``),
+    /// kept within its limit
     /// (``amountAxisLimits``), and the plan's spending, which is never cut.
     public func amountAxisValues(planSpending: Decimal?) -> [Double] {
         let values: [Double] = zip(counted, amountAxisLimits).flatMap { period, limit in
@@ -280,8 +280,8 @@ public struct PlanMoneyInOut: Hashable, Sendable {
         AmountScale(values: amountAxisValues(planSpending: planSpending))
     }
 
-    /// Whether some period's bar or what came in before tax is beyond the
-    /// value axis of *Money in and out*, and drawn cut.
+    /// Whether some period's bars are beyond the value axis of *Money in
+    /// and out*, and drawn cut.
     public func cutsAmounts(planSpending: Decimal?) -> Bool {
         let domain = amountScale(planSpending: planSpending).domain
         return counted.contains { period in
@@ -290,10 +290,10 @@ public struct PlanMoneyInOut: Hashable, Sendable {
     }
 
     /// What *Money in and out* draws of `period` on its value axis: where
-    /// its bar ends above zero and below, and what came in before tax.
+    /// its bars end above zero and below.
     static func drawnAmounts(_ period: MoneyInOutPeriod) -> [Decimal] {
-        guard let stack = period.stack else { return [] }
-        return [stack.top, stack.bottom, stack.cameIn]
+        guard let bars = period.bars else { return [] }
+        return [bars.top, bars.bottom]
     }
 
     /// For each period, the rates *Savings rate*'s value axis fits its bar

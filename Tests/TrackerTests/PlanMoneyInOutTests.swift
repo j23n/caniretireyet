@@ -315,7 +315,8 @@ struct PlanMoneyInOutTests {
         #expect(money.amountAxisLimits.allSatisfy { $0 == 10_000 })
         let values = money.amountAxisValues(planSpending: 3_000)
         #expect(values.max() == 10_000)
-        #expect(values.min() == -10_000)
+        // Nothing hangs below zero: the car is spent, on top of the out bar.
+        #expect(values.min() == 0)
         // The plan's spending is always in view.
         #expect(values.last == 3_000)
         #expect(money.amountScale(planSpending: 3_000).domain.upperBound < 12_000)
@@ -342,10 +343,10 @@ struct PlanMoneyInOutTests {
         let limits = money.amountAxisLimits
         #expect(limits.first == 5_000)
         #expect(limits.last == 15_000)
-        // The bonus's bar and what came in are kept to the first year's limit, so the
-        // axis fits the second year's months and the bonus is cut. Nothing is below zero.
+        // The bonus's bar is kept to the first year's limit, so the axis fits the
+        // second year's months and the bonus is cut. Nothing is below zero.
         let values = money.amountAxisValues(planSpending: nil)
-        #expect(Array(values.prefix(3)) == [5_000, 0, 5_000])
+        #expect(Array(values.prefix(2)) == [5_000, 0])
         #expect(values.max() == 6_000)
         #expect(money.cutsAmounts(planSpending: nil))
     }

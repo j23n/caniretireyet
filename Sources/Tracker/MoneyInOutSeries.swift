@@ -55,9 +55,9 @@ public struct MoneyInOutPeriod: Hashable, Sendable {
     /// (``SavingsRate/pay``); `nil` when none was counted.
     public var pay: WhatMoved.Pay? { savings?.pay }
 
-    /// The period's pay as one bar (``PayStack``); `nil` when none was
-    /// counted.
-    public var stack: PayStack? { pay.map(PayStack.init) }
+    /// The period's money in and out as two bars (``MoneyInOutBars``);
+    /// `nil` when none was counted.
+    public var bars: MoneyInOutBars? { pay.map(MoneyInOutBars.init) }
 
     /// What was saved: what every account saved (``SavingsRate/saved``).
     public var saved: Decimal { savings?.saved ?? 0 }
