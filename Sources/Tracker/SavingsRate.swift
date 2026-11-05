@@ -20,6 +20,10 @@ public struct SavingsRate: Hashable, Sendable {
     /// measured from (exclusive) through ``through``.
     public var from: CalendarDate
     public var through: CalendarDate
+    /// The date of the latest value counted of the account the most came
+    /// into, at most ``through``: where the days the pay covers end for
+    /// ``spentPerYear``.
+    public var payThrough: CalendarDate
     /// What was saved into pension funds and TFR over those days, each account's
     /// at least zero: money taken out of them isn't income.
     public var pensionContributions: Decimal
@@ -34,13 +38,18 @@ public struct SavingsRate: Hashable, Sendable {
     /// Whether every price and exchange rate needed for what was saved was known.
     public var isPriced: Bool
 
+    /// - Parameter payThrough: the latest value counted of the account the
+    ///   most came into; without it, the latest value counted
+    ///   (``MoneyInOutSummary/lastCounted``), else `through`.
     public init(moneyInOut: MoneyInOutSummary, from: CalendarDate, through: CalendarDate,
+                payThrough: CalendarDate? = nil,
                 pensionContributions: Decimal = 0, taxSetAside: Decimal = 0,
                 savedByAccount: [AccountID: Decimal] = [:],
                 isPriced: Bool = true) {
         self.moneyInOut = moneyInOut
         self.from = from
         self.through = through
+        self.payThrough = min(payThrough ?? moneyInOut.lastCounted ?? through, through)
         self.pensionContributions = pensionContributions
         self.taxSetAside = taxSetAside
         self.savedByAccount = savedByAccount
@@ -84,12 +93,10 @@ public struct SavingsRate: Hashable, Sendable {
     }
 
     /// ``spent`` scaled to a year by the days the pay covers, rounded to
-    /// cents: from ``from`` to the latest value counted
-    /// (``MoneyInOutSummary/lastCounted``), so the days after the latest
-    /// check-in, which record nothing yet, don't make it smaller.
+    /// cents: from ``from`` to ``payThrough``, so the days after the pay's
+    /// latest value, which record nothing yet, don't make it smaller.
     public var spentPerYear: Decimal {
-        let end = moneyInOut.lastCounted.map { min($0, through) } ?? through
-        return (spent * 365 / Decimal(max(1, from.days(to: end)))).rounded(scale: 2)
+        (spent * 365 / Decimal(max(1, from.days(to: payThrough)))).rounded(scale: 2)
     }
 
     /// ``saved`` over ``income``; negative when more was spent than came in.
@@ -137,13 +144,15 @@ extension Valuator {
             .filter { $0.moneyIn > 0 }
             .max { $0.moneyIn < $1.moneyIn }
         let start = pay?.measuredFrom ?? measuredFrom
+        let payThrough = pay?.lastCounted ?? money.lastCounted
         let saved = saved(after: start, through: through)
         let contributions = saved.byAccount.keys.sorted().reduce(Decimal(0)) { total, id in
             guard let account = accounts[id], SavingsRate.pensionKinds.contains(account.kind) else { return total }
             return total + max(saved.byAccount[id] ?? 0, 0)
         }
         let tax = taxSetAside(after: start, through: through)
-        return SavingsRate(moneyInOut: money, from: start, through: through, pensionContributions: contributions,
+        return SavingsRate(moneyInOut: money, from: start, through: through, payThrough: payThrough,
+                           pensionContributions: contributions,
                            taxSetAside: tax.amount,
                            savedByAccount: saved.byAccount, isPriced: saved.isPriced && tax.isPriced)
     }
