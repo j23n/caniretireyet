@@ -118,6 +118,29 @@ struct AuditChecksTests {
         #expect(AuditChecks(library: library).violations().isEmpty)
     }
 
+    /// What money moved pays for of an account whose records started at
+    /// the check-in before isn't what it started with, so that check-in's
+    /// is the only violation.
+    @Test func checksOnlyAnAccountWhoseRecordsStartInTheDays() throws {
+        var library = month
+        // A savings account first valued in the middle of the month with 20,000, 6,000 of it moved
+        // from the bank, whose value at the month's end records it.
+        library.accounts["savings"] = Account(id: "savings", name: "Savings", kind: .savings, currency: .eur,
+                                              opened: "2026-01-01")
+        library.upsert(Valuation(account: "savings", date: "2026-01-15", balance: 20000))
+        library.upsert(Valuation(account: "savings", date: "2026-01-31", balance: 20000, moneyIn: 0, moneyOut: 0))
+        library.upsert(Valuation(account: "bank", date: "2026-01-31", balance: 3450, saved: -6550, moneyIn: 4000,
+                                 moneyOut: 4550))
+        let checks = AuditChecks(library: library)
+        // The 6,000 less the broker's deposit of 1,000, which may have come from the bank too.
+        let stretch = try #require(checks.valuator.savedStretches(between: ["2026-01-15", "2026-01-31"],
+                                                                  in: .netWorth).first)
+        #expect(stretch.startedWith == ["savings": -5000])
+        #expect(checks.violations().filter { $0.rule == .startedWithAboveMoneyIn }
+            == [AuditViolation(rule: .startedWithAboveMoneyIn, date: "2026-01-15", account: "savings",
+                               amounts: [.init("startedWith", 20000), .init("moneyIn", 0)])])
+    }
+
     @Test func anUnexplainedPartIsAViolationOnlyWhenEverythingIsKnown() throws {
         let checks = AuditChecks(library: month)
         let report = checks.valuator.change(from: "2025-12-31", to: "2026-01-31")

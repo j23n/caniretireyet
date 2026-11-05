@@ -62,8 +62,14 @@ The shares are a rule, not a fact: the 5,000 really paid for the broker, so in t
 
 ## A variant, built in the test: a check-in in the middle of the month
 
-The same month, but the savings account is first valued on 15 February, the day it was added (6,000), and again on the 28th with its statement (6,000, no money in or out). Nothing that happened changes, so February should still be saved 2,000, started with 11,000, spent 2,000.
+The same month, but the savings account is first valued on 15 February, the day it was added (6,000), and again on the 28th with its statement (6,000, no money in or out). Nothing that happened changes, so February is still saved 2,000, started with 11,000, spent 2,000.
 
-The app gives saved −3,000, started with 16,000 and spent 7,000. The 15th is a check-in, so the month is two stretches. In the first, the broker and the savings account start, but the current account has no value yet, so nothing has moved out of it and both first amounts are started with (16,000). In the second, the current account's value on the 28th records the 5,000 moved out, and no new account is there to take it, so it counts as spent. Net worth's change still adds up, so nothing shows the mistake.
+The 15th is a check-in, so the month is two stretches (PROGRESS.md, "Saved"):
 
-This is a known issue (`withKnownIssue` in the test): it needs a decision on how to count money moved before a check-in that only a later value records.
+| Stretch | Saved | Started with | How |
+| --- | --- | --- | --- |
+| 31 Jan to 15 Feb | broker 0, savings 0 | broker 10,000, savings 6,000 | the current account has no value in it yet, so nothing has moved out of it |
+| 15 Feb to 28 Feb | current −3,000, broker 3,125, savings 1,875 | broker −3,125, savings −1,875 | the current account's value on the 28th covers the days since 31 January, so the 5,000 it records moved out pays for what the two accounts that started in them still started with, shared as in February above |
+| February | 2,000 | 11,000 | the two added up, as in one stretch |
+
+So *What moved it* from 15 to 28 February has saved 2,000 and spent 2,000, the pay its days cover, and −5,000 started with: what the money moved paid for of the two new accounts.
