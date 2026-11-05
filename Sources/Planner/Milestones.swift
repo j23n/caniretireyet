@@ -169,7 +169,7 @@ public struct MilestoneLadder: Hashable, Sendable {
     /// one passed before the first value, or passed again after a fall,
     /// isn't listed); the crossover at the first value at or above the
     /// crossover of its day, with that crossover as its amount, unless the
-    /// first value already was; the shares of what retiring today needs
+    /// first day that has one already was; the shares of what retiring today needs
     /// where the recorded readiness first reaches them, with the plan
     /// assets then as their amount.
     ///
@@ -198,20 +198,20 @@ public struct MilestoneLadder: Hashable, Sendable {
                 high = point.value
             }
         }
-        if let first = values.first {
-            let crossoverOn = crossovers ?? { [crossover] _ in crossover }
-            // The day's crossover, when plan assets are at or above it.
-            func passed(_ point: SeriesPoint) -> Decimal? {
-                crossoverOn(point.date).flatMap { point.value >= $0 ? $0 : nil }
+        // The crossover is judged from the first day that has one: plan
+        // assets already past it then were past it when its saving started,
+        // as a milestone below the line's first value was behind you.
+        let crossoverOn = crossovers ?? { [crossover] _ in crossover }
+        var judged = false
+        for point in values {
+            guard let amount = crossoverOn(point.date) else { continue }
+            let past = point.value >= amount
+            if judged, past {
+                reached.append(ReachedMilestone(milestone: Milestone(kind: .crossover, amount: amount),
+                                                date: point.date))
             }
-            if passed(first) == nil {
-                for point in values.dropFirst() {
-                    guard let amount = passed(point) else { continue }
-                    reached.append(ReachedMilestone(milestone: Milestone(kind: .crossover, amount: amount),
-                                                    date: point.date))
-                    break
-                }
-            }
+            if past { break }
+            judged = true
         }
         if var high = readiness.first?.value {
             for point in readiness.dropFirst() where point.value > high {
@@ -262,8 +262,11 @@ public struct MilestoneLadder: Hashable, Sendable {
         let coastAges = headlines.compactMap { headline in
             headline.coastAge.map { SeriesPoint(date: headline.date, value: Decimal($0)) }
         }
+        let growth = Self.targetGrowth(of: plan)
         return reached(values: values, readiness: readiness, coastAges: coastAges) { day in
-            Self.crossover(plan: plan, library: library, valuator: valuator, asItStoodOn: day)
+            Self.crossover(plan: plan, savingOn: day, targetGrowth: growth) {
+                Planner.mix(plan: plan, library: library, valuator: valuator, on: day).accessibleShares
+            }
         }
     }
 
@@ -408,19 +411,21 @@ extension MilestoneLadder {
         }
     }
 
-    /// The saving on `date` over the median growth of the plan's target mix,
-    /// else of `drawable`'s mix; `drawable` is only read without a target mix.
-    private static func crossover(plan: PlanDocument, savingOn date: CalendarDate,
+    /// The saving on `date` over the median growth of the plan's target mix
+    /// (`targetGrowth`, when it's worked out already), else of `drawable`'s
+    /// mix; `drawable` is only read without a target mix.
+    private static func crossover(plan: PlanDocument, savingOn date: CalendarDate, targetGrowth: Double? = nil,
                                   drawable: () -> [AssetClass: Double]) -> Decimal? {
         guard let saving = plan.workingSaving(on: date)?.saving, saving > 0 else { return nil }
-        let mix: [AssetClass: Double]
-        if let target = plan.portfolio.targetMix, !target.shares.isEmpty {
-            mix = target.shares.mapValues(\.doubleValue)
-        } else {
-            mix = drawable()
-        }
-        let growth = Planner.growth(of: mix, assumptions: plan.assumptions)
+        let growth = targetGrowth ?? Self.targetGrowth(of: plan)
+            ?? Planner.growth(of: drawable(), assumptions: plan.assumptions)
         guard growth >= 0.001 else { return nil }
         return .rounded(saving.doubleValue / growth, scale: 0)
+    }
+
+    /// The median growth of the plan's target mix; `nil` without one.
+    private static func targetGrowth(of plan: PlanDocument) -> Double? {
+        guard let target = plan.portfolio.targetMix, !target.shares.isEmpty else { return nil }
+        return Planner.growth(of: target.shares.mapValues(\.doubleValue), assumptions: plan.assumptions)
     }
 }

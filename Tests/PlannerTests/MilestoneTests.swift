@@ -130,8 +130,8 @@ struct MilestoneTests {
             }
         }
         // The plan saves from 2026: on the first month end with saving,
-        // plan assets were past the crossover.
-        #expect(reached.first { $0.id == "crossover" }?.date == "2026-01-31")
+        // plan assets were already past the crossover, so it's behind you.
+        #expect(!reached.contains { $0.id == "crossover" })
     }
 
     /// Before the first check-in and between check-ins, plan assets are
@@ -511,27 +511,28 @@ struct MilestoneTests {
         #expect(reached.milestone.amount == 140_000)
     }
 
-    /// Without saving there's no crossover, so it isn't behind you before
-    /// the saving starts: plan assets past it on the first day with saving
-    /// reach it then. Past it on the line's first day, it's behind you.
-    @Test func theCrossoverIsReachedWhenSavingStartsPastIt() throws {
-        let (saver, library) = fallingBack([
-            ("2025-01-31", 150_000, "0.2", 70), ("2025-02-28", 152_000, "0.2", 70),
-            ("2025-03-31", 155_000, "0.2", 70),
-        ])
-        var plan = saver
-        plan.work = [Sample.work(from: "2025-03-01", net: "40000")]
-        let valuator = Valuator(library: library)
-        func reached() -> [ReachedMilestone] {
-            MilestoneLadder(plan: plan, library: library, valuator: valuator, on: "2025-03-31")
-                .reached(plan: plan, library: library, valuator: valuator, through: "2025-03-31")
+    /// Without saving there's no crossover, so it's judged from the first
+    /// day with saving: plan assets already past it then were past it when
+    /// the saving started, and it isn't listed. Below it then, it's reached
+    /// on the first day after at or above it.
+    @Test func theCrossoverIsJudgedFromTheFirstDayWithSaving() throws {
+        func reached(_ values: [(String, Decimal)], workFrom: CalendarDate) -> [ReachedMilestone] {
+            let (saver, library) = fallingBack(values.map { ($0.0, $0.1, readiness: "0.2", coastAge: 70) })
+            var plan = saver
+            plan.work = [Sample.work(from: workFrom, net: "40000")]
+            let valuator = Valuator(library: library)
+            let last: CalendarDate = "2025-03-31"
+            return MilestoneLadder(plan: plan, library: library, valuator: valuator, on: last)
+                .reached(plan: plan, library: library, valuator: valuator, through: last)
         }
-        let crossover = try #require(reached().first { $0.id == "crossover" })
+        let past: [(String, Decimal)] = [("2025-01-31", 150_000), ("2025-02-28", 152_000), ("2025-03-31", 155_000)]
+        #expect(!reached(past, workFrom: "2025-03-01").contains { $0.id == "crossover" })
+        #expect(!reached(past, workFrom: "2025-01-01").contains { $0.id == "crossover" })
+
+        let below: [(String, Decimal)] = [("2025-01-31", 130_000), ("2025-02-28", 135_000), ("2025-03-31", 145_000)]
+        let crossover = try #require(reached(below, workFrom: "2025-02-01").first { $0.id == "crossover" })
         #expect(crossover.date == "2025-03-31")
         #expect(crossover.milestone.amount == 140_000)
-
-        plan.work = [Sample.work(from: "2025-01-01", net: "40000")]
-        #expect(!reached().contains { $0.id == "crossover" })
     }
 
     /// The median future reaches a higher amount no sooner than a lower
