@@ -335,6 +335,181 @@ struct MilestoneTests {
                                                           amount: 500_000), assets: 250_000) == nil)
     }
 
+    // MARK: Only forward
+
+    /// What `plan` reached by each of the library's check-ins, as Progress
+    /// worked it out on that day (`PlanProgress`): from the library as it
+    /// stood then, with the ladder of the day.
+    private func reachedAtEachCheckIn(_ plan: PlanDocument, _ library: Library)
+        -> [(date: CalendarDate, reached: [ReachedMilestone])] {
+        Valuator(library: library).checkInDates(in: .planAssets, through: "2099-12-31").map { day in
+            let then = Self.library(library, asOf: day)
+            let valuator = Valuator(library: then)
+            return (day, MilestoneLadder(plan: plan, library: then, valuator: valuator, on: day)
+                .reached(plan: plan.id, library: then, valuator: valuator, through: day))
+        }
+    }
+
+    /// `library` as it stood on `day`: its records and the answers recorded through that day.
+    static func library(_ library: Library, asOf day: CalendarDate) -> Library {
+        var then = library
+        for (month, file) in library.months {
+            var kept = file
+            kept.valuations = file.valuations.filter { $0.date <= day }
+            kept.prices = file.prices.filter { $0.date <= day }
+            kept.fx = file.fx.filter { $0.date <= day }
+            kept.indices = file.indices.filter { $0.date <= day }
+            kept.trades = file.trades.filter { $0.date <= day }
+            kept.lines = file.lines.filter { $0.date <= day }
+            then.months[month] = kept
+        }
+        for (plan, projections) in library.projections {
+            then.projections[plan]?.headlines = projections.headlines.mapValues { file in
+                HeadlineFile(headlines: file.headlines.filter { $0.date <= day })
+            }
+        }
+        return then
+    }
+
+    /// Every milestone reached by a check-in is reached on the same day at
+    /// every check-in after it.
+    private func expectOnlyForward(_ steps: [(date: CalendarDate, reached: [ReachedMilestone])],
+                                   sourceLocation: SourceLocation = #_sourceLocation) {
+        for (index, step) in steps.enumerated() {
+            for later in steps.dropFirst(index + 1) {
+                for milestone in step.reached {
+                    let again = later.reached.first { $0.id == milestone.id }
+                    let now = again.map { "on \($0.date)" } ?? "not reached"
+                    #expect(again?.date == milestone.date,
+                            "\(milestone.id), reached on \(milestone.date) by \(step.date): by \(later.date), \(now)",
+                            sourceLocation: sourceLocation)
+                }
+            }
+        }
+    }
+
+    /// A plan spending 30.000 a year in retirement and saving 7.000 a year
+    /// while working, all in equity at 5%: the crossover is 140.000; the
+    /// first pension is at 67. Its library is valued at each month end of
+    /// 2025, with the readiness and the coast age recorded at each.
+    private func fallingBack(_ values: [(String, Decimal, readiness: String, coastAge: Int)],
+                             cash: [Decimal]? = nil) -> (PlanDocument, Library) {
+        var plan = Sample.plan(retire: .age(60), endAge: 90, working: "33000", retired: "30000",
+                               work: [Sample.work(from: "2020-01-01", net: "40000")],
+                               pensions: [PlanPension(name: "State pension", fromAge: 67, perYear: d("12000"))])
+        plan.id = "test"
+        var accounts = [SampleAccount(id: "broker", balance: values[0].1)]
+        if let cash { accounts.append(SampleAccount(id: "cash", kind: .cash, mix: nil, balance: cash[0])) }
+        var library = Sample.library(birth: "1985-05-01", on: CalendarDate(values[0].0)!, accounts)
+        var headlines: [Headline] = []
+        for (index, value) in values.enumerated() {
+            let day = CalendarDate(value.0)!
+            library.upsert(Valuation(account: "broker", date: day, balance: value.1))
+            if let cash { library.upsert(Valuation(account: "cash", date: day, balance: cash[index])) }
+            headlines.append(Headline(date: day, coastAge: value.coastAge, engine: "test", planHash: "x",
+                                      readiness: d(value.readiness)))
+        }
+        library.projections["test"] = PlanProjections(headlines: [2025: HeadlineFile(headlines: headlines)])
+        return (plan, library)
+    }
+
+    /// Plan assets that rise, fall back and rise again, and a readiness and
+    /// coast age that go up and down with them: each milestone is reached
+    /// once, at the first check-in above it, and stays reached on that day
+    /// at every check-in after, above it or not (PROGRESS.md, "Milestones").
+    @Test func milestonesStayReachedWhenPlanAssetsFallBack() throws {
+        let (plan, library) = fallingBack([
+            ("2025-01-31", 120_000, "0.2", 70), ("2025-02-28", 132_000, "0.23", 69),
+            ("2025-03-31", 141_000, "0.26", 68), ("2025-04-30", 152_000, "0.28", 67),
+            ("2025-05-31", 128_000, "0.22", 69), ("2025-06-30", 135_000, "0.24", 68),
+            ("2025-07-31", 149_000, "0.27", 66), ("2025-08-31", 158_000, "0.34", 66),
+            ("2025-09-30", 205_000, "0.36", 65), ("2025-10-31", 190_000, "0.33", 66),
+            ("2025-11-30", 230_000, "0.4", 65), ("2025-12-31", 260_000, "0.45", 64),
+        ])
+        let valuator = Valuator(library: library)
+        #expect(MilestoneLadder.crossover(plan: plan, library: library, valuator: valuator, on: "2025-12-31")
+            == 140_000)
+        let steps = reachedAtEachCheckIn(plan, library)
+        #expect(steps.count == 12)
+        expectOnlyForward(steps)
+        let reached = try #require(steps.last).reached
+        #expect(reached.map(\.id) == ["crossover", "share-1-4", "round-150000", "years-5", "coast", "share-1-3",
+                                      "round-200000", "round-250000"])
+        #expect(reached.map(\.date) == ["2025-03-31", "2025-03-31", "2025-04-30", "2025-04-30", "2025-04-30",
+                                        "2025-08-31", "2025-09-30", "2025-12-31"])
+    }
+
+    @Test func theExampleLibrarysMilestonesStayReached() throws {
+        let library = try Fixtures.exampleLibrary()
+        for plan in library.plans.values {
+            let steps = reachedAtEachCheckIn(plan, library)
+            #expect(steps.count > 6)
+            #expect(steps.last.map { !$0.reached.isEmpty } == true)
+            expectOnlyForward(steps)
+        }
+    }
+
+    /// The crossover is worked out from the saving and the mix on the day
+    /// (PROGRESS.md, "Milestones"), so it moves when they do. Half the
+    /// money moved to cash at 0% doubles it, from 140.000 to 280.000, and
+    /// the crossover reached in March isn't reached any more.
+    @Test func aCrossoverReachedStaysReachedWhenTheMixMoves() throws {
+        let (plan, library) = fallingBack([
+            ("2025-01-31", 120_000, "0.2", 70), ("2025-02-28", 132_000, "0.23", 69),
+            ("2025-03-31", 145_000, "0.26", 68), ("2025-04-30", 75_000, "0.27", 68),
+            ("2025-05-31", 78_000, "0.28", 68),
+        ], cash: [0, 0, 0, 75_000, 76_000])
+        let steps = reachedAtEachCheckIn(plan, library)
+        #expect(steps.first { $0.date == "2025-03-31" }?.reached.map(\.id).contains("crossover") == true)
+        withKnownIssue("""
+            The crossover is worked out from the saving and the mix on the latest check-in, so one reached \
+            before can stop being reached when either changes. Should a reached crossover keep its amount, \
+            as the shares and the coast point do? The owner decides.
+            """) {
+            expectOnlyForward(steps)
+        }
+    }
+
+    /// The median future reaches a higher amount no sooner than a lower
+    /// one, also where it falls back for a while: the dates ahead rise with
+    /// the amounts.
+    @Test func theDatesAheadRiseWithTheAmount() {
+        let ladder = MilestoneLadder(spending: 30_000, neededToday: 900_000, crossover: 215_000)
+        let median = points([("2026-09-30", 140_000), ("2026-12-31", 165_000), ("2027-12-31", 210_000),
+                             ("2028-12-31", 180_000), ("2029-12-31", 240_000), ("2030-12-31", 330_000),
+                             ("2031-12-31", 320_000), ("2032-12-31", 480_000)])
+        for readiness in [nil, d("0.16")] {
+            let ahead = ladder.ahead(of: 140_000, readiness: readiness, median: median)
+            #expect(ahead.count > 8)
+            expectDatesRise(ahead)
+            // Every amount the median passes is ahead.
+            let amounts = ladder.milestones(in: 140_001...480_000).count
+            #expect(ahead.count == amounts || readiness != nil)
+        }
+    }
+
+    @Test func theExampleLibrarysDatesAheadRiseWithTheAmount() async throws {
+        let library = try Fixtures.exampleLibrary()
+        let valuator = Valuator(library: library)
+        for plan in library.plans.values {
+            let result = try await Planner.run(plan: plan, library: library, options: PlannerOptions(
+                mode: .fast(runs: 200), ageScan: .headline, solveSustainableSpending: false))
+            let results = PlanResults(result: result, mode: .fast, birthDate: "1988-04-12")
+            let milestones = PlanMilestones(plan: plan, library: library, valuator: valuator, asOf: "2026-09-30",
+                                            results: results)
+            #expect(milestones.ahead.count > 5)
+            expectDatesRise(milestones.ahead)
+        }
+    }
+
+    private func expectDatesRise(_ ahead: [ProjectedMilestone], sourceLocation: SourceLocation = #_sourceLocation) {
+        let byAmount = ahead.sorted { ($0.milestone.amount, $0.date) < ($1.milestone.amount, $1.date) }
+        for (lower, higher) in zip(byAmount, byAmount.dropFirst()) {
+            #expect(lower.date <= higher.date, "\(lower.id) on \(lower.date), \(higher.id) on \(higher.date)",
+                    sourceLocation: sourceLocation)
+        }
+    }
+
     // MARK: The crossover
 
     @Test func theCrossoverIsAYearsSavingOverTheMixsTypicalGrowth() throws {

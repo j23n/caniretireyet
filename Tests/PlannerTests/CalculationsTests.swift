@@ -86,4 +86,71 @@ struct CalculationsTests {
         let first = try #require(lines[(start + 4)...].first)
         #expect(first.hasPrefix("| 2026 | 60 | 0 | 0 | 10,000 | 0 | 1,000 | 0 | 800 |"), "\(first)")
     }
+
+    // MARK: The rows add up
+
+    /// A year table's rows as numbers: Year, Age, Income, Windfalls,
+    /// Spending, Expenses, the three taxes, Sold, Saved, At the end.
+    private func rows(_ text: String, table: String) throws -> [[Double]] {
+        let lines = text.components(separatedBy: "\n")
+        let start = try #require(lines.firstIndex { $0.hasPrefix("## \(table)") })
+        #expect(lines[start + 2] == "| Year | Age | Income | Windfalls | Spending | Expenses | Tax on investments | "
+            + "Wealth tax | Tax on withdrawals | Sold | Saved | At the end |")
+        return try lines[(start + 4)...].prefix { $0.hasPrefix("| ") }.map { line in
+            try line.split(separator: "|").map { cell in
+                let text = cell.trimmingCharacters(in: .whitespaces).replacingOccurrences(of: ",", with: "")
+                    .replacingOccurrences(of: "\u{2212}", with: "-")
+                return try #require(Double(text), "\(line)")
+            }
+        }
+    }
+
+    /// Every year of both tables adds up as PLANNER.md's yearly step does
+    /// (`YearRow`): income, windfalls and what was sold, less spending,
+    /// expenses and the taxes paid from the year's money, is what was
+    /// saved into accounts; the first year's tax on withdrawals holds the
+    /// tax paying off debts took from pre-tax money at the start, which the
+    /// year's money didn't pay. With every class at one median, the value
+    /// at the end is what was there after the year's money moved, grown by
+    /// it. Amounts are rounded to whole units, so a row is checked to 6.
+    @Test(arguments: [false, true])
+    func everyRowAddsUp(debtFromPreTaxMoney: Bool) async throws {
+        var plan = Self.plan()
+        // A car while working: a year that sells and pays into the fund.
+        plan.events.append(PlanEvent(name: "Car", timing: .year(2028), amount: d("-60000")))
+        plan.assumptions = YearRowTests.oneMedian(plan.assumptions, "0.03")
+        var library = Self.library
+        if debtFromPreTaxMoney {
+            library = Sample.library(birth: "1980-01-01", on: "2025-12-31", [
+                SampleAccount(id: "secret-broker", kind: .cash, mix: nil, balance: 5_000),
+                SampleAccount(id: "secret-ira", balance: 450_000, withdrawalTaxRate: d("0.2")),
+                SampleAccount(id: "secret-fund", kind: .pensionFund, mix: [.equity: 0.6, .bonds: 0.4],
+                              balance: 50_000, availableFromAge: 60),
+                SampleAccount(id: "secret-loan", kind: .loan, mix: nil, balance: -25_000),
+            ])
+        }
+        let run = try await Planner.computeRun(plan: plan, library: library,
+                                               options: PlannerOptions(today: "2026-01-02"), progress: nil)
+        let text = CalculationsReport(result: run.result, model: run.model, options: CalculationsOptions()).markdown
+        let debtTax = run.model.portfolio.debtWithdrawalTax
+        #expect((debtTax > 0) == debtFromPreTaxMoney)
+        let start = run.result.start.planAssets.doubleValue
+        for (table, path) in [("The deterministic run", run.result.expectedPath),
+                              ("The median run", run.result.medianPath)] {
+            let rows = try rows(text, table: table)
+            #expect(rows.count == path.years.count)
+            var before = start
+            for (index, row) in rows.enumerated() where path.failure == nil || index < rows.count - 1 {
+                let paid = row[4] + row[5] + row[6] + row[7] + row[8] - (index == 0 ? debtTax : 0)
+                let cash = row[2] + row[3] + row[9] - paid - row[10]
+                #expect(abs(cash) <= 6, "\(table), \(Int(row[0])): the money in and out is \(cash) more than saved")
+                if table == "The deterministic run" {
+                    let grown = (before + row[10] - row[9]) * pow(1.03, path.years[index].fraction)
+                    #expect(abs(row[11] - grown) <= 6, "\(table), \(Int(row[0])): ends at \(row[11]), not \(grown)")
+                }
+                before = row[11]
+            }
+            #expect(rows.contains { $0[9] > 0 && $0[10] > 0 }, "\(table): a year that sells and saves")
+        }
+    }
 }

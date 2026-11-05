@@ -214,11 +214,14 @@ struct CalculationsReport {
             func sum(_ kinds: Set<IncomeKind>) -> Double {
                 year.income.filter { kinds.contains($0.kind) }.reduce(0) { $0 + $1.amount }
             }
+            // Saved is what went into accounts: the contributions and the
+            // rest invested, also in a year that sells, so each row adds up.
+            let sold = sum([.withdrawal])
             lines.append("| \(year.year) | \(year.age) | \(money(sum([.work, .pension, .other]))) | "
                 + "\(money(sum([.windfall]))) | "
                 + "\(money(year.spending)) | \(money(year.expenses)) | \(money(year.investmentTax)) | "
-                + "\(money(year.wealthTax)) | \(money(year.withdrawalTax)) | \(money(sum([.withdrawal]))) | "
-                + "\(money(max(0, year.savings))) | "
+                + "\(money(year.wealthTax)) | \(money(year.withdrawalTax)) | \(money(sold)) | "
+                + "\(money(max(0, year.savings + sold))) | "
                 + "\(money(year.endAssets)) |")
         }
         if let failure = path.failure {

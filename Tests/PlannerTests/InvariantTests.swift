@@ -88,6 +88,98 @@ struct InvariantTests {
         #expect(dragging.failures == small.failures)
     }
 
+    // MARK: The answer
+
+    /// Ages up to 66, for sweeps that move the earliest age.
+    let sweep = PlannerOptions(maxRetirementAge: 66, solveSustainableSpending: false, solveAssetsNeeded: false)
+
+    /// Readiness reaches 100% exactly when retiring today reaches the
+    /// confidence level (PLANNER.md, "Assets needed to retire today"), from
+    /// spending that needs far less than today's plan assets to spending
+    /// that needs more than 20 times them.
+    @Test(arguments: [false, true])
+    func readinessReachesOneExactlyWhenRetiringTodayWorks(flexible: Bool) async throws {
+        var outcomes: [AssetsNeeded.Outcome] = []
+        var answers: [Bool] = []
+        for retired in ["2000", "6000", "8000", "9000", "10000", "20000", "250000"] {
+            var plan = plan(runs: 200)
+            plan.retirement.age = .age(45)
+            plan.spending.retired = d(retired)
+            if flexible { plan.spending.flexible = FlexibleSpending(enabled: true) }
+            let result = try await Sample.run(plan, library, options: PlannerOptions(
+                maxRetirementAge: 45, solveSustainableSpending: false))
+            let answer = result.answer
+            let needed = try #require(answer.assetsNeeded)
+            #expect((answer.readiness.map { $0 >= 1 } ?? false) == answer.canRetireNow, "spending \(retired)")
+            #expect(answer.canRetireNow == (answer.successIfRetiringNow >= answer.confidence))
+            #expect(needed.outcome != .moreThanMaximum || !answer.canRetireNow)
+            outcomes.append(needed.outcome)
+            answers.append(answer.canRetireNow)
+        }
+        #expect(answers.contains(true) && answers.contains(false))
+        #expect(outcomes.contains(.found) && outcomes.contains(.moreThanMaximum))
+    }
+
+    /// The example library's plans: readiness and the answer agree.
+    @Test func theExampleLibrarysReadinessAgreesWithItsAnswer() async throws {
+        let library = try Fixtures.exampleLibrary()
+        for plan in library.plans.values {
+            let result = try await Planner.run(plan: plan, library: library, options: PlannerOptions(
+                mode: .fast(runs: 300), ageScan: .headline, solveSustainableSpending: false))
+            let readiness = try #require(result.answer.readiness)
+            #expect((readiness >= 1) == result.answer.canRetireNow, "\(plan.id)")
+        }
+    }
+
+    /// More retirement spending never gives an earlier retirement age, nor a
+    /// higher chance at any age.
+    @Test(arguments: [false, true])
+    func moreSpendingNeverGivesAnEarlierAge(flexible: Bool) async throws {
+        var earlier: PlanResult?
+        var ages: [Int?] = []
+        for retired in stride(from: 18_000, through: 42_000, by: 4_000) {
+            var plan = plan(working: "30000", runs: 200)
+            plan.retirement.age = .earliest
+            plan.spending.retired = Decimal(retired)
+            if flexible { plan.spending.flexible = FlexibleSpending(enabled: true) }
+            let result = try await Sample.run(plan, library, options: sweep)
+            if let earlier {
+                #expect((result.answer.earliestAge ?? .max) >= (earlier.answer.earliestAge ?? .max),
+                        "spending \(retired)")
+                for (before, now) in zip(earlier.successCurve, result.successCurve) {
+                    #expect(now.success <= before.success, "spending \(retired), at \(now.age)")
+                }
+            }
+            ages.append(result.answer.earliestAge)
+            earlier = result
+        }
+        // The sweep moves the age.
+        #expect(Set(ages).count > 3, "\(ages)")
+    }
+
+    /// A higher tax rate on investments never raises the chance of success.
+    @Test(arguments: [false, true])
+    func aHigherInvestmentTaxNeverRaisesTheChanceOfSuccess(flexible: Bool) async throws {
+        var earlier: PlanResult?
+        var ages: [Int?] = []
+        for rate in ["0", "0.15", "0.26", "0.4", "0.6"] {
+            var plan = plan(working: "30000", runs: 200)
+            plan.spending.retired = 28_000
+            plan.tax.investmentRate = d(rate)
+            if flexible { plan.spending.flexible = FlexibleSpending(enabled: true) }
+            let result = try await Sample.run(plan, library, options: sweep)
+            if let earlier {
+                for (before, now) in zip(earlier.successCurve, result.successCurve) {
+                    #expect(now.success <= before.success, "at \(rate), at \(now.age)")
+                }
+                #expect((result.answer.earliestAge ?? .max) >= (earlier.answer.earliestAge ?? .max), "at \(rate)")
+            }
+            ages.append(result.answer.earliestAge)
+            earlier = result
+        }
+        #expect(Set(ages).count > 2, "\(ages)")
+    }
+
     @Test func percentilesAreOrdered() async throws {
         let result = try await Sample.run(plan(working: "30000"), library, options: options)
         for year in result.fan {
