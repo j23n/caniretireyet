@@ -202,13 +202,22 @@ struct HouseholdGuessTests {
             if abs(moved.unexplained) >= HouseholdComparison.tolerance {
                 out.broken.append("seed \(seed): unexplained \(moved.unexplained)")
             }
+            // The promise is 1%. Past it, the error is the known issue only as far as the accounts
+            // without money in and out lost in the month, which the guess takes as money that paid
+            // for the new account; anything more is a regression.
+            let report = valuator.change(from: month.0, to: month.1)
+            let drawn = report.accounts.filter { !($0.account == HouseholdAccount.online) }
+                .filter { valuator.accounts[$0.account].map { !$0.kind.recordsMoneyInOut } ?? false }
+            let drawnLoss = drawn.reduce(Decimal(0)) { $0 + max(0, -$1.change.saved) + abs($1.change.lost) }
+            let bound = year.afterTax / 100
             let error = moved.startedWith - truthMonth.startedWith
-            if abs(error) > year.afterTax / 100 {
-                let report = valuator.change(from: month.0, to: month.1)
-                let drawn = report.accounts.filter { !($0.account == HouseholdAccount.online) }
-                    .filter { valuator.accounts[$0.account].map { !$0.kind.recordsMoneyInOut } ?? false }
-                    .map { "\($0.account) \($0.change.saved)" }
-                out.known.append("seed \(seed): started with off by \(error) (\(drawn.joined(separator: ", ")))")
+            let savedError = moved.saved - truthMonth.saved
+            if abs(error) > drawnLoss + bound || abs(savedError) > drawnLoss + bound {
+                out.broken.append("seed \(seed): started with off by \(error), saved by \(savedError), more than "
+                    + "the \(drawnLoss) accounts without money in and out lost and 1%")
+            } else if abs(error) > bound {
+                let losses = drawn.map { "\($0.account) \($0.change.saved)" }
+                out.known.append("seed \(seed): started with off by \(error) (\(losses.joined(separator: ", ")))")
             }
         }
         Self.report("An account opened with money from outside", measured, knownIssue: """
