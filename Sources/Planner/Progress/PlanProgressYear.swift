@@ -61,8 +61,37 @@ public struct PlanProgressYear: Hashable, Sendable, Identifiable {
     /// year's end where the inflation index allows (else as recorded);
     /// `nil` without a baseline, or when its plan was past working.
     public var plannedSpending: Decimal?
+    /// The year's pay from 1 January through ``to``, as the savings rate
+    /// counts it (``Tracker/Valuator/savingsRate(from:through:)``): what So
+    /// far's *Your pay* shows, and its saved is what *You saved* shows
+    /// (``youSaved``). `nil` without money in and out recorded in the year,
+    /// or while a savings or investment account's values are typed, which
+    /// turns money in and out off (``Model/Account/typedValuesTurnOffTrends``).
+    public var pay: SavingsRate?
+    /// What the baseline planned you'd save over the days ``pay`` covers,
+    /// in money of the year's end where the inflation index allows;
+    /// `nil` without ``pay``, a baseline, or its years.
+    public var plannedPaySaving: Decimal?
 
     public var id: Int { year }
+
+    /// What So far's *You saved* shows (UI.md, "The year"): the year's
+    /// pay's saved when money in and out was recorded in it (``pay``), so it's
+    /// the number *Your pay* adds up to; else what plan assets saved in the
+    /// year (``saved``).
+    public var youSaved: Decimal { pay?.saved ?? saved }
+
+    /// The day ``youSaved`` counts from (exclusive): where ``pay`` is
+    /// measured from when it starts later than the year, such as a year
+    /// whose money in and out start on 30 June; else ``from``.
+    public var youSavedFrom: CalendarDate {
+        guard let pay else { return from }
+        return max(pay.from, from)
+    }
+
+    /// What the baseline planned over the days ``youSaved`` covers;
+    /// `nil` without a baseline or its years.
+    public var plannedYouSaved: Decimal? { pay == nil ? plannedSaving : plannedPaySaving }
 
     /// Whether the year isn't over yet: the latest, measured to a check-in
     /// before 31 December ("2026 so far").
@@ -83,10 +112,11 @@ public struct PlanProgressYear: Hashable, Sendable, Identifiable {
         from == to ? nil : MarketYear(markets: change.market, start: change.start)
     }
 
-    /// You saved, graded against the baseline's planned saving; `nil`
-    /// without a baseline, or when it planned no saving.
+    /// You saved (``youSaved``), graded against what the baseline planned
+    /// over the same days; `nil` without a baseline, or when it planned no
+    /// saving.
     public var savedGrade: PlanComparison? {
-        plannedSaving.flatMap { PlanComparison(saved, planned: $0) }
+        plannedYouSaved.flatMap { PlanComparison(youSaved, planned: $0) }
     }
 
     /// You spent: what was spent a year against the baseline plan's
@@ -116,6 +146,7 @@ public struct PlanProgressYear: Hashable, Sendable, Identifiable {
         let sourceYears = Dictionary(sources.years.map { ($0.year, $0) }, uniquingKeysWith: { _, last in last })
         let birthDate = library.settings.person?.birthDate
         let index = PlanInflationIndex.baseCurrencyIndex(library: library)
+        let typedTurnPayOff = library.accounts.values.contains(where: \.typedValuesTurnOffTrends)
         return (start.year...latest.year).compactMap { year -> PlanProgressYear? in
             let checkIns = byYear[year] ?? []
             guard let measured = span(of: year, checkIns: checkIns, start: start, isLatest: year == latest.year)
@@ -146,6 +177,8 @@ public struct PlanProgressYear: Hashable, Sendable, Identifiable {
             func atYearEnd(_ amount: Decimal, of baseline: Baseline) -> Decimal {
                 index?.convert(amount, from: baseline.start.date, to: last) ?? amount
             }
+            let savings = valuator.savingsRate(from: CalendarDate.firstDay(ofYear: year), through: last)
+            let pay = typedTurnPayOff ? nil : savings
             return PlanProgressYear(
                 year: year, from: from, to: last, checkIns: checkIns.count, lastCheckIn: checkIns.last,
                 isLatest: year == latest.year,
@@ -156,11 +189,18 @@ public struct PlanProgressYear: Hashable, Sendable, Identifiable {
                 plannedSaving: baseline.flatMap { baseline in
                     Self.plannedSaving(in: baseline, from: saving, to: last).map { atYearEnd($0, of: baseline) }
                 },
-                spentPerYear: valuator.savingsRate(from: CalendarDate.firstDay(ofYear: year), through: last)?
-                    .spentPerYear,
+                spentPerYear: savings?.spentPerYear,
                 plannedSpending: baseline.flatMap { baseline in
                     Self.plannedSpending(of: baseline, in: year, birthDate: birthDate)
                         .map { atYearEnd($0, of: baseline) }
+                },
+                pay: pay,
+                plannedPaySaving: baseline.flatMap { baseline in
+                    pay.flatMap { pay in
+                        let start = min(max(pay.from, baseline.start.date), last)
+                        return Self.plannedSaving(in: baseline, from: start, to: last)
+                            .map { atYearEnd($0, of: baseline) }
+                    }
                 })
         }
     }

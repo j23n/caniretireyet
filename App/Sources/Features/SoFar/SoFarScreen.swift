@@ -135,7 +135,6 @@ struct SoFarView: View {
             }
             .id(Self.yearCard)
             PlanYearTiles(card: card, history: history,
-                          money: typedAccounts.isEmpty ? yearly.periods.first(where: { $0.from.year == year }) : nil,
                           planRate: reference.savingsRate, plannedSpending: reference.spendingWhileWorking)
             VStack(alignment: .leading, spacing: Metrics.s) {
                 SectionHeader("Month by month") {
