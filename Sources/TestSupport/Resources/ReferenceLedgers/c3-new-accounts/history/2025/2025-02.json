@@ -1,0 +1,79 @@
+{
+  "fx": [],
+  "indices": [],
+  "lines": [
+    {
+      "account": "current",
+      "amount": "-5000",
+      "class": "transfer",
+      "confirmed": true,
+      "date": "2025-02-10",
+      "id": "feb-to-broker",
+      "otherAccount": "broker",
+      "source": "import",
+      "text": "Transfer to broker"
+    },
+    {
+      "account": "current",
+      "amount": "-1200",
+      "class": "spending",
+      "confirmed": true,
+      "date": "2025-02-15",
+      "id": "feb-rent",
+      "source": "import",
+      "text": "Rent"
+    },
+    {
+      "account": "current",
+      "amount": "-800",
+      "class": "spending",
+      "confirmed": true,
+      "date": "2025-02-20",
+      "id": "feb-groceries",
+      "source": "import",
+      "text": "Groceries and bills"
+    },
+    {
+      "account": "current",
+      "amount": "4000",
+      "class": "income",
+      "confirmed": true,
+      "date": "2025-02-27",
+      "id": "feb-salary",
+      "source": "import",
+      "text": "Salary February"
+    }
+  ],
+  "month": "2025-02",
+  "prices": [
+    { "currency": "EUR", "date": "2025-02-10", "instrument": "world-fund", "price": "125" },
+    { "currency": "EUR", "date": "2025-02-28", "instrument": "world-fund", "price": "131" }
+  ],
+  "trades": [
+    { "account": "broker", "amount": "5000", "date": "2025-02-10", "id": "feb-deposit", "type": "deposit" },
+    {
+      "account": "broker",
+      "cost": "3600",
+      "date": "2025-02-10",
+      "id": "transfer-in-world-fund",
+      "instrument": "world-fund",
+      "quantity": "40",
+      "type": "transferIn"
+    },
+    {
+      "account": "broker",
+      "date": "2025-02-14",
+      "fees": "4",
+      "id": "feb-buy",
+      "instrument": "world-fund",
+      "price": "130",
+      "quantity": "38",
+      "type": "buy"
+    }
+  ],
+  "valuations": [
+    { "account": "broker", "cash": "56", "date": "2025-02-28" },
+    { "account": "current", "balance": "7000", "date": "2025-02-28", "moneyIn": "4000", "moneyOut": "2000" },
+    { "account": "savings", "balance": "6000", "date": "2025-02-28" }
+  ]
+}

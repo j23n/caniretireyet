@@ -221,3 +221,4 @@ Small made-up libraries check these numbers by hand (`Sources/TestSupport/Resour
 | --- | --- |
 | C1, `c1-five-accounts` | One month of five accounts: pay, a refund, debit and card spending, a card bill, a deposit to the broker, a mortgage payment, an employer's pension contribution. |
 | C2, `c2-tax-pot` | A year of pay before tax, with a share set aside in a tax pot each month and the bill paid from it in June; the same bill paid from the current account instead. |
+| C3, `c3-new-accounts` | *Started with*, shared over two accounts that start in the same month: a broker funded partly from the current account and partly from outside, and an old savings account. |
