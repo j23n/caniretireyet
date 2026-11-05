@@ -88,6 +88,16 @@ import Tracker
         #expect(rate.isPriced)
     }
 
+    /// Over the whole year, as `retire spending --year 2025` asks for it:
+    /// the values still cover January only, so a year's spending is
+    /// January's scaled by its 31 days, as money out a year is.
+    @Test func savingsRateOverTheYear() throws {
+        let rate = try #require(valuator.savingsRate(from: "2025-01-01", through: "2025-12-31"))
+        #expect(rate.spent == 2850)
+        #expect(rate.moneyInOut.moneyOutPerYear == d("41798.39"))
+        #expect(rate.spentPerYear == d("33556.45"))
+    }
+
     @Test func moneyInOutSeries() throws {
         let series = valuator.moneyInOutSeries(.months, through: "2025-01-31")
         #expect(series.periods.count == 1)

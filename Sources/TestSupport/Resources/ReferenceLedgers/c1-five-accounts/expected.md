@@ -50,6 +50,7 @@ The current account's statement lines are in `history/2025/2025-01.json`. The ch
 | Came in | `pay.cameIn`, `income` | 4,300 | 4,000 + 300; no tax |
 | Spent | `pay.spent`, `spent` | 2,850 | 4,300 − 1,450, which is 1,800 − 150 + 900 + 300 interest |
 | Spent a year | `spentPerYear` | 33,556.45 | 2,850 × 365 / 31 |
+| Spent a year, over all of 2025 | `savingsRate(1 Jan–31 Dec)`, as `retire spending --year 2025` asks | 33,556.45 | the values still cover January only, so it's January's 31 days, as money out a year is |
 | Savings rate | `rate`, `savedShare` | 1,450 / 4,300 = 0.3372 (34%) | |
 | Markets | `whatMoved.markets`, `savedSplit.market` | 250 | the fund 100 × 2, the pension 50 |
 | Change | `whatMoved.change` | 1,700 | −64,400 − (−66,100) = 1,450 + 250 |

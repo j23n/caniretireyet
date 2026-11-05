@@ -83,9 +83,13 @@ public struct SavingsRate: Hashable, Sendable {
         WhatMoved.Pay(moneyIn: moneyInOut.moneyIn, pension: pensionContributions, tax: tax, saved: saved)
     }
 
-    /// ``spent`` scaled to a year by the days counted, rounded to cents.
+    /// ``spent`` scaled to a year by the days the pay covers, rounded to
+    /// cents: from ``from`` to the latest value counted
+    /// (``MoneyInOutSummary/lastCounted``), so the days after the latest
+    /// check-in, which record nothing yet, don't make it smaller.
     public var spentPerYear: Decimal {
-        (spent * 365 / Decimal(max(1, from.days(to: through)))).rounded(scale: 2)
+        let end = moneyInOut.lastCounted.map { min($0, through) } ?? through
+        return (spent * 365 / Decimal(max(1, from.days(to: end)))).rounded(scale: 2)
     }
 
     /// ``saved`` over ``income``; negative when more was spent than came in.
