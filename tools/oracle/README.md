@@ -17,7 +17,7 @@ With `--library`, it compares all of that with what `retire` prints: the export,
 
 - **Started with**: what an account whose records start in a stretch held then ([PROGRESS.md](../../docs/PROGRESS.md#saved)) is a heuristic. Such an account's saved, and the totals and savings rates of a stretch it starts in, are skipped and listed.
 - **The saving pace**, *Where your money came from*, Progress and the planner.
-- **Belongings with a `depreciation`**: the export doesn't carry the rate (`accounts.csv` has no such column). `--skip-account <id>` leaves such an account out; totals that count it then aren't compared.
+- **Belongings with a `depreciation`**: the oracle doesn't work out their lost value from `accounts.csv`'s `depreciation` yet. `--skip-account <id>` leaves such an account out; totals that count it then aren't compared.
 - **Average cost and realised gains**, staleness, bank lines and how they're classified, inflation (today's money), and the checks `retire validate` makes.
 
 ## Where the docs leave a choice open

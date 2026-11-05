@@ -1367,8 +1367,8 @@ def main(argv: Optional[list[str]] = None) -> int:
     parser.add_argument("--date", type=date.fromisoformat,
                         help="the export's date; default: its last row (with --library: today)")
     parser.add_argument("--skip-account", action="append", default=[], metavar="ID",
-                        help="leave an account out, such as belongings with a depreciation, which the export "
-                             "doesn't carry; totals that count it aren't compared (repeatable)")
+                        help="leave an account out, such as belongings with a depreciation, whose lost value "
+                             "the oracle doesn't work out; totals that count it aren't compared (repeatable)")
     parser.add_argument("--tolerance", type=Decimal, default=ZERO,
                         help="how far apart two amounts, rounded to cents, may be (default 0)")
     args = parser.parse_args(argv)
