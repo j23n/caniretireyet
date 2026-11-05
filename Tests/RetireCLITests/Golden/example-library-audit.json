@@ -2877,7 +2877,9 @@
         "saved" : "3206.35",
         "soFar" : false,
         "to" : "2025-12-31",
-        "year" : 2025
+        "year" : 2025,
+        "youSaved" : "3206.35",
+        "youSavedFrom" : "2025-10-31"
       },
       {
         "answerFrom" : 55,
@@ -2899,6 +2901,7 @@
         "marketYear" : "average",
         "plannedSaving" : "13687.9302378550743500471805551036345296",
         "plannedSpending" : "36601.425178147268408551068883610451306",
+        "plannedYouSaved" : "4612.7823512185598542283538867015911234",
         "position" : {
           "actual" : "158851.678276846955294689831394299430127",
           "date" : "2026-09-30",
@@ -2907,12 +2910,14 @@
           "standing" : "ahead"
         },
         "saved" : "20486.3",
-        "savedGrade" : "more",
+        "savedGrade" : "less",
         "soFar" : true,
         "spentGrade" : "asPlanned",
         "spentPerYear" : "37963.77",
         "to" : "2026-09-30",
-        "year" : 2026
+        "year" : 2026,
+        "youSaved" : "1956.05",
+        "youSavedFrom" : "2026-06-30"
       }
     ]
   },

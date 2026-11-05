@@ -137,11 +137,11 @@ struct AuditSummary: CommandReport {
         if let progress = audit.progress, !progress.years.isEmpty {
             lines.append("")
             lines.append("Year by year, plan \(audit.plan ?? "")")
-            var years = TextTable([.left("Year"), .right("Saved"), .right("Planned"), .right("Markets"),
+            var years = TextTable([.left("Year"), .right("You saved"), .right("Planned"), .right("Markets"),
                                    .right("Spent a year")])
             for year in progress.years {
-                years.add([year.soFar ? "\(year.year) so far" : "\(year.year)", Self.amount(year.saved),
-                           Self.amount(year.plannedSaving), Self.amount(year.change.market),
+                years.add([year.soFar ? "\(year.year) so far" : "\(year.year)", Self.amount(year.youSaved),
+                           Self.amount(year.plannedYouSaved), Self.amount(year.change.market),
                            Self.amount(year.spentPerYear)])
             }
             lines += years.lines()

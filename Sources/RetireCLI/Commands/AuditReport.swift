@@ -373,6 +373,10 @@ struct Audit: Encodable {
         var complete: Bool
         var saved: String
         var plannedSaving: String?
+        /// So far's *You saved*: the year's pay's saved, or ``saved`` without money in and out.
+        var youSaved: String
+        var youSavedFrom: String
+        var plannedYouSaved: String?
         var savedGrade: String?
         /// What markets did, as context: `strong`, `average` or `hard`.
         var marketYear: String?
@@ -396,6 +400,9 @@ struct Audit: Encodable {
             complete = year.isComplete
             saved = AuditNumber.exact(year.saved)
             plannedSaving = year.plannedSaving.map(AuditNumber.exact)
+            youSaved = AuditNumber.exact(year.youSaved)
+            youSavedFrom = year.youSavedFrom.description
+            plannedYouSaved = year.plannedYouSaved.map(AuditNumber.exact)
             savedGrade = year.savedGrade.map(Self.grade)
             marketYear = year.marketYear.map { "\($0)" }
             spentPerYear = year.spentPerYear.map(AuditNumber.exact)
