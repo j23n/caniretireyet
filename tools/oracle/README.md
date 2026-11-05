@@ -28,7 +28,7 @@ What the oracle does, and whether the app (on the example library and the librar
 - **The export's dates** are each month end from the month of the first valuation or trade through the export's date, and that date. The app agrees.
 - **Rates.** A direct and an inverse rate: the later one, the direct one on the same date. Crossing only when neither exists, through the base currency first; so an older direct rate wins over a newer crossed one. A position is converted from its price's currency straight into the base currency, not through the account's. The app agrees on all of these.
 - **Rounding.** Amounts a trade works out are rounded to cents, half away from zero; a balance account's change is the difference of its two values in cents. The app agrees. Market and other, what's left of a change, may be a cent apart, since the docs don't say where the parts are rounded.
-- **The savings rate's days** run from the value before the first counted value of the account the most came into (on a tie, the first by ID) through its last counted value. The app runs them to the end of the period asked for: see the known issues.
+- **The savings rate's days** run from the value before the first counted value of the account the most came into (on a tie, the first by ID) through its last counted value. The app agrees.
 - **A pension value without saved** makes its stretch's saved unknown, so it counts nothing in saved or in the pension contributions; the other stretches count.
 - **Your pay** on a check-in is the savings rate over the days since the check-in before (from the day after it).
 - **Money in and out** counts cash and savings accounts in net worth, not tax pots.

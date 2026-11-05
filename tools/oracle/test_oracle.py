@@ -457,7 +457,14 @@ class CompareTests(TemporaryFolders):
 
 
 def retire_binary() -> Path | None:
-    path = Path(os.environ["RETIRE"]) if os.environ.get("RETIRE") else REPOSITORY / ".build" / "debug" / "retire"
+    """The `retire` to compare with: `RETIRE`, which must exist when it's set (as `make oracle`
+    sets it, so CI can't pass without comparing), else the debug build's, when there is one."""
+    if os.environ.get("RETIRE"):
+        path = Path(os.environ["RETIRE"])
+        if not path.exists():
+            raise FileNotFoundError(f"RETIRE is set, but there's no {path}")
+        return path
+    path = REPOSITORY / ".build" / "debug" / "retire"
     return path if path.exists() else None
 
 
