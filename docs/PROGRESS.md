@@ -225,3 +225,4 @@ Small made-up libraries check these numbers by hand (`Sources/TestSupport/Resour
 | C4, `c4-dollars` | Dollar accounts in a euro library: a broker's trades, and balances with a saved amount, worked out or recorded, and without one. |
 | C5, `c5-year-of-trades` | A year of one fund's trades: the average cost through a split and two partial sales, fees, a dividend with tax withheld, a fee, stamp duty and a withdrawal. |
 | C6, `c6-car` | A car bought and sold through statement lines, losing value by its depreciation in between. |
+| C7, `c7-skipped-check-in` | A skipped check-in, so the next values cover two months; and one account alone skipping it. |

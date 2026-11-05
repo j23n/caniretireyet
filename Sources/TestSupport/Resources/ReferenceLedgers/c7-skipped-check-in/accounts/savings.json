@@ -1,0 +1,7 @@
+{
+  "currency": "EUR",
+  "id": "savings",
+  "kind": "savings",
+  "name": "Savings account",
+  "opened": "2024-12-01"
+}

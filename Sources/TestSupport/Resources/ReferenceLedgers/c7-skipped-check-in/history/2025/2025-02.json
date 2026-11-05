@@ -1,0 +1,73 @@
+{
+  "fx": [],
+  "indices": [],
+  "lines": [
+    {
+      "account": "current",
+      "amount": "-1100",
+      "class": "spending",
+      "confirmed": true,
+      "date": "2025-02-15",
+      "id": "feb-rent",
+      "source": "import",
+      "text": "Rent"
+    },
+    {
+      "account": "current",
+      "amount": "-600",
+      "class": "spending",
+      "confirmed": true,
+      "date": "2025-02-20",
+      "id": "feb-groceries",
+      "source": "import",
+      "text": "Groceries and bills"
+    },
+    {
+      "account": "current",
+      "amount": "3000",
+      "class": "income",
+      "confirmed": true,
+      "date": "2025-02-27",
+      "id": "feb-salary",
+      "source": "import",
+      "text": "Salary"
+    },
+    {
+      "account": "current",
+      "amount": "-500",
+      "class": "transfer",
+      "confirmed": true,
+      "date": "2025-02-28",
+      "id": "feb-to-savings",
+      "otherAccount": "savings",
+      "source": "import",
+      "text": "To savings"
+    },
+    {
+      "account": "savings",
+      "amount": "500",
+      "class": "transfer",
+      "confirmed": true,
+      "date": "2025-02-28",
+      "id": "feb-from-current",
+      "otherAccount": "current",
+      "source": "import",
+      "text": "From current account"
+    },
+    {
+      "account": "savings",
+      "amount": "11",
+      "class": "interest",
+      "confirmed": true,
+      "date": "2025-02-28",
+      "id": "feb-interest",
+      "source": "import",
+      "text": "Interest February"
+    }
+  ],
+  "month": "2025-02",
+  "prices": [
+    { "currency": "EUR", "date": "2025-02-28", "instrument": "world-fund", "price": "99" }
+  ],
+  "valuations": []
+}

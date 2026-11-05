@@ -29,6 +29,9 @@ public enum ReferenceLedger: String, CaseIterable, Sendable {
     /// C6: a car bought from the current account's statement, losing value
     /// by its depreciation, and sold through the statement.
     case car = "c6-car"
+    /// C7: a check-in skipped in February, so March's values hold two
+    /// months.
+    case skippedCheckIn = "c7-skipped-check-in"
 
     /// The folder that holds every reference ledger.
     public static var foldersURL: URL {
