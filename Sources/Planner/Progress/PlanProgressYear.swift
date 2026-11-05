@@ -62,7 +62,9 @@ public struct PlanProgressYear: Hashable, Sendable, Identifiable {
     /// year's end where the inflation index allows (else as recorded);
     /// `nil` without a baseline, or when its plan was past working.
     public var plannedSpending: Decimal?
-    /// The year's pay, the values dated from 1 January through ``to``, as
+    /// The year's pay, the values dated from 1 January, or after the
+    /// baseline's start when it starts later in the year and before its last
+    /// measured day, through ``to``, as
     /// the savings rate counts it (``Tracker/Valuator/savingsRate(from:through:)``),
     /// with what was saved over the days it covers (after
     /// ``Tracker/SavingsRate/from`` through ``Tracker/SavingsRate/payThrough``):
@@ -91,6 +93,13 @@ public struct PlanProgressYear: Hashable, Sendable, Identifiable {
     public var youSavedFrom: CalendarDate {
         guard let pay else { return from }
         return max(pay.from, from)
+    }
+
+    /// Whether the year's baseline starts on its last measured day (``to``),
+    /// such as one saved at the latest check-in: it has planned nothing yet,
+    /// so nothing is graded and *You saved* shows no planned figure.
+    public var nothingPlannedYet: Bool {
+        baseline.map { $0.baseline.start.date >= to } ?? false
     }
 
     /// What the baseline planned over the days ``youSaved`` covers;

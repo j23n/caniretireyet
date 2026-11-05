@@ -173,6 +173,8 @@ struct PlanProgressYearTests {
         #expect(thisYear.youSaved == rate.saved)
         #expect(thisYear.spentPerYear == rate.spentPerYear)
         #expect(thisYear.savedGrade == nil)
+        #expect(thisYear.nothingPlannedYet)
+        #expect(try #require(years().last).nothingPlannedYet == false)
     }
 
     /// Without money in and out, *You saved* is what the plan assets saved
