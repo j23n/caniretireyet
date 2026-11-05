@@ -5,8 +5,10 @@ import Model
 /// month or calendar year
 /// (PROGRESS.md, "Trends"): over the values dated in it, even when one
 /// covers more (after a skipped check-in), as
-/// ``Valuator/savingsRate(from:through:)`` counts them. In the base
-/// currency.
+/// ``Valuator/savingsRate(from:through:)`` counts them, with what was saved
+/// over the days their pay covers. While the account the most came into
+/// stays the same, those days of consecutive periods meet, so the periods
+/// add up to the days they cover together. In the base currency.
 public struct MoneyInOutPeriod: Hashable, Sendable {
     /// The first day of the month or year.
     public let from: CalendarDate
@@ -73,15 +75,16 @@ public struct MoneyInOutPeriod: Hashable, Sendable {
     /// (``SavingsRate/noRate``); `nil` when it has one or none was counted.
     public var noRate: SavingsRate.NoRate? { savings?.noRate }
 
-    /// The days the pay counted in the period covers: from the day after
-    /// the valuation the values of the account the most came into are
-    /// measured from (``SavingsRate/from``, the days the savings rate counts
-    /// pension contributions over) through the latest value's date. So a
-    /// savings account checked quarterly, or an account first valued
-    /// mid-month, doesn't stretch it. `nil` when nothing was counted.
+    /// The days the pay counted in the period covers, the days the savings
+    /// rate counts what was saved over: from the day after
+    /// ``SavingsRate/from`` through ``SavingsRate/payThrough``, the values
+    /// of the account the most came into. So a savings account checked
+    /// quarterly, another account's later statement, or an account first
+    /// valued mid-month, doesn't stretch it. `nil` when nothing was counted,
+    /// or the pay covers no days (that account has no value in the period).
     public var covers: ClosedRange<CalendarDate>? {
-        guard let savings, let end = savings.moneyInOut.lastCounted, savings.from < end else { return nil }
-        return savings.from.adding(days: 1)...end
+        guard let savings, savings.from < savings.payThrough else { return nil }
+        return savings.from.adding(days: 1)...savings.payThrough
     }
 
     /// Whether the period's pay (``covers``) covers more than one and a half

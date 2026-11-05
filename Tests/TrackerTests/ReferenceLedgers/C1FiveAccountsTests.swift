@@ -98,6 +98,24 @@ import Tracker
         #expect(rate.spentPerYear == d("33556.45"))
     }
 
+    /// A deposit of 1,000 to the broker on 15 February, after the current
+    /// account's last value: what the current account paid for it isn't
+    /// recorded yet, so the year's pay, which ends on 31 January, leaves it
+    /// out. Counted through 31 December, it would be saved and the year's
+    /// spent 1,850 (21,782.26 a year).
+    @Test func aDepositAfterThePaysLastValue() throws {
+        var library = try ReferenceLedger.fiveAccounts.library()
+        library.upsert(Trade(account: "broker", date: "2025-02-15", id: "dep-feb", type: .deposit, amount: 1000))
+        let valuator = Valuator(library: library)
+        let rate = try #require(valuator.savingsRate(from: "2025-01-01", through: "2025-12-31"))
+        #expect(rate.from == "2024-12-31")
+        #expect(rate.payThrough == "2025-01-31")
+        #expect(rate.savedByAccount["broker"] == 1000)
+        #expect(rate.saved == 1450)
+        #expect(rate.spent == 2850)
+        #expect(rate.spentPerYear == d("33556.45"))
+    }
+
     @Test func moneyInOutSeries() throws {
         let series = valuator.moneyInOutSeries(.months, through: "2025-01-31")
         #expect(series.periods.count == 1)

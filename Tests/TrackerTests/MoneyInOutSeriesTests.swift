@@ -139,6 +139,26 @@ struct MoneyInOutSeriesTests {
         #expect(!series.periods.contains { $0.coversMore(.months) })
     }
 
+    /// A current account valued on the 15th, which the pay comes into, and
+    /// a savings account valued at the month's end: January's pay covers 16
+    /// December to 15 January, not to the savings account's 31 January.
+    @Test func anotherAccountsLaterValueDoesNotCoverMore() throws {
+        var library = Library(settings: LibrarySettings(baseCurrency: .eur))
+        library.accounts["bank"] = Account(id: "bank", name: "Bank", kind: .cash, currency: .eur,
+                                           opened: "2025-12-01")
+        library.accounts["savings"] = Account(id: "savings", name: "Savings", kind: .savings, currency: .eur,
+                                              opened: "2025-12-01")
+        library.upsert(Valuation(account: "bank", date: "2025-12-15", balance: 5000))
+        library.upsert(Valuation(account: "savings", date: "2025-12-31", balance: 10000))
+        library.upsert(Valuation(account: "bank", date: "2026-01-15", balance: 6000, moneyIn: 3000, moneyOut: 2000))
+        library.upsert(Valuation(account: "savings", date: "2026-01-31", balance: 10000, moneyIn: 0, moneyOut: 0))
+        let series = Valuator(library: library).moneyInOutSeries(.months, through: "2026-01-31")
+        let january = try #require(series.periods.last)
+        #expect(january.savings?.moneyInOut.lastCounted == "2026-01-31")
+        #expect(january.covers == CalendarDate("2025-12-16")...CalendarDate("2026-01-15"))
+        #expect(!january.coversMore(.months))
+    }
+
     /// The current account records money in and out from November 2025 to
     /// October 2026: twelve months, so October has a rate over the last 12.
     @Test func monthsFromTheTwelfthHaveTheRateOverTheLast12() throws {

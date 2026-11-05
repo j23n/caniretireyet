@@ -101,28 +101,29 @@ import Tracker
     /// the sale: the check-in before each is the car's value on the line's
     /// day, but the current account's value covers the whole quarter, the
     /// money moved to or from the car included. What came in is the
-    /// quarter's, so what was saved should be the quarter's too, as the
-    /// savings rate counts it: the car bought is saved, not spent, and only
-    /// the 1,650 it sold below its estimate is spent.
-    @Test(arguments: [("2025-03-31", "2025-03-10", 6000), ("2025-12-31", "2025-10-15", 7650)]
-          as [(CalendarDate, CalendarDate, Decimal)])
-    func todaysPayAfterTheCarsCheckIns(checkIn: CalendarDate, before: CalendarDate, spent: Decimal) throws {
+    /// quarter's, so what was saved is the quarter's too, as the savings
+    /// rate counts it: the car bought is saved, not spent, and only the
+    /// 1,650 it sold below its estimate is spent. Net worth's split stays
+    /// over the check-in's own days.
+    @Test(arguments: [("2025-03-31", "2025-03-10", "2024-12-31", 6000, -9000),
+                      ("2025-12-31", "2025-10-15", "2025-09-30", 7650, 18000)]
+          as [(CalendarDate, CalendarDate, CalendarDate, Decimal, Decimal)])
+    func todaysPayAfterTheCarsCheckIns(checkIn: CalendarDate, before: CalendarDate, payFrom: CalendarDate,
+                                       spent: Decimal, savedSinceBefore: Decimal) throws {
         let report = try #require(valuator.changeSinceLastCheckIn(asOf: checkIn))
         #expect(report.from == before)
         let today = valuator.whatMoved(report)
         let rate = try #require(valuator.savingsRate(from: before.adding(days: 1), through: checkIn))
         #expect(rate.pay.cameIn == 12000)
         #expect(rate.pay.spent == spent)
-        #expect(today.pay?.cameIn == 12000)
-        withKnownIssue("""
-            What moved it counts what was saved after the check-in before, the car's value on the line's day, \
-            and what came in from the values dated after it, which cover the whole quarter: the money moved to \
-            or from the car is in its saved but the car's side isn't, so its pay says 21,000 was spent after \
-            the purchase, and -6,000 after the sale.
-            """) {
-            #expect(today.pay == rate.pay)
-            #expect(today.pay?.spent == spent)
-        }
+        let pay = try #require(today.pay)
+        #expect(pay == rate.pay)
+        #expect(pay.cameIn == 12000)
+        #expect(pay.spent == spent)
+        #expect(pay.saved == 12000 - spent)
+        #expect(pay.from == payFrom)
+        #expect(pay.through == checkIn)
+        #expect(today.saved == savedSinceBefore)
     }
 
     @Test func theYear() throws {

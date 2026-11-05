@@ -102,8 +102,10 @@ import Tracker
     }
 
     /// Only the current account skips February: the savings account has a
-    /// value on 28 February. The months should still add up to the quarter,
-    /// as the check-ins' bars do.
+    /// value on 28 February. The months add up to the quarter, as the
+    /// check-ins' bars do: the current account's value on 31 March covers
+    /// February too, so February's pay covers no days, and March's covers
+    /// both months, the savings account's February 500 with them.
     @Test func onlyTheCurrentAccountSkipsFebruary() throws {
         var library = library
         library.upsert(Valuation(account: "savings", date: "2025-02-28", balance: 11021, moneyIn: 0, moneyOut: 0,
@@ -120,15 +122,18 @@ import Tracker
         #expect(quarter.spent == 5600)
         let periods = valuator.moneyInOutSeries(.months, through: "2025-03-31").periods
         #expect(periods.map(\.cameIn) == [3000, 0, 6000])
-        // February: the savings account's 500, with nothing come in.
-        #expect(periods[1].saved == 500)
+        // February: the savings account's value, with nothing come in, and no days of pay.
+        #expect(periods[1].saved == 0)
+        #expect(periods[1].spent == 0)
         #expect(periods[1].noRate == .nothingCameIn)
-        withKnownIssue("""
-            March's period counts what was saved from 31 January, where the current account's value is measured \
-            from, so the savings account's February 500, already in February's period, counts again.
-            """) {
-            #expect(periods.map(\.saved).reduce(0, +) == quarter.saved)
-            #expect(periods.map(\.spent).reduce(0, +) == quarter.spent)
-        }
+        #expect(periods[1].covers == nil)
+        #expect(periods[1].savings?.from == "2025-01-31")
+        #expect(periods[1].savings?.payThrough == "2025-01-31")
+        // March: both months, from 31 January.
+        #expect(periods[2].saved == 2200)
+        #expect(periods[2].spent == 3800)
+        #expect(periods[2].covers == "2025-02-01"..."2025-03-31")
+        #expect(periods.map(\.saved).reduce(0, +) == quarter.saved)
+        #expect(periods.map(\.spent).reduce(0, +) == quarter.spent)
     }
 }

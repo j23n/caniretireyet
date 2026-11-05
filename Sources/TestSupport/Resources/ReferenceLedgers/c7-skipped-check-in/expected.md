@@ -50,8 +50,8 @@ Net worth on 31 Dec 2024 is 25,000.
 | This year | `changeThisYear(asOf: 31 Mar)` | saved 3,400; market 532; other 0 | 210 + 322 |
 | Where the money came from | `moneySources(.months)` | 31 Dec: 25,000 started with; 31 Jan: saved 1,200, markets 210; 28 Feb: saved 1,200, markets −90; 31 Mar: saved 3,400, markets 532 | markets: 26,110 − 25,000 − 1,200 on 28 Feb |
 
-## Known issue: only the current account skips February
+## Only the current account skips February
 
-A variant built in the test: the savings account does have a value on 28 February (11,021, interest 11), and the current account still doesn't. The Overview's bars add up: saved 1,200, 500 and 1,700 (the savings account's 500 in February; in March, the current account's two months, 1,200, and the savings account's March, 500), 3,400 in all.
+A variant built in the test: the savings account does have a value on 28 February (11,021, interest 11), and the current account still doesn't. The Overview's bars: saved 1,200, 500 and 1,700 (the savings account's 500 in February; in March, the current account's two months, 1,200, and the savings account's March, 500), 3,400 in all.
 
-Trends' months don't. February's period counts the savings account's 500, with nothing come in (`noRate` = `nothingCameIn`, spent −500). March's period counts what was saved from 31 January, where the current account's value is measured from, so the savings account's February 500 counts again: saved 2,200. The months add up to saved 3,900 and spent 5,100, against the quarter's 3,400 and 5,600 (`savingsRate(1 Jan–31 Mar)`). The test wraps the sums in `withKnownIssue`; the same can happen to two years when a 31 December check-in is skipped for one account only.
+Trends' months add up to the same. The pay's days end at the latest value of the account the most came into, the current account (docs/PROGRESS.md, "Savings rate"): its value on 31 March covers 28 February, so February's pay ends where January's does, on 31 January, and covers no days. February counts the savings account's value, with nothing come in: saved 0, spent 0 (`noRate` = `nothingCameIn`). March's pay covers 1 February to 31 March: saved 2,200, the savings account's February 500 with it, spent 3,800. The months add up to saved 3,400 and spent 5,600, the quarter's (`savingsRate(1 Jan–31 Mar)`).

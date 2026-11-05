@@ -2,16 +2,23 @@ import Foundation
 import Model
 
 /// How net worth changed between two check-ins, every part of it counted
-/// (UI.md, "What moved it"): your pay, what came in less the tax and what
-/// was spent, which leaves what you saved; and net worth's change, what you
-/// saved plus what markets did and the rest. The parts add up exactly:
-/// `saved + markets + oneOffs + startedWith + lost + unexplained == change`,
-/// and with pay, `pay.cameIn - pay.tax - pay.spent == saved`.
+/// (UI.md, "What moved it"): net worth's change, what you saved plus what
+/// markets did and the rest; and your pay, what came in less the tax and
+/// what was spent, which leaves what the pay saved. The parts add up
+/// exactly: `saved + markets + oneOffs + startedWith + lost + unexplained
+/// == change`, and with pay, `pay.cameIn - pay.tax - pay.spent == pay.saved`.
 ///
-/// As in the savings rate (``SavingsRate``), tax counts when it's paid: a
-/// bill paid from a cash or savings account in the days is tax of those
-/// days, so the parts add up to what net worth did. What moved into a tax
-/// pot outside net worth is tax too.
+/// Net worth's change is split over the check-in's own days. The pay is
+/// the savings rate over the check-in's values (``SavingsRate/pay``),
+/// which covers the days of the account the most came into (``Pay/from``,
+/// ``Pay/through``): when that account has no value on the check-in
+/// before, such as a purchase's or another account's check-in in the
+/// middle of its month, they start earlier, and ``Pay/saved`` is what was
+/// saved over them, not ``saved``.
+///
+/// As in the savings rate, tax counts when it's paid: a bill paid from a
+/// cash or savings account in the days is tax of those days. What moved
+/// into a tax pot outside net worth is tax too.
 /// In the base currency.
 public struct WhatMoved: Hashable, Sendable {
     public let from: CalendarDate
@@ -34,13 +41,15 @@ public struct WhatMoved: Hashable, Sendable {
     /// What belongings with a depreciation are estimated to have lost
     /// (``ValueChange/lost``).
     public let lost: Decimal
-    /// Your pay; `nil` when no cash or savings account in net worth records
-    /// money in and out in the days.
+    /// Your pay, the savings rate over the check-in's values; `nil` when no
+    /// cash or savings account in net worth records money in and out in the
+    /// days.
     public let pay: Pay?
     /// Whether every price and exchange rate needed was known.
     public let isPriced: Bool
 
-    /// What came in, the tax and what was spent, which leave ``saved``.
+    /// What came in, the tax and what was spent, which leave what was
+    /// saved over the days the pay covers.
     public struct Pay: Hashable, Sendable {
         /// The money in that cash and savings accounts in net worth recorded.
         public let moneyIn: Decimal
@@ -51,14 +60,24 @@ public struct WhatMoved: Hashable, Sendable {
         /// net worth (``Model/Valuation/tax``), less refunds, and what
         /// moved into tax pots outside net worth.
         public let tax: Decimal
-        /// What was saved: ``WhatMoved/saved``.
+        /// What every account in net worth saved over the days the pay
+        /// covers, less the one-offs (``SavingsRate/saved``): ``WhatMoved/saved``
+        /// when they're the check-in's days.
         public let saved: Decimal
+        /// Where the days the pay covers start (exclusive) and end
+        /// (``SavingsRate/from``, ``SavingsRate/payThrough``); `nil` for a
+        /// pay made from amounts alone.
+        public let from: CalendarDate?
+        public let through: CalendarDate?
 
-        public init(moneyIn: Decimal, pension: Decimal, tax: Decimal, saved: Decimal) {
+        public init(moneyIn: Decimal, pension: Decimal, tax: Decimal, saved: Decimal,
+                    from: CalendarDate? = nil, through: CalendarDate? = nil) {
             self.moneyIn = moneyIn
             self.pension = pension
             self.tax = tax
             self.saved = saved
+            self.from = from
+            self.through = through
         }
 
         /// Money in and the pension contributions, before tax.
@@ -107,7 +126,8 @@ public struct WhatMoved: Hashable, Sendable {
 
 extension Valuator {
     /// What moved net worth between the dates of `report`, a change of net
-    /// worth (``WhatMoved``).
+    /// worth (``WhatMoved``), with the pay of the values dated in its days
+    /// (``savingsRate(from:through:)``).
     public func whatMoved(_ report: ChangeReport) -> WhatMoved {
         let stretches = savedStretches(between: savedCuts(after: report.from, through: report.to, in: .netWorth),
                                        in: .netWorth)
@@ -123,19 +143,10 @@ extension Valuator {
         // A value without an exchange rate is left out of money in and the tax.
         isPriced = isPriced && money.unconverted.isEmpty
         let saved = byAccount.keys.sorted().reduce(Decimal(0)) { $0 + (byAccount[$1] ?? 0) } - money.oneOffs
-        var pay: WhatMoved.Pay?
-        if !money.isEmpty {
-            let pension = byAccount.keys.sorted().reduce(Decimal(0)) { total, id in
-                guard let account = accounts[id], SavingsRate.pensionKinds.contains(account.kind) else { return total }
-                return total + max(byAccount[id] ?? 0, 0)
-            }
-            let setAside = taxSetAside(after: report.from, through: report.to)
-            isPriced = isPriced && setAside.isPriced
-            pay = WhatMoved.Pay(moneyIn: money.moneyIn, pension: pension, tax: money.taxes + setAside.amount,
-                                saved: saved)
-        }
+        let rate = money.isEmpty ? nil : savingsRate(from: report.from.adding(days: 1), through: report.to)
+        isPriced = isPriced && (rate?.isPriced ?? true)
         return WhatMoved(from: report.from, to: report.to, start: report.total.start, change: report.total.change,
                          saved: saved, markets: report.total.market, oneOffs: money.oneOffs,
-                         startedWith: startedWith, lost: report.total.lost, pay: pay, isPriced: isPriced)
+                         startedWith: startedWith, lost: report.total.lost, pay: rate?.pay, isPriced: isPriced)
     }
 }

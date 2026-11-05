@@ -13,19 +13,24 @@ import Model
 /// What was spent is the rest. Only accounts in net worth count, on both
 /// sides. In the base currency.
 public struct SavingsRate: Hashable, Sendable {
-    /// The money in it's worked out from.
+    /// The money in it's worked out from: the values dated in the period.
     public var moneyInOut: MoneyInOutSummary
-    /// The days counted, the days the pay that came in covers: from the
-    /// valuation the counted values of the account the most came into are
-    /// measured from (exclusive) through ``through``.
+    /// Where the days the pay covers start (exclusive): the valuation the
+    /// values of the account the most came into are measured from
+    /// (``Valuator/savingsRate(from:through:)``). What was saved, the
+    /// pension contributions and the tax set aside are counted over the
+    /// days after it through ``payThrough``.
     public var from: CalendarDate
+    /// The period's last day.
     public var through: CalendarDate
-    /// The date of the latest value counted of the account the most came
-    /// into, at most ``through``: where the days the pay covers end for
-    /// ``spentPerYear``.
+    /// Where the days the pay covers end, at most ``through``: the date of
+    /// the latest value counted of the account the most came into. When
+    /// that account's value runs across the period's end, ``from``: the pay
+    /// covers no days.
     public var payThrough: CalendarDate
-    /// What was saved into pension funds and TFR over those days, each account's
-    /// at least zero: money taken out of them isn't income.
+    /// What was saved into pension funds and TFR over the days the pay
+    /// covers, each account's at least zero: money taken out of them isn't
+    /// income.
     public var pensionContributions: Decimal
     /// What moved into tax pots outside net worth over those days
     /// (``Valuator/taxSetAside(after:through:)``): tax, so neither came in
@@ -38,9 +43,9 @@ public struct SavingsRate: Hashable, Sendable {
     /// Whether every price and exchange rate needed for what was saved was known.
     public var isPriced: Bool
 
-    /// - Parameter payThrough: the latest value counted of the account the
-    ///   most came into; without it, the latest value counted
-    ///   (``MoneyInOutSummary/lastCounted``), else `through`.
+    /// - Parameter payThrough: where the days the pay covers end; without
+    ///   it, the latest value counted (``MoneyInOutSummary/lastCounted``),
+    ///   else `through`.
     public init(moneyInOut: MoneyInOutSummary, from: CalendarDate, through: CalendarDate,
                 payThrough: CalendarDate? = nil,
                 pensionContributions: Decimal = 0, taxSetAside: Decimal = 0,
@@ -86,15 +91,18 @@ public struct SavingsRate: Hashable, Sendable {
     public var spent: Decimal { income - saved }
 
     /// What came in, the tax, what was spent and what was saved, as Today's
-    /// *Your pay* splits them (``WhatMoved/Pay``): its ``WhatMoved/Pay/spent``
-    /// is ``spent`` and its ``WhatMoved/Pay/savedShare`` is ``rate``.
+    /// *Your pay* splits them (``WhatMoved/Pay``), over the days after
+    /// ``from`` through ``payThrough``: its ``WhatMoved/Pay/spent`` is
+    /// ``spent`` and its ``WhatMoved/Pay/savedShare`` is ``rate``.
     public var pay: WhatMoved.Pay {
-        WhatMoved.Pay(moneyIn: moneyInOut.moneyIn, pension: pensionContributions, tax: tax, saved: saved)
+        WhatMoved.Pay(moneyIn: moneyInOut.moneyIn, pension: pensionContributions, tax: tax, saved: saved,
+                      from: from, through: payThrough)
     }
 
-    /// ``spent`` scaled to a year by the days the pay covers, rounded to
-    /// cents: from ``from`` to ``payThrough``, so the days after the pay's
-    /// latest value, which record nothing yet, don't make it smaller.
+    /// ``spent`` scaled to a year by the days the pay covers, at least one,
+    /// rounded to cents: from ``from`` to ``payThrough``, so the days after
+    /// the pay's latest value, which record nothing yet, don't make it
+    /// smaller.
     public var spentPerYear: Decimal {
         (spent * 365 / Decimal(max(1, from.days(to: payThrough)))).rounded(scale: 2)
     }
@@ -129,32 +137,74 @@ extension Valuator {
     /// The savings rate over the money in recorded by valuations dated from
     /// `from` through `through` (``moneyInOut(from:through:accounts:)``) of
     /// the accounts in net worth,
-    /// with what was saved (``saved(after:through:)``) and what was saved
-    /// into pension funds and TFR (``SavingsRate/pensionKinds``) over the
-    /// days the pay covers: those of the account the most came into, so an
-    /// account checked rarely, or recording money in for longer, doesn't
-    /// stretch them. `nil` when no money in and out was counted.
+    /// with what was saved (``saved(after:through:)``), what was saved
+    /// into pension funds and TFR (``SavingsRate/pensionKinds``) and the tax
+    /// set aside over the days the pay covers (``payDays(from:through:)``):
+    /// those of the account the most came into. So an account checked
+    /// rarely, or recording money in for longer, doesn't stretch them, and
+    /// while that account stays the same, the days of consecutive periods
+    /// meet: nothing saved counts in both, and nothing falls between them.
+    /// When nothing came in, the days are those of the values counted.
+    /// `nil` when no money in and out was counted.
     public func savingsRate(from: CalendarDate, through: CalendarDate) -> SavingsRate? {
-        let counted = cameInAccounts
-        let cash = accounts.values.filter { counted.contains($0.id) }
-        let money = moneyInOut(from: from, through: through, accounts: counted)
+        let money = moneyInOut(from: from, through: through, accounts: cameInAccounts)
         guard let measuredFrom = money.measuredFrom else { return nil }
-        let pay = cash.sorted { $0.id < $1.id }
-            .map { moneyInOut(from: from, through: through, accounts: [$0.id]) }
-            .filter { $0.moneyIn > 0 }
-            .max { $0.moneyIn < $1.moneyIn }
-        let start = pay?.measuredFrom ?? measuredFrom
-        let payThrough = pay?.lastCounted ?? money.lastCounted
-        let saved = saved(after: start, through: through)
+        let days = payDays(from: from, through: through) ?? (measuredFrom, money.lastCounted ?? through)
+        let saved = saved(after: days.after, through: days.through)
         let contributions = saved.byAccount.keys.sorted().reduce(Decimal(0)) { total, id in
             guard let account = accounts[id], SavingsRate.pensionKinds.contains(account.kind) else { return total }
             return total + max(saved.byAccount[id] ?? 0, 0)
         }
-        let tax = taxSetAside(after: start, through: through)
-        return SavingsRate(moneyInOut: money, from: start, through: through, payThrough: payThrough,
+        let tax = taxSetAside(after: days.after, through: days.through)
+        return SavingsRate(moneyInOut: money, from: days.after, through: through, payThrough: days.through,
                            pensionContributions: contributions,
                            taxSetAside: tax.amount,
                            savedByAccount: saved.byAccount, isPriced: saved.isPriced && tax.isPriced)
+    }
+
+    /// The days the pay of the values dated from `from` through `through`
+    /// covers (PROGRESS.md, "Savings rate"), those of the pay account: of
+    /// the cash and savings accounts in net worth, the one the most came
+    /// into, in the base currency, over its values counted that are dated
+    /// in the period, or, for an account without one, over its value
+    /// counted that runs across the period's end (dated after it, measured
+    /// from a value before it); the first by ID on a tie. They're after the
+    /// valuation its values counted in the period are measured from through
+    /// the latest of them. When its value runs across the end instead, its
+    /// check-in was skipped: the period has no days of pay, and they count
+    /// with the period that value is dated in. `nil` when nothing came in.
+    private func payDays(from: CalendarDate, through: CalendarDate)
+        -> (after: CalendarDate, through: CalendarDate)? {
+        var best: (moneyIn: Decimal, days: (after: CalendarDate, through: CalendarDate))?
+        for id in cameInAccounts.sorted() {
+            let own = moneyInOut(from: from, through: through, accounts: [id])
+            var pay: (moneyIn: Decimal, days: (after: CalendarDate, through: CalendarDate))?
+            if let after = own.measuredFrom, let last = own.lastCounted {
+                pay = (own.moneyIn, (after, last))
+            } else if let across = valueAcross(through, of: id) {
+                pay = (across.moneyIn, (across.previous, across.previous))
+            }
+            if let pay, pay.moneyIn > (best?.moneyIn ?? 0) { best = pay }
+        }
+        return best?.days
+    }
+
+    /// A cash or savings account's value counted that runs across `day`:
+    /// its first value dated after it, when it's measured from a value
+    /// before it, with the date it's measured from and its money in, in
+    /// the base currency. `nil` when the account has a value on the day,
+    /// none after it, or the one after it isn't counted.
+    private func valueAcross(_ day: CalendarDate, of id: AccountID)
+        -> (previous: CalendarDate, moneyIn: Decimal)? {
+        guard let account = accounts[id] else { return nil }
+        let values = valuations(for: id)
+        guard let index = values.firstIndex(where: { $0.date > day }), index > 0,
+              values[index - 1].date < day,
+              let counted = values[index].moneyInOut(on: account.kind).counted,
+              let moneyIn = fx.convert(counted.moneyIn, from: account.currency, to: baseCurrency,
+                                       on: values[index].date)
+        else { return nil }
+        return (values[index - 1].date, moneyIn)
     }
 
     /// What moved into tax pots outside net worth (``Model/AccountKind/taxPot``)
