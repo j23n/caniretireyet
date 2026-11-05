@@ -62,18 +62,16 @@ struct ProgressSavedInvariantTests {
 
     /// The broker's first record is a deposit of 10 February, and the bank
     /// it came from has its next value on 28 February. Counted from 20
-    /// February, that day cuts the month (PROGRESS.md, "Saved"): the
-    /// bank's value of 28 February, the savings' and the pension's count
-    /// whole after it, while the broker's records start before it, so it
-    /// saved nothing after it. The 1,000 moved out of the bank is in the
-    /// bank's −300, and the deposit it paid for is before the day, as a
-    /// broker tracked before would have it.
+    /// February, that day cuts the month (PROGRESS.md, "Saved"): through
+    /// the 20th the broker started with its deposit, and the bank's value
+    /// on the 28th, which covers the days since 31 January and records the
+    /// 1,000 moved out, pays for it after the 20th.
     @Test func savedFromADayInANewAccountsStretch() throws {
         let valuator = Valuator(library: try InvariantLibrary.newAccount.library())
         let progress = PlanProgressYear.saved(after: "2026-02-20", through: "2026-02-28", valuator: valuator)
         let tracker = planAssetsSaved(valuator, after: "2026-02-20", through: "2026-02-28")
-        // The bank's −300, the savings' 500 and the pension's 300.
-        #expect(tracker == 500)
+        // The bank's −300, the savings' 500, the pension's 300 and the broker's 1,000.
+        #expect(tracker == 1500)
         #expect(progress == tracker)
     }
 }

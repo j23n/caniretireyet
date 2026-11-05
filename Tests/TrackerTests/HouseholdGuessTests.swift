@@ -178,7 +178,11 @@ struct HouseholdGuessTests {
     /// its records start is a guess (PROGRESS.md, "Saved"). The promise:
     /// its started with, and so what was saved and spent, are within 1% of
     /// what came in that year, a month's spending on a card or so; what
-    /// came in and the tax are exact.
+    /// came in and the tax are exact. In a month the car is sold, the guess
+    /// counts what the car was worth as money moved out of it, not the
+    /// price it brought, so what it brought beyond its worth is started
+    /// with too, and what it brought short of it saved: they're off by that
+    /// much more, that way only.
     @Test func anAccountOpenedWithMoneyFromOutside() async {
         let measured = await Self.measure(HouseholdOptions(newAccount: true)) { household, valuator, truth, out in
             guard let opened = household.onlineOpened else { return }
@@ -199,29 +203,21 @@ struct HouseholdGuessTests {
             if abs(moved.unexplained) >= HouseholdComparison.tolerance {
                 out.broken.append("seed \(seed): unexplained \(moved.unexplained)")
             }
-            // The promise is 1%. Past it, the error is the known issue only as far as the accounts
-            // without money in and out lost in the month, which the guess takes as money that paid
-            // for the new account; anything more is a regression.
-            let report = valuator.change(from: month.0, to: month.1)
-            let drawn = report.accounts.filter { !($0.account == HouseholdAccount.online) }
-                .filter { valuator.accounts[$0.account].map { !$0.kind.recordsMoneyInOut } ?? false }
-            let drawnLoss = drawn.reduce(Decimal(0)) { $0 + max(0, -$1.change.saved) + abs($1.change.lost) }
             let bound = year.afterTax / 100
+            let sale = household.events.filter { $0.date > month.0 && $0.date <= month.1 }
+                .compactMap { event -> Decimal? in
+                    guard case .sellCar(let price) = event.kind else { return nil }
+                    return price
+                }.first
+            let gap = sale.map { $0 - truth.value(of: HouseholdAccount.car, on: month.0) } ?? 0
             let error = moved.startedWith - truthMonth.startedWith
             let savedError = moved.saved - truthMonth.saved
-            if abs(error) > drawnLoss + bound || abs(savedError) > drawnLoss + bound {
-                out.broken.append("seed \(seed): started with off by \(error), saved by \(savedError), more than "
-                    + "the \(drawnLoss) accounts without money in and out lost and 1%")
-            } else if abs(error) > bound {
-                let losses = drawn.map { "\($0.account) \($0.change.saved)" }
-                out.known.append("seed \(seed): started with off by \(error) (\(losses.joined(separator: ", ")))")
+            if error > max(gap, 0) + bound || error < min(gap, 0) - bound
+                || savedError > max(-gap, 0) + bound || savedError < min(-gap, 0) - bound {
+                out.broken.append("seed \(seed): started with off by \(error), saved by \(savedError), more than 1% "
+                    + "beyond the \(gap) the car sold that month brought beyond its worth")
             }
         }
-        Self.report("An account opened with money from outside", measured, knownIssue: """
-            A new account's started with counts what accounts without money in and out lost in its \
-            month as money that paid for it: a card's growing balance, a car's lost value, or a car sold \
-            whose price went into the current account (PROGRESS.md, "Saved": "the money taken out of \
-            their other accounts"). So part of the money from outside counts as saved.
-            """)
+        Self.report("An account opened with money from outside", measured)
     }
 }
