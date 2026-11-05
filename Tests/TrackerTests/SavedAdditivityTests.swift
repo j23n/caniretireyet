@@ -197,11 +197,10 @@ struct SavedAdditivityTests {
 
     /// A pot opened on 10 January with 6,000 from outside and spent by
     /// 10 February, when it closed, next to a savings account valued once a
-    /// quarter. The 3,000 the current account moves out by 31 March pays
-    /// for half of what the pot started with over the quarter's days, so
-    /// March's stretch counts it for the pot, though the pot isn't open in
-    /// it.
-    @Test func anAccountClosedBeforeTheStretchStillCounts() throws {
+    /// quarter, from which `rainyTakenOut` goes by 31 March. The 3,000 the
+    /// current account moves out by 31 March pays for half of what the pot
+    /// started with over the quarter's days.
+    private func closedPotLibrary(rainyTakenOut: Decimal = 0) -> Library {
         var library = Library(settings: LibrarySettings(baseCurrency: .eur))
         let accounts = [
             Account(id: "current", name: "Current", kind: .cash, currency: .eur, opened: "2025-12-01"),
@@ -210,8 +209,9 @@ struct SavedAdditivityTests {
                     closed: "2026-02-10"),
         ]
         for account in accounts { library.accounts[account.id] = account }
-        library.upsert(Valuation(account: "rainy", date: "2025-12-31", balance: 5000))
-        library.upsert(Valuation(account: "rainy", date: "2026-03-31", balance: 5000, moneyIn: 0, moneyOut: 0))
+        library.upsert(Valuation(account: "rainy", date: "2025-12-31", balance: 20000))
+        library.upsert(Valuation(account: "rainy", date: "2026-03-31", balance: 20000 - rainyTakenOut,
+                                 moneyIn: 0, moneyOut: rainyTakenOut))
         library.upsert(Valuation(account: "current", date: "2025-12-31", balance: 10000))
         for (date, balance): (CalendarDate, Decimal) in [("2026-01-31", 10000), ("2026-02-28", 10000),
                                                          ("2026-03-31", 7000)] {
@@ -219,12 +219,33 @@ struct SavedAdditivityTests {
         }
         library.upsert(Valuation(account: "pot", date: "2026-01-10", balance: 6000))
         library.upsert(Valuation(account: "pot", date: "2026-02-10", balance: 0, moneyIn: 0, moneyOut: 6000))
-        let valuator = Valuator(library: library)
+        return library
+    }
+
+    /// March's stretch counts what the current account's 3,000 pays for of
+    /// what the pot started with, though the pot isn't open in it.
+    @Test func anAccountClosedBeforeTheStretchStillCounts() throws {
+        let valuator = Valuator(library: closedPotLibrary())
         let stretches = valuator.savedStretches(
             between: valuator.savedCuts(after: "2025-12-31", through: "2026-03-31", in: .netWorth), in: .netWorth)
         let march = try #require(stretches.last)
         #expect(march.saved["pot"] == 3000)
         #expect(march.startedWith == ["pot": -3000])
         #expect(stretches.map(\.totalStartedWith).sum == 3000)
+    }
+
+    /// The saving pace spreads what the closed pot saved in March too, so
+    /// its months add up to what the check-ins' stretches saved. The
+    /// 10,000 taken from the rainy-day account keeps March's money moved
+    /// from canceling out as a transfer.
+    @Test func theSavingPaceCountsWhatAClosedAccountSaved() throws {
+        let valuator = Valuator(library: closedPotLibrary(rainyTakenOut: 10000))
+        let stretches = valuator.savedStretches(
+            between: valuator.checkInDates(in: .planAssets, through: "2026-03-31"), in: .planAssets)
+        #expect(stretches.last?.saved == ["current": -3000, "rainy": -10000, "pot": 3000])
+        let pace = try #require(valuator.savingPace(asOf: "2026-03-31"))
+        let saved = stretches.flatMap(\.saved.values).sum
+        #expect(saved == -16000)
+        #expect(abs(pace.months.map(\.saved).sum - saved) < 0.000001)
     }
 }
