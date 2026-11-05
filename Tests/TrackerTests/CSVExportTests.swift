@@ -94,6 +94,18 @@ import TestSupport
         #expect(pension[13] == "bonds=0.4; equity=0.6")
     }
 
+    /// A car's depreciation, which its values between typed ones are
+    /// estimated from, so the export's account values follow from its records.
+    @Test func aCarsDepreciationIsExported() throws {
+        var library = self.library
+        library.accounts["car"] = Account(id: "car", name: "Car", kind: .belongings, currency: .eur,
+                                          opened: "2025-01-01", depreciation: d("0.15"))
+        let accounts = rows(CSVExport.accounts(library))
+        let column = try #require(accounts[0].firstIndex(of: "depreciation"))
+        #expect(accounts.first { $0[0] == "car" }?[column] == "0.15")
+        #expect(accounts.first { $0[0] == "conto-fineco" }?[column] == "")
+    }
+
     @Test func moneyInAndOutAreExported() throws {
         let valuations = rows(try file("valuations.csv"))
         let moneyIn = try #require(valuations[0].firstIndex(of: "money_in"))
