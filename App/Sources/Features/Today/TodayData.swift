@@ -140,14 +140,16 @@ struct TodayMovedLine: Hashable, Sendable, Identifiable {
 /// The lines of the *Your pay* and *Your net worth* tiles, from Tracker's
 /// `WhatMoved`, which add up exactly.
 enum TodayMoved {
-    /// What came in, the tax and what was spent, then what that left
-    /// saved. The pension contributions are a line of their own when there
-    /// are some; tax only when there's some.
+    /// What came in, the tax and what was spent, which leave what the pay
+    /// saved, then the one-offs, then what was saved. The pension
+    /// contributions are a line of their own when there are some; tax and
+    /// the one-offs only when there are some.
     static func payLines(_ pay: WhatMoved.Pay) -> [TodayMovedLine] {
         var lines = [TodayMovedLine(kind: .cameIn, amount: pay.moneyIn)]
         if pay.pension != 0 { lines.append(TodayMovedLine(kind: .pension, amount: pay.pension)) }
         if pay.tax != 0 { lines.append(TodayMovedLine(kind: .tax, amount: -pay.tax)) }
         lines.append(TodayMovedLine(kind: .spent, amount: -pay.spent))
+        if pay.oneOffs != 0 { lines.append(TodayMovedLine(kind: .oneOff, amount: pay.oneOffs)) }
         lines.append(TodayMovedLine(kind: .saved, amount: pay.saved, isSum: true))
         return lines
     }
@@ -156,15 +158,14 @@ enum TodayMoved {
     /// before they fold into one *Other*: so the tile stays one row tall.
     static let otherLines = 2
 
-    /// What was saved and markets, the rest when it isn't zero, then net
-    /// worth's change. The rest is a line each (a one-off, what new
-    /// accounts started with, lost value, what nothing explains), or one
-    /// *Other* when there are more than ``otherLines``.
+    /// What was saved (a one-off with it) and markets, the rest when it
+    /// isn't zero, then net worth's change. The rest is a line each (what
+    /// new accounts started with, lost value, what nothing explains), or
+    /// one *Other* when there are more than ``otherLines``.
     static func netWorthLines(_ moved: WhatMoved) -> [TodayMovedLine] {
         var lines = [TodayMovedLine(kind: .saved, amount: moved.saved)]
         if moved.markets != 0 { lines.append(TodayMovedLine(kind: .markets, amount: moved.markets)) }
-        let rest = [TodayMovedLine(kind: .oneOff, amount: moved.oneOffs),
-                    TodayMovedLine(kind: .startedWith, amount: moved.startedWith),
+        let rest = [TodayMovedLine(kind: .startedWith, amount: moved.startedWith),
                     TodayMovedLine(kind: .lost, amount: moved.lost),
                     TodayMovedLine(kind: .other, amount: moved.unexplained)]
             .filter { $0.amount != 0 }
@@ -189,10 +190,12 @@ enum TodayMoved {
         }
     }
 
-    /// The pay tile's ring: what was saved, spent and paid in tax, each as
-    /// a share of what came in, as far as they're above zero.
+    /// The pay tile's ring: what the pay saved, what was spent and paid in
+    /// tax, each as a share of what came in, as far as they're above zero.
+    /// The one-offs aren't in it: they didn't come in.
     static func ring(_ pay: WhatMoved.Pay) -> [(kind: TodayMovedLine.Kind, share: Double)] {
-        let parts: [(TodayMovedLine.Kind, Decimal)] = [(.saved, pay.saved), (.spent, pay.spent), (.tax, pay.tax)]
+        let parts: [(TodayMovedLine.Kind, Decimal)] = [(.saved, pay.savedFromPay), (.spent, pay.spent),
+                                                       (.tax, pay.tax)]
         let positive = parts.map { ($0.0, max($0.1, 0)) }
         let total = positive.reduce(Decimal(0)) { $0 + $1.1 }
         guard total > 0 else { return [] }

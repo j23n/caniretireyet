@@ -662,7 +662,7 @@ private struct MonthTotalsCard: View {
     private func rate(_ totals: MonthTotals) -> Double? {
         let income = totals.cameIn + totals.interest - totals.tax
         guard income > 0 else { return nil }
-        return (totals.saved / income).doubleValue
+        return (totals.savedFromPay / income).doubleValue
     }
 
     private func row(_ title: String, _ amount: Decimal, bold: Bool = false) -> some View {

@@ -864,17 +864,20 @@ class Export:
             return result
         pension = self.pension_contributions(pay_after, pay_through)
         tax = money["tax"] + self.tax_set_aside(pay_after, pay_through)
-        saved_all, unknown = self.saved_over(pay_after, pay_through)
-        saved = saved_all - money["oneOffs"]
+        # Saved counts the one-offs; the pay's saved, the rate's, leaves them out: they're
+        # neither came in nor spent.
+        saved, unknown = self.saved_over(pay_after, pay_through)
+        saved_from_pay = saved - money["oneOffs"]
         came_in = money["moneyIn"] + pension - tax
-        spent = came_in - saved
+        spent = came_in - saved_from_pay
         # A pay that covers no days (its account's value runs across the end) scales by the days of
         # the values counted.
         days = (pay_through - pay_after).days or (max(v.date for _, v, _ in counted)
                                                   - min(p.date for _, _, p in counted)).days
         days = max(days, 1)
-        result.update(pensionContributions=pension, tax=tax, cameIn=came_in, saved=saved, spent=spent,
-                      savingsRate=(saved / came_in) if came_in > 0 else None,
+        result.update(pensionContributions=pension, tax=tax, cameIn=came_in, saved=saved,
+                      savedFromPay=saved_from_pay, spent=spent,
+                      savingsRate=(saved_from_pay / came_in) if came_in > 0 else None,
                       spentPerYear=spent * 365 / days, days=days,
                       unknownSaved=sorted(unknown))
         return result
@@ -998,7 +1001,7 @@ def print_report(report: dict, out=sys.stdout) -> None:
             continue
         rate = "—" if row["savingsRate"] is None else f"{row['savingsRate'] * 100:.1f}%"
         print(f"  {row['from']} – {row['through']}  came in {money(row['cameIn']):>12}"
-              f"  saved {money(row['saved']):>12}"
+              f"  saved {money(row['saved']):>12}  from pay {money(row['savedFromPay']):>12}"
               f"  spent {money(row['spent']):>12}  rate {rate}  (pay after {row['payAfter']} through "
               f"{row['payThrough']})", file=out)
     for note in report["notes"]:
@@ -1207,7 +1210,8 @@ def compare_spending_json(export: Export, data: dict, comparison: Comparison) ->
     if not rate["checked"]:
         comparison.skipped.append(f"{check}: {rate['reason']}")
         return
-    for name in ("oneOffs", "tax", "pensionContributions", "cameIn", "saved", "spent", "spentPerYear"):
+    for name in ("oneOffs", "tax", "pensionContributions", "cameIn", "saved", "savedFromPay", "spent",
+                 "spentPerYear"):
         comparison.amount(check, last, "-", name, rate.get(name), data.get(name), total=True)
     comparison.ratio(check, last, "-", "savingsRate", rate["savingsRate"], data.get("savingsRate"))
 
@@ -1270,7 +1274,8 @@ def compare_rate(export: Export, rate: Optional[dict], first: date, last: date, 
         return
     for name, own in (("taxSetAside", mine["tax"] - money["tax"]), ("tax", mine["tax"]),
                       ("pensionContributions", mine["pensionContributions"]), ("cameIn", mine["cameIn"]),
-                      ("saved", mine["saved"]), ("spent", mine["spent"]), ("spentPerYear", mine["spentPerYear"])):
+                      ("saved", mine["saved"]), ("savedFromPay", mine["savedFromPay"]), ("spent", mine["spent"]),
+                      ("spentPerYear", mine["spentPerYear"])):
         comparison.amount(check, last, "-", name, own, rate.get(name, MISSING), total=True)
     comparison.ratio(check, last, "-", "rate", mine["savingsRate"], rate.get("rate", MISSING))
     by_account = rate.get("savedByAccount") or {}
@@ -1346,13 +1351,12 @@ def compare_audit_change(export: Export, entry: dict, previous: date, on: date, 
     if "saved" not in total:
         comparison.skipped.append(f"{check}: What moved it, as an account's records start in the stretch")
         return
-    money = export.money_in_out(previous + timedelta(days=1), on)
-    # What moved it's saved leaves the one-offs out, as the savings rate does.
-    saved = total["saved"] - money["oneOffs"]
+    # What moved it's saved counts the one-offs, as the savings rate's saved does.
+    saved = total["saved"]
     moved = entry.get("whatMoved")
     if moved is not None:
         for name, own in (("start", total["start"]), ("change", total["end"] - total["start"]), ("saved", saved),
-                          ("oneOffs", money["oneOffs"]), ("startedWith", ZERO), ("markets", total["market"])):
+                          ("startedWith", ZERO), ("markets", total["market"])):
             comparison.amount(check, on, "-", f"whatMoved.{name}", own, moved.get(name, MISSING),
                               residual=name == "markets", total=True)
         pay = moved.get("pay")
@@ -1363,7 +1367,8 @@ def compare_audit_change(export: Export, entry: dict, previous: date, on: date, 
         elif pay is not None and rate["checked"]:
             for name, own in (("moneyIn", rate["moneyIn"]), ("pension", rate["pensionContributions"]),
                               ("tax", rate["tax"]), ("cameIn", rate["moneyIn"] + rate["pensionContributions"]),
-                              ("afterTax", rate["cameIn"]), ("saved", rate["saved"]), ("spent", rate["spent"])):
+                              ("afterTax", rate["cameIn"]), ("savedFromPay", rate["savedFromPay"]),
+                              ("oneOffs", rate["oneOffs"]), ("saved", rate["saved"]), ("spent", rate["spent"])):
                 comparison.amount(check, on, "-", f"whatMoved.pay.{name}", own, pay.get(name, MISSING), total=True)
     split = entry.get("savedSplit")
     if split is not None:

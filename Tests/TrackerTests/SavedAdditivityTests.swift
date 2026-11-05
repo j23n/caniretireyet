@@ -30,8 +30,6 @@ struct SavedAdditivityTests {
         #expect(same(moved[0].saved, moved[1].saved + moved[2].saved), "\(window)", sourceLocation: sourceLocation)
         #expect(same(moved[0].markets, moved[1].markets + moved[2].markets), "\(window)",
                 sourceLocation: sourceLocation)
-        #expect(same(moved[0].oneOffs, moved[1].oneOffs + moved[2].oneOffs), "\(window)",
-                sourceLocation: sourceLocation)
         #expect(same(moved[0].startedWith, moved[1].startedWith + moved[2].startedWith), "\(window)",
                 sourceLocation: sourceLocation)
         #expect(same(moved[0].change, moved[1].change + moved[2].change), "\(window)", sourceLocation: sourceLocation)
@@ -39,6 +37,7 @@ struct SavedAdditivityTests {
         if let pay = moved[0].pay, let first = moved[1].pay, let second = moved[2].pay {
             #expect(same(pay.moneyIn, first.moneyIn + second.moneyIn), "\(window)", sourceLocation: sourceLocation)
             #expect(same(pay.tax, first.tax + second.tax), "\(window)", sourceLocation: sourceLocation)
+            #expect(same(pay.oneOffs, first.oneOffs + second.oneOffs), "\(window)", sourceLocation: sourceLocation)
             // Each pension's contributions are at least zero in every window,
             // so the parts can only add up to more.
             #expect(pay.pension <= first.pension + second.pension, "\(window)", sourceLocation: sourceLocation)

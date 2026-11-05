@@ -126,7 +126,6 @@ struct AuditExplainReport: CommandReport {
         var parts = TextTable([.left(""), .right("")], showsHeader: false)
         parts.add(["Saved", Format.signed(moved.saved)])
         parts.add(["Markets", Format.signed(moved.markets)])
-        parts.add(["One-offs", Format.signed(moved.oneOffs)])
         parts.add(["Started with", Format.signed(moved.startedWith)])
         parts.add(["Lost", Format.signed(moved.lost)])
         parts.add(["Unexplained", Format.signed(moved.unexplained)])
@@ -162,8 +161,10 @@ struct AuditExplainReport: CommandReport {
         if taxSetAside != 0 { totals.add(["Tax set aside", Format.amount(taxSetAside)]) }
         totals.add(["Tax", Format.amount(pay.tax)])
         totals.add(["After tax", Format.amount(pay.afterTax)])
-        totals.add(["Saved", Format.amount(pay.saved)])
         totals.add(["Spent", Format.amount(pay.spent)])
+        totals.add(["Saved from pay", Format.amount(pay.savedFromPay)])
+        totals.add(["One-offs", Format.amount(pay.oneOffs)])
+        totals.add(["Saved", Format.amount(pay.saved)])
         totals.add(["Savings rate", Format.percent(pay.savedShare)])
         lines += totals.lines()
         return lines

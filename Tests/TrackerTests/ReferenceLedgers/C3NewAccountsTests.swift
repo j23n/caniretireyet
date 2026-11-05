@@ -42,7 +42,6 @@ import Tracker
         #expect(moved.saved == 2000)
         #expect(moved.markets == 274)
         #expect(moved.startedWith == 11000)
-        #expect(moved.oneOffs == 0)
         #expect(moved.lost == 0)
         #expect(moved.unexplained == 0)
         let pay = try #require(moved.pay)

@@ -412,9 +412,11 @@ class SavedTests(TemporaryFolders):
         self.assertEqual(rate["tax"], D("700"))
         self.assertEqual(rate["cameIn"], D("6000") + 500 - 700)
         # Saved: bank 0, savings 500, pension 500 (its second stretch unknown), mortgage 1,200;
-        # less the one-off.
-        self.assertEqual(rate["saved"], D("0") + 500 + 500 + 1200 - 100)
-        self.assertEqual(rate["spent"], rate["cameIn"] - rate["saved"])
+        # the one-off with it. The pay saved that less the one-off.
+        self.assertEqual(rate["saved"], D("0") + 500 + 500 + 1200)
+        self.assertEqual(rate["savedFromPay"], rate["saved"] - 100)
+        self.assertEqual(rate["spent"], rate["cameIn"] - rate["savedFromPay"])
+        self.assertEqual(rate["savingsRate"], rate["savedFromPay"] / rate["cameIn"])
         self.assertEqual(rate["spentPerYear"], rate["spent"] * 365 / 59)
         self.assertEqual(rate["unknownSaved"], ["pension"])
 
@@ -471,7 +473,8 @@ class CompareTests(TemporaryFolders):
              "savingsRate": {"month": {
                  "from": "2026-02-28", "through": "2026-03-31", "moneyIn": "3000", "moneyOut": "2400",
                  "oneOffs": "0", "taxes": "0", "taxSetAside": "0", "tax": "0", "pensionContributions": "0",
-                 "cameIn": rate["cameIn"], "saved": rate["saved"], "spent": rate["spent"],
+                 "cameIn": rate["cameIn"], "saved": rate["saved"], "savedFromPay": rate["savedFromPay"],
+                 "spent": rate["spent"],
                  "months": ["2026-03"]}}}]}
         path = self.root / "audit.json"
         path.write_text(json.dumps(audit))

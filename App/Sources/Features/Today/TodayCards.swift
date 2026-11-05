@@ -15,10 +15,10 @@ import Tracker
 /// Your pay at the last check-in, as a wide tile (UI.md, "What moved it"):
 /// "💶 Your pay in September", titled by the days the pay covers, a line
 /// each for what came in, what went into a pension and the tax when
-/// there's some, and what was spent, then what that left saved; beside
-/// them a ring of what came in, split into saved, spent and tax, with what
-/// was saved of the pay after tax in its middle. Only when money in and
-/// out was recorded.
+/// there's some, what was spent and a one-off when there's one, then what
+/// was saved, which they add up to; beside them a ring of what came in,
+/// split into saved, spent and tax, with what the pay saved of the pay
+/// after tax in its middle. Only when money in and out was recorded.
 struct TodayPayTile: View {
     let moved: WhatMoved
     let pay: WhatMoved.Pay

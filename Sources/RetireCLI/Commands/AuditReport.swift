@@ -158,7 +158,6 @@ struct Audit: Encodable {
         var change: String
         var saved: String
         var markets: String
-        var oneOffs: String
         var startedWith: String
         var lost: String
         var unexplained: String
@@ -171,7 +170,6 @@ struct Audit: Encodable {
             change = AuditNumber.exact(moved.change)
             saved = AuditNumber.exact(moved.saved)
             markets = AuditNumber.exact(moved.markets)
-            oneOffs = AuditNumber.exact(moved.oneOffs)
             startedWith = AuditNumber.exact(moved.startedWith)
             lost = AuditNumber.exact(moved.lost)
             unexplained = AuditNumber.exact(moved.unexplained)
@@ -181,13 +179,16 @@ struct Audit: Encodable {
         }
     }
 
-    /// ``WhatMoved/Pay``: what came in, the tax, what was spent and saved.
+    /// ``WhatMoved/Pay``: what came in, the tax, what was spent, what the
+    /// pay saved, the one-offs and what was saved.
     struct Pay: Encodable {
         var moneyIn: String
         var pension: String
         var tax: String
         var cameIn: String
         var afterTax: String
+        var savedFromPay: String
+        var oneOffs: String
         var saved: String
         var spent: String
         var savedShare: String?
@@ -198,6 +199,8 @@ struct Audit: Encodable {
             tax = AuditNumber.exact(pay.tax)
             cameIn = AuditNumber.exact(pay.cameIn)
             afterTax = AuditNumber.exact(pay.afterTax)
+            savedFromPay = AuditNumber.exact(pay.savedFromPay)
+            oneOffs = AuditNumber.exact(pay.oneOffs)
             saved = AuditNumber.exact(pay.saved)
             spent = AuditNumber.exact(pay.spent)
             savedShare = pay.savedShare.map(AuditNumber.exact)
@@ -229,6 +232,7 @@ struct Audit: Encodable {
         var pensionContributions: String
         /// What came in after tax: ``SavingsRate/income``.
         var cameIn: String
+        var savedFromPay: String
         var saved: String
         var spent: String
         var spentPerYear: String
@@ -250,6 +254,7 @@ struct Audit: Encodable {
             tax = AuditNumber.exact(rate.tax)
             pensionContributions = AuditNumber.exact(rate.pensionContributions)
             cameIn = AuditNumber.exact(rate.income)
+            savedFromPay = AuditNumber.exact(rate.savedFromPay)
             saved = AuditNumber.exact(rate.saved)
             spent = AuditNumber.exact(rate.spent)
             spentPerYear = AuditNumber.exact(rate.spentPerYear)

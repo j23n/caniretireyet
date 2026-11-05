@@ -128,7 +128,7 @@ struct PlanProgressYearTests {
         #expect(pay == rate)
         #expect(thisYear.youSaved == rate.saved)
         #expect(thisYear.youSaved == rate.pay.saved)
-        #expect(rate.pay.cameIn - rate.pay.tax - rate.pay.spent == thisYear.youSaved)
+        #expect(rate.pay.cameIn - rate.pay.tax - rate.pay.spent + rate.pay.oneOffs == thisYear.youSaved)
         #expect(thisYear.youSavedFrom == "2026-06-30")
         // The year's money in and out, as *Year by year* and *Money in and out* count them, say the same.
         let period = try #require(valuator.moneyInOutSeries(.years, through: latest).periods.last)
@@ -138,6 +138,29 @@ struct PlanProgressYearTests {
         #expect(thisYear.plannedYouSaved == planned)
         #expect(thisYear.plannedPaySaving == planned)
         #expect(thisYear.savedGrade == PlanComparison(thisYear.youSaved, planned: planned))
+    }
+
+    /// An inheritance of 20.000 € into the current account in September is
+    /// saved: *You saved* counts it, and so does its pay's *You saved*,
+    /// after the pay's lines and the one-off. The savings rate and what was
+    /// spent stay the pay's.
+    @Test func youSavedCountsAOneOff() throws {
+        let before = try #require(years().last)
+        var library = self.library
+        library.upsert(Valuation(account: "conto-fineco", date: latest, balance: d("24210.55"), moneyIn: 3400,
+                                 moneyOut: d("2554.65"), oneOff: 20_000))
+        let thisYear = try #require(years(in: library).last)
+        let pay = try #require(thisYear.pay)
+        let beforePay = try #require(before.pay)
+        #expect(pay.oneOffs == 20_000)
+        #expect(thisYear.youSaved == before.youSaved + 20_000)
+        #expect(thisYear.youSaved == pay.pay.saved)
+        #expect(pay.pay.cameIn - pay.pay.tax - pay.pay.spent + pay.pay.oneOffs == thisYear.youSaved)
+        #expect(pay.savedFromPay == beforePay.saved)
+        #expect(pay.rate == beforePay.rate)
+        #expect(thisYear.spentPerYear == before.spentPerYear)
+        // *Where your money came from* counted it already.
+        #expect(thisYear.saved == before.saved + 20_000)
     }
 
     /// A check-in after the pay account's latest value, such as the

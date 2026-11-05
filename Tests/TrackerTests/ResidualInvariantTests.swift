@@ -27,10 +27,11 @@ struct ResidualInvariantTests {
                 guard let first = valuator.firstRecordDate(of: account.account), first <= from else { continue }
                 #expect(same(account.change.other, 0), "\(account.account) \(from)…\(to)")
             }
-            // The Overview's split puts what nothing explains, one-offs and
-            // what new accounts started with under other: here only the last two.
+            // The Overview's split puts what nothing explains and what new
+            // accounts started with under other: here only the last; a
+            // one-off is saved.
             let split = valuator.savedSplit(of: report)
-            #expect(same(split.other, moved.oneOffs + moved.startedWith), "\(from)…\(to)")
+            #expect(same(split.other, moved.startedWith), "\(from)…\(to)")
             #expect(split.lost == moved.lost, "\(from)…\(to)")
         }
     }

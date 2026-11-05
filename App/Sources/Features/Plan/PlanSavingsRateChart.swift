@@ -378,7 +378,9 @@ struct PlanSavingsRateCallout: View {
     }
 
     /// A rate's row, "Savings rate 34%", with its swatch on the chart, then
-    /// what came in and what was saved.
+    /// what came in and what the pay saved, which the rate is worked out
+    /// from: "Saved from pay" when the period had one-offs, which are saved
+    /// but didn't come in.
     private func rate(_ title: String, _ savings: SavingsRate, swatch: Swatch) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             HStack(spacing: 4) {
@@ -409,7 +411,8 @@ struct PlanSavingsRateCallout: View {
                     .foregroundStyle(Palette.secondaryInk)
             }
             ChartCalloutRow("Came in", amount: savings.income.doubleValue, currency: money.currency)
-            ChartCalloutRow("Saved", amount: savings.saved.doubleValue, currency: money.currency)
+            ChartCalloutRow(savings.oneOffs != 0 ? "Saved from pay" : "Saved",
+                            amount: savings.savedFromPay.doubleValue, currency: money.currency)
         }
     }
 }

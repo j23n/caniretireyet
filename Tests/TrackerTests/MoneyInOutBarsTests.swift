@@ -57,7 +57,11 @@ struct MoneyInOutBarsTests {
         let period = MoneyInOutPeriod(from: "2026-02-01", through: "2026-02-28", savings: savings)
         let pay = savings.pay
         #expect(pay.saved == savings.saved)
-        #expect(pay.saved == -1_550)
+        #expect(pay.saved == -550)
+        // The one-off of 1.000 € is saved, but not from the pay: the bars
+        // leave it out.
+        #expect(pay.savedFromPay == -1_550)
+        #expect(pay.oneOffs == 1_000)
         #expect(pay.spent == savings.spent)
         #expect(pay.afterTax == savings.income)
         #expect(pay.savedShare == savings.rate)

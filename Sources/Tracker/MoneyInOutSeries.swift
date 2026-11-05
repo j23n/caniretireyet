@@ -52,21 +52,22 @@ public struct MoneyInOutPeriod: Hashable, Sendable {
     /// The tax paid in the period (``SavingsRate/tax``).
     public var tax: Decimal { savings?.tax ?? 0 }
 
-    /// One-offs, neither came in nor saved (``SavingsRate/oneOffs``).
+    /// One-offs: saved, but neither came in nor spent (``SavingsRate/oneOffs``).
     public var oneOffs: Decimal { savings?.oneOffs ?? 0 }
 
-    /// What came in, the tax, what was spent and what was saved
-    /// (``SavingsRate/pay``); `nil` when none was counted.
+    /// What came in, the tax, what was spent, the one-offs and what was
+    /// saved (``SavingsRate/pay``); `nil` when none was counted.
     public var pay: WhatMoved.Pay? { savings?.pay }
 
     /// The period's money in and out as two bars (``MoneyInOutBars``);
     /// `nil` when none was counted.
     public var bars: MoneyInOutBars? { pay.map(MoneyInOutBars.init) }
 
-    /// What was saved: what every account saved (``SavingsRate/saved``).
+    /// What was saved: what every account saved, the one-offs with it
+    /// (``SavingsRate/saved``).
     public var saved: Decimal { savings?.saved ?? 0 }
 
-    /// What was spent: what came in less what was saved
+    /// What was spent: what came in less what the pay saved
     /// (``SavingsRate/spent``).
     public var spent: Decimal { savings?.spent ?? 0 }
 

@@ -297,28 +297,35 @@ struct SavingsRateTests {
         #expect(quarter.spent == months.map(\.spent).reduce(0, +))
     }
 
-    /// An inheritance of 20,000 into the current account is neither came in
-    /// nor spent: saved, spent and the rate stay as they were.
-    @Test func aOneOffIsLeftOutOfWhatWasSaved() throws {
+    /// An inheritance of 20,000 into the current account is saved, but
+    /// neither came in nor spent: what the pay saved, spent and the rate
+    /// stay as they were.
+    @Test func aOneOffIsSavedButNotFromPay() throws {
         var library = month
         library.upsert(Valuation(account: "bank", date: "2026-01-31", balance: 29450, saved: 19450, moneyIn: 4000,
                                  moneyOut: 4550, oneOff: 20000))
         let savings = try #require(Valuator(library: library).savingsRate(from: "2026-01-01", through: "2026-01-31"))
         #expect(savings.oneOffs == 20000)
         #expect(savings.savedByAccount["bank"] == 19450)
-        #expect(savings.saved == 1450)
+        #expect(savings.saved == 21450)
+        #expect(savings.savedFromPay == 1450)
         #expect(savings.spent == 2850)
         #expect(savings.rate?.rounded(scale: 4) == d("0.3372"))
-        // What moved between the accounts leaves the one-off out too.
+        // The pay's lines: came in less tax and spent, the one-off, saved.
+        #expect(savings.pay.savedFromPay == 1450)
+        #expect(savings.pay.oneOffs == 20000)
+        #expect(savings.pay.saved == 21450)
+        #expect(savings.pay.savedShare == savings.rate)
+        // What moved between the accounts leaves the one-off out.
         let bank = library.valuations(for: "bank")
         let january = try #require(bank.firstIndex { $0.date == "2026-01-31" })
         #expect(Valuator(library: library).moved(bank[january], previous: january > 0 ? bank[january - 1] : nil) == 0)
-        // So does the Overview's Saved bar: the one-off is under Other.
+        // The Overview's Saved bar counts it.
         let valuator = Valuator(library: library)
         let report = valuator.change(from: "2025-12-31", to: "2026-01-31")
         let split = valuator.savedSplit(of: report)
         #expect(split.saved == savings.saved)
-        #expect(split.other == report.total.other + 20000)
+        #expect(split.other == report.total.other)
         #expect(split.start + split.market + split.saved + split.other == split.end)
     }
 

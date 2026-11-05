@@ -94,7 +94,7 @@ struct AuditChecksTests {
         let violation = try #require(violations.first)
         #expect(violations.map(\.rule) == [.monthlyRateOutOfRange])
         #expect(violation.date == "2026-01-31" && violation.account == nil)
-        #expect(violation.amounts.map(\.name) == ["rate", "saved", "cameIn"])
+        #expect(violation.amounts.map(\.name) == ["rate", "savedFromPay", "cameIn"])
         #expect(violation.amounts[0].value == Decimal(1450) / 400)
         #expect(AuditChecks.plausibleMonthlyRates.contains(1) && !AuditChecks.plausibleMonthlyRates.contains(-0.51))
     }
