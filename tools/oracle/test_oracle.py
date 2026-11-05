@@ -522,6 +522,8 @@ class AppTests(TemporaryFolders):
         optional, and an app without it is compared on the rest."""
         _, comparison, sources = oracle.check_library(retire_binary(), library, day(through))
         self.assertGreater(sum(comparison.compared.values()), 100)
+        # This repository's retire has audit: one that fails isn't one without it.
+        self.assertIn("audit", sources, f"{name}: retire audit didn't run")
         return self.check_known(name, comparison.differences, sources)
 
     def check_known(self, name: str, differences: list[oracle.Difference], sources: set[str]) -> list:

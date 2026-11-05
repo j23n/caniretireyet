@@ -62,6 +62,7 @@ struct AuditCommand: RetireSubcommand {
         _ = try parseDate(explain, option: "--explain")
         if check, explain != nil { throw ValidationError("--check and --explain can't be used together.") }
         if amounts, !check { throw ValidationError("--amounts goes with --check.") }
+        if through != nil, explain != nil { throw ValidationError("--through doesn't go with --explain.") }
         if plan != nil, check || explain != nil {
             throw ValidationError("--plan goes with the full audit, not with --check or --explain.")
         }
