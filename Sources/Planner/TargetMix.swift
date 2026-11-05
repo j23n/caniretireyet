@@ -49,7 +49,13 @@ extension Planner {
     /// library's `valuator` when there is one: building one reads every record.
     public static func startingMix(plan: PlanDocument, library: Library, valuator: Valuator? = nil,
                                    today: CalendarDate? = nil) -> StartingMix {
-        let date = plan.startDate(in: library, today: today)
+        mix(plan: plan, library: library, valuator: valuator, on: plan.startDate(in: library, today: today))
+    }
+
+    /// What the accounts the plan counts held by asset class on `date`,
+    /// valued from what you held then and its prices, in the base currency
+    /// and grouped as a run starting that day groups them.
+    static func mix(plan: PlanDocument, library: Library, valuator: Valuator?, on date: CalendarDate) -> StartingMix {
         let currentAge = library.settings.person?.birthDate.map { $0.wholeYears(to: date) } ?? 0
         var issues: [PlanIssue] = []
         let portfolio = Portfolio.build(library: library, valuator: valuator, date: date, plan: plan, currentAge: currentAge,

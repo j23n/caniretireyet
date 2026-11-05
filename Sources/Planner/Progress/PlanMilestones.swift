@@ -95,7 +95,7 @@ public struct PlanMilestones: Sendable {
     public static func reached(by plan: PlanDocument, library: Library, valuator: Valuator,
                                since previous: CalendarDate?, through date: CalendarDate) -> [ReachedMilestone] {
         MilestoneLadder(plan: plan, library: library, valuator: valuator, on: date)
-            .reached(plan: plan.id, library: library, valuator: valuator, through: date)
+            .reached(plan: plan, library: library, valuator: valuator, through: date)
             .filter { isPassed($0, since: previous, through: date) }
     }
 

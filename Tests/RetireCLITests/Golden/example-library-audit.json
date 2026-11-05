@@ -2843,6 +2843,11 @@
   "progress" : {
     "milestones" : [
       {
+        "amount" : "96341",
+        "date" : "2026-01-31",
+        "id" : "crossover"
+      },
+      {
         "amount" : "150000",
         "date" : "2026-05-31",
         "id" : "round-150000"
