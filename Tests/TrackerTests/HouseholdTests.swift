@@ -115,7 +115,12 @@ enum HouseholdComparison {
             let totals = truth.totals(after: household.start, through: point.date)
             checker.check("sources.total", point.total, truth.netWorth(on: point.date), to: point.date)
             checker.check("sources.startedWith", point.startedWith, opening + totals.startedWith, to: point.date)
-            checker.check("sources.saved", point.saved, totals.saved, to: point.date)
+            // The known issue is the one-offs counted as saved, and only that: any other gap fails.
+            let app: Decimal? = point.saved
+            let oneOffsCounted = totals.oneOffs != 0
+                && app.map { abs($0 - totals.saved - totals.oneOffs) < HouseholdComparison.tolerance } == true
+            checker.check(oneOffsCounted ? "sources.saved" : "sources.saved, apart from the one-offs", app,
+                          totals.saved, to: point.date)
             checker.check("sources.markets", point.markets, totals.markets, to: point.date)
         }
         for year in household.years {
