@@ -665,16 +665,34 @@ class Export:
         if known:
             result.update(saved=saved, savedKnown=True, market=end.value - start.value - saved, other=ZERO)
         else:
-            # Only the FX movement of the old balance is market, and the rest is other.
+            # Only the FX movement of the old value is market, and the rest is other.
             market = ZERO
-            before = self.own_value(account, after) if counted_before else None
-            if before is not None and not account.records_trades:
-                old = self.rate(account.currency, self.base, after)
-                new = self.rate(account.currency, self.base, through)
-                if old is not None and new is not None:
-                    market = before.value * (new - old)
+            if counted_before and not account.records_trades:
+                market = self.fx_effect(account, after, through)
             result.update(saved=ZERO, market=market, other=end.value - start.value - market)
         return result
+
+    def fx_effect(self, account: Account, after: date, through: date) -> Decimal:
+        """What the value on `after` held, each part in its own currency (cash in the account's, a
+        position in its price's), at `through`'s rate less at `after`'s; a part without a price or
+        either rate counts nothing."""
+        valuation = self.latest_valuation(account.id, after)
+        if valuation is None:
+            return ZERO
+        if valuation.balance is not None:
+            parts = [(valuation.balance, account.currency)]
+        else:
+            parts = [(valuation.cash or ZERO, account.currency)]
+            for instrument, quantity in valuation.positions:
+                price = self.price(instrument, after)
+                if quantity != 0 and price is not None:
+                    parts.append((quantity * price[0], price[1]))
+        total = ZERO
+        for amount, currency in parts:
+            old, new = self.rate(currency, self.base, after), self.rate(currency, self.base, through)
+            if old is not None and new is not None:
+                total += amount * (new - old)
+        return total
 
     def changes(self, after: date, through: date, scope: str = "netWorth") -> dict:
         accounts = [a for a in self.accounts.values() if (a.in_net_worth if scope == "netWorth" else a.in_plans)]

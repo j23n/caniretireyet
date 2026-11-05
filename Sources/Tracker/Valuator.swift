@@ -160,10 +160,12 @@ public struct Valuator: Sendable {
     /// date, and its cash by the cash rule when it has none. A balance is
     /// estimated on `date` from the account's depreciation, as
     /// `Account.estimated(_:from:on:)` says. Amounts are converted to
-    /// `currency` (the base currency when `nil`).
+    /// `currency` (the base currency when `nil`) at `ratesOn`'s rates
+    /// (`date`'s when `nil`).
     func value(of account: Account, valuation original: Valuation, on date: CalendarDate,
-               in currency: CurrencyCode? = nil) -> AccountValue {
+               in currency: CurrencyCode? = nil, ratesOn: CalendarDate? = nil) -> AccountValue {
         let target = currency ?? baseCurrency
+        let rateDate = ratesOn ?? date
         let valuation = history(of: account.id).held(original)
         // A trade whose cash effect needs a missing FX rate leaves derived cash incomplete.
         var problems = original.cash == nil ? tradeCashProblems(of: account, on: original.date) : []
@@ -173,7 +175,8 @@ public struct Valuator: Sendable {
                  price: PriceRecord? = nil) {
             var value: Decimal?
             if let amount, let currency {
-                value = converted(amount, from: currency, to: target, on: date, for: account.id, problems: &problems)
+                value = converted(amount, from: currency, to: target, on: rateDate, for: account.id,
+                                  problems: &problems)
             }
             components.append(ValueComponent(kind: kind, quantity: quantity, price: price, currency: currency,
                                              value: value))

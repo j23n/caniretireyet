@@ -133,8 +133,9 @@ extension Valuator {
     ///   start), and market is the rest. Otherwise (a balance that asks for
     ///   it without one, ``Model/Account/asksForSaved``, or a price or an
     ///   exchange rate missing), saved is zero, market is only the FX
-    ///   effect on the old value (what it held on `from`, in its currency,
-    ///   at `to`'s rate less at `from`'s), and the rest is other.
+    ///   effect on the old value (what it held on `from`, each part in its
+    ///   own currency, at `to`'s rate less at `from`'s), and the rest is
+    ///   other.
     /// - **Trades accounts:** values are snapshots (``snapshot(of:on:)``),
     ///   and saved is the account's ``TradeFlow``s in the period
     ///   (deposits, withdrawals, transfers and residuals), each converted at
@@ -207,21 +208,22 @@ extension Valuator {
         let heldMarket = heldAtEnd - start
         let saved = recordedSaved(of: account, after: from, through: endDate, in: target, problems: &problems)
 
-        /// The FX effect on the start value: what it held on `from`, in the
-        /// account's currency, at `endDate`'s rate less at `from`'s; zero
-        /// without both rates. A balance's is `heldMarket`, the balance at
-        /// the new rate (and for belongings, less the loss it's estimated
-        /// to have had), less `start`.
+        /// The FX effect on the start value: what it held on `from`, each
+        /// part in its own currency (cash in the account's, a position in
+        /// its price's), at `endDate`'s rate less at `from`'s; a part
+        /// without both rates counts nothing. A balance's is `heldMarket`,
+        /// the balance at the new rate (and for belongings, less the loss
+        /// it's estimated to have had), less `start`.
         func fxEffect() -> Decimal {
             guard let startValuation else { return 0 }
             if startValuation.isBalance { return heldMarket }
-            let held = value(of: account, valuation: startValuation, on: from, in: account.currency).knownValue
-            guard let old = converted(held, from: account.currency, to: target, on: from, for: account.id,
-                                      problems: &problems),
-                  let new = converted(held, from: account.currency, to: target, on: endDate, for: account.id,
-                                      problems: &problems)
-            else { return 0 }
-            return new - old
+            let old = value(of: account, valuation: startValuation, on: from, in: target)
+            let new = value(of: account, valuation: startValuation, on: from, in: target, ratesOn: endDate)
+            for problem in new.problems { problems.appendIfNew(problem) }
+            return zip(old.components, new.components).reduce(0) { sum, parts in
+                guard let before = parts.0.value, let after = parts.1.value else { return sum }
+                return sum + after - before
+            }
         }
 
         var parts = ValueChange(start: start, market: 0, saved: 0, other: 0, end: end)

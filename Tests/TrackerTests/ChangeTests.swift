@@ -283,6 +283,51 @@ struct MissingPriceChangeTests {
         #expect(known.change == ValueChange(start: 1510, market: -302, saved: 208, other: 0, end: 1416))
     }
 
+    /// A euro fund held in the dollar account has no FX movement in a euro
+    /// library: each part of the old value moves with its own currency.
+    /// On 31 January the fund holds 500 € of `eu` and 1,000 $ of `us`
+    /// (800 €), 1,300 € in all. At February's rate the dollars are 1,000 €,
+    /// so market is 200 €; counting all of it in dollars would make it
+    /// 325 €. `eu`'s rise to 110 € is other, with `late` unpriced.
+    @Test func eachPartMovesWithItsOwnCurrency() throws {
+        var library = Library(
+            settings: LibrarySettings(baseCurrency: .eur),
+            accounts: [
+                Account(id: "fund", name: "Fund", kind: .brokerage, currency: .usd, opened: "2026-01-01",
+                        valuation: .balance),
+            ],
+            instruments: [
+                Instrument(id: "eu", name: "EU", kind: .etf, currency: .eur, unit: .share,
+                           assetClasses: .single(.equity)),
+                Instrument(id: "us", name: "US", kind: .etf, currency: .usd, unit: .share,
+                           assetClasses: .single(.equity)),
+                Instrument(id: "late", name: "Late", kind: .etf, currency: .usd, unit: .share,
+                           assetClasses: .single(.equity)),
+            ])
+        library.upsert(FXRecord(base: .eur, quote: .usd, date: "2026-01-31", rate: d("1.25")))
+        library.upsert(FXRecord(base: .eur, quote: .usd, date: "2026-02-28", rate: 1))
+        for price in [
+            PriceRecord(instrument: "eu", date: "2026-01-31", price: 100, currency: .eur),
+            PriceRecord(instrument: "eu", date: "2026-02-28", price: 110, currency: .eur),
+            PriceRecord(instrument: "us", date: "2026-01-31", price: 100, currency: .usd),
+            PriceRecord(instrument: "us", date: "2026-02-28", price: 100, currency: .usd),
+        ] {
+            library.upsert(price)
+        }
+        library.upsert(Valuation(account: "fund", date: "2026-01-31", cash: 0, positions: [
+            Position(instrument: "eu", quantity: 5), Position(instrument: "us", quantity: 10),
+        ]))
+        library.upsert(Valuation(account: "fund", date: "2026-02-28", cash: 0, positions: [
+            Position(instrument: "eu", quantity: 5), Position(instrument: "us", quantity: 10),
+            Position(instrument: "late", quantity: 2),
+        ]))
+        let change = try #require(Valuator(library: library).change(of: "fund", from: "2026-01-31",
+                                                                    to: "2026-02-28"))
+        #expect(change.saved == nil)
+        #expect(change.problems == [.missingPrice(account: "fund", instrument: "late")])
+        #expect(change.change == ValueChange(start: 1300, market: 200, saved: 0, other: 50, end: 1550))
+    }
+
     /// The fund's first value, what it held when its records start, is
     /// other, as a balance's is; with February's, whose saved is unknown,
     /// all of it is.

@@ -472,6 +472,58 @@ struct StatementImportTests {
         })
     }
 
+    /// March imported before February: March's value has no value the day
+    /// before its file to count from, so it gets no money in and out.
+    /// February's import adds that value, and March's then gets them from
+    /// its lines, as they add up from it (IMPORT.md, "Values").
+    @Test func aLaterValueWithoutMoneyInAndOutIsCountedFromItsLines() throws {
+        func statement(_ lines: String) throws -> ImportSession {
+            var session = try ImportSession(data: Data(("Data;Importo;Descrizione;Saldo\n" + lines).utf8))
+            session.proposeMapping(layout: .statement)
+            session.profile.constants.account = "conto"
+            return session
+        }
+        let march = try statement("""
+            03/03/2026;-900,00;Affitto;6200,00
+            27/03/2026;3000,00;Stipendio ACME;9200,00
+            """)
+        let february = try statement("""
+            03/02/2026;-900,00;Affitto;4100,00
+            27/02/2026;3000,00;Stipendio ACME;7100,00
+            """)
+        var library = Library(accounts: [
+            Account(id: "conto", name: "Conto corrente", kind: .cash, currency: .eur, opened: "2020-01-01"),
+        ])
+        library.upsert(Valuation(account: "conto", date: "2026-01-31", balance: 5000))
+        library = march.preview(against: library, today: Self.today).apply(to: library).library
+        let alone = try #require(library.valuations(for: "conto").last)
+        #expect(alone.date == "2026-03-31" && !alone.hasMoneyInOut)
+
+        let preview = february.preview(against: library, today: Self.today)
+        let later = try #require(preview.record(.valuation("conto", "2026-03-31")))
+        #expect(later.status == .updated)
+        #expect(later.imported.balance == 9200)
+        #expect(later.imported.moneyIn == 3000 && later.imported.moneyOut == 900)
+        let counted = preview.apply(to: library).library.valuations(for: "conto")
+        #expect(counted.map { "\($0.date) \($0.balance ?? 0) \($0.moneyIn ?? -1) \($0.moneyOut ?? -1)" } == [
+            "2026-01-31 5000 -1 -1", "2026-02-28 7100 3000 900", "2026-03-31 9200 3000 900",
+        ])
+
+        // Money in and out it has already stay as they are, typed for longer than the lines cover too.
+        var typed = library
+        var value = alone
+        value.moneyIn = 6000
+        value.moneyOut = 1800
+        typed.upsert(value)
+        #expect(february.preview(against: typed, today: Self.today).record(.valuation("conto", "2026-03-31")) == nil)
+        // Lines that don't add up to its balance, such as one missing, count nothing.
+        var off = library
+        value = alone
+        value.balance = 9300
+        off.upsert(value)
+        #expect(february.preview(against: off, today: Self.today).record(.valuation("conto", "2026-03-31")) == nil)
+    }
+
     // MARK: - The account's dates
 
     @Test func anAccountOpenedAfterTheFileStartsIsProposedToOpenEarlier() throws {
