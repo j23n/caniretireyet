@@ -138,5 +138,6 @@ To open the library in a spreadsheet or take it to another app, Settings › Lib
 - **The others are what's recorded**, field for field as in the library's files, empty where a field isn't set; their meaning is in the schemas. `asset_classes` reads `bonds=0.4; equity=0.6`, `tags` `a; b`, and the yes/no columns `yes` or `no`.
 - Plans, projections and import profiles aren't exported: their files are plain JSON already.
 - Read back into a library, the export gives the same export and the same numbers (`ExportRoundTripTests`, in ImporterTests).
+- **Worked out again.** `tools/oracle` recomputes the first two files from the others, with what each value saved, money in and out and the savings rate, in Python from this page, [PROGRESS.md](../PROGRESS.md), [ACCOUNTS.md](../ACCOUNTS.md) and [TRADES.md](../TRADES.md) rather than from the Swift code, and compares them with what `retire` prints. CI's Linux job runs it (`make oracle`; its README). It doesn't work out belongings' lost value from their `depreciation` yet.
 
 How this app merges sync conflicts, saves over files changed elsewhere, keeps backups and undoes an import is in [PLAN.md](../PLAN.md#merging-saving-and-undo).

@@ -26,7 +26,7 @@ SCREENSHOTS ?= $(CURDIR)/.build/screenshots
 SCREENSHOT_SCRIPT := .github/scripts/screenshots.py
 SCREEN_TESTS := CanIRetireYetScreenTests
 
-.PHONY: help bootstrap test build-package screenshots ci-linux ci-macos ci-macos-app clean
+.PHONY: help bootstrap test build-package oracle screenshots ci-linux ci-macos ci-macos-app clean
 
 help:
 	@echo "make bootstrap    XcodeGen and the Xcode project"
@@ -34,6 +34,7 @@ help:
 	@echo "make test         the package's tests (macOS and Linux)"
 	@echo "make build        the app and its widgets for the iOS Simulator and the Mac, unsigned"
 	@echo "make test-app     the app's unit tests (App/Tests) on the Mac"
+	@echo "make oracle       the numbers worked out again from the docs, compared with retire's (tools/oracle)"
 	@echo "make screenshots  each screen on the Mac and iPhone and iPad simulators, as pictures in .build/screenshots"
 	@echo "make ci-linux | ci-macos | ci-macos-app   what CI runs"
 
@@ -44,6 +45,12 @@ build-package:
 	$(SWIFT) build
 
 test: swift-test
+
+# The oracle (tools/oracle/README.md): the export's numbers, saved, money in and out and the savings
+# rate worked out again in Python from the docs, and compared with what the package's retire prints
+# for the example library and the made-up libraries in tools/oracle/scenarios.py.
+oracle: build-package
+	cd tools/oracle && RETIRE="$$($(SWIFT) build --show-bin-path)/retire" $(PYTHON) -m unittest
 
 # The screen tests (App/ScreenTests) on the Mac (signed to run locally, without the entitlements an
 # app without a provisioning profile can't launch with, or its sandbox, so they can write their
@@ -70,7 +77,7 @@ screenshots: project
 	$(PYTHON) $(SCREENSHOT_SCRIPT) failures $(RESULTS) || status=1; \
 	exit $$status
 
-ci-linux: build-package test
+ci-linux: build-package test oracle
 
 # The Mac's run on main and by hand: the app for the iOS Simulator and the Mac, its unit tests, and
 # CloudSync's tests, the only package tests with Apple-only code. Linux builds and tests the whole
