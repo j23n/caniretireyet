@@ -56,6 +56,9 @@ swift run retire plan --library <folder> --years                 # the answer, a
 swift run retire plan show --library <folder>                    # the plan's inputs
 swift run retire plan debug --library <folder> --anonymize --output report.md   # every calculation, to share
 swift run retire plan pace --library <folder>                    # how much you've saved, the last 12 months
+swift run retire audit --library <folder> --check                # where the numbers disagree; --amounts adds them
+swift run retire audit --library <folder> --explain 2026-09-30   # one check-in account by account
+swift run retire audit --library <folder> --json --plan base     # every number the app shows, to diff
 swift run retire export <folder> --library <library>     # the library as CSV files
 ```
 
