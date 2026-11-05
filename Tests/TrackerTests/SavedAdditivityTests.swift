@@ -166,4 +166,32 @@ struct SavedAdditivityTests {
                                             ["current": 0, "pot": 6000, "savings": -6000]])
         #expect(stretches.map(\.startedWith) == [["savings": 0], ["savings": 6000]])
     }
+
+    /// A savings account valued once a quarter covers the days back to
+    /// 31 December, when a pension fund's records start in January. What
+    /// the fund saved after its first value, its contributions, is saved in
+    /// the month it's saved in, and only its first value is started with.
+    @Test func aNewAccountsSavingAfterItsFirstValueStaysSaved() throws {
+        var library = Library(settings: LibrarySettings(baseCurrency: .eur))
+        let accounts = [
+            Account(id: "current", name: "Current", kind: .cash, currency: .eur, opened: "2025-12-01"),
+            Account(id: "rainy", name: "Rainy day", kind: .savings, currency: .eur, opened: "2025-12-01"),
+            Account(id: "pension", name: "Pension", kind: .pensionFund, currency: .eur, opened: "2026-01-01"),
+        ]
+        for account in accounts { library.accounts[account.id] = account }
+        library.upsert(Valuation(account: "rainy", date: "2025-12-31", balance: 10000))
+        library.upsert(Valuation(account: "rainy", date: "2026-03-31", balance: 10000, moneyIn: 0, moneyOut: 0))
+        library.upsert(Valuation(account: "current", date: "2025-12-31", balance: 5000))
+        for date: CalendarDate in ["2026-01-31", "2026-02-28", "2026-03-31"] {
+            library.upsert(Valuation(account: "current", date: date, balance: 5000, moneyIn: 0, moneyOut: 0))
+        }
+        library.upsert(Valuation(account: "pension", date: "2026-01-31", balance: 20000))
+        library.upsert(Valuation(account: "pension", date: "2026-02-28", balance: 20500, saved: 500))
+        library.upsert(Valuation(account: "pension", date: "2026-03-31", balance: 21000, saved: 500))
+        let valuator = Valuator(library: library)
+        let stretches = valuator.savedStretches(
+            between: ["2025-12-31", "2026-01-31", "2026-02-28", "2026-03-31"], in: .netWorth)
+        #expect(stretches.map { $0.saved["pension"] } == [0, 500, 500])
+        #expect(stretches.map(\.startedWith) == [["pension": 20000], [:], [:]])
+    }
 }
