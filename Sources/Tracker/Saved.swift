@@ -13,10 +13,14 @@ import Model
 /// money moved from the accounts tracked before it pays for it, shared over
 /// the stretch's first amounts on that side in proportion to them: above
 /// zero (an asset) as far as money moved out of their cash and savings
-/// accounts that record money in and out, added up, less what their other
-/// assets saved, as that money may have landed there (pension funds,
-/// which pay fills, and debts, whose payments are money out, aside), and
-/// the money taken out of their other accounts; below zero (a debt, such
+/// accounts that record money in and out, and what property or belongings
+/// they sold (worth nothing at the stretch's end) were worth, as the price
+/// landed in a cash account, added up, less what their other assets saved,
+/// as that money may have landed there (pension funds, which pay fills,
+/// and debts, whose payments are money out, aside), and the money taken
+/// out of their other accounts that hold money: not a debt's growth, which
+/// is spent or lands where it's paid out, nor the drop of property or
+/// belongings still held, which is lost value; below zero (a debt, such
 /// as a loan paid out into the current account) as far as money moved
 /// into their cash and savings accounts, added up. So a transfer between two of them cancels
 /// out, a broker funded from a current account that also had pay come in
@@ -87,10 +91,20 @@ extension Valuator {
                 movedIn += cash?.amount ?? 0
                 if let cash, cash.isRecorded {
                     movedOut -= cash.amount
-                } else {
-                    takenOut += max(-account.change.saved, 0)
-                    if let kind = accounts[account.account]?.kind, !kind.isLiability,
-                       !SavingsRate.pensionKinds.contains(kind) {
+                } else if let kind = accounts[account.account]?.kind {
+                    switch AccountGroup(kind: kind) {
+                    case .debts:
+                        // A card's purchases are spent, and a loan's money lands where it's paid out.
+                        break
+                    case .property:
+                        // Sold, what it was worth left it, and its price landed in a cash account;
+                        // a drop of one still held is lost value.
+                        landed += max(account.change.saved, 0)
+                        if account.change.end == 0 { movedOut += max(-account.change.saved, 0) }
+                    case .pension:
+                        takenOut += max(-account.change.saved, 0)
+                    default:
+                        takenOut += max(-account.change.saved, 0)
                         landed += max(account.change.saved, 0)
                     }
                 }
