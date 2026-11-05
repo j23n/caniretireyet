@@ -95,9 +95,13 @@ struct SpendingCommand: RetireSubcommand {
                 let tax = savings.tax > 0 ? " after \(Format.amount(savings.tax)) in tax" : ""
                 let spent = savings.spent < 0 ? ""
                     : ", and spent \(Format.amount(savings.spent)) (\(Format.amount(savings.spentPerYear)) a year)"
+                // A pay account whose value runs past the period covers no days in it.
+                let days = savings.from < savings.payThrough
+                    ? " from \(savings.from.adding(days: 1)) to \(savings.payThrough)"
+                    : ", with no days of pay in the period"
                 lines.append("Savings rate \(Format.percent(rate)): you saved "
-                    + "\(Format.amount(savings.savedFromPay)) of the \(Format.amount(savings.income)) that came in "
-                    + "from \(savings.from.adding(days: 1)) to \(savings.payThrough)\(tax)\(pensions)\(spent).")
+                    + "\(Format.amount(savings.savedFromPay)) of the \(Format.amount(savings.income)) that came "
+                    + "in\(days)\(tax)\(pensions)\(spent).")
                 if savings.oneOffs > 0 {
                     lines.append("With one-offs of \(Format.amount(savings.oneOffs)), such as an inheritance, you "
                         + "saved \(Format.amount(savings.saved)) in all: they're saved, but neither came in nor spent.")

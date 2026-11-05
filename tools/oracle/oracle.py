@@ -749,11 +749,19 @@ class Export:
 
     def pay_days(self, first: date, last: date) -> Optional[tuple[date, date]]:
         """The days the pay of [first, last] covers (PROGRESS.md, "Savings rate"): those of the
-        account the most came into, over its counted values dated in it, or, for an account
-        without one, over its counted value that runs across the end (dated after `last`,
-        measured from a value before it); on a tie, the first by ID. From the value its counted
-        values are measured from to the latest of them; for a value across the end, no days, at
-        the value it's measured from. None when nothing came in."""
+        account the most came into in the period's days, over its counted values dated in it, or,
+        for an account without one, over its counted value that runs across the end (dated after
+        `last`, measured from a value before it); on a tie, the first by ID. What came in is spread
+        evenly over the days the values cover, and only the part in [first, last] counts. From the
+        value its counted values are measured from to the latest of them; for a value across the
+        end, no days, at the value it's measured from. None when nothing came in."""
+        def in_period(amount: Decimal, start: date, end: date) -> Decimal:
+            days = (end - start).days
+            if days <= 0:
+                return amount
+            inside = (min(end, last) - max(start, first - timedelta(days=1))).days
+            return amount * max(inside, 0) / days
+
         best: Optional[tuple[Decimal, str, tuple[date, date]]] = None
         for account in sorted(self.accounts.values(), key=lambda a: a.id):
             if account.kind not in MONEY_KINDS or not account.in_net_worth:
@@ -761,8 +769,9 @@ class Export:
             values = self.valuations.get(account.id, [])
             own = [(v, p) for a, v, p in self.counted_values(first, last) if a.id == account.id]
             if own:
-                came_in = sum((self.to_base(v.money_in, account, v.date).value for v, _ in own), ZERO)
                 days = (min(p.date for _, p in own), max(v.date for v, _ in own))
+                came_in = in_period(sum((self.to_base(v.money_in, account, v.date).value for v, _ in own), ZERO),
+                                    *days)
             else:
                 after = [i for i, v in enumerate(values) if v.date > last]
                 if not after or after[0] == 0 or values[after[0] - 1].date >= last:
@@ -770,7 +779,8 @@ class Export:
                 value, previous = values[after[0]], values[after[0] - 1]
                 if not (value.has_money_in_out and value.money_in >= 0 and value.money_out >= 0):
                     continue
-                came_in = self.to_base(value.money_in, account, value.date).value
+                came_in = in_period(self.to_base(value.money_in, account, value.date).value, previous.date,
+                                    value.date)
                 days = (previous.date, previous.date)
             if came_in > 0 and (best is None or came_in > best[0]):
                 best = (came_in, account.id, days)
@@ -801,8 +811,11 @@ class Export:
         saved_from_pay = saved - money["oneOffs"]
         came_in = money["moneyIn"] + pension - tax
         spent = came_in - saved_from_pay
-        # A pay that covers no days (its account's value runs across the end) scales by one day.
-        days = max((pay_through - pay_after).days, 1)
+        # A pay that covers no days (its account's value runs across the end) scales by the days of
+        # the values counted.
+        days = (pay_through - pay_after).days or (max(v.date for _, v, _ in counted)
+                                                  - min(p.date for _, _, p in counted)).days
+        days = max(days, 1)
         result.update(pensionContributions=pension, tax=tax, cameIn=came_in, saved=saved,
                       savedFromPay=saved_from_pay, spent=spent,
                       savingsRate=(saved_from_pay / came_in) if came_in > 0 else None,

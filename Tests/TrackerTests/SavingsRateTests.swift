@@ -200,6 +200,57 @@ struct SavingsRateTests {
         #expect(sources.points.last?.saved == first.saved + second.saved)
     }
 
+    /// A current account valued every month, 3,000 coming in each, and a
+    /// savings account valued every quarter. With 6,000 coming into the
+    /// savings account a quarter, 2,000 a month, the current account is the
+    /// pay account in every month: each month's pay covers its days, and
+    /// March counts what both accounts saved. Its quarter's 6,000 alone
+    /// would make it the pay account in January and February, whose pay
+    /// would then cover no days. With 9,000 a quarter, 3,100 of it in
+    /// January's days, the savings account is January's pay account, so
+    /// January's pay covers no days, and spent a year scales by the days of
+    /// the current account's value instead of one day.
+    @Test func aQuarterlyValueCountsOnlyItsShareOfAMonth() throws {
+        func library(savingsMoneyIn: Decimal) -> Library {
+            var library = Library(settings: LibrarySettings(baseCurrency: .eur))
+            library.accounts["bank"] = Account(id: "bank", name: "Bank", kind: .cash, currency: .eur,
+                                               opened: "2025-12-01")
+            library.accounts["savings"] = Account(id: "savings", name: "Savings", kind: .savings, currency: .eur,
+                                                  opened: "2025-12-01")
+            library.upsert(Valuation(account: "bank", date: "2025-12-31", balance: 5000))
+            library.upsert(Valuation(account: "savings", date: "2025-12-31", balance: 20000))
+            for (date, balance) in [("2026-01-31", 6000), ("2026-02-28", 7000), ("2026-03-31", 8000)] {
+                library.upsert(Valuation(account: "bank", date: CalendarDate(date)!, balance: Decimal(balance),
+                                         moneyIn: 3000, moneyOut: 2000))
+            }
+            library.upsert(Valuation(account: "savings", date: "2026-03-31", balance: 20000 + savingsMoneyIn,
+                                     moneyIn: savingsMoneyIn, moneyOut: 0))
+            return library
+        }
+
+        let valuator = Valuator(library: library(savingsMoneyIn: 6000))
+        let months = valuator.moneyInOutSeries(.months, through: "2026-03-31").periods
+        #expect(months.map(\.cameIn) == [3000, 3000, 9000])
+        #expect(months.map(\.saved) == [1000, 1000, 7000])
+        #expect(months.map(\.spent) == [2000, 2000, 2000])
+        let january = try #require(valuator.savingsRate(from: "2026-01-01", through: "2026-01-31"))
+        #expect(january.from == "2025-12-31")
+        #expect(january.payThrough == "2026-01-31")
+        // 2,000 × 365 / 31.
+        #expect(january.spentPerYear == d("23548.39"))
+        let quarter = try #require(valuator.savingsRate(from: "2026-01-01", through: "2026-03-31"))
+        #expect(quarter.saved == months.map(\.saved).reduce(0, +))
+        #expect(quarter.spent == months.map(\.spent).reduce(0, +))
+
+        let more = try #require(Valuator(library: library(savingsMoneyIn: 9000))
+            .savingsRate(from: "2026-01-01", through: "2026-01-31"))
+        #expect(more.from == more.payThrough)
+        #expect(more.saved == 0)
+        #expect(more.spent == 3000)
+        // 3,000 × 365 / 31.
+        #expect(more.spentPerYear == d("35322.58"))
+    }
+
     /// An inheritance of 20,000 into the current account is saved, but
     /// neither came in nor spent: what the pay saved, spent and the rate
     /// stay as they were.
