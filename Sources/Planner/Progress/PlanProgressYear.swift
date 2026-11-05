@@ -54,8 +54,9 @@ public struct PlanProgressYear: Hashable, Sendable, Identifiable {
     /// year still going, in money of the year's end where the inflation
     /// index allows (else as recorded); `nil` without a baseline or its year.
     public var plannedSaving: Decimal?
-    /// What was spent over the year (`SavingsRate.spentPerYear`), scaled to
-    /// a year; `nil` without money in and out recorded in it.
+    /// What was spent over the year (`SavingsRate.spentPerYear`), from the
+    /// baseline's start when it starts later in the year, as ``pay``, scaled
+    /// to a year; `nil` without money in and out recorded in it.
     public var spentPerYear: Decimal?
     /// The baseline plan's spending while working, a year, in money of the
     /// year's end where the inflation index allows (else as recorded);
@@ -177,7 +178,12 @@ public struct PlanProgressYear: Hashable, Sendable, Identifiable {
             func atYearEnd(_ amount: Decimal, of baseline: Baseline) -> Decimal {
                 index?.convert(amount, from: baseline.start.date, to: last) ?? amount
             }
-            let savings = valuator.savingsRate(from: CalendarDate.firstDay(ofYear: year), through: last)
+            // The year's pay counts over the same days as saved: from the
+            // year's first day, or after the baseline's start when it starts
+            // later in the year.
+            let savings = saving == from
+                ? valuator.savingsRate(from: CalendarDate.firstDay(ofYear: year), through: last)
+                : valuator.savingsRate(from: saving.adding(days: 1), through: last)
             let pay = typedTurnPayOff ? nil : savings
             return PlanProgressYear(
                 year: year, from: from, to: last, checkIns: checkIns.count, lastCheckIn: checkIns.last,
