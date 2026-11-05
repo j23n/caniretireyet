@@ -194,4 +194,37 @@ struct SavedAdditivityTests {
         #expect(stretches.map { $0.saved["pension"] } == [0, 500, 500])
         #expect(stretches.map(\.startedWith) == [["pension": 20000], [:], [:]])
     }
+
+    /// A pot opened on 10 January with 6,000 from outside and spent by
+    /// 10 February, when it closed, next to a savings account valued once a
+    /// quarter. The 3,000 the current account moves out by 31 March pays
+    /// for half of what the pot started with over the quarter's days, so
+    /// March's stretch counts it for the pot, though the pot isn't open in
+    /// it.
+    @Test func anAccountClosedBeforeTheStretchStillCounts() throws {
+        var library = Library(settings: LibrarySettings(baseCurrency: .eur))
+        let accounts = [
+            Account(id: "current", name: "Current", kind: .cash, currency: .eur, opened: "2025-12-01"),
+            Account(id: "rainy", name: "Rainy day", kind: .savings, currency: .eur, opened: "2025-12-01"),
+            Account(id: "pot", name: "Pot", kind: .savings, currency: .eur, opened: "2026-01-10",
+                    closed: "2026-02-10"),
+        ]
+        for account in accounts { library.accounts[account.id] = account }
+        library.upsert(Valuation(account: "rainy", date: "2025-12-31", balance: 5000))
+        library.upsert(Valuation(account: "rainy", date: "2026-03-31", balance: 5000, moneyIn: 0, moneyOut: 0))
+        library.upsert(Valuation(account: "current", date: "2025-12-31", balance: 10000))
+        for (date, balance): (CalendarDate, Decimal) in [("2026-01-31", 10000), ("2026-02-28", 10000),
+                                                         ("2026-03-31", 7000)] {
+            library.upsert(Valuation(account: "current", date: date, balance: balance, moneyIn: 0, moneyOut: 0))
+        }
+        library.upsert(Valuation(account: "pot", date: "2026-01-10", balance: 6000))
+        library.upsert(Valuation(account: "pot", date: "2026-02-10", balance: 0, moneyIn: 0, moneyOut: 6000))
+        let valuator = Valuator(library: library)
+        let stretches = valuator.savedStretches(
+            between: valuator.savedCuts(after: "2025-12-31", through: "2026-03-31", in: .netWorth), in: .netWorth)
+        let march = try #require(stretches.last)
+        #expect(march.saved["pot"] == 3000)
+        #expect(march.startedWith == ["pot": -3000])
+        #expect(stretches.map(\.totalStartedWith).sum == 3000)
+    }
 }
