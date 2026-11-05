@@ -19,6 +19,9 @@ public enum ReferenceLedger: String, CaseIterable, Sendable {
     /// funds moved in from outside, and an old savings account, both first
     /// recorded in the same month.
     case newAccounts = "c3-new-accounts"
+    /// C4: a dollar broker, a dollar 401(k) with and without a saved
+    /// amount, and a dollar checking account in a euro library.
+    case dollars = "c4-dollars"
 
     /// The folder that holds every reference ledger.
     public static var foldersURL: URL {

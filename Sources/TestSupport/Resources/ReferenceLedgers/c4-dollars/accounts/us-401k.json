@@ -1,0 +1,7 @@
+{
+  "currency": "USD",
+  "id": "us-401k",
+  "kind": "pensionFund",
+  "name": "401(k)",
+  "opened": "2024-12-01"
+}
