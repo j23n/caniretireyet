@@ -14,12 +14,11 @@ import Tracker
 /// pay, wide (``SoFarPayTile``), its spending a month against the plan's
 /// and its tax as a share of what came in; and the earliest age at its end
 /// and its check-ins, half tiles, the check-ins opening their table.
+/// *You saved* and the pay's *You saved* are one number, the year's
+/// ``PlanProgressYear/youSaved``.
 struct PlanYearTiles: View {
     let card: PlanProgressTimeline.Card
     let history: PlanAnswerHistory
-    /// The year's money in and out (a calendar year's period); `nil`
-    /// without money in and out, or with typed accounts.
-    var money: MoneyInOutPeriod?
     /// The plan's own savings rate.
     var planRate: Decimal?
     /// The plan's spending while working, a year.
@@ -31,8 +30,20 @@ struct PlanYearTiles: View {
 
     private var year: PlanProgressYear { card.year }
 
+    /// The year's money in and out (``PlanProgressYear/pay``), from 1
+    /// January; `nil` without money in and out, or with typed accounts.
+    private var money: MoneyInOutPeriod? {
+        year.pay.map { MoneyInOutPeriod(from: CalendarDate.firstDay(ofYear: year.year), through: year.to, savings: $0) }
+    }
+
+    /// The first day *You saved* and the pay count, when it's after the
+    /// year's start: money in and out start later in the year.
+    private var payStart: CalendarDate? {
+        year.youSavedFrom > year.from ? year.youSavedFrom.adding(days: 1) : nil
+    }
+
     var body: some View {
-        let saved = year.change.saved
+        let saved = year.youSaved
         let market = year.change.market
         TileGrid {
             figureTile(saved >= 0 ? "You saved" : "You took out", emoji: "💰", tint: .mint, value: saved,
@@ -145,9 +156,15 @@ struct PlanYearTiles: View {
         AmountFormat.amount(abs(value), currency: card.currency, locale: locale)
     }
 
-    /// "Your pay in 2026 so far", "Your pay in 2025".
+    /// "Your pay in 2026 so far", "Your pay in 2025"; "Your pay since 1
+    /// Jul" or "Your pay in 2025 from 1 Jul" when money in and out start
+    /// later in the year.
     private var payTitle: String {
-        "Your pay in \(String(year.year))" + (year.isSoFar ? " so far" : "")
+        if let payStart {
+            let day = AmountFormat.shortDate(payStart, relativeTo: year.to, locale: locale)
+            return year.isLatest ? "Your pay since \(day)" : "Your pay in \(String(year.year)) from \(day)"
+        }
+        return "Your pay in \(String(year.year))" + (year.isSoFar ? " so far" : "")
     }
 
     /// The tax as a share of what came in before tax, e.g. 0.17; `nil`
@@ -168,9 +185,21 @@ struct PlanYearTiles: View {
         return "a month, plan \(amount: amount((plannedSpending / 12).rounded(scale: 0)))"
     }
 
-    /// "planned 13.463 € by now", "planned 12.000 €"; `nil` without a plan.
+    /// "planned 13.463 € by now", "planned 12.000 €", over the days *You
+    /// saved* counts: "since 1 Jul, planned 4.500 €" when money in and out
+    /// start later in the year; `nil` without a plan.
     private var savedDetail: AmountSentence? {
-        guard let planned = year.explanation?.inWholeUnits.plannedSaving ?? year.plannedSaving else { return nil }
+        // *Why*'s figure, in the baseline's money, when the pay covers the
+        // days the plan's saving does.
+        let planned = year.pay == nil || year.plannedYouSaved == year.plannedSaving
+            ? year.explanation?.inWholeUnits.plannedSaving ?? year.plannedSaving
+            : year.plannedYouSaved
+        if let payStart {
+            let since = "since \(AmountFormat.shortDate(payStart, relativeTo: year.to, locale: locale))"
+            guard let planned else { return AmountSentence(since) }
+            return "\(since), planned \(amount: amount(planned))"
+        }
+        guard let planned else { return nil }
         let byNow = year.isLatest ? " by now" : ""
         return "planned \(amount: amount(planned))\(byNow)"
     }

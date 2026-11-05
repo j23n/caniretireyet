@@ -326,8 +326,12 @@ enum PlanProgressText {
             sentences.append(AmountSentence(note))
         }
         if year.from != year.to {
+            // *You saved* counts from where the year's pay starts, as So far's tile says.
+            let since = year.youSavedFrom > year.from
+                ? AmountFormat.shortDate(year.youSavedFrom.adding(days: 1), relativeTo: year.to, locale: locale)
+                : nil
             sentences.append(PlanWords(currency: currency, locale: locale)
-                .savedAndMarkets(saved: year.change.saved, markets: year.change.market).capitalizedFirst)
+                .savedAndMarkets(saved: year.youSaved, since: since, markets: year.change.market).capitalizedFirst)
         }
         if let from = year.answerFrom?.earliestAge, let to = year.answerTo?.earliestAge {
             if from == to {

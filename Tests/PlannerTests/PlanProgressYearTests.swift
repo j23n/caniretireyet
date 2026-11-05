@@ -114,12 +114,100 @@ struct PlanProgressYearTests {
         #expect(thisYear.plannedSaving == Decimal(18_000) * 273 / 365)
     }
 
+    // MARK: You saved
+
+    /// So far's *You saved* and its pay's *You saved* are one number: the
+    /// year's pay's, as the savings rate counts it. The example library's
+    /// money in and out start on 30 June 2026, so 2026's pay, and what it
+    /// saved, count from then, against what was planned over those 92 days.
+    @Test func youSavedIsWhatTheYearsPaySaved() throws {
+        let valuator = Valuator(library: library)
+        let thisYear = try #require(years().last)
+        let pay = try #require(thisYear.pay)
+        let rate = try #require(valuator.savingsRate(from: "2026-01-01", through: latest))
+        #expect(pay == rate)
+        #expect(thisYear.youSaved == rate.saved)
+        #expect(thisYear.youSaved == rate.pay.saved)
+        #expect(rate.pay.cameIn - rate.pay.tax - rate.pay.spent == thisYear.youSaved)
+        #expect(thisYear.youSavedFrom == "2026-06-30")
+        // The year's money in and out, as *Year by year* and *Money in and out* count them, say the same.
+        let period = try #require(valuator.moneyInOutSeries(.years, through: latest).periods.last)
+        #expect(period.saved == thisYear.youSaved)
+        // Planned over the days the pay covers: 92 of the baseline's 365 days of 2026.
+        let planned = try #require(index.convert(Decimal(18_000) * 92 / 365, from: "2025-12-31", to: latest))
+        #expect(thisYear.plannedYouSaved == planned)
+        #expect(thisYear.plannedPaySaving == planned)
+        #expect(thisYear.savedGrade == PlanComparison(thisYear.youSaved, planned: planned))
+    }
+
+    /// A baseline that starts after the pay does: *You saved*, its pay and
+    /// the planned saving all count from the baseline's start.
+    @Test func youSavedCountsFromABaselineThatStartsAfterThePay() throws {
+        var library = self.library
+        library.projections["base"]?.baselines["2026-01-05"]?.start.date = "2026-08-31"
+        let valuator = Valuator(library: library)
+        let thisYear = try #require(years(in: library).last)
+        let rate = try #require(valuator.savingsRate(from: "2026-09-01", through: latest))
+        #expect(thisYear.pay == rate)
+        #expect(thisYear.youSaved == rate.saved)
+        #expect(thisYear.youSavedFrom == "2026-08-31")
+        #expect(thisYear.spentPerYear == rate.spentPerYear)
+        // From 31 August to the latest check-in: 30 of the 122 days left in the year, in the year's money.
+        let planned = try #require(index.convert(Decimal(18_000) * 30 / 122, from: "2026-08-31", to: latest))
+        #expect(thisYear.plannedSaving == planned)
+        #expect(thisYear.plannedYouSaved == planned)
+        #expect(thisYear.savedGrade == PlanComparison(rate.saved, planned: planned))
+    }
+
+    /// A baseline saved on the latest check-in, such as the first check-in
+    /// after months of imported statements, leaves no days after its start:
+    /// the year's pay still counts from the year's first day, and nothing is
+    /// graded.
+    @Test func aBaselineStartingOnTheLatestCheckInKeepsTheYearsPay() throws {
+        var library = self.library
+        library.projections["base"]?.baselines["2026-01-05"]?.start.date = latest
+        let valuator = Valuator(library: library)
+        let thisYear = try #require(years(in: library).last)
+        let rate = try #require(valuator.savingsRate(from: "2026-01-01", through: latest))
+        #expect(thisYear.pay == rate)
+        #expect(thisYear.youSaved == rate.saved)
+        #expect(thisYear.spentPerYear == rate.spentPerYear)
+        #expect(thisYear.savedGrade == nil)
+    }
+
+    /// Without money in and out, *You saved* is what the plan assets saved
+    /// in the year, against what was planned for the whole year.
+    @Test func youSavedWithoutMoneyInAndOutIsWhatPlanAssetsSaved() throws {
+        let lastYear = try #require(years().first)
+        #expect(lastYear.pay == nil)
+        #expect(lastYear.youSaved == lastYear.saved)
+        #expect(lastYear.youSavedFrom == lastYear.from)
+        #expect(lastYear.plannedYouSaved == lastYear.plannedSaving)
+    }
+
+    /// A savings account with typed values turns money in and out off, and
+    /// with it the year's pay: *You saved* falls back to what plan assets saved.
+    @Test func typedSavingsTurnThePayOff() throws {
+        var library = self.library
+        let savings = try #require(library.accounts.values.first { $0.kind == .savings })
+        var typed = savings
+        typed.values = .typed
+        library.accounts[typed.id] = typed
+        #expect(typed.typedValuesTurnOffTrends)
+        let thisYear = try #require(years(in: library).last)
+        #expect(thisYear.pay == nil)
+        #expect(thisYear.youSaved == thisYear.saved)
+        #expect(thisYear.plannedYouSaved == thisYear.plannedSaving)
+    }
+
     // MARK: Graded within 5%
 
-    /// The latest year with `saved`, `plannedSaving`, `spent` and `plannedSpending` in place of its own.
+    /// The latest year with `saved`, `plannedSaving`, `spent` and `plannedSpending` in place of its own,
+    /// and no pay, so `saved` is what it saved.
     private func graded(saved: Decimal = 0, plannedSaving: Decimal? = nil, spent: Decimal? = nil,
                         plannedSpending: Decimal? = nil) throws -> PlanProgressYear {
         var year = try #require(years().last)
+        year.pay = nil
         year.saved = saved
         year.plannedSaving = plannedSaving
         year.spentPerYear = spent
