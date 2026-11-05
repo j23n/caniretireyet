@@ -47,6 +47,18 @@ import TestSupport
         }
     }
 
+    @Test(arguments: ReferenceLedger.allCases)
+    func theReferenceLedgersMatchTheSchemas(_ ledger: ReferenceLedger) throws {
+        let files = ledger.allJSONFiles
+        #expect(files.contains("library.json"))
+        for path in files {
+            let schema = try #require(Self.schema(forPath: path), "No schema for \(path)")
+            let json = try CanonicalJSON.parse(ledger.data(for: path))
+            let problems = validator.validate(json, against: schema)
+            #expect(problems.isEmpty, "\(ledger.rawValue)/\(path): \(problems.joined(separator: "\n"))")
+        }
+    }
+
     /// The schemas define the format, so their examples must be right.
     @Test func everySchemasExamplesMatchIt() {
         var checked = 0

@@ -1,0 +1,8 @@
+{
+  "currency": "EUR",
+  "id": "mortgage",
+  "includeIn": { "plan": false },
+  "kind": "mortgage",
+  "name": "Mortgage",
+  "opened": "2024-12-01"
+}

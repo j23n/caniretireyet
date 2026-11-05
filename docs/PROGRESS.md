@@ -212,3 +212,11 @@ So moving money into a new account saves nothing, a loan you start tracking isn'
 - **A new `projections/` folder:** baselines and headlines. They are the one deliberate exception to "only inputs are stored", because they record what you expected at the time.
 
 Details are in the [schemas](schema/).
+
+## Reference ledgers
+
+Small made-up libraries check these numbers by hand (`Sources/TestSupport/Resources/ReferenceLedgers/`, TestSupport's `ReferenceLedger`). Each folder is a library the app can open and `retire --library <folder>` can read. Its `expected.md` tells what happened in plain words and works out every number a person would check, with the arithmetic: net worth, *What moved it* and its pay, the Overview's bars, the savings rate, Trends' periods and *Where your money came from*, and a broker's holdings, average cost and gains. Their tests (`Tests/TrackerTests/ReferenceLedgers/`) assert exactly those numbers through the functions the screens call. Where the app gives another number and the fix needs a decision, the test wraps that check in `withKnownIssue` and the ledger's `expected.md` says why. Storage's tests check that each ledger matches the schemas and saves back byte for byte, and Tracker's that every value's money in and out are its statement lines' sums.
+
+| Ledger | What it checks |
+| --- | --- |
+| C1, `c1-five-accounts` | One month of five accounts: pay, a refund, debit and card spending, a card bill, a deposit to the broker, a mortgage payment, an employer's pension contribution. |

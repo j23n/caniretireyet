@@ -1,0 +1,25 @@
+{
+  "fx": [],
+  "indices": [],
+  "month": "2024-12",
+  "prices": [
+    { "currency": "EUR", "date": "2024-12-31", "instrument": "world-fund", "price": "100" }
+  ],
+  "trades": [
+    {
+      "account": "broker",
+      "cost": "8000",
+      "date": "2024-12-31",
+      "id": "opening-world-fund",
+      "instrument": "world-fund",
+      "quantity": "100",
+      "type": "opening"
+    }
+  ],
+  "valuations": [
+    { "account": "card", "balance": "-1100", "date": "2024-12-31" },
+    { "account": "current", "balance": "5000", "date": "2024-12-31" },
+    { "account": "mortgage", "balance": "-100000", "date": "2024-12-31" },
+    { "account": "pension", "balance": "20000", "date": "2024-12-31" }
+  ]
+}

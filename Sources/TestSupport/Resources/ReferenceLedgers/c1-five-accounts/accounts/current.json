@@ -1,0 +1,7 @@
+{
+  "currency": "EUR",
+  "id": "current",
+  "kind": "cash",
+  "name": "Current account",
+  "opened": "2024-12-01"
+}

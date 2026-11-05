@@ -1,0 +1,7 @@
+{
+  "currency": "EUR",
+  "id": "card",
+  "kind": "creditCard",
+  "name": "Credit card",
+  "opened": "2024-12-01"
+}
