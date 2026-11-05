@@ -256,6 +256,7 @@ The importer works with any spreadsheet or export instead of a fixed layout. Det
   - **Net-worth tests:** unit tests for the math.
   - **Planner checks:** cases worked out by hand, and invariants (more savings never lowers the chance of success, and the like).
   - **Importer:** a folder of sample files in awkward formats.
+  - **Every number, golden:** `retire audit --json --plan base` of the example library (each check-in's net worth, *What moved it*, savings rates, *This year* and saving pace; Progress's years, *Where your money came from*, the milestones, and the plan's answer from a run of 50) against `Tests/RetireCLITests/Golden/example-library-audit.json`. A change that moves a number shows as a diff; `UPDATE_GOLDEN=1 swift test --filter RetireCLITests.AuditGoldenTests` writes the file again. `retire audit --check` runs the consistency checks (Tracker's `AuditChecks`) on any library.
 - One-time setup on your Mac:
   1. Join the **Apple Developer Program**, which is paid. iCloud requires it, and without it apps you install on your iPhone stop working after 7 days.
   2. Install Xcode and XcodeGen (`brew install xcodegen`).

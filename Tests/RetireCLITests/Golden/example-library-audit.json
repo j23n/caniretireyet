@@ -1,0 +1,2925 @@
+{
+  "checkIns" : [
+    {
+      "date" : "2025-10-31",
+      "netWorth" : {
+        "priced" : true,
+        "total" : "289190.275178768890527091780316992259"
+      },
+      "planAssets" : {
+        "priced" : true,
+        "total" : "132390.275178768890527091780316992259491"
+      },
+      "savingsRate" : {
+
+      }
+    },
+    {
+      "accounts" : [
+        {
+          "account" : "casa",
+          "change" : {
+            "end" : "305000",
+            "lost" : "0",
+            "market" : "0",
+            "other" : "0",
+            "saved" : "0",
+            "start" : "305000"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "conto-deposito",
+          "change" : {
+            "end" : "15031.25",
+            "lost" : "0",
+            "market" : "31.25",
+            "other" : "0",
+            "saved" : "0",
+            "start" : "15000"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "conto-fineco",
+          "change" : {
+            "end" : "6105.75",
+            "lost" : "0",
+            "market" : "0",
+            "other" : "0",
+            "saved" : "1285.45",
+            "start" : "4820.3"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "directa",
+          "change" : {
+            "end" : "45220.1",
+            "lost" : "0",
+            "market" : "439.4",
+            "other" : "0",
+            "saved" : "1267.5",
+            "start" : "43513.2"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "fondo-pensione",
+          "change" : {
+            "end" : "16120",
+            "lost" : "0",
+            "market" : "0",
+            "other" : "0",
+            "saved" : "0",
+            "start" : "16120"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "gold-coins",
+          "change" : {
+            "end" : "5809.48",
+            "lost" : "0",
+            "market" : "80.86",
+            "other" : "0",
+            "saved" : "0",
+            "start" : "5728.62"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "ledger-wallet",
+          "change" : {
+            "end" : "35231.234533956557602419576574099532581",
+            "lost" : "0",
+            "market" : "-3026.92064481233292467220374289272691",
+            "other" : "0",
+            "saved" : "0",
+            "start" : "38258.155178768890527091780316992259491"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "mutuo-casa",
+          "change" : {
+            "end" : "-147550",
+            "lost" : "0",
+            "market" : "0",
+            "other" : "0",
+            "saved" : "650",
+            "start" : "-148200"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "old-bank",
+          "change" : {
+            "end" : "0",
+            "lost" : "0",
+            "market" : "0",
+            "other" : "0",
+            "saved" : "-850",
+            "start" : "850"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "tfr",
+          "change" : {
+            "end" : "8100",
+            "lost" : "0",
+            "market" : "0",
+            "other" : "0",
+            "saved" : "0",
+            "start" : "8100"
+          },
+          "savedKnown" : true
+        }
+      ],
+      "date" : "2025-11-30",
+      "netWorth" : {
+        "priced" : true,
+        "total" : "289067.814533956557602419576574099532"
+      },
+      "planAssets" : {
+        "priced" : true,
+        "total" : "131617.814533956557602419576574099532581"
+      },
+      "previous" : "2025-10-31",
+      "savedSplit" : {
+        "end" : "289067.814533956557602419576574099532",
+        "lost" : "0",
+        "market" : "-2475.41064481233292467220374289272691",
+        "other" : "0",
+        "saved" : "2352.95",
+        "start" : "289190.275178768890527091780316992259"
+      },
+      "savingsRate" : {
+
+      },
+      "whatMoved" : {
+        "change" : "-122.460644812332924672203742892727",
+        "lost" : "0",
+        "markets" : "-2475.41064481233292467220374289272691",
+        "oneOffs" : "0",
+        "other" : "-0.00000000000000000000000000000009",
+        "priced" : true,
+        "saved" : "2352.95",
+        "start" : "289190.275178768890527091780316992259",
+        "startedWith" : "0",
+        "unexplained" : "-0.00000000000000000000000000000009"
+      }
+    },
+    {
+      "accounts" : [
+        {
+          "account" : "casa",
+          "change" : {
+            "end" : "305000",
+            "lost" : "0",
+            "market" : "0",
+            "other" : "0",
+            "saved" : "0",
+            "start" : "305000"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "conto-deposito",
+          "change" : {
+            "end" : "15562.1",
+            "lost" : "0",
+            "market" : "30.85",
+            "other" : "0",
+            "saved" : "500",
+            "start" : "15031.25"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "conto-fineco",
+          "change" : {
+            "end" : "3950.4",
+            "lost" : "0",
+            "market" : "0",
+            "other" : "0",
+            "saved" : "-2155.35",
+            "start" : "6105.75"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "directa",
+          "change" : {
+            "end" : "47318.05",
+            "lost" : "0",
+            "market" : "574.2",
+            "other" : "0",
+            "saved" : "1523.75",
+            "start" : "45220.1"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "fondo-pensione",
+          "change" : {
+            "end" : "16850.4",
+            "lost" : "0",
+            "market" : "-594.6",
+            "other" : "0",
+            "saved" : "1325",
+            "start" : "16120"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "gold-coins",
+          "change" : {
+            "end" : "5921.44",
+            "lost" : "0",
+            "market" : "111.96",
+            "other" : "0",
+            "saved" : "0",
+            "start" : "5809.48"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "ledger-wallet",
+          "change" : {
+            "end" : "36368.617456994630017293164649130790934",
+            "lost" : "0",
+            "market" : "1137.382923038072414873588075031258353",
+            "other" : "0",
+            "saved" : "0",
+            "start" : "35231.234533956557602419576574099532581"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "mutuo-casa",
+          "change" : {
+            "end" : "-146900",
+            "lost" : "0",
+            "market" : "0",
+            "other" : "0",
+            "saved" : "650",
+            "start" : "-147550"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "tfr",
+          "change" : {
+            "end" : "8420.55",
+            "lost" : "0",
+            "market" : "10.55",
+            "other" : "0",
+            "saved" : "310",
+            "start" : "8100"
+          },
+          "savedKnown" : true
+        }
+      ],
+      "date" : "2025-12-31",
+      "netWorth" : {
+        "priced" : true,
+        "total" : "292491.55745699463001729316464913079"
+      },
+      "planAssets" : {
+        "priced" : true,
+        "total" : "134391.557456994630017293164649130790934"
+      },
+      "previous" : "2025-11-30",
+      "savedSplit" : {
+        "end" : "292491.55745699463001729316464913079",
+        "lost" : "0",
+        "market" : "1270.342923038072414873588075031258353",
+        "other" : "0",
+        "saved" : "2153.4",
+        "start" : "289067.814533956557602419576574099532"
+      },
+      "savingsRate" : {
+
+      },
+      "whatMoved" : {
+        "change" : "3423.742923038072414873588075031258",
+        "lost" : "0",
+        "markets" : "1270.342923038072414873588075031258353",
+        "oneOffs" : "0",
+        "other" : "-0.000000000000000000000000000000353",
+        "priced" : true,
+        "saved" : "2153.4",
+        "start" : "289067.814533956557602419576574099532",
+        "startedWith" : "0",
+        "unexplained" : "-0.000000000000000000000000000000353"
+      }
+    },
+    {
+      "accounts" : [
+        {
+          "account" : "casa",
+          "change" : {
+            "end" : "305000",
+            "lost" : "0",
+            "market" : "0",
+            "other" : "0",
+            "saved" : "0",
+            "start" : "305000"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "conto-deposito",
+          "change" : {
+            "end" : "15594.5",
+            "lost" : "0",
+            "market" : "32.4",
+            "other" : "0",
+            "saved" : "0",
+            "start" : "15562.1"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "conto-fineco",
+          "change" : {
+            "end" : "5210.85",
+            "lost" : "0",
+            "market" : "0",
+            "other" : "0",
+            "saved" : "1260.45",
+            "start" : "3950.4"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "directa",
+          "change" : {
+            "end" : "49053.6",
+            "lost" : "0",
+            "market" : "554.9",
+            "other" : "0",
+            "saved" : "1180.65",
+            "start" : "47318.05"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "fondo-pensione",
+          "change" : {
+            "end" : "16850.4",
+            "lost" : "0",
+            "market" : "0",
+            "other" : "0",
+            "saved" : "0",
+            "start" : "16850.4"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "gold-coins",
+          "change" : {
+            "end" : "6020.96",
+            "lost" : "0",
+            "market" : "99.52",
+            "other" : "0",
+            "saved" : "0",
+            "start" : "5921.44"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "ledger-wallet",
+          "change" : {
+            "end" : "38696.710168569874932028276237085372485",
+            "lost" : "0",
+            "market" : "2328.092711575244914735111587954581551",
+            "other" : "0",
+            "saved" : "0",
+            "start" : "36368.617456994630017293164649130790934"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "mutuo-casa",
+          "change" : {
+            "end" : "-146250",
+            "lost" : "0",
+            "market" : "0",
+            "other" : "0",
+            "saved" : "650",
+            "start" : "-146900"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "tfr",
+          "change" : {
+            "end" : "8420.55",
+            "lost" : "0",
+            "market" : "0",
+            "other" : "0",
+            "saved" : "0",
+            "start" : "8420.55"
+          },
+          "savedKnown" : true
+        }
+      ],
+      "changeThisYear" : {
+        "change" : {
+          "end" : "298597.570168569874932028276237085372",
+          "lost" : "0",
+          "market" : "3014.912711575244914735111587954581551",
+          "other" : "0",
+          "saved" : "3091.1",
+          "start" : "292491.55745699463001729316464913079"
+        },
+        "from" : "2025-12-31",
+        "split" : {
+          "end" : "298597.570168569874932028276237085372",
+          "lost" : "0",
+          "market" : "3014.912711575244914735111587954581551",
+          "other" : "0",
+          "saved" : "3091.1",
+          "start" : "292491.55745699463001729316464913079"
+        }
+      },
+      "date" : "2026-01-31",
+      "netWorth" : {
+        "priced" : true,
+        "total" : "298597.570168569874932028276237085372"
+      },
+      "planAssets" : {
+        "priced" : true,
+        "total" : "139847.570168569874932028276237085372485"
+      },
+      "previous" : "2025-12-31",
+      "savedSplit" : {
+        "end" : "298597.570168569874932028276237085372",
+        "lost" : "0",
+        "market" : "3014.912711575244914735111587954581551",
+        "other" : "0",
+        "saved" : "3091.1",
+        "start" : "292491.55745699463001729316464913079"
+      },
+      "savingPace" : {
+        "asOf" : "2026-01-31",
+        "byAccount" : {
+          "conto-deposito" : "820.18402397099546337495580638503433901",
+          "conto-fineco" : "10187.6824136562127828503374354902739181",
+          "directa" : "12296.1362199591116520071508251191691385",
+          "fondo-pensione" : "3278.04696793653596673465943601100465848",
+          "old-bank" : "-3402.69948392219134577213179833267169508",
+          "tfr" : "766.93929061156690542471277370823505216"
+        },
+        "byAccountInPace" : {
+          "conto-deposito" : "820.18402397099546337495580638503433901",
+          "conto-fineco" : "10187.6824136562127828503374354902739181",
+          "directa" : "12296.1362199591116520071508251191691385",
+          "fondo-pensione" : "3278.04696793653596673465943601100465848",
+          "old-bank" : "-3402.69948392219134577213179833267169508",
+          "tfr" : "766.93929061156690542471277370823505216"
+        },
+        "carriedForward" : [
+          "fondo-pensione",
+          "tfr"
+        ],
+        "complete" : true,
+        "inTodaysMoney" : true,
+        "months" : [
+          {
+            "end" : "2025-11-30",
+            "saved" : "2034.05639871593296819075435158931570594",
+            "unusual" : false
+          },
+          {
+            "end" : "2025-12-31",
+            "saved" : "1170.66983429638796123335008729590099731",
+            "unusual" : false
+          },
+          {
+            "end" : "2026-01-31",
+            "saved" : "2781.8461250407369267308166807100446494",
+            "unusual" : false
+          }
+        ],
+        "perYear" : "23946.2894322122314246196844783810454103",
+        "usualMonth" : "2034.05639871593296819075435158931570594"
+      },
+      "savingsRate" : {
+
+      },
+      "whatMoved" : {
+        "change" : "6106.012711575244914735111587954582",
+        "lost" : "0",
+        "markets" : "3014.912711575244914735111587954581551",
+        "oneOffs" : "0",
+        "other" : "0.000000000000000000000000000000449",
+        "priced" : true,
+        "saved" : "3091.1",
+        "start" : "292491.55745699463001729316464913079",
+        "startedWith" : "0",
+        "unexplained" : "0.000000000000000000000000000000449"
+      }
+    },
+    {
+      "accounts" : [
+        {
+          "account" : "casa",
+          "change" : {
+            "end" : "305000",
+            "lost" : "0",
+            "market" : "0",
+            "other" : "0",
+            "saved" : "0",
+            "start" : "305000"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "conto-deposito",
+          "change" : {
+            "end" : "15626.95",
+            "lost" : "0",
+            "market" : "32.45",
+            "other" : "0",
+            "saved" : "0",
+            "start" : "15594.5"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "conto-fineco",
+          "change" : {
+            "end" : "4780.2",
+            "lost" : "0",
+            "market" : "0",
+            "other" : "0",
+            "saved" : "-430.65",
+            "start" : "5210.85"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "directa",
+          "change" : {
+            "end" : "49526.05",
+            "lost" : "0",
+            "market" : "-883.2",
+            "other" : "0",
+            "saved" : "1355.65",
+            "start" : "49053.6"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "fondo-pensione",
+          "change" : {
+            "end" : "16850.4",
+            "lost" : "0",
+            "market" : "0",
+            "other" : "0",
+            "saved" : "0",
+            "start" : "16850.4"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "gold-coins",
+          "change" : {
+            "end" : "5964.98",
+            "lost" : "0",
+            "market" : "-55.98",
+            "other" : "0",
+            "saved" : "0",
+            "start" : "6020.96"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "ledger-wallet",
+          "change" : {
+            "end" : "37161.788840262582056892778993435448577",
+            "lost" : "0",
+            "market" : "-1534.921328307292875135497243649923908",
+            "other" : "0",
+            "saved" : "0",
+            "start" : "38696.710168569874932028276237085372485"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "mutuo-casa",
+          "change" : {
+            "end" : "-145600",
+            "lost" : "0",
+            "market" : "0",
+            "other" : "0",
+            "saved" : "650",
+            "start" : "-146250"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "tfr",
+          "change" : {
+            "end" : "8420.55",
+            "lost" : "0",
+            "market" : "0",
+            "other" : "0",
+            "saved" : "0",
+            "start" : "8420.55"
+          },
+          "savedKnown" : true
+        }
+      ],
+      "changeThisYear" : {
+        "change" : {
+          "end" : "297730.918840262582056892778993435448",
+          "lost" : "0",
+          "market" : "573.261383267952039599614344304657643",
+          "other" : "0",
+          "saved" : "4666.1",
+          "start" : "292491.55745699463001729316464913079"
+        },
+        "from" : "2025-12-31",
+        "split" : {
+          "end" : "297730.918840262582056892778993435448",
+          "lost" : "0",
+          "market" : "573.261383267952039599614344304657643",
+          "other" : "0",
+          "saved" : "4666.1",
+          "start" : "292491.55745699463001729316464913079"
+        }
+      },
+      "date" : "2026-02-28",
+      "netWorth" : {
+        "priced" : true,
+        "total" : "297730.918840262582056892778993435448"
+      },
+      "planAssets" : {
+        "priced" : true,
+        "total" : "138330.918840262582056892778993435448577"
+      },
+      "previous" : "2026-01-31",
+      "savedSplit" : {
+        "end" : "297730.918840262582056892778993435448",
+        "lost" : "0",
+        "market" : "-2441.651328307292875135497243649923908",
+        "other" : "0",
+        "saved" : "1575",
+        "start" : "298597.570168569874932028276237085372"
+      },
+      "savingPace" : {
+        "asOf" : "2026-02-28",
+        "byAccount" : {
+          "conto-deposito" : "616.84605690162927352594851602777671827",
+          "conto-fineco" : "6370.0277295883298041587623076912175122",
+          "directa" : "13314.6589540033620357816572647465072137",
+          "fondo-pensione" : "3215.68928024128047510248570650545754746",
+          "old-bank" : "-2559.110758237395791980944819372766971",
+          "tfr" : "752.34994481116750738246835397486176582"
+        },
+        "byAccountInPace" : {
+          "conto-deposito" : "616.84605690162927352594851602777671827",
+          "conto-fineco" : "6370.0277295883298041587623076912175122",
+          "directa" : "13314.6589540033620357816572647465072137",
+          "fondo-pensione" : "3215.68928024128047510248570650545754746",
+          "old-bank" : "-2559.110758237395791980944819372766971",
+          "tfr" : "752.34994481116750738246835397486176582"
+        },
+        "carriedForward" : [
+          "fondo-pensione",
+          "tfr"
+        ],
+        "complete" : true,
+        "inTodaysMoney" : true,
+        "months" : [
+          {
+            "end" : "2025-11-30",
+            "saved" : "2039.7043141427522981301971443148711244",
+            "unusual" : false
+          },
+          {
+            "end" : "2025-12-31",
+            "saved" : "1504.95489248647823210661093357444687756",
+            "unusual" : false
+          },
+          {
+            "end" : "2026-01-31",
+            "saved" : "2458.53592274725906133782127170878620261",
+            "unusual" : false
+          },
+          {
+            "end" : "2026-02-28",
+            "saved" : "1233.62527305963484308216309359291372",
+            "unusual" : false
+          }
+        ],
+        "perYear" : "21710.4612073083733039703773295730537735",
+        "usualMonth" : "1772.32960331461526511840403894465900095"
+      },
+      "savingsRate" : {
+
+      },
+      "whatMoved" : {
+        "change" : "-866.651328307292875135497243649924",
+        "lost" : "0",
+        "markets" : "-2441.651328307292875135497243649923908",
+        "oneOffs" : "0",
+        "other" : "-0.000000000000000000000000000000092",
+        "priced" : true,
+        "saved" : "1575",
+        "start" : "298597.570168569874932028276237085372",
+        "startedWith" : "0",
+        "unexplained" : "-0.000000000000000000000000000000092"
+      }
+    },
+    {
+      "accounts" : [
+        {
+          "account" : "casa",
+          "change" : {
+            "end" : "305000",
+            "lost" : "0",
+            "market" : "0",
+            "other" : "0",
+            "saved" : "0",
+            "start" : "305000"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "conto-deposito",
+          "change" : {
+            "end" : "16159.5",
+            "lost" : "0",
+            "market" : "32.55",
+            "other" : "0",
+            "saved" : "500",
+            "start" : "15626.95"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "conto-fineco",
+          "change" : {
+            "end" : "5530.1",
+            "lost" : "0",
+            "market" : "0",
+            "other" : "0",
+            "saved" : "749.9",
+            "start" : "4780.2"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "directa",
+          "change" : {
+            "end" : "49756",
+            "lost" : "0",
+            "market" : "-888.3",
+            "other" : "0",
+            "saved" : "1118.25",
+            "start" : "49526.05"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "fondo-pensione",
+          "change" : {
+            "end" : "17480.9",
+            "lost" : "0",
+            "market" : "-694.5",
+            "other" : "0",
+            "saved" : "1325",
+            "start" : "16850.4"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "gold-coins",
+          "change" : {
+            "end" : "9078.09",
+            "lost" : "0",
+            "market" : "87.08",
+            "other" : "0",
+            "saved" : "3026.03",
+            "start" : "5964.98"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "ledger-wallet",
+          "change" : {
+            "end" : "36154.161412358133669609079445145018915",
+            "lost" : "0",
+            "market" : "-3409.897427904448387283699548290429662",
+            "other" : "0",
+            "saved" : "2402.27",
+            "start" : "37161.788840262582056892778993435448577"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "mutuo-casa",
+          "change" : {
+            "end" : "-144950",
+            "lost" : "0",
+            "market" : "0",
+            "other" : "0",
+            "saved" : "650",
+            "start" : "-145600"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "tfr",
+          "change" : {
+            "end" : "8420.55",
+            "lost" : "0",
+            "market" : "0",
+            "other" : "0",
+            "saved" : "0",
+            "start" : "8420.55"
+          },
+          "savedKnown" : true
+        }
+      ],
+      "changeThisYear" : {
+        "change" : {
+          "end" : "302629.301412358133669609079445145018",
+          "lost" : "0",
+          "market" : "-4299.806044636496347684085203985772019",
+          "other" : "0",
+          "saved" : "14437.55",
+          "start" : "292491.55745699463001729316464913079"
+        },
+        "from" : "2025-12-31",
+        "split" : {
+          "end" : "302629.301412358133669609079445145018",
+          "lost" : "0",
+          "market" : "-4299.806044636496347684085203985772019",
+          "other" : "0",
+          "saved" : "14437.55",
+          "start" : "292491.55745699463001729316464913079"
+        }
+      },
+      "date" : "2026-03-31",
+      "netWorth" : {
+        "priced" : true,
+        "total" : "302629.301412358133669609079445145018"
+      },
+      "planAssets" : {
+        "priced" : true,
+        "total" : "142579.301412358133669609079445145018915"
+      },
+      "previous" : "2026-02-28",
+      "savedSplit" : {
+        "end" : "302629.301412358133669609079445145018",
+        "lost" : "0",
+        "market" : "-4873.067427904448387283699548290429662",
+        "other" : "0",
+        "saved" : "9771.45",
+        "start" : "297730.918840262582056892778993435448"
+      },
+      "savingPace" : {
+        "asOf" : "2026-03-31",
+        "byAccount" : {
+          "conto-deposito" : "1695.62409445355592578556432980839392",
+          "conto-fineco" : "6917.9563308306232192275624997556966024",
+          "directa" : "13381.8756595615620914081100617694246249",
+          "fondo-pensione" : "4493.403850301923203331745473992243564",
+          "gold-coins" : "7262.472",
+          "ledger-wallet" : "5765.448",
+          "old-bank" : "-2056.19690353314807463279078999603017069",
+          "tfr" : "614.57387712240934797409976896240830922"
+        },
+        "byAccountInPace" : {
+          "conto-deposito" : "793.3453704936065157440360614754010543",
+          "conto-fineco" : "5564.7187006354910940472784029098737599",
+          "directa" : "11363.9292934251352358502320896426858684",
+          "fondo-pensione" : "3669.8238817095916029438393935082949893",
+          "gold-coins" : "1801.82702587094857346406842835262662213",
+          "ledger-wallet" : "1430.41377958546466147907577366340200046",
+          "old-bank" : "-2056.19690353314807463279078999603017069",
+          "tfr" : "606.99850917665625710054888212006123501"
+        },
+        "carriedForward" : [
+          "tfr"
+        ],
+        "complete" : true,
+        "inTodaysMoney" : true,
+        "months" : [
+          {
+            "end" : "2025-11-30",
+            "saved" : "2048.579609813468388035035818597886782",
+            "unusual" : false
+          },
+          {
+            "end" : "2025-12-31",
+            "saved" : "1592.97941531838931707817713895139490091",
+            "unusual" : false
+          },
+          {
+            "end" : "2026-01-31",
+            "saved" : "2566.03501989360774997648538021587424737",
+            "unusual" : false
+          },
+          {
+            "end" : "2026-02-28",
+            "saved" : "1400.01786906262693437371927766875535408",
+            "unusual" : false
+          },
+          {
+            "end" : "2026-03-31",
+            "saved" : "8257.0367978856266576592037780211457761",
+            "unusual" : true
+          }
+        ],
+        "perYear" : "23174.8596573637458659962882416763153588",
+        "usualMonth" : "2048.579609813468388035035818597886782"
+      },
+      "savingsRate" : {
+
+      },
+      "whatMoved" : {
+        "change" : "4898.38257209555161271630045170957",
+        "lost" : "0",
+        "markets" : "-4873.067427904448387283699548290429662",
+        "oneOffs" : "0",
+        "other" : "-0.000000000000000000000000000000338",
+        "priced" : true,
+        "saved" : "9771.45",
+        "start" : "297730.918840262582056892778993435448",
+        "startedWith" : "0",
+        "unexplained" : "-0.000000000000000000000000000000338"
+      }
+    },
+    {
+      "accounts" : [
+        {
+          "account" : "casa",
+          "change" : {
+            "end" : "305000",
+            "lost" : "0",
+            "market" : "0",
+            "other" : "0",
+            "saved" : "0",
+            "start" : "305000"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "conto-deposito",
+          "change" : {
+            "end" : "16193.15",
+            "lost" : "0",
+            "market" : "33.65",
+            "other" : "0",
+            "saved" : "0",
+            "start" : "16159.5"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "conto-fineco",
+          "change" : {
+            "end" : "4410.65",
+            "lost" : "0",
+            "market" : "0",
+            "other" : "0",
+            "saved" : "-1119.45",
+            "start" : "5530.1"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "directa",
+          "change" : {
+            "end" : "53053.5",
+            "lost" : "0",
+            "market" : "1571.4",
+            "other" : "0",
+            "saved" : "1726.1",
+            "start" : "49756"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "fondo-pensione",
+          "change" : {
+            "end" : "17480.9",
+            "lost" : "0",
+            "market" : "0",
+            "other" : "0",
+            "saved" : "0",
+            "start" : "17480.9"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "gold-coins",
+          "change" : {
+            "end" : "9199.38",
+            "lost" : "0",
+            "market" : "121.29",
+            "other" : "0",
+            "saved" : "0",
+            "start" : "9078.09"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "ledger-wallet",
+          "change" : {
+            "end" : "37736.107382550335570469798657718120805",
+            "lost" : "0",
+            "market" : "1581.94597019220190086071921257310189",
+            "other" : "0",
+            "saved" : "0",
+            "start" : "36154.161412358133669609079445145018915"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "mutuo-casa",
+          "change" : {
+            "end" : "-144300",
+            "lost" : "0",
+            "market" : "0",
+            "other" : "0",
+            "saved" : "650",
+            "start" : "-144950"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "tfr",
+          "change" : {
+            "end" : "8420.55",
+            "lost" : "0",
+            "market" : "0",
+            "other" : "0",
+            "saved" : "0",
+            "start" : "8420.55"
+          },
+          "savedKnown" : true
+        }
+      ],
+      "changeThisYear" : {
+        "change" : {
+          "end" : "307194.23738255033557046979865771812",
+          "lost" : "0",
+          "market" : "-991.520074444294446823365991412670129",
+          "other" : "0",
+          "saved" : "15694.2",
+          "start" : "292491.55745699463001729316464913079"
+        },
+        "from" : "2025-12-31",
+        "split" : {
+          "end" : "307194.23738255033557046979865771812",
+          "lost" : "0",
+          "market" : "-991.520074444294446823365991412670129",
+          "other" : "0",
+          "saved" : "15694.2",
+          "start" : "292491.55745699463001729316464913079"
+        }
+      },
+      "date" : "2026-04-30",
+      "netWorth" : {
+        "priced" : true,
+        "total" : "307194.23738255033557046979865771812"
+      },
+      "planAssets" : {
+        "priced" : true,
+        "total" : "146494.237382550335570469798657718120805"
+      },
+      "previous" : "2026-03-31",
+      "savedSplit" : {
+        "end" : "307194.23738255033557046979865771812",
+        "lost" : "0",
+        "market" : "3308.28597019220190086071921257310189",
+        "other" : "0",
+        "saved" : "1256.65",
+        "start" : "302629.301412358133669609079445145018"
+      },
+      "savingPace" : {
+        "asOf" : "2026-04-30",
+        "byAccount" : {
+          "conto-deposito" : "1416.91576226820053401931429161486515766",
+          "conto-fineco" : "5780.8575614726160943131725496842600596",
+          "directa" : "12395.6078079439861772105317767050528736",
+          "fondo-pensione" : "4640.595445342226754523639220422821358",
+          "gold-coins" : "6068.7454745962977550216620716817644741",
+          "ledger-wallet" : "4817.7860732571878692398582118944466325",
+          "old-bank" : "-1718.22151647479158396188963874553394204",
+          "tfr" : "513.55687644533746880072798075958105398"
+        },
+        "byAccountInPace" : {
+          "conto-deposito" : "635.27918411900644183656082496931197918",
+          "conto-fineco" : "4608.5590215644547948574789004092594025",
+          "directa" : "10647.47760091331359004380364855227319",
+          "fondo-pensione" : "3927.1349465093790359368259172569080957",
+          "gold-coins" : "1338.23400544268615748610712633487790472",
+          "ledger-wallet" : "1062.38186807625888558413187125722056428",
+          "old-bank" : "-1718.22151647479158396188963874553394204",
+          "tfr" : "506.99439799815381686709137532078878854"
+        },
+        "carriedForward" : [
+          "fondo-pensione",
+          "tfr"
+        ],
+        "complete" : true,
+        "inTodaysMoney" : true,
+        "months" : [
+          {
+            "end" : "2025-11-30",
+            "saved" : "2054.22752524028771797447861132344220044",
+            "unusual" : false
+          },
+          {
+            "end" : "2025-12-31",
+            "saved" : "1597.3712451361241438680736493778067813",
+            "unusual" : false
+          },
+          {
+            "end" : "2026-01-31",
+            "saved" : "2573.10955519855271029544378811721773685",
+            "unusual" : false
+          },
+          {
+            "end" : "2026-02-28",
+            "saved" : "1403.87770564531239657955465968674719631",
+            "unusual" : false
+          },
+          {
+            "end" : "2026-03-31",
+            "saved" : "8279.801373539505896179729349681700333",
+            "unusual" : true
+          },
+          {
+            "end" : "2026-04-30",
+            "saved" : "1049.53433766574766968622817382171458578",
+            "unusual" : false
+          }
+        ],
+        "perYear" : "21007.8395081484611386501100253551059825",
+        "usualMonth" : "1825.79938518820593092127613035062449085"
+      },
+      "savingsRate" : {
+
+      },
+      "whatMoved" : {
+        "change" : "4564.935970192201900860719212573102",
+        "lost" : "0",
+        "markets" : "3308.28597019220190086071921257310189",
+        "oneOffs" : "0",
+        "other" : "0.00000000000000000000000000000011",
+        "priced" : true,
+        "saved" : "1256.65",
+        "start" : "302629.301412358133669609079445145018",
+        "startedWith" : "0",
+        "unexplained" : "0.00000000000000000000000000000011"
+      }
+    },
+    {
+      "accounts" : [
+        {
+          "account" : "casa",
+          "change" : {
+            "end" : "305000",
+            "lost" : "0",
+            "market" : "0",
+            "other" : "0",
+            "saved" : "0",
+            "start" : "305000"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "conto-deposito",
+          "change" : {
+            "end" : "16226.85",
+            "lost" : "0",
+            "market" : "33.7",
+            "other" : "0",
+            "saved" : "0",
+            "start" : "16193.15"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "conto-fineco",
+          "change" : {
+            "end" : "5890.3",
+            "lost" : "0",
+            "market" : "0",
+            "other" : "0",
+            "saved" : "1479.65",
+            "start" : "4410.65"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "directa",
+          "change" : {
+            "end" : "54016.6",
+            "lost" : "0",
+            "market" : "703.8",
+            "other" : "0",
+            "saved" : "259.3",
+            "start" : "53053.5"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "fondo-pensione",
+          "change" : {
+            "end" : "17480.9",
+            "lost" : "0",
+            "market" : "0",
+            "other" : "0",
+            "saved" : "0",
+            "start" : "17480.9"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "gold-coins",
+          "change" : {
+            "end" : "9124.74",
+            "lost" : "0",
+            "market" : "-74.64",
+            "other" : "0",
+            "saved" : "0",
+            "start" : "9199.38"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "ledger-wallet",
+          "change" : {
+            "end" : "40127.972214800961795351322468608068394",
+            "lost" : "0",
+            "market" : "2391.864832250626224881523810889947589",
+            "other" : "0",
+            "saved" : "0",
+            "start" : "37736.107382550335570469798657718120805"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "mutuo-casa",
+          "change" : {
+            "end" : "-143650",
+            "lost" : "0",
+            "market" : "0",
+            "other" : "0",
+            "saved" : "650",
+            "start" : "-144300"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "tfr",
+          "change" : {
+            "end" : "8420.55",
+            "lost" : "0",
+            "market" : "0",
+            "other" : "0",
+            "saved" : "0",
+            "start" : "8420.55"
+          },
+          "savedKnown" : true
+        }
+      ],
+      "changeThisYear" : {
+        "change" : {
+          "end" : "312637.912214800961795351322468608068",
+          "lost" : "0",
+          "market" : "2063.20475780633177805815781947727746",
+          "other" : "0",
+          "saved" : "18083.15",
+          "start" : "292491.55745699463001729316464913079"
+        },
+        "from" : "2025-12-31",
+        "split" : {
+          "end" : "312637.912214800961795351322468608068",
+          "lost" : "0",
+          "market" : "2063.20475780633177805815781947727746",
+          "other" : "0",
+          "saved" : "18083.15",
+          "start" : "292491.55745699463001729316464913079"
+        }
+      },
+      "date" : "2026-05-31",
+      "netWorth" : {
+        "priced" : true,
+        "total" : "312637.912214800961795351322468608068"
+      },
+      "planAssets" : {
+        "priced" : true,
+        "total" : "151287.912214800961795351322468608068394"
+      },
+      "previous" : "2026-04-30",
+      "savedSplit" : {
+        "end" : "312637.912214800961795351322468608068",
+        "lost" : "0",
+        "market" : "3054.724832250626224881523810889947589",
+        "other" : "0",
+        "saved" : "2388.95",
+        "start" : "307194.23738255033557046979865771812"
+      },
+      "savingPace" : {
+        "asOf" : "2026-05-31",
+        "byAccount" : {
+          "conto-deposito" : "1215.93029223038149294643658264828569862",
+          "conto-fineco" : "7497.4022188958697422525901119330643783",
+          "directa" : "11081.8403891087041069609400175584714761",
+          "fondo-pensione" : "4767.8025885011728216843768299873109508",
+          "gold-coins" : "5207.9111933832217408428515163450177234",
+          "ledger-wallet" : "4134.3968243965565745794182186462611826",
+          "old-bank" : "-1474.4966823569443656779901321386037543",
+          "tfr" : "440.71029448743077364147310839058650205"
+        },
+        "byAccountInPace" : {
+          "conto-deposito" : "533.40431626402539586974986388844158565",
+          "conto-fineco" : "6473.7497601415288678569753711370501775",
+          "directa" : "9555.3710438599486958489301710520801174",
+          "fondo-pensione" : "4144.8080448829933397416011194748532424",
+          "gold-coins" : "1077.22303527627665996891889320731556091",
+          "ledger-wallet" : "855.17347182716005193059381089583974793",
+          "old-bank" : "-1474.4966823569443656779901321386037543",
+          "tfr" : "434.97993061739798883496442721060096135"
+        },
+        "carriedForward" : [
+          "fondo-pensione",
+          "tfr"
+        ],
+        "complete" : true,
+        "inTodaysMoney" : true,
+        "months" : [
+          {
+            "end" : "2025-11-30",
+            "saved" : "2056.64806042321028794852552249153737975",
+            "unusual" : false
+          },
+          {
+            "end" : "2025-12-31",
+            "saved" : "1599.2534579151533553494578681319833014",
+            "unusual" : false
+          },
+          {
+            "end" : "2026-01-31",
+            "saved" : "2576.14149890067197900356882007493637515",
+            "unusual" : false
+          },
+          {
+            "end" : "2026-02-28",
+            "saved" : "1405.5319213236061660963412519801722715",
+            "unusual" : false
+          },
+          {
+            "end" : "2026-03-31",
+            "saved" : "8289.557620248311284117097451821938",
+            "unusual" : true
+          },
+          {
+            "end" : "2026-04-30",
+            "saved" : "1533.26558906263514175167353985186756754",
+            "unusual" : false
+          },
+          {
+            "end" : "2026-05-31",
+            "saved" : "1714.64183800347430328422502678029503036",
+            "unusual" : false
+          }
+        ],
+        "perYear" : "21600.2129205123866343737435247275776371",
+        "usualMonth" : "1714.64183800347430328422502678029503036"
+      },
+      "savingsRate" : {
+
+      },
+      "whatMoved" : {
+        "change" : "5443.674832250626224881523810889948",
+        "lost" : "0",
+        "markets" : "3054.724832250626224881523810889947589",
+        "oneOffs" : "0",
+        "other" : "0.000000000000000000000000000000411",
+        "priced" : true,
+        "saved" : "2388.95",
+        "start" : "307194.23738255033557046979865771812",
+        "startedWith" : "0",
+        "unexplained" : "0.000000000000000000000000000000411"
+      }
+    },
+    {
+      "accounts" : [
+        {
+          "account" : "casa",
+          "change" : {
+            "end" : "312000",
+            "lost" : "0",
+            "market" : "0",
+            "other" : "7000",
+            "saved" : "0",
+            "start" : "305000"
+          },
+          "savedKnown" : false
+        },
+        {
+          "account" : "conto-deposito",
+          "change" : {
+            "end" : "16760.65",
+            "lost" : "0",
+            "market" : "33.8",
+            "other" : "0",
+            "saved" : "500",
+            "start" : "16226.85"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "conto-fineco",
+          "change" : {
+            "end" : "6240.95",
+            "lost" : "0",
+            "market" : "0",
+            "other" : "0",
+            "saved" : "350.65",
+            "start" : "5890.3"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "directa",
+          "change" : {
+            "end" : "55426",
+            "lost" : "0",
+            "market" : "180.45",
+            "other" : "0",
+            "saved" : "1228.95",
+            "start" : "54016.6"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "fondo-pensione",
+          "change" : {
+            "end" : "17990.35",
+            "lost" : "0",
+            "market" : "-815.55",
+            "other" : "0",
+            "saved" : "1325",
+            "start" : "17480.9"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "gold-coins",
+          "change" : {
+            "end" : "9246.03",
+            "lost" : "0",
+            "market" : "121.29",
+            "other" : "0",
+            "saved" : "0",
+            "start" : "9124.74"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "ledger-wallet",
+          "change" : {
+            "end" : "41630.209715954340323865144677462171489",
+            "lost" : "0",
+            "market" : "1502.237501153378528513822208854103095",
+            "other" : "0",
+            "saved" : "0",
+            "start" : "40127.972214800961795351322468608068394"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "mutuo-casa",
+          "change" : {
+            "end" : "-143000",
+            "lost" : "0",
+            "market" : "0",
+            "other" : "0",
+            "saved" : "650",
+            "start" : "-143650"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "tfr",
+          "change" : {
+            "end" : "10760.2",
+            "lost" : "0",
+            "market" : "97.15",
+            "other" : "0",
+            "saved" : "2242.5",
+            "start" : "8420.55"
+          },
+          "savedKnown" : true
+        }
+      ],
+      "changeThisYear" : {
+        "change" : {
+          "end" : "327054.389715954340323865144677462171",
+          "lost" : "0",
+          "market" : "3182.582258959710306571980028331380555",
+          "other" : "7000",
+          "saved" : "24380.25",
+          "start" : "292491.55745699463001729316464913079"
+        },
+        "from" : "2025-12-31",
+        "split" : {
+          "end" : "327054.389715954340323865144677462171",
+          "lost" : "0",
+          "market" : "3182.582258959710306571980028331380555",
+          "other" : "7000",
+          "saved" : "24380.25",
+          "start" : "292491.55745699463001729316464913079"
+        }
+      },
+      "date" : "2026-06-30",
+      "netWorth" : {
+        "priced" : true,
+        "total" : "327054.389715954340323865144677462171"
+      },
+      "planAssets" : {
+        "priced" : true,
+        "total" : "158054.389715954340323865144677462171489"
+      },
+      "previous" : "2026-05-31",
+      "savedSplit" : {
+        "end" : "327054.389715954340323865144677462171",
+        "lost" : "0",
+        "market" : "1119.377501153378528513822208854103095",
+        "other" : "7000",
+        "saved" : "6297.1",
+        "start" : "312637.912214800961795351322468608068"
+      },
+      "savingPace" : {
+        "asOf" : "2026-06-30",
+        "byAccount" : {
+          "conto-deposito" : "1816.02597903563948268420916166075184945",
+          "conto-fineco" : "7099.0701779825597907018343478393156608",
+          "directa" : "11559.0557609104262467755828576848923524",
+          "fondo-pensione" : "4812.4688444444446291131542784009920397",
+          "gold-coins" : "4565.860941315478534856242615202835762",
+          "ledger-wallet" : "3624.6933320204805041354864119732178022",
+          "old-bank" : "-1292.71536323938070662961492655815799919",
+          "tfr" : "3556.9389624569999845812636384809460936"
+        },
+        "byAccountInPace" : {
+          "conto-deposito" : "1625.0119068184945488641565939428207886",
+          "conto-fineco" : "6267.3456135949901953180170673328069364",
+          "directa" : "10318.7890665159740530991544353267067519",
+          "fondo-pensione" : "4306.2815530690105544900149739484747285",
+          "gold-coins" : "1209.64880159855998209015032912321101845",
+          "ledger-wallet" : "960.30212080388254187027406573722538549",
+          "old-bank" : "-1292.71536323938070662961492655815799919",
+          "tfr" : "3133.45832974589368638996875289843106179"
+        },
+        "carriedForward" : [
+
+        ],
+        "complete" : true,
+        "inTodaysMoney" : true,
+        "months" : [
+          {
+            "end" : "2025-11-30",
+            "saved" : "2162.84461383860476227399784058375991728",
+            "unusual" : false
+          },
+          {
+            "end" : "2025-12-31",
+            "saved" : "1500.22815110301185011637076657688026305",
+            "unusual" : false
+          },
+          {
+            "end" : "2026-01-31",
+            "saved" : "3073.05700899493835851325490263324696507",
+            "unusual" : false
+          },
+          {
+            "end" : "2026-02-28",
+            "saved" : "1852.55164347153318259933101828445578602",
+            "unusual" : false
+          },
+          {
+            "end" : "2026-03-31",
+            "saved" : "8355.955671802266472374119052782728175",
+            "unusual" : true
+          },
+          {
+            "end" : "2026-04-30",
+            "saved" : "2065.33064447916782494827940571253972188",
+            "unusual" : false
+          },
+          {
+            "end" : "2026-05-31",
+            "saved" : "2264.6979217402967015061908077373299165",
+            "unusual" : false
+          },
+          {
+            "end" : "2026-06-30",
+            "saved" : "2552.9334345212798251472284621455892174",
+            "unusual" : false
+          }
+        ],
+        "perYear" : "26528.1220289074248554921212917515200556",
+        "usualMonth" : "2213.77126778945073189009432416054491685"
+      },
+      "savingsRate" : {
+
+      },
+      "whatMoved" : {
+        "change" : "14416.477501153378528513822208854103",
+        "lost" : "0",
+        "markets" : "1119.377501153378528513822208854103095",
+        "oneOffs" : "0",
+        "other" : "6999.999999999999999999999999999999905",
+        "priced" : true,
+        "saved" : "6297.1",
+        "start" : "312637.912214800961795351322468608068",
+        "startedWith" : "0",
+        "unexplained" : "6999.999999999999999999999999999999905"
+      }
+    },
+    {
+      "accounts" : [
+        {
+          "account" : "casa",
+          "change" : {
+            "end" : "312000",
+            "lost" : "0",
+            "market" : "0",
+            "other" : "0",
+            "saved" : "0",
+            "start" : "312000"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "conto-deposito",
+          "change" : {
+            "end" : "16795.55",
+            "lost" : "0",
+            "market" : "34.9",
+            "other" : "0",
+            "saved" : "0",
+            "start" : "16760.65"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "conto-fineco",
+          "change" : {
+            "end" : "3980.4",
+            "lost" : "0",
+            "market" : "0",
+            "other" : "0",
+            "saved" : "-2260.55",
+            "start" : "6240.95"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "directa",
+          "change" : {
+            "end" : "56514.7",
+            "lost" : "0",
+            "market" : "1089.15",
+            "other" : "0",
+            "saved" : "-0.45",
+            "start" : "55426"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "fondo-pensione",
+          "change" : {
+            "end" : "17990.35",
+            "lost" : "0",
+            "market" : "0",
+            "other" : "0",
+            "saved" : "0",
+            "start" : "17990.35"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "gold-coins",
+          "change" : {
+            "end" : "9367.32",
+            "lost" : "0",
+            "market" : "121.29",
+            "other" : "0",
+            "saved" : "0",
+            "start" : "9246.03"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "ledger-wallet",
+          "change" : {
+            "end" : "43681.902985074626865671641791044776119",
+            "lost" : "0",
+            "market" : "2051.69326912028654180649711358260463",
+            "other" : "0",
+            "saved" : "0",
+            "start" : "41630.209715954340323865144677462171489"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "mutuo-casa",
+          "change" : {
+            "end" : "-142350",
+            "lost" : "0",
+            "market" : "0",
+            "other" : "0",
+            "saved" : "650",
+            "start" : "-143000"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "tfr",
+          "change" : {
+            "end" : "10760.2",
+            "lost" : "0",
+            "market" : "0",
+            "other" : "0",
+            "saved" : "0",
+            "start" : "10760.2"
+          },
+          "savedKnown" : true
+        }
+      ],
+      "changeThisYear" : {
+        "change" : {
+          "end" : "328740.422985074626865671641791044776",
+          "lost" : "0",
+          "market" : "6479.615528079996848378477141913985185",
+          "other" : "7000",
+          "saved" : "22769.25",
+          "start" : "292491.55745699463001729316464913079"
+        },
+        "from" : "2025-12-31",
+        "split" : {
+          "end" : "328740.422985074626865671641791044776",
+          "lost" : "0",
+          "market" : "6479.615528079996848378477141913985185",
+          "other" : "7000",
+          "saved" : "22769.25",
+          "start" : "292491.55745699463001729316464913079"
+        }
+      },
+      "date" : "2026-07-31",
+      "netWorth" : {
+        "priced" : true,
+        "total" : "328740.422985074626865671641791044776"
+      },
+      "planAssets" : {
+        "priced" : true,
+        "total" : "159090.422985074626865671641791044776119"
+      },
+      "previous" : "2026-06-30",
+      "savedSplit" : {
+        "end" : "328740.422985074626865671641791044776",
+        "lost" : "0",
+        "market" : "3297.03326912028654180649711358260463",
+        "other" : "0",
+        "saved" : "-1611",
+        "start" : "327054.389715954340323865144677462171"
+      },
+      "savingPace" : {
+        "asOf" : "2026-07-31",
+        "byAccount" : {
+          "conto-deposito" : "1847.11928351735192954320744635926888223",
+          "conto-fineco" : "3315.9839018502804085193072650010708164",
+          "directa" : "10306.3001512059556405600081028064727223",
+          "fondo-pensione" : "4894.866101320982613289499732852062215",
+          "gold-coins" : "4071.2558014966522252855454903505317053",
+          "ledger-wallet" : "3232.04187475384009452540370224497833787",
+          "old-bank" : "-1152.67963477570464470027788805081381499",
+          "tfr" : "3685.3306375747042698582182610576051517"
+        },
+        "byAccountInPace" : {
+          "conto-deposito" : "1675.38496519616384746850771044997026582",
+          "conto-fineco" : "2568.20836134606719256423888588787901507",
+          "directa" : "9191.2181427130413469985262853063703997",
+          "fondo-pensione" : "4439.7701577698341957915454326924208815",
+          "gold-coins" : "1053.79851541588903302455660216825168591",
+          "ledger-wallet" : "836.57748258547593624779053369950925055",
+          "old-bank" : "-1152.67963477570464470027788805081381499",
+          "tfr" : "3304.59346498465490838108560729152115465"
+        },
+        "carriedForward" : [
+          "conto-deposito",
+          "fondo-pensione",
+          "tfr"
+        ],
+        "complete" : true,
+        "inTodaysMoney" : true,
+        "months" : [
+          {
+            "end" : "2025-11-30",
+            "saved" : "2169.61938161883531751996181189334099779",
+            "unusual" : false
+          },
+          {
+            "end" : "2025-12-31",
+            "saved" : "1504.92737788798604541822314172669038133",
+            "unusual" : false
+          },
+          {
+            "end" : "2026-01-31",
+            "saved" : "3082.68287276626157968322594383178493517",
+            "unusual" : false
+          },
+          {
+            "end" : "2026-02-28",
+            "saved" : "1858.35446772672984096299376227281743301",
+            "unusual" : false
+          },
+          {
+            "end" : "2026-03-31",
+            "saved" : "8382.1293779003158583486660192753913805",
+            "unusual" : true
+          },
+          {
+            "end" : "2026-04-30",
+            "saved" : "2071.7999652136366356763867805150848737",
+            "unusual" : false
+          },
+          {
+            "end" : "2026-05-31",
+            "saved" : "2271.79172885616294019532531300823776275",
+            "unusual" : false
+          },
+          {
+            "end" : "2026-06-30",
+            "saved" : "2560.93009367404812530430670321730601991",
+            "unusual" : false
+          },
+          {
+            "end" : "2026-07-31",
+            "saved" : "-1252.07167793592944044840539127477206991",
+            "unusual" : false
+          }
+        ],
+        "perYear" : "21916.8714552354218157759731694451084416",
+        "usualMonth" : "2169.61938161883531751996181189334099779"
+      },
+      "savingsRate" : {
+        "month" : {
+          "cameIn" : "3400",
+          "from" : "2026-06-30",
+          "moneyIn" : "3400",
+          "moneyOut" : "5010.55",
+          "moneyOutPerYear" : "58995.19",
+          "months" : [
+            "2026-07"
+          ],
+          "oneOffs" : "0",
+          "pensionContributions" : "0",
+          "priced" : true,
+          "rate" : "-0.47382352941176470588235294117647058823",
+          "saved" : "-1611",
+          "savedByAccount" : {
+            "casa" : "0",
+            "conto-deposito" : "0",
+            "conto-fineco" : "-2260.55",
+            "directa" : "-0.45",
+            "fondo-pensione" : "0",
+            "gold-coins" : "0",
+            "ledger-wallet" : "0",
+            "mutuo-casa" : "650",
+            "tfr" : "0"
+          },
+          "spent" : "5011",
+          "spentPerYear" : "59000.48",
+          "tax" : "0",
+          "taxSetAside" : "0",
+          "taxes" : "0",
+          "through" : "2026-07-31"
+        },
+        "twelveMonths" : {
+          "cameIn" : "3400",
+          "from" : "2026-06-30",
+          "moneyIn" : "3400",
+          "moneyOut" : "5010.55",
+          "moneyOutPerYear" : "58995.19",
+          "months" : [
+            "2026-07"
+          ],
+          "oneOffs" : "0",
+          "pensionContributions" : "0",
+          "priced" : true,
+          "rate" : "-0.47382352941176470588235294117647058823",
+          "saved" : "-1611",
+          "savedByAccount" : {
+            "casa" : "0",
+            "conto-deposito" : "0",
+            "conto-fineco" : "-2260.55",
+            "directa" : "-0.45",
+            "fondo-pensione" : "0",
+            "gold-coins" : "0",
+            "ledger-wallet" : "0",
+            "mutuo-casa" : "650",
+            "tfr" : "0"
+          },
+          "spent" : "5011",
+          "spentPerYear" : "59000.48",
+          "tax" : "0",
+          "taxSetAside" : "0",
+          "taxes" : "0",
+          "through" : "2026-07-31"
+        },
+        "yearSoFar" : {
+          "cameIn" : "3400",
+          "from" : "2026-06-30",
+          "moneyIn" : "3400",
+          "moneyOut" : "5010.55",
+          "moneyOutPerYear" : "58995.19",
+          "months" : [
+            "2026-07"
+          ],
+          "oneOffs" : "0",
+          "pensionContributions" : "0",
+          "priced" : true,
+          "rate" : "-0.47382352941176470588235294117647058823",
+          "saved" : "-1611",
+          "savedByAccount" : {
+            "casa" : "0",
+            "conto-deposito" : "0",
+            "conto-fineco" : "-2260.55",
+            "directa" : "-0.45",
+            "fondo-pensione" : "0",
+            "gold-coins" : "0",
+            "ledger-wallet" : "0",
+            "mutuo-casa" : "650",
+            "tfr" : "0"
+          },
+          "spent" : "5011",
+          "spentPerYear" : "59000.48",
+          "tax" : "0",
+          "taxSetAside" : "0",
+          "taxes" : "0",
+          "through" : "2026-07-31"
+        }
+      },
+      "whatMoved" : {
+        "change" : "1686.033269120286541806497113582605",
+        "lost" : "0",
+        "markets" : "3297.03326912028654180649711358260463",
+        "oneOffs" : "0",
+        "other" : "0.00000000000000000000000000000037",
+        "pay" : {
+          "afterTax" : "3400",
+          "cameIn" : "3400",
+          "moneyIn" : "3400",
+          "pension" : "0",
+          "saved" : "-1611",
+          "savedShare" : "-0.47382352941176470588235294117647058823",
+          "spent" : "5011",
+          "tax" : "0"
+        },
+        "priced" : true,
+        "saved" : "-1611",
+        "start" : "327054.389715954340323865144677462171",
+        "startedWith" : "0",
+        "unexplained" : "0.00000000000000000000000000000037"
+      }
+    },
+    {
+      "accounts" : [
+        {
+          "account" : "casa",
+          "change" : {
+            "end" : "312000",
+            "lost" : "0",
+            "market" : "0",
+            "other" : "0",
+            "saved" : "0",
+            "start" : "312000"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "conto-deposito",
+          "change" : {
+            "end" : "16830.5",
+            "lost" : "0",
+            "market" : "34.95",
+            "other" : "0",
+            "saved" : "0",
+            "start" : "16795.55"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "conto-fineco",
+          "change" : {
+            "end" : "4515.2",
+            "lost" : "0",
+            "market" : "0",
+            "other" : "0",
+            "saved" : "534.8",
+            "start" : "3980.4"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "directa",
+          "change" : {
+            "end" : "56091.425",
+            "lost" : "0",
+            "market" : "-623.875",
+            "other" : "0",
+            "saved" : "200.6",
+            "start" : "56514.7"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "fondo-pensione",
+          "change" : {
+            "end" : "17990.35",
+            "lost" : "0",
+            "market" : "0",
+            "other" : "0",
+            "saved" : "0",
+            "start" : "17990.35"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "gold-coins",
+          "change" : {
+            "end" : "9302.01",
+            "lost" : "0",
+            "market" : "-65.31",
+            "other" : "0",
+            "saved" : "0",
+            "start" : "9367.32"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "ledger-wallet",
+          "change" : {
+            "end" : "41248.148148148148148148148148148148148",
+            "lost" : "0",
+            "market" : "-2433.754836926478717523493642896627971",
+            "other" : "0",
+            "saved" : "0",
+            "start" : "43681.902985074626865671641791044776119"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "mutuo-casa",
+          "change" : {
+            "end" : "-141700",
+            "lost" : "0",
+            "market" : "0",
+            "other" : "0",
+            "saved" : "650",
+            "start" : "-142350"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "tfr",
+          "change" : {
+            "end" : "10760.2",
+            "lost" : "0",
+            "market" : "0",
+            "other" : "0",
+            "saved" : "0",
+            "start" : "10760.2"
+          },
+          "savedKnown" : true
+        }
+      ],
+      "changeThisYear" : {
+        "change" : {
+          "end" : "327037.8331481481481481481481481481481",
+          "lost" : "0",
+          "market" : "3391.625691153518130854983499017357214",
+          "other" : "7000",
+          "saved" : "24154.65",
+          "start" : "292491.55745699463001729316464913079"
+        },
+        "from" : "2025-12-31",
+        "split" : {
+          "end" : "327037.8331481481481481481481481481481",
+          "lost" : "0",
+          "market" : "3391.625691153518130854983499017357214",
+          "other" : "7000",
+          "saved" : "24154.65",
+          "start" : "292491.55745699463001729316464913079"
+        }
+      },
+      "date" : "2026-08-31",
+      "netWorth" : {
+        "priced" : true,
+        "total" : "327037.8331481481481481481481481481481"
+      },
+      "planAssets" : {
+        "priced" : true,
+        "total" : "156737.833148148148148148148148148148148"
+      },
+      "previous" : "2026-07-31",
+      "savedSplit" : {
+        "end" : "327037.8331481481481481481481481481481",
+        "lost" : "0",
+        "market" : "-3087.989836926478717523493642896627971",
+        "other" : "0",
+        "saved" : "1385.4",
+        "start" : "328740.422985074626865671641791044776"
+      },
+      "savingPace" : {
+        "asOf" : "2026-08-31",
+        "byAccount" : {
+          "conto-deposito" : "1871.9623797592192142232131392323009936",
+          "conto-fineco" : "3633.3676780088607067304279571343384323",
+          "directa" : "9538.8371129954807761426977083000877912",
+          "fondo-pensione" : "4960.7003063619309176915148189655973412",
+          "gold-coins" : "3672.9973592753052382827884994092162268",
+          "ledger-wallet" : "2915.87702906656163844033083891295785739",
+          "old-bank" : "-1039.92219134577213179833267169511710996",
+          "tfr" : "3788.2761772492576995162000562761731822"
+        },
+        "byAccountInPace" : {
+          "conto-deposito" : "1713.14611207020805938735562504312463122",
+          "conto-fineco" : "2941.84066364763155505127573196390605808",
+          "directa" : "8507.632840679912701912517716572076053",
+          "fondo-pensione" : "4539.8371969860513573764924063642799844",
+          "gold-coins" : "882.51664015607567453340190395317745168",
+          "ledger-wallet" : "700.60219136880199821593156439612283977",
+          "old-bank" : "-1039.92219134577213179833267169511710996",
+          "tfr" : "3436.1784875601826349937199350825767955"
+        },
+        "carriedForward" : [
+          "conto-deposito",
+          "fondo-pensione",
+          "tfr"
+        ],
+        "complete" : true,
+        "inTodaysMoney" : true,
+        "months" : [
+          {
+            "end" : "2025-11-30",
+            "saved" : "2174.86982664851399783558388965826633507",
+            "unusual" : false
+          },
+          {
+            "end" : "2025-12-31",
+            "saved" : "1508.5692786463410467771587324677932229",
+            "unusual" : false
+          },
+          {
+            "end" : "2026-01-31",
+            "saved" : "3090.14291718903707608995350076065186206",
+            "unusual" : false
+          },
+          {
+            "end" : "2026-02-28",
+            "saved" : "1862.85165652450725119483238886379770937",
+            "unusual" : false
+          },
+          {
+            "end" : "2026-03-31",
+            "saved" : "8402.4140001263041324789399183072053644",
+            "unusual" : true
+          },
+          {
+            "end" : "2026-04-30",
+            "saved" : "1590.68479808402519042217766310289136773",
+            "unusual" : false
+          },
+          {
+            "end" : "2026-05-31",
+            "saved" : "2763.41832006978404874789688747735734219",
+            "unusual" : false
+          },
+          {
+            "end" : "2026-06-30",
+            "saved" : "2567.12750451744355792604234004788654189",
+            "unusual" : false
+          },
+          {
+            "end" : "2026-07-31",
+            "saved" : "-1255.10167184818656868056000229190822211",
+            "unusual" : false
+          },
+          {
+            "end" : "2026-08-31",
+            "saved" : "1746.76991285126698323200830371902073961",
+            "unusual" : false
+          }
+        ],
+        "perYear" : "21681.831941123091849672362211680146704",
+        "usualMonth" : "2018.8607415865106245152081392610320222"
+      },
+      "savingsRate" : {
+        "month" : {
+          "cameIn" : "3400",
+          "from" : "2026-07-31",
+          "moneyIn" : "3400",
+          "moneyOut" : "2014.6",
+          "moneyOutPerYear" : "23720.29",
+          "months" : [
+            "2026-08"
+          ],
+          "oneOffs" : "0",
+          "pensionContributions" : "0",
+          "priced" : true,
+          "rate" : "0.4074705882352941176470588235294117647",
+          "saved" : "1385.4",
+          "savedByAccount" : {
+            "casa" : "0",
+            "conto-deposito" : "0",
+            "conto-fineco" : "534.8",
+            "directa" : "200.6",
+            "fondo-pensione" : "0",
+            "gold-coins" : "0",
+            "ledger-wallet" : "0",
+            "mutuo-casa" : "650",
+            "tfr" : "0"
+          },
+          "spent" : "2014.6",
+          "spentPerYear" : "23720.29",
+          "tax" : "0",
+          "taxSetAside" : "0",
+          "taxes" : "0",
+          "through" : "2026-08-31"
+        },
+        "twelveMonths" : {
+          "cameIn" : "6800",
+          "from" : "2026-06-30",
+          "moneyIn" : "6800",
+          "moneyOut" : "7025.15",
+          "moneyOutPerYear" : "41357.74",
+          "months" : [
+            "2026-07",
+            "2026-08"
+          ],
+          "oneOffs" : "0",
+          "pensionContributions" : "0",
+          "priced" : true,
+          "rate" : "-0.0331764705882352941176470588235294117647",
+          "saved" : "-225.6",
+          "savedByAccount" : {
+            "casa" : "0",
+            "conto-deposito" : "0",
+            "conto-fineco" : "-1725.75",
+            "directa" : "200.15",
+            "fondo-pensione" : "0",
+            "gold-coins" : "0",
+            "ledger-wallet" : "0",
+            "mutuo-casa" : "1300",
+            "tfr" : "0"
+          },
+          "spent" : "7025.6",
+          "spentPerYear" : "41360.39",
+          "tax" : "0",
+          "taxSetAside" : "0",
+          "taxes" : "0",
+          "through" : "2026-08-31"
+        },
+        "yearSoFar" : {
+          "cameIn" : "6800",
+          "from" : "2026-06-30",
+          "moneyIn" : "6800",
+          "moneyOut" : "7025.15",
+          "moneyOutPerYear" : "41357.74",
+          "months" : [
+            "2026-07",
+            "2026-08"
+          ],
+          "oneOffs" : "0",
+          "pensionContributions" : "0",
+          "priced" : true,
+          "rate" : "-0.0331764705882352941176470588235294117647",
+          "saved" : "-225.6",
+          "savedByAccount" : {
+            "casa" : "0",
+            "conto-deposito" : "0",
+            "conto-fineco" : "-1725.75",
+            "directa" : "200.15",
+            "fondo-pensione" : "0",
+            "gold-coins" : "0",
+            "ledger-wallet" : "0",
+            "mutuo-casa" : "1300",
+            "tfr" : "0"
+          },
+          "spent" : "7025.6",
+          "spentPerYear" : "41360.39",
+          "tax" : "0",
+          "taxSetAside" : "0",
+          "taxes" : "0",
+          "through" : "2026-08-31"
+        }
+      },
+      "whatMoved" : {
+        "change" : "-1702.5898369264787175234936428966279",
+        "lost" : "0",
+        "markets" : "-3087.989836926478717523493642896627971",
+        "oneOffs" : "0",
+        "other" : "0.000000000000000000000000000000071",
+        "pay" : {
+          "afterTax" : "3400",
+          "cameIn" : "3400",
+          "moneyIn" : "3400",
+          "pension" : "0",
+          "saved" : "1385.4",
+          "savedShare" : "0.4074705882352941176470588235294117647",
+          "spent" : "2014.6",
+          "tax" : "0"
+        },
+        "priced" : true,
+        "saved" : "1385.4",
+        "start" : "328740.422985074626865671641791044776",
+        "startedWith" : "0",
+        "unexplained" : "0.000000000000000000000000000000071"
+      }
+    },
+    {
+      "accounts" : [
+        {
+          "account" : "casa",
+          "change" : {
+            "end" : "312000",
+            "lost" : "0",
+            "market" : "0",
+            "other" : "0",
+            "saved" : "0",
+            "start" : "312000"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "conto-deposito",
+          "change" : {
+            "end" : "17365.55",
+            "lost" : "0",
+            "market" : "35.05",
+            "other" : "0",
+            "saved" : "500",
+            "start" : "16830.5"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "conto-fineco",
+          "change" : {
+            "end" : "4210.55",
+            "lost" : "0",
+            "market" : "0",
+            "other" : "0",
+            "saved" : "-304.65",
+            "start" : "4515.2"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "directa",
+          "change" : {
+            "end" : "57410.35",
+            "lost" : "0",
+            "market" : "1307.625",
+            "other" : "0",
+            "saved" : "11.3",
+            "start" : "56091.425"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "fondo-pensione",
+          "change" : {
+            "end" : "18450.12",
+            "lost" : "0",
+            "market" : "-865.23",
+            "other" : "0",
+            "saved" : "1325",
+            "start" : "17990.35"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "gold-coins",
+          "change" : {
+            "end" : "9180.72",
+            "lost" : "0",
+            "market" : "-121.29",
+            "other" : "0",
+            "saved" : "0",
+            "start" : "9302.01"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "ledger-wallet",
+          "change" : {
+            "end" : "44128.004913142656606422179329706966134",
+            "lost" : "0",
+            "market" : "2879.856764994508458274031181558817986",
+            "other" : "0",
+            "saved" : "0",
+            "start" : "41248.148148148148148148148148148148148"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "mutuo-casa",
+          "change" : {
+            "end" : "-141050",
+            "lost" : "0",
+            "market" : "0",
+            "other" : "0",
+            "saved" : "650",
+            "start" : "-141700"
+          },
+          "savedKnown" : true
+        },
+        {
+          "account" : "tfr",
+          "change" : {
+            "end" : "10760.2",
+            "lost" : "0",
+            "market" : "0",
+            "other" : "0",
+            "saved" : "0",
+            "start" : "10760.2"
+          },
+          "savedKnown" : true
+        }
+      ],
+      "changeThisYear" : {
+        "change" : {
+          "end" : "332455.494913142656606422179329706966",
+          "lost" : "0",
+          "market" : "6627.6374561480265891290146805761752",
+          "other" : "7000",
+          "saved" : "26336.3",
+          "start" : "292491.55745699463001729316464913079"
+        },
+        "from" : "2025-12-31",
+        "split" : {
+          "end" : "332455.494913142656606422179329706966",
+          "lost" : "0",
+          "market" : "6627.6374561480265891290146805761752",
+          "other" : "7000",
+          "saved" : "26336.3",
+          "start" : "292491.55745699463001729316464913079"
+        }
+      },
+      "date" : "2026-09-30",
+      "netWorth" : {
+        "priced" : true,
+        "total" : "332455.494913142656606422179329706966"
+      },
+      "planAssets" : {
+        "priced" : true,
+        "total" : "161505.494913142656606422179329706966134"
+      },
+      "previous" : "2026-08-31",
+      "savedSplit" : {
+        "end" : "332455.494913142656606422179329706966",
+        "lost" : "0",
+        "market" : "3236.011764994508458274031181558817986",
+        "other" : "0",
+        "saved" : "2181.65",
+        "start" : "327037.8331481481481481481481481481481"
+      },
+      "savingPace" : {
+        "asOf" : "2026-09-30",
+        "byAccount" : {
+          "conto-deposito" : "1873.54393660121857177463827692094907108",
+          "conto-fineco" : "2970.71607091714609702766177921303493848",
+          "directa" : "8683.9973754504370692206342802728070829",
+          "fondo-pensione" : "4964.8914319932292152027914338405147733",
+          "gold-coins" : "3339.08850843209567116617136309928747893",
+          "ledger-wallet" : "2650.79729915141967130939167173905259763",
+          "old-bank" : "-945.38381031433830163484788335919737269",
+          "tfr" : "3851.6164705971770260340519511155951225"
+        },
+        "byAccountInPace" : {
+          "conto-deposito" : "1725.63701482232940555750875200458222724",
+          "conto-fineco" : "2326.6911639636616636624818588175178638",
+          "directa" : "7723.6281899580594620588627827634232066",
+          "fondo-pensione" : "4572.9380892791729247273981928121426367",
+          "gold-coins" : "740.29041643522608869379452016763454713",
+          "ledger-wallet" : "587.69326764435599649918928826320408043",
+          "old-bank" : "-945.38381031433830163484788335919737269",
+          "tfr" : "3523.7049398379575464079880565253826968"
+        },
+        "carriedForward" : [
+          "tfr"
+        ],
+        "complete" : true,
+        "inTodaysMoney" : true,
+        "months" : [
+          {
+            "end" : "2025-11-30",
+            "saved" : "2174.86982664851399783558388965826633507",
+            "unusual" : false
+          },
+          {
+            "end" : "2025-12-31",
+            "saved" : "1089.85762738648902118345023170032689667",
+            "unusual" : false
+          },
+          {
+            "end" : "2026-01-31",
+            "saved" : "3508.8545684488891016836620015281181883",
+            "unusual" : false
+          },
+          {
+            "end" : "2026-02-28",
+            "saved" : "1862.85165652450725119483238886379770937",
+            "unusual" : false
+          },
+          {
+            "end" : "2026-03-31",
+            "saved" : "8402.4140001263041324789399183072053644",
+            "unusual" : true
+          },
+          {
+            "end" : "2026-04-30",
+            "saved" : "1590.68479808402519042217766310289136773",
+            "unusual" : false
+          },
+          {
+            "end" : "2026-05-31",
+            "saved" : "2763.41832006978404874789688747735734219",
+            "unusual" : false
+          },
+          {
+            "end" : "2026-06-30",
+            "saved" : "2567.12750451744355792604234004788654189",
+            "unusual" : false
+          },
+          {
+            "end" : "2026-07-31",
+            "saved" : "-1265.31592828563084446878049787681087518",
+            "unusual" : false
+          },
+          {
+            "end" : "2026-08-31",
+            "saved" : "1736.55565641382270744378780813411808653",
+            "unusual" : false
+          },
+          {
+            "end" : "2026-09-30",
+            "saved" : "675.51031265853810397785916916204976117",
+            "unusual" : false
+          }
+        ],
+        "perYear" : "20255.1992716264247859723755679946898509",
+        "usualMonth" : "1862.85165652450725119483238886379770937"
+      },
+      "savingsRate" : {
+        "month" : {
+          "cameIn" : "4725",
+          "from" : "2026-08-31",
+          "moneyIn" : "3400",
+          "moneyOut" : "2554.65",
+          "moneyOutPerYear" : "31081.58",
+          "months" : [
+            "2026-09"
+          ],
+          "oneOffs" : "0",
+          "pensionContributions" : "1325",
+          "priced" : true,
+          "rate" : "0.46172486772486772486772486772486772486",
+          "saved" : "2181.65",
+          "savedByAccount" : {
+            "casa" : "0",
+            "conto-deposito" : "500",
+            "conto-fineco" : "-304.65",
+            "directa" : "11.3",
+            "fondo-pensione" : "1325",
+            "gold-coins" : "0",
+            "ledger-wallet" : "0",
+            "mutuo-casa" : "650",
+            "tfr" : "0"
+          },
+          "spent" : "2543.35",
+          "spentPerYear" : "30944.09",
+          "tax" : "0",
+          "taxSetAside" : "0",
+          "taxes" : "0",
+          "through" : "2026-09-30"
+        },
+        "twelveMonths" : {
+          "cameIn" : "11525",
+          "from" : "2026-06-30",
+          "moneyIn" : "10200",
+          "moneyOut" : "9579.8",
+          "moneyOutPerYear" : "38006.82",
+          "months" : [
+            "2026-07",
+            "2026-08",
+            "2026-09"
+          ],
+          "oneOffs" : "0",
+          "pensionContributions" : "1325",
+          "priced" : true,
+          "rate" : "0.16972234273318872017353579175704989154",
+          "saved" : "1956.05",
+          "savedByAccount" : {
+            "casa" : "0",
+            "conto-deposito" : "500",
+            "conto-fineco" : "-2030.4",
+            "directa" : "211.45",
+            "fondo-pensione" : "1325",
+            "gold-coins" : "0",
+            "ledger-wallet" : "0",
+            "mutuo-casa" : "1950",
+            "tfr" : "0"
+          },
+          "spent" : "9568.95",
+          "spentPerYear" : "37963.77",
+          "tax" : "0",
+          "taxSetAside" : "0",
+          "taxes" : "0",
+          "through" : "2026-09-30"
+        },
+        "yearSoFar" : {
+          "cameIn" : "11525",
+          "from" : "2026-06-30",
+          "moneyIn" : "10200",
+          "moneyOut" : "9579.8",
+          "moneyOutPerYear" : "38006.82",
+          "months" : [
+            "2026-07",
+            "2026-08",
+            "2026-09"
+          ],
+          "oneOffs" : "0",
+          "pensionContributions" : "1325",
+          "priced" : true,
+          "rate" : "0.16972234273318872017353579175704989154",
+          "saved" : "1956.05",
+          "savedByAccount" : {
+            "casa" : "0",
+            "conto-deposito" : "500",
+            "conto-fineco" : "-2030.4",
+            "directa" : "211.45",
+            "fondo-pensione" : "1325",
+            "gold-coins" : "0",
+            "ledger-wallet" : "0",
+            "mutuo-casa" : "1950",
+            "tfr" : "0"
+          },
+          "spent" : "9568.95",
+          "spentPerYear" : "37963.77",
+          "tax" : "0",
+          "taxSetAside" : "0",
+          "taxes" : "0",
+          "through" : "2026-09-30"
+        }
+      },
+      "whatMoved" : {
+        "change" : "5417.6617649945084582740311815588179",
+        "lost" : "0",
+        "markets" : "3236.011764994508458274031181558817986",
+        "oneOffs" : "0",
+        "other" : "-0.000000000000000000000000000000086",
+        "pay" : {
+          "afterTax" : "4725",
+          "cameIn" : "4725",
+          "moneyIn" : "3400",
+          "pension" : "1325",
+          "saved" : "2181.65",
+          "savedShare" : "0.46172486772486772486772486772486772486",
+          "spent" : "2543.35",
+          "tax" : "0"
+        },
+        "priced" : true,
+        "saved" : "2181.65",
+        "start" : "327037.8331481481481481481481481481481",
+        "startedWith" : "0",
+        "unexplained" : "-0.000000000000000000000000000000086"
+      }
+    }
+  ],
+  "currency" : "EUR",
+  "moneySources" : {
+    "points" : [
+      {
+        "date" : "2025-12-31",
+        "markets" : "-1205.067721774260509798615667861468557",
+        "priced" : true,
+        "saved" : "3206.35",
+        "startedWith" : "132390.275178768890527091780316992259491",
+        "total" : "134391.557456994630017293164649130790934"
+      },
+      {
+        "date" : "2026-09-30",
+        "markets" : "5422.569734373766079330399012714706643",
+        "priced" : true,
+        "saved" : "23692.65",
+        "startedWith" : "132390.275178768890527091780316992259491",
+        "total" : "161505.494913142656606422179329706966134"
+      }
+    ],
+    "years" : [
+      {
+        "markets" : "-1205.067721774260509798615667861468557",
+        "saved" : "3206.35",
+        "soFar" : false,
+        "year" : 2025
+      },
+      {
+        "markets" : "6627.6374561480265891290146805761752",
+        "saved" : "20486.3",
+        "soFar" : true,
+        "year" : 2026
+      }
+    ]
+  },
+  "plan" : "base",
+  "planRun" : {
+    "agesWithout" : [
+      {
+        "change" : "saving",
+        "earliestAge" : 71
+      },
+      {
+        "change" : "windfall-0",
+        "earliestAge" : 65
+      },
+      {
+        "change" : "pace",
+        "earliestAge" : 60
+      }
+    ],
+    "assetsNeeded" : {
+      "accessible" : "143100",
+      "amount" : "1528000",
+      "extra" : "1367000",
+      "outcome" : "found",
+      "scale" : "9.462",
+      "success" : "0.9"
+    },
+    "canRetireNow" : false,
+    "confidence" : "0.9",
+    "currentAge" : 38,
+    "earliestAge" : 63,
+    "earliestDate" : "2051-04-12",
+    "issues" : [
+      "planner.noAssetMix"
+    ],
+    "plan" : "base",
+    "planAssets" : "161505.494913142656606422179329706966134",
+    "readiness" : "0.1057",
+    "runs" : 50,
+    "seed" : 1,
+    "start" : "2026-09-30",
+    "successAtTarget" : "0.44",
+    "successCurve" : {
+      "38" : "0",
+      "39" : "0",
+      "40" : "0",
+      "41" : "0",
+      "42" : "0",
+      "43" : "0",
+      "44" : "0",
+      "45" : "0.02",
+      "46" : "0.04",
+      "47" : "0.06",
+      "48" : "0.08",
+      "49" : "0.1",
+      "50" : "0.14",
+      "51" : "0.18",
+      "52" : "0.22",
+      "53" : "0.28",
+      "54" : "0.38",
+      "55" : "0.44",
+      "56" : "0.52",
+      "57" : "0.58",
+      "58" : "0.64",
+      "59" : "0.76",
+      "60" : "0.82",
+      "61" : "0.86",
+      "62" : "0.88",
+      "63" : "0.9",
+      "64" : "0.9",
+      "65" : "0.94",
+      "66" : "0.96",
+      "67" : "0.98",
+      "68" : "0.98",
+      "69" : "0.98",
+      "70" : "0.98",
+      "71" : "0.98",
+      "72" : "0.98",
+      "73" : "1",
+      "74" : "1",
+      "75" : "1"
+    },
+    "successIfRetiringNow" : "0",
+    "sustainableSpending" : {
+      "age" : 55,
+      "perYear" : "20550",
+      "success" : "0.9"
+    },
+    "targetAge" : 55,
+    "trackedAssets" : "161505.494913142656606422179329706966134"
+  },
+  "progress" : {
+    "milestones" : [
+      {
+        "amount" : "150000",
+        "date" : "2026-05-31",
+        "id" : "round-150000"
+      },
+      {
+        "amount" : "156737.833148148148148148148148148148148",
+        "date" : "2026-08-31",
+        "id" : "coast"
+      },
+      {
+        "amount" : "161505.494913142656606422179329706966134",
+        "date" : "2026-09-30",
+        "id" : "share-1-4"
+      }
+    ],
+    "years" : [
+      {
+        "change" : {
+          "end" : "134391.557456994630017293164649130790934",
+          "lost" : "0",
+          "market" : "-1205.067721774260509798615667861468557",
+          "other" : "0",
+          "saved" : "3206.35",
+          "start" : "132390.275178768890527091780316992259491"
+        },
+        "checkIns" : 3,
+        "complete" : true,
+        "from" : "2025-10-31",
+        "lastCheckIn" : "2025-12-31",
+        "latest" : false,
+        "marketYear" : "average",
+        "saved" : "3206.35",
+        "soFar" : false,
+        "to" : "2025-12-31",
+        "year" : 2025,
+        "youSaved" : "3206.35",
+        "youSavedFrom" : "2025-10-31"
+      },
+      {
+        "answerFrom" : 55,
+        "answerTo" : 54,
+        "baseline" : "2026-01-05",
+        "change" : {
+          "end" : "161505.494913142656606422179329706966134",
+          "lost" : "0",
+          "market" : "6627.6374561480265891290146805761752",
+          "other" : "0",
+          "saved" : "20486.3",
+          "start" : "134391.557456994630017293164649130790934"
+        },
+        "checkIns" : 9,
+        "complete" : true,
+        "from" : "2025-12-31",
+        "lastCheckIn" : "2026-09-30",
+        "latest" : true,
+        "marketYear" : "average",
+        "plannedSaving" : "13687.9302378550743500471805551036345296",
+        "plannedSpending" : "36601.425178147268408551068883610451306",
+        "plannedYouSaved" : "4612.7823512185598542283538867015911234",
+        "position" : {
+          "actual" : "158851.678276846955294689831394299430127",
+          "date" : "2026-09-30",
+          "gap" : "21571.678276846955294689831394299430127",
+          "median" : "137280",
+          "standing" : "ahead"
+        },
+        "saved" : "20486.3",
+        "savedGrade" : "less",
+        "soFar" : true,
+        "spentGrade" : "asPlanned",
+        "spentPerYear" : "37963.77",
+        "to" : "2026-09-30",
+        "year" : 2026,
+        "youSaved" : "1956.05",
+        "youSavedFrom" : "2026-06-30"
+      }
+    ]
+  },
+  "through" : "2026-09-30"
+}

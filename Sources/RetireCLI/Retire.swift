@@ -4,7 +4,7 @@ import Foundation
 /// `retire`: Last Monday on the command line. Creates and checks a
 /// library folder, shows and sets its settings, prints net worth, imports
 /// spreadsheets and broker exports, lists trades and instruments, fetches
-/// prices, runs plans and exports CSV files.
+/// prices, runs plans, audits the numbers and exports CSV files.
 ///
 /// The commands live in this library so they can be tested: the `retire`
 /// executable runs ``RetireCLI/run(_:context:columns:)`` with
@@ -21,7 +21,7 @@ struct Retire: AsyncParsableCommand {
         subcommands: [
             InitCommand.self, ValidateCommand.self, SettingsCommand.self, NetWorthCommand.self,
             ImportGroupCommand.self, TradesGroupCommand.self, InstrumentsGroupCommand.self, PricesCommand.self,
-            SpendingCommand.self, PlanGroupCommand.self, ExportCommand.self,
+            SpendingCommand.self, PlanGroupCommand.self, AuditCommand.self, ExportCommand.self,
         ]
     )
 }

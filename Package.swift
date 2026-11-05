@@ -74,6 +74,9 @@ let package = Package(
         .testTarget(
             name: "RetireCLITests",
             dependencies: ["RetireCLI", "TestSupport", "Model", "Storage", "Prices", "Planner", "Tracker"],
+            // `Golden/` holds the expected output of `retire audit`, read and
+            // rewritten in place by `AuditGoldenTests`, not shipped with the tests.
+            exclude: ["Golden"],
             resources: [.copy("Samples")]
         ),
     ],

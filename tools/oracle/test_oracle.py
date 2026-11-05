@@ -484,9 +484,9 @@ def is_rate(d: oracle.Difference, *fields: str) -> bool:
 
 
 WINDOW_END = (
-    "The savings rate's days run to the end of the period asked for (31 December for a year in "
-    "progress, the check-in's date), not through the last value the pay is counted from, so spent "
-    "a year is too low (PROGRESS.md, Savings rate: 'The days are those the pay covers').")
+    "retire audit prints a savings rate's through as the end of the period asked for (the "
+    "check-in's date), the oracle as the last value the pay is counted from. Spent a year agrees: "
+    "both scale it by the days through the last value counted (PROGRESS.md, Savings rate).")
 MISSING_PRICE = (
     "A balance account with positions whose previous value misses a price: the app splits the change "
     "into saved (the change in quantities and cash at the new prices) and market, and marks saved "
@@ -500,8 +500,7 @@ PAY_WINDOW = (
 
 KNOWN_ISSUES = [
     KnownIssue(WINDOW_END, {"currencies"}, "audit",
-               lambda d: "savingsRate" in d.check and d.date == "2026-04-10"
-               and d.field in ("through", "spentPerYear")),
+               lambda d: "savingsRate" in d.check and d.date == "2026-04-10" and d.field == "through"),
     KnownIssue(MISSING_PRICE, {"missing-price"}, "cli",
                lambda d: (d.check.startswith("networth change") and d.account in ("fund", "total")
                           and d.field in ("saved", "market", "other"))
@@ -530,6 +529,8 @@ class AppTests(TemporaryFolders):
         optional, and an app without it is compared on the rest."""
         _, comparison, sources = oracle.check_library(retire_binary(), library, day(through))
         self.assertGreater(sum(comparison.compared.values()), 100)
+        # This repository's retire has audit: one that fails isn't one without it.
+        self.assertIn("audit", sources, f"{name}: retire audit didn't run")
         return self.check_known(name, comparison.differences, sources)
 
     def check_known(self, name: str, differences: list[oracle.Difference], sources: set[str]) -> list:
