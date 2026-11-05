@@ -226,3 +226,7 @@ Small made-up libraries check these numbers by hand (`Sources/TestSupport/Resour
 | C5, `c5-year-of-trades` | A year of one fund's trades: the average cost through a split and two partial sales, fees, a dividend with tax withheld, a fee, stamp duty and a withdrawal. |
 | C6, `c6-car` | A car bought and sold through statement lines, losing value by its depreciation in between. |
 | C7, `c7-skipped-check-in` | A skipped check-in, so the next values cover two months; and one account alone skipping it. |
+
+## Testing the numbers
+
+- **Invariants** (in TrackerTests unless named; `InvariantLibrary`, in TestSupport, is the example library and small made-up households, each with one thing more: a new account between check-ins, a trades account, dollar accounts, a tax pot, a depreciating car, a one-off): where every amount is known nothing is unexplained (`ResidualInvariantTests`); what moved it, the Overview's split, the savings rate, the month-by-month bars and the widgets' journey (`JourneyInvariantTests`, in GlanceTests) agree on a check-in (`EntryPointInvariantTests`); saved adds up over a check-in, over a day that isn't one where no account starts, and from months to the year (`SavedAdditivityTests`, `MonthsAddUpTests`), as Progress's years count it too (`ProgressSavedInvariantTests`, in PlannerTests); a transfer moves nothing, and neither scale nor a currency at a constant rate changes a rate (`TransferAndScaleTests`); trades close cleanly (`TradeInvariantTests`). What needs a decision is marked as a known issue (`withKnownIssue`).

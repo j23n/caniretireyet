@@ -80,7 +80,8 @@ public enum CSVExport {
 
     // MARK: What's recorded
 
-    /// `accounts.csv`: one row per account, open or closed.
+    /// `accounts.csv`: one row per account, open or closed, with what its
+    /// values are worked out from (a belongings account's `depreciation`).
     static func accounts(_ library: Library) -> File {
         let rows = library.accounts.values.sorted { $0.id < $1.id }.map { account in
             [account.id.rawValue, account.name, account.kind.rawValue, account.currency.rawValue,
@@ -89,12 +90,12 @@ public enum CSVExport {
              account.availableFromAge.map(String.init) ?? "", account.withdrawalTaxRate?.fileString ?? "",
              yesNo(account.includedInNetWorth), yesNo(account.includedInPlan), mix(account.assetClasses),
              account.successor?.rawValue ?? "",
-             account.tags.joined(separator: "; "), account.notes ?? ""]
+             account.tags.joined(separator: "; "), account.notes ?? "", account.depreciation?.fileString ?? ""]
         }
         return table("accounts.csv", ["id", "name", "kind", "currency", "institution", "country", "opened", "closed",
                                       "valuation", "available_from_age", "withdrawal_tax_rate", "in_net_worth",
                                       "in_plans",
-                                      "asset_classes", "successor", "tags", "notes"], rows)
+                                      "asset_classes", "successor", "tags", "notes", "depreciation"], rows)
     }
 
     /// `instruments.csv`: one row per instrument.

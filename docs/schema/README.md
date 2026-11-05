@@ -124,7 +124,7 @@ To open the library in a spreadsheet or take it to another app, Settings › Lib
 | --- | --- | --- |
 | `net-worth.csv` | month end | `date`, `currency` (the base currency), `net_worth`, `plan_assets`, `complete` |
 | `account-values.csv` | account and month end, while it's open | `date`, `account`, `name`, `currency`, `value` (in the account's currency), `base_currency`, `value_in_base_currency`, `complete` |
-| `accounts.csv` | account | `id`, `name`, `kind`, `currency`, `institution`, `country`, `opened`, `closed`, `valuation`, `available_from_age`, `withdrawal_tax_rate`, `in_net_worth`, `in_plans`, `asset_classes`, `successor`, `tags`, `notes` |
+| `accounts.csv` | account | `id`, `name`, `kind`, `currency`, `institution`, `country`, `opened`, `closed`, `valuation`, `available_from_age`, `withdrawal_tax_rate`, `in_net_worth`, `in_plans`, `asset_classes`, `successor`, `tags`, `notes`, `depreciation` |
 | `instruments.csv` | instrument | `id`, `name`, `kind`, `currency`, `unit`, `isin`, `ticker`, `asset_classes`, `price_provider`, `price_symbol` |
 | `valuations.csv` | valuation | `date`, `account`, `balance`, `cash`, `positions` (how many, in `positions.csv`), `saved` (as recorded), `money_in`, `money_out`, `one_off`, `tax`, `interest`, `note`, `source` |
 | `positions.csv` | position in a valuation | `date`, `account`, `instrument`, `quantity`, `cost_basis` |
@@ -137,5 +137,6 @@ To open the library in a spreadsheet or take it to another app, Settings › Lib
 - **The first two are worked out** ([How values are computed](#how-values-are-computed)) at each month end from the first value through the export's date (and on that date when it isn't a month end), rounded to cents. `complete` is `no` where a price or an exchange rate is missing; the value is then what could be valued.
 - **The others are what's recorded**, field for field as in the library's files, empty where a field isn't set; their meaning is in the schemas. `asset_classes` reads `bonds=0.4; equity=0.6`, `tags` `a; b`, and the yes/no columns `yes` or `no`.
 - Plans, projections and import profiles aren't exported: their files are plain JSON already.
+- Read back into a library, the export gives the same export and the same numbers (`ExportRoundTripTests`, in ImporterTests).
 
 How this app merges sync conflicts, saves over files changed elsewhere, keeps backups and undoes an import is in [PLAN.md](../PLAN.md#merging-saving-and-undo).

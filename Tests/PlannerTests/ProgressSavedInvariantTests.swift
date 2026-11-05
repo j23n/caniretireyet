@@ -1,0 +1,87 @@
+import Foundation
+import Model
+import Planner
+import Testing
+import TestSupport
+import Tracker
+
+/// Invariant B3 for Progress's years: what a year saved
+/// (`PlanProgressYear.saved(after:through:valuator:)`, two of *Where your
+/// money came from*'s totals subtracted) is what the plan assets saved over
+/// the same days by the savings rate's count (`Valuator.saved(after:through:)`).
+struct ProgressSavedInvariantTests {
+    /// What the plan assets saved after `from` through `to`, account by account.
+    private func planAssetsSaved(_ valuator: Valuator, after from: CalendarDate, through to: CalendarDate)
+        -> Decimal {
+        valuator.saved(after: from, through: to).byAccount
+            .filter { valuator.accounts[$0.key]?.includedInPlan ?? false }
+            .values.reduce(0, +)
+    }
+
+    /// Two amounts equal to ten decimal places, as amounts converted at a
+    /// rate carry more digits than a cent.
+    private func same(_ lhs: Decimal, _ rhs: Decimal) -> Bool {
+        abs(lhs - rhs) < d("0.0000000001")
+    }
+
+    /// Every pair of consecutive check-ins of plan assets, and each year
+    /// from 31 December before it (or the first check-in) to its last.
+    private func windows(_ valuator: Valuator) -> [(from: CalendarDate, to: CalendarDate)] {
+        let dates = valuator.checkInDates(in: .planAssets)
+        guard let first = dates.first else { return [] }
+        let years = Set(dates.map(\.year)).sorted().compactMap { year -> (from: CalendarDate, to: CalendarDate)? in
+            let from = max(CalendarDate.lastDay(ofYear: year - 1), first)
+            guard let to = dates.last(where: { $0.year == year }), to > from else { return nil }
+            return (from, to)
+        }
+        return zip(dates, dates.dropFirst()).map { (from: $0, to: $1) } + years
+    }
+
+    @Test(arguments: InvariantLibrary.allCases)
+    func aYearsSavedIsWhatThePlanAssetsSaved(_ which: InvariantLibrary) throws {
+        let valuator = Valuator(library: try which.library())
+        for (from, to) in windows(valuator) {
+            #expect(same(PlanProgressYear.saved(after: from, through: to, valuator: valuator),
+                         planAssetsSaved(valuator, after: from, through: to)), "\(from)…\(to)")
+        }
+    }
+
+    /// From a day that isn't a check-in, such as a past baseline's start,
+    /// in a stretch no account's records start in.
+    @Test(arguments: InvariantLibrary.allCases)
+    func savedFromADayThatIsntACheckIn(_ which: InvariantLibrary) throws {
+        let valuator = Valuator(library: try which.library())
+        let dates = valuator.checkInDates(in: .planAssets)
+        for (before, after) in zip(dates, dates.dropFirst()) where before.days(to: after) > 1 {
+            let starts = valuator.accounts.keys.contains { id in
+                valuator.firstRecordDate(of: id).map { $0 > before && $0 <= after } ?? false
+            }
+            guard !starts, let end = dates.last else { continue }
+            let day = before.adding(days: before.days(to: after) / 2)
+            #expect(same(PlanProgressYear.saved(after: day, through: end, valuator: valuator),
+                         planAssetsSaved(valuator, after: day, through: end)), "\(day)…\(end)")
+        }
+    }
+
+    /// The broker's first record is a deposit of 10 February, and the bank
+    /// it came from has its next value on 28 February. Counted from 20
+    /// February, the two totals cut the month in different places: through
+    /// 20 February the broker started with its deposit, through 28 February
+    /// the money moved out of the bank paid for it. So the year's saved
+    /// from 20 February counts the deposit of 10 February, which the
+    /// savings rate's count from that day leaves out.
+    @Test func savedFromADayInANewAccountsStretch() throws {
+        let valuator = Valuator(library: try InvariantLibrary.newAccount.library())
+        let progress = PlanProgressYear.saved(after: "2026-02-20", through: "2026-02-28", valuator: valuator)
+        let tracker = planAssetsSaved(valuator, after: "2026-02-20", through: "2026-02-28")
+        // The bank's −300, the savings' 500 and the pension's 300.
+        #expect(tracker == 500)
+        withKnownIssue("""
+            PlanProgressYear.saved subtracts two moneySources totals cut in different places, so a new \\
+            account's first amount counts as saved after a day it started before. What a day between \\
+            check-ins saved can't be told from values on check-ins: which count is right needs a decision.
+            """) {
+            #expect(progress == tracker)
+        }
+    }
+}
