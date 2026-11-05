@@ -6,9 +6,15 @@ public enum HouseholdSeeds {
     /// `HOUSEHOLD_SEED` alone when it's set; else 0 up to `HOUSEHOLD_SEEDS`,
     /// 50 by default, so the suite stays fast and more can run by hand.
     public static var all: [UInt64] {
+        all(byDefault: 50)
+    }
+
+    /// As ``all``, with `count` seeds by default: fewer for slower tests,
+    /// such as a year of statements imported for each.
+    public static func all(byDefault count: Int) -> [UInt64] {
         let environment = ProcessInfo.processInfo.environment
         if let seed = environment["HOUSEHOLD_SEED"].flatMap(UInt64.init) { return [seed] }
-        let count = environment["HOUSEHOLD_SEEDS"].flatMap(Int.init) ?? 50
+        let count = environment["HOUSEHOLD_SEEDS"].flatMap(Int.init) ?? count
         return Array(0..<UInt64(max(count, 1)))
     }
 

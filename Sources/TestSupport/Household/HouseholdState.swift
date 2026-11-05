@@ -78,10 +78,14 @@ struct HouseholdState {
         }
 
         switch event.kind {
-        case .pay(let amount), .bonus(let amount):
+        case .pay(let amount, let payer):
             move(amount, A.current)
             effect.totals.pay += amount
-            line(A.current, amount, "Salary Northwind Example Ltd", .income)
+            line(A.current, amount, payer, .income)
+        case .bonus(let amount, let payer):
+            move(amount, A.current)
+            effect.totals.pay += amount
+            line(A.current, amount, "\(payer) bonus", .income)
         case .pensionContribution(let amount):
             move(amount, A.pension)
             effect.totals.pension += amount

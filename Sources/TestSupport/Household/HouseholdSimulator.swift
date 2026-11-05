@@ -70,6 +70,9 @@ private struct Generator {
     let dividendPerUnit: Decimal
     let carLossRate: Int
     var pay: Decimal
+    /// How the bank writes the employer: with a word that says it's pay, or
+    /// only the employer's name, which the import learns from its months.
+    let payer: String
     var contribution: Decimal = 0
     var toSavings: Decimal = 0
     var toBroker: Decimal = 0
@@ -108,6 +111,7 @@ private struct Generator {
         dividendPerUnit = rng.amount(cents: 10...50)
         carLossRate = rng.int(in: 100...200)
         pay = rng.amount(cents: 220_000...450_000)
+        payer = rng.pick(["Salary Northwind Example Ltd", "Northwind Example Ltd", "Brightwater Example Payroll"])
         cardOwed = rng.amount(cents: 20_000...150_000)
 
         var holdings: [InstrumentID: HouseholdOpening.Holding] = [:]
@@ -286,8 +290,8 @@ private struct Generator {
             if state[A.savings] >= needed { emit(.fromSavings(needed), on: date) }
         }
         if date.day == 27 {
-            emit(.pay(pay), on: date)
-            if let bonus, bonus.month == month { emit(.bonus(bonus.amount), on: date) }
+            emit(.pay(pay, payer: payer), on: date)
+            if let bonus, bonus.month == month { emit(.bonus(bonus.amount, payer: payer), on: date) }
             emit(.pensionContribution(contribution), on: date)
         }
         if date.day == 28, state[A.current] - toSavings >= 1500 {

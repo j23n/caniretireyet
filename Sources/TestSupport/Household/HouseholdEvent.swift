@@ -43,10 +43,11 @@ public struct HouseholdEvent: Hashable, Sendable, CustomStringConvertible {
     }
 
     public enum Kind: Hashable, Sendable {
-        /// Pay after the employer's withholding, into the current account.
-        case pay(Decimal)
+        /// Pay after the employer's withholding, into the current account,
+        /// with the text the bank writes for its payer.
+        case pay(Decimal, payer: String)
         /// A bonus, after withholding, into the current account.
-        case bonus(Decimal)
+        case bonus(Decimal, payer: String)
         /// The employer's contribution to the pension fund.
         case pensionContribution(Decimal)
         /// What the pension fund's investments did: market.
@@ -106,8 +107,8 @@ public struct HouseholdEvent: Hashable, Sendable, CustomStringConvertible {
 extension HouseholdEvent.Kind: CustomStringConvertible {
     public var description: String {
         switch self {
-        case .pay(let amount): "pay \(amount)"
-        case .bonus(let amount): "bonus \(amount)"
+        case .pay(let amount, let payer): "pay \(amount) from \(payer)"
+        case .bonus(let amount, let payer): "bonus \(amount) from \(payer)"
         case .pensionContribution(let amount): "pension contribution \(amount)"
         case .fundReturn(let amount): "fund return \(amount)"
         case .spend(let amount, let merchant): "spend \(amount) at \(merchant)"
