@@ -62,15 +62,18 @@ public struct PlanProgressYear: Hashable, Sendable, Identifiable {
     /// year's end where the inflation index allows (else as recorded);
     /// `nil` without a baseline, or when its plan was past working.
     public var plannedSpending: Decimal?
-    /// The year's pay from 1 January through ``to``, as the savings rate
-    /// counts it (``Tracker/Valuator/savingsRate(from:through:)``): what So
-    /// far's *Your pay* shows, and its saved is what *You saved* shows
+    /// The year's pay, the values dated from 1 January through ``to``, as
+    /// the savings rate counts it (``Tracker/Valuator/savingsRate(from:through:)``),
+    /// with what was saved over the days it covers (after
+    /// ``Tracker/SavingsRate/from`` through ``Tracker/SavingsRate/payThrough``):
+    /// what So far's *Your pay* shows, and its saved is what *You saved* shows
     /// (``youSaved``). `nil` without money in and out recorded in the year,
     /// or while a savings or investment account's values are typed, which
     /// turns money in and out off (``Model/Account/typedValuesTurnOffTrends``).
     public var pay: SavingsRate?
     /// What the baseline planned you'd save over the days ``pay`` covers,
-    /// in money of the year's end where the inflation index allows;
+    /// from the baseline's start when it's later, in money of the year's
+    /// end where the inflation index allows;
     /// `nil` without ``pay``, a baseline, or its years.
     public var plannedPaySaving: Decimal?
 
@@ -206,7 +209,7 @@ public struct PlanProgressYear: Hashable, Sendable, Identifiable {
                 plannedPaySaving: baseline.flatMap { baseline in
                     pay.flatMap { pay in
                         let start = min(max(pay.from, baseline.start.date), last)
-                        return Self.plannedSaving(in: baseline, from: start, to: last)
+                        return Self.plannedSaving(in: baseline, from: start, to: max(start, pay.payThrough))
                             .map { atYearEnd($0, of: baseline) }
                     }
                 })
