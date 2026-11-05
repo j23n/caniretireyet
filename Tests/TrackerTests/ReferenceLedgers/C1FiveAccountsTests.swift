@@ -43,7 +43,6 @@ import Tracker
         #expect(moved.change == 1700)
         #expect(moved.saved == 1450)
         #expect(moved.markets == 250)
-        #expect(moved.oneOffs == 0)
         #expect(moved.startedWith == 0)
         #expect(moved.lost == 0)
         #expect(moved.unexplained == 0)
@@ -55,6 +54,8 @@ import Tracker
         #expect(pay.tax == 0)
         #expect(pay.afterTax == 4300)
         #expect(pay.spent == 2850)
+        #expect(pay.oneOffs == 0)
+        #expect(pay.savedFromPay == 1450)
         #expect(pay.saved == 1450)
         #expect(pay.savedShare == Decimal(1450) / 4300)
     }

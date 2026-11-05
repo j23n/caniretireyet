@@ -216,7 +216,7 @@ public struct AuditChecks: Sendable {
                   let share = rate.rate, !Self.plausibleMonthlyRates.contains(share)
             else { return nil }
             return AuditViolation(rule: .monthlyRateOutOfRange, date: month.through,
-                                  amounts: [.init("rate", share), .init("saved", rate.saved),
+                                  amounts: [.init("rate", share), .init("savedFromPay", rate.savedFromPay),
                                             .init("cameIn", rate.income)])
         }
     }

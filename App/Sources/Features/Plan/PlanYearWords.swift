@@ -55,7 +55,7 @@ struct PlanYearTiles: View {
             moneyTile
                 .tileSize(.small)
             if let money, let pay = money.pay {
-                SoFarPayTile(title: payTitle, pay: pay, oneOffs: money.oneOffs, planRate: planRate)
+                SoFarPayTile(title: payTitle, pay: pay, planRate: planRate)
                     .tileSize(.wide)
                 HalfTile(tint: .peach, title: "Spent", emoji: "🛒") {
                     AmountText(spentAMonth(money), currency: card.currency, tabular: false)

@@ -379,9 +379,11 @@ class SavedTests(TemporaryFolders):
         self.assertEqual(rate["tax"], D("700"))
         self.assertEqual(rate["cameIn"], D("6000") + 500 - 700)
         # Saved: bank 0, savings 500, pension 500 (its second stretch unknown), mortgage 1,200;
-        # less the one-off.
-        self.assertEqual(rate["saved"], D("0") + 500 + 500 + 1200 - 100)
-        self.assertEqual(rate["spent"], rate["cameIn"] - rate["saved"])
+        # the one-off with it. The pay saved that less the one-off.
+        self.assertEqual(rate["saved"], D("0") + 500 + 500 + 1200)
+        self.assertEqual(rate["savedFromPay"], rate["saved"] - 100)
+        self.assertEqual(rate["spent"], rate["cameIn"] - rate["savedFromPay"])
+        self.assertEqual(rate["savingsRate"], rate["savedFromPay"] / rate["cameIn"])
         self.assertEqual(rate["spentPerYear"], rate["spent"] * 365 / 59)
         self.assertEqual(rate["unknownSaved"], ["pension"])
 
@@ -438,7 +440,8 @@ class CompareTests(TemporaryFolders):
              "savingsRate": {"month": {
                  "from": "2026-02-28", "through": "2026-03-31", "moneyIn": "3000", "moneyOut": "2400",
                  "oneOffs": "0", "taxes": "0", "taxSetAside": "0", "tax": "0", "pensionContributions": "0",
-                 "cameIn": rate["cameIn"], "saved": rate["saved"], "spent": rate["spent"],
+                 "cameIn": rate["cameIn"], "saved": rate["saved"], "savedFromPay": rate["savedFromPay"],
+                 "spent": rate["spent"],
                  "months": ["2026-03"]}}}]}
         path = self.root / "audit.json"
         path.write_text(json.dumps(audit))
@@ -500,12 +503,13 @@ KNOWN_ISSUES = [
     KnownIssue(MISSING_PRICE, {"missing-price"}, "cli",
                lambda d: (d.check.startswith("networth change") and d.account in ("fund", "total")
                           and d.field in ("saved", "market", "other"))
-               or is_rate(d, "saved", "spent", "spentPerYear", "savingsRate")),
+               or is_rate(d, "saved", "savedFromPay", "spent", "spentPerYear", "savingsRate")),
     KnownIssue(MISSING_PRICE, {"missing-price"}, "audit",
                lambda d: (d.check.startswith("audit change") and d.account in ("fund", "-")
                           and d.field in ("saved", "market", "other", "whatMoved.saved", "whatMoved.markets",
-                                          "whatMoved.pay.saved", "whatMoved.pay.spent", "savedSplit.saved"))
-               or is_rate(d, "saved", "spent", "spentPerYear", "rate", "savedByAccount")),
+                                          "whatMoved.pay.saved", "whatMoved.pay.savedFromPay", "whatMoved.pay.spent",
+                                          "savedSplit.saved"))
+               or is_rate(d, "saved", "savedFromPay", "spent", "spentPerYear", "rate", "savedByAccount")),
 ]
 
 

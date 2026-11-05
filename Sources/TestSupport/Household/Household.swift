@@ -144,7 +144,7 @@ public struct HouseholdTruth: Sendable {
                 }
             }
             let moved = flows.values.reduce(Decimal(0), +)
-            let expected = counted.saved + counted.oneOffs + counted.startedWith
+            let expected = counted.saved + counted.startedWith
             if moved != expected {
                 inconsistencies.append("\(date): money moved \(moved), events count \(expected)")
             }

@@ -31,7 +31,8 @@ struct EntryPointInvariantTests {
                 // Your pay is the savings rate over the same values.
                 #expect(rate.pay == pay, "\(window)")
                 #expect(rate.moneyInOut.moneyIn == pay.moneyIn, "\(window)")
-                #expect(rate.oneOffs == moved.oneOffs, "\(window)")
+                // Its lines add up to what was saved, the one-offs with it.
+                #expect(same(pay.cameIn - pay.tax - pay.spent + pay.oneOffs, pay.saved), "\(window)")
                 #expect(pay.from == rate.from && pay.through == rate.payThrough, "\(window)")
                 #expect(rate.from <= from && rate.payThrough <= to, "\(window)")
                 if rate.from == from, rate.payThrough == to {
@@ -41,10 +42,10 @@ struct EntryPointInvariantTests {
                     // The pay counts what was saved over the days it covers
                     // (PROGRESS.md, "Savings rate"), those of the pay
                     // account's values, which start before this check-in
-                    // when that account has no value on it: what moved net
-                    // worth over those days, its one-offs aside.
+                    // when that account has no value on it: what net worth
+                    // saved over those days.
                     let days = valuator.whatMoved(valuator.change(from: rate.from, to: rate.payThrough))
-                    #expect(same(pay.saved + moved.oneOffs, days.saved + days.oneOffs), "\(window)")
+                    #expect(same(pay.saved, days.saved), "\(window)")
                 }
             }
 

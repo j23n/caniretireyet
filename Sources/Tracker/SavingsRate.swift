@@ -10,8 +10,10 @@ import Model
 /// was paid into pension funds and TFR, pay that never reaches a cash
 /// account, less tax: the tax money out recorded, in the days it was
 /// paid, and what moved into tax pots, so it's after tax.
-/// What was spent is the rest. Only accounts in net worth count, on both
-/// sides. In the base currency.
+/// A one-off, such as an inheritance, is saved but neither came in nor
+/// spent: the rate is what the pay saved (``savedFromPay``) over what came
+/// in, and what was spent is the rest of the pay. Only accounts in net
+/// worth count, on both sides. In the base currency.
 public struct SavingsRate: Hashable, Sendable {
     /// The money in it's worked out from: the values dated in the period.
     public var moneyInOut: MoneyInOutSummary
@@ -75,28 +77,34 @@ public struct SavingsRate: Hashable, Sendable {
     public var income: Decimal { moneyInOut.moneyIn + pensionContributions - tax }
 
     /// What was saved: what every account saved over the days, added up,
-    /// less the one-offs (``MoneyInOutSummary/oneOffs``), which are neither
-    /// came in nor spent. A tax bill paid in the days is out of it.
+    /// the one-offs (``oneOffs``) with it. A tax bill paid in the days is
+    /// out of it.
     public var saved: Decimal {
-        savedByAccount.keys.sorted().reduce(Decimal(0)) { $0 + (savedByAccount[$1] ?? 0) } - oneOffs
+        savedByAccount.keys.sorted().reduce(Decimal(0)) { $0 + (savedByAccount[$1] ?? 0) }
     }
 
     /// Money from outside that was neither income nor spending, such as an
-    /// inheritance: left out of what was saved.
+    /// inheritance (``MoneyInOutSummary/oneOffs``): in what was saved, but
+    /// not in what came in or what was spent.
     public var oneOffs: Decimal { moneyInOut.oneOffs }
 
-    /// What was spent: what came in less what was saved. Below zero when
-    /// more was saved than came in, usually because some income wasn't
-    /// recorded.
-    public var spent: Decimal { income - saved }
+    /// What the pay saved: what was saved, less the one-offs. What the
+    /// rate counts: what came in, less what was spent.
+    public var savedFromPay: Decimal { saved - oneOffs }
 
-    /// What came in, the tax, what was spent and what was saved, as Today's
-    /// *Your pay* splits them (``WhatMoved/Pay``), over the days after
-    /// ``from`` through ``payThrough``: its ``WhatMoved/Pay/spent`` is
-    /// ``spent`` and its ``WhatMoved/Pay/savedShare`` is ``rate``.
+    /// What was spent: what came in less what the pay saved
+    /// (``savedFromPay``). Below zero when more was saved than came in,
+    /// usually because some income wasn't recorded.
+    public var spent: Decimal { income - savedFromPay }
+
+    /// What came in, the tax, what was spent, the one-offs and what was
+    /// saved, as Today's *Your pay* splits them (``WhatMoved/Pay``), over
+    /// the days after ``from`` through ``payThrough``: its
+    /// ``WhatMoved/Pay/spent`` is ``spent``, its ``WhatMoved/Pay/saved`` is
+    /// ``saved`` and its ``WhatMoved/Pay/savedShare`` is ``rate``.
     public var pay: WhatMoved.Pay {
         WhatMoved.Pay(moneyIn: moneyInOut.moneyIn, pension: pensionContributions, tax: tax, saved: saved,
-                      from: from, through: payThrough)
+                      oneOffs: oneOffs, from: from, through: payThrough)
     }
 
     /// ``spent`` scaled to a year by the days the pay covers, at least one,
@@ -107,10 +115,10 @@ public struct SavingsRate: Hashable, Sendable {
         (spent * 365 / Decimal(max(1, from.days(to: payThrough)))).rounded(scale: 2)
     }
 
-    /// ``saved`` over ``income``; negative when more was spent than came in.
-    /// `nil` when nothing came in after tax (``noRate`` says why).
+    /// ``savedFromPay`` over ``income``; negative when more was spent than
+    /// came in. `nil` when nothing came in after tax (``noRate`` says why).
     public var rate: Decimal? {
-        income > 0 ? saved / income : nil
+        income > 0 ? savedFromPay / income : nil
     }
 
     /// Why there's no ``rate``: what came in after tax isn't above zero.
@@ -250,15 +258,13 @@ extension Valuator {
 
     /// `report`'s split of net worth's change with what it saved as
     /// ``WhatMoved/saved`` counts it (``saved(after:through:)`` over its
-    /// days): the part of new accounts' first values counted as what they
-    /// already held, and the one-offs (``MoneyInOutSummary/oneOffs``), move
+    /// days), the one-offs (``MoneyInOutSummary/oneOffs``) with it: the part
+    /// of new accounts' first values counted as what they already held moves
     /// to other. A tax bill paid in the days is out of saved then, as the
     /// savings rate counts it. For the Overview's bars and the check-in's.
     public func savedSplit(of report: ChangeReport) -> ValueChange {
         var change = report.total
-        let money = moneyInOut(from: report.from.adding(days: 1), through: report.to, accounts: cameInAccounts)
         let saved = saved(after: report.from, through: report.to).byAccount.values.reduce(Decimal(0), +)
-            - money.oneOffs
         change.other += change.saved - saved
         change.saved = saved
         return change

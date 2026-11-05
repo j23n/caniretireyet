@@ -82,9 +82,9 @@ public struct PlanProgressYear: Hashable, Sendable, Identifiable {
     public var id: Int { year }
 
     /// What So far's *You saved* shows (UI.md, "The year"): the year's
-    /// pay's saved when money in and out was recorded in it (``pay``), so it's
-    /// the number *Your pay* adds up to; else what plan assets saved in the
-    /// year (``saved``).
+    /// pay's saved when money in and out was recorded in it (``pay``), the
+    /// one-offs with it, so it's the number *Your pay* adds up to; else what
+    /// plan assets saved in the year (``saved``).
     public var youSaved: Decimal { pay?.saved ?? saved }
 
     /// The day ``youSaved`` counts from (exclusive): where ``pay`` is

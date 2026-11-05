@@ -3,8 +3,9 @@ import SwiftUI
 import Tracker
 
 /// What a check-in's month did so far (UI.md, "Check-in"): what came in,
-/// the tax, what was spent and saved, the savings rate, the lost value,
-/// and where what was saved went. It counts only the accounts done so far.
+/// the tax, what was spent, the one-offs and what was saved, the savings
+/// rate, the lost value, and where what was saved went. It counts only the
+/// accounts done so far.
 struct CheckInSoFar: Hashable, Sendable {
     /// An account and what it saved: money moved in when positive.
     struct Share: Hashable, Sendable, Identifiable {
@@ -17,17 +18,22 @@ struct CheckInSoFar: Hashable, Sendable {
     var cameIn: Decimal = 0
     var tax: Decimal = 0
     var spent: Decimal = 0
+    /// Money from outside that was neither income nor spending, such as an
+    /// inheritance: in ``saved``.
+    var oneOffs: Decimal = 0
+    /// What every account saved, the one-offs with it.
     var saved: Decimal = 0
-    /// Saved over what came in after tax; `nil` when nothing did.
+    /// What the pay saved (saved less the one-offs) over what came in after
+    /// tax; `nil` when nothing did.
     var rate: Decimal?
     /// What things that lose value lost, below zero (``Tracker/ValueChange/lost``).
     var lost: Decimal = 0
     /// What net worth's change since the check-in before counts as saved
-    /// (``Tracker/Valuator/savedSplit(of:)``): with the one-offs left out,
-    /// so the bar's parts add up to the change.
+    /// (``Tracker/Valuator/savedSplit(of:)``), the one-offs with it, so the
+    /// bar's parts add up to the change.
     var netSaved: Decimal = 0
-    /// What markets did: price and FX movement, and what nothing explains,
-    /// the one-offs among it.
+    /// What markets did: price and FX movement, and the rest of the change:
+    /// what nothing explains and what new accounts started with.
     var markets: Decimal = 0
     /// Where what was saved went: each account's share, largest first,
     /// those with none left out.
@@ -41,6 +47,7 @@ struct CheckInSoFar: Hashable, Sendable {
             cameIn = savings.income + savings.tax
             tax = savings.tax
             spent = savings.spent
+            oneOffs = savings.oneOffs
             saved = savings.saved
             rate = savings.rate
             wentTo = savings.savedByAccount
@@ -73,8 +80,9 @@ struct CheckInSoFar: Hashable, Sendable {
 }
 
 /// The month so far, beside the groups on the Mac and iPad: what came in,
-/// the tax, what was spent and saved, the savings rate; then what lost
-/// value; then where what was saved went.
+/// the tax, what was spent, the one-offs when there are some, and what was
+/// saved, which they add up to, the savings rate; then what lost value;
+/// then where what was saved went.
 struct CheckInSoFarCard: View {
     let soFar: CheckInSoFar
     let date: CalendarDate
@@ -89,6 +97,7 @@ struct CheckInSoFarCard: View {
                     row("Came in", soFar.cameIn)
                     row("Tax", -soFar.tax, signed: true)
                     row("Spent", -soFar.spent, signed: true)
+                    if soFar.oneOffs != 0 { row("One-offs", soFar.oneOffs, signed: true) }
                     Divider()
                     row("Saved", soFar.saved, bold: true)
                     HStack {

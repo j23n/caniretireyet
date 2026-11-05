@@ -4,8 +4,9 @@ import Model
 /// What truly happened to a simulated household's money over some days
 /// (``HouseholdTruth/totals(after:through:)``), in euros, counted from its
 /// events rather than from its balances:
-/// `change == saved + oneOffs + startedWith + markets`, and
-/// `saved == cameIn - tax - spent`.
+/// `change == saved + startedWith + markets`,
+/// `savedFromPay == cameIn - tax - spent` and
+/// `saved == savedFromPay + oneOffs`.
 public struct HouseholdTotals: Hashable, Sendable {
     /// Pay and bonuses into the current account, after the employer's withholding.
     public var pay: Decimal = 0
@@ -16,7 +17,7 @@ public struct HouseholdTotals: Hashable, Sendable {
     /// Spending by debit and by card, less refunds, the mortgage's interest
     /// and what the car lost in value.
     public var spent: Decimal = 0
-    /// The inheritance.
+    /// The inheritance: saved, but neither came in nor spent.
     public var oneOffs: Decimal = 0
     /// Money from outside that a new account held when it opened.
     public var startedWith: Decimal = 0
@@ -35,8 +36,13 @@ public struct HouseholdTotals: Hashable, Sendable {
     /// What came in after tax (`SavingsRate.income`).
     public var afterTax: Decimal { cameIn - tax }
 
-    /// What was saved: what came in after tax, less what was spent.
-    public var saved: Decimal { afterTax - spent }
+    /// What the pay saved: what came in after tax, less what was spent
+    /// (`SavingsRate.savedFromPay`).
+    public var savedFromPay: Decimal { afterTax - spent }
+
+    /// What was saved: what the pay saved and the one-offs
+    /// (`SavingsRate.saved`).
+    public var saved: Decimal { savedFromPay + oneOffs }
 
     public static func + (lhs: HouseholdTotals, rhs: HouseholdTotals) -> HouseholdTotals {
         var sum = lhs

@@ -109,6 +109,8 @@ struct ImportSavings: Hashable, Sendable {
     var year: Int
     /// Whether the import ends before the year does.
     var isSoFar: Bool
+    /// What the pay saved (Tracker's `SavingsRate.savedFromPay`): a one-off
+    /// is saved, but didn't come in, so the sentence leaves it out.
     var saved: Decimal
     /// What came in, after tax.
     var cameIn: Decimal
@@ -123,7 +125,7 @@ struct ImportSavings: Hashable, Sendable {
               let rate = savings.rate else { return nil }
         year = through.year
         isSoFar = through < CalendarDate.lastDay(ofYear: through.year)
-        saved = savings.saved
+        saved = savings.savedFromPay
         cameIn = savings.income
         self.rate = rate
         currency = library.settings.baseCurrency

@@ -54,7 +54,8 @@ The current account's statement lines are in `history/2025/2025-01.json`. The ch
 | Savings rate | `rate`, `savedShare` | 1,450 / 4,300 = 0.3372 (34%) | |
 | Markets | `whatMoved.markets`, `savedSplit.market` | 250 | the fund 100 × 2, the pension 50 |
 | Change | `whatMoved.change` | 1,700 | −64,400 − (−66,100) = 1,450 + 250 |
-| Started with, one-offs, lost, unexplained | `whatMoved` | 0 each | nothing is unknown |
+| Started with, lost, unexplained | `whatMoved` | 0 each | nothing is unknown |
+| One-offs | `pay.oneOffs`, `oneOffs` | 0 | so saved from pay (`pay.savedFromPay`, `savedFromPay`) is saved, 1,450 |
 | This year | `changeThisYear(asOf: 31 Jan)` | saved 1,450, market 250, other 0 | from 31 Dec, the same month |
 | Bars | `MoneyInOutBars` | came in: money in 0–4,000, pension 4,000–4,300; went out: spent 0–2,850 | |
 | Where the money came from, 31 Dec | `moneySources(.months)` | total 33,900, all started with | plan assets' first values: 5,000 − 1,100 + 10,000 + 20,000 |

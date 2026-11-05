@@ -100,8 +100,9 @@ struct HouseholdImportTests {
 extension HouseholdImportTests {
     /// The statements imported without a class chosen: the import guesses
     /// each line's (IMPORT.md, "Classes"). The promise: each year's came in,
-    /// tax, spent, saved and money out are off by no more than the lines the
-    /// import asks about add up to, since a line it's sure of is right.
+    /// tax, spent, saved, what the pay saved, one-offs and money out are off
+    /// by no more than the lines the import asks about add up to, since a
+    /// line it's sure of is right.
     /// What a wrong class costs is measured as a share of what came in.
     @Test func unclassifiedStatementsAreWrongOnlyWhereTheImportAsks() async {
         let measured = await withTaskGroup(of: (HouseholdErrors, [String]).self) { group in
@@ -125,6 +126,7 @@ extension HouseholdImportTests {
                         let numbers: [(String, Decimal?, Decimal)] = [
                             ("came in", rate?.income, totals.afterTax), ("tax", rate?.tax, totals.tax),
                             ("spent", rate?.spent, totals.spent), ("saved", rate?.saved, totals.saved),
+                            ("saved from pay", rate?.savedFromPay, totals.savedFromPay),
                             ("one-offs", rate?.oneOffs, totals.oneOffs),
                             ("money out", rate?.moneyInOut.moneyOut, moneyOut),
                         ]

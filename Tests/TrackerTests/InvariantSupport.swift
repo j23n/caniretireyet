@@ -94,13 +94,13 @@ enum Readings {
             let moved = valuator.whatMoved(report)
             readings["what moved \(window) saved"] = moved.saved
             readings["what moved \(window) markets"] = moved.markets
-            readings["what moved \(window) one-offs"] = moved.oneOffs
             readings["what moved \(window) started with"] = moved.startedWith
             readings["what moved \(window) unexplained"] = moved.unexplained
             if let pay = moved.pay {
                 readings["what moved \(window) money in"] = pay.moneyIn
                 readings["what moved \(window) pension"] = pay.pension
                 readings["what moved \(window) tax"] = pay.tax
+                readings["what moved \(window) one-offs"] = pay.oneOffs
                 readings["what moved \(window) spent"] = pay.spent
             }
             let split = valuator.savedSplit(of: report)

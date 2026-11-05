@@ -21,7 +21,9 @@ struct SpendingCommand: RetireSubcommand {
             rate: what you saved of what came in. Saved is what every account saved, worked out \
             from balances and trades, so money moved between your accounts cancels out and a loan's \
             principal repaid is saved. Came in is money in plus what was paid into pension funds and \
-            TFR. Spent is what came in less what was saved.
+            TFR. A one-off, such as an inheritance, is saved but neither came in nor spent, so the rate \
+            is what the pay saved, saved less the one-offs, over what came in. Spent is what came in \
+            less what the pay saved.
             """)
 
     @OptionGroup var options: LibraryOptions
@@ -93,12 +95,12 @@ struct SpendingCommand: RetireSubcommand {
                 let tax = savings.tax > 0 ? " after \(Format.amount(savings.tax)) in tax" : ""
                 let spent = savings.spent < 0 ? ""
                     : ", and spent \(Format.amount(savings.spent)) (\(Format.amount(savings.spentPerYear)) a year)"
-                lines.append("Savings rate \(Format.percent(rate)): you saved \(Format.amount(savings.saved)) of the "
-                    + "\(Format.amount(savings.income)) that came in from \(savings.from.adding(days: 1)) to "
-                    + "\(savings.payThrough)\(tax)\(pensions)\(spent).")
+                lines.append("Savings rate \(Format.percent(rate)): you saved "
+                    + "\(Format.amount(savings.savedFromPay)) of the \(Format.amount(savings.income)) that came in "
+                    + "from \(savings.from.adding(days: 1)) to \(savings.payThrough)\(tax)\(pensions)\(spent).")
                 if savings.oneOffs > 0 {
-                    lines.append("One-offs of \(Format.amount(savings.oneOffs)), such as an inheritance, are left out: "
-                        + "they're neither came in nor spent.")
+                    lines.append("With one-offs of \(Format.amount(savings.oneOffs)), such as an inheritance, you "
+                        + "saved \(Format.amount(savings.saved)) in all: they're saved, but neither came in nor spent.")
                 }
                 if savings.spent < 0 {
                     lines.append("More was saved than came in: some income may not be recorded.")
@@ -118,6 +120,7 @@ struct SpendingCommand: RetireSubcommand {
                  cameIn: savings.map { Format.json($0.income) },
                  pensionContributions: savings.map { Format.json($0.pensionContributions) },
                  tax: savings.map { Format.json($0.tax) },
+                 savedFromPay: savings.map { Format.json($0.savedFromPay) },
                  saved: savings.map { Format.json($0.saved) },
                  spent: savings.map { Format.json($0.spent) },
                  spentPerYear: savings.map { Format.json($0.spentPerYear) },
@@ -144,21 +147,24 @@ struct SpendingCommand: RetireSubcommand {
             /// came in.
             var savingsRate: String?
             /// Money in plus the pension contributions, less tax, over the days the pay covers; absent for one account or
-            /// when no money in and out was counted. So are the five below.
+            /// when no money in and out was counted. So are the ones below.
             var cameIn: String?
             /// What was paid into pension funds and TFR over those days.
             var pensionContributions: String?
             /// Tax over those days: tax money out recorded, less refunds,
             /// plus what moved into tax pots. Not in came in.
             var tax: String?
-            /// What every account saved over those days.
+            /// What the pay saved over those days: saved, less the one-offs.
+            /// The savings rate is it over came in.
+            var savedFromPay: String?
+            /// What every account saved over those days, the one-offs with it.
             var saved: String?
-            /// What came in less what was saved.
+            /// What came in less what the pay saved.
             var spent: String?
             /// Spent, scaled to a year by the days.
             var spentPerYear: String?
-            /// Money from outside that was neither income nor spending, left
-            /// out of saved.
+            /// Money from outside that was neither income nor spending: in
+            /// saved, not in came in or spent.
             var oneOffs: String?
         }
     }

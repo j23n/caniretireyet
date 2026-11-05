@@ -21,7 +21,7 @@ struct HouseholdTests {
         for (from, to) in zip(household.checkIns, household.checkIns.dropFirst()) {
             let totals = truth.totals(after: from, through: to)
             // Exact but for amounts converted from dollars, which carry 38 digits.
-            #expect(abs(totals.change - (totals.saved + totals.oneOffs + totals.startedWith + totals.markets))
+            #expect(abs(totals.change - (totals.saved + totals.startedWith + totals.markets))
                 < d("0.000000000000000000001"))
         }
     }
@@ -32,10 +32,8 @@ struct HouseholdTests {
     @Test(arguments: HouseholdSeeds.all)
     func exactRecordsGiveTheTruth(seed: UInt64) {
         let household = HouseholdSimulator.household(seed: seed)
-        let all = HouseholdComparison.exact(household)
-        let mismatches = all.filter { HouseholdComparison.knownIssues[$0.label] == nil }
+        let mismatches = HouseholdComparison.exact(household)
         #expect(mismatches.isEmpty, "seed \(seed): \(mismatches.count) mismatches, first \(mismatches.prefix(8))")
-        HouseholdComparison.recordKnownIssues(all, seed: seed)
         if !mismatches.isEmpty, HouseholdSeeds.reduces, let first = mismatches.first {
             let reduced = HouseholdSeeds.reduce(household.events) { events in
                 HouseholdComparison.exact(household.with(events: events)).contains { $0.label == first.label }
@@ -65,24 +63,6 @@ enum HouseholdComparison {
     /// Amounts agree when they're within half a cent: amounts converted
     /// from dollars carry more decimals than cents, summed in another order.
     static let tolerance = d("0.005")
-
-    /// Mismatches that need the owner's decision, by label, with why.
-    static let knownIssues = [
-        "sources.saved": "Where your money came from counts a one-off (an inheritance) as saved, while the "
-            + "savings rate, what moved it and Trends' money in and out leave it out (PROGRESS.md, \"Trends\"): "
-            + "which of its three parts a one-off belongs to is the owner's decision.",
-    ]
-
-    /// Records each known issue among `mismatches` as known.
-    static func recordKnownIssues(_ mismatches: [HouseholdMismatch], seed: UInt64) {
-        for (label, reason) in knownIssues.sorted(by: { $0.key < $1.key }) {
-            let known = mismatches.filter { $0.label == label }
-            guard let first = known.first else { continue }
-            withKnownIssue(Comment(rawValue: reason)) {
-                Issue.record("seed \(seed): \(known.count) times, first \(first)")
-            }
-        }
-    }
 
     struct Checker {
         var mismatches: [HouseholdMismatch] = []
@@ -115,12 +95,7 @@ enum HouseholdComparison {
             let totals = truth.totals(after: household.start, through: point.date)
             checker.check("sources.total", point.total, truth.netWorth(on: point.date), to: point.date)
             checker.check("sources.startedWith", point.startedWith, opening + totals.startedWith, to: point.date)
-            // The known issue is the one-offs counted as saved, and only that: any other gap fails.
-            let app: Decimal? = point.saved
-            let oneOffsCounted = totals.oneOffs != 0
-                && app.map { abs($0 - totals.saved - totals.oneOffs) < HouseholdComparison.tolerance } == true
-            checker.check(oneOffsCounted ? "sources.saved" : "sources.saved, apart from the one-offs", app,
-                          totals.saved, to: point.date)
+            checker.check("sources.saved", point.saved, totals.saved, to: point.date)
             checker.check("sources.markets", point.markets, totals.markets, to: point.date)
         }
         for year in household.years {
@@ -129,10 +104,11 @@ enum HouseholdComparison {
             checkPeriod(after: from, through: to, prefix: "year.", household, valuator, truth, &checker)
             let report = valuator.changeThisYear(asOf: to)
             let totals = truth.totals(after: from, through: to)
-            checker.check("year.thisYear.saved", report?.total.saved, totals.saved + totals.oneOffs, from: from,
+            checker.check("year.thisYear.saved", report?.total.saved, totals.saved, from: from, to: to)
+            let overYear = valuator.savingsRate(overYearEndingOn: to)
+            checker.check("year.overYear.saved", overYear?.saved, totals.saved, from: from, to: to)
+            checker.check("year.overYear.savedFromPay", overYear?.savedFromPay, totals.savedFromPay, from: from,
                           to: to)
-            checker.check("year.overYear.saved", valuator.savingsRate(overYearEndingOn: to)?.saved, totals.saved,
-                          from: from, to: to)
         }
         if ProcessInfo.processInfo.environment["HOUSEHOLD_DEBUG"] == "1" {
             print("seed \(household.seed): \(household.events.count) events, \(household.checkIns.count) check-ins, "
@@ -178,7 +154,6 @@ enum HouseholdComparison {
         check("whatMoved.change", moved.change, totals.change)
         check("whatMoved.saved", moved.saved, totals.saved)
         check("whatMoved.markets", moved.markets, totals.markets)
-        check("whatMoved.oneOffs", moved.oneOffs, totals.oneOffs)
         check("whatMoved.startedWith", moved.startedWith, totals.startedWith)
         check("whatMoved.lost", moved.lost, 0)
         check("whatMoved.unexplained", moved.unexplained, 0)
@@ -186,6 +161,9 @@ enum HouseholdComparison {
         check("whatMoved.pay.pension", moved.pay?.pension, totals.pension)
         check("whatMoved.pay.tax", moved.pay?.tax, totals.tax)
         check("whatMoved.pay.spent", moved.pay?.spent, totals.spent)
+        check("whatMoved.pay.savedFromPay", moved.pay?.savedFromPay, totals.savedFromPay)
+        check("whatMoved.pay.oneOffs", moved.pay?.oneOffs, totals.oneOffs)
+        check("whatMoved.pay.saved", moved.pay?.saved, totals.saved)
         check("savedSplit.saved", valuator.savedSplit(of: report).saved, totals.saved)
 
         let rate = valuator.savingsRate(from: from.adding(days: 1), through: to)
@@ -193,6 +171,7 @@ enum HouseholdComparison {
         check("rate.pension", rate?.pensionContributions, totals.pension)
         check("rate.tax", rate?.tax, totals.tax)
         check("rate.saved", rate?.saved, totals.saved)
+        check("rate.savedFromPay", rate?.savedFromPay, totals.savedFromPay)
         check("rate.spent", rate?.spent, totals.spent)
         check("rate.oneOffs", rate?.oneOffs, totals.oneOffs)
         if let rate, rate.from != from {

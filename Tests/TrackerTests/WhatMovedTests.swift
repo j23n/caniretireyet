@@ -43,13 +43,14 @@ struct WhatMovedTests {
         return valuator.whatMoved(valuator.change(from: from, to: to))
     }
 
-    /// The parts add up to net worth's change, and pay to what was saved.
+    /// The parts add up to net worth's change, and pay, with the one-offs,
+    /// to what was saved.
     private func expectAddsUp(_ moved: WhatMoved) {
-        #expect(moved.saved + moved.markets + moved.oneOffs + moved.startedWith + moved.lost + moved.unexplained
-            == moved.change)
+        #expect(moved.saved + moved.markets + moved.startedWith + moved.lost + moved.unexplained == moved.change)
         #expect(moved.saved + moved.markets + moved.other == moved.change)
         if let pay = moved.pay {
-            #expect(pay.cameIn - pay.tax - pay.spent == moved.saved)
+            #expect(pay.cameIn - pay.tax - pay.spent == pay.savedFromPay)
+            #expect(pay.savedFromPay + pay.oneOffs == moved.saved)
         }
     }
 
@@ -117,9 +118,10 @@ struct WhatMovedTests {
         expectAddsUp(moved)
     }
 
-    /// A one-off is neither saved nor spent, and a new account's first
-    /// value is what it started with, unless money moved into it paid for it.
-    @Test func oneOffsAndNewAccountsAreTheirOwnParts() throws {
+    /// A one-off is saved, but neither came in nor spent, and a new
+    /// account's first value is what it started with, unless money moved
+    /// into it paid for it.
+    @Test func oneOffsAreSavedAndNewAccountsTheirOwnPart() throws {
         var library = month
         library.upsert(Valuation(account: "bank", date: "2026-01-31", balance: 29450, saved: 19450, moneyIn: 4000,
                                  moneyOut: 4550, oneOff: 20000))
@@ -127,10 +129,14 @@ struct WhatMovedTests {
                                                   currency: .eur, opened: "2026-01-10")
         library.upsert(Valuation(account: "old-savings", date: "2026-01-31", balance: 5000))
         let moved = moved(library)
-        #expect(moved.oneOffs == 20000)
+        let pay = try #require(moved.pay)
+        #expect(pay.oneOffs == 20000)
         #expect(moved.startedWith == 5000)
-        #expect(moved.saved == 1450)
-        #expect(try #require(moved.pay).spent == 2850)
+        #expect(moved.saved == 21450)
+        #expect(pay.saved == 21450)
+        #expect(pay.savedFromPay == 1450)
+        #expect(pay.spent == 2850)
+        #expect(moved.other == 5000)
         #expect(moved.change == 26450)
         #expect(moved.unexplained == 0)
         expectAddsUp(moved)

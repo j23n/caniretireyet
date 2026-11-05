@@ -36,6 +36,34 @@ struct SpendingCommandTests {
         #expect(object["saved"] == nil)
     }
 
+    /// An inheritance of 20,000 into the current account in September is
+    /// saved, but neither came in nor spent: the rate is what the pay saved
+    /// over what came in, as without it.
+    @Test func aOneOffIsSavedButNotInTheRate() async throws {
+        let library = try TemporaryFolder.exampleLibrary()
+        let arguments = ["spending", "--year", "2026", "--library", library.path, "--json"]
+        let before = try parseJSON(await retire(arguments).output)
+        var september = try library.text("history/2026/2026-09.json")
+        september = september.replacingOccurrences(
+            of: #""balance": "4210.55", "date": "2026-09-30", "moneyIn": "3400", "moneyOut": "2554.65""#,
+            with: #""balance": "24210.55", "date": "2026-09-30", "moneyIn": "3400", "moneyOut": "2554.65", "#
+                + #""oneOff": "20000""#)
+        try library.write("history/2026/2026-09.json", september)
+        let after = try parseJSON(await retire(arguments).output)
+        #expect(after["oneOffs"] as? String == "20000")
+        let saved = try #require((before["saved"] as? String).flatMap { Decimal(string: $0) })
+        #expect(before["savedFromPay"] as? String == before["saved"] as? String)
+        #expect(after["saved"] as? String == "\(saved + 20000)")
+        #expect(after["savedFromPay"] as? String == before["saved"] as? String)
+        for unchanged in ["cameIn", "spent", "spentPerYear", "savingsRate"] {
+            #expect(after[unchanged] as? String == before[unchanged] as? String, "\(unchanged)")
+        }
+
+        let run = await retire(["spending", "--year", "2026", "--library", library.path])
+        #expect(run.status == 0, "\(run.all)")
+        #expect(run.output.contains("With one-offs of 20,000.00, such as an inheritance, you saved "), "\(run.output)")
+    }
+
     @Test func saysWhenNothingIsRecorded() async throws {
         let library = try TemporaryFolder.exampleLibrary()
         let run = await retire(["spending", "--year", "2025", "--library", library.path])
