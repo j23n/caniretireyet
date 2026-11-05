@@ -1,0 +1,8 @@
+{
+  "currency": "EUR",
+  "id": "broker",
+  "kind": "brokerage",
+  "name": "Broker",
+  "opened": "2025-02-01",
+  "valuation": "trades"
+}

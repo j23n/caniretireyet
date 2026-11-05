@@ -1,0 +1,21 @@
+{
+  "fx": [],
+  "indices": [],
+  "month": "2025-09",
+  "prices": [
+    { "currency": "EUR", "date": "2025-09-30", "instrument": "world-fund", "price": "56" }
+  ],
+  "trades": [
+    {
+      "account": "broker",
+      "date": "2025-09-10",
+      "fees": "5",
+      "id": "buy-sep",
+      "instrument": "world-fund",
+      "price": "55",
+      "quantity": "20",
+      "type": "buy"
+    }
+  ],
+  "valuations": []
+}

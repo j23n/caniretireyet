@@ -1,0 +1,91 @@
+{
+  "fx": [
+    { "base": "EUR", "date": "2025-01-31", "quote": "USD", "rate": "1.28" }
+  ],
+  "indices": [],
+  "lines": [
+    {
+      "account": "current",
+      "amount": "-1200",
+      "class": "spending",
+      "confirmed": true,
+      "date": "2025-01-05",
+      "id": "jan-rent",
+      "source": "import",
+      "text": "Rent"
+    },
+    {
+      "account": "current",
+      "amount": "-1000",
+      "class": "transfer",
+      "confirmed": true,
+      "date": "2025-01-10",
+      "id": "jan-to-us-broker",
+      "otherAccount": "us-broker",
+      "source": "import",
+      "text": "Transfer to US broker"
+    },
+    {
+      "account": "current",
+      "amount": "-800",
+      "class": "spending",
+      "confirmed": true,
+      "date": "2025-01-20",
+      "id": "jan-groceries",
+      "source": "import",
+      "text": "Groceries and bills"
+    },
+    {
+      "account": "us-checking",
+      "amount": "640",
+      "class": "income",
+      "confirmed": true,
+      "date": "2025-01-20",
+      "id": "jan-freelance",
+      "source": "import",
+      "text": "Freelance payment"
+    },
+    {
+      "account": "us-checking",
+      "amount": "-128",
+      "class": "spending",
+      "confirmed": true,
+      "date": "2025-01-25",
+      "id": "jan-software",
+      "source": "import",
+      "text": "Software subscription"
+    },
+    {
+      "account": "current",
+      "amount": "4000",
+      "class": "income",
+      "confirmed": true,
+      "date": "2025-01-27",
+      "id": "jan-salary",
+      "source": "import",
+      "text": "Salary January"
+    }
+  ],
+  "month": "2025-01",
+  "prices": [
+    { "currency": "USD", "date": "2025-01-31", "instrument": "us-total-market", "price": "268.8" }
+  ],
+  "trades": [
+    { "account": "us-broker", "amount": "1250", "date": "2025-01-10", "id": "jan-deposit", "type": "deposit" },
+    {
+      "account": "us-broker",
+      "date": "2025-01-15",
+      "id": "jan-buy",
+      "instrument": "us-total-market",
+      "price": "250",
+      "quantity": "5",
+      "type": "buy"
+    }
+  ],
+  "valuations": [
+    { "account": "current", "balance": "11000", "date": "2025-01-31", "moneyIn": "4000", "moneyOut": "2000" },
+    { "account": "us-401k", "balance": "10880", "date": "2025-01-31", "saved": "512" },
+    { "account": "us-broker", "cash": "0", "date": "2025-01-31" },
+    { "account": "us-checking", "balance": "2512", "date": "2025-01-31", "moneyIn": "640", "moneyOut": "128" }
+  ]
+}

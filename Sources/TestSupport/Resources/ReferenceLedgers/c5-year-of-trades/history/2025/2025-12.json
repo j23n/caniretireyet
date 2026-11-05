@@ -1,0 +1,21 @@
+{
+  "fx": [],
+  "indices": [],
+  "month": "2025-12",
+  "prices": [
+    { "currency": "EUR", "date": "2025-12-31", "instrument": "world-fund", "price": "52" }
+  ],
+  "trades": [
+    { "account": "broker", "amount": "-10", "date": "2025-12-15", "id": "custody-fee", "type": "fee" },
+    { "account": "broker", "amount": "-1000", "date": "2025-12-20", "id": "withdrawal-dec", "type": "withdrawal" },
+    { "account": "broker", "amount": "-20", "date": "2025-12-31", "id": "stamp-duty", "type": "tax" }
+  ],
+  "valuations": [
+    {
+      "account": "broker",
+      "cash": "5392.05",
+      "date": "2025-12-31",
+      "positions": [{ "instrument": "world-fund", "quantity": "70" }]
+    }
+  ]
+}

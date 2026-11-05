@@ -1,0 +1,74 @@
+{
+  "fx": [],
+  "indices": [],
+  "lines": [
+    {
+      "account": "current",
+      "amount": "4000",
+      "class": "income",
+      "confirmed": true,
+      "date": "2025-06-05",
+      "id": "jun-client",
+      "source": "import",
+      "text": "Client payment"
+    },
+    {
+      "account": "current",
+      "amount": "-1000",
+      "class": "transfer",
+      "confirmed": true,
+      "date": "2025-06-06",
+      "id": "jun-to-pot",
+      "otherAccount": "tax-pot",
+      "source": "import",
+      "text": "To tax pot"
+    },
+    {
+      "account": "tax-pot",
+      "amount": "1000",
+      "class": "transfer",
+      "confirmed": true,
+      "date": "2025-06-06",
+      "id": "jun-from-current",
+      "otherAccount": "current",
+      "source": "import",
+      "text": "From current account"
+    },
+    {
+      "account": "current",
+      "amount": "-1200",
+      "class": "spending",
+      "confirmed": true,
+      "date": "2025-06-15",
+      "id": "jun-rent",
+      "source": "import",
+      "text": "Rent"
+    },
+    {
+      "account": "tax-pot",
+      "amount": "-12000",
+      "class": "tax",
+      "confirmed": true,
+      "date": "2025-06-16",
+      "id": "jun-income-tax",
+      "source": "import",
+      "text": "Income tax 2024 and first payment on account"
+    },
+    {
+      "account": "current",
+      "amount": "-800",
+      "class": "spending",
+      "confirmed": true,
+      "date": "2025-06-20",
+      "id": "jun-groceries",
+      "source": "import",
+      "text": "Groceries and bills"
+    }
+  ],
+  "month": "2025-06",
+  "prices": [],
+  "valuations": [
+    { "account": "current", "balance": "9000", "date": "2025-06-30", "moneyIn": "4000", "moneyOut": "2000" },
+    { "account": "tax-pot", "balance": "0", "date": "2025-06-30", "moneyIn": "0", "moneyOut": "12000" }
+  ]
+}

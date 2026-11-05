@@ -1,0 +1,7 @@
+{
+  "currency": "EUR",
+  "id": "tax-pot",
+  "kind": "taxPot",
+  "name": "Tax pot",
+  "opened": "2024-12-01"
+}

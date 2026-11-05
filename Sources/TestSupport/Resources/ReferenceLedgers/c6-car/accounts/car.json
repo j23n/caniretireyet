@@ -1,0 +1,9 @@
+{
+  "closed": "2025-10-16",
+  "currency": "EUR",
+  "depreciation": "0.15",
+  "id": "car",
+  "kind": "belongings",
+  "name": "Car",
+  "opened": "2025-03-09"
+}

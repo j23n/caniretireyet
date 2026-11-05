@@ -1,0 +1,21 @@
+{
+  "fx": [],
+  "indices": [],
+  "month": "2025-03",
+  "prices": [
+    { "currency": "EUR", "date": "2025-03-31", "instrument": "world-fund", "price": "112" }
+  ],
+  "trades": [
+    {
+      "account": "broker",
+      "date": "2025-03-14",
+      "fees": "5",
+      "id": "buy-mar",
+      "instrument": "world-fund",
+      "price": "110",
+      "quantity": "30",
+      "type": "buy"
+    }
+  ],
+  "valuations": []
+}

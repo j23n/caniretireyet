@@ -1,0 +1,47 @@
+{
+  "fx": [
+    { "base": "EUR", "date": "2025-02-28", "quote": "USD", "rate": "1.25" }
+  ],
+  "indices": [],
+  "lines": [
+    {
+      "account": "current",
+      "amount": "-1200",
+      "class": "spending",
+      "confirmed": true,
+      "date": "2025-02-05",
+      "id": "feb-rent",
+      "source": "import",
+      "text": "Rent"
+    },
+    {
+      "account": "current",
+      "amount": "-1300",
+      "class": "spending",
+      "confirmed": true,
+      "date": "2025-02-20",
+      "id": "feb-groceries",
+      "source": "import",
+      "text": "Groceries, bills and a phone"
+    },
+    {
+      "account": "current",
+      "amount": "4000",
+      "class": "income",
+      "confirmed": true,
+      "date": "2025-02-27",
+      "id": "feb-salary",
+      "source": "import",
+      "text": "Salary February"
+    }
+  ],
+  "month": "2025-02",
+  "prices": [
+    { "currency": "USD", "date": "2025-02-28", "instrument": "us-total-market", "price": "268.8" }
+  ],
+  "valuations": [
+    { "account": "current", "balance": "12500", "date": "2025-02-28", "moneyIn": "4000", "moneyOut": "2500" },
+    { "account": "us-401k", "balance": "11250", "date": "2025-02-28" },
+    { "account": "us-checking", "balance": "2512", "date": "2025-02-28", "moneyIn": "0", "moneyOut": "0" }
+  ]
+}

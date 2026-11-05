@@ -1,0 +1,76 @@
+{
+  "fx": [],
+  "indices": [],
+  "lines": [
+    {
+      "account": "current",
+      "amount": "-1100",
+      "class": "spending",
+      "confirmed": true,
+      "date": "2025-03-15",
+      "id": "mar-rent",
+      "source": "import",
+      "text": "Rent"
+    },
+    {
+      "account": "current",
+      "amount": "-1000",
+      "class": "spending",
+      "confirmed": true,
+      "date": "2025-03-20",
+      "id": "mar-groceries",
+      "source": "import",
+      "text": "Groceries and bills"
+    },
+    {
+      "account": "current",
+      "amount": "3000",
+      "class": "income",
+      "confirmed": true,
+      "date": "2025-03-27",
+      "id": "mar-salary",
+      "source": "import",
+      "text": "Salary"
+    },
+    {
+      "account": "current",
+      "amount": "-500",
+      "class": "transfer",
+      "confirmed": true,
+      "date": "2025-03-28",
+      "id": "mar-to-savings",
+      "otherAccount": "savings",
+      "source": "import",
+      "text": "To savings"
+    },
+    {
+      "account": "savings",
+      "amount": "500",
+      "class": "transfer",
+      "confirmed": true,
+      "date": "2025-03-28",
+      "id": "mar-from-current",
+      "otherAccount": "current",
+      "source": "import",
+      "text": "From current account"
+    },
+    {
+      "account": "savings",
+      "amount": "11",
+      "class": "interest",
+      "confirmed": true,
+      "date": "2025-03-31",
+      "id": "mar-interest",
+      "source": "import",
+      "text": "Interest March"
+    }
+  ],
+  "month": "2025-03",
+  "prices": [
+    { "currency": "EUR", "date": "2025-03-31", "instrument": "world-fund", "price": "105" }
+  ],
+  "valuations": [
+    { "account": "current", "balance": "6900", "date": "2025-03-31", "moneyIn": "6000", "moneyOut": "3800" },
+    { "account": "savings", "balance": "11532", "date": "2025-03-31", "interest": "22", "moneyIn": "0", "moneyOut": "0" }
+  ]
+}

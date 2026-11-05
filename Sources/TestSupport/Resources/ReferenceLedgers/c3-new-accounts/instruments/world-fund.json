@@ -1,0 +1,8 @@
+{
+  "assetClasses": { "equity": "1" },
+  "currency": "EUR",
+  "id": "world-fund",
+  "kind": "etf",
+  "name": "World Equity Index Fund",
+  "unit": "share"
+}

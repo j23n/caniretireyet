@@ -1,0 +1,8 @@
+{
+  "assetClasses": { "equity": "1" },
+  "currency": "USD",
+  "id": "us-total-market",
+  "kind": "etf",
+  "name": "US Total Market ETF",
+  "unit": "share"
+}

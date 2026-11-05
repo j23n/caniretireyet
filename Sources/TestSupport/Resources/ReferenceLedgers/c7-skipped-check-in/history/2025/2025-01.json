@@ -1,0 +1,76 @@
+{
+  "fx": [],
+  "indices": [],
+  "lines": [
+    {
+      "account": "current",
+      "amount": "-1100",
+      "class": "spending",
+      "confirmed": true,
+      "date": "2025-01-15",
+      "id": "jan-rent",
+      "source": "import",
+      "text": "Rent"
+    },
+    {
+      "account": "current",
+      "amount": "-700",
+      "class": "spending",
+      "confirmed": true,
+      "date": "2025-01-20",
+      "id": "jan-groceries",
+      "source": "import",
+      "text": "Groceries and bills"
+    },
+    {
+      "account": "current",
+      "amount": "3000",
+      "class": "income",
+      "confirmed": true,
+      "date": "2025-01-27",
+      "id": "jan-salary",
+      "source": "import",
+      "text": "Salary"
+    },
+    {
+      "account": "current",
+      "amount": "-500",
+      "class": "transfer",
+      "confirmed": true,
+      "date": "2025-01-28",
+      "id": "jan-to-savings",
+      "otherAccount": "savings",
+      "source": "import",
+      "text": "To savings"
+    },
+    {
+      "account": "savings",
+      "amount": "500",
+      "class": "transfer",
+      "confirmed": true,
+      "date": "2025-01-28",
+      "id": "jan-from-current",
+      "otherAccount": "current",
+      "source": "import",
+      "text": "From current account"
+    },
+    {
+      "account": "savings",
+      "amount": "10",
+      "class": "interest",
+      "confirmed": true,
+      "date": "2025-01-31",
+      "id": "jan-interest",
+      "source": "import",
+      "text": "Interest January"
+    }
+  ],
+  "month": "2025-01",
+  "prices": [
+    { "currency": "EUR", "date": "2025-01-31", "instrument": "world-fund", "price": "102" }
+  ],
+  "valuations": [
+    { "account": "current", "balance": "5700", "date": "2025-01-31", "moneyIn": "3000", "moneyOut": "1800" },
+    { "account": "savings", "balance": "10510", "date": "2025-01-31", "interest": "10", "moneyIn": "0", "moneyOut": "0" }
+  ]
+}

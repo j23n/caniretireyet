@@ -1,0 +1,8 @@
+{
+  "currency": "USD",
+  "id": "us-broker",
+  "kind": "brokerage",
+  "name": "US broker",
+  "opened": "2024-12-01",
+  "valuation": "trades"
+}

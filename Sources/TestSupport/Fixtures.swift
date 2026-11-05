@@ -39,7 +39,13 @@ public enum Fixtures {
     /// The paths of every JSON file in the example library, relative to its
     /// folder and sorted, e.g. `history/2026/2026-09.json`.
     public static var allJSONFiles: [String] {
-        let root = exampleLibraryURL.standardizedFileURL.path
+        jsonFiles(in: exampleLibraryURL)
+    }
+
+    /// The paths of every JSON file in the library folder at `url`,
+    /// relative to it and sorted.
+    static func jsonFiles(in url: URL) -> [String] {
+        let root = url.standardizedFileURL.path
         guard let enumerator = FileManager.default.enumerator(atPath: root) else { return [] }
         return enumerator.compactMap { $0 as? String }.filter { $0.hasSuffix(".json") }.sorted()
     }
@@ -71,8 +77,17 @@ public enum Fixtures {
     /// depending on Storage. It doesn't validate, keep unknown keys, or check
     /// that file names match IDs; Storage's loader does that.
     public static func exampleLibrary() throws -> Library {
+        try library(at: exampleLibraryURL)
+    }
+
+    /// The library folder at `url` as a `Library`, read naively with
+    /// `JSONDecoder`, as ``exampleLibrary()`` reads the example library.
+    static func library(at url: URL) throws -> Library {
+        func decode<T: Decodable>(_ type: T.Type, from path: String) throws -> T {
+            try JSONDecoder().decode(type, from: Data(contentsOf: url.appendingPathComponent(path)))
+        }
         var library = Library(settings: try decode(LibrarySettings.self, from: "library.json"))
-        for path in allJSONFiles {
+        for path in jsonFiles(in: url) {
             let parts = path.split(separator: "/").map(String.init)
             let stem = String(parts[parts.count - 1].dropLast(".json".count))
             switch parts[0] {

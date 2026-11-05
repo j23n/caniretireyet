@@ -50,11 +50,12 @@ let package = Package(
             resources: testResources["\(library.name)Tests"]
         )
     } + [
-        // Test-only helpers and the made-up example library. Not a product.
+        // Test-only helpers, the made-up example library and the reference
+        // ledgers (docs/PROGRESS.md, "Reference ledgers"). Not a product.
         .target(
             name: "TestSupport",
             dependencies: ["Model"],
-            resources: [.copy("Resources/ExampleLibrary")]
+            resources: [.copy("Resources/ExampleLibrary"), .copy("Resources/ReferenceLedgers")]
         ),
         // The `retire` command-line tool: its commands live in `RetireCLI`,
         // a library so they can be tested, and the executable only starts it.

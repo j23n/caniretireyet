@@ -1,0 +1,7 @@
+{
+  "currency": "EUR",
+  "id": "pension",
+  "kind": "pensionFund",
+  "name": "Pension fund",
+  "opened": "2024-12-01"
+}

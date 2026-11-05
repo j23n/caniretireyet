@@ -1,0 +1,64 @@
+{
+  "fx": [],
+  "indices": [],
+  "lines": [
+    {
+      "account": "current",
+      "amount": "4000",
+      "class": "income",
+      "confirmed": true,
+      "date": "2025-03-05",
+      "id": "mar-client",
+      "source": "import",
+      "text": "Client payment"
+    },
+    {
+      "account": "current",
+      "amount": "-1000",
+      "class": "transfer",
+      "confirmed": true,
+      "date": "2025-03-06",
+      "id": "mar-to-pot",
+      "otherAccount": "tax-pot",
+      "source": "import",
+      "text": "To tax pot"
+    },
+    {
+      "account": "tax-pot",
+      "amount": "1000",
+      "class": "transfer",
+      "confirmed": true,
+      "date": "2025-03-06",
+      "id": "mar-from-current",
+      "otherAccount": "current",
+      "source": "import",
+      "text": "From current account"
+    },
+    {
+      "account": "current",
+      "amount": "-1200",
+      "class": "spending",
+      "confirmed": true,
+      "date": "2025-03-15",
+      "id": "mar-rent",
+      "source": "import",
+      "text": "Rent"
+    },
+    {
+      "account": "current",
+      "amount": "-800",
+      "class": "spending",
+      "confirmed": true,
+      "date": "2025-03-20",
+      "id": "mar-groceries",
+      "source": "import",
+      "text": "Groceries and bills"
+    }
+  ],
+  "month": "2025-03",
+  "prices": [],
+  "valuations": [
+    { "account": "current", "balance": "6000", "date": "2025-03-31", "moneyIn": "4000", "moneyOut": "2000" },
+    { "account": "tax-pot", "balance": "9000", "date": "2025-03-31", "moneyIn": "0", "moneyOut": "0" }
+  ]
+}

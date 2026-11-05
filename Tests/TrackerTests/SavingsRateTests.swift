@@ -132,6 +132,24 @@ struct SavingsRateTests {
         #expect(savings.rate?.rounded(scale: 4) == d("0.3372"))
     }
 
+    /// A savings account whose statement runs to 31 March while the current
+    /// account's, where the pay came in, runs to 31 January: spent a year
+    /// counts January's 31 days, not 90.
+    @Test func spentAYearEndsWithThePaysLatestValue() throws {
+        var library = month
+        library.accounts["risparmio"] = Account(id: "risparmio", name: "Risparmio", kind: .savings, currency: .eur,
+                                                opened: "2025-12-01")
+        library.upsert(Valuation(account: "risparmio", date: "2025-12-31", balance: 5000))
+        library.upsert(Valuation(account: "risparmio", date: "2026-03-31", balance: 5500, moneyIn: 500, moneyOut: 0))
+        let savings = try #require(Valuator(library: library).savingsRate(from: "2026-01-01", through: "2026-12-31"))
+        #expect(savings.from == "2025-12-31")
+        #expect(savings.payThrough == "2026-01-31")
+        #expect(savings.moneyInOut.lastCounted == "2026-03-31")
+        #expect(savings.spent == 2850)
+        // 2,850 × 365 / 31.
+        #expect(savings.spentPerYear == d("33556.45"))
+    }
+
     /// An inheritance of 20,000 into the current account is neither came in
     /// nor spent: saved, spent and the rate stay as they were.
     @Test func aOneOffIsLeftOutOfWhatWasSaved() throws {
