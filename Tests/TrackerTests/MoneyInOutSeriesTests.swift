@@ -159,6 +159,25 @@ struct MoneyInOutSeriesTests {
         #expect(!january.coversMore(.months))
     }
 
+    /// A month whose value records no money in and out counts nothing, so
+    /// the next month's pay covers its own days, not that month's too,
+    /// whose money in nobody recorded.
+    @Test func aMonthWithNothingCountedDoesntPassOnItsDays() throws {
+        var library = Library(settings: LibrarySettings(baseCurrency: .eur))
+        library.accounts["bank"] = Account(id: "bank", name: "Bank", kind: .cash, currency: .eur,
+                                           opened: "2025-12-01")
+        library.upsert(Valuation(account: "bank", date: "2025-12-31", balance: 0))
+        library.upsert(Valuation(account: "bank", date: "2026-01-31", balance: 1000, moneyIn: 3000, moneyOut: 2000))
+        library.upsert(Valuation(account: "bank", date: "2026-02-28", balance: 2000))
+        library.upsert(Valuation(account: "bank", date: "2026-03-31", balance: 3000, moneyIn: 3000, moneyOut: 2000))
+        let months = Valuator(library: library).moneyInOutSeries(.months, through: "2026-03-31").periods
+        #expect(months.map { $0.savings == nil } == [false, true, false])
+        let march = try #require(months.last)
+        #expect(march.covers == CalendarDate("2026-03-01")...CalendarDate("2026-03-31"))
+        #expect(march.saved == 1000)
+        #expect(march.spent == 2000)
+    }
+
     /// The current account records money in and out from November 2025 to
     /// October 2026: twelve months, so October has a rate over the last 12.
     @Test func monthsFromTheTwelfthHaveTheRateOverTheLast12() throws {

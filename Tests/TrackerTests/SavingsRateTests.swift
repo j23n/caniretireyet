@@ -254,13 +254,13 @@ struct SavingsRateTests {
         // 3,000 × 365 / 31.
         #expect(more.spentPerYear == d("35322.58"))
 
-        let tie = Valuator(library: library(savingsMoneyIn: 9000))
-        let tieMonths = tie.moneyInOutSeries(.months, through: "2026-03-31").periods
-        #expect(tieMonths.map(\.saved) == [0, 2000, 10000])
-        #expect(tieMonths.map(\.covers) == [nil, "2026-01-01"..."2026-02-28", "2026-03-01"..."2026-03-31"])
-        let tieQuarter = try #require(tie.savingsRate(from: "2026-01-01", through: "2026-03-31"))
-        #expect(tieQuarter.saved == tieMonths.map(\.saved).reduce(0, +))
-        #expect(tieQuarter.spent == tieMonths.map(\.spent).reduce(0, +))
+        let close = Valuator(library: library(savingsMoneyIn: 9000))
+        let closeMonths = close.moneyInOutSeries(.months, through: "2026-03-31").periods
+        #expect(closeMonths.map(\.saved) == [0, 2000, 10000])
+        #expect(closeMonths.map(\.covers) == [nil, "2026-01-01"..."2026-02-28", "2026-03-01"..."2026-03-31"])
+        let closeQuarter = try #require(close.savingsRate(from: "2026-01-01", through: "2026-03-31"))
+        #expect(closeQuarter.saved == closeMonths.map(\.saved).reduce(0, +))
+        #expect(closeQuarter.spent == closeMonths.map(\.spent).reduce(0, +))
     }
 
     /// The pay moves to a new current account from January: the old one,
