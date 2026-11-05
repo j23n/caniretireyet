@@ -95,7 +95,7 @@ struct SpendingCommand: RetireSubcommand {
                     : ", and spent \(Format.amount(savings.spent)) (\(Format.amount(savings.spentPerYear)) a year)"
                 lines.append("Savings rate \(Format.percent(rate)): you saved \(Format.amount(savings.saved)) of the "
                     + "\(Format.amount(savings.income)) that came in from \(savings.from.adding(days: 1)) to "
-                    + "\(savings.through)\(tax)\(pensions)\(spent).")
+                    + "\(savings.payThrough)\(tax)\(pensions)\(spent).")
                 if savings.oneOffs > 0 {
                     lines.append("One-offs of \(Format.amount(savings.oneOffs)), such as an inheritance, are left out: "
                         + "they're neither came in nor spent.")
