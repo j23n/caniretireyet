@@ -186,8 +186,9 @@ struct PlanWords: Hashable, Sendable {
 
     /// "you saved 13.200 € and markets added 22.200 €.", "you took out 900 €
     /// and markets took 4.000 €.": what came from you and from markets.
-    func savedAndMarkets(saved: Decimal, markets: Decimal) -> AmountSentence {
-        let you: AmountSentence = saved >= 0 ? "you saved \(unsigned(saved))" : "you took out \(unsigned(saved))"
+    func savedAndMarkets(saved: Decimal, since: String? = nil, markets: Decimal) -> AmountSentence {
+        var you: AmountSentence = saved >= 0 ? "you saved \(unsigned(saved))" : "you took out \(unsigned(saved))"
+        if let since { you.append(words: " since \(since)") }
         let them: AmountSentence = markets >= 0 ? "markets added \(unsigned(markets))"
             : "markets took \(unsigned(markets))"
         return "\(you) and \(them)."
