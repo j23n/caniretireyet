@@ -9,15 +9,17 @@ import Tracker
 /// counted in changes a rate.
 struct TransferAndScaleTests {
     /// `library` with `amount` moved from `source` to `destination` on
-    /// `date`, recorded on both sides: each balance after it changed by the
-    /// amount, or for an account that records trades, a deposit or a
-    /// withdrawal and the cash it records after it. Money in and out stay:
-    /// a transfer between tracked accounts is in neither.
-    private func moving(_ amount: Decimal, from source: AccountID, to destination: AccountID, on date: CalendarDate,
-                        in library: Library) -> Library {
+    /// `date`, arriving on `arrival` (`date` when `nil`), recorded on both
+    /// sides: each balance after it changed by the amount, or for an
+    /// account that records trades, a deposit or a withdrawal and the cash
+    /// it records after it. Money in and out stay: a transfer between
+    /// tracked accounts is in neither.
+    private func moving(_ amount: Decimal, from source: AccountID, to destination: AccountID, on sent: CalendarDate,
+                        arriving arrival: CalendarDate? = nil, in library: Library) -> Library {
         var library = library
         for (account, sign) in [(source, Decimal(-1)), (destination, Decimal(1))] {
             guard let details = library.accounts[account] else { continue }
+            let date = sign > 0 ? arrival ?? sent : sent
             if details.recordsTrades {
                 library.upsert(Trade(account: account, date: date, id: TradeID("moved-\(date)"),
                                      type: sign > 0 ? .deposit : .withdrawal, amount: sign * amount))
@@ -101,6 +103,31 @@ struct TransferAndScaleTests {
             #expect(same(now.market, was.market), "\(from)…\(to)")
             #expect(same(now.end, was.end), "\(from)…\(to)")
         }
+    }
+
+    /// A transfer whose two sides fall on either side of the bank's value
+    /// of 31 March: the bank's line on 30 March and the broker's deposit on
+    /// 1 April, or the broker's withdrawal on 30 March and the bank's line
+    /// on 1 April. The broker's side converts at the bank's value that
+    /// covers the line (31 March, 1.12, or 30 April, 1.09), where the
+    /// bank's side lands, not at the one that covers its own date: over the
+    /// year the two sides cancel.
+    @Test(arguments: [true, false])
+    func aTransferAcrossTheOtherAccountsValueCountsAtTheLines(toTheBroker: Bool) throws {
+        var library = try InvariantLibrary.foreignCurrency.library()
+        let before = Valuator(library: library)
+        let (source, destination): (AccountID, AccountID) = toTheBroker ? ("usd-bank", "usd-broker")
+            : ("usd-broker", "usd-bank")
+        library = moving(1000, from: source, to: destination, on: "2026-03-30", arriving: "2026-04-01", in: library)
+        library.upsert(BankLine(account: "usd-bank", date: toTheBroker ? "2026-03-30" : "2026-04-01", id: "moved",
+                                amount: toTheBroker ? -1000 : 1000, statementClass: .transfer,
+                                otherAccount: "usd-broker"))
+        let after = Valuator(library: library)
+        let was = before.change(from: "2025-12-31", to: "2026-04-30").total
+        let now = after.change(from: "2025-12-31", to: "2026-04-30").total
+        #expect(same(now.saved, was.saved))
+        #expect(same(now.market, was.market))
+        #expect(same(now.end, was.end))
     }
 
     /// The same transfer without the bank's line. Without the other side's

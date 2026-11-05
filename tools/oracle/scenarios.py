@@ -170,9 +170,10 @@ TRADES = {
             value("2026-03-31", "bank", balance="7350", moneyIn="3000", moneyOut="2250"),
             value("2026-04-30", "bank", balance="6000", moneyIn="3000", moneyOut="3850"),
             value("2026-01-31", "usd-bank", balance="3000"),
-            value("2026-02-28", "usd-bank", balance="3000", moneyIn="0", moneyOut="0"),
+            # The move to the broker on 27 February is out of it; the broker's deposit is on 2 March.
+            value("2026-02-28", "usd-bank", balance="2700", moneyIn="0", moneyOut="0"),
             # No value on 31 March: its 30 April value covers the move to the broker in March.
-            value("2026-04-30", "usd-bank", balance="2500", moneyIn="0", moneyOut="0"),
+            value("2026-04-30", "usd-bank", balance="2200", moneyIn="0", moneyOut="0"),
             value("2026-01-31", "broker", cash="100"),
             # A statement's positions are a check, not the holdings (TRADES.md, "Reconciliation").
             value("2026-02-28", "broker", cash="300", positions=[{"instrument": "world", "quantity": "24"}]),
@@ -182,6 +183,10 @@ TRADES = {
             value("2026-03-31", "gold", cash="0", balance="1"),
         ],
         "lines": [
+            # Sent on 27 February, deposited on 2 March, with the bank's value of 28 February between:
+            # the deposit converts at that value's rate, where the bank's side lands (TRADES.md, "Flows").
+            {"account": "usd-bank", "date": "2026-02-27", "id": "to-broker-feb", "amount": "-300",
+             "class": "transfer", "otherAccount": "usd-broker", "text": "To the broker", "confirmed": True},
             {"account": "usd-bank", "date": "2026-03-04", "id": "to-broker", "amount": "-500", "class": "transfer",
              "otherAccount": "usd-broker", "text": "To the broker", "confirmed": True},
         ],
@@ -205,6 +210,7 @@ TRADES = {
             trade("2026-01-20", "usd-broker", "dep-u", "deposit", amount="2000"),
             trade("2026-02-15", "usd-broker", "buy-u", "buy", instrument="tech", quantity="7", price="210.4",
                   fees="1.25"),
+            trade("2026-03-02", "usd-broker", "dep-u4", "deposit", amount="300"),
             trade("2026-03-05", "usd-broker", "dep-u2", "deposit", amount="500"),
             trade("2026-04-03", "usd-broker", "dep-u3", "deposit", amount="300"),
             trade("2026-04-10", "usd-broker", "int-u", "interest", amount="3.4"),

@@ -141,8 +141,9 @@ extension Valuator {
     ///   (deposits, withdrawals, transfers and residuals), each converted at
     ///   its date; a deposit or withdrawal moved from or to another account
     ///   in its currency at the rate of that account's value that covers
-    ///   it, as that value's saved is (``rateDate(ofFlowOn:from:through:)``). Dividends, interest and fees are
-    ///   market. Without a price for a transfer, what it saved is unknown:
+    ///   its line, as that value's saved is
+    ///   (``rateDate(ofLineOn:in:through:)``). Dividends, interest and fees
+    ///   are market. Without a price for a transfer, what it saved is unknown:
     ///   market is the old holdings at the new prices and rates, and saved
     ///   the rest.
     /// - An account that closes in the period ends at zero: its value on the
@@ -296,8 +297,8 @@ extension Valuator {
     /// account, its ``TradeFlow``s instead: deposits, withdrawals, transfers
     /// and residuals, each converted at its date, or, for a move from or to
     /// another account in its currency, at that account's value that
-    /// covers it (``rateDate(ofFlowOn:from:through:)``). Converted to `currency` (the base
-    /// currency when `nil`).
+    /// covers its line (``rateDate(ofLineOn:in:through:)``). Converted to
+    /// `currency` (the base currency when `nil`).
     func recordedSaved(of account: Account, after from: CalendarDate, through: CalendarDate,
                        in currency: CurrencyCode? = nil, problems: inout [ValuationProblem]) -> Decimal? {
         let target = currency ?? baseCurrency

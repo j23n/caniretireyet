@@ -135,7 +135,7 @@ extension Valuator {
     /// The flows of a trades account after `from` through `through`, each
     /// converted into `target` at its date, or, for a move from or to
     /// another account in its currency (``transfers``), at the rate of that
-    /// account's value that covers it (``rateDate(ofFlowOn:from:through:)``);
+    /// account's value that covers its line (``rateDate(ofLineOn:in:through:)``);
     /// no conversion for the account's own currency. `nil` when one is unknown
     /// or can't be converted (reported in `problems`).
     func convertedTradeFlows(of account: Account, after from: CalendarDate, through: CalendarDate,
@@ -155,9 +155,9 @@ extension Valuator {
                 known = false
                 continue
             }
-            let other = flow.trade.flatMap { transfers[$0.key] }
-            let on = other.flatMap { other in
-                account.currency == target ? nil : rateDate(ofFlowOn: flow.date, from: other, through: through)
+            let line = flow.trade.flatMap { transfers[$0.key] }
+            let on = line.flatMap { line in
+                account.currency == target ? nil : rateDate(ofLineOn: line.date, in: line.account, through: through)
             } ?? flow.date
             if let value = converted(amount, from: account.currency, to: target, on: on, for: account.id,
                                      problems: &problems) {
@@ -169,15 +169,16 @@ extension Valuator {
         return known ? result : nil
     }
 
-    /// The date whose rate a trades account's deposit or withdrawal dated
-    /// `date`, moved from or to `other`, another account in its currency
-    /// (``transfers``), converts into another currency at (docs/TRADES.md,
-    /// "Flows"): that of `other`'s value that covers it, its first on or
-    /// after the date, wherever the period counted ends. What that value
-    /// saved converts at its date, so both sides of the move count at one
-    /// rate. `end`, the period's end, when `other` has no value on or after
-    /// the date yet.
-    func rateDate(ofFlowOn date: CalendarDate, from other: AccountID, through end: CalendarDate) -> CalendarDate {
+    /// The date whose rate a trades account's deposit or withdrawal, moved
+    /// from or to `other`, another account in its currency, by `other`'s
+    /// transfer line dated `date` (``transfers``), converts into another
+    /// currency at (docs/TRADES.md, "Flows"): that of `other`'s value that
+    /// covers the line, its first on or after the line's date, wherever the
+    /// period counted ends. The line's date, not the deposit's: they can be
+    /// days apart, with a check-in between. What that value saved converts
+    /// at its date, so both sides of the move count at one rate. `end`, the
+    /// period's end, when `other` has no value on or after the date yet.
+    func rateDate(ofLineOn date: CalendarDate, in other: AccountID, through end: CalendarDate) -> CalendarDate {
         let valuations = history(of: other).valuations
         let index = valuations.lastIndex(onOrBefore: date.adding(days: -1), date: \.date).map { $0 + 1 } ?? 0
         return index < valuations.count ? valuations[index].date : end

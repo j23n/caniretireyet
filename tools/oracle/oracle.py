@@ -256,7 +256,7 @@ class Export:
         self._worth: dict[tuple[str, date, str], Optional[Amount]] = {}
         self._residuals: dict[str, list[tuple[date, Amount]]] = {}
         self._check_ins: Optional[list[date]] = None
-        self._transfers: Optional[dict[tuple[str, date, str], str]] = None
+        self._transfers: Optional[dict[tuple[str, date, str], tuple[str, date]]] = None
 
     # MARK: Prices and rates
 
@@ -513,21 +513,21 @@ class Export:
     def flows(self, account: Account, after: Optional[date], through: date, in_base: bool = True) -> Amount:
         """The sum of the flows, in the base currency (or in the account's), each at its date's rate;
         a move from or to another account in its currency at the rate of the value of the other
-        account that covers it (TRADES.md, "Flows")."""
+        account that covers its line (TRADES.md, "Flows")."""
         total = Amount(ZERO)
         for on, flow, trade in self.dated_flows(account, after, through):
             if in_base:
-                other = self.transfers().get((trade.account, trade.date, trade.id)) if trade else None
-                rate_day = self.covering_value(other, on, through) if other else on
+                line = self.transfers().get((trade.account, trade.date, trade.id)) if trade else None
+                rate_day = self.covering_value(line[0], line[1], through) if line else on
                 converted = self.to_base(flow.value, account, rate_day)
                 flow = Amount(converted.value, converted.complete and flow.complete)
             total = total + flow
         return total
 
-    def transfers(self) -> dict[tuple[str, date, str], str]:
+    def transfers(self) -> dict[tuple[str, date, str], tuple[str, date]]:
         """The deposits and withdrawals of trades accounts outside the base currency that moved money
         from or to another account in their currency (TRADES.md, "Flows"), by account, date and ID,
-        each with that account: oldest first, each line of class transfer in such an account whose
+        each with that account and the line's date: oldest first, each line of class transfer in such an account whose
         other account is the trades account, and that isn't removed, matches the first deposit or
         withdrawal of the same amount the other way within four days that no line matched yet."""
         if self._transfers is None:
@@ -547,11 +547,11 @@ class Export:
                                   and abs((t.date - on).days) <= 4), None)
                     if match is not None:
                         free.remove(match)
-                        self._transfers[(match.account, match.date, match.id)] = source
+                        self._transfers[(match.account, match.date, match.id)] = (source, on)
         return self._transfers
 
     def covering_value(self, account: str, on: date, end: date) -> date:
-        """The date of the account's value that covers a move on the date: its first on or after it,
+        """The date of the account's value that covers a line on the date: its first on or after it,
         wherever the period ends; the period's end when it has none yet (TRADES.md, "Flows")."""
         dates = [v.date for v in self.valuations.get(account, [])]
         index = bisect.bisect_left(dates, on)
