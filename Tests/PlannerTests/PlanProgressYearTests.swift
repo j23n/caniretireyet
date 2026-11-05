@@ -140,6 +140,27 @@ struct PlanProgressYearTests {
         #expect(thisYear.savedGrade == PlanComparison(thisYear.youSaved, planned: planned))
     }
 
+    /// A check-in after the pay account's latest value, such as the
+    /// wallet's on 10 October: the saving planned against the pay's saved
+    /// ends with the pay's days on 30 September, while the year and its
+    /// planned saving run to 10 October.
+    @Test func thePaysPlannedSavingEndsWithTheDaysItCovers() throws {
+        var library = self.library
+        var wallet = try #require(library.valuations(for: "ledger-wallet").last)
+        wallet.date = "2026-10-10"
+        library.upsert(wallet)
+        let thisYear = try #require(years(in: library, through: "2026-10-10").last)
+        #expect(thisYear.to == "2026-10-10")
+        let pay = try #require(thisYear.pay)
+        #expect(pay.from == "2026-06-30")
+        #expect(pay.payThrough == latest)
+        // 92 days of the baseline's 2026 against the 283 through 10 October, both in the year's money.
+        let planned = try #require(thisYear.plannedSaving)
+        let paySaving = try #require(thisYear.plannedPaySaving)
+        #expect(abs(paySaving - planned * 92 / 283) < d("0.000001"))
+        #expect(thisYear.savedGrade == PlanComparison(thisYear.youSaved, planned: paySaving))
+    }
+
     /// A baseline that starts after the pay does: *You saved*, its pay and
     /// the planned saving all count from the baseline's start.
     @Test func youSavedCountsFromABaselineThatStartsAfterThePay() throws {
