@@ -140,6 +140,25 @@ struct PlanProgressYearTests {
         #expect(thisYear.savedGrade == PlanComparison(thisYear.youSaved, planned: planned))
     }
 
+    /// A baseline that starts after the pay does: *You saved*, its pay and
+    /// the planned saving all count from the baseline's start.
+    @Test func youSavedCountsFromABaselineThatStartsAfterThePay() throws {
+        var library = self.library
+        library.projections["base"]?.baselines["2026-01-05"]?.start.date = "2026-08-31"
+        let valuator = Valuator(library: library)
+        let thisYear = try #require(years(in: library).last)
+        let rate = try #require(valuator.savingsRate(from: "2026-09-01", through: latest))
+        #expect(thisYear.pay == rate)
+        #expect(thisYear.youSaved == rate.saved)
+        #expect(thisYear.youSavedFrom == "2026-08-31")
+        #expect(thisYear.spentPerYear == rate.spentPerYear)
+        // From 31 August to the latest check-in: 30 of the 122 days left in the year, in the year's money.
+        let planned = try #require(index.convert(Decimal(18_000) * 30 / 122, from: "2026-08-31", to: latest))
+        #expect(thisYear.plannedSaving == planned)
+        #expect(thisYear.plannedYouSaved == planned)
+        #expect(thisYear.savedGrade == PlanComparison(rate.saved, planned: planned))
+    }
+
     /// Without money in and out, *You saved* is what the plan assets saved
     /// in the year, against what was planned for the whole year.
     @Test func youSavedWithoutMoneyInAndOutIsWhatPlanAssetsSaved() throws {
