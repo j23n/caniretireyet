@@ -90,7 +90,7 @@ A **baseline** is a projection saved at a point in time (see below). Choosing on
   | Savings | What you saved, minus what the plan expected you to save (the baseline's `savings` for each year, spread evenly over it) |
   | Markets | What markets did to your money, minus what the baseline expected them to do (its expected change, less its planned saving) |
   | Inflation | What rising prices took from your money's worth in the baseline's money: its change in money of the start date, less its change as it happened. Without an inflation index, part of Other |
-  | Other | Everything else: what an account held when its records start, a balance's change when a missing price or rate keeps what it saved from being worked out, and exchange rates |
+  | Other | Everything else: what an account held when its records start, a value's change when a missing price or rate keeps what it saved from being worked out, and exchange rates |
 
   The split is an approximation, since the four parts affect each other. It answers the useful question, though: am I behind because I saved less, or because markets were bad?
 
