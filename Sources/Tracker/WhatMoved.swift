@@ -36,7 +36,9 @@ public struct WhatMoved: Hashable, Sendable {
     /// Price and FX movement, interest, reinvested dividends.
     public let markets: Decimal
     /// What accounts whose records start in the days held then, as far as
-    /// nothing tracked before paid for it (``SavedStretch/startedWith``).
+    /// nothing tracked before paid for it, and the change in what accounts
+    /// that started in earlier days a value in these covers started with
+    /// (``SavedStretch/startedWith``).
     public let startedWith: Decimal
     /// What belongings with a depreciation are estimated to have lost
     /// (``ValueChange/lost``).

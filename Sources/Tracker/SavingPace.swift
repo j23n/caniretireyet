@@ -203,8 +203,11 @@ extension Valuator {
             let paidIn = stretch.saved.values.reduce(Decimal(0)) { $0 + max($1, 0) }
             let takenOut = stretch.saved.values.reduce(Decimal(0)) { $0 - min($1, 0) }
             let moved = 2 * min(paidIn, takenOut) >= max(paidIn, takenOut) ? min(paidIn, takenOut) : 0
-            for account in report.accounts {
-                var amount = stretch.saved[account.account] ?? 0
+            // An account that closed before the stretch can still have saved in it: what money moved
+            // in it paid for of what it started with (``SavedStretch``).
+            let problems = Dictionary(uniqueKeysWithValues: report.accounts.map { ($0.account, $0.problems) })
+            for id in Set(problems.keys).union(stretch.saved.keys).sorted() {
+                var amount = stretch.saved[id] ?? 0
                 if moved > 0, amount != 0 {
                     amount -= amount > 0 ? amount * moved / paidIn : amount * moved / takenOut
                 }
@@ -214,14 +217,13 @@ extension Valuator {
                 // the quarter, not in its last month. A trades account's
                 // what it saved is its deposits and withdrawals since the
                 // check-in before, so it's spread from there, and so is an
-                // account closed since, whose closing date is known.
-                let closed = accounts[account.account]?.closed.map { $0 >= report.from && $0 < report.to } ?? false
-                let from = ledger(for: account.account) != nil || closed ? report.from
-                    : latestRecordDate(of: account.account, onOrBefore: report.from) ?? report.from
+                // account closed since, whose closing date is known, or before.
+                let closed = accounts[id]?.closed.map { $0 < report.to } ?? false
+                let from = ledger(for: id) != nil || closed ? report.from
+                    : latestRecordDate(of: id, onOrBefore: report.from) ?? report.from
                 guard from < report.to else { continue }
                 if let index { amount = index.convert(amount, from: report.to, to: asOf) ?? amount }
-                paid.append((account.account, from, report.to, amount,
-                             !account.problems.allSatisfy(\.isNotTrackedYet)))
+                paid.append((id, from, report.to, amount, !(problems[id] ?? []).allSatisfy(\.isNotTrackedYet)))
             }
         }
 

@@ -110,7 +110,10 @@ import Tracker
     /// added, instead of with its statement on the 28th: a check-in between
     /// the broker's first trades and the current account's value that
     /// records the money moved to it. Nothing that happened changes, so
-    /// February's numbers should be the same.
+    /// February's numbers are the same. Through the 15th both accounts
+    /// started with their first amounts; the current account's value on
+    /// the 28th, which covers the days since 31 January, pays for 5,000 of
+    /// them, which then counts as saved.
     @Test func aCheckInInTheMiddleOfTheMonth() throws {
         var library = library
         library.upsert(Valuation(account: "savings", date: "2025-02-15", balance: 6000))
@@ -119,14 +122,18 @@ import Tracker
         let moved = valuator.whatMoved(valuator.change(from: "2025-01-31", to: "2025-02-28"))
         #expect(moved.change == 13274)
         #expect(moved.markets == 274)
-        withKnownIssue("""
-            The money moved to the broker is counted at the current account's value on the 28th, after the \
-            check-in on the 15th, by when the broker and the savings account had started: so it pays for \
-            neither, both first amounts are started with, and the 5,000 moved shows as spent.
-            """) {
-            #expect(moved.saved == 2000)
-            #expect(moved.startedWith == 11000)
-            #expect(moved.pay?.spent == 2000)
-        }
+        #expect(moved.saved == 2000)
+        #expect(moved.startedWith == 11000)
+        #expect(moved.pay?.spent == 2000)
+
+        let stretches = valuator.savedStretches(between: ["2025-01-31", "2025-02-15", "2025-02-28"], in: .netWorth)
+        #expect(stretches.map(\.saved) == [["current": 0, "broker": 0, "savings": 0],
+                                            ["current": -3000, "broker": 3125, "savings": 1875]])
+        #expect(stretches.map(\.startedWith) == [["broker": 10000, "savings": 6000],
+                                                  ["broker": -3125, "savings": -1875]])
+        let second = valuator.whatMoved(valuator.change(from: "2025-02-15", to: "2025-02-28"))
+        #expect(second.saved == 2000)
+        #expect(second.startedWith == -5000)
+        #expect(second.pay?.spent == 2000)
     }
 }

@@ -162,19 +162,25 @@ extension Valuator {
     /// When nothing came in, the days are those of the values counted.
     /// `nil` when no money in and out was counted.
     public func savingsRate(from: CalendarDate, through: CalendarDate) -> SavingsRate? {
-        savingsRate(from: from, through: through, payAfter: nil)
+        savingsRate(from: from, through: through, payAfter: nil, notBefore: nil)
     }
 
     /// ``savingsRate(from:through:)``, with the pay's days starting after
-    /// `payAfter` instead, when there is one, and ending no earlier: so a
-    /// series of periods whose days each start where the one before's end
-    /// (``SavingsRate/payThrough``) covers every day once, even when the
-    /// pay account changes between them (``moneyInOutSeries(_:through:)``).
-    func savingsRate(from: CalendarDate, through: CalendarDate, payAfter: CalendarDate?) -> SavingsRate? {
+    /// `payAfter` instead, when there is one, or otherwise after
+    /// `notBefore` at the earliest, and ending no earlier: so a series of
+    /// periods whose days each start where the one before's end
+    /// (``SavingsRate/payThrough``), or after a period with nothing
+    /// counted no earlier than where the latest that counted anything
+    /// ended, covers every day at most once, even when the pay account
+    /// changes between them (``moneyInOutSeries(_:through:)``).
+    func savingsRate(from: CalendarDate, through: CalendarDate, payAfter: CalendarDate?,
+                     notBefore: CalendarDate?) -> SavingsRate? {
         let money = moneyInOut(from: from, through: through, accounts: cameInAccounts)
         guard let measuredFrom = money.measuredFrom else { return nil }
         var days = payDays(from: from, through: through) ?? (measuredFrom, money.lastCounted ?? through)
-        if let payAfter { days = (payAfter, max(days.through, payAfter)) }
+        if let start = payAfter ?? notBefore.flatMap({ $0 > days.after ? $0 : nil }) {
+            days = (start, max(days.through, start))
+        }
         let saved = saved(after: days.after, through: days.through)
         let contributions = saved.byAccount.keys.sorted().reduce(Decimal(0)) { total, id in
             guard let account = accounts[id], SavingsRate.pensionKinds.contains(account.kind) else { return total }
