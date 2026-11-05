@@ -1,0 +1,20 @@
+{
+  "fx": [],
+  "indices": [],
+  "month": "2025-01",
+  "prices": [],
+  "trades": [
+    { "account": "broker", "amount": "10000", "date": "2025-01-02", "id": "deposit-jan", "type": "deposit" },
+    {
+      "account": "broker",
+      "date": "2025-01-10",
+      "fees": "5",
+      "id": "buy-jan",
+      "instrument": "world-fund",
+      "price": "100",
+      "quantity": "50",
+      "type": "buy"
+    }
+  ],
+  "valuations": []
+}

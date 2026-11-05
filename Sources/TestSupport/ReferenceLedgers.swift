@@ -22,6 +22,10 @@ public enum ReferenceLedger: String, CaseIterable, Sendable {
     /// C4: a dollar broker, a dollar 401(k) with and without a saved
     /// amount, and a dollar checking account in a euro library.
     case dollars = "c4-dollars"
+    /// C5: a year of one fund's trades: buys with fees, a dividend with tax
+    /// withheld, a split, two partial sales, a fee, stamp duty and a
+    /// withdrawal.
+    case yearOfTrades = "c5-year-of-trades"
 
     /// The folder that holds every reference ledger.
     public static var foldersURL: URL {

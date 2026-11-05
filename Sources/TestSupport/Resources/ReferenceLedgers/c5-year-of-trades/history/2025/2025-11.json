@@ -1,0 +1,19 @@
+{
+  "fx": [],
+  "indices": [],
+  "month": "2025-11",
+  "prices": [],
+  "trades": [
+    {
+      "account": "broker",
+      "date": "2025-11-17",
+      "fees": "5",
+      "id": "sell-nov",
+      "instrument": "world-fund",
+      "price": "50",
+      "quantity": "70",
+      "type": "sell"
+    }
+  ],
+  "valuations": []
+}

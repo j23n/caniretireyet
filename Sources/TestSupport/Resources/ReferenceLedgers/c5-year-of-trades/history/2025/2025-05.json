@@ -1,0 +1,19 @@
+{
+  "fx": [],
+  "indices": [],
+  "month": "2025-05",
+  "prices": [],
+  "trades": [
+    {
+      "account": "broker",
+      "date": "2025-05-15",
+      "id": "dividend-may",
+      "instrument": "world-fund",
+      "price": "0.5",
+      "quantity": "80",
+      "tax": "10.4",
+      "type": "dividend"
+    }
+  ],
+  "valuations": []
+}

@@ -223,3 +223,4 @@ Small made-up libraries check these numbers by hand (`Sources/TestSupport/Resour
 | C2, `c2-tax-pot` | A year of pay before tax, with a share set aside in a tax pot each month and the bill paid from it in June; the same bill paid from the current account instead. |
 | C3, `c3-new-accounts` | *Started with*, shared over two accounts that start in the same month: a broker funded partly from the current account and partly from outside, and an old savings account. |
 | C4, `c4-dollars` | Dollar accounts in a euro library: a broker's trades, and balances with a saved amount, worked out or recorded, and without one. |
+| C5, `c5-year-of-trades` | A year of one fund's trades: the average cost through a split and two partial sales, fees, a dividend with tax withheld, a fee, stamp duty and a withdrawal. |

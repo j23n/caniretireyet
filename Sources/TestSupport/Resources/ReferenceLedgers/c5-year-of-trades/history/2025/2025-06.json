@@ -1,0 +1,12 @@
+{
+  "fx": [],
+  "indices": [],
+  "month": "2025-06",
+  "prices": [
+    { "currency": "EUR", "date": "2025-06-30", "instrument": "world-fund", "price": "57" }
+  ],
+  "trades": [
+    { "account": "broker", "date": "2025-06-02", "id": "split-jun", "instrument": "world-fund", "ratio": "2", "type": "split" }
+  ],
+  "valuations": []
+}
