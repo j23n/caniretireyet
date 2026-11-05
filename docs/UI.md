@@ -505,7 +505,7 @@ On iPhone the screen is one column: a banner saying whether it adds up, the filt
 - **Does it add up?** The opening balance, plus money in, less money out, is the closing balance the lines lead to; beside it the bank's balance on the check-in's date, which can be typed. A month that doesn't add up says by how much: a line is missing, listed twice, or a balance was typed wrong.
 - **A line** opens its editor, beside the lines on the Mac and iPad and as a sheet on iPhone: buttons for what it is; for money moved, to which of your accounts (it's saved right away, not spent); *The same for the other N lines* from the same words this month, and *Remember it* for the next statements (a rule in the account's import profile, when it has one), on iPhone only for money moved; a note; *Remove Line* for one listed twice, or *Restore Line*; and *Confirm*, which checks it.
 - **Add Line** types in one the bank's export left out: its day in the month, money in or out, the amount, the bank's text and what it is. It's confirmed.
-- The side shows the month's totals (came in, interest, one-offs, tax, spent, moved, saved) and, for a past month, the months after it, which follow a change.
+- The side shows the month's totals (came in, interest, one-offs, tax, spent, moved, saved, the one-offs with it, and the savings rate, which leaves them out) and, for a past month, the months after it, which follow a change.
 
 ### A brokerage month
 

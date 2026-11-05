@@ -144,8 +144,12 @@ struct MonthTotals: Hashable, Sendable {
         moneyOut = -counted.filter { $0 < 0 }.reduce(0, +)
     }
 
-    /// What the month saved: what came in less what was spent and the tax.
-    var saved: Decimal { cameIn + interest - spent - tax }
+    /// What the month's pay saved: what came in less what was spent and the
+    /// tax. The savings rate is it over what came in after tax.
+    var savedFromPay: Decimal { cameIn + interest - spent - tax }
+
+    /// What the month saved: what the pay saved and the one-offs.
+    var saved: Decimal { savedFromPay + oneOffs }
 }
 
 /// Changing a month's lines (``MonthLineEdit``): what the line's editor
