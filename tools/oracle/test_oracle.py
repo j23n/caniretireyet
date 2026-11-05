@@ -492,15 +492,13 @@ PAY_WINDOW = (
     "the same check-in (PROGRESS.md, What moved it: saved 'as the savings rate counts it').")
 
 KNOWN_ISSUES = [
-    KnownIssue(WINDOW_END, {"example", "currencies", "trades", "missing-price"}, "cli",
-               lambda d: d.check.startswith("spending") and d.field == "spentPerYear"),
     KnownIssue(WINDOW_END, {"currencies"}, "audit",
                lambda d: "savingsRate" in d.check and d.date == "2026-04-10"
                and d.field in ("through", "spentPerYear")),
     KnownIssue(MISSING_PRICE, {"missing-price"}, "cli",
                lambda d: (d.check.startswith("networth change") and d.account in ("fund", "total")
                           and d.field in ("saved", "market", "other"))
-               or is_rate(d, "saved", "spent", "savingsRate")),
+               or is_rate(d, "saved", "spent", "spentPerYear", "savingsRate")),
     KnownIssue(MISSING_PRICE, {"missing-price"}, "audit",
                lambda d: (d.check.startswith("audit change") and d.account in ("fund", "-")
                           and d.field in ("saved", "market", "other", "whatMoved.saved", "whatMoved.markets",
