@@ -139,6 +139,72 @@ struct MoneyInOutSeriesTests {
         #expect(!series.periods.contains { $0.coversMore(.months) })
     }
 
+    /// A current account valued on the 15th, which the pay comes into, and
+    /// a savings account valued at the month's end: January's pay covers 16
+    /// December to 15 January, not to the savings account's 31 January.
+    @Test func anotherAccountsLaterValueDoesNotCoverMore() throws {
+        var library = Library(settings: LibrarySettings(baseCurrency: .eur))
+        library.accounts["bank"] = Account(id: "bank", name: "Bank", kind: .cash, currency: .eur,
+                                           opened: "2025-12-01")
+        library.accounts["savings"] = Account(id: "savings", name: "Savings", kind: .savings, currency: .eur,
+                                              opened: "2025-12-01")
+        library.upsert(Valuation(account: "bank", date: "2025-12-15", balance: 5000))
+        library.upsert(Valuation(account: "savings", date: "2025-12-31", balance: 10000))
+        library.upsert(Valuation(account: "bank", date: "2026-01-15", balance: 6000, moneyIn: 3000, moneyOut: 2000))
+        library.upsert(Valuation(account: "savings", date: "2026-01-31", balance: 10000, moneyIn: 0, moneyOut: 0))
+        let series = Valuator(library: library).moneyInOutSeries(.months, through: "2026-01-31")
+        let january = try #require(series.periods.last)
+        #expect(january.savings?.moneyInOut.lastCounted == "2026-01-31")
+        #expect(january.covers == CalendarDate("2025-12-16")...CalendarDate("2026-01-15"))
+        #expect(!january.coversMore(.months))
+    }
+
+    /// A month whose value records no money in and out counts nothing, so
+    /// the next month's pay covers its own days, not that month's too,
+    /// whose money in nobody recorded.
+    @Test func aMonthWithNothingCountedDoesntPassOnItsDays() throws {
+        var library = Library(settings: LibrarySettings(baseCurrency: .eur))
+        library.accounts["bank"] = Account(id: "bank", name: "Bank", kind: .cash, currency: .eur,
+                                           opened: "2025-12-01")
+        library.upsert(Valuation(account: "bank", date: "2025-12-31", balance: 0))
+        library.upsert(Valuation(account: "bank", date: "2026-01-31", balance: 1000, moneyIn: 3000, moneyOut: 2000))
+        library.upsert(Valuation(account: "bank", date: "2026-02-28", balance: 2000))
+        library.upsert(Valuation(account: "bank", date: "2026-03-31", balance: 3000, moneyIn: 3000, moneyOut: 2000))
+        let months = Valuator(library: library).moneyInOutSeries(.months, through: "2026-03-31").periods
+        #expect(months.map { $0.savings == nil } == [false, true, false])
+        let march = try #require(months.last)
+        #expect(march.covers == CalendarDate("2026-03-01")...CalendarDate("2026-03-31"))
+        #expect(march.saved == 1000)
+        #expect(march.spent == 2000)
+    }
+
+    /// January's pay is the bank's, February counts nothing, and March's
+    /// is a savings account valued once a quarter, since 31 December. Its
+    /// days start after January's, so January's saving counts once, and
+    /// the months add up to the quarter.
+    @Test func aMonthAfterOneWithNothingCountedDoesntCountEarlierDaysAgain() throws {
+        var library = Library(settings: LibrarySettings(baseCurrency: .eur))
+        library.accounts["bank"] = Account(id: "bank", name: "Bank", kind: .cash, currency: .eur,
+                                           opened: "2025-12-01")
+        library.accounts["savings"] = Account(id: "savings", name: "Savings", kind: .savings, currency: .eur,
+                                              opened: "2025-12-01")
+        library.upsert(Valuation(account: "bank", date: "2025-12-31", balance: 5000))
+        library.upsert(Valuation(account: "bank", date: "2026-01-31", balance: 6000, moneyIn: 3000, moneyOut: 2000))
+        library.upsert(Valuation(account: "bank", date: "2026-02-28", balance: 7000))
+        library.upsert(Valuation(account: "bank", date: "2026-03-31", balance: 8000, moneyIn: 2500, moneyOut: 1500))
+        library.upsert(Valuation(account: "savings", date: "2025-12-31", balance: 20000))
+        library.upsert(Valuation(account: "savings", date: "2026-03-31", balance: 28000, moneyIn: 8000, moneyOut: 0))
+        let valuator = Valuator(library: library)
+        let months = valuator.moneyInOutSeries(.months, through: "2026-03-31").periods
+        #expect(months.map { $0.savings == nil } == [false, true, false])
+        #expect(months.map(\.covers) == ["2026-01-01"..."2026-01-31", nil, "2026-02-01"..."2026-03-31"])
+        #expect(months.map(\.saved) == [1000, 0, 10000])
+        #expect(months.map(\.spent) == [2000, 0, 500])
+        let quarter = try #require(valuator.savingsRate(from: "2026-01-01", through: "2026-03-31"))
+        #expect(quarter.saved == months.map(\.saved).reduce(0, +))
+        #expect(quarter.spent == months.map(\.spent).reduce(0, +))
+    }
+
     /// The current account records money in and out from November 2025 to
     /// October 2026: twelve months, so October has a rate over the last 12.
     @Test func monthsFromTheTwelfthHaveTheRateOverTheLast12() throws {

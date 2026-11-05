@@ -190,8 +190,10 @@ struct PlanYearTiles: View {
     /// start later in the year; `nil` without a plan.
     private var savedDetail: AmountSentence? {
         // *Why*'s figure, in the baseline's money, when the pay covers the
-        // days the plan's saving does.
-        let planned = year.pay == nil || year.plannedYouSaved == year.plannedSaving
+        // days the plan's saving does; none while the baseline has planned
+        // nothing yet.
+        let planned = year.nothingPlannedYet ? nil
+            : year.pay == nil || year.plannedYouSaved == year.plannedSaving
             ? year.explanation?.inWholeUnits.plannedSaving ?? year.plannedSaving
             : year.plannedYouSaved
         if let payStart {

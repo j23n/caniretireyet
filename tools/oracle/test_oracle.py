@@ -513,20 +513,13 @@ class KnownIssue:
 
 WINDOW_END = (
     "retire audit prints a savings rate's through as the end of the period asked for (the "
-    "check-in's date), the oracle as the last value the pay is counted from. Spent a year agrees: "
-    "both scale it by the days through the last value counted (PROGRESS.md, Savings rate).")
-PAY_WINDOW = (
-    "Your pay on a check-in that falls inside another account's month: came in counts from that "
-    "account's value before (the savings rate's days), saved only since the check-in before, so "
-    "what was saved in between counts as spent, and Your pay disagrees with the savings rate over "
-    "the same check-in (PROGRESS.md, What moved it: saved 'as the savings rate counts it').")
-
+    "check-in's date), the oracle as the last value the pay is counted from: on 10 April, the "
+    "chf-cash's 31 March; on 10 February, where chf-cash's value of 28 February runs across the "
+    "check-in, so the pay covers no days, its 31 January. Spent a year agrees: both scale it by the "
+    "days the pay covers (PROGRESS.md, Savings rate).")
 KNOWN_ISSUES = [
     KnownIssue(WINDOW_END, {"currencies"}, "audit",
-               lambda d: "savingsRate" in d.check and d.date == "2026-04-10" and d.field == "through"),
-    KnownIssue(PAY_WINDOW, {"currencies"}, "audit",
-               lambda d: d.check == "audit change 2026-02-10–2026-02-28"
-               and d.field in ("whatMoved.pay.saved", "whatMoved.pay.spent")),
+               lambda d: "savingsRate" in d.check and d.date in ("2026-02-10", "2026-04-10") and d.field == "through"),
 ]
 
 

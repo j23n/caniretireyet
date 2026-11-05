@@ -82,7 +82,8 @@ struct HouseholdGuessTests {
     /// so is every year that doesn't end on it. A year that ends on it
     /// shifts that month's money into the next year, so each of their
     /// numbers is off by at most the month's money: its came in, what was
-    /// spent and what was deposited at the broker, added up.
+    /// spent and what was deposited at the broker, added up. The two years
+    /// together are the truth.
     @Test func aSkippedCheckIn() async {
         let measured = await Self.measure(HouseholdOptions(skippedCheckIn: true)) { household, valuator, truth, out in
             guard let skipped = household.records.skippedCheckIns.first,
@@ -120,18 +121,14 @@ struct HouseholdGuessTests {
                 }
             }
             out.broken += checker.mismatches.map { "seed \(seed): \($0)" }
-            // The two years around a skipped 31 December, added up, are the truth.
+            // The two years around a skipped 31 December, added up, are the truth: the
+            // first year's pay ends at the check-in before it, where the next year's starts.
             for (label, error) in shifted.sorted(by: { $0.key < $1.key })
             where abs(error) >= HouseholdComparison.tolerance {
-                out.known.append("seed \(seed): \(skipped.year) and \(skipped.year + 1) \(label) off by \(error)")
+                out.broken.append("seed \(seed): \(skipped.year) and \(skipped.year + 1) \(label) off by \(error)")
             }
         }
-        Self.report("A skipped check-in", measured, knownIssue: """
-            Around a skipped 31 December check-in, the broker's December deposits count as saved in both \
-            years: the year that ends on it counts its trades by their dates, while the current account's \
-            side waits for January, and the next year's days start at the check-in before it, the pay's \
-            (PROGRESS.md, "Savings rate").
-            """)
+        Self.report("A skipped check-in", measured)
     }
 
     /// Pension values typed without what was paid in: what the employer

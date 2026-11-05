@@ -64,13 +64,11 @@ The lost quarters add up to the year: 129.45 + 560.96 + 567.12 + 92.47 = 1,350.
 
 IMPORT.md says a sale's price "less its last value" is a gain or loss. For belongings with a depreciation that last value is the estimate on the day of the sale (13,650), not the 15,000 typed on 10 March: what it lost by the estimate is lost value (1,350), and only the 1,650 below the estimate is spent.
 
-## Known issue: Today's pay after the car's check-ins
+## Today's pay after the car's check-ins
 
-Today's *Your pay* splits the change since the check-in before (`changeSinceLastCheckIn`, `whatMoved`). On 31 March that's from 10 March, the car's value; on 31 December it's from 15 October. But the current account's value covers the whole quarter, so what came in is the quarter's (12,000), while what was saved counts only from the car's check-in: the money moved to or from the car is in it, and the car's side isn't.
+Today's *Your pay* is the savings rate over the values dated since the check-in before (`changeSinceLastCheckIn`, `whatMoved`). On 31 March that check-in is the car's value on 10 March; on 31 December it's the sale's on 15 October. The current account's value covers the whole quarter, so its pay does too: it counts what was saved from the current account's value before, the money moved to or from the car with the car's side. *Your net worth* still splits the change since the check-in before.
 
-| Check-in | Before | App: saved, spent | Expected: saved, spent | Expected as |
-| --- | --- | --- | --- | --- |
-| 31 Mar | 10 Mar | −9,000 and 21,000 | 6,000 and 6,000 | the savings rate over the same values, `savingsRate(11 Mar–31 Mar)` |
-| 31 Dec | 15 Oct | 18,000 and −6,000 | 4,350 and 7,650 | `savingsRate(16 Oct–31 Dec)` |
-
-The test wraps these in `withKnownIssue`: a purchase or sale from a statement makes such a check-in every time, and the fix (which days *What moved it* counts saved over) needs the owner's decision.
+| Check-in | Before | Pay covers | Pay: came in, saved, spent | Net worth's saved since before | How |
+| --- | --- | --- | --- | --- | --- |
+| 31 Mar | 10 Mar | 1 Jan to 31 Mar | 12,000; 6,000; 6,000 | −9,000 | `savingsRate(11 Mar–31 Mar)`: the car's 15,000 is saved, not spent; since 10 March only the current account's −9,000 is saved, and the car's 15,000 is what moved net worth on 10 March |
+| 31 Dec | 15 Oct | 1 Oct to 31 Dec | 12,000; 4,350; 7,650 | 18,000 | `savingsRate(16 Oct–31 Dec)`: as the fourth quarter; since 15 October only the current account's 18,000 |
