@@ -180,8 +180,10 @@ public struct PlanProgressYear: Hashable, Sendable, Identifiable {
             }
             // The year's pay counts over the same days as saved: from the
             // year's first day, or after the baseline's start when it starts
-            // later in the year.
-            let savings = saving == from
+            // later in the year. A baseline that starts on the year's last
+            // day leaves no days after it, so the pay keeps the whole year
+            // (nothing was planned over no days, so nothing is graded).
+            let savings = saving == from || saving == last
                 ? valuator.savingsRate(from: CalendarDate.firstDay(ofYear: year), through: last)
                 : valuator.savingsRate(from: saving.adding(days: 1), through: last)
             let pay = typedTurnPayOff ? nil : savings

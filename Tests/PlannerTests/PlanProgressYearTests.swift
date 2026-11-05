@@ -159,6 +159,22 @@ struct PlanProgressYearTests {
         #expect(thisYear.savedGrade == PlanComparison(rate.saved, planned: planned))
     }
 
+    /// A baseline saved on the latest check-in, such as the first check-in
+    /// after months of imported statements, leaves no days after its start:
+    /// the year's pay still counts from the year's first day, and nothing is
+    /// graded.
+    @Test func aBaselineStartingOnTheLatestCheckInKeepsTheYearsPay() throws {
+        var library = self.library
+        library.projections["base"]?.baselines["2026-01-05"]?.start.date = latest
+        let valuator = Valuator(library: library)
+        let thisYear = try #require(years(in: library).last)
+        let rate = try #require(valuator.savingsRate(from: "2026-01-01", through: latest))
+        #expect(thisYear.pay == rate)
+        #expect(thisYear.youSaved == rate.saved)
+        #expect(thisYear.spentPerYear == rate.spentPerYear)
+        #expect(thisYear.savedGrade == nil)
+    }
+
     /// Without money in and out, *You saved* is what the plan assets saved
     /// in the year, against what was planned for the whole year.
     @Test func youSavedWithoutMoneyInAndOutIsWhatPlanAssetsSaved() throws {
