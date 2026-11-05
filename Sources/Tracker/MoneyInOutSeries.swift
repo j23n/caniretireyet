@@ -7,9 +7,10 @@ import Model
 /// covers more (after a skipped check-in), as
 /// ``Valuator/savingsRate(from:through:)`` counts them, with what was saved
 /// over the days their pay covers. Each period's days start where the
-/// one before's ended, when it counted anything, so the periods add up to
-/// the days they cover together, even when the pay account changes. In
-/// the base currency.
+/// one before's ended, when it counted anything, and otherwise no earlier
+/// than where the latest that did ended, so the periods add up to the
+/// days they cover together, even when the pay account changes. In the
+/// base currency.
 public struct MoneyInOutPeriod: Hashable, Sendable {
     /// The first day of the month or year.
     public let from: CalendarDate
@@ -150,15 +151,17 @@ extension Valuator {
         case .years: CalendarDate.firstDay(ofYear: firstMonth.year)
         }
         // Each period's pay starts where the one before's ended, so the periods count every day once;
-        // after a period with nothing counted, it covers its own days.
+        // after a period with nothing counted, it covers its own days, but none counted before.
         var payAfter: CalendarDate?
+        var countedThrough: CalendarDate?
         let periods = grain.periodEnds(from: start, through: end).enumerated().map { index, through in
             let from = switch grain {
             case .months: through.startOfMonth
             case .years: CalendarDate.firstDay(ofYear: through.year)
             }
-            let savings = savingsRate(from: from, through: through, payAfter: payAfter)
+            let savings = savingsRate(from: from, through: through, payAfter: payAfter, notBefore: countedThrough)
             payAfter = savings?.payThrough
+            countedThrough = savings?.payThrough ?? countedThrough
             return MoneyInOutPeriod(
                 from: from, through: through, savings: savings,
                 lastTwelveMonths: grain == .months && index >= 11 ? savingsRate(overYearEndingOn: through) : nil)
