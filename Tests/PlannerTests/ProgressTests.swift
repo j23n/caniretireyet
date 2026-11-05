@@ -180,21 +180,22 @@ struct ProgressTests {
 
     // MARK: Cancellation
 
+    /// The run is cancelled from its first update, which the run's own task
+    /// delivers, so the run can't finish before the cancellation lands, however
+    /// busy the machine is.
     @Test func cancellingStillStopsTheRunAndSendsNoLastUpdate() async throws {
         let updates = Updates()
-        let (started, signal) = AsyncStream<Void>.makeStream()
         let plan = plan(runs: 2_000)
         let library = library
         let task = Task {
             try await Planner.run(plan: plan, library: library,
                                   options: PlannerOptions(maxRetirementAge: 50), progress: { progress in
                                       updates.append(progress)
-                                      signal.yield()
+                                      if updates.all.count == 1 { withUnsafeCurrentTask { $0?.cancel() } }
                                   })
         }
-        for await _ in started { break }
-        task.cancel()
         await #expect(throws: CancellationError.self) { try await task.value }
+        #expect(!updates.all.isEmpty)
         #expect(!updates.all.contains { $0.isFinished })
     }
 }
