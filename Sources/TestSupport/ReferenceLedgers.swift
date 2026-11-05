@@ -12,6 +12,9 @@ public enum ReferenceLedger: String, CaseIterable, Sendable {
     /// card's purchases and bill, a deposit to the broker, a mortgage
     /// payment and an employer's pension contribution.
     case fiveAccounts = "c1-five-accounts"
+    /// C2: a year of pay before tax, with a share set aside each month in a
+    /// tax pot outside net worth, and the tax bill paid from it in June.
+    case taxPot = "c2-tax-pot"
 
     /// The folder that holds every reference ledger.
     public static var foldersURL: URL {

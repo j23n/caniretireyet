@@ -1,0 +1,64 @@
+{
+  "fx": [],
+  "indices": [],
+  "lines": [
+    {
+      "account": "current",
+      "amount": "4000",
+      "class": "income",
+      "confirmed": true,
+      "date": "2025-08-05",
+      "id": "aug-client",
+      "source": "import",
+      "text": "Client payment"
+    },
+    {
+      "account": "current",
+      "amount": "-1000",
+      "class": "transfer",
+      "confirmed": true,
+      "date": "2025-08-06",
+      "id": "aug-to-pot",
+      "otherAccount": "tax-pot",
+      "source": "import",
+      "text": "To tax pot"
+    },
+    {
+      "account": "tax-pot",
+      "amount": "1000",
+      "class": "transfer",
+      "confirmed": true,
+      "date": "2025-08-06",
+      "id": "aug-from-current",
+      "otherAccount": "current",
+      "source": "import",
+      "text": "From current account"
+    },
+    {
+      "account": "current",
+      "amount": "-1200",
+      "class": "spending",
+      "confirmed": true,
+      "date": "2025-08-15",
+      "id": "aug-rent",
+      "source": "import",
+      "text": "Rent"
+    },
+    {
+      "account": "current",
+      "amount": "-800",
+      "class": "spending",
+      "confirmed": true,
+      "date": "2025-08-20",
+      "id": "aug-groceries",
+      "source": "import",
+      "text": "Groceries and bills"
+    }
+  ],
+  "month": "2025-08",
+  "prices": [],
+  "valuations": [
+    { "account": "current", "balance": "11000", "date": "2025-08-31", "moneyIn": "4000", "moneyOut": "2000" },
+    { "account": "tax-pot", "balance": "2000", "date": "2025-08-31", "moneyIn": "0", "moneyOut": "0" }
+  ]
+}
