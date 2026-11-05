@@ -478,20 +478,10 @@ class KnownIssue:
     matches: Callable[[oracle.Difference], bool]
 
 
-def is_rate(d: oracle.Difference, *fields: str) -> bool:
-    """A difference in a savings rate: `retire spending`'s, or one of `retire audit`'s."""
-    return (d.check.startswith("spending") or "savingsRate" in d.check) and d.field in fields
-
-
 WINDOW_END = (
     "retire audit prints a savings rate's through as the end of the period asked for (the "
     "check-in's date), the oracle as the last value the pay is counted from. Spent a year agrees: "
     "both scale it by the days through the last value counted (PROGRESS.md, Savings rate).")
-MISSING_PRICE = (
-    "A balance account with positions whose previous value misses a price: the app splits the change "
-    "into saved (the change in quantities and cash at the new prices) and market, and marks saved "
-    "unknown; the docs say only the FX movement of the old balance is market and the rest other "
-    "(schema/README.md, How values are computed). What moved it and the savings rate count that saved.")
 PAY_WINDOW = (
     "Your pay on a check-in that falls inside another account's month: came in counts from that "
     "account's value before (the savings rate's days), saved only since the check-in before, so "
@@ -501,15 +491,6 @@ PAY_WINDOW = (
 KNOWN_ISSUES = [
     KnownIssue(WINDOW_END, {"currencies"}, "audit",
                lambda d: "savingsRate" in d.check and d.date == "2026-04-10" and d.field == "through"),
-    KnownIssue(MISSING_PRICE, {"missing-price"}, "cli",
-               lambda d: (d.check.startswith("networth change") and d.account in ("fund", "total")
-                          and d.field in ("saved", "market", "other"))
-               or is_rate(d, "saved", "spent", "spentPerYear", "savingsRate")),
-    KnownIssue(MISSING_PRICE, {"missing-price"}, "audit",
-               lambda d: (d.check.startswith("audit change") and d.account in ("fund", "-")
-                          and d.field in ("saved", "market", "other", "whatMoved.saved", "whatMoved.markets",
-                                          "whatMoved.pay.saved", "whatMoved.pay.spent", "savedSplit.saved"))
-               or is_rate(d, "saved", "spent", "spentPerYear", "rate", "savedByAccount")),
     KnownIssue(PAY_WINDOW, {"currencies"}, "audit",
                lambda d: d.check == "audit change 2026-02-10–2026-02-28"
                and d.field in ("whatMoved.pay.saved", "whatMoved.pay.spent")),

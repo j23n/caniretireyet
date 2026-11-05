@@ -12,9 +12,9 @@ public struct ValueChange: Hashable, Sendable {
     public var saved: Decimal
     /// What can't be explained: an account's first value without a
     /// recorded saved amount (what it held when its records start), and the
-    /// change of a balance without one, apart from FX movement: one that
-    /// asks for it and has none, or one whose saved amount needs a missing
-    /// price or exchange rate.
+    /// change of a value without one (a balance, or cash and positions),
+    /// apart from FX movement: one that asks for it and has none, or one
+    /// whose saved amount needs a missing price or exchange rate.
     public var other: Decimal
     /// Lost value: what a belongings account with a depreciation is
     /// estimated to have lost (``Model/Account/depreciation``), neither
@@ -122,15 +122,17 @@ extension Valuator {
     ///   known, ``saved(_:previous:)``, or there was none): saved is their
     ///   sum, and market is the rest. What a balance saved is worked out
     ///   from its balances (the whole change, less the interest for
-    ///   savings), so its market is the FX effect; one that asks for it
-    ///   records it.
-    /// - **Balance, saved unknown:** when only the account's first value has
-    ///   none, what the other values saved is saved, the first value is
-    ///   other (what it held when its records start), and market is the
-    ///   rest. Otherwise (a balance that asks for it without one,
-    ///   ``Model/Account/asksForSaved``, or a price or an exchange rate
-    ///   missing), market is only the FX effect on the old balance, and the
-    ///   rest is other.
+    ///   savings), and what cash and positions saved from their value, so
+    ///   its market is the FX effect; one that asks for it records it.
+    /// - **Balance, saved unknown** (an account that doesn't record trades,
+    ///   its values balances or cash and positions): when only the
+    ///   account's first value has none, what the other values saved is
+    ///   saved, the first value is other (what it held when its records
+    ///   start), and market is the rest. Otherwise (a balance that asks for
+    ///   it without one, ``Model/Account/asksForSaved``, or a price or an
+    ///   exchange rate missing), saved is zero, market is only the FX
+    ///   effect on the old value (what it held on `from`, in its currency,
+    ///   at `to`'s rate less at `from`'s), and the rest is other.
     /// - **Trades accounts:** values are snapshots (``snapshot(of:on:)``),
     ///   and saved is the account's ``TradeFlow``s in the period
     ///   (deposits, withdrawals, transfers and residuals), each converted at
@@ -200,19 +202,37 @@ extension Valuator {
         let heldMarket = heldAtEnd - start
         let saved = recordedSaved(of: account, after: from, through: endDate, in: target, problems: &problems)
 
+        /// The FX effect on the start value: what it held on `from`, in the
+        /// account's currency, at `endDate`'s rate less at `from`'s; zero
+        /// without both rates. A balance's is `heldMarket`, the balance at
+        /// the new rate (and for belongings, less the loss it's estimated
+        /// to have had), less `start`.
+        func fxEffect() -> Decimal {
+            guard let startValuation else { return 0 }
+            if startValuation.isBalance { return heldMarket }
+            let held = value(of: account, valuation: startValuation, on: from, in: account.currency).knownValue
+            guard let old = converted(held, from: account.currency, to: target, on: from, for: account.id,
+                                      problems: &problems),
+                  let new = converted(held, from: account.currency, to: target, on: endDate, for: account.id,
+                                      problems: &problems)
+            else { return 0 }
+            return new - old
+        }
+
         var parts = ValueChange(start: start, market: 0, saved: 0, other: 0, end: end)
+        let recordsTrades = history(of: account.id).ledger != nil
         if let saved {
             parts.saved = saved
             parts.market = end - start - saved
-        } else if endValuation?.isBalance ?? false,
+        } else if !recordsTrades,
                   let filled = filledSaved(of: account, after: from, through: endDate, in: target,
                                            problems: &problems) {
             parts.saved = filled.saved
             parts.other = filled.firstValue
             parts.market = end - start - filled.saved - filled.firstValue
-        } else if endValuation?.isBalance ?? false {
-            parts.market = heldMarket
-            parts.other = end - start - heldMarket
+        } else if !recordsTrades {
+            parts.market = fxEffect()
+            parts.other = end - start - parts.market
         } else {
             parts.market = heldMarket
             parts.saved = end - heldAtEnd
