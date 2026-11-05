@@ -324,12 +324,16 @@ extension PlanProgressYear {
     }
 
     /// What you saved after `start` through `end`, as *Where your money
-    /// came from* counts it.
+    /// came from* counts it: what plan assets saved over the stretches
+    /// between `start`, their check-ins after it and `end`
+    /// (``Tracker/SavedStretch``), so `start` cuts the stretch it falls in,
+    /// as a year's end does. A value dated after it counts whole, and an
+    /// account whose records start before it, a new account's first amount
+    /// among them, saved only what its records after it say.
     public static func saved(after start: CalendarDate, through end: CalendarDate, valuator: Valuator) -> Decimal {
-        func total(through day: CalendarDate) -> Decimal {
-            valuator.moneySources(.years, through: day).points.last?.saved ?? 0
-        }
-        return total(through: end) - total(through: start)
+        let scope = NetWorthScope.planAssets
+        return valuator.savedStretches(between: valuator.savedCuts(after: start, through: end, in: scope), in: scope)
+            .reduce(Decimal(0)) { $0 + $1.total }
     }
 
     /// The baseline plan's spending while working, a year; `nil` when its
