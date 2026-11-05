@@ -18,7 +18,7 @@ public struct SavingsRate: Hashable, Sendable {
     /// The money in it's worked out from: the values dated in the period.
     public var moneyInOut: MoneyInOutSummary
     /// Where the days the pay covers start (exclusive): the valuation the
-    /// values of the account the most came into are measured from
+    /// values of the pay account are measured from
     /// (``Valuator/savingsRate(from:through:)``). What was saved, the
     /// pension contributions and the tax set aside are counted over the
     /// days after it through ``payThrough``.
@@ -26,7 +26,7 @@ public struct SavingsRate: Hashable, Sendable {
     /// The period's last day.
     public var through: CalendarDate
     /// Where the days the pay covers end, at most ``through``: the date of
-    /// the latest value counted of the account the most came into. When
+    /// the latest value counted of the pay account. When
     /// that account's value runs across the period's end, ``from``: the pay
     /// covers no days.
     public var payThrough: CalendarDate
@@ -155,16 +155,26 @@ extension Valuator {
     /// with what was saved (``saved(after:through:)``), what was saved
     /// into pension funds and TFR (``SavingsRate/pensionKinds``) and the tax
     /// set aside over the days the pay covers (``payDays(from:through:)``):
-    /// those of the account the most came into. So an account checked
+    /// those of the pay account. So an account checked
     /// rarely, or recording money in for longer, doesn't stretch them, and
     /// while that account stays the same, the days of consecutive periods
     /// meet: nothing saved counts in both, and nothing falls between them.
     /// When nothing came in, the days are those of the values counted.
     /// `nil` when no money in and out was counted.
     public func savingsRate(from: CalendarDate, through: CalendarDate) -> SavingsRate? {
+        savingsRate(from: from, through: through, payAfter: nil)
+    }
+
+    /// ``savingsRate(from:through:)``, with the pay's days starting after
+    /// `payAfter` instead, when there is one, and ending no earlier: so a
+    /// series of periods whose days each start where the one before's end
+    /// (``SavingsRate/payThrough``) covers every day once, even when the
+    /// pay account changes between them (``moneyInOutSeries(_:through:)``).
+    func savingsRate(from: CalendarDate, through: CalendarDate, payAfter: CalendarDate?) -> SavingsRate? {
         let money = moneyInOut(from: from, through: through, accounts: cameInAccounts)
         guard let measuredFrom = money.measuredFrom else { return nil }
-        let days = payDays(from: from, through: through) ?? (measuredFrom, money.lastCounted ?? through)
+        var days = payDays(from: from, through: through) ?? (measuredFrom, money.lastCounted ?? through)
+        if let payAfter { days = (payAfter, max(days.through, payAfter)) }
         let saved = saved(after: days.after, through: days.through)
         let contributions = saved.byAccount.keys.sorted().reduce(Decimal(0)) { total, id in
             guard let account = accounts[id], SavingsRate.pensionKinds.contains(account.kind) else { return total }

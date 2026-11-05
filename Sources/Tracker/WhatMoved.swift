@@ -13,7 +13,7 @@ import Model
 ///
 /// Net worth's change is split over the check-in's own days. The pay is
 /// the savings rate over the check-in's values (``SavingsRate/pay``),
-/// which covers the days of the account the most came into (``Pay/from``,
+/// which covers the days of the pay account (``Pay/from``,
 /// ``Pay/through``): when that account has no value on the check-in
 /// before, such as a purchase's or another account's check-in in the
 /// middle of its month, they start earlier, and ``Pay/saved`` is what was

@@ -209,7 +209,11 @@ struct SavingsRateTests {
     /// would then cover no days. With 9,000 a quarter, 3,100 of it in
     /// January's days, the savings account is January's pay account, so
     /// January's pay covers no days, and spent a year scales by the days of
-    /// the current account's value instead of one day.
+    /// the current account's value instead of one day. February's 2,800
+    /// is less than the current account's 3,000, and March's 3,100 more:
+    /// the pay account changes every month, and Trends' months still add
+    /// up to the quarter, as each month's days start where January's and
+    /// February's ended.
     @Test func aQuarterlyValueCountsOnlyItsShareOfAMonth() throws {
         func library(savingsMoneyIn: Decimal) -> Library {
             var library = Library(settings: LibrarySettings(baseCurrency: .eur))
@@ -249,6 +253,48 @@ struct SavingsRateTests {
         #expect(more.spent == 3000)
         // 3,000 × 365 / 31.
         #expect(more.spentPerYear == d("35322.58"))
+
+        let close = Valuator(library: library(savingsMoneyIn: 9000))
+        let closeMonths = close.moneyInOutSeries(.months, through: "2026-03-31").periods
+        #expect(closeMonths.map(\.saved) == [0, 2000, 10000])
+        #expect(closeMonths.map(\.covers) == [nil, "2026-01-01"..."2026-02-28", "2026-03-01"..."2026-03-31"])
+        let closeQuarter = try #require(close.savingsRate(from: "2026-01-01", through: "2026-03-31"))
+        #expect(closeQuarter.saved == closeMonths.map(\.saved).reduce(0, +))
+        #expect(closeQuarter.spent == closeMonths.map(\.spent).reduce(0, +))
+    }
+
+    /// The pay moves to a new current account from January: the old one,
+    /// now valued once a quarter, records 50 coming in by 31 March. The new
+    /// account is each month's pay account, and the months add up to the
+    /// quarter.
+    @Test func aNewPayAccountTakesOverFromItsFirstMonth() throws {
+        var library = Library(settings: LibrarySettings(baseCurrency: .eur))
+        library.accounts["old"] = Account(id: "old", name: "Old", kind: .cash, currency: .eur, opened: "2025-01-01")
+        library.accounts["new"] = Account(id: "new", name: "New", kind: .cash, currency: .eur, opened: "2025-12-01")
+        library.upsert(Valuation(account: "old", date: "2024-12-31", balance: 1000))
+        var balance: Decimal = 1000
+        for month in 1...12 {
+            balance += 1000
+            let date = try #require(YearMonth(year: 2025, month: month)).lastDay
+            library.upsert(Valuation(account: "old", date: date, balance: balance, moneyIn: 3000, moneyOut: 2000))
+        }
+        library.upsert(Valuation(account: "old", date: "2026-03-31", balance: balance + 50, moneyIn: 50,
+                                 moneyOut: 0))
+        library.upsert(Valuation(account: "new", date: "2025-12-31", balance: 0))
+        for (month, date) in [(1, "2026-01-31"), (2, "2026-02-28"), (3, "2026-03-31")] {
+            library.upsert(Valuation(account: "new", date: CalendarDate(date)!, balance: Decimal(1000 * month),
+                                     moneyIn: 3000, moneyOut: 2000))
+        }
+        let valuator = Valuator(library: library)
+        let january = try #require(valuator.savingsRate(from: "2026-01-01", through: "2026-01-31"))
+        #expect(january.from == "2025-12-31")
+        #expect(january.payThrough == "2026-01-31")
+        #expect(january.saved == 1000)
+        let months = valuator.moneyInOutSeries(.months, through: "2026-03-31").periods.suffix(3)
+        #expect(months.map(\.saved) == [1000, 1000, 1050])
+        let quarter = try #require(valuator.savingsRate(from: "2026-01-01", through: "2026-03-31"))
+        #expect(quarter.saved == months.map(\.saved).reduce(0, +))
+        #expect(quarter.spent == months.map(\.spent).reduce(0, +))
     }
 
     /// An inheritance of 20,000 into the current account is saved, but

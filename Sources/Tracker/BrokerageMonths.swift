@@ -119,6 +119,19 @@ extension Valuator {
     /// account's currency count: a trade's amount is in its own account's.
     static func depositsToAdd(to account: AccountID, after from: CalendarDate?, through: CalendarDate,
                               ledger: TradeLedger, library: Library) -> [BankLine] {
+        moves(to: account, ledger: ledger, library: library).compactMap { move in
+            move.trade == nil && move.line.date <= through && from.map({ move.line.date > $0 }) ?? true
+                ? move.line : nil
+        }
+    }
+
+    /// Every line of another account in `account`'s currency that moved
+    /// money to or from it, in key order, with the deposit or withdrawal of
+    /// the account that matches it: the same amount the other way, within
+    /// ``BrokerageMonth/matchingDays``; `nil` when none does. Each trade
+    /// matches one line, over all the account's lines at once.
+    static func moves(to account: AccountID, ledger: TradeLedger, library: Library)
+        -> [(line: BankLine, trade: Trade?)] {
         guard let currency = library.accounts[account]?.currency else { return [] }
         var moved: [BankLine] = []
         for (id, other) in library.accounts where id != account && other.currency == currency {
@@ -131,15 +144,10 @@ extension Valuator {
         let nearby: ArraySlice<TradeEntry> = ledger.entries(after: first.adding(days: -days - 1),
                                                             through: last.adding(days: days))
         var flows: [TradeEntry] = nearby.filter { $0.type == .deposit || $0.type == .withdrawal }
-        var unmatched: [BankLine] = []
-        for line in moved {
-            if let index = flows.firstIndex(where: { matches($0, line, days: days) }) {
-                flows.remove(at: index)
-            } else if line.date <= through, from.map({ line.date > $0 }) ?? true {
-                unmatched.append(line)
-            }
+        return moved.map { line in
+            guard let index = flows.firstIndex(where: { matches($0, line, days: days) }) else { return (line, nil) }
+            return (line, flows.remove(at: index).trade)
         }
-        return unmatched
     }
 
     /// Whether `line` moved money to or from `account`.

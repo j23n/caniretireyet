@@ -34,6 +34,13 @@ public struct Valuator: Sendable {
     private let histories: [AccountID: AccountHistory]
     /// Trades of accounts that don't record trades (or don't exist): left out.
     let ignoredTrades: [Trade]
+    /// The deposits and withdrawals of trades accounts outside the base
+    /// currency that moved money from or to another account in their
+    /// currency, each with that account and the date of its transfer line
+    /// that matches it (``moves(to:ledger:library:)``). They convert at the
+    /// date of that account's value that covers the line
+    /// (``rateDate(ofLineOn:in:through:)``).
+    let transfers: [TradeKey: (account: AccountID, date: CalendarDate)]
 
     /// A valuator over a library snapshot. For duplicate valuation or trade
     /// keys the last one wins. Trades count only for accounts that record trades.
@@ -62,6 +69,15 @@ public struct Valuator: Sendable {
         }
         self.histories = histories
         ignoredTrades = tradesByKey.values.filter { histories[$0.account]?.ledger == nil }.sortedByKey()
+        var transfers: [TradeKey: (account: AccountID, date: CalendarDate)] = [:]
+        for (id, history) in histories {
+            guard let ledger = history.ledger, let account = library.accounts[id],
+                  account.currency != library.settings.baseCurrency else { continue }
+            for move in Self.moves(to: id, ledger: ledger, library: library) {
+                if let trade = move.trade { transfers[trade.key] = (move.line.account, move.line.date) }
+            }
+        }
+        self.transfers = transfers
     }
 
     /// An account's records; empty for an account without any.
@@ -144,10 +160,12 @@ public struct Valuator: Sendable {
     /// date, and its cash by the cash rule when it has none. A balance is
     /// estimated on `date` from the account's depreciation, as
     /// `Account.estimated(_:from:on:)` says. Amounts are converted to
-    /// `currency` (the base currency when `nil`).
+    /// `currency` (the base currency when `nil`) at `ratesOn`'s rates
+    /// (`date`'s when `nil`).
     func value(of account: Account, valuation original: Valuation, on date: CalendarDate,
-               in currency: CurrencyCode? = nil) -> AccountValue {
+               in currency: CurrencyCode? = nil, ratesOn: CalendarDate? = nil) -> AccountValue {
         let target = currency ?? baseCurrency
+        let rateDate = ratesOn ?? date
         let valuation = history(of: account.id).held(original)
         // A trade whose cash effect needs a missing FX rate leaves derived cash incomplete.
         var problems = original.cash == nil ? tradeCashProblems(of: account, on: original.date) : []
@@ -157,7 +175,8 @@ public struct Valuator: Sendable {
                  price: PriceRecord? = nil) {
             var value: Decimal?
             if let amount, let currency {
-                value = converted(amount, from: currency, to: target, on: date, for: account.id, problems: &problems)
+                value = converted(amount, from: currency, to: target, on: rateDate, for: account.id,
+                                  problems: &problems)
             }
             components.append(ValueComponent(kind: kind, quantity: quantity, price: price, currency: currency,
                                              value: value))
