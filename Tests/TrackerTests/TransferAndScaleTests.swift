@@ -58,27 +58,67 @@ struct TransferAndScaleTests {
         #expect(Readings.differences(Readings.rates(after), Readings.rates(before)) == [])
     }
 
-    /// A transfer between two dollar accounts in a euro library. The bank's
-    /// side, a value, is converted at the rate of the value's day (31
-    /// March); the broker's, a deposit, at the deposit's day (18 March,
-    /// February's rate). In euros the two sides don't cancel: the 1,000
-    /// dollars at the two rates differ by 41.72 euros, which shows as saved,
-    /// and as that much less markets. Net worth is the same at every
-    /// check-in.
+    /// `library` with 1,000 dollars moved from the dollar bank to the dollar
+    /// broker on 18 March, and the bank's statement line that moved it.
+    private func dollarTransfer(in library: Library) -> Library {
+        var library = moving(1000, from: "usd-bank", to: "usd-broker", on: "2026-03-18", in: library)
+        library.upsert(BankLine(account: "usd-bank", date: "2026-03-18", id: "to-broker", amount: -1000,
+                                statementClass: .transfer, otherAccount: "usd-broker"))
+        return library
+    }
+
+    /// A transfer between two dollar accounts in a euro library, with the
+    /// bank's statement line that moved it. The bank's side, a value, is
+    /// converted at the rate of the value's day (31 March); the broker's
+    /// deposit on 18 March, which the line shows came from the bank, at the
+    /// rate of the bank's value that covers it, the same 31 March
+    /// (docs/TRADES.md, "Flows"). So in euros the two sides cancel too.
     @Test func aTransferInAnotherCurrencyMovesNothing() throws {
         let library = try InvariantLibrary.foreignCurrency.library()
         let before = Valuator(library: library)
-        let after = Valuator(library: moving(1000, from: "usd-bank", to: "usd-broker", on: "2026-03-18",
-                                             in: library))
-        let differences = Readings.differences(Readings.money(after), Readings.money(before))
-        #expect(!differences.contains { $0.hasPrefix("net worth") || $0.hasPrefix("plan assets") })
-        withKnownIssue("""
-            A deposit's saved is converted at the deposit's rate, a balance's at its value's rate \
-            (Valuator.change, recordedSaved), so a transfer between two accounts in another currency \
-            saves the difference. Should both sides use one date's rate? Needs a decision.
-            """) {
-            #expect(differences == [])
+        let after = Valuator(library: dollarTransfer(in: library))
+        #expect(Readings.differences(Readings.money(after), Readings.money(before)) == [])
+        #expect(Readings.differences(Readings.rates(after), Readings.rates(before)) == [])
+    }
+
+    /// The same transfer with the savings account valued on 25 March,
+    /// between the transfer and the bank's value. The deposit converts at
+    /// the bank's value that covers it, 31 March, not at the next value of
+    /// any account, whose rate (February's, 1.07) the bank's side doesn't
+    /// use: over the bank's month, and the year, the two sides cancel. (On
+    /// 25 March itself the money shows on both sides, since the bank's
+    /// balance carries forward until its next value.)
+    @Test func aTransferCountsAtTheOtherAccountsValue() throws {
+        var library = try InvariantLibrary.foreignCurrency.library()
+        library.upsert(Valuation(account: "savings", date: "2026-03-25", balance: 11021, moneyIn: 0, moneyOut: 0))
+        let before = Valuator(library: library)
+        let after = Valuator(library: dollarTransfer(in: library))
+        let windows: [(CalendarDate, CalendarDate)] = [("2026-02-28", "2026-03-31"), ("2025-12-31", "2026-04-30")]
+        for (from, to) in windows {
+            let was = before.change(from: from, to: to).total
+            let now = after.change(from: from, to: to).total
+            #expect(same(now.saved, was.saved), "\(from)…\(to)")
+            #expect(same(now.market, was.market), "\(from)…\(to)")
+            #expect(same(now.end, was.end), "\(from)…\(to)")
         }
+    }
+
+    /// The same transfer without the bank's line. Without the other side's
+    /// line, the move can't be told from money sent in from outside, or
+    /// dollars bought with euros, which count at their own date: the
+    /// deposit converts at 18 March's rate (February's, 1.07), the bank's
+    /// side at 31 March's (1.12). The gap, 41.72 €, shows as saved, and as
+    /// that much less markets; net worth is the same.
+    @Test func aTransferWithoutTheOtherSidesLineSavesTheRateGap() throws {
+        let library = try InvariantLibrary.foreignCurrency.library()
+        let before = Valuator(library: library).change(from: "2026-02-28", to: "2026-03-31").total
+        let after = Valuator(library: moving(1000, from: "usd-bank", to: "usd-broker", on: "2026-03-18",
+                                             in: library)).change(from: "2026-02-28", to: "2026-03-31").total
+        let gap = Decimal(1000) / d("1.07") - Decimal(1000) / d("1.12")
+        #expect(gap.rounded(scale: 2) == d("41.72"))
+        #expect(same(after.saved - before.saved, gap))
+        #expect(same(after.market - before.market, -gap))
+        #expect(same(after.end, before.end))
     }
 
     /// The exception PROGRESS.md states ("Savings rate"): a payment into a

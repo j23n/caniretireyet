@@ -136,14 +136,17 @@ CURRENCIES = {
 # A euro library whose broker records trades: an opening, deposits, a buy and a sale worked out
 # from price and quantity, a dividend, a fee, a split, securities moved in and out, a withdrawal,
 # statements whose cash the trades don't explain, a type this version doesn't know, and a trade
-# after the last check-in. A dollar broker without any valuation, and gold bought and sold
-# outside the account.
+# after the last check-in. A dollar broker without any valuation: a deposit from a dollar bank,
+# whose statement line says so, counts at the rate of the bank's value that covers it, not at the
+# check-in of the other accounts in between, and one without a line at its own date. And gold
+# bought and sold outside the account.
 TRADES = {
     "base": "EUR",
     "accounts": [
         account("bank", "cash"),
         account("broker", "brokerage"),
         account("usd-broker", "brokerage", "USD", opened="2026-01-15"),
+        account("usd-bank", "cash", "USD"),
         account("gold", "metals"),
     ],
     "instruments": [instrument("world", "EUR"), instrument("bonds", "EUR"), instrument("tech", "USD", "stock"),
@@ -166,6 +169,10 @@ TRADES = {
             value("2026-02-28", "bank", balance="6400", moneyIn="3000", moneyOut="2600"),
             value("2026-03-31", "bank", balance="7350", moneyIn="3000", moneyOut="2250"),
             value("2026-04-30", "bank", balance="6000", moneyIn="3000", moneyOut="3850"),
+            value("2026-01-31", "usd-bank", balance="3000"),
+            value("2026-02-28", "usd-bank", balance="3000", moneyIn="0", moneyOut="0"),
+            # No value on 31 March: its 30 April value covers the move to the broker in March.
+            value("2026-04-30", "usd-bank", balance="2500", moneyIn="0", moneyOut="0"),
             value("2026-01-31", "broker", cash="100"),
             # A statement's positions are a check, not the holdings (TRADES.md, "Reconciliation").
             value("2026-02-28", "broker", cash="300", positions=[{"instrument": "world", "quantity": "24"}]),
@@ -173,6 +180,10 @@ TRADES = {
             value("2026-01-31", "gold", cash="0"),
             # A trades account's balance isn't used.
             value("2026-03-31", "gold", cash="0", balance="1"),
+        ],
+        "lines": [
+            {"account": "usd-bank", "date": "2026-03-04", "id": "to-broker", "amount": "-500", "class": "transfer",
+             "otherAccount": "usd-broker", "text": "To the broker", "confirmed": True},
         ],
         "trades": [
             trade("2026-01-31", "broker", "open-world", "opening", instrument="world", quantity="20", cost="2800"),
@@ -194,6 +205,8 @@ TRADES = {
             trade("2026-01-20", "usd-broker", "dep-u", "deposit", amount="2000"),
             trade("2026-02-15", "usd-broker", "buy-u", "buy", instrument="tech", quantity="7", price="210.4",
                   fees="1.25"),
+            trade("2026-03-05", "usd-broker", "dep-u2", "deposit", amount="500"),
+            trade("2026-04-03", "usd-broker", "dep-u3", "deposit", amount="300"),
             trade("2026-04-10", "usd-broker", "int-u", "interest", amount="3.4"),
             trade("2026-01-31", "gold", "open-gold", "opening", instrument="gold-g", quantity="100", cost="8100"),
             trade("2026-02-20", "gold", "buy-g", "buy", instrument="gold-g", quantity="31.1", amount="-2790.5",

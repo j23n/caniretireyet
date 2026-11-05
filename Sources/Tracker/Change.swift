@@ -57,10 +57,12 @@ public struct AccountChange: Hashable, Sendable, Identifiable {
     public let account: AccountID
     public let change: ValueChange
     /// What the period's valuations saved (``Valuator/saved(_:previous:)``),
-    /// converted to the change's currency at each valuation's date; zero
-    /// when there was no new valuation. `nil` when one's is unknown: a
-    /// balance that asks for it without it, the account's first value, or
-    /// a price or rate missing.
+    /// converted to the change's currency at each valuation's date (a
+    /// trades account's flows at their dates, a move from another account
+    /// in its currency at that account's value that covers it); zero when
+    /// there was no new valuation. `nil` when one's is unknown: a balance that asks
+    /// for it without it, the account's first value, or a price or rate
+    /// missing.
     public let saved: Decimal?
     /// Missing prices and FX rates. Parts that couldn't be valued count as zero.
     public let problems: [ValuationProblem]
@@ -136,9 +138,12 @@ extension Valuator {
     /// - **Trades accounts:** values are snapshots (``snapshot(of:on:)``),
     ///   and saved is the account's ``TradeFlow``s in the period
     ///   (deposits, withdrawals, transfers and residuals), each converted at
-    ///   its date. Dividends, interest and fees are market. Without a price
-    ///   for a transfer, what it saved is unknown: market is the old holdings at
-    ///   the new prices and rates, and saved the rest.
+    ///   its date; a deposit or withdrawal moved from or to another account
+    ///   in its currency at the rate of that account's value that covers
+    ///   it, as that value's saved is (``rateDate(ofFlowOn:from:through:)``). Dividends, interest and fees are
+    ///   market. Without a price for a transfer, what it saved is unknown:
+    ///   market is the old holdings at the new prices and rates, and saved
+    ///   the rest.
     /// - An account that closes in the period ends at zero: its value on the
     ///   closing day leaves as saved. One that opens starts at zero.
     public func change(from: CalendarDate, to: CalendarDate, in scope: NetWorthScope = .netWorth) -> ChangeReport {
@@ -287,7 +292,10 @@ extension Valuator {
     /// saved (``saved(_:previous:)``), each converted at its own date;
     /// zero if there are none, `nil` if one is unknown. For a trades
     /// account, its ``TradeFlow``s instead: deposits, withdrawals, transfers
-    /// and residuals. Converted to `currency` (the base currency when `nil`).
+    /// and residuals, each converted at its date, or, for a move from or to
+    /// another account in its currency, at that account's value that
+    /// covers it (``rateDate(ofFlowOn:from:through:)``). Converted to `currency` (the base
+    /// currency when `nil`).
     func recordedSaved(of account: Account, after from: CalendarDate, through: CalendarDate,
                        in currency: CurrencyCode? = nil, problems: inout [ValuationProblem]) -> Decimal? {
         let target = currency ?? baseCurrency
