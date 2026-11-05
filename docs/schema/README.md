@@ -137,5 +137,6 @@ To open the library in a spreadsheet or take it to another app, Settings › Lib
 - **The first two are worked out** ([How values are computed](#how-values-are-computed)) at each month end from the first value through the export's date (and on that date when it isn't a month end), rounded to cents. `complete` is `no` where a price or an exchange rate is missing; the value is then what could be valued.
 - **The others are what's recorded**, field for field as in the library's files, empty where a field isn't set; their meaning is in the schemas. `asset_classes` reads `bonds=0.4; equity=0.6`, `tags` `a; b`, and the yes/no columns `yes` or `no`.
 - Plans, projections and import profiles aren't exported: their files are plain JSON already.
+- Read back into a library, the export gives the same export and the same numbers (`ExportRoundTripTests`, in ImporterTests).
 
 How this app merges sync conflicts, saves over files changed elsewhere, keeps backups and undoes an import is in [PLAN.md](../PLAN.md#merging-saving-and-undo).

@@ -495,6 +495,8 @@ The statement layout is tested with made-up exports in `Tests/ImporterTests/Samp
 - **Italian-like** (`italian-bank.csv`): title rows, `;`, `1.234,56`, `dd/MM/yyyy`, the newest line first, `Entrate` and `Uscite`, a value date; pay, a transfer to a broker, a `Giroconto`, interest, and a line in a month that isn't over.
 - **English-like** (`english-bank.csv`): `,`, `MM/dd/yyyy`, signed amounts and a running balance, a savings account's interest.
 
+A year of made-up monthly statements of two accounts, imported as one batch in either order and month by month, gives the same values and savings rates (`StatementOrderInvariantTests`).
+
 ## Where it runs
 
 - **Engine.** The `Importer` module, in pure Swift. It reads bytes and a `Library` and returns results; the app and the CLI back up and write the files it reports as changed. It's tested on Linux against a folder of sample files (`Tests/ImporterTests/Samples/`): Italian Excel CSVs in Windows-1252, US-style exports, Numbers exports, title and totals rows, month-only dates, Excel serial dates, long files, quantities with prices, debts written as positive amounts (and columns that write them negative), broken rows.
