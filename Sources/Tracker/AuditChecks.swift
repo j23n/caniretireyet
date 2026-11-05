@@ -238,7 +238,9 @@ public struct AuditChecks: Sendable {
             var startedWith: [AccountID: Decimal] = [:]
             for stretch in stretches { startedWith.merge(stretch.startedWith, uniquingKeysWith: +) }
             return startedWith.keys.sorted().compactMap { account in
-                guard let amount = startedWith[account], amount != 0, abs(amount) > moneyIn else { return nil }
+                guard startsIn(account, after: report.from, through: report.to), let amount = startedWith[account],
+                      amount != 0, abs(amount) > moneyIn
+                else { return nil }
                 return AuditViolation(rule: .startedWithAboveMoneyIn, date: report.to, account: account,
                                       amounts: [.init("startedWith", amount), .init("moneyIn", moneyIn)])
             }

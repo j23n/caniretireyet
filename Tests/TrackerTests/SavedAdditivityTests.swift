@@ -10,7 +10,7 @@ import Tracker
 /// check-in splits what was saved the same way, as long as no account's
 /// records start in the days: a new account's first amount is shared out
 /// by what moved in its stretch (PROGRESS.md, "Saved"), so there where the
-/// cuts fall matters.
+/// cuts fall can matter.
 struct SavedAdditivityTests {
     /// `saved(a, c)` against `saved(a, b) + saved(b, c)`, and what moved net
     /// worth and the Overview's split over the same days.
@@ -72,19 +72,19 @@ struct SavedAdditivityTests {
         #expect(checked > 0)
     }
 
-    /// Where the cuts fall decides what a new account started with: the
-    /// broker's first record, a deposit of 10 February, is paid for by
+    /// The broker's first record, a deposit of 10 February, is paid for by
     /// what moved out of the bank by 28 February, but not by the bank's
     /// 31 January. Cut on 15 February, the stretch it starts in ends
-    /// before the bank's value, which records the transfer, so it started
-    /// with the deposit. That's the rule as PROGRESS.md states it, so this
-    /// pins it rather than asserting it adds up.
-    @Test func aCutInANewAccountsStretchMovesWhatItStartedWith() throws {
+    /// before the bank's value, which records the transfer, so through
+    /// the 15th it started with the deposit; the bank's value, which covers
+    /// the days since 31 January, then pays for it (PROGRESS.md, "Saved").
+    /// So the two stretches add up to the whole.
+    @Test func aCutInANewAccountsStretchPaysForItAtTheNextValue() throws {
         let valuator = Valuator(library: try InvariantLibrary.newAccount.library())
         let whole = valuator.savedStretches(between: ["2026-01-31", "2026-02-28"], in: .netWorth)
         let cut = valuator.savedStretches(between: ["2026-01-31", "2026-02-15", "2026-02-28"], in: .netWorth)
         #expect(whole.map(\.totalStartedWith) == [0])
-        #expect(cut.map(\.totalStartedWith) == [1000, 0])
-        #expect(whole.map(\.total).sum == cut.map(\.total).sum + 1000)
+        #expect(cut.map(\.totalStartedWith) == [1000, -1000])
+        #expect(whole.map(\.total).sum == cut.map(\.total).sum)
     }
 }

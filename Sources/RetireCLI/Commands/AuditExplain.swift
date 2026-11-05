@@ -20,8 +20,10 @@ struct AuditExplainReport: CommandReport {
     /// The same accounts in their own currencies, those not in the base currency.
     let ownCurrency: [(account: AccountChange, currency: CurrencyCode)]
     /// What the accounts whose records start in the days started with, and
-    /// what of their first amount counts as saved.
-    let firsts: [(account: AccountID, saved: Decimal, startedWith: Decimal)]
+    /// what of their first amount counts as saved; and, for an account
+    /// whose records started earlier (`isNew` false), what money moved in
+    /// the days paid for of what it started with, below zero.
+    let firsts: [(account: AccountID, saved: Decimal, startedWith: Decimal, isNew: Bool)]
     let moved: WhatMoved?
     /// Each cash and savings account's money in and out over the days.
     let money: [(account: AccountID, summary: MoneyInOutSummary)]
@@ -72,7 +74,9 @@ struct AuditExplainReport: CommandReport {
             started.merge(stretch.startedWith, uniquingKeysWith: +)
             saved.merge(stretch.saved, uniquingKeysWith: +)
         }
-        firsts = started.keys.sorted().map { ($0, saved[$0] ?? 0, started[$0] ?? 0) }
+        firsts = started.keys.sorted().map { id in
+            (id, saved[id] ?? 0, started[id] ?? 0, valuator.firstRecordDate(of: id).map { $0 > previous } ?? false)
+        }
         let moved = valuator.whatMoved(report)
         self.moved = moved
         let cash = valuator.cameInAccounts.sorted()
@@ -101,8 +105,15 @@ struct AuditExplainReport: CommandReport {
             lines += table.lines()
         }
         for first in firsts {
-            lines.append("\(first.account)'s records start since the check-in before: \(Format.amount(first.saved)) "
-                + "of its first amount counts as saved, \(Format.amount(first.startedWith)) as what it started with.")
+            if first.isNew {
+                lines.append("\(first.account)'s records start since the check-in before: "
+                    + "\(Format.amount(first.saved)) of its first amount counts as saved, "
+                    + "\(Format.amount(first.startedWith)) as what it started with.")
+            } else {
+                lines.append("\(first.account)'s records started in days a value on this date covers: money moved "
+                    + "in them pays for \(Format.amount(-first.startedWith)) of what it started with, "
+                    + "which counts as saved.")
+            }
         }
         guard let moved else { return lines }
 
