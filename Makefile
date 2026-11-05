@@ -77,7 +77,7 @@ screenshots: project
 	$(PYTHON) $(SCREENSHOT_SCRIPT) failures $(RESULTS) || status=1; \
 	exit $$status
 
-ci-linux: build-package oracle test
+ci-linux: build-package test oracle
 
 # The Mac's run on main and by hand: the app for the iOS Simulator and the Mac, its unit tests, and
 # CloudSync's tests, the only package tests with Apple-only code. Linux builds and tests the whole
