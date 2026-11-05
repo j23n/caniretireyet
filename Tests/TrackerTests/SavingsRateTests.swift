@@ -202,15 +202,18 @@ struct SavingsRateTests {
 
     /// A current account valued every month, 3,000 coming in each, and a
     /// savings account valued every quarter. With 6,000 coming into the
-    /// savings account a quarter, 2,000 a month, the current account is the
-    /// pay account in every month: each month's pay covers its days, and
-    /// March counts what both accounts saved. Its quarter's 6,000 alone
-    /// would make it the pay account in January and February, whose pay
-    /// would then cover no days. With 9,000 a quarter, 3,100 of it in
-    /// January's days, the savings account is January's pay account, so
-    /// January's pay covers no days, and spent a year scales by the days of
-    /// the current account's value instead of one day.
-    @Test func aQuarterlyValueCountsOnlyItsShareOfAMonth() throws {
+    /// savings account a quarter, less than the current account's 9,000,
+    /// the current account is the pay account in every month: each
+    /// month's pay covers its days, and March counts what both accounts
+    /// saved. Its quarter's 6,000 alone would make it the pay account in
+    /// January and February, whose pay would then cover no days. With
+    /// 9,000 a quarter, as much, the tie goes to the current account in
+    /// every month, so the months add up to the quarter. With 12,000 a
+    /// quarter, the savings account is the pay account in every month:
+    /// January's pay covers no days, spent a year scales by the days of the
+    /// current account's value instead of one day, and the months add up
+    /// too.
+    @Test func aQuarterlyValueDoesntOutweighAMonthlyOneByItsQuarter() throws {
         func library(savingsMoneyIn: Decimal) -> Library {
             var library = Library(settings: LibrarySettings(baseCurrency: .eur))
             library.accounts["bank"] = Account(id: "bank", name: "Bank", kind: .cash, currency: .eur,
@@ -242,7 +245,17 @@ struct SavingsRateTests {
         #expect(quarter.saved == months.map(\.saved).reduce(0, +))
         #expect(quarter.spent == months.map(\.spent).reduce(0, +))
 
-        let more = try #require(Valuator(library: library(savingsMoneyIn: 9000))
+        for savingsMoneyIn: Decimal in [9000, 12000] {
+            let valuator = Valuator(library: library(savingsMoneyIn: savingsMoneyIn))
+            let months = valuator.moneyInOutSeries(.months, through: "2026-03-31").periods
+            let quarter = try #require(valuator.savingsRate(from: "2026-01-01", through: "2026-03-31"))
+            #expect(quarter.saved == months.map(\.saved).reduce(0, +), "\(savingsMoneyIn)")
+            #expect(quarter.spent == months.map(\.spent).reduce(0, +), "\(savingsMoneyIn)")
+        }
+        let tie = Valuator(library: library(savingsMoneyIn: 9000)).moneyInOutSeries(.months, through: "2026-03-31")
+        #expect(tie.periods.map(\.saved) == [1000, 1000, 10000])
+
+        let more = try #require(Valuator(library: library(savingsMoneyIn: 12000))
             .savingsRate(from: "2026-01-01", through: "2026-01-31"))
         #expect(more.from == more.payThrough)
         #expect(more.saved == 0)

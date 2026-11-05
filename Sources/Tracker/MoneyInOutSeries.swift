@@ -6,9 +6,9 @@ import Model
 /// (PROGRESS.md, "Trends"): over the values dated in it, even when one
 /// covers more (after a skipped check-in), as
 /// ``Valuator/savingsRate(from:through:)`` counts them, with what was saved
-/// over the days their pay covers. While the account the most came into
-/// stays the same, those days of consecutive periods meet, so the periods
-/// add up to the days they cover together. In the base currency.
+/// over the days their pay covers. While the pay account stays the same,
+/// those days of consecutive periods meet, so the periods add up to the
+/// days they cover together. In the base currency.
 public struct MoneyInOutPeriod: Hashable, Sendable {
     /// The first day of the month or year.
     public let from: CalendarDate
@@ -78,7 +78,7 @@ public struct MoneyInOutPeriod: Hashable, Sendable {
     /// The days the pay counted in the period covers, the days the savings
     /// rate counts what was saved over: from the day after
     /// ``SavingsRate/from`` through ``SavingsRate/payThrough``, the values
-    /// of the account the most came into. So a savings account checked
+    /// of the pay account (``Valuator/savingsRate(from:through:)``). So a savings account checked
     /// quarterly, another account's later statement, or an account first
     /// valued mid-month, doesn't stretch it. `nil` when nothing was counted,
     /// or the pay covers no days (that account has no value in the period).
