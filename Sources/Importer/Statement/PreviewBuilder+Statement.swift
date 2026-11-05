@@ -862,11 +862,46 @@ extension PreviewBuilder {
             let since = valuations.last { $0.date < later.date }?.date
             issues.append(ImportIssue(kind: .laterMoneyInOut(account.id, value: later.date, since: since)))
         }
+        // The library's next value, without money in and out, gets them from its lines once they add up from
+        // the file's last value, such as a month imported after the month that follows it.
+        if let last = sortedCuts.last, !lines.contains(where: { $0.date > last }),
+           let opening = records[.valuation(ValuationKey(account: account.id, date: last))]?.record.balance,
+           valuations.first(where: { $0.date == last }).map({ $0.balance == opening }) ?? true,
+           let later = laterValueFromLines(after: last, opening: opening, account: account, valuations: valuations) {
+            records[later.key] = Accumulator(record: later)
+        }
         let after = lines.filter { line in sortedCuts.last.map { line.date > $0 } ?? true }
         if !after.isEmpty {
             issues.append(ImportIssue(kind: .linesAfterLastValue(count: after.count, after: sortedCuts.last)))
         }
         return records
+    }
+
+    /// The library's value next after `last`, the file's last value, with
+    /// money in and out counted from the library's lines since `last`
+    /// (docs/IMPORT.md, "Values"), as a line's change counts them (Tracker's
+    /// `Library.countLines(of:)`): when it has no money in and out, has
+    /// lines since `last`, and they add up from `opening` to its balance.
+    /// Its amounts are values to fill in, so one it has already that
+    /// differs is a conflict. `nil` otherwise.
+    private func laterValueFromLines(after last: CalendarDate, opening: Decimal, account: Account,
+                                     valuations: [Valuation]) -> ImportedRecord? {
+        guard let later = valuations.first(where: { $0.date > last }), !later.hasMoneyInOut,
+              let closing = later.balance else { return nil }
+        let inside = library.lines(for: account.id).filter { $0.date > last && $0.date <= later.date }
+        let counted = inside.filter { !$0.isRemoved }
+        guard !inside.isEmpty, opening + counted.reduce(Decimal(0), { $0 + $1.amount }) == closing else { return nil }
+        let recordsInterest = account.kind.recordsInterest
+        let total = counted.reduce(LineAmounts()) { $0 + $1.amounts(recordsInterest: recordsInterest) }
+        var record = ImportedRecord(key: .valuation(later.key))
+        record.balance = closing
+        record.moneyIn = total.moneyIn
+        // More paid back than spent leaves money out at 0, as for the file's own values.
+        record.moneyOut = max(total.moneyOut, 0)
+        if total.oneOff != 0 { record.oneOff = total.oneOff }
+        if total.tax != 0, account.kind != .taxPot { record.tax = total.tax }
+        if total.interest != 0 { record.interest = total.interest }
+        return record
     }
 }
 
