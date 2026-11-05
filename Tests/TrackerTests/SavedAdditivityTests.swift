@@ -87,4 +87,83 @@ struct SavedAdditivityTests {
         #expect(cut.map(\.totalStartedWith) == [1000, -1000])
         #expect(whole.map(\.total).sum == cut.map(\.total).sum)
     }
+
+    /// A current account valued on 31 January and 28 February, a broker
+    /// tracked since January, and a savings account first valued on
+    /// 15 February with 6,000 from outside: `savings` the library with
+    /// that value, which makes a check-in in the middle of the month.
+    private func monthWithANewSavingsAccount(pot: Bool = false, midMonth: Bool) -> Library {
+        var library = Library(settings: LibrarySettings(baseCurrency: .eur))
+        var accounts = [
+            Account(id: "current", name: "Current", kind: .cash, currency: .eur, opened: "2026-01-01"),
+            Account(id: "savings", name: "Savings", kind: .savings, currency: .eur, opened: "2026-02-01"),
+        ]
+        if pot {
+            accounts.append(Account(id: "pot", name: "Pot", kind: .cash, currency: .eur, opened: "2026-01-01"))
+        } else {
+            accounts.append(Account(id: "broker", name: "Broker", kind: .brokerage, currency: .eur,
+                                    opened: "2026-01-01", valuation: .trades))
+        }
+        for account in accounts { library.accounts[account.id] = account }
+        library.upsert(Valuation(account: "current", date: "2026-01-31", balance: 10000))
+        if pot {
+            // A pot without money in and out, drawn down before the 15th and filled up again after it.
+            library.upsert(Valuation(account: "current", date: "2026-02-28", balance: 10000, moneyIn: 0,
+                                     moneyOut: 0))
+            library.upsert(Valuation(account: "pot", date: "2026-01-31", balance: 10000))
+            library.upsert(Valuation(account: "pot", date: "2026-02-15", balance: 4000))
+            library.upsert(Valuation(account: "pot", date: "2026-02-28", balance: 10000))
+        } else {
+            // 5,000 moved to the broker on 10 February.
+            library.upsert(Valuation(account: "current", date: "2026-02-28", balance: 5000, moneyIn: 0,
+                                     moneyOut: 0))
+            library.upsert(Valuation(account: "broker", date: "2026-01-31", cash: 0, saved: 0))
+            library.upsert(Trade(account: "broker", date: "2026-02-10", id: "dep", type: .deposit, amount: 5000))
+        }
+        if midMonth {
+            library.upsert(Valuation(account: "savings", date: "2026-02-15", balance: 6000))
+            library.upsert(Valuation(account: "savings", date: "2026-02-28", balance: 6000, moneyIn: 0, moneyOut: 0))
+        } else {
+            library.upsert(Valuation(account: "savings", date: "2026-02-28", balance: 6000))
+        }
+        return library
+    }
+
+    /// The 5,000 moved to the broker already counts as saved there before
+    /// the 15th, so the current account's value on the 28th, which records
+    /// it leaving, doesn't pay for the savings account too: February saved
+    /// nothing, with and without the value on the 15th.
+    @Test func moneySavedBeforeTheCheckInDoesntPayForANewAccountAgain() throws {
+        for midMonth in [false, true] {
+            let valuator = Valuator(library: monthWithANewSavingsAccount(midMonth: midMonth))
+            let moved = valuator.whatMoved(valuator.change(from: "2026-01-31", to: "2026-02-28"))
+            #expect(moved.saved == 0, "\(midMonth)")
+            #expect(moved.startedWith == 6000, "\(midMonth)")
+            #expect(moved.unexplained == 0, "\(midMonth)")
+        }
+        let valuator = Valuator(library: monthWithANewSavingsAccount(midMonth: true))
+        let stretches = valuator.savedStretches(between: ["2026-01-31", "2026-02-15", "2026-02-28"], in: .netWorth)
+        #expect(stretches.map(\.saved) == [["current": 0, "broker": 5000, "savings": 0],
+                                            ["current": -5000, "broker": 0, "savings": 0]])
+        #expect(stretches.map(\.startedWith) == [["savings": 6000], [:]])
+    }
+
+    /// What was drawn from the pot before the 15th pays for the savings
+    /// account there; filled up again after it, over all of February the
+    /// pot paid for nothing. So
+    /// the stretch after the 15th takes back what the one before paid:
+    /// February started with 6,000, with and without the value on the 15th.
+    @Test func aStretchTakesBackWhatTheOneBeforePaidForANewAccount() throws {
+        for midMonth in [false, true] {
+            let valuator = Valuator(library: monthWithANewSavingsAccount(pot: true, midMonth: midMonth))
+            let moved = valuator.whatMoved(valuator.change(from: "2026-01-31", to: "2026-02-28"))
+            #expect(moved.saved == 0, "\(midMonth)")
+            #expect(moved.startedWith == 6000, "\(midMonth)")
+        }
+        let valuator = Valuator(library: monthWithANewSavingsAccount(pot: true, midMonth: true))
+        let stretches = valuator.savedStretches(between: ["2026-01-31", "2026-02-15", "2026-02-28"], in: .netWorth)
+        #expect(stretches.map(\.saved) == [["current": 0, "pot": -6000, "savings": 6000],
+                                            ["current": 0, "pot": 6000, "savings": -6000]])
+        #expect(stretches.map(\.startedWith) == [["savings": 0], ["savings": 6000]])
+    }
 }

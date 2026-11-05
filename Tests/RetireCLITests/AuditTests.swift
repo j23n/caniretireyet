@@ -109,6 +109,31 @@ struct AuditTests {
         #expect(first.output.hasPrefix("Check-in 2025-10-31, the first check-in, in EUR\n"))
     }
 
+    /// C3 with the savings account first valued on 15 February: the
+    /// current account's value on the 28th, which covers the days since
+    /// 31 January, pays for part of what the broker and the savings
+    /// account started with.
+    @Test func explainsWhatAValueCoveringEarlierDaysPaysFor() async throws {
+        let library = try TemporaryFolder()
+        let ledger = ReferenceLedger.newAccounts
+        for path in ledger.allJSONFiles {
+            try library.write(path, ledger.data(for: path))
+        }
+        let path = "history/2025/2025-02.json"
+        var february = try #require(try JSONSerialization.jsonObject(with: library.data(path)) as? [String: Any])
+        let valuations = try #require(february["valuations"] as? [[String: Any]])
+        february["valuations"] = valuations + [["account": "savings", "date": "2025-02-15", "balance": "6000"]]
+        try library.write(path, JSONSerialization.data(withJSONObject: february, options: [.sortedKeys]))
+
+        let run = await retire(["audit", "--explain", "2025-02-28", "--library", library.path])
+        #expect(run.status == 0, "\(run.all)")
+        #expect(run.output.hasPrefix("Check-in 2025-02-28, since the check-in on 2025-02-15, in EUR\n"), "\(run.output)")
+        #expect(run.output.contains("broker's records started in days a value on this date covers: money moved in "
+            + "them pays for 3,125.00 of what it started with, which counts as saved."), "\(run.output)")
+        #expect(run.output.contains("savings's records started in days a value on this date covers: money moved in "
+            + "them pays for 1,875.00 of what it started with, which counts as saved."), "\(run.output)")
+    }
+
     @Test func refusesADateWithoutACheckInAndOptionsThatDontGoTogether() async throws {
         let library = try TemporaryFolder.exampleLibrary()
         let missing = await retire(["audit", "--explain", "2026-09-15", "--library", library.path])

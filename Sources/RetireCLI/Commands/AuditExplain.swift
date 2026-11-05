@@ -109,10 +109,14 @@ struct AuditExplainReport: CommandReport {
                 lines.append("\(first.account)'s records start since the check-in before: "
                     + "\(Format.amount(first.saved)) of its first amount counts as saved, "
                     + "\(Format.amount(first.startedWith)) as what it started with.")
-            } else {
+            } else if first.startedWith < 0 {
                 lines.append("\(first.account)'s records started in days a value on this date covers: money moved "
                     + "in them pays for \(Format.amount(-first.startedWith)) of what it started with, "
                     + "which counts as saved.")
+            } else {
+                lines.append("\(first.account)'s records started in days a value on this date covers: money moved "
+                    + "in them pays for \(Format.amount(first.startedWith)) less of what it started with than "
+                    + "the check-ins before counted as saved.")
             }
         }
         guard let moved else { return lines }

@@ -29,9 +29,9 @@ public struct WhatMoved: Hashable, Sendable {
     /// inheritance (``MoneyInOutSummary/oneOffs``).
     public let oneOffs: Decimal
     /// What accounts whose records start in the days held then, as far as
-    /// nothing tracked before paid for it, less what money moved in the
-    /// days paid for of what accounts that started before them still
-    /// started with (``SavedStretch/startedWith``).
+    /// nothing tracked before paid for it, and the change in what accounts
+    /// that started in earlier days a value in these covers started with
+    /// (``SavedStretch/startedWith``).
     public let startedWith: Decimal
     /// What belongings with a depreciation are estimated to have lost
     /// (``ValueChange/lost``).

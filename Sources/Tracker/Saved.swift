@@ -30,18 +30,23 @@ import Model
 ///
 /// A cash or savings account's value covers the days since its value
 /// before, which can start before the stretch when another account's
-/// value made a check-in in between. What it says moved then also pays,
-/// with the first amounts, for what accounts whose records start in those
-/// days still started with: the part it pays is saved in this stretch,
-/// and comes off what they started with.
+/// value made a check-in in between. When accounts' records start in
+/// those days, they're paid for as one stretch over all of them would
+/// pay for them, from what moved and landed over all of them, and this
+/// stretch counts what that leaves after the stretches before it in
+/// those days: so the days' numbers don't depend on the check-in in
+/// between.
 public struct SavedStretch: Hashable, Sendable {
     /// How each account changed over the stretch, after `report.from` through `report.to`.
     public let report: ChangeReport
     /// What each account that counted in the stretch saved.
     public let saved: [AccountID: Decimal]
     /// What each account whose records start in the stretch held when they
-    /// start; and what money moved in the stretch paid for of what an
-    /// account that started in days before it still started with, below zero.
+    /// start, as far as nothing tracked before paid for it; and the change
+    /// in what an account that started in earlier days its values cover
+    /// started with: below zero what money moved over those days pays for
+    /// beyond what the stretches before it paid, above zero what they paid
+    /// beyond it.
     public let startedWith: [AccountID: Decimal]
 
     public init(report: ChangeReport, saved: [AccountID: Decimal], startedWith: [AccountID: Decimal]) {
@@ -59,8 +64,9 @@ public struct SavedStretch: Hashable, Sendable {
     }
 
     /// Everything the accounts whose records start in the stretch held
-    /// then, less what money moved in it paid for of what accounts that
-    /// started before it still started with (``startedWith``).
+    /// then, as far as nothing tracked before paid for it, with the change
+    /// in what accounts that started in earlier days its values cover
+    /// started with (``startedWith``).
     public var totalStartedWith: Decimal {
         startedWith.keys.sorted().reduce(Decimal(0)) { $0 + (startedWith[$1] ?? 0) }
     }
@@ -71,7 +77,7 @@ extension Valuator {
     /// consecutive `cuts` (sorted dates, the first only where the first
     /// stretch starts), oldest first (``SavedStretch``).
     public func savedStretches(between cuts: [CalendarDate], in scope: NetWorthScope) -> [SavedStretch] {
-        zip(cuts, cuts.dropFirst()).map { savedStretch(after: $0.0, through: $0.1, in: scope) }
+        zip(cuts, cuts.dropFirst()).map { savedStretch(after: $0.0, through: $0.1, in: scope, cuts: cuts) }
     }
 
     /// The cuts of the stretches from `from` (exclusive) through `through`:
@@ -84,13 +90,16 @@ extension Valuator {
     }
 
     /// What the accounts in `scope` saved after `from` through `through`
-    /// (``SavedStretch``).
-    func savedStretch(after from: CalendarDate, through: CalendarDate, in scope: NetWorthScope) -> SavedStretch {
+    /// (``SavedStretch``), in a series cut at `cuts` as well as at
+    /// check-ins, so that a stretch whose cash values cover days before it
+    /// takes off what the series' own stretches of those days counted.
+    func savedStretch(after from: CalendarDate, through: CalendarDate, in scope: NetWorthScope,
+                      cuts: [CalendarDate] = []) -> SavedStretch {
         let report = change(from: from, to: through, in: scope)
         var saved: [AccountID: Decimal] = [:]
         // The amounts money moved may pay for: the first amounts of the accounts whose records
-        // start in the stretch, and what accounts that started before it still started with.
-        var owed: [(account: AccountID, amount: Decimal, isFirst: Bool)] = []
+        // start in the stretch.
+        var owed: [(account: AccountID, amount: Decimal)] = []
         var takenOut: Decimal = 0
         var movedIn: Decimal = 0
         var movedOut: Decimal = 0
@@ -99,7 +108,7 @@ extension Valuator {
         var covered = from
         for account in report.accounts {
             if let record = firstRecordDate(of: account.account), record > from, record <= through {
-                owed.append((account.account, account.change.other + account.change.saved, true))
+                owed.append((account.account, account.change.other + account.change.saved))
             } else {
                 saved[account.account] = account.change.saved
                 let cash = moved(into: account, after: from, through: through)
@@ -126,12 +135,12 @@ extension Valuator {
                 }
             }
         }
+        if covered < from, startsAfter(covered, through: through, in: scope) {
+            return savedStretch(after: from, through: through, in: scope, report: report, from: covered,
+                                cuts: cuts)
+        }
         takenOut += max(movedOut - landed, 0)
         let paidIn = max(movedIn, 0)
-        if covered < from, takenOut > 0 || paidIn > 0 {
-            owed += stillStartedWith(after: covered, through: from, in: scope, among: report.accounts.map(\.account))
-                .map { ($0.account, $0.amount, false) }
-        }
         let assets = owed.reduce(Decimal(0)) { $0 + max($1.amount, 0) }
         let debts = owed.reduce(Decimal(0)) { $0 - min($1.amount, 0) }
         var startedWith: [AccountID: Decimal] = [:]
@@ -140,30 +149,54 @@ extension Valuator {
             let share: Decimal = side == 0 ? 0 : min(offset / side, 1)
             let paid = item.amount * share
             saved[item.account, default: 0] += paid
-            if item.isFirst {
-                startedWith[item.account] = item.amount - paid
-            } else if paid != 0 {
-                startedWith[item.account] = -paid
-            }
+            startedWith[item.account] = item.amount - paid
         }
         return SavedStretch(report: report, saved: saved, startedWith: startedWith)
     }
 
-    /// What each of `candidates` whose records start after `from` through
-    /// `through` still started with by `through`: its
-    /// ``SavedStretch/startedWith`` over the stretches between the
-    /// check-ins of those days, added up, leaving out those at zero.
-    private func stillStartedWith(after from: CalendarDate, through: CalendarDate, in scope: NetWorthScope,
-                                  among candidates: [AccountID]) -> [(account: AccountID, amount: Decimal)] {
-        let started = candidates.filter { id in
-            firstRecordDate(of: id).map { $0 > from && $0 <= through } ?? false
+    /// Whether an account in `scope` has its first record after `from`
+    /// through `through`.
+    private func startsAfter(_ from: CalendarDate, through: CalendarDate, in scope: NetWorthScope) -> Bool {
+        accounts.values.contains { account in
+            scope.includes(account) && (firstRecordDate(of: account.id).map { $0 > from && $0 <= through } ?? false)
         }
-        guard !started.isEmpty else { return [] }
-        var total: [AccountID: Decimal] = [:]
-        for stretch in savedStretches(between: savedCuts(after: from, through: through, in: scope), in: scope) {
-            total.merge(stretch.startedWith, uniquingKeysWith: +)
+    }
+
+    /// The stretch after `from` through `through` (`report`), when the
+    /// values in it cover days from `covered` on and accounts' records
+    /// start in those days: an account with a record by `covered` saved
+    /// what its change counts as saved, and one whose records start later
+    /// saved and started with what one stretch after `covered` through
+    /// `through` gives it, less what the stretches before `from` gave it,
+    /// cut at the check-ins and `cuts` between.
+    private func savedStretch(after from: CalendarDate, through: CalendarDate, in scope: NetWorthScope,
+                              report: ChangeReport, from covered: CalendarDate, cuts: [CalendarDate])
+        -> SavedStretch {
+        let whole = savedStretch(after: covered, through: through, in: scope, cuts: cuts)
+        let between = savedCuts(after: covered, through: from, in: scope,
+                                adding: cuts.filter { $0 > covered && $0 < from })
+        let all = Set(cuts + between).sorted()
+        let before = zip(between, between.dropFirst()).map {
+            savedStretch(after: $0.0, through: $0.1, in: scope, cuts: all)
         }
-        return started.compactMap { id in total[id].flatMap { $0 == 0 ? nil : (id, $0) } }
+        func isNew(_ id: AccountID) -> Bool {
+            firstRecordDate(of: id).map { $0 > covered && $0 <= through } ?? false
+        }
+        func rest(_ amounts: (SavedStretch) -> [AccountID: Decimal], of id: AccountID) -> Decimal {
+            before.reduce(amounts(whole)[id] ?? 0) { $0 - (amounts($1)[id] ?? 0) }
+        }
+        var saved: [AccountID: Decimal] = [:]
+        for account in report.accounts {
+            saved[account.account] = isNew(account.account) ? rest(\.saved, of: account.account)
+                : account.change.saved
+        }
+        var startedWith: [AccountID: Decimal] = [:]
+        for id in Set(whole.startedWith.keys).union(before.flatMap(\.startedWith.keys)) where isNew(id) {
+            let amount = rest(\.startedWith, of: id)
+            let startsHere = firstRecordDate(of: id).map { $0 > from } ?? false
+            if amount != 0 || startsHere { startedWith[id] = amount }
+        }
+        return SavedStretch(report: report, saved: saved, startedWith: startedWith)
     }
 
     /// What moved into a cash or savings account from your other accounts
