@@ -167,9 +167,11 @@ public struct MilestoneLadder: Hashable, Sendable {
     /// The milestones reached, oldest first: each at the first value of
     /// plan assets that reaches its amount, above every value before (so
     /// one passed before the first value, or passed again after a fall,
-    /// isn't listed); the shares of what retiring today needs where the
-    /// recorded readiness first reaches them, with the plan assets then as
-    /// their amount.
+    /// isn't listed); the crossover at the first value at or above the
+    /// crossover of its day, with that crossover as its amount, unless the
+    /// first day that has one already was; the shares of what retiring today needs
+    /// where the recorded readiness first reaches them, with the plan
+    /// assets then as their amount.
     ///
     /// The coast point is reached at the first check-in whose recorded coast
     /// age is at most ``coastTarget``, the first record included; it stays
@@ -181,10 +183,13 @@ public struct MilestoneLadder: Hashable, Sendable {
     ///   - readiness: the readiness recorded at check-ins, oldest first
     ///     (1 is all that retiring today needs).
     ///   - coastAges: the coast age recorded at check-ins, oldest first.
-    public func reached(values: [SeriesPoint], readiness: [SeriesPoint] = [],
-                        coastAges: [SeriesPoint] = []) -> [ReachedMilestone] {
+    ///   - crossovers: the crossover on a day of `values`, as it stood then
+    ///     (``crossover(plan:library:valuator:asItStoodOn:)``); without it,
+    ///     ``crossover`` on every day.
+    public func reached(values: [SeriesPoint], readiness: [SeriesPoint] = [], coastAges: [SeriesPoint] = [],
+                        crossovers: ((CalendarDate) -> Decimal?)? = nil) -> [ReachedMilestone] {
         var reached: [ReachedMilestone] = []
-        let amounts = MilestoneLadder(spending: spending, crossover: crossover)
+        let amounts = MilestoneLadder(spending: spending)
         if var high = values.first?.value {
             for point in values.dropFirst() where point.value > high {
                 for milestone in amounts.milestones(in: high...point.value) where milestone.amount > high {
@@ -192,6 +197,21 @@ public struct MilestoneLadder: Hashable, Sendable {
                 }
                 high = point.value
             }
+        }
+        // The crossover is judged from the first day that has one: plan
+        // assets already past it then were past it when its saving started,
+        // as a milestone below the line's first value was behind you.
+        let crossoverOn = crossovers ?? { [crossover] _ in crossover }
+        var judged = false
+        for point in values {
+            guard let amount = crossoverOn(point.date) else { continue }
+            let past = point.value >= amount
+            if judged, past {
+                reached.append(ReachedMilestone(milestone: Milestone(kind: .crossover, amount: amount),
+                                                date: point.date))
+            }
+            if past { break }
+            judged = true
         }
         if var high = readiness.first?.value {
             for point in readiness.dropFirst() where point.value > high {
@@ -218,9 +238,12 @@ public struct MilestoneLadder: Hashable, Sendable {
     /// The milestones `plan` reached through `date`: plan assets on the line
     /// Progress draws, from the first record of one (a value, or a trade)
     /// through the latest check-in on or before `date`, at each check-in
-    /// and the end of every month without one (PROGRESS.md, "Milestones");
-    /// and the readiness and coast age recorded for the plan.
-    public func reached(plan: PlanID, library: Library, valuator: Valuator,
+    /// and the end of every month without one (PROGRESS.md, "Milestones"),
+    /// with the crossover of each day as it stood then
+    /// (``crossover(plan:library:valuator:asItStoodOn:)``, where
+    /// ``crossover`` is today's); and the readiness and coast age recorded
+    /// for the plan.
+    public func reached(plan: PlanDocument, library: Library, valuator: Valuator,
                         through date: CalendarDate) -> [ReachedMilestone] {
         let checkIns = valuator.checkInDates(in: .planAssets, through: date)
         var values: [SeriesPoint] = []
@@ -230,7 +253,7 @@ public struct MilestoneLadder: Hashable, Sendable {
                 SeriesPoint(date: day, value: valuator.total(on: day, in: .planAssets).total)
             }
         }
-        let headlines = library.headlines(for: plan)
+        let headlines = library.headlines(for: plan.id)
             .filter { $0.date <= date }
             .sorted { $0.date < $1.date }
         let readiness = headlines.compactMap { headline in
@@ -239,7 +262,12 @@ public struct MilestoneLadder: Hashable, Sendable {
         let coastAges = headlines.compactMap { headline in
             headline.coastAge.map { SeriesPoint(date: headline.date, value: Decimal($0)) }
         }
-        return reached(values: values, readiness: readiness, coastAges: coastAges)
+        let growth = Self.targetGrowth(of: plan)
+        return reached(values: values, readiness: readiness, coastAges: coastAges) { day in
+            Self.crossover(plan: plan, savingOn: day, targetGrowth: growth) {
+                Planner.mix(plan: plan, library: library, valuator: valuator, on: day).accessibleShares
+            }
+        }
     }
 
     // MARK: Ahead
@@ -302,10 +330,10 @@ public struct MilestoneLadder: Hashable, Sendable {
     }
 
     /// Whether `milestone` is ahead of today: a share of what retiring today
-    /// needs while today's readiness is below it, as ``reached(values:readiness:coastAges:)``
-    /// counts them (its amount, worked out from a readiness that meets it
-    /// exactly, can round to above `current`); any other while its amount is
-    /// above `current`.
+    /// needs while today's readiness is below it, as
+    /// ``reached(values:readiness:coastAges:crossovers:)`` counts them (its
+    /// amount, worked out from a readiness that meets it exactly, can round
+    /// to above `current`); any other while its amount is above `current`.
     private static func isAhead(_ milestone: Milestone, of current: Decimal, readiness: Decimal?) -> Bool {
         if let share = milestone.share, let readiness, readiness > 0, current > 0 {
             return share > readiness
@@ -360,18 +388,44 @@ extension MilestoneLadder {
     /// take-home pay less spending while working,
     /// ``PlanDocument/workingSaving(on:)``) divided by the median
     /// yearly growth of the plan's target mix, else of the money you can
-    /// draw today. `nil` without saving or growth. `valuator` is the library's.
+    /// draw today (on the plan's start date). `nil` without saving or
+    /// growth. `valuator` is the library's.
     public static func crossover(plan: PlanDocument, library: Library, valuator: Valuator,
                                  on date: CalendarDate) -> Decimal? {
-        guard let saving = plan.workingSaving(on: date)?.saving, saving > 0 else { return nil }
-        let mix: [AssetClass: Double]
-        if let target = plan.portfolio.targetMix, !target.shares.isEmpty {
-            mix = target.shares.mapValues(\.doubleValue)
-        } else {
-            mix = Planner.startingMix(plan: plan, library: library, valuator: valuator, today: date).accessibleShares
+        crossover(plan: plan, savingOn: date) {
+            Planner.startingMix(plan: plan, library: library, valuator: valuator, today: date).accessibleShares
         }
-        let growth = Planner.growth(of: mix, assumptions: plan.assumptions)
+    }
+
+    /// The crossover on a past `date`, as it stood then: the saving of the
+    /// work phase in force on `date` divided by the median yearly growth of
+    /// the plan's target mix, else of the money you could draw on `date`,
+    /// valued from what you held then and its prices. What
+    /// ``reached(plan:library:valuator:through:)`` judges each day by, so
+    /// a crossover reached keeps its day when the saving or the mix moves
+    /// later. `nil` without saving or growth. `valuator` is the library's.
+    public static func crossover(plan: PlanDocument, library: Library, valuator: Valuator,
+                                 asItStoodOn date: CalendarDate) -> Decimal? {
+        crossover(plan: plan, savingOn: date) {
+            Planner.mix(plan: plan, library: library, valuator: valuator, on: date).accessibleShares
+        }
+    }
+
+    /// The saving on `date` over the median growth of the plan's target mix
+    /// (`targetGrowth`, when it's worked out already), else of `drawable`'s
+    /// mix; `drawable` is only read without a target mix.
+    private static func crossover(plan: PlanDocument, savingOn date: CalendarDate, targetGrowth: Double? = nil,
+                                  drawable: () -> [AssetClass: Double]) -> Decimal? {
+        guard let saving = plan.workingSaving(on: date)?.saving, saving > 0 else { return nil }
+        let growth = targetGrowth ?? Self.targetGrowth(of: plan)
+            ?? Planner.growth(of: drawable(), assumptions: plan.assumptions)
         guard growth >= 0.001 else { return nil }
         return .rounded(saving.doubleValue / growth, scale: 0)
+    }
+
+    /// The median growth of the plan's target mix; `nil` without one.
+    private static func targetGrowth(of plan: PlanDocument) -> Double? {
+        guard let target = plan.portfolio.targetMix, !target.shares.isEmpty else { return nil }
+        return Planner.growth(of: target.shares.mapValues(\.doubleValue), assumptions: plan.assumptions)
     }
 }

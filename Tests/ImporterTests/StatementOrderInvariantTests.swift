@@ -131,8 +131,8 @@ struct StatementOrderInvariantTests {
     /// From December back, each month's file finds no value the day before
     /// it, as the month before isn't imported yet, so its first value gets
     /// no money in and out (IMPORT.md, "Values"). Importing the month
-    /// before later adds its own value but doesn't count the lines of the
-    /// month after again, so only January's values have money in and out.
+    /// before adds the value the month after follows on from, and the
+    /// month after's value then gets them from its lines.
     @Test func monthByMonthFromDecemberBackGivesWhatOneBatchGives() {
         let inOneBatch = Self.importing(Self.files, into: Self.library())
         let fromDecember = Self.monthByMonth(Array((1...12).reversed()))
@@ -143,13 +143,6 @@ struct StatementOrderInvariantTests {
         }
         let batch = Self.readings(inOneBatch)
         let backward = Self.readings(fromDecember)
-        withKnownIssue("""
-            Importing an earlier month's statement doesn't count the later month's lines into its value \\
-            (Library.countLines runs when a line is saved, not after an import), so statements imported \\
-            from the last month back leave every month but the first without money in and out. Should \\
-            an import recount the values after it? Needs a decision.
-            """) {
-            #expect(backward == batch)
-        }
+        #expect(backward == batch)
     }
 }

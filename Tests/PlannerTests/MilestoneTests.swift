@@ -104,19 +104,34 @@ struct MilestoneTests {
         let plan = try #require(library.plans["base"])
         let valuator = Valuator(library: library)
         let ladder = MilestoneLadder(plan: plan, library: library, valuator: valuator, on: "2026-09-30")
-        let reached = ladder.reached(plan: plan.id, library: library, valuator: valuator, through: "2026-09-30")
+        let reached = ladder.reached(plan: plan, library: library, valuator: valuator, through: "2026-09-30")
         let dates = valuator.checkInDates(in: .planAssets, through: "2026-09-30")
+        func crossover(on day: CalendarDate) -> Decimal? {
+            MilestoneLadder.crossover(plan: plan, library: library, valuator: valuator, asItStoodOn: day)
+        }
         for milestone in reached {
-            switch milestone.milestone.kind {
-            case .shareOfNeeded, .coastPoint: continue
-            case .roundAmount, .yearsOfSpending, .crossover: break
-            }
             let value = valuator.total(on: milestone.date, in: .planAssets).total
-            #expect(value >= milestone.milestone.amount)
-            for day in dates where day < milestone.date {
-                #expect(valuator.total(on: day, in: .planAssets).total < milestone.milestone.amount)
+            switch milestone.milestone.kind {
+            case .shareOfNeeded, .coastPoint:
+                continue
+            case .crossover:
+                // Each day against the crossover as it stood that day.
+                #expect(crossover(on: milestone.date) == milestone.milestone.amount)
+                #expect(value >= milestone.milestone.amount)
+                for day in dates where day < milestone.date {
+                    let total = valuator.total(on: day, in: .planAssets).total
+                    #expect(crossover(on: day).map { total < $0 } ?? true)
+                }
+            case .roundAmount, .yearsOfSpending:
+                #expect(value >= milestone.milestone.amount)
+                for day in dates where day < milestone.date {
+                    #expect(valuator.total(on: day, in: .planAssets).total < milestone.milestone.amount)
+                }
             }
         }
+        // The plan saves from 2026: on the first month end with saving,
+        // plan assets were already past the crossover, so it's behind you.
+        #expect(!reached.contains { $0.id == "crossover" })
     }
 
     /// Before the first check-in and between check-ins, plan assets are
@@ -143,12 +158,14 @@ struct MilestoneTests {
         // The first check-in is in April: the broker records trades, not values.
         library.upsert(Valuation(account: "bank", date: "2024-04-15", balance: 1_000))
         let valuator = Valuator(library: library)
-        let reached = MilestoneLadder().reached(plan: "test", library: library, valuator: valuator,
+        // Retired: no saving, so no crossover.
+        let plan = Sample.plan(retire: .age(60), endAge: 90, retired: "30000")
+        let reached = MilestoneLadder().reached(plan: plan, library: library, valuator: valuator,
                                                 through: "2024-04-30")
         #expect(reached.map(\.id) == ["round-150000", "round-200000"])
         #expect(reached.map(\.date) == ["2024-02-29", "2024-03-31"])
         // Nothing before the first check-in: there's no line yet.
-        #expect(MilestoneLadder().reached(plan: "test", library: library, valuator: valuator,
+        #expect(MilestoneLadder().reached(plan: plan, library: library, valuator: valuator,
                                           through: "2024-04-14").isEmpty)
     }
 
@@ -208,7 +225,7 @@ struct MilestoneTests {
         let valuator = Valuator(library: library)
         let ladder = MilestoneLadder(plan: plan, library: library, valuator: valuator, on: "2026-09-30")
         #expect(ladder.coastTarget == 67)
-        let reached = ladder.reached(plan: plan.id, library: library, valuator: valuator, through: "2026-09-30")
+        let reached = ladder.reached(plan: plan, library: library, valuator: valuator, through: "2026-09-30")
         #expect(reached.first { $0.id == "coast" }?.date == "2026-08-31")
     }
 
@@ -346,7 +363,7 @@ struct MilestoneTests {
             let then = Self.library(library, asOf: day)
             let valuator = Valuator(library: then)
             return (day, MilestoneLadder(plan: plan, library: then, valuator: valuator, on: day)
-                .reached(plan: plan.id, library: then, valuator: valuator, through: day))
+                .reached(plan: plan, library: then, valuator: valuator, through: day))
         }
     }
 
@@ -449,25 +466,73 @@ struct MilestoneTests {
         }
     }
 
-    /// The crossover is worked out from the saving and the mix on the day
-    /// (PROGRESS.md, "Milestones"), so it moves when they do. Half the
-    /// money moved to cash at 0% doubles it, from 140.000 to 280.000, and
-    /// the crossover reached in March isn't reached any more.
+    /// Each day is judged by the crossover as it stood that day, with its
+    /// saving and its mix (PROGRESS.md, "Milestones"), so a crossover
+    /// reached keeps its day when they move it later. Half the money moved
+    /// to cash at 0% in April doubles it, from 140.000 to 280.000: the
+    /// crossover reached in March stays reached in March, at 140.000.
     @Test func aCrossoverReachedStaysReachedWhenTheMixMoves() throws {
         let (plan, library) = fallingBack([
             ("2025-01-31", 120_000, "0.2", 70), ("2025-02-28", 132_000, "0.23", 69),
             ("2025-03-31", 145_000, "0.26", 68), ("2025-04-30", 75_000, "0.27", 68),
             ("2025-05-31", 78_000, "0.28", 68),
         ], cash: [0, 0, 0, 75_000, 76_000])
+        let valuator = Valuator(library: library)
+        func crossover(on day: CalendarDate) -> Decimal? {
+            MilestoneLadder.crossover(plan: plan, library: library, valuator: valuator, asItStoodOn: day)
+        }
+        #expect(crossover(on: "2025-03-31") == 140_000)
+        #expect(crossover(on: "2025-04-30") == 280_000)
         let steps = reachedAtEachCheckIn(plan, library)
         #expect(steps.first { $0.date == "2025-03-31" }?.reached.map(\.id).contains("crossover") == true)
-        withKnownIssue("""
-            The crossover is worked out from the saving and the mix on the latest check-in, so one reached \
-            before can stop being reached when either changes. Should a reached crossover keep its amount, \
-            as the shares and the coast point do? The owner decides.
-            """) {
-            expectOnlyForward(steps)
+        expectOnlyForward(steps)
+        let reached = try #require(steps.last?.reached.first { $0.id == "crossover" })
+        #expect(reached.date == "2025-03-31")
+        #expect(reached.milestone.amount == 140_000)
+    }
+
+    /// A day's crossover is judged by that day's mix, not today's: with half
+    /// the money in cash at 0%, 150.000 in February was short of that day's
+    /// 280.000, though past today's 140.000, all in equity since March.
+    @Test func theCrossoverIsJudgedByTheMixOfItsDay() throws {
+        let (plan, library) = fallingBack([
+            ("2025-01-31", 60_000, "0.2", 70), ("2025-02-28", 75_000, "0.23", 69),
+            ("2025-03-31", 160_000, "0.26", 68),
+        ], cash: [60_000, 75_000, 0])
+        let valuator = Valuator(library: library)
+        #expect(MilestoneLadder.crossover(plan: plan, library: library, valuator: valuator, on: "2025-03-31")
+            == 140_000)
+        #expect(MilestoneLadder.crossover(plan: plan, library: library, valuator: valuator,
+                                          asItStoodOn: "2025-02-28") == 280_000)
+        let ladder = MilestoneLadder(plan: plan, library: library, valuator: valuator, on: "2025-03-31")
+        let reached = try #require(ladder.reached(plan: plan, library: library, valuator: valuator,
+                                                  through: "2025-03-31").first { $0.id == "crossover" })
+        #expect(reached.date == "2025-03-31")
+        #expect(reached.milestone.amount == 140_000)
+    }
+
+    /// Without saving there's no crossover, so it's judged from the first
+    /// day with saving: plan assets already past it then were past it when
+    /// the saving started, and it isn't listed. Below it then, it's reached
+    /// on the first day after at or above it.
+    @Test func theCrossoverIsJudgedFromTheFirstDayWithSaving() throws {
+        func reached(_ values: [(String, Decimal)], workFrom: CalendarDate) -> [ReachedMilestone] {
+            let (saver, library) = fallingBack(values.map { ($0.0, $0.1, readiness: "0.2", coastAge: 70) })
+            var plan = saver
+            plan.work = [Sample.work(from: workFrom, net: "40000")]
+            let valuator = Valuator(library: library)
+            let last: CalendarDate = "2025-03-31"
+            return MilestoneLadder(plan: plan, library: library, valuator: valuator, on: last)
+                .reached(plan: plan, library: library, valuator: valuator, through: last)
         }
+        let past: [(String, Decimal)] = [("2025-01-31", 150_000), ("2025-02-28", 152_000), ("2025-03-31", 155_000)]
+        #expect(!reached(past, workFrom: "2025-03-01").contains { $0.id == "crossover" })
+        #expect(!reached(past, workFrom: "2025-01-01").contains { $0.id == "crossover" })
+
+        let below: [(String, Decimal)] = [("2025-01-31", 130_000), ("2025-02-28", 135_000), ("2025-03-31", 145_000)]
+        let crossover = try #require(reached(below, workFrom: "2025-02-01").first { $0.id == "crossover" })
+        #expect(crossover.date == "2025-03-31")
+        #expect(crossover.milestone.amount == 140_000)
     }
 
     /// The median future reaches a higher amount no sooner than a lower

@@ -6,8 +6,8 @@ import TestSupport
 import Tracker
 
 /// Invariant B3 for Progress's years: what a year saved
-/// (`PlanProgressYear.saved(after:through:valuator:)`, two of *Where your
-/// money came from*'s totals subtracted) is what the plan assets saved over
+/// (`PlanProgressYear.saved(after:through:valuator:)`, *Where your money
+/// came from*'s stretches of plan assets) is what the plan assets saved over
 /// the same days by the savings rate's count (`Valuator.saved(after:through:)`).
 struct ProgressSavedInvariantTests {
     /// What the plan assets saved after `from` through `to`, account by account.
@@ -47,16 +47,13 @@ struct ProgressSavedInvariantTests {
     }
 
     /// From a day that isn't a check-in, such as a past baseline's start,
-    /// in a stretch no account's records start in.
+    /// also in a stretch an account's records start in.
     @Test(arguments: InvariantLibrary.allCases)
     func savedFromADayThatIsntACheckIn(_ which: InvariantLibrary) throws {
         let valuator = Valuator(library: try which.library())
         let dates = valuator.checkInDates(in: .planAssets)
         for (before, after) in zip(dates, dates.dropFirst()) where before.days(to: after) > 1 {
-            let starts = valuator.accounts.keys.contains { id in
-                valuator.firstRecordDate(of: id).map { $0 > before && $0 <= after } ?? false
-            }
-            guard !starts, let end = dates.last else { continue }
+            guard let end = dates.last else { continue }
             let day = before.adding(days: before.days(to: after) / 2)
             #expect(same(PlanProgressYear.saved(after: day, through: end, valuator: valuator),
                          planAssetsSaved(valuator, after: day, through: end)), "\(day)…\(end)")
@@ -65,23 +62,18 @@ struct ProgressSavedInvariantTests {
 
     /// The broker's first record is a deposit of 10 February, and the bank
     /// it came from has its next value on 28 February. Counted from 20
-    /// February, the two totals cut the month in different places: through
-    /// 20 February the broker started with its deposit, through 28 February
-    /// the money moved out of the bank paid for it. So the year's saved
-    /// from 20 February counts the deposit of 10 February, which the
-    /// savings rate's count from that day leaves out.
+    /// February, that day cuts the month (PROGRESS.md, "Saved"): the
+    /// bank's value of 28 February, the savings' and the pension's count
+    /// whole after it, while the broker's records start before it, so it
+    /// saved nothing after it. The 1,000 moved out of the bank is in the
+    /// bank's −300, and the deposit it paid for is before the day, as a
+    /// broker tracked before would have it.
     @Test func savedFromADayInANewAccountsStretch() throws {
         let valuator = Valuator(library: try InvariantLibrary.newAccount.library())
         let progress = PlanProgressYear.saved(after: "2026-02-20", through: "2026-02-28", valuator: valuator)
         let tracker = planAssetsSaved(valuator, after: "2026-02-20", through: "2026-02-28")
         // The bank's −300, the savings' 500 and the pension's 300.
         #expect(tracker == 500)
-        withKnownIssue("""
-            PlanProgressYear.saved subtracts two moneySources totals cut in different places, so a new \\
-            account's first amount counts as saved after a day it started before. What a day between \\
-            check-ins saved can't be told from values on check-ins: which count is right needs a decision.
-            """) {
-            #expect(progress == tracker)
-        }
+        #expect(progress == tracker)
     }
 }
