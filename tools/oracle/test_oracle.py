@@ -47,6 +47,8 @@ HEADERS = {
                    "fees", "tax", "cost", "ratio", "settlement", "note", "source"],
     "prices.csv": ["date", "instrument", "price", "currency", "source"],
     "fx.csv": ["date", "base", "quote", "rate", "source"],
+    "lines.csv": ["date", "account", "id", "amount", "text", "class", "other_account", "note", "removed",
+                  "confirmed", "source"],
 }
 
 D = Decimal
@@ -89,6 +91,11 @@ class Folder:
     def trade(self, on: str, account: str, id: str, type: str, **fields) -> "Folder":
         self.rows["trades.csv"].append({"date": on, "account": account, "id": id, "type": type,
                                         **{key: str(item) for key, item in fields.items()}})
+        return self
+
+    def line(self, on: str, account: str, id: str, amount: str, kind: str, other: str = "") -> "Folder":
+        self.rows["lines.csv"].append({"date": on, "account": account, "id": id, "amount": amount, "class": kind,
+                                       "other_account": other, "removed": "no", "confirmed": "yes"})
         return self
 
     def price(self, on: str, instrument: str, amount: str, currency: str = "EUR") -> "Folder":
@@ -283,6 +290,32 @@ class TradeTests(TemporaryFolders):
                   .export("2026-02-28"))
         account = export.accounts["broker"]
         self.assertEqual(export.flows(account, day("2026-01-05"), day("2026-02-28")).value, 4 * D("100") - 52)
+
+    def dollar_move(self, line: bool) -> oracle.Export:
+        """800 USD moved from a dollar bank to a dollar broker on 10 February, the bank's side recorded
+        by its value of 28 February, and by its statement line when `line`."""
+        folder = (Folder().account("bank", "cash", "USD").account("us", "brokerage", "USD")
+                  .fx("2026-01-31", "EUR", "USD", "1.25").fx("2026-02-28", "EUR", "USD", "1.6")
+                  .value("2026-01-31", "bank", balance="3000").value("2026-01-31", "us", cash="0")
+                  .trade("2026-02-10", "us", "d", "deposit", amount="800")
+                  .value("2026-02-28", "bank", balance="2200"))
+        if line:
+            folder.line("2026-02-09", "bank", "to-us", "-800", "transfer", "us")
+        return folder.export("2026-02-28")
+
+    def test_a_move_between_two_accounts_counts_at_the_check_in_that_covers_it(self):
+        export = self.dollar_move(line=True)
+        # 800 USD at 28 February's 1.6, as the bank's −800 is at its value's, not 10 February's 1.25.
+        self.assertEqual(export.flows(export.accounts["us"], day("2026-01-31"), day("2026-02-28")).value,
+                         D("500"))
+        self.assertEqual(export.changes(day("2026-01-31"), day("2026-02-28"))["total"]["saved"], D("0"))
+
+    def test_a_deposit_without_the_other_sides_line_counts_at_its_own_date(self):
+        export = self.dollar_move(line=False)
+        # Nothing tells it from dollars sent in from outside: 800 USD at 1.25.
+        self.assertEqual(export.flows(export.accounts["us"], day("2026-01-31"), day("2026-02-28")).value,
+                         D("640"))
+        self.assertEqual(export.changes(day("2026-01-31"), day("2026-02-28"))["total"]["saved"], D("140"))
 
     def test_a_type_this_version_does_not_know_counts_only_its_amount(self):
         export = (self.broker().value("2026-01-05", "broker", cash="10")

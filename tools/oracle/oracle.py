@@ -232,6 +232,8 @@ class Export:
                 settlement=row["settlement"] or None))
         for trades in self.trades.values():
             trades.sort(key=lambda t: (t.date, t.rank, t.id))
+        # Statement lines: which deposits moved money between two of your accounts (TRADES.md, "Flows").
+        self.lines = read_csv(folder, "lines.csv", required=False)
 
         self.prices: dict[str, list[tuple[date, Decimal, str]]] = defaultdict(list)
         for row in read_csv(folder, "prices.csv"):
@@ -254,6 +256,7 @@ class Export:
         self._worth: dict[tuple[str, date, str], Optional[Amount]] = {}
         self._residuals: dict[str, list[tuple[date, Amount]]] = {}
         self._check_ins: Optional[list[date]] = None
+        self._transfers: Optional[dict[tuple[str, date, str], tuple[str, date]]] = None
 
     # MARK: Prices and rates
 
@@ -488,10 +491,11 @@ class Export:
             return Amount(-amount) if amount is not None else Amount(ZERO, False)
         return None
 
-    def dated_flows(self, account: Account, after: Optional[date], through: date) -> list[tuple[date, Amount]]:
-        """A trades account's flows over (after, through] in its currency, each with its date:
-        deposits and withdrawals, securities moved in or out at market value, what was paid or
-        received outside the account, and each cash valuation's residual."""
+    def dated_flows(self, account: Account, after: Optional[date], through: date) \
+            -> list[tuple[date, Amount, Optional[Trade]]]:
+        """A trades account's flows over (after, through] in its currency, each with its date and its
+        trade: deposits and withdrawals, securities moved in or out at market value, what was paid or
+        received outside the account, and each cash valuation's residual (no trade)."""
         out = []
         for trade in self.trades.get(account.id, []):
             if trade.date > through:
@@ -500,21 +504,58 @@ class Export:
                 continue
             flow = self.trade_flow(trade, account)
             if flow is not None:
-                out.append((trade.date, flow))
+                out.append((trade.date, flow, trade))
         for on, residual in self.residuals(account):
             if (after is None or on > after) and on <= through:
-                out.append((on, residual))
+                out.append((on, residual, None))
         return out
 
     def flows(self, account: Account, after: Optional[date], through: date, in_base: bool = True) -> Amount:
-        """The sum of the flows, in the base currency at their dates (or in the account's)."""
+        """The sum of the flows, in the base currency (or in the account's), each at its date's rate;
+        a move from or to another account in its currency at the rate of the value of the other
+        account that covers its line (TRADES.md, "Flows")."""
         total = Amount(ZERO)
-        for on, flow in self.dated_flows(account, after, through):
+        for on, flow, trade in self.dated_flows(account, after, through):
             if in_base:
-                converted = self.to_base(flow.value, account, on)
+                line = self.transfers().get((trade.account, trade.date, trade.id)) if trade else None
+                rate_day = self.covering_value(line[0], line[1], through) if line else on
+                converted = self.to_base(flow.value, account, rate_day)
                 flow = Amount(converted.value, converted.complete and flow.complete)
             total = total + flow
         return total
+
+    def transfers(self) -> dict[tuple[str, date, str], tuple[str, date]]:
+        """The deposits and withdrawals of trades accounts outside the base currency that moved money
+        from or to another account in their currency (TRADES.md, "Flows"), by account, date and ID,
+        each with that account and the line's date: oldest first, each line of class transfer in such an account whose
+        other account is the trades account, and that isn't removed, matches the first deposit or
+        withdrawal of the same amount the other way within four days that no line matched yet."""
+        if self._transfers is None:
+            self._transfers = {}
+            for account in self.accounts.values():
+                if not account.records_trades or account.currency == self.base:
+                    continue
+                lines = sorted((day(row["date"]), row["account"], row["id"], dec(row["amount"]))
+                               for row in self.lines
+                               if row["class"] == "transfer" and row["other_account"] == account.id
+                               and row["removed"] != "yes" and row["account"] in self.accounts
+                               and row["account"] != account.id
+                               and self.accounts[row["account"]].currency == account.currency)
+                free = [t for t in self.trades.get(account.id, []) if t.type in ("deposit", "withdrawal")]
+                for on, source, _, amount in lines:
+                    match = next((t for t in free if t.amount is not None and t.amount == -amount
+                                  and abs((t.date - on).days) <= 4), None)
+                    if match is not None:
+                        free.remove(match)
+                        self._transfers[(match.account, match.date, match.id)] = (source, on)
+        return self._transfers
+
+    def covering_value(self, account: str, on: date, end: date) -> date:
+        """The date of the account's value that covers a line on the date: its first on or after it,
+        wherever the period ends; the period's end when it has none yet (TRADES.md, "Flows")."""
+        dates = [v.date for v in self.valuations.get(account, [])]
+        index = bisect.bisect_left(dates, on)
+        return dates[index] if index < len(dates) else end
 
     # MARK: Saved and moved (ACCOUNTS.md, PROGRESS.md "Data this needs from day one")
 

@@ -48,7 +48,7 @@ Net worth on 31 Dec 2024 is 23,600.
 
 ## January
 
-What a dollar balance saved is converted at its value's date, and what a trade saved at the trade's date. Markets are the rest: the price, and the dollar's move on what was held before.
+What a dollar balance saved is converted at its value's date, and what a trade saved at the trade's date. Markets are the rest: the price, and the dollar's move on what was held before. The 10 January deposit is dollars bought with euros: its line is in the euro current account, so it isn't a move between two dollar accounts, which would convert at the check-in's rate (docs/TRADES.md, "Flows"). It saves the 1,000 EUR sent, and the dollar's fall after it is the broker's markets.
 
 | Account | Saved | Markets | How |
 | --- | --- | --- | --- |
