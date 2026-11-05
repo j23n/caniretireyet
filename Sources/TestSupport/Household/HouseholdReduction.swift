@@ -41,3 +41,55 @@ public enum HouseholdSeeds {
         }
     }
 }
+
+/// How far the app's numbers are from a simulated household's truth when
+/// its records leave the app to guess, over many seeds: each error, and a
+/// short summary of them.
+public struct HouseholdErrors: Sendable {
+    /// One number's error for one seed: the app's less the truth, and as a
+    /// share of `scale`, such as what came in that year.
+    public struct Entry: Sendable {
+        public var label: String
+        public var seed: UInt64
+        public var error: Decimal
+        public var share: Decimal
+
+        public init(label: String, seed: UInt64, error: Decimal, share: Decimal) {
+            self.label = label
+            self.seed = seed
+            self.error = error
+            self.share = share
+        }
+    }
+
+    public private(set) var entries: [Entry] = []
+
+    public init() {}
+
+    /// Adds the error of `app` against `truth`, as a share of `scale`
+    /// (zero when `scale` is).
+    public mutating func add(_ label: String, seed: UInt64, app: Decimal?, truth: Decimal, scale: Decimal) {
+        let error = (app ?? 0) - truth
+        entries.append(Entry(label: label, seed: seed, error: error, share: scale == 0 ? 0 : abs(error / scale)))
+    }
+
+    public mutating func append(contentsOf other: HouseholdErrors) {
+        entries += other.entries
+    }
+
+    /// The largest share of each label, with its seed, and the mean share.
+    public var summary: String {
+        let labels = Array(Set(entries.map(\.label))).sorted()
+        return labels.map { label in
+            let errors = entries.filter { $0.label == label }
+            let worst = errors.max { $0.share < $1.share }
+            let mean = errors.reduce(Decimal(0)) { $0 + $1.share } / Decimal(max(errors.count, 1))
+            return "\(label): worst \(percent(worst?.share ?? 0)) (seed \(worst?.seed ?? 0), "
+                + "\(worst?.error.rounded(scale: 2) ?? 0)), mean \(percent(mean)) over \(errors.count)"
+        }.joined(separator: "\n")
+    }
+
+    private func percent(_ share: Decimal) -> String {
+        "\((share * 100).rounded(scale: 2))%"
+    }
+}
