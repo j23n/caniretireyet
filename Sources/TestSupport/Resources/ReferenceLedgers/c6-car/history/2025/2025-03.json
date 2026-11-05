@@ -1,0 +1,53 @@
+{
+  "fx": [],
+  "indices": [],
+  "lines": [
+    {
+      "account": "current",
+      "amount": "-15000",
+      "class": "transfer",
+      "date": "2025-03-10",
+      "id": "mar-car-dealer",
+      "otherAccount": "car",
+      "source": "import",
+      "text": "Car dealer: used car"
+    },
+    {
+      "account": "current",
+      "amount": "-1200",
+      "class": "spending",
+      "confirmed": true,
+      "date": "2025-03-15",
+      "id": "mar-rent",
+      "source": "import",
+      "text": "Rent"
+    },
+    {
+      "account": "current",
+      "amount": "-800",
+      "class": "spending",
+      "confirmed": true,
+      "date": "2025-03-20",
+      "id": "mar-groceries",
+      "source": "import",
+      "text": "Groceries and bills"
+    },
+    {
+      "account": "current",
+      "amount": "4000",
+      "class": "income",
+      "confirmed": true,
+      "date": "2025-03-27",
+      "id": "mar-salary",
+      "source": "import",
+      "text": "Salary"
+    }
+  ],
+  "month": "2025-03",
+  "prices": [],
+  "valuations": [
+    { "account": "car", "balance": "0", "date": "2025-03-09" },
+    { "account": "car", "balance": "15000", "date": "2025-03-10" },
+    { "account": "current", "balance": "11000", "date": "2025-03-31", "moneyIn": "12000", "moneyOut": "6000" }
+  ]
+}

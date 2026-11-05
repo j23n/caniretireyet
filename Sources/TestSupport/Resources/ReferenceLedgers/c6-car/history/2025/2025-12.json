@@ -1,0 +1,41 @@
+{
+  "fx": [],
+  "indices": [],
+  "lines": [
+    {
+      "account": "current",
+      "amount": "-1200",
+      "class": "spending",
+      "confirmed": true,
+      "date": "2025-12-15",
+      "id": "dec-rent",
+      "source": "import",
+      "text": "Rent"
+    },
+    {
+      "account": "current",
+      "amount": "-800",
+      "class": "spending",
+      "confirmed": true,
+      "date": "2025-12-20",
+      "id": "dec-groceries",
+      "source": "import",
+      "text": "Groceries and bills"
+    },
+    {
+      "account": "current",
+      "amount": "4000",
+      "class": "income",
+      "confirmed": true,
+      "date": "2025-12-27",
+      "id": "dec-salary",
+      "source": "import",
+      "text": "Salary"
+    }
+  ],
+  "month": "2025-12",
+  "prices": [],
+  "valuations": [
+    { "account": "current", "balance": "41000", "date": "2025-12-31", "moneyIn": "12000", "moneyOut": "6000" }
+  ]
+}

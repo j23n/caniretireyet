@@ -26,6 +26,9 @@ public enum ReferenceLedger: String, CaseIterable, Sendable {
     /// withheld, a split, two partial sales, a fee, stamp duty and a
     /// withdrawal.
     case yearOfTrades = "c5-year-of-trades"
+    /// C6: a car bought from the current account's statement, losing value
+    /// by its depreciation, and sold through the statement.
+    case car = "c6-car"
 
     /// The folder that holds every reference ledger.
     public static var foldersURL: URL {

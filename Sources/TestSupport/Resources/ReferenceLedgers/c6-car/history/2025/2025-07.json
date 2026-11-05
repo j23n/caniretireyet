@@ -1,0 +1,39 @@
+{
+  "fx": [],
+  "indices": [],
+  "lines": [
+    {
+      "account": "current",
+      "amount": "-1200",
+      "class": "spending",
+      "confirmed": true,
+      "date": "2025-07-15",
+      "id": "jul-rent",
+      "source": "import",
+      "text": "Rent"
+    },
+    {
+      "account": "current",
+      "amount": "-800",
+      "class": "spending",
+      "confirmed": true,
+      "date": "2025-07-20",
+      "id": "jul-groceries",
+      "source": "import",
+      "text": "Groceries and bills"
+    },
+    {
+      "account": "current",
+      "amount": "4000",
+      "class": "income",
+      "confirmed": true,
+      "date": "2025-07-27",
+      "id": "jul-salary",
+      "source": "import",
+      "text": "Salary"
+    }
+  ],
+  "month": "2025-07",
+  "prices": [],
+  "valuations": []
+}
