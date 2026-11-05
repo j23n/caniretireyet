@@ -237,6 +237,14 @@ extension Valuator {
             saved[id] = (startsHere ? account.change.other : 0) + account.change.saved - left
             if left != 0 || startsHere { startedWith[id] = left }
         }
+        // An account whose records started and that closed in the days before still shares the offsets.
+        for (id, wholeStartedWith) in whole where saved[id] == nil {
+            let left = before.reduce(wholeStartedWith) { $0 - ($1.startedWith[id] ?? 0) }
+            if left != 0 {
+                saved[id] = -left
+                startedWith[id] = left
+            }
+        }
         return SavedStretch(report: report, saved: saved, startedWith: startedWith)
     }
 
