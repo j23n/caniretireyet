@@ -13,11 +13,12 @@ import Tracker
 // MARK: - What moved
 
 /// Your pay at the last check-in, as a wide tile (UI.md, "What moved it"):
-/// "💶 Your pay in September", a line each for what came in, what went
-/// into a pension and the tax when there's some, and what was spent, then
-/// what that left saved; beside them a ring of what came in, split into
-/// saved, spent and tax, with what was saved of the pay after tax in its
-/// middle. Only when money in and out was recorded.
+/// "💶 Your pay in September", titled by the days the pay covers, a line
+/// each for what came in, what went into a pension and the tax when
+/// there's some, and what was spent, then what that left saved; beside
+/// them a ring of what came in, split into saved, spent and tax, with what
+/// was saved of the pay after tax in its middle. Only when money in and
+/// out was recorded.
 struct TodayPayTile: View {
     let moved: WhatMoved
     let pay: WhatMoved.Pay
@@ -26,7 +27,8 @@ struct TodayPayTile: View {
 
     var body: some View {
         ColorTile {
-            TileLabel(TodayText.payTitle(from: moved.from, to: moved.to, today: .today(), locale: locale),
+            TileLabel(TodayText.payTitle(from: pay.from ?? moved.from, to: pay.through ?? moved.to, today: .today(),
+                                         locale: locale),
                       emoji: "💶")
                 .privacySensitiveInFeedback()
             Spacer(minLength: Metrics.s)
