@@ -163,7 +163,7 @@ struct OnboardingNotesStep: View {
     static let widgetHow = "Control-click the desktop, choose Edit Widgets, then find Last Monday."
     #else
     static let widgetTitle = "On your Lock Screen"
-    static let widgetHow = "Touch and hold the Lock Screen, tap Customize, then add Time to retire."
+    static let widgetHow = "Touch and hold the Lock Screen, tap Customize, then add Last Monday."
     #endif
 }
 

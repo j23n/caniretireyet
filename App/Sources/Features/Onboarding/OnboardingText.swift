@@ -133,7 +133,7 @@ enum OnboardingText {
     }
 
     /// After the line: the answer stands on the rough amounts of first launch.
-    static let sketch = "It's a first sketch from the numbers you gave; adding your accounts makes it exact."
+    static let sketch = "It's a first sketch from your rough amounts. Your real balances make it more accurate."
 
     /// The lever: "Saving 340 € more a month would make it 2050." with the
     /// year the last Monday at work would move to, else "would make it 2
