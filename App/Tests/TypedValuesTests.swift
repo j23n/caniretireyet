@@ -218,6 +218,21 @@ struct TypedValuesTests {
         }
     }
 
+    /// A new account can be typed by you from the start; an investment
+    /// account is then recorded as a balance.
+    @Test func aNewAccountCanBeTypedFromTheStart() {
+        var form = AccountForm(residence: nil, currency: .eur, today: today)
+        form.chosenKind = .cash
+        #expect(!form.offersTypedValues)
+        form.chosenKind = .brokerage
+        #expect(form.offersTypedValues)
+        form.values = .typed
+        let account = form.account(id: "new")
+        #expect(account.values == .typed)
+        #expect(account.valuation == .balance)
+        #expect(account.acceptsTypedValues)
+    }
+
     @Test func anInvestmentAccountSwitchesToABalanceUntilItHasTrades() {
         var form = AccountForm(editing: account(.brokerage, values: nil))
         #expect(form.valuationMode == .trades)

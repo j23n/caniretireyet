@@ -340,16 +340,7 @@ struct EditAccountSheet: View {
         return Form {
             AccountDetailsFields(form: form, showsKindPicker: true)
             AccountPlanFields(form: form)
-            if form.wrappedValue.offersTypedValues {
-                Section {
-                    Picker("Values", selection: form.values) {
-                        Text("From imported files").tag(ValueEntry.imported)
-                        Text("Typed by you").tag(ValueEntry.typed)
-                    }
-                } footer: {
-                    Text(verbatim: TypedValueText.valuesFooter(form.wrappedValue.typedWhatMoved))
-                }
-            }
+            AccountValuesField(form: form)
             Section {
                 TextField("Notes", text: form.notes, prompt: Text("Optional"), axis: .vertical)
                     .lineLimit(2...6)
