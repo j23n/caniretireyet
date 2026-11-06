@@ -156,15 +156,38 @@ extension Account {
         kind.takesTypedValues && valuationMode == .balance
     }
 
-    /// Whether its typed values turn Trends off: an open savings or
+    /// Whether a typed value of it that lacks what moved turns Trends off
+    /// (``Library/typedValuesTurnOffTrends(_:)``): an open savings or
     /// investment account in net worth, set to typed values. Trends stands
-    /// on the money in and out and the money invested that statements
-    /// record, which a typed balance doesn't; an account out of net worth
-    /// isn't counted there. A starting estimate doesn't: it's a round
-    /// amount until it's replaced.
-    public var typedValuesTurnOffTrends: Bool {
+    /// on the money in and out and the money invested, which such a value
+    /// records only with what moved; an account out of net worth isn't
+    /// counted there. A starting estimate doesn't: it's a round amount
+    /// until it's replaced.
+    public var typedValuesCountInTrends: Bool {
         !isClosed && !isStartingEstimate && includedInNetWorth && offersTypedValues && effectiveValues == .typed
             && (kind == .savings || kind.isInvestment)
+    }
+
+    /// Whether a value typed by hand for this account records what came in,
+    /// what went out and the interest (`moneyIn`, `moneyOut`, `interest`):
+    /// savings recorded as a balance. With them, Trends counts its pay
+    /// and its interest as a statement's would.
+    public var typedValuesRecordMoneyInOut: Bool {
+        !recordsTrades && kind == .savings
+    }
+
+    /// Whether `valuation`, typed by hand (`source: manual`), lacks what
+    /// moved since the value before, which every typed value after an
+    /// account's first records, 0 when nothing did: what was added
+    /// (``typedValuesRecordSaved``), or what came in, went out and the
+    /// interest (``typedValuesRecordMoneyInOut``). An imported value, and
+    /// a value of a kind that records a balance only, lacks nothing.
+    public func typedValueLacksWhatMoved(_ valuation: Valuation) -> Bool {
+        guard valuation.source == .manual else { return false }
+        if typedValuesRecordMoneyInOut {
+            return valuation.moneyIn == nil || valuation.moneyOut == nil || valuation.interest == nil
+        }
+        return typedValuesRecordSaved && valuation.saved == nil
     }
 
     /// Whether a balance can be typed for it by hand: an account that

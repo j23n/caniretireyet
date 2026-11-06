@@ -142,11 +142,11 @@ struct TypedValuesTests {
         let typed = form.account(id: "a")
         #expect(typed.valuation == .balance)
         #expect(typed.acceptsTypedValues)
-        #expect(typed.typedValuesTurnOffTrends)
+        #expect(typed.typedValuesCountInTrends)
         #expect(form.typedValuesTurnOffTrends)
         form.chosenNetWorthInclusion = false
         #expect(!form.typedValuesTurnOffTrends)
-        #expect(!form.account(id: "a").typedValuesTurnOffTrends)
+        #expect(!form.account(id: "a").typedValuesCountInTrends)
         // Switched back, it stays a balance: its typed values are balances.
         var back = AccountForm(editing: typed)
         back.values = .imported
@@ -211,11 +211,15 @@ struct TypedValuesTests {
         #expect(Set(estimates.typed.map(\.account)) == ["casa", "fondo-pensione"])
     }
 
-    @Test func typedSavingsOrInvestmentsTurnTrendsOff() {
+    @Test func typedSavingsOrInvestmentsWithoutWhatMovedTurnTrendsOff() {
         var library = PreviewLibrary.library
         #expect(library.accountsTurningOffTrends.isEmpty)
         library.accounts["conto-deposito"]?.values = .typed
         library.accounts["fondo-pensione"]?.values = .typed
+        #expect(library.accountsTurningOffTrends.isEmpty)
+        let date = PreviewLibrary.latestCheckIn.adding(days: 1)
+        library.upsert(Valuation(account: "conto-deposito", date: date, balance: 20000, source: .manual))
+        library.upsert(Valuation(account: "fondo-pensione", date: date, balance: 20000, source: .manual))
         #expect(library.accountsTurningOffTrends.map(\.id) == ["conto-deposito"])
         library.accounts["conto-deposito"]?.closed = "2026-09-30"
         #expect(library.accountsTurningOffTrends.isEmpty)

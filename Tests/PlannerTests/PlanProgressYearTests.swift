@@ -231,15 +231,24 @@ struct PlanProgressYearTests {
         #expect(lastYear.plannedYouSaved == lastYear.plannedSaving)
     }
 
-    /// A savings account with typed values turns money in and out off, and
-    /// with it the year's pay: *You saved* falls back to what plan assets saved.
-    @Test func typedSavingsTurnThePayOff() throws {
+    /// A savings account's typed value that records what moved keeps the
+    /// year's pay. One that lacks it turns money in and out off, and with it
+    /// the year's pay: *You saved* falls back to what plan assets saved.
+    @Test func aTypedSavingsValueWithoutWhatMovedTurnsThePayOff() throws {
         var library = self.library
         let savings = try #require(library.accounts.values.first { $0.kind == .savings })
-        var typed = savings
-        typed.values = .typed
-        library.accounts[typed.id] = typed
-        #expect(typed.typedValuesTurnOffTrends)
+        library.accounts[savings.id]?.values = .typed
+        var typed = try #require(library.valuations(for: savings.id).last)
+        #expect(typed.date == latest)
+        typed.source = .manual
+        library.upsert(typed)
+        #expect(!library.typedValuesTurnOffTrends(try #require(library.accounts[savings.id])))
+        #expect(try #require(years(in: library).last).pay != nil)
+
+        typed.moneyIn = nil
+        typed.moneyOut = nil
+        library.upsert(typed)
+        #expect(library.accountsTurningOffTrends.map(\.id) == [savings.id])
         let thisYear = try #require(years(in: library).last)
         #expect(thisYear.pay == nil)
         #expect(thisYear.youSaved == thisYear.saved)
