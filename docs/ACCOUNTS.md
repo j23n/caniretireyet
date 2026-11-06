@@ -13,7 +13,7 @@ The rules are in `Sources/Model/Accounts/`: `AccountKind.defaultValuationMode`, 
 | `creditCard` | What's owed, negative | The whole change |
 | `loan` | What's owed | The whole change |
 | `mortgage` | What's owed | The whole change |
-| `brokerage` | Trades (`"valuation": "trades"`); a broker statement's cash and positions are a check. Set in its file, a balance instead (`"valuation": "balance"`) | Worked out from the trades; for a balance, the whole change |
+| `brokerage` | Trades (`"valuation": "trades"`); a broker statement's cash and positions are a check. Set in its file, a balance instead (`"valuation": "balance"`) | Worked out from the trades; for a balance, the whole change, or for a value typed by hand what was added, recorded with it |
 | `crypto` | As brokerage | Worked out from the trades |
 | `metals` | As brokerage | Worked out from the trades |
 | `pensionFund` | Balance, and what was saved, from its file ("Paid in since …") | Recorded, from a spreadsheet's saved column ([IMPORT.md](IMPORT.md#saved)); left out, unknown, and the change counts as other |
@@ -36,7 +36,7 @@ Some accounts have no file to import: a home's value is an estimate, a pension f
 - **Opt-in, per account.** The account's `values` is `imported` (the default, left out of the file) or `typed`, set in the account's editor (*Values: From imported files* or *Typed by you*) and changeable any time. Switching back keeps the values already typed.
 - **Every kind but current accounts, credit cards and tax pots** (`AccountKind.takesTypedValues`), recorded as a balance. Those three record the money in and out that Trends and the savings rate stand on, so their values only come from statements. An investment account (brokerage, crypto, metals) switches to a balance when its values are set to typed, as long as it has no trades, and stays one when switched back; an account with trades gets its holdings from them.
 - **Typed savings or investments turn Trends off** (`Account.typedValuesTurnOffTrends`): Trends counts what came in and was saved from statements, and a typed balance records neither. While an open savings or investment account in net worth has its values typed, Trends shows only why it's off and those accounts ([UI.md](UI.md#money-in-and-out-year-by-year)). Typed pensions, property, belongings and debts don't turn it off, nor does an account left out of net worth, which those figures don't count. While it's off, the Overview's *This year* savings rate and the plan form's spent note are left out too.
-- **A balance only.** A typed value is a balance on a date, today or earlier, with `source: manual`: no money in and out, no saved, no prices. A debt's is typed as what's owed and stored negative. So Trends shows no money in and out for it, and what a pension fund or property typed this way saved is unknown, as for an import without a saved column ([Saved](#saved)).
+- **A balance, and what was added.** A typed value is a balance on a date, today or earlier, with `source: manual`: no money in and out, no prices. An investment's (brokerage, crypto, metals), a pension fund's, a TFR's, a property's or an other account's also records what was added since the value before (`saved`, *You added* or *Paid in*; `Account.typedValuesRecordSaved`), required at every value after its first (0 when nothing was added): the rest of its change is markets. A typed investment value without it, saved before this rule, saved an unknown amount, as an import without a saved column does ([Saved](#saved)). A debt's is typed as what's owed and stored negative. Savings and belongings record a balance only, so Trends shows no money in and out for them.
 - **Imports still work.** An imported value stays as its file wrote it; only typed ones can be edited. A typed value on the same date as another replaces it.
 - **Starting estimates** (first launch's round amounts, tagged `estimate`) take typed values whatever their kind, until they're closed, so a rough amount can be corrected before the real accounts are imported (`Account.acceptsTypedValues`).
 
@@ -49,7 +49,7 @@ Some accounts have no file to import: a home's value is an estimate, a pension f
 ### Saved
 
 - **Stored only where it's information.** What a pension fund, a TFR, a property or an `other` account saved can't be told from its balance, so its values record it in `saved` (`Account.asksForSaved`). Every other account's is worked out from what's recorded whenever it's needed (Tracker's `Valuator.saved(_:previous:)`), and its values store none: a stored copy could only fall out of step.
-- **Cash:** the whole change. **Savings:** the change minus the interest. **Debts and belongings:** the whole change. **Trades accounts:** from the trades ([TRADES.md](TRADES.md#flows)).
+- **Cash:** the whole change. **Savings:** the change minus the interest. **Debts and belongings:** the whole change. **Trades accounts:** from the trades ([TRADES.md](TRADES.md#flows)). **Investments recorded as a balance:** the whole change of an imported value; a value typed by hand records what was added (`Account.asksForSaved(of:)`).
 - So a savings account's interest counts as market, as a fund's return does.
 - What was saved splits the change into market, saved and other ([schema/README.md](schema/README.md#how-values-are-computed)).
 

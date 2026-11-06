@@ -102,6 +102,26 @@ extension Account {
         !recordsTrades && kind.savedRule == .ask
     }
 
+    /// Whether `valuation`'s `saved` is information its records can't
+    /// give: an account that ``asksForSaved``, or a value typed by hand
+    /// (`source: manual`) of an investment account recorded as a balance,
+    /// whose change is what was added and what markets did. Such a value
+    /// records what was added, and without it what it saved is unknown.
+    /// An imported balance of an investment account still saves its whole
+    /// change.
+    public func asksForSaved(of valuation: Valuation) -> Bool {
+        asksForSaved || (!recordsTrades && kind.isInvestment && valuation.source == .manual)
+    }
+
+    /// Whether a value typed by hand for this account records what was
+    /// added since the value before (`saved`, *You added* or *Paid in*):
+    /// pension funds, TFR, property, other accounts and investments, all
+    /// recorded as a balance (``asksForSaved(of:)``). The rest of the
+    /// change is markets.
+    public var typedValuesRecordSaved: Bool {
+        !recordsTrades && (kind.savedRule == .ask || kind.isInvestment)
+    }
+
     /// The asset mix for a balance account: `assetClasses` if set, otherwise
     /// the default for the kind (cash → cash, property → real estate), or
     /// `nil` when there is none (holdings take their mix from instruments).

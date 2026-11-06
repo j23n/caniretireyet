@@ -382,6 +382,18 @@ class SavedTests(TemporaryFolders):
         change = export.change(export.accounts["savings"], day("2026-01-31"), day("2026-02-28"))
         self.assertEqual((change["saved"], change["market"]), (D("500"), D("20")))
 
+    def test_a_typed_investment_value_records_what_was_added(self):
+        export = (Folder().account("etf", "brokerage", valuation="balance")
+                  .value("2026-01-31", "etf", balance="85000", source="manual")
+                  .value("2026-02-28", "etf", balance="86740", saved="500", source="manual")
+                  .value("2026-03-31", "etf", balance="87000", source="manual")
+                  .value("2026-04-30", "etf", balance="88000", source="import")
+                  .export("2026-04-30"))
+        values = export.valuations["etf"]
+        self.assertEqual(export.value_saved(values[1]), D("500"))  # typed: what was added
+        self.assertIsNone(export.value_saved(values[2]))           # typed, and left out: unknown
+        self.assertEqual(export.value_saved(values[3]), D("1000"))  # imported: the whole change
+
     def test_an_account_that_closes_leaves_with_its_value_as_saved(self):
         export = (Folder().account("old", "cash", closed="2026-02-10").account("new", "cash")
                   .value("2026-01-31", "old", balance="800").value("2026-01-31", "new", balance="100")

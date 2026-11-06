@@ -35,15 +35,16 @@ extension Valuator {
 
     /// What `valuation` saved, the money added since `previous`, the
     /// account's valuation before it, in the account's currency: the amount
-    /// recorded with it; without one, for an account that doesn't ask for
-    /// it (``Model/Account/asksForSaved``), the one its records give
+    /// recorded with it; without one, for a value that doesn't ask for it
+    /// (``Model/Account/asksForSaved(of:)``), the one its records give
     /// (``workedOutSaved(for:previous:)``). Files store it only where the
-    /// account asks for it, so that's every other account's. `nil` when it's
-    /// unknown: an account that asks for it left empty, or a balance's first
+    /// value asks for it, so that's every other value's. `nil` when it's
+    /// unknown: a value that asks for it left empty (such as an investment's
+    /// value typed by hand without what was added), or a balance's first
     /// value, as what it held when its records start isn't money added.
     public func saved(_ valuation: Valuation, previous: Valuation?) -> Decimal? {
         if let saved = valuation.saved { return saved }
-        guard let account = accounts[valuation.account], !account.asksForSaved,
+        guard let account = accounts[valuation.account], !account.asksForSaved(of: valuation),
               previous != nil || history(of: account.id).ledger != nil
         else { return nil }
         return workedOutSaved(for: valuation, previous: previous)
@@ -68,7 +69,10 @@ extension Valuator {
     ///   since `previous`, plus the valuation's residual (its cash minus
     ///   the cash the trades give); see ``TradeFlow``.
     /// - A brokerage, crypto or metals account that doesn't record trades
-    ///   (its file says `"valuation": "balance"`): the whole change.
+    ///   (its file says `"valuation": "balance"`): the whole change, for an
+    ///   imported value. A value typed by hand records what was added
+    ///   instead (``Model/Account/asksForSaved(of:)``), so ``saved(_:previous:)``
+    ///   doesn't come here for it.
     ///
     /// Without a previous valuation, the whole amount is saved. `nil`
     /// also when the account is unknown or a needed price or rate is missing.

@@ -84,7 +84,7 @@
           "items": { "$ref": "#/$defs/position" }
         },
         "saved": {
-          "description": "What was saved: the net money added (+) or taken out (−) since the account's previous valuation, in the account's currency. Their sum over a period is what you saved in it. Stored only for the kinds that ask for it, pension funds, TFR, property and other accounts recorded as a balance, where absent means unknown. What every other account saved is worked out from its records, and isn't written (ACCOUNTS.md): the whole change for cash accounts, debts and belongings, the change minus the interest for savings; an account that records trades gets it from its trades and cash.",
+          "description": "What was saved: the net money added (+) or taken out (−) since the account's previous valuation, in the account's currency. Their sum over a period is what you saved in it. Stored only where the value asks for it, where absent means unknown: pension funds, TFR, property and other accounts recorded as a balance, and a value typed by hand (source manual) of a brokerage, crypto or metals account recorded as a balance, whose imported values save their whole change. What every other account saved is worked out from its records, and isn't written (ACCOUNTS.md): the whole change for cash accounts, debts and belongings, the change minus the interest for savings; an account that records trades gets it from its trades and cash.",
           "$ref": "common.schema.json#/$defs/decimal"
         },
         "moneyIn": {
