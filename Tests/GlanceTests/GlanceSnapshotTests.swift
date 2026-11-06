@@ -25,6 +25,23 @@ struct ExampleLibraryGlanceTests {
                                   checkIn: checkIn)
     }
 
+    /// The example library imports its current account, so its check-in
+    /// imports files; a library whose every account is typed types them.
+    @Test func theCheckInTypesValuesOnlyWhenEveryAccountIsTyped() {
+        #expect(snapshot.checkIn.typesValues == false)
+        var typed = Library(accounts: [
+            Account(id: "casa", name: "Casa", kind: .property, currency: .eur, opened: "2020-01-01", values: .typed),
+            Account(id: "fondo", name: "Fondo", kind: .pensionFund, currency: .eur, opened: "2020-01-01",
+                    values: .typed),
+        ])
+        let date: CalendarDate = "2026-09-30"
+        #expect(GlanceSnapshot(library: typed, valuator: Valuator(library: typed), asOf: date, answer: nil,
+                               checkIn: checkIn).checkIn.typesValues == true)
+        typed.accounts["fondo"]?.values = .imported
+        #expect(GlanceSnapshot(library: typed, valuator: Valuator(library: typed), asOf: date, answer: nil,
+                               checkIn: checkIn).checkIn.typesValues == false)
+    }
+
     @Test func netWorthIsTheOverviews() throws {
         #expect(snapshot.currency == .eur)
         let netWorth = try #require(snapshot.netWorth)

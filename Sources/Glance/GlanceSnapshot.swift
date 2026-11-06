@@ -275,10 +275,17 @@ public struct CheckInGlance: Hashable, Sendable, Codable {
     public var last: CalendarDate?
     /// The month end the next check-in is for.
     public var next: CalendarDate
+    /// Whether the check-in is typing balances rather than importing
+    /// files: every open account counted in net worth takes typed values
+    /// (`Account.acceptsTypedValues`), so the notes ask you to type them.
+    /// `nil` in a snapshot written before it was added, which reads as
+    /// importing.
+    public var typesValues: Bool?
 
-    public init(last: CalendarDate?, next: CalendarDate) {
+    public init(last: CalendarDate?, next: CalendarDate, typesValues: Bool? = nil) {
         self.last = last
         self.next = next
+        self.typesValues = typesValues
     }
 
     /// The next check-in after one on `last`: the following month's end, or

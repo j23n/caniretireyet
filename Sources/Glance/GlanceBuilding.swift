@@ -35,8 +35,17 @@ extension GlanceSnapshot {
             }
         }
 
+        var checkIn = checkIn
+        checkIn.typesValues = Self.typesValues(in: library, on: asOf)
         self.init(currency: library.settings.baseCurrency, netWorth: netWorth, allocation: allocation,
                   retirement: retirement, checkIn: checkIn)
+    }
+
+    /// Whether every account open on `date` and counted in net worth takes
+    /// typed values, and there is one (``CheckInGlance/typesValues``).
+    static func typesValues(in library: Library, on date: CalendarDate) -> Bool {
+        let counted = library.accounts(openOn: date).filter(\.includedInNetWorth)
+        return !counted.isEmpty && counted.allSatisfy(\.acceptsTypedValues)
     }
 }
 

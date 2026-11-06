@@ -109,7 +109,7 @@ private struct Words {
         let title = "\(monthName(month)) check-in"
         guard let due = lastCheckInMonth?.next else {
             // No check-in yet.
-            let body = answer == nil ? noAnswerAsk(month) : "Import \(monthName(month))'s files to see where you stand."
+            let body = answer == nil ? noAnswerAsk(month) : standAsk(month)
             return EngagementNote(kind: .monthly, time: time, title: title, body: body, link: .checkIn)
         }
         let owed = due.months(to: month) + 1
@@ -121,26 +121,40 @@ private struct Words {
                 return EngagementNote(kind: .monthly, time: time, title: title, body: noAnswerAsk(month),
                                       link: .checkIn)
             }
-            let body = [answerSentence(answer), milestoneSentence(),
-                        "Import \(monthName(month))'s files to see where you stand."]
+            let body = [answerSentence(answer), milestoneSentence(), standAsk(month)]
                 .compactMap(\.self).joined(separator: " ")
             return EngagementNote(kind: .monthly, time: time, title: title, body: body, link: .checkIn,
                                   showsChart: true)
         case 2...NotePlanner.quietAfter:
             let months = (0..<owed).map { monthName(due.adding(months: $0)) + "'s" }
-            let ask = "Catch up by importing \(Wording.list(months)) files together."
+            let ask = typesValues ? "Catch up by typing your balances: one check-in covers those months."
+                : "Catch up by importing \(Wording.list(months)) files together."
             let body = [lastCheckInSentence(), ask].compactMap(\.self).joined(separator: " ")
             return EngagementNote(kind: .catchUp, time: time, title: title, body: body, link: .checkIn)
         default:
             guard (owed - NotePlanner.quietAfter - 1) % 3 == 0 else { return nil }
-            let body = [lastCheckInSentence(), "The months since then import together, whenever it suits you."]
+            let body = [lastCheckInSentence(), typesValues
+                ? "One check-in covers the months since then, whenever it suits you."
+                : "The months since then import together, whenever it suits you."]
                 .compactMap(\.self).joined(separator: " ")
             return EngagementNote(kind: .quarterly, time: time, title: title, body: body, link: .checkIn)
         }
     }
 
+    /// Whether the check-in is typing balances (``CheckInGlance/typesValues``).
+    var typesValues: Bool { snapshot.checkIn.typesValues == true }
+
     func noAnswerAsk(_ month: YearMonth) -> String {
-        "Import \(monthName(month))'s files, then calculate your plan to see when you could retire."
+        typesValues ? "Type your balances, then calculate your plan to see when you could retire."
+            : "Import \(monthName(month))'s files, then calculate your plan to see when you could retire."
+    }
+
+    /// The monthly note's ask: "Import October's files to see where you
+    /// stand.", or "Type your balances to see where you stand." when the
+    /// check-in is typing.
+    func standAsk(_ month: YearMonth) -> String {
+        typesValues ? "Type your balances to see where you stand."
+            : "Import \(monthName(month))'s files to see where you stand."
     }
 
     /// "You could retire at 54, 2 years sooner than in January."
@@ -215,7 +229,8 @@ private struct Words {
         let title = "Your \(year)"
         guard let summary = journey.year(year), summary.isComplete else {
             return EngagementNote(kind: .yourYear, time: time, title: title,
-                                  body: "Import December's files, then see how your \(year) went.",
+                                  body: typesValues ? "Type December's balances, then see how your \(year) went."
+                                    : "Import December's files, then see how your \(year) went.",
                                   link: .checkIn)
         }
         var sentences: [String] = []
