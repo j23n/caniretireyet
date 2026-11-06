@@ -11,8 +11,13 @@ import Tracker
 /// 3. Whether it counts in net worth and plans, and from what age plans can
 ///    draw on it (a pension fund from 65 by default).
 ///
+/// 4. For every kind but a current account, a credit card or a tax pot,
+///    where its values come from: imported files or typed by you
+///    (``AccountValuesField``).
+///
 /// It starts with no values: they come from importing its files (a bank's
-/// statement, a broker's export, or a spreadsheet you keep for it).
+/// statement, a broker's export, or a spreadsheet you keep for it), or
+/// from *Update Value…* when they're typed.
 ///
 /// ⌘N and the Accounts toolbar present it in a NavigationStack.
 struct NewAccountScreen: View {
@@ -37,6 +42,7 @@ struct NewAccountScreen: View {
             }
             AccountDetailsFields(form: $form, showsKindPicker: false)
             AccountPlanFields(form: $form)
+            AccountValuesField(form: $form)
             if showsProblems {
                 AccountsProblemsSection(problems: problems)
             }
@@ -187,6 +193,26 @@ struct AccountDetailsFields: View {
         let currency = form.locksCurrency
             ? " The currency can't change: the account's values and trades are in \(form.currency.rawValue)." : ""
         return "The account counts from the day it opens. The country is the institution's." + currency
+    }
+}
+
+/// *Values*: from imported files, or typed by you (docs/ACCOUNTS.md,
+/// "Typed values"), for an account that offers the choice
+/// (``AccountForm/offersTypedValues``), with what a typed value records.
+struct AccountValuesField: View {
+    @Binding var form: AccountForm
+
+    var body: some View {
+        if form.offersTypedValues {
+            Section {
+                Picker("Values", selection: $form.values) {
+                    Text("From imported files").tag(ValueEntry.imported)
+                    Text("Typed by you").tag(ValueEntry.typed)
+                }
+            } footer: {
+                Text(verbatim: TypedValueText.valuesFooter(form.typedWhatMoved))
+            }
+        }
     }
 }
 

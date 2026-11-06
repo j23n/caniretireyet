@@ -90,8 +90,8 @@ extension AccountKind {
     /// hand (``Account/offersTypedValues``): every kind but current
     /// accounts, credit cards and tax pots, whose money in and out, the
     /// ground of Trends, comes only from their statements. Savings and
-    /// investments can be typed, which turns Trends off
-    /// (``Account/typedValuesTurnOffTrends``).
+    /// investments can be typed; a typed value of theirs that lacks what
+    /// moved turns Trends off (``Library/typedValuesTurnOffTrends(_:)``).
     public var takesTypedValues: Bool {
         [.savings, .brokerage, .crypto, .metals, .pensionFund, .tfr, .property, .belongings, .loan, .mortgage, .other]
             .contains(self)

@@ -18,7 +18,7 @@ import SwiftUI
 /// says, so the plan's screens fill in quickly; not with `-screenNoRun`.
 /// `-screenLibrary empty` opens first launch instead, on the step `-screen`
 /// names (``OnboardingStep``: `welcome`, `you`, `money`, `later`,
-/// `answer`, `files` or `notes`), with made-up answers
+/// `answer`, `records`, `keepUp` or `notes`), with made-up answers
 /// (``sampleAnswers``). `-screenLibrary dayOne` opens the library the tour
 /// leaves, on its first day. With
 /// `-screenHidesAmounts`, amounts are hidden, as with the eye button. The
@@ -165,6 +165,7 @@ struct ScreenLaunch {
             payPerMonth: answers.payPerMonth, spendingPerMonth: answers.spendingPerMonth,
             retirementAge: answers.retirementAge) {
             StarterSetup.complete(&plan, with: answers, asOf: date)
+            StarterSetup.addPensionContribution(answers, to: &plan, in: library)
             plan.simulation.runs = 400
             library.plans[plan.id] = plan
             library.settings.mainPlan = plan.id

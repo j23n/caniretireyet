@@ -48,6 +48,30 @@ struct StarterSetupTests {
 
     /// A mortgage is entered as what's owed: negative is a mistake, and on
     /// its own it isn't something you have.
+    /// *Type your balances*: the estimates become typed accounts of your
+    /// own, named as you typed or without "(estimate)", the investments a
+    /// brokerage recorded as a balance; their values stay, and the day's
+    /// values are no longer only estimates'.
+    @Test func estimatesBecomeTypedAccounts() throws {
+        var library = emptyLibrary()
+        let ids = StarterSetup.addEstimates(answers, to: &library, on: today)
+        #expect(library.valuesAreStartingEstimates(on: today))
+        let cash = ids[0]
+        let adopted = library.adoptStartingEstimates(names: [cash: "  Conto  "])
+        #expect(Set(adopted) == Set(ids))
+        #expect(library.openStartingEstimates.isEmpty)
+        let accounts = ids.compactMap { library.accounts[$0] }
+        #expect(accounts.map(\.name) == ["Conto", "Investments", "Pension", "Home", "Mortgage"])
+        #expect(accounts.map(\.kind) == [.savings, .brokerage, .pensionFund, .property, .mortgage])
+        #expect(accounts.allSatisfy { $0.values == .typed && $0.acceptsTypedValues && $0.notes == nil })
+        let investments = try #require(library.accounts[ids[1]])
+        #expect(investments.valuation == .balance && investments.assetClasses == .single(.equity))
+        #expect(investments.typedValuesRecordSaved)
+        #expect(ids.allSatisfy { library.valuations(for: $0).count == 1 })
+        #expect(!library.valuesAreStartingEstimates(on: today))
+        #expect(library.adoptStartingEstimates().isEmpty)
+    }
+
     @Test func aMortgageIsOwed() {
         #expect(StarterAnswers(home: d("200000"), mortgage: d("-1")).hasNegativeAmount)
         #expect(!StarterAnswers(mortgage: d("80000")).hasStartingAmounts)
@@ -63,6 +87,86 @@ struct StarterSetupTests {
         let ids = StarterSetup.addEstimates(StarterAnswers(cash: d("5000"), home: 0, mortgage: d("80000")),
                                             to: &library, on: today)
         #expect(ids.compactMap { library.accounts[$0]?.kind } == [.savings])
+    }
+
+    /// Other debts are a loan, owed, in net worth but not the plan, whose
+    /// spending pays it off; replaced by a real loan.
+    @Test func otherDebtsAreALoanTheyPlanLeavesOut() throws {
+        var library = emptyLibrary()
+        let ids = StarterSetup.addEstimates(StarterAnswers(cash: d("5000"), otherDebts: d("12000")), to: &library,
+                                            on: today)
+        let loan = try #require(ids.compactMap { library.accounts[$0] }.first { $0.kind == .loan })
+        #expect(loan.name == "Other debts (estimate)" && loan.isStartingEstimate)
+        #expect(loan.includedInNetWorth && !loan.includedInPlan)
+        #expect(library.valuations(for: loan.id).map(\.balance) == [d("-12000")])
+        #expect(loan.kindsReplacingEstimate == [.loan])
+        #expect(StarterAnswers(otherDebts: d("-1")).hasNegativeAmount)
+        #expect(!StarterAnswers(otherDebts: d("12000")).hasStartingAmounts)
+    }
+
+    /// What's paid into the pension a month is a contribution into its
+    /// estimate, on top of pay, so pay less spending still saves as much;
+    /// a pot of nothing but what's paid in is an estimate of 0.
+    @Test func paidIntoThePensionIsAContribution() async throws {
+        var answers = answers
+        answers.pensionPerMonth = d("300")
+        var library = emptyLibrary()
+        StarterSetup.addEstimates(answers, to: &library, on: today)
+        var plan = Sample.plan(retire: .earliest, endAge: 90, retired: "0", runs: 50)
+        StarterSetup.complete(&plan, with: answers, asOf: today)
+        StarterSetup.addPensionContribution(answers, to: &plan, in: library)
+        let pot = try #require(library.openStartingEstimates.first { $0.kind == .pensionFund })
+        #expect(plan.contributions == [PlanContribution(account: pot.id, perYear: d("3600"))])
+        #expect(plan.work.map(\.netIncome) == [d("44400")])
+        #expect(plan.spending.working == d("31200"))
+        let result = try await Planner.run(plan: plan, library: library,
+                                           options: PlannerOptions(maxRetirementAge: 70,
+                                                                   solveSustainableSpending: false))
+        #expect(!result.issues.contains { $0.code == "planner.contributionOutsidePlan" })
+
+        var empty = emptyLibrary()
+        let ids = StarterSetup.addEstimates(StarterAnswers(cash: d("5000"), pensionFromAge: 60, pensionPerMonth: d("200")),
+                                            to: &empty, on: today)
+        let started = try #require(ids.compactMap { empty.accounts[$0] }.first { $0.kind == .pensionFund })
+        #expect(started.availableFromAge == 60)
+        #expect(empty.valuations(for: started.id).map(\.balance) == [0])
+        #expect(StarterAnswers(pensionPerMonth: d("200")).asksForPensionAge)
+        #expect(!StarterAnswers(pension: 0).asksForPensionAge)
+        #expect(StarterAnswers(pensionPerMonth: d("-1")).hasNegativeAmount)
+    }
+
+    /// Replacing the pension's estimate hands its contribution to the real
+    /// pension, whether the estimate is closed or removed.
+    @Test func replacingThePensionHandsOverItsContribution() throws {
+        for (opened, expected) in [(CalendarDate("2026-11-30"), "close"), (CalendarDate("2026-01-31"), "remove")] {
+            var answers = answers
+            answers.pensionPerMonth = d("500")
+            var library = emptyLibrary()
+            StarterSetup.addEstimates(answers, to: &library, on: today)
+            var plan = Sample.plan(retire: .earliest, endAge: 90, retired: "0")
+            StarterSetup.addPensionContribution(answers, to: &plan, in: library)
+            library.plans[plan.id] = plan
+            library.accounts["fondo"] = Account(id: "fondo", name: "Fondo", kind: .pensionFund, currency: .eur,
+                                                opened: opened)
+            library.accounts["tfr"] = Account(id: "tfr", name: "A TFR", kind: .tfr, currency: .eur, opened: opened)
+            for id: AccountID in ["fondo", "tfr"] {
+                library.upsert(Valuation(account: id, date: opened, balance: d("40000")))
+            }
+            let pot = try #require(library.openStartingEstimates.first { $0.kind == .pensionFund })
+            let replacement = try #require(library.replacement(of: pot))
+            #expect(expected == (replacement == .remove ? "remove" : "close"))
+            library.handOverContributions(of: pot, replacement: replacement)
+            #expect(library.plans[plan.id]?.contributions.map(\.account) == ["fondo"])
+        }
+    }
+
+    @Test func nothingPaidInAddsNoContribution() {
+        var library = emptyLibrary()
+        StarterSetup.addEstimates(answers, to: &library, on: today)
+        var plan = Sample.plan(retire: .earliest, endAge: 90, retired: "0")
+        let before = plan
+        StarterSetup.addPensionContribution(answers, to: &plan, in: library)
+        #expect(plan == before)
     }
 
     @Test func amountsOfZeroOrNothingGetNoAccount() {

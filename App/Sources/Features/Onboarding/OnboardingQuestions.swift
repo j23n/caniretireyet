@@ -24,7 +24,8 @@ struct OnboardingWelcome: View {
                               detail: "The earliest age you could retire at, and how likely it is to work across "
                                 + "thousands of simulated markets.")
                 OnboardingRow(title: "A monthly check-in", systemImage: AppSymbol.checkIn,
-                              detail: "Import your statements once a month to see how your answer changes.")
+                              detail: "Once a month, type your balances or import your statements. Your answer moves "
+                                + "with them.")
                 OnboardingRow(title: "Your data stays with you", systemImage: "doc.text",
                               detail: "Your library is stored as files in iCloud Drive or on this device. There is "
                                 + "no account and no server.")
@@ -106,8 +107,9 @@ struct OnboardingYouStep: View {
 }
 
 /// Your money: what you have today, in four plain buckets (the home with
-/// what's still owed on it) that become the starting estimates, and pay and
-/// spending a month, with what you save as you type. Once you've stopped
+/// what's still owed on it) and other debts, which become the starting
+/// estimates, and pay, what's paid into a pension and spending a month,
+/// with what you save as you type. Once you've stopped
 /// working there's no pay: spending is what you live on now.
 struct OnboardingMoneyStep: View {
     @Environment(OnboardingModel.self) private var model
@@ -124,7 +126,7 @@ struct OnboardingMoneyStep: View {
                 OnboardingNumberRow("Cash and savings", value: $model.answers.cash, unit: symbol)
                 OnboardingNumberRow("Investments", value: $model.answers.investments, unit: symbol)
                 OnboardingNumberRow("Pension you can't access yet", value: $model.answers.pension, unit: symbol)
-                if (model.answers.pension ?? 0) > 0 {
+                if model.answers.asksForPensionAge {
                     Stepper("Available from age \(pensionAge.wrappedValue)", value: pensionAge, in: 50...75)
                         .font(.subheadline)
                 }
@@ -134,6 +136,9 @@ struct OnboardingMoneyStep: View {
                     OnboardingNumberRow("Mortgage still owed", value: $model.answers.mortgage, unit: symbol,
                                         prompt: "Optional")
                 }
+                OnboardingNumberRow("Other debts", value: $model.answers.otherDebts, unit: symbol,
+                                    prompt: "Optional")
+                footnote("Car loans, student loans, anything you still owe besides a mortgage.")
             }
             .onboardingCard()
             VStack(alignment: .leading, spacing: Metrics.m) {
@@ -143,6 +148,11 @@ struct OnboardingMoneyStep: View {
                     OnboardingNumberRow("Take-home pay", value: $model.answers.payPerMonth, unit: symbol)
                 }
                 OnboardingNumberRow("Spending", value: $model.answers.spendingPerMonth, unit: symbol)
+                if !model.hasStoppedWorking {
+                    OnboardingNumberRow("Into your pension", value: $model.answers.pensionPerMonth, unit: symbol,
+                                        prompt: "None")
+                    footnote("What you or your employer pay in before your pay reaches you. It counts as saving.")
+                }
                 if model.moneyHasNegativeAmount {
                     PlanIssueLine(message: "Amounts can't be negative.", isError: true)
                 } else if model.hasStoppedWorking {
@@ -169,6 +179,13 @@ struct OnboardingMoneyStep: View {
     private var pensionAge: Binding<Int> {
         Binding(get: { model.answers.pensionFromAge ?? CountryDefaults.pensionPotAge(for: model.country) },
                 set: { model.answers.pensionFromAge = $0 })
+    }
+
+    private func footnote(_ text: String) -> some View {
+        Text(text)
+            .font(.footnote)
+            .foregroundStyle(Palette.secondaryInk)
+            .fixedSize(horizontal: false, vertical: true)
     }
 
     /// The currency's symbol, inside each amount's field: "€".

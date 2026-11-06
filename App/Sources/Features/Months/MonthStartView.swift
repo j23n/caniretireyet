@@ -5,8 +5,8 @@ import Tracker
 /// *Start a month* on iPhone (UI.md, "Your months"): a month with nothing
 /// in it yet asks how to fill it in, with a card for each way. *Import CSV*
 /// reads the bank's export into lines (``MonthImportSheet``); *Type Totals*
-/// takes four numbers from the bank's app (``MonthTypedTotalsSheet``),
-/// except for the month still to come. Once either is in, the month's lines
+/// takes four numbers from the bank's app (``MonthTypedTotalsSheet``);
+/// for the month still to come it says when it opens. Once either is in, the month's lines
 /// screen shows its lines, or the totals typed, in its place.
 struct MonthStartView: View {
     let month: AccountMonth
@@ -28,7 +28,11 @@ struct MonthStartView: View {
                 choice("Import CSV",
                        detail: "Your bank's export for the month. Every line is kept, to check one by one.",
                        action: importCSV)
-                if !MonthText.isStillToCome(month.through) {
+                if MonthText.isStillToCome(month.through) {
+                    choice("Type Totals", detail: MonthText.typedTotalsWait(month.through, locale: locale),
+                           action: typeTotals)
+                        .disabled(true)
+                } else {
                     choice("Type Totals", detail: "Four numbers from your bank's app, when there's no CSV.",
                            action: typeTotals)
                 }

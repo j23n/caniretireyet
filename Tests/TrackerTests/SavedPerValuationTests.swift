@@ -11,7 +11,7 @@ struct SavedPerValuationTests {
         let library = try Fixtures.exampleLibrary()
         let stored = library.allValuations.filter { $0.saved != nil }
         #expect(!stored.isEmpty)
-        #expect(stored.allSatisfy { library.accounts[$0.account]?.asksForSaved == true })
+        #expect(stored.allSatisfy { library.accounts[$0.account]?.asksForSaved(of: $0) == true })
     }
 
     /// What every other value saved is worked out: a savings value's is its
@@ -58,5 +58,53 @@ struct SavedPerValuationTests {
         #expect(valuator.workedOutSaved(for: savings, previous: nil) == d("17400.55"))
         #expect(valuator.workedOutSaved(for: Valuation(account: "nope", date: "2026-10-31", balance: 1), previous: nil)
             == nil)
+    }
+
+    /// An investment recorded as a balance: an imported value saved its whole
+    /// change, and a value typed by hand records what was added, so the rest
+    /// of its change is markets; without it, what it saved is unknown.
+    @Test func aTypedInvestmentValueRecordsWhatWasAdded() throws {
+        var library = Library(
+            settings: LibrarySettings(baseCurrency: .eur),
+            accounts: [
+                Account(id: "etf", name: "ETF", kind: .brokerage, currency: .eur, opened: "2020-01-01",
+                        valuation: .balance),
+            ])
+        let first = Valuation(account: "etf", date: "2026-09-30", balance: 85000, source: .manual)
+        library.upsert(first)
+        let account = try #require(library.accounts["etf"])
+        #expect(account.typedValuesRecordSaved)
+        #expect(!account.asksForSaved)
+        let valuator = Valuator(library: library)
+
+        let typed = Valuation(account: "etf", date: "2026-10-31", balance: 86740, saved: 500, source: .manual)
+        #expect(account.asksForSaved(of: typed))
+        #expect(valuator.saved(typed, previous: first) == 500)
+
+        let typedWithout = Valuation(account: "etf", date: "2026-10-31", balance: 86740, source: .manual)
+        #expect(valuator.saved(typedWithout, previous: first) == nil)
+
+        let imported = Valuation(account: "etf", date: "2026-10-31", balance: 86740, source: .import)
+        #expect(!account.asksForSaved(of: imported))
+        #expect(valuator.saved(imported, previous: first) == 1740)
+    }
+
+    /// Which accounts' typed values record what was added: investments and
+    /// pensions, property and other accounts recorded as a balance, not cash,
+    /// savings, debts or belongings, nor an account that records trades.
+    @Test func whichTypedValuesRecordWhatWasAdded() {
+        func account(_ kind: AccountKind, _ mode: ValuationMode? = nil) -> Account {
+            Account(id: "a", name: "A", kind: kind, currency: .eur, opened: "2020-01-01", valuation: mode)
+        }
+        for kind in [AccountKind.brokerage, .crypto, .metals] {
+            #expect(account(kind, .balance).typedValuesRecordSaved, "\(kind)")
+            #expect(!account(kind, .trades).typedValuesRecordSaved, "\(kind)")
+        }
+        for kind in [AccountKind.pensionFund, .tfr, .property, .other] {
+            #expect(account(kind).typedValuesRecordSaved, "\(kind)")
+        }
+        for kind in [AccountKind.cash, .savings, .creditCard, .loan, .mortgage, .belongings] {
+            #expect(!account(kind).typedValuesRecordSaved, "\(kind)")
+        }
     }
 }

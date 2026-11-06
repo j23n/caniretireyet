@@ -72,6 +72,9 @@ struct TodayScreen: View {
         let slots = TileGrid.slots(width: pageWidth)
         return VStack(alignment: .leading, spacing: Metrics.l) {
             TodayAnswerAndTiles(answer: answer, plan: mainPlan, results: results, today: today, pageWidth: pageWidth)
+            if !library.library.openStartingEstimates.isEmpty {
+                RoughAmountsCard()
+            }
             TodayAttentionCard(today: today)
             TodayComingUp(plan: mainPlan, results: results, slots: slots)
             notesAndFirstValues(hasAnswer: answer != nil)
@@ -364,6 +367,59 @@ struct TodayMoveChip: View {
         .padding(.vertical, 6)
         .background(color.opacity(onDusk ? 0.18 : 0.12), in: Capsule())
         .privacySensitiveInFeedback()
+    }
+}
+
+// MARK: - Rough amounts
+
+/// While first launch's starting estimates are open (UI.md, "Today"): the
+/// answer still stands on them, and how to replace them. *Type Balances*
+/// makes them accounts of your own whose values you type
+/// (`LibraryStore.adoptStartingEstimates(names:)`) and starts the
+/// check-in; *Import Files…* opens the import, which can replace them.
+struct RoughAmountsCard: View {
+    @Environment(LibraryStore.self) private var library
+    @Environment(AppNavigation.self) private var navigation
+    @State private var isAdopting = false
+    @State private var errorMessage: String?
+
+    var body: some View {
+        Card("Your answer uses rough amounts") {
+            VStack(alignment: .leading, spacing: Metrics.m) {
+                Text("The amounts you entered at the start are still estimates. Type your real balances, or import "
+                     + "your statements, and your answer is calculated again.")
+                    .font(.callout)
+                    .foregroundStyle(Palette.secondaryInk)
+                    .fixedSize(horizontal: false, vertical: true)
+                if let errorMessage {
+                    Text(verbatim: errorMessage)
+                        .font(.footnote)
+                        .foregroundStyle(Palette.critical)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                HStack(spacing: Metrics.s) {
+                    Button("Type Balances") {
+                        Task { await typeBalances() }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(!library.canEdit || isAdopting)
+                    Button("Import Files…") { navigation.startImport() }
+                        .buttonStyle(.bordered)
+                }
+            }
+        }
+    }
+
+    private func typeBalances() async {
+        isAdopting = true
+        defer { isAdopting = false }
+        do {
+            try await library.adoptStartingEstimates(names: [:])
+            errorMessage = nil
+            navigation.startCheckIn()
+        } catch {
+            errorMessage = LibraryStore.describe(error)
+        }
     }
 }
 

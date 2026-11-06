@@ -371,10 +371,11 @@ struct MonthAccountRow: View {
 
     @ViewBuilder
     private var buttons: some View {
-        if !MonthText.isStillToCome(month.through) {
-            Button("Type Totals…", action: typeTotals)
-                .disabled(!library.canEdit)
-        }
+        // The month still to come shows when its totals can be typed.
+        let stillToCome = MonthText.isStillToCome(month.through)
+        Button("Type Totals…", action: typeTotals)
+            .disabled(!library.canEdit || stillToCome)
+            .help(stillToCome ? MonthText.typedTotalsWait(month.through, locale: locale) : "")
         Button("Import CSV…", action: importCSV)
             .disabled(!library.canEdit)
     }

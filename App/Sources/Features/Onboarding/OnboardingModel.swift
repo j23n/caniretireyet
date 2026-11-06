@@ -34,7 +34,25 @@ final class OnboardingModel {
         var savingPerMonth: Decimal?
     }
 
+    /// How you'll keep the answer up to date (``OnboardingStep/keepUp``).
+    enum KeepUp: Hashable, Sendable {
+        /// Type each account's balance, and what moved, at each check-in:
+        /// the starting estimates become your accounts.
+        case type
+        /// Import statements: the import replaces the estimates.
+        case importFiles
+        /// Keep the rough amounts for now; Today says how to update them.
+        case later
+    }
+
     var step: OnboardingStep = .welcome
+
+    // MARK: Keeping it up to date
+
+    /// The choice on *Keep your answer up to date*.
+    var keepUp: KeepUp = .type
+    /// The names typed for the starting estimates there, by estimate.
+    var estimateNames: [AccountID: String] = [:]
 
     // MARK: About you
 
@@ -112,7 +130,7 @@ final class OnboardingModel {
         case .you: age != nil
         case .money: !moneyHasNegativeAmount
         case .later: !finalAnswers.hasNegativeAmount
-        case .welcome, .answer, .files, .notes: true
+        case .welcome, .answer, .records, .keepUp, .notes: true
         }
     }
 
@@ -171,13 +189,14 @@ final class OnboardingModel {
     }
 
     /// The answers as the plan takes them: the age chosen, else as early as
-    /// works. Once you've stopped working: no pay, one spending, and your
-    /// age today. No mortgage without a home.
+    /// works. Once you've stopped working: no pay or money paid into a
+    /// pension, one spending, and your age today. No mortgage without a home.
     var finalAnswers: StarterAnswers {
         var final = answers
         if !final.asksForMortgage { final.mortgage = nil }
         if hasStoppedWorking {
             final.payPerMonth = nil
+            final.pensionPerMonth = nil
             final.retiredSpendingPerMonth = nil
             final.retirementAge = currentAge
         } else {
@@ -190,8 +209,8 @@ final class OnboardingModel {
     /// fields it hides, nor spending in retirement, which the next step asks.
     var moneyHasNegativeAmount: Bool {
         let shown = finalAnswers
-        return [shown.cash, shown.investments, shown.pension, shown.home, shown.mortgage, shown.payPerMonth,
-                shown.spendingPerMonth].contains { ($0 ?? 0) < 0 }
+        return [shown.cash, shown.investments, shown.pension, shown.home, shown.mortgage, shown.otherDebts,
+                shown.payPerMonth, shown.pensionPerMonth, shown.spendingPerMonth].contains { ($0 ?? 0) < 0 }
     }
 
     /// Your age today, as chosen.
@@ -357,6 +376,7 @@ final class OnboardingModel {
             retirementAge: answers.retirementAge)
         else { return nil }
         StarterSetup.complete(&plan, with: answers, asOf: today)
+        StarterSetup.addPensionContribution(answers, to: &plan, in: library)
         return PlanRunRequest(plan: plan, library: library, mode: .fast, whatIf: nil, asOf: today)
     }
 

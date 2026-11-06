@@ -70,8 +70,9 @@ public struct PlanProgressYear: Hashable, Sendable, Identifiable {
     /// ``Tracker/SavingsRate/from`` through ``Tracker/SavingsRate/payThrough``):
     /// what So far's *Your pay* shows, and its saved is what *You saved* shows
     /// (``youSaved``). `nil` without money in and out recorded in the year,
-    /// or while a savings or investment account's values are typed, which
-    /// turns money in and out off (``Model/Account/typedValuesTurnOffTrends``).
+    /// or while a savings or investment account has a typed value that
+    /// lacks what moved, which turns money in and out off
+    /// (``Model/Library/accountsTurningOffTrends``).
     public var pay: SavingsRate?
     /// What the baseline planned you'd save over the days ``pay`` covers,
     /// from the baseline's start when it's later, in money of the year's
@@ -159,7 +160,7 @@ public struct PlanProgressYear: Hashable, Sendable, Identifiable {
         let sourceYears = Dictionary(sources.years.map { ($0.year, $0) }, uniquingKeysWith: { _, last in last })
         let birthDate = library.settings.person?.birthDate
         let index = PlanInflationIndex.baseCurrencyIndex(library: library)
-        let typedTurnPayOff = library.accounts.values.contains(where: \.typedValuesTurnOffTrends)
+        let typedTurnPayOff = !library.accountsTurningOffTrends.isEmpty
         return (start.year...latest.year).compactMap { year -> PlanProgressYear? in
             let checkIns = byYear[year] ?? []
             guard let measured = span(of: year, checkIns: checkIns, start: start, isLatest: year == latest.year)

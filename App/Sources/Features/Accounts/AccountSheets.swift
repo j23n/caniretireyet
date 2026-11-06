@@ -9,9 +9,9 @@ import Tracker
 
 /// A balance typed by hand (UI.md, "Account detail": *Update Value…*), for
 /// an account that takes typed values (`Account.acceptsTypedValues`): a
-/// date, today by default and never after it, and the balance, a debt's as
-/// what's owed. It records a balance only, with no money in and out
-/// (``TypedValueForm``). With `editing`, it changes that value, one typed
+/// date, today by default and never after it, the balance, a debt's as
+/// what's owed, and after the account's first value what moved since the
+/// value before, each required (``TypedValueForm``). With `editing`, it changes that value, one typed
 /// earlier. A date before the account opened moves the opening date back;
 /// the sheet says so before saving. Saving writes with a backup and waits
 /// for the write.
@@ -100,7 +100,10 @@ struct TypedValueSheet: View {
                                 prompt: "0", suffix: AmountFormat.symbol(for: account.currency, locale: locale))
             } footer: {
                 Text(verbatim: account.kind.isLiability
-                    ? AmountInput.debtBalanceFooter + " " + Self.balanceOnlyNote : Self.balanceOnlyNote)
+                    ? AmountInput.debtBalanceFooter + " " + Self.balanceNote : Self.balanceNote)
+            }
+            if form.wrappedValue.asksWhatMoved {
+                whatMovedSection(form, account: account)
             }
             if showsProblems {
                 AccountsProblemsSection(problems: problems)
@@ -119,18 +122,45 @@ struct TypedValueSheet: View {
         }
     }
 
-    private static let balanceOnlyNote = "What the account is worth on this day. Typed values record no money "
-        + "in and out."
+    private static let balanceNote = "What the account is worth on this day."
+
+    /// What moved since the last value: what was added, or what came in,
+    /// what went out and the interest, each required.
+    @ViewBuilder
+    private func whatMovedSection(_ form: Binding<TypedValueForm>, account: Account) -> some View {
+        let symbol = AmountFormat.symbol(for: account.currency, locale: locale)
+        Section {
+            switch form.wrappedValue.whatMoved {
+            case .nothing:
+                EmptyView()
+            case .added:
+                FormNumberField(title: form.wrappedValue.addedLabel, text: form.added, prompt: "0", suffix: symbol)
+            case .moneyInOut:
+                FormNumberField(title: "Came in", text: form.cameIn, prompt: "0", suffix: symbol,
+                                allowsNegative: false)
+                FormNumberField(title: "Went out", text: form.wentOut, prompt: "0", suffix: symbol,
+                                allowsNegative: false)
+                FormNumberField(title: "Interest", text: form.interest, prompt: "0", suffix: symbol)
+            }
+        } header: {
+            Text("Since the last value")
+        } footer: {
+            Text(verbatim: TypedValueText.whatMovedFooter(form.wrappedValue.whatMoved))
+        }
+    }
 
     private func load() {
         guard form == nil, let account = library.account(accountID) else { return }
         if editing != nil {
             guard let original else { return }
-            form = TypedValueForm(editing: original, of: account, locale: locale)
+            let first = TypedValueForm.firstValue(of: account.id, in: library.library, besides: original.key)
+            form = TypedValueForm(editing: original, of: account, firstOtherValue: first, locale: locale)
         } else {
             let date = min(startDate ?? .today(), TypedValueForm.latestDate(of: account, today: .today()))
             let previous = library.valuator.latestValuation(for: account.id, onOrBefore: date)
-            form = TypedValueForm(new: account, on: date, previous: previous, locale: locale)
+            form = TypedValueForm(new: account, on: date, previous: previous,
+                                  firstValue: TypedValueForm.firstValue(of: account.id, in: library.library),
+                                  locale: locale)
         }
         initialForm = form
     }
@@ -310,19 +340,7 @@ struct EditAccountSheet: View {
         return Form {
             AccountDetailsFields(form: form, showsKindPicker: true)
             AccountPlanFields(form: form)
-            if form.wrappedValue.offersTypedValues {
-                Section {
-                    Picker("Values", selection: form.values) {
-                        Text("From imported files").tag(ValueEntry.imported)
-                        Text("Typed by you").tag(ValueEntry.typed)
-                    }
-                } footer: {
-                    Text(form.wrappedValue.typedValuesTurnOffTrends
-                         ? "Typed values are balances only. Trends needs the money in and out that statements record, "
-                            + "so it's off while a savings or investment account's values are typed."
-                         : "Typed values are balances only: Trends shows no money in and out for them.")
-                }
-            }
+            AccountValuesField(form: form)
             Section {
                 TextField("Notes", text: form.notes, prompt: Text("Optional"), axis: .vertical)
                     .lineLimit(2...6)

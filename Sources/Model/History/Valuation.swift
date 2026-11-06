@@ -15,8 +15,10 @@ public struct Valuation: Hashable, Sendable, KeyedRecord, KnownKeysProviding {
     public var positions: [Position]
     /// What was saved: net money added (+) or taken out (−) since the
     /// account's previous valuation, in the account's currency. Stored only
-    /// where the account asks for it (``Account/asksForSaved``); `nil` means
-    /// unknown there, and worked out from the records everywhere else.
+    /// where the value asks for it (``Account/asksForSaved(of:)``: pension
+    /// funds, TFR, property and other accounts, and an investment's value
+    /// typed by hand); `nil` means unknown there, and worked out from the
+    /// records everywhere else.
     public var saved: Decimal?
     /// Money that arrived from outside the tracked accounts since the
     /// account's previous valuation (salary, refunds), in the account's

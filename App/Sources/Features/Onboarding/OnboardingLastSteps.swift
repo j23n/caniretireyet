@@ -3,36 +3,158 @@ import Glance
 import Model
 import SwiftUI
 
-/// Import your accounts (UI.md, "Empty states and first launch"): files come after
-/// the answer, as the way to sharpen it. Which files work and where they
-/// come from, the starter spreadsheet for what has no export, and on the
-/// iPhone and iPad that importing is easiest on the Mac. *Import Files…*
-/// pushes the import on the tour's stack; *Later* is a real choice.
-struct OnboardingFilesStep: View {
-    /// Pushes the import.
-    let importFiles: () -> Void
+/// Keep your answer up to date (UI.md, "Empty states and first launch"):
+/// how the rough amounts get replaced, one of three
+/// (``OnboardingModel/KeepUp``), each saying what it gives.
+///
+/// - *Type your balances*: the starting estimates, each in a field to name
+///   it, become your accounts whose values you type, with what moved, at
+///   each check-in; *Continue* makes them so
+///   (`LibraryStore.adoptStartingEstimates(names:)`).
+/// - *Import your statements*: which files work, the starter spreadsheet
+///   for what has no export, and on the iPhone and iPad that importing is
+///   easiest on the Mac; *Import Files…* pushes the import on the tour's
+///   stack.
+/// - *Decide later*: the estimates stay, and Today's card says how to
+///   update them.
+struct OnboardingKeepUpStep: View {
+    @Environment(OnboardingModel.self) private var model
+    @Environment(LibraryStore.self) private var library
 
+    var body: some View {
+        VStack(alignment: .leading, spacing: Metrics.m) {
+            OnboardingTitle("Keep your answer up to date",
+                            detail: "Your answer uses the rough amounts you entered. Choose how you'd like to "
+                                + "update them. You can change this for each account later.")
+            option(.type, title: "Type your balances",
+                   detail: "At each check-in, type what each account holds. You also type what came in, what you "
+                    + "spent and what you added.",
+                   gives: "Everything on the previous step: your answer, net worth, milestones, savings rate and "
+                    + "what moved your money.")
+            if model.keepUp == .type, !library.library.openStartingEstimates.isEmpty {
+                OnboardingEstimateNames()
+            }
+            option(.importFiles, title: "Import your statements",
+                   detail: "CSV exports from your bank and broker fill in everything, line by line.",
+                   gives: "The same, filled in from your files, plus your holdings, gains and live prices.")
+            if model.keepUp == .importFiles {
+                OnboardingImportFiles()
+            }
+            option(.later, title: "Decide later",
+                   detail: "Keep your rough amounts for now. Today shows how to update them.", gives: nil)
+        }
+    }
+
+    private func option(_ choice: OnboardingModel.KeepUp, title: String, detail: String,
+                        gives: String?) -> some View {
+        let isChosen = model.keepUp == choice
+        return Button {
+            withAnimation { model.keepUp = choice }
+        } label: {
+            HStack(alignment: .top, spacing: Metrics.m) {
+                Image(systemName: isChosen ? "largecircle.fill.circle" : "circle")
+                    .font(.title3)
+                    .foregroundStyle(isChosen ? Palette.accent : Palette.mutedInk)
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: Metrics.xs) {
+                    Text(title)
+                        .font(.headline)
+                        .foregroundStyle(Palette.ink)
+                    Text(detail)
+                        .font(.subheadline)
+                        .foregroundStyle(Palette.secondaryInk)
+                        .fixedSize(horizontal: false, vertical: true)
+                    if let gives {
+                        Text(gives)
+                            .font(.footnote)
+                            .foregroundStyle(Palette.accentDeep)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                Spacer(minLength: 0)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onboardingCard()
+        .overlay {
+            RoundedRectangle(cornerRadius: Metrics.cardRadius, style: .continuous)
+                .strokeBorder(isChosen ? Palette.accent : .clear, lineWidth: 2)
+        }
+        .accessibilityAddTraits(isChosen ? [.isButton, .isSelected] : .isButton)
+    }
+}
+
+/// *Type your balances*: each starting estimate in a field to name it,
+/// with its kind and amount, and what each check-in will ask.
+private struct OnboardingEstimateNames: View {
+    @Environment(OnboardingModel.self) private var model
+    @Environment(LibraryStore.self) private var library
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Metrics.s) {
+            Text("Your accounts")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Palette.secondaryInk)
+            Text("Your rough amounts become these accounts. Rename them to match yours.")
+                .font(.footnote)
+                .foregroundStyle(Palette.secondaryInk)
+                .fixedSize(horizontal: false, vertical: true)
+            ForEach(library.library.openStartingEstimates) { estimate in
+                HStack(spacing: Metrics.m) {
+                    TextField("Name", text: name(of: estimate))
+                        .textFieldStyle(.plain)
+                        .typedFieldOutline(isFocused: false)
+                        .accessibilityLabel(Text("Name of \(OnboardingKeepUpText.kindName(estimate))"))
+                    VStack(alignment: .trailing, spacing: 0) {
+                        Text(OnboardingKeepUpText.kindName(estimate))
+                            .font(.caption)
+                            .foregroundStyle(Palette.secondaryInk)
+                        if let balance = library.library.valuations(for: estimate.id).last?.balance {
+                            AmountText(abs(balance), currency: estimate.currency)
+                                .font(.caption)
+                                .foregroundStyle(Palette.secondaryInk)
+                        }
+                    }
+                }
+            }
+            Divider()
+            Text("At each check-in you type each account's balance and what moved: what came in, what went out "
+                + "and the interest for your savings, what you added for your investments and pension. Type 0 when "
+                + "nothing moved. It takes about a minute a month.")
+                .font(.footnote)
+                .foregroundStyle(Palette.secondaryInk)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .onboardingCard()
+    }
+
+    /// The name typed for `estimate`, its own without "(estimate)" until
+    /// one is.
+    private func name(of estimate: Account) -> Binding<String> {
+        Binding(get: { model.estimateNames[estimate.id] ?? OnboardingKeepUpText.suggestedName(estimate) },
+                set: { model.estimateNames[estimate.id] = $0 })
+    }
+}
+
+/// *Import your statements*: which files work and where they come from,
+/// the starter spreadsheet for what has no export, and the Mac.
+private struct OnboardingImportFiles: View {
     @Environment(LibraryStore.self) private var library
 
     var body: some View {
         VStack(alignment: .leading, spacing: Metrics.l) {
-            OnboardingTitle("Import your accounts",
-                            detail: "This answer uses the rough amounts you entered. Import your statements now or at "
-                                + "your first check-in to replace them.")
-            VStack(alignment: .leading, spacing: Metrics.l) {
-                OnboardingRow(title: "Bank statements", systemImage: "building.columns",
-                              detail: "A CSV export from your bank's website, usually found with your account's "
-                                + "transactions. You can import several at once.")
-                OnboardingRow(title: "Broker exports", systemImage: "chart.line.uptrend.xyaxis",
-                              detail: "A CSV export of your transactions from your broker.")
-                OnboardingRow(title: "Home, pension, debts", systemImage: "house",
-                              detail: "Fill in the starter spreadsheet with one row per date and one column per "
-                                + "account. The mortgage has its own column next to the home. Then import it.") {
-                    StarterSpreadsheetButton()
-                        .padding(.top, Metrics.xs)
-                }
+            OnboardingRow(title: "Bank statements", systemImage: "building.columns",
+                          detail: "A CSV export from your bank's website, usually found with your account's "
+                            + "transactions. You can import several at once.")
+            OnboardingRow(title: "Broker exports", systemImage: "chart.line.uptrend.xyaxis",
+                          detail: "A CSV export of your transactions from your broker.")
+            OnboardingRow(title: "Home, pension, debts", systemImage: "house",
+                          detail: "Fill in the starter spreadsheet with one row per date and one column per "
+                            + "account, then import it. Or type their balances at each check-in.") {
+                StarterSpreadsheetButton()
+                    .padding(.top, Metrics.xs)
             }
-            .onboardingCard()
             #if os(iOS)
             Label(library.location?.kind == .iCloud
                   ? "Importing is easier on a Mac. Open Last Monday there; your library is already in iCloud "
@@ -50,6 +172,21 @@ struct OnboardingFilesStep: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
+        .onboardingCard()
+    }
+}
+
+/// The words of *Keep your answer up to date*, free of SwiftUI.
+enum OnboardingKeepUpText {
+    /// What an estimate becomes: "Savings", "Investments", "Pension fund".
+    static func kindName(_ estimate: Account) -> String {
+        estimate.kind == .other ? "Investments" : estimate.kind.displayName
+    }
+
+    /// "Cash and savings" for "Cash and savings (estimate)".
+    static func suggestedName(_ estimate: Account) -> String {
+        let suffix = " (estimate)"
+        return estimate.name.hasSuffix(suffix) ? String(estimate.name.dropLast(suffix.count)) : estimate.name
     }
 }
 
@@ -163,7 +300,7 @@ struct OnboardingNotesStep: View {
     static let widgetHow = "Control-click the desktop, choose Edit Widgets, then find Last Monday."
     #else
     static let widgetTitle = "On your Lock Screen"
-    static let widgetHow = "Touch and hold the Lock Screen, tap Customize, then add Time to retire."
+    static let widgetHow = "Touch and hold the Lock Screen, tap Customize, then add Last Monday."
     #endif
 }
 

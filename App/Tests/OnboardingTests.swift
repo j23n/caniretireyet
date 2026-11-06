@@ -13,8 +13,8 @@ struct OnboardingTests {
     // MARK: The tour
 
     @Test func theAnswerComesBeforeTheFiles() {
-        #expect(OnboardingStep.allCases == [.welcome, .you, .money, .later, .answer, .files, .notes])
-        #expect(OnboardingStep.allCases.filter(\.comesAfterCreating) == [.answer, .files, .notes])
+        #expect(OnboardingStep.allCases == [.welcome, .you, .money, .later, .answer, .records, .keepUp, .notes])
+        #expect(OnboardingStep.allCases.filter(\.comesAfterCreating) == [.answer, .records, .keepUp, .notes])
         #expect(OnboardingStep.later.next == .answer)
         #expect(OnboardingStep.notes.next == nil)
     }
@@ -23,7 +23,8 @@ struct OnboardingTests {
         #expect(OnboardingStep.welcome.previous == nil)
         #expect(OnboardingStep.you.previous == .welcome)
         #expect(OnboardingStep.answer.previous == .later)
-        #expect(OnboardingStep.files.previous == .answer)
+        #expect(OnboardingStep.records.previous == .answer)
+        #expect(OnboardingStep.keepUp.previous == .records)
     }
 
     /// *Back* from the answer goes to the questions while the library holds
@@ -96,10 +97,50 @@ struct OnboardingTests {
     }
 
     @Test func everyStepAfterTheWelcomeIsNumbered() {
-        #expect(OnboardingStep.allCases.compactMap(\.number) == [1, 2, 3, 4, 5, 6])
-        #expect(OnboardingStep.count == 6)
+        #expect(OnboardingStep.allCases.compactMap(\.number) == [1, 2, 3, 4, 5, 6, 7])
+        #expect(OnboardingStep.count == 7)
         #expect(OnboardingStep.welcome.number == nil)
-        #expect(OnboardingStep.notes.number == 6)
+        #expect(OnboardingStep.keepUp.number == 6)
+        #expect(OnboardingStep.notes.number == 7)
+    }
+
+    /// *Keep your answer up to date* starts on typing your balances, and
+    /// suggests each estimate's name without "(estimate)", the investments
+    /// by what they become.
+    @MainActor
+    @Test func keepingUpStartsOnTypingWithTheEstimatesNamed() {
+        let model = OnboardingModel(locale: english)
+        #expect(model.keepUp == .type)
+        let cash = Account(id: "cash-and-savings-estimate", name: "Cash and savings (estimate)", kind: .savings,
+                           currency: .eur, opened: "2026-10-15", tags: [Account.startingEstimateTag])
+        let investments = Account(id: "investments-estimate", name: "Investments (estimate)", kind: .other,
+                                  currency: .eur, opened: "2026-10-15", tags: [Account.startingEstimateTag])
+        #expect(OnboardingKeepUpText.suggestedName(cash) == "Cash and savings")
+        #expect(OnboardingKeepUpText.kindName(cash) == "Savings")
+        #expect(OnboardingKeepUpText.kindName(investments) == "Investments")
+    }
+
+    /// Typing your balances makes the estimates accounts of your own, with
+    /// a backup; the tour's records are what it added.
+    @MainActor
+    @Test func typingYourBalancesMakesTheEstimatesYourAccounts() async throws {
+        let model = AppModel.preview(Library(settings: LibrarySettings()), defaults: "onboarding-keep-up-tests")
+        let tour = model.onboarding
+        tour.currency = model.library.library.settings.baseCurrency
+        tour.age = 40
+        tour.answers.cash = 10_000
+        tour.answers.investments = 20_000
+        tour.answers.spendingPerMonth = 2_000
+        tour.step = .later
+        await tour.seeAnswer(library: model.library, plans: model.plans, navigation: model.navigation,
+                             preferences: model.preferences)
+        let estimates = model.library.library.openStartingEstimates
+        #expect(estimates.count == 2)
+        let cash = try #require(estimates.first { $0.kind == .savings })
+        try await model.library.adoptStartingEstimates(names: [cash.id: "Conto"])
+        #expect(model.library.library.openStartingEstimates.isEmpty)
+        #expect(model.library.library.accounts[cash.id]?.name == "Conto")
+        #expect(model.library.library.accounts.values.allSatisfy { $0.values == .typed })
     }
 
     /// The answer is an age, so *About you* doesn't go on without one;
@@ -215,9 +256,11 @@ struct OnboardingTests {
         model.answers.payPerMonth = 3_000
         model.answers.spendingPerMonth = 2_500
         model.answers.retiredSpendingPerMonth = 2_000
+        model.answers.pensionPerMonth = 300
         model.hasStoppedWorking = true
         let final = model.finalAnswers
         #expect(final.payPerMonth == nil)
+        #expect(final.pensionPerMonth == nil)
         #expect(final.retiredSpendingPerMonth == nil)
         #expect(final.spendingPerMonth == 2_500)
         #expect(final.retirementAge == model.currentAge)
@@ -238,6 +281,30 @@ struct OnboardingTests {
         let none = RetirementAnswer(confidence: 0.9, targetAge: 70, successAtTarget: 0.04)
         #expect(OnboardingText.retiredLine(none, endAge: 95)
             == "Your money lasts to 95 in fewer than 1 of 10 futures. Your plan aims for 9 of 10.")
+    }
+
+    /// Other debts and what's paid into a pension can't be negative, and
+    /// the quick estimate pays the pension in as the plan will.
+    @MainActor
+    @Test func otherDebtsAndPensionPaidIn() throws {
+        let model = OnboardingModel(locale: english)
+        model.step = .money
+        model.age = 40
+        model.answers.cash = 10_000
+        model.answers.payPerMonth = 3_000
+        model.answers.spendingPerMonth = 2_000
+        model.answers.otherDebts = -1
+        #expect(!model.canContinue)
+        model.answers.otherDebts = 8_000
+        model.answers.pensionPerMonth = -1
+        #expect(!model.canContinue)
+        model.answers.pensionPerMonth = 250
+        #expect(model.canContinue)
+        let request = try #require(model.estimateRequest(today: "2026-10-20"))
+        #expect(request.plan.contributions.map(\.perYear) == [3_000])
+        #expect(request.plan.work.map(\.netIncome) == [39_000])
+        #expect(request.library.accounts.values.map(\.kind).sorted { $0.rawValue < $1.rawValue }
+            == [.loan, .pensionFund, .savings])
     }
 
     /// A hidden field's negative amount doesn't hold the tour up.

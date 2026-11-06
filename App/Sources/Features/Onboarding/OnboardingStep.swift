@@ -15,15 +15,19 @@ enum OnboardingStep: String, CaseIterable, Sendable {
     case later
     /// The first answer, calculated in the tour.
     case answer
-    /// Importing your accounts: *Import Files…* or *Later*.
-    case files
+    /// What your records show: example tiles of what recording money in
+    /// and out adds to the answer.
+    case records
+    /// Keeping the answer up to date: typing your balances, importing your
+    /// statements, or deciding later (``OnboardingModel/KeepUp``).
+    case keepUp
     /// The monthly note and *Your year*, the widget, and the disclaimer;
     /// *Start* opens Today.
     case notes
 
     /// Whether the step comes once *See My Answer* has created the library.
     var comesAfterCreating: Bool {
-        self == .answer || self == .files || self == .notes
+        self == .answer || self == .records || self == .keepUp || self == .notes
     }
 
     /// The step after this one; `nil` after the last.
@@ -42,7 +46,7 @@ enum OnboardingStep: String, CaseIterable, Sendable {
         return steps[index - 1]
     }
 
-    /// The step's number along the bottom, "Step 1 of 6": every step after
+    /// The step's number along the bottom, "Step 1 of 7": every step after
     /// the welcome, which has none.
     var number: Int? {
         guard self != .welcome, let index = Self.allCases.firstIndex(of: self) else { return nil }

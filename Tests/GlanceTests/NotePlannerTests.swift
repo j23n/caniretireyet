@@ -104,6 +104,28 @@ struct NotePlannerMonthlyTests {
         #expect(notes.allSatisfy { !$0.showsChart })
     }
 
+    /// When every account's values are typed, the notes ask you to type
+    /// your balances instead of importing files.
+    @Test func typedAccountsAreAskedToTypeTheirBalances() throws {
+        var typed = snapshot(checkIns: year, answer: answer(age: 54, readiness: 0.58))
+        typed.checkIn.typesValues = true
+        let notes = NotePlanner.notes(for: typed, settings: .standard, now: now, locale: english)
+        #expect(notes.first?.body
+            == "You could retire at 54, 2 years sooner than in January. Type your balances to see where you stand.")
+        var behind = snapshot(checkIns: Array(year.prefix(4)), answer: answer(age: 54, readiness: 0.56))
+        behind.checkIn.typesValues = true
+        let catchUp = NotePlanner.notes(for: behind, settings: .standard, now: now, locale: english)
+            .filter { $0.kind != .yourYear }
+        #expect(catchUp.first?.body == "At your August check-in you could retire at 54. "
+            + "Catch up by typing your balances: one check-in covers those months.")
+        #expect(catchUp[2].body == "At your August check-in you could retire at 54. "
+            + "One check-in covers the months since then, whenever it suits you.")
+        var unanswered = snapshot(checkIns: year, answer: nil)
+        unanswered.checkIn.typesValues = true
+        #expect(NotePlanner.notes(for: unanswered, settings: .standard, now: now, locale: english).first?.body
+            == "Type your balances, then calculate your plan to see when you could retire.")
+    }
+
     @Test func aMonthAlreadyCheckedInGetsNoNote() throws {
         let early = year + [JourneyPoint(date: "2026-10-28", earliestAge: 54, readiness: 0.6)]
         let notes = NotePlanner.notes(for: snapshot(checkIns: early, answer: answer(age: 54, readiness: 0.6)),

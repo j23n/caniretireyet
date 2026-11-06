@@ -263,7 +263,7 @@ extension InvariantLibrary {
                 let valuation = file.valuations[index]
                 let isFirst = seen.insert(valuation.account).inserted
                 guard !isFirst, valuation.saved == nil,
-                      library.accounts[valuation.account]?.asksForSaved ?? false else { continue }
+                      library.accounts[valuation.account]?.asksForSaved(of: valuation) ?? false else { continue }
                 file.valuations[index].saved = 0
             }
             library.months[month] = file

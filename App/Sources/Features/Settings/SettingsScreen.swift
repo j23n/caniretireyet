@@ -43,6 +43,7 @@ struct SettingsScreen: View {
             }
             YouSection()
             PricesSection()
+            CheckInSection()
             NotesSection()
             PrivacySection()
             PlusSection()
@@ -259,6 +260,51 @@ private struct PricesSection: View {
                 + "such as BTC-EUR. Only symbols, dates and what you search for to find a symbol leave this "
                 + "device; any price can be typed in by hand. Yahoo Finance has no official interface for apps, "
                 + "so its prices may stop working without notice.")
+        }
+    }
+}
+
+/// When a value is old (UI.md, "Settings"): the days after which an
+/// account's latest value is listed under *Needs attention*, this device
+/// only (`AppPreferences.stalenessThreshold`). A longer one suits typing
+/// your balances every few months.
+private struct CheckInSection: View {
+    @Environment(AppPreferences.self) private var preferences
+
+    var body: some View {
+        @Bindable var preferences = preferences
+        Section {
+            Picker("A value is old after", selection: $preferences.stalenessThreshold) {
+                ForEach(StalenessChoice.options(including: preferences.stalenessThreshold), id: \.self) { days in
+                    Text(StalenessChoice.name(days)).tag(days)
+                }
+            }
+        } header: {
+            Text("Check-in")
+        } footer: {
+            Text("An account whose latest value is older is listed under Needs attention. If you type your "
+                + "balances every few months, choose a longer time: your answer stands on the latest values.")
+        }
+    }
+}
+
+/// The times after which a value is old, offered in Settings.
+enum StalenessChoice {
+    /// 45 days (the default), 3 months, 6 months and a year, in days.
+    static let days = [45, 92, 183, 366]
+
+    /// The choices, with `current` among them when it's another number.
+    static func options(including current: Int) -> [Int] {
+        days.contains(current) ? days : (days + [current]).sorted()
+    }
+
+    /// "45 days", "3 months", "6 months", "A year".
+    static func name(_ days: Int) -> String {
+        switch days {
+        case 92: "3 months"
+        case 183: "6 months"
+        case 366: "A year"
+        default: days == 1 ? "1 day" : "\(days) days"
         }
     }
 }

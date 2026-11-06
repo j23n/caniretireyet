@@ -125,6 +125,7 @@ class Valuation:
     one_off: Optional[Decimal] = None
     tax: Optional[Decimal] = None
     interest: Optional[Decimal] = None
+    source: str = ""
 
     @property
     def has_money_in_out(self) -> bool:
@@ -214,7 +215,7 @@ class Export:
                 date=on, account=row["account"], balance=dec(row["balance"]), cash=dec(row["cash"]),
                 positions=held, saved=dec(row["saved"]), money_in=dec(row["money_in"]),
                 money_out=dec(row["money_out"]), one_off=dec(row["one_off"]), tax=dec(row["tax"]),
-                interest=dec(row["interest"])))
+                interest=dec(row["interest"]), source=row.get("source") or ""))
         for values in self.valuations.values():
             values.sort(key=lambda v: v.date)
 
@@ -598,6 +599,9 @@ class Export:
         if previous is None:
             return None
         if account.kind in RECORDED_SAVED_KINDS:
+            return valuation.saved
+        if account.kind in INVESTMENT_KINDS and valuation.source == "manual":
+            # Typed by hand, an investment's value records what was added (ACCOUNTS.md, "Typed values").
             return valuation.saved
         if account.kind in WHOLE_CHANGE_KINDS or account.kind in INVESTMENT_KINDS or account.kind == "savings":
             now, before = self.own_value(account, valuation.date), self.own_value(account, previous.date)

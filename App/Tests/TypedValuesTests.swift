@@ -23,7 +23,8 @@ struct TypedValuesTests {
     @Test func aDebtIsTypedAsWhatsOwedAndRecordedNegative() throws {
         let mortgage = account(.mortgage)
         let previous = Valuation(account: "a", date: "2026-06-30", balance: d("-150000"), source: .import)
-        var form = TypedValueForm(new: mortgage, on: today, previous: previous, locale: locale)
+        var form = TypedValueForm(new: mortgage, on: today, previous: previous, firstValue: previous.date,
+                                  locale: locale)
         #expect(form.balance == "150000")
         form.balance = "148,500"
         let valuation = try #require(form.valuation(locale: locale))
@@ -37,7 +38,7 @@ struct TypedValuesTests {
     }
 
     @Test func anAssetRecordsWhatWasTyped() {
-        var form = TypedValueForm(new: account(.property), on: today, previous: nil, locale: locale)
+        var form = TypedValueForm(new: account(.property), on: today, previous: nil, firstValue: nil, locale: locale)
         #expect(form.balance.isEmpty)
         form.balance = "320000"
         #expect(form.valuation(locale: locale)?.balance == 320_000)
@@ -49,7 +50,7 @@ struct TypedValuesTests {
         original.saved = 1000
         original.moneyIn = 200
         original.moneyOut = 100
-        var form = TypedValueForm(editing: original, of: account(.property), locale: locale)
+        var form = TypedValueForm(editing: original, of: account(.property), firstOtherValue: nil, locale: locale)
         #expect(form.balance == "300000")
         form.date = "2026-07-31"
         form.balance = "305000"
@@ -63,7 +64,7 @@ struct TypedValuesTests {
 
     @Test func saveNeedsABalanceAndADateUpToToday() {
         let property = account(.property)
-        var form = TypedValueForm(new: property, on: today, previous: nil, locale: locale)
+        var form = TypedValueForm(new: property, on: today, previous: nil, firstValue: nil, locale: locale)
         #expect(form.problems(for: property, today: today, locale: locale)
             == ["Enter the balance. To record nothing owed or held, type 0."])
         form.balance = "abc"
@@ -79,6 +80,89 @@ struct TypedValuesTests {
             == ["Choose a date up to the day the account closed."])
         #expect(TypedValueForm.latestDate(of: closed, today: today) == "2026-09-30")
         #expect(TypedValueForm.latestDate(of: property, today: today) == today)
+    }
+
+    // MARK: What moved
+
+    /// After the account's first value, an investment's or pension's typed
+    /// value asks what was added, required, 0 allowed; its first doesn't.
+    @Test func aValueAfterTheFirstAsksWhatWasAdded() throws {
+        let fund = account(.pensionFund)
+        var first = TypedValueForm(new: fund, on: today, previous: nil, firstValue: nil, locale: locale)
+        first.balance = "20000"
+        #expect(!first.asksWhatMoved)
+        #expect(first.problems(for: fund, today: today, locale: locale).isEmpty)
+        #expect(first.valuation(locale: locale)?.saved == nil)
+
+        let previous = Valuation(account: "a", date: "2026-06-30", balance: 19000, source: .manual)
+        var form = TypedValueForm(new: fund, on: today, previous: previous, firstValue: previous.date,
+                                  locale: locale)
+        #expect(form.whatMoved == .added)
+        #expect(form.addedLabel == "Paid in")
+        #expect(form.asksWhatMoved)
+        form.balance = "20000"
+        #expect(form.isMissingWhatMoved(locale: locale))
+        #expect(form.problems(for: fund, today: today, locale: locale)
+            == ["Enter what you added since the last value. If nothing, type 0."])
+        #expect(form.valuation(locale: locale) == nil)
+        form.added = "0"
+        #expect(form.problems(for: fund, today: today, locale: locale).isEmpty)
+        #expect(form.valuation(locale: locale)?.saved == 0)
+        form.added = "400"
+        let valuation = try #require(form.valuation(locale: locale))
+        #expect(valuation.saved == 400)
+        #expect(valuation.moneyIn == nil && valuation.interest == nil)
+
+        var brokerage = account(.brokerage)
+        brokerage.valuation = .balance
+        let typed = TypedValueForm(new: brokerage, on: today, previous: previous, firstValue: previous.date,
+                                   locale: locale)
+        #expect(typed.whatMoved == .added && typed.addedLabel == "You added")
+    }
+
+    /// A savings account's typed value after its first asks what came in,
+    /// what went out and the interest, each required, the first two
+    /// without a sign.
+    @Test func aSavingsValueAfterTheFirstAsksMoneyInAndOutAndInterest() throws {
+        let savings = account(.savings)
+        let previous = Valuation(account: "a", date: "2026-06-30", balance: 20000, source: .manual)
+        var form = TypedValueForm(new: savings, on: today, previous: previous, firstValue: previous.date,
+                                  locale: locale)
+        #expect(form.whatMoved == .moneyInOut)
+        form.balance = "20040"
+        form.cameIn = "0"
+        #expect(form.problems(for: savings, today: today, locale: locale)
+            == ["Enter what came in, what went out and the interest since the last value. If nothing, type 0."])
+        form.wentOut = "-5"
+        form.interest = "40"
+        #expect(form.problems(for: savings, today: today, locale: locale)
+            == ["Type what came in and what went out without a sign."])
+        form.wentOut = "0"
+        let valuation = try #require(form.valuation(locale: locale))
+        #expect(valuation.moneyIn == 0 && valuation.moneyOut == 0 && valuation.interest == 40)
+        #expect(valuation.saved == nil)
+    }
+
+    /// Editing keeps what moved; moved to before every other value, it's
+    /// the first and records a balance only. A starting estimate, a debt
+    /// and belongings never ask.
+    @Test func editingKeepsWhatMovedUntilItsTheFirstValue() throws {
+        let fund = account(.pensionFund)
+        let original = Valuation(account: "a", date: "2026-07-31", balance: 20000, saved: 400, source: .manual)
+        var form = TypedValueForm(editing: original, of: fund, firstOtherValue: "2026-06-30", locale: locale)
+        #expect(form.added == "400")
+        #expect(form.valuation(locale: locale)?.saved == 400)
+        form.date = "2026-05-31"
+        #expect(!form.asksWhatMoved)
+        #expect(form.valuation(locale: locale)?.saved == nil)
+
+        var estimate = account(.savings)
+        estimate.tags = [Account.startingEstimateTag]
+        for other in [estimate, account(.mortgage), account(.belongings)] {
+            let typed = TypedValueForm(new: other, on: today, previous: original, firstValue: original.date,
+                                       locale: locale)
+            #expect(!typed.asksWhatMoved, "\(other.kind)")
+        }
     }
 
     @Test func onlyTypedValuesOfAnAccountThatTakesThemAreEditable() {
@@ -134,6 +218,21 @@ struct TypedValuesTests {
         }
     }
 
+    /// A new account can be typed by you from the start; an investment
+    /// account is then recorded as a balance.
+    @Test func aNewAccountCanBeTypedFromTheStart() {
+        var form = AccountForm(residence: nil, currency: .eur, today: today)
+        form.chosenKind = .cash
+        #expect(!form.offersTypedValues)
+        form.chosenKind = .brokerage
+        #expect(form.offersTypedValues)
+        form.values = .typed
+        let account = form.account(id: "new")
+        #expect(account.values == .typed)
+        #expect(account.valuation == .balance)
+        #expect(account.acceptsTypedValues)
+    }
+
     @Test func anInvestmentAccountSwitchesToABalanceUntilItHasTrades() {
         var form = AccountForm(editing: account(.brokerage, values: nil))
         #expect(form.valuationMode == .trades)
@@ -142,11 +241,10 @@ struct TypedValuesTests {
         let typed = form.account(id: "a")
         #expect(typed.valuation == .balance)
         #expect(typed.acceptsTypedValues)
-        #expect(typed.typedValuesTurnOffTrends)
-        #expect(form.typedValuesTurnOffTrends)
+        #expect(typed.typedValuesCountInTrends)
+        #expect(form.typedWhatMoved == .added)
         form.chosenNetWorthInclusion = false
-        #expect(!form.typedValuesTurnOffTrends)
-        #expect(!form.account(id: "a").typedValuesTurnOffTrends)
+        #expect(!form.account(id: "a").typedValuesCountInTrends)
         // Switched back, it stays a balance: its typed values are balances.
         var back = AccountForm(editing: typed)
         back.values = .imported
@@ -211,11 +309,15 @@ struct TypedValuesTests {
         #expect(Set(estimates.typed.map(\.account)) == ["casa", "fondo-pensione"])
     }
 
-    @Test func typedSavingsOrInvestmentsTurnTrendsOff() {
+    @Test func typedSavingsOrInvestmentsWithoutWhatMovedTurnTrendsOff() {
         var library = PreviewLibrary.library
         #expect(library.accountsTurningOffTrends.isEmpty)
         library.accounts["conto-deposito"]?.values = .typed
         library.accounts["fondo-pensione"]?.values = .typed
+        #expect(library.accountsTurningOffTrends.isEmpty)
+        let date = PreviewLibrary.latestCheckIn.adding(days: 1)
+        library.upsert(Valuation(account: "conto-deposito", date: date, balance: 20000, source: .manual))
+        library.upsert(Valuation(account: "fondo-pensione", date: date, balance: 20000, source: .manual))
         #expect(library.accountsTurningOffTrends.map(\.id) == ["conto-deposito"])
         library.accounts["conto-deposito"]?.closed = "2026-09-30"
         #expect(library.accountsTurningOffTrends.isEmpty)

@@ -30,11 +30,11 @@ struct AccountDefaultsTests {
             #expect(!account(kind).acceptsTypedValues)
             #expect(typed.offersTypedValues == !importOnly.contains(kind), "\(kind)")
             #expect(typed.acceptsTypedValues == !importOnly.contains(kind), "\(kind)")
-            let turnsOffTrends = kind == .savings || kind.isInvestment
-            #expect(typed.typedValuesTurnOffTrends == turnsOffTrends, "\(kind)")
+            let countsInTrends = kind == .savings || kind.isInvestment
+            #expect(typed.typedValuesCountInTrends == countsInTrends, "\(kind)")
             var outOfNetWorth = typed
             outOfNetWorth.includeIn = IncludeIn(netWorth: false)
-            #expect(!outOfNetWorth.typedValuesTurnOffTrends, "\(kind)")
+            #expect(!outOfNetWorth.typedValuesCountInTrends, "\(kind)")
         }
         // A kind this version doesn't know stays import-only.
         var unknown = account(AccountKind(rawValue: "boat"))
@@ -60,7 +60,7 @@ struct AccountDefaultsTests {
         #expect(estimate.acceptsTypedValues)
         var typed = estimate
         typed.values = .typed
-        #expect(!typed.typedValuesTurnOffTrends)
+        #expect(!typed.typedValuesCountInTrends)
         estimate.closed = "2025-01-31"
         #expect(!estimate.acceptsTypedValues)
     }
@@ -94,6 +94,56 @@ struct AccountDefaultsTests {
         let plain = String(decoding: try encoder.encode(account(.pensionFund)), as: UTF8.self)
         #expect(!plain.contains("withdrawalTaxRate"))
         #expect(account(.pensionFund).withdrawalTaxRate == nil)
+    }
+
+    /// What a value typed by hand records besides its balance, after an
+    /// account's first: savings what came in, went out and the interest,
+    /// investments and pensions what was added, belongings and debts
+    /// nothing. An imported value lacks nothing.
+    @Test func whatATypedValueRecordsBesidesItsBalance() {
+        var savings = account(.savings)
+        savings.values = .typed
+        #expect(savings.typedValuesRecordMoneyInOut)
+        #expect(!savings.typedValuesRecordSaved)
+        var value = Valuation(account: "a", date: "2026-10-31", balance: 1000, source: .manual)
+        #expect(savings.typedValueLacksWhatMoved(value))
+        value.moneyIn = 0
+        value.moneyOut = 0
+        #expect(savings.typedValueLacksWhatMoved(value))
+        value.interest = 0
+        #expect(!savings.typedValueLacksWhatMoved(value))
+        #expect(!savings.typedValueLacksWhatMoved(Valuation(account: "a", date: "2026-10-31", balance: 1,
+                                                            source: .import)))
+
+        var brokerage = account(.brokerage)
+        brokerage.valuation = .balance
+        #expect(!brokerage.typedValuesRecordMoneyInOut)
+        #expect(brokerage.typedValueLacksWhatMoved(Valuation(account: "a", date: "2026-10-31", balance: 1,
+                                                             source: .manual)))
+        #expect(!brokerage.typedValueLacksWhatMoved(Valuation(account: "a", date: "2026-10-31", balance: 1,
+                                                              saved: 0, source: .manual)))
+        for kind in [AccountKind.belongings, .loan, .mortgage] {
+            #expect(!account(kind).typedValueLacksWhatMoved(Valuation(account: "a", date: "2026-10-31",
+                                                                       balance: 1, source: .manual)), "\(kind)")
+        }
+    }
+
+    /// Typed savings turn Trends off only while a value after their first
+    /// lacks what moved; the first value records a balance only.
+    @Test func aTypedValueWithoutWhatMovedTurnsTrendsOff() {
+        var savings = account(.savings)
+        savings.values = .typed
+        var library = Library(accounts: [savings])
+        library.upsert(Valuation(account: "a", date: "2026-09-30", balance: 1000, source: .manual))
+        #expect(library.accountsTurningOffTrends.isEmpty)
+        library.upsert(Valuation(account: "a", date: "2026-10-31", balance: 1100, moneyIn: 100, moneyOut: 0,
+                                 interest: 0, source: .manual))
+        #expect(library.accountsTurningOffTrends.isEmpty)
+        library.upsert(Valuation(account: "a", date: "2026-11-30", balance: 1200, source: .manual))
+        #expect(library.accountsTurningOffTrends.map(\.id) == ["a"])
+        // Out of net worth, it isn't counted there.
+        library.accounts["a"]?.includeIn = IncludeIn(netWorth: false)
+        #expect(library.accountsTurningOffTrends.isEmpty)
     }
 }
 
