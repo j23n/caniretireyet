@@ -48,6 +48,30 @@ struct StarterSetupTests {
 
     /// A mortgage is entered as what's owed: negative is a mistake, and on
     /// its own it isn't something you have.
+    /// *Type your balances*: the estimates become typed accounts of your
+    /// own, named as you typed or without "(estimate)", the investments a
+    /// brokerage recorded as a balance; their values stay, and the day's
+    /// values are no longer only estimates'.
+    @Test func estimatesBecomeTypedAccounts() throws {
+        var library = emptyLibrary()
+        let ids = StarterSetup.addEstimates(answers, to: &library, on: today)
+        #expect(library.valuesAreStartingEstimates(on: today))
+        let cash = ids[0]
+        let adopted = library.adoptStartingEstimates(names: [cash: "  Conto  "])
+        #expect(Set(adopted) == Set(ids))
+        #expect(library.openStartingEstimates.isEmpty)
+        let accounts = ids.compactMap { library.accounts[$0] }
+        #expect(accounts.map(\.name) == ["Conto", "Investments", "Pension", "Home", "Mortgage"])
+        #expect(accounts.map(\.kind) == [.savings, .brokerage, .pensionFund, .property, .mortgage])
+        #expect(accounts.allSatisfy { $0.values == .typed && $0.acceptsTypedValues && $0.notes == nil })
+        let investments = try #require(library.accounts[ids[1]])
+        #expect(investments.valuation == .balance && investments.assetClasses == .single(.equity))
+        #expect(investments.typedValuesRecordSaved)
+        #expect(ids.allSatisfy { library.valuations(for: $0).count == 1 })
+        #expect(!library.valuesAreStartingEstimates(on: today))
+        #expect(library.adoptStartingEstimates().isEmpty)
+    }
+
     @Test func aMortgageIsOwed() {
         #expect(StarterAnswers(home: d("200000"), mortgage: d("-1")).hasNegativeAmount)
         #expect(!StarterAnswers(mortgage: d("80000")).hasStartingAmounts)

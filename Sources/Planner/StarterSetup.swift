@@ -97,6 +97,9 @@ public enum StarterSetup {
     /// (``Model/Account/startingEstimateTag``).
     public static let estimateTag = Account.startingEstimateTag
 
+    /// An estimate account's note.
+    static let estimateNote = "A round amount from first launch. Close it once your real accounts are imported."
+
     /// The state pension's name in a plan, and on the plan's cards.
     public static let statePensionName = "State pension"
 
@@ -116,7 +119,7 @@ public enum StarterSetup {
             var account = Account(id: id(fullName), name: fullName, kind: kind, currency: currency, opened: date)
             account.country = country
             account.tags = [estimateTag]
-            account.notes = "A round amount from first launch. Close it once your real accounts are imported."
+            account.notes = estimateNote
             configure(&account)
             return (account, amount)
         }
@@ -266,6 +269,38 @@ extension Library {
             .min { ($0.1, $0.0.id) < ($1.1, $1.0.id) }
         guard let successor else { return nil }
         return .close(on: first.adding(days: -1), successor: successor.0.id)
+    }
+
+    /// Makes the open starting estimates accounts of your own whose values
+    /// you type (UI.md, "Empty states and first launch": *Type your
+    /// balances*): each loses its tag and its first-launch note, takes the
+    /// name in `names` (else its own without "(estimate)") and typed values
+    /// (`values: typed`); the investments become a brokerage account
+    /// recorded as a balance. Their values stay, so the next check-in
+    /// counts them as any account's. Returns their IDs, by name.
+    @discardableResult
+    public mutating func adoptStartingEstimates(names: [AccountID: String] = [:]) -> [AccountID] {
+        let estimates = openStartingEstimates
+        for estimate in estimates {
+            var account = estimate
+            account.tags.removeAll { $0 == Account.startingEstimateTag }
+            let typed = names[account.id]?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            account.name = typed.isEmpty ? Self.nameWithoutEstimate(account.name) : typed
+            if account.notes == StarterSetup.estimateNote { account.notes = nil }
+            if account.kind == .other {
+                account.kind = .brokerage
+                account.valuation = .balance
+            }
+            account.values = .typed
+            accounts[account.id] = account
+        }
+        return estimates.map(\.id)
+    }
+
+    /// "Cash and savings" for "Cash and savings (estimate)".
+    static func nameWithoutEstimate(_ name: String) -> String {
+        let suffix = " (estimate)"
+        return name.hasSuffix(suffix) ? String(name.dropLast(suffix.count)) : name
     }
 
     /// Whether every value on `date` is a starting estimate's (and there
