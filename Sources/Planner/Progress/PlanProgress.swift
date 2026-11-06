@@ -49,7 +49,7 @@ public struct PlanYearChart: Identifiable, Sendable {
     public let year: PlanProgressYear
     /// Your money from the last point before the year through its end, at
     /// each check-in (a date the check-in list shows,
-    /// ``Valuator/moneyCheckInDates(through:)``) and the end of each month
+    /// ``Valuator/moneyCheckInDates(in:through:)``, of plan assets) and the end of each month
     /// without one: plan assets in
     /// the base currency, as they were, as the milestones and the year's
     /// change count them.
@@ -148,7 +148,7 @@ public struct PlanYearChart: Identifiable, Sendable {
         // account alone (a pension fund's, a closed account's last) would
         // add a day on which the others still had their values from
         // before, and money moved from them would count twice.
-        let dates = valuator.moneyCheckInDates()
+        let dates = valuator.moneyCheckInDates(in: .planAssets)
         let changes = zip(dates, dates.dropFirst()).map { before, after in
             CheckInChange(from: before, to: after,
                           change: valuator.change(from: before, to: after, in: .planAssets).total)

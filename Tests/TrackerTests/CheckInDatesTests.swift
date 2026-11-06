@@ -37,5 +37,11 @@ struct CheckInDatesTests {
         #expect(valuator.moneyCheckInDates(through: "2026-09-29") == ["2026-08-31"])
         #expect(library.moneyCheckInDates == valuator.moneyCheckInDates())
         #expect(library.moneyMonths().map(\.through) == ["2026-09-30", "2026-08-31"])
+        // A tax pot is in the check-in list, but the plan leaves it out.
+        library.accounts["pot"] = Account(id: "pot", name: "Pot", kind: .taxPot, currency: .eur, opened: "2026-01-01")
+        library.upsert(Valuation(account: "pot", date: "2026-09-10", balance: 300))
+        let withPot = Valuator(library: library)
+        #expect(withPot.moneyCheckInDates() == ["2026-08-31", "2026-09-10", "2026-09-30"])
+        #expect(withPot.moneyCheckInDates(in: .planAssets) == ["2026-08-31", "2026-09-30"])
     }
 }

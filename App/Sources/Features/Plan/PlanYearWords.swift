@@ -511,7 +511,7 @@ struct PlanYearCheckIn: Identifiable {
     /// The check-ins in `year` the check-in list shows, as its line is
     /// drawn at (`Valuator.moneyCheckInDates`), oldest first.
     static func rows(of year: PlanProgressYear, valuator: Valuator) -> [PlanYearCheckIn] {
-        let dates = valuator.moneyCheckInDates(through: year.to).filter { $0 > year.from }
+        let dates = valuator.moneyCheckInDates(in: .planAssets, through: year.to).filter { $0 > year.from }
         var rows: [PlanYearCheckIn] = []
         var previous = year.from
         for date in dates {

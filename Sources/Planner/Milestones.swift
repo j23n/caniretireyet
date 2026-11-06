@@ -238,7 +238,7 @@ public struct MilestoneLadder: Hashable, Sendable {
     /// The milestones `plan` reached through `date`: plan assets on the line
     /// Progress draws, from the first record of one (a value, or a trade)
     /// through the latest check-in on or before `date`, at each check-in
-    /// the check-in list shows (``Valuator/moneyCheckInDates(through:)``,
+    /// the check-in list shows (``Valuator/moneyCheckInDates(in:through:)``, of plan assets,
     /// as the line has them) and the end of every month without one
     /// (PROGRESS.md, "Milestones"),
     /// with the crossover of each day as it stood then
@@ -251,8 +251,8 @@ public struct MilestoneLadder: Hashable, Sendable {
         var values: [SeriesPoint] = []
         if let last = checkIns.last {
             let first = min(valuator.firstValuationDate(in: .planAssets) ?? last, last)
-            let days = DateGrid.checkInsAndMonthEnds(from: first, through: last,
-                                                     checkIns: valuator.moneyCheckInDates(through: date))
+            let lineCheckIns = valuator.moneyCheckInDates(in: .planAssets, through: date)
+            let days = DateGrid.checkInsAndMonthEnds(from: first, through: last, checkIns: lineCheckIns)
             values = days.map { day in
                 SeriesPoint(date: day, value: valuator.total(on: day, in: .planAssets).total)
             }
