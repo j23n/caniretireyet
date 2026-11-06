@@ -122,11 +122,15 @@ struct CheckInTypedRow: View {
         case .nothing:
             EmptyView()
         case .added:
-            CheckInWhatMovedField(title: edited.addedLabel, text: binding(\.added), account: account, onEnd: save)
+            CheckInWhatMovedField(title: edited.addedLabel, text: binding(\.added), account: account,
+                                  isSaving: isSaving, onEnd: save)
         case .moneyInOut:
-            CheckInWhatMovedField(title: "Came in", text: binding(\.cameIn), account: account, onEnd: save)
-            CheckInWhatMovedField(title: "Went out", text: binding(\.wentOut), account: account, onEnd: save)
-            CheckInWhatMovedField(title: "Interest", text: binding(\.interest), account: account, onEnd: save)
+            CheckInWhatMovedField(title: "Came in", text: binding(\.cameIn), account: account, isSaving: isSaving,
+                                  onEnd: save)
+            CheckInWhatMovedField(title: "Went out", text: binding(\.wentOut), account: account,
+                                  isSaving: isSaving, onEnd: save)
+            CheckInWhatMovedField(title: "Interest", text: binding(\.interest), account: account,
+                                  isSaving: isSaving, onEnd: save)
         }
     }
 
@@ -195,11 +199,16 @@ enum CheckInTypedValue {
     /// A new value of `account` on `date` (or the day it closed, if
     /// earlier), its balance prefilled from the latest value on or before
     /// then, or from `estimate`, the value estimated for an account that
-    /// loses value.
+    /// loses value. A value already typed on that day (a check-in opened
+    /// again) is edited instead, so what moved keeps what was typed.
     static func form(for account: Account, on date: CalendarDate, valuator: Valuator, estimate: Decimal? = nil,
                      today: CalendarDate = .today(), locale: Locale = .current) -> TypedValueForm {
         let day = min(date, TypedValueForm.latestDate(of: account, today: today))
         let previous = valuator.latestValuation(for: account.id, onOrBefore: day)
+        if let previous, previous.date == day, previous.source == .manual {
+            let firstOther = valuator.valuations(for: account.id).first { $0.key != previous.key }?.date
+            return TypedValueForm(editing: previous, of: account, firstOtherValue: firstOther, locale: locale)
+        }
         var form = TypedValueForm(new: account, on: day, previous: previous,
                                   firstValue: valuator.valuations(for: account.id).first?.date, locale: locale)
         if let estimate {
@@ -294,6 +303,8 @@ private struct CheckInWhatMovedField: View {
     let title: String
     @Binding var text: String
     let account: Account
+    /// Whether the row is saving, which holds the field as the balance's is.
+    let isSaving: Bool
     /// Called on Return and when the field is left.
     let onEnd: () -> Void
 
@@ -308,7 +319,7 @@ private struct CheckInWhatMovedField: View {
             Spacer(minLength: Metrics.s)
             OutlinedAmountField(title: title, text: $text, currency: account.currency, isFocused: $isFocused)
                 .onSubmit(onEnd)
-                .disabled(!library.canEdit)
+                .disabled(!library.canEdit || isSaving)
                 .onChange(of: isFocused) { _, focused in
                     if !focused { onEnd() }
                 }

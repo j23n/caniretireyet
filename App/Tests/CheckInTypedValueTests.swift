@@ -25,6 +25,21 @@ struct CheckInTypedValueTests {
         #expect(form.added.isEmpty)
     }
 
+    /// A check-in opened again edits the value typed on its date, so what
+    /// moved keeps what was typed.
+    @Test func aValueTypedOnTheDateIsEdited() throws {
+        var library = PreviewLibrary.library
+        library.upsert(Valuation(account: "casa", date: "2026-10-31", balance: d("318000"), saved: d("1500"),
+                                 source: .manual))
+        let home = try #require(library.accounts["casa"])
+        let form = CheckInTypedValue.form(for: home, on: "2026-10-31", valuator: Valuator(library: library),
+                                          today: "2026-10-31", locale: locale)
+        #expect(form.original?.date == "2026-10-31")
+        #expect(form.balance == "318000")
+        #expect(form.added == "1500")
+        #expect(form.asksWhatMoved)
+    }
+
     @Test func aDateAfterTodayIsBroughtBackToToday() throws {
         let library = PreviewLibrary.library
         let home = try #require(library.accounts["casa"])
