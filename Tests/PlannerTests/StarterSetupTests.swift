@@ -90,7 +90,7 @@ struct StarterSetupTests {
     }
 
     /// Other debts are a loan, owed, in net worth but not the plan, whose
-    /// spending pays it off; replaced by a real loan or credit card.
+    /// spending pays it off; replaced by a real loan.
     @Test func otherDebtsAreALoanTheyPlanLeavesOut() throws {
         var library = emptyLibrary()
         let ids = StarterSetup.addEstimates(StarterAnswers(cash: d("5000"), otherDebts: d("12000")), to: &library,
@@ -99,7 +99,7 @@ struct StarterSetupTests {
         #expect(loan.name == "Other debts (estimate)" && loan.isStartingEstimate)
         #expect(loan.includedInNetWorth && !loan.includedInPlan)
         #expect(library.valuations(for: loan.id).map(\.balance) == [d("-12000")])
-        #expect(loan.kindsReplacingEstimate == [.loan, .creditCard])
+        #expect(loan.kindsReplacingEstimate == [.loan])
         #expect(StarterAnswers(otherDebts: d("-1")).hasNegativeAmount)
         #expect(!StarterAnswers(otherDebts: d("12000")).hasStartingAmounts)
     }

@@ -264,15 +264,15 @@ extension Account {
     /// The kinds of real accounts that replace this starting estimate:
     /// current and savings accounts replace cash and savings; investment
     /// accounts the investments; pension funds and TFR the pension;
-    /// property the home; a mortgage the mortgage; loans and credit cards
-    /// other debts.
+    /// property the home; a mortgage the mortgage; loans the other debts
+    /// (not a credit card, which is spending, not a loan).
     public var kindsReplacingEstimate: Set<AccountKind> {
         switch kind {
         case .savings, .cash: [.cash, .savings]
         case .pensionFund, .tfr: [.pensionFund, .tfr]
         case .property: [.property]
         case .mortgage: [.mortgage]
-        case .loan, .creditCard: [.loan, .creditCard]
+        case .loan: [.loan]
         default: [.brokerage, .crypto, .metals, .other]
         }
     }
