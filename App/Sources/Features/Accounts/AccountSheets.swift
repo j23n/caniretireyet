@@ -318,9 +318,9 @@ struct EditAccountSheet: View {
                     }
                 } footer: {
                     Text(form.wrappedValue.typedValuesTurnOffTrends
-                         ? "Typed values are balances only. Trends needs the money in and out that statements record, "
+                         ? "Typed values are balances only. So far's money in and out needs what statements record, "
                             + "so it's off while a savings or investment account's values are typed."
-                         : "Typed values are balances only: Trends shows no money in and out for them.")
+                         : "Typed values are balances only: So far shows no money in and out for them.")
                 }
             }
             Section {
