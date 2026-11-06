@@ -4,11 +4,15 @@ import Tracker
 
 /// An account whose values you type, in the check-in (UI.md, "Check-in"):
 /// its name over when its last value was, and its balance on the
-/// check-in's date in a field, prefilled from the last value. Changing the
-/// field and pressing Return, or leaving it, saves the balance as a typed
-/// value on that date (`LibraryStore.saveTypedValue(_:replacing:)`, with
-/// its backup), as *Update Value* does; a value that can't be read or
-/// saved says so under the name.
+/// check-in's date in a field, prefilled from the last value. After the
+/// account's first value, fields under it ask what moved since the last
+/// one (``TypedValueForm/asksWhatMoved``): what was added, or what came in,
+/// what went out and the interest, empty until typed. Changing a field and
+/// pressing Return, or leaving it, saves the value on that date once every
+/// field it asks for is filled (`LibraryStore.saveTypedValue(_:replacing:)`,
+/// with its backup), as *Update Value* does; a value that can't be read or
+/// saved says so under the name, and one still missing what moved waits
+/// for the check-in's *Save*, which names it.
 ///
 /// An account that loses value (``TypedCheckInAccount/estimate``) has its
 /// estimate on the date in the field, "Loses 15% a year · was 20.000 €"
@@ -27,10 +31,10 @@ struct CheckInTypedRow: View {
     @Environment(CheckInTypedEdits.self) private var edits: CheckInTypedEdits?
     @Environment(\.locale) private var locale
 
-    /// The form as last loaded or saved: its balance is what the field
-    /// started from.
+    /// The form as last loaded or saved: what the fields started from.
     @State private var form: TypedValueForm?
-    @State private var text = ""
+    /// What the fields hold now.
+    @State private var edited: TypedValueForm?
     @State private var problem: String?
     @State private var isSaving = false
     @FocusState private var isFocused: Bool
@@ -38,6 +42,9 @@ struct CheckInTypedRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Metrics.xs) {
             row
+            if let edited, edited.asksWhatMoved {
+                whatMovedFields(edited)
+            }
             if problem == nil, let note = CheckInTypedText.lostNote(typed, account: account, locale: locale) {
                 AmountSentenceText(note)
                     .font(.footnote)
@@ -79,20 +86,25 @@ struct CheckInTypedRow: View {
         .padding(.vertical, Metrics.s)
         .onAppear(perform: load)
         .onChange(of: date) { _, _ in reload() }
-        // A value saved elsewhere (Update Value…) refills a field you
+        // A value saved elsewhere (Update Value…) refills fields you
         // haven't changed.
         .onChange(of: library.revision) { _, _ in
-            if !isFocused, !isSaving, text == form?.balance { reload() }
+            if !isFocused, !isSaving, edited == form { reload() }
         }
-        .onChange(of: text) { _, new in
-            if let form { edits?.note(account, form: form, text: new) }
+        .onChange(of: edited) { _, new in
+            if let form, let new { edits?.note(account, form: form, edited: new) }
         }
+    }
+
+    /// One of the form's text fields, as a binding.
+    private func binding(_ field: WritableKeyPath<TypedValueForm, String>) -> Binding<String> {
+        Binding(get: { edited?[keyPath: field] ?? "" }, set: { edited?[keyPath: field] = $0 })
     }
 
     /// The balance, in a rounded field that turns the accent while it's
     /// edited.
     private var field: some View {
-        OutlinedAmountField(title: account.kind.isLiability ? "Owed" : "Balance", text: $text,
+        OutlinedAmountField(title: account.kind.isLiability ? "Owed" : "Balance", text: binding(\.balance),
                             currency: account.currency, isFocused: $isFocused, isEstimate: isEstimate)
             .onSubmit(save)
             .disabled(!library.canEdit || isSaving)
@@ -103,10 +115,25 @@ struct CheckInTypedRow: View {
             .accessibilityLabel(Text(verbatim: "\(account.name), \(account.kind.isLiability ? "owed" : "balance")"))
     }
 
+    /// What moved since the last value, each in a field under the balance.
+    @ViewBuilder
+    private func whatMovedFields(_ edited: TypedValueForm) -> some View {
+        switch edited.whatMoved {
+        case .nothing:
+            EmptyView()
+        case .added:
+            CheckInWhatMovedField(title: edited.addedLabel, text: binding(\.added), account: account, onEnd: save)
+        case .moneyInOut:
+            CheckInWhatMovedField(title: "Came in", text: binding(\.cameIn), account: account, onEnd: save)
+            CheckInWhatMovedField(title: "Went out", text: binding(\.wentOut), account: account, onEnd: save)
+            CheckInWhatMovedField(title: "Interest", text: binding(\.interest), account: account, onEnd: save)
+        }
+    }
+
     /// Whether the field still holds the account's estimate: it loses
     /// value, has no value on the date, and nothing was typed over it.
     private var isEstimate: Bool {
-        typed?.estimate != nil && text == form?.balance
+        typed?.estimate != nil && edited?.balance == form?.balance
     }
 
     private func load() {
@@ -114,8 +141,8 @@ struct CheckInTypedRow: View {
         let loaded = CheckInTypedValue.form(for: account, on: date, valuator: library.valuator,
                                             estimate: typed?.estimate, locale: locale)
         form = loaded
-        text = loaded.balance
-        edits?.note(account, form: loaded, text: loaded.balance)
+        edited = loaded
+        edits?.note(account, form: loaded, edited: loaded)
     }
 
     /// Loads the form again: on the check-in's new date, or from a value
@@ -126,14 +153,19 @@ struct CheckInTypedRow: View {
         load()
     }
 
-    /// Saves the balance when it changed, and waits for the write.
+    /// Saves the value when it changed and every field it asks for is
+    /// filled, and waits for the write.
     private func save() {
-        guard var edited = form, !isSaving else { return }
-        guard text != edited.balance else {
+        guard let edited, !isSaving else { return }
+        guard edited != form else {
             problem = nil
             return
         }
-        edited.balance = text
+        // Still being filled in: the check-in's Save names it if it stays so.
+        guard !edited.isMissingWhatMoved(locale: locale) else {
+            problem = nil
+            return
+        }
         if let first = edited.problems(for: account, today: .today(), locale: locale).first {
             problem = first
             return
@@ -149,7 +181,7 @@ struct CheckInTypedRow: View {
                 try await library.saveTypedValue(valuation)
                 form = saved
                 problem = nil
-                edits?.note(account, form: saved, text: text)
+                edits?.note(account, form: saved, edited: self.edited ?? saved)
             } catch {
                 problem = LibraryStore.describe(error)
             }
@@ -168,7 +200,8 @@ enum CheckInTypedValue {
                      today: CalendarDate = .today(), locale: Locale = .current) -> TypedValueForm {
         let day = min(date, TypedValueForm.latestDate(of: account, today: today))
         let previous = valuator.latestValuation(for: account.id, onOrBefore: day)
-        var form = TypedValueForm(new: account, on: day, previous: previous, locale: locale)
+        var form = TypedValueForm(new: account, on: day, previous: previous,
+                                  firstValue: valuator.valuations(for: account.id).first?.date, locale: locale)
         if let estimate {
             form.balance = AmountInput.balanceText(for: estimate, isLiability: account.kind.isLiability,
                                                    locale: locale)
@@ -204,19 +237,20 @@ enum CheckInTypedText {
     }
 }
 
-/// The balances typed into a check-in's rows and not saved yet
+/// The values typed into a check-in's rows and not saved yet
 /// (``CheckInTypedRow``), so the check-in's *Save* writes them before it
-/// saves the month: tapping *Save* doesn't end a field's editing.
+/// saves the month: tapping *Save* doesn't end a field's editing, and a
+/// row waits until what moved is filled in.
 @MainActor @Observable
 final class CheckInTypedEdits {
-    /// A row's field: the form it started from and what it holds now.
+    /// A row's fields: the form they started from and what they hold now.
     struct Edit {
         var account: Account
         var form: TypedValueForm
-        var text: String
+        var edited: TypedValueForm
     }
 
-    /// The fields that hold a changed balance, by account.
+    /// The rows whose fields changed, by account.
     private(set) var edits: [AccountID: Edit] = [:]
 
     /// A balance that can't be saved: "Home: Enter a balance."
@@ -225,32 +259,63 @@ final class CheckInTypedEdits {
         var errorDescription: String? { message }
     }
 
-    /// Notes what a row's field holds; an unchanged balance needs no save.
-    func note(_ account: Account, form: TypedValueForm, text: String) {
-        edits[account.id] = text == form.balance ? nil : Edit(account: account, form: form, text: text)
+    /// Notes what a row's fields hold; unchanged ones need no save.
+    func note(_ account: Account, form: TypedValueForm, edited: TypedValueForm) {
+        edits[account.id] = edited == form ? nil : Edit(account: account, form: form, edited: edited)
     }
 
     /// The values the changed fields hold, by account; throws the first
     /// that can't be saved, naming its account.
     func valuations(today: CalendarDate, locale: Locale) throws -> [Valuation] {
         try edits.values.sorted { $0.account.id < $1.account.id }.map { edit in
-            var form = edit.form
-            form.balance = edit.text
+            let form = edit.edited
             if let first = form.problems(for: edit.account, today: today, locale: locale).first {
                 throw Problem(message: "\(edit.account.name): \(first)")
             }
             guard let valuation = form.valuation(locale: locale) else {
-                throw Problem(message: "\(edit.account.name): the balance can't be read.")
+                throw Problem(message: "\(edit.account.name): an amount can't be read.")
             }
             return valuation
         }
     }
 
-    /// Saves every changed field's balance, then forgets them.
+    /// Saves every changed row's value, then forgets them.
     func saveAll(to library: LibraryStore, locale: Locale) async throws {
         for valuation in try valuations(today: .today(), locale: locale) {
             try await library.saveTypedValue(valuation)
             edits[valuation.account] = nil
         }
+    }
+}
+
+/// A field under a typed row's balance for what moved since the last
+/// value: its label, then the amount, in the same rounded field.
+private struct CheckInWhatMovedField: View {
+    let title: String
+    @Binding var text: String
+    let account: Account
+    /// Called on Return and when the field is left.
+    let onEnd: () -> Void
+
+    @Environment(LibraryStore.self) private var library
+    @FocusState private var isFocused: Bool
+
+    var body: some View {
+        HStack(spacing: Metrics.s) {
+            Text(verbatim: title)
+                .font(.subheadline)
+                .foregroundStyle(Palette.secondaryInk)
+            Spacer(minLength: Metrics.s)
+            OutlinedAmountField(title: title, text: $text, currency: account.currency, isFocused: $isFocused)
+                .onSubmit(onEnd)
+                .disabled(!library.canEdit)
+                .onChange(of: isFocused) { _, focused in
+                    if !focused { onEnd() }
+                }
+        }
+        .padding(.leading, Metrics.m)
+        .padding(.bottom, Metrics.xs)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(Text(verbatim: "\(account.name), \(title.lowercased())"))
     }
 }

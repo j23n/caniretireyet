@@ -142,7 +142,7 @@ struct PlanMoneyInOutEmptyCard: View {
 }
 
 /// In place of So far's cards on money in and out while a savings or
-/// investment account's values are typed (UI.md, "So far";
+/// investment account has a typed value that lacks what moved (UI.md, "So far";
 /// `Library.accountsTurningOffTrends`): why they're off, and those
 /// accounts, each opening its page.
 struct PlanTrendsOffCard: View {
@@ -152,9 +152,9 @@ struct PlanTrendsOffCard: View {
 
     var body: some View {
         Card {
-            Text("Your savings rate and your money in and out are built on the money in and out and the money "
-                + "invested that statements record. A typed value is a balance only, so they're off while a "
-                + "savings or investment account's values are typed.")
+            Text("Your savings rate and your money in and out are built on what came in, what went out and what "
+                + "you added. Some values typed for these accounts don't say what moved since the one before, "
+                + "so they're off.")
                 .font(PlanProgressFont.text)
                 .foregroundStyle(Palette.secondaryInk)
                 .fixedSize(horizontal: false, vertical: true)
@@ -168,7 +168,8 @@ struct PlanTrendsOffCard: View {
                 .buttonStyle(.borderless)
                 .font(PlanProgressFont.text)
             }
-            Text("To turn it on, set their Values to From imported files in Edit Account and import their statements.")
+            Text("To turn it on, open each account and tap its typed values to add what moved, or set its Values "
+                + "to From imported files and import its statements.")
                 .font(PlanProgressFont.caption)
                 .foregroundStyle(Palette.secondaryInk)
                 .fixedSize(horizontal: false, vertical: true)

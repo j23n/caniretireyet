@@ -298,11 +298,14 @@ struct AccountForm: Hashable, Sendable {
             && !(original?.isStartingEstimate ?? false)
     }
 
-    /// Whether choosing *Typed by you* turns Trends off: savings and
-    /// investments in net worth (``Model/Account/typedValuesCountInTrends``)
-    /// until their typed values record what moved.
-    var typedValuesTurnOffTrends: Bool {
-        (kind == .savings || kind.isInvestment) && includedInNetWorth
+    /// What its typed values record besides the balance, once it's
+    /// recorded as a balance with *Typed by you* (``TypedWhatMoved``;
+    /// ``Model/Account/typedValuesRecordMoneyInOut``,
+    /// ``Model/Account/typedValuesRecordSaved``).
+    var typedWhatMoved: TypedWhatMoved {
+        if kind == .savings { return .moneyInOut }
+        if kind.savedRule == .ask || kind.isInvestment { return .added }
+        return .nothing
     }
 
     /// Whether it asks for an estimated loss of value a year: belongings.
