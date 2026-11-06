@@ -165,6 +165,7 @@ struct ScreenLaunch {
             payPerMonth: answers.payPerMonth, spendingPerMonth: answers.spendingPerMonth,
             retirementAge: answers.retirementAge) {
             StarterSetup.complete(&plan, with: answers, asOf: date)
+            StarterSetup.addPensionContribution(answers, to: &plan, in: library)
             plan.simulation.runs = 400
             library.plans[plan.id] = plan
             library.settings.mainPlan = plan.id

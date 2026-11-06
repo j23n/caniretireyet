@@ -189,13 +189,14 @@ final class OnboardingModel {
     }
 
     /// The answers as the plan takes them: the age chosen, else as early as
-    /// works. Once you've stopped working: no pay, one spending, and your
-    /// age today. No mortgage without a home.
+    /// works. Once you've stopped working: no pay or money paid into a
+    /// pension, one spending, and your age today. No mortgage without a home.
     var finalAnswers: StarterAnswers {
         var final = answers
         if !final.asksForMortgage { final.mortgage = nil }
         if hasStoppedWorking {
             final.payPerMonth = nil
+            final.pensionPerMonth = nil
             final.retiredSpendingPerMonth = nil
             final.retirementAge = currentAge
         } else {
@@ -208,8 +209,8 @@ final class OnboardingModel {
     /// fields it hides, nor spending in retirement, which the next step asks.
     var moneyHasNegativeAmount: Bool {
         let shown = finalAnswers
-        return [shown.cash, shown.investments, shown.pension, shown.home, shown.mortgage, shown.payPerMonth,
-                shown.spendingPerMonth].contains { ($0 ?? 0) < 0 }
+        return [shown.cash, shown.investments, shown.pension, shown.home, shown.mortgage, shown.otherDebts,
+                shown.payPerMonth, shown.pensionPerMonth, shown.spendingPerMonth].contains { ($0 ?? 0) < 0 }
     }
 
     /// Your age today, as chosen.
@@ -375,6 +376,7 @@ final class OnboardingModel {
             retirementAge: answers.retirementAge)
         else { return nil }
         StarterSetup.complete(&plan, with: answers, asOf: today)
+        StarterSetup.addPensionContribution(answers, to: &plan, in: library)
         return PlanRunRequest(plan: plan, library: library, mode: .fast, whatIf: nil, asOf: today)
     }
 

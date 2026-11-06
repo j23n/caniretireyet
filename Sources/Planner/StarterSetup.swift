@@ -2,9 +2,9 @@ import Foundation
 import Model
 
 /// What first launch asks (UI.md, "Empty states and first launch"): round
-/// amounts of what you have today, what you take home and spend a month
-/// (and in retirement), a state pension, the age to retire at and the tax
-/// on investments. All optional; amounts are in the base currency, after
+/// amounts of what you have today and still owe, what you take home, pay
+/// into a pension and spend a month (and in retirement), a state pension,
+/// the age to retire at and the tax on investments. All optional; amounts are in the base currency, after
 /// tax, and none is negative (a debt is what's owed, above 0).
 public struct StarterAnswers: Hashable, Sendable {
     /// Cash and savings.
@@ -19,7 +19,12 @@ public struct StarterAnswers: Hashable, Sendable {
     public var home: Decimal?
     /// What you still owe on the home's mortgage.
     public var mortgage: Decimal?
+    /// What you owe besides a mortgage: car loans, student loans and the like.
+    public var otherDebts: Decimal?
     public var payPerMonth: Decimal?
+    /// What you or your employer pay into the pension pot a month, before
+    /// your pay reaches you, so on top of ``payPerMonth``.
+    public var pensionPerMonth: Decimal?
     public var spendingPerMonth: Decimal?
     /// Spending a month in retirement; `nil` spends ``spendingPerMonth``.
     public var retiredSpendingPerMonth: Decimal?
@@ -33,7 +38,8 @@ public struct StarterAnswers: Hashable, Sendable {
 
     public init(cash: Decimal? = nil, investments: Decimal? = nil, pension: Decimal? = nil,
                 pensionFromAge: Int? = nil, home: Decimal? = nil, mortgage: Decimal? = nil,
-                payPerMonth: Decimal? = nil, spendingPerMonth: Decimal? = nil,
+                otherDebts: Decimal? = nil, payPerMonth: Decimal? = nil, pensionPerMonth: Decimal? = nil,
+                spendingPerMonth: Decimal? = nil,
                 retiredSpendingPerMonth: Decimal? = nil, statePensionPerMonth: Decimal? = nil,
                 statePensionFromAge: Int? = nil, retirementAge: Int? = nil, investmentTax: Decimal? = nil) {
         self.cash = cash
@@ -42,7 +48,9 @@ public struct StarterAnswers: Hashable, Sendable {
         self.pensionFromAge = pensionFromAge
         self.home = home
         self.mortgage = mortgage
+        self.otherDebts = otherDebts
         self.payPerMonth = payPerMonth
+        self.pensionPerMonth = pensionPerMonth
         self.spendingPerMonth = spendingPerMonth
         self.retiredSpendingPerMonth = retiredSpendingPerMonth
         self.statePensionPerMonth = statePensionPerMonth
@@ -53,8 +61,8 @@ public struct StarterAnswers: Hashable, Sendable {
 
     /// Whether any amount is negative: first launch waits until it's fixed.
     public var hasNegativeAmount: Bool {
-        [cash, investments, pension, home, mortgage, payPerMonth, spendingPerMonth, retiredSpendingPerMonth,
-         statePensionPerMonth, investmentTax]
+        [cash, investments, pension, home, mortgage, otherDebts, payPerMonth, pensionPerMonth, spendingPerMonth,
+         retiredSpendingPerMonth, statePensionPerMonth, investmentTax]
             .contains { ($0 ?? 0) < 0 }
     }
 
@@ -64,8 +72,14 @@ public struct StarterAnswers: Hashable, Sendable {
         (home ?? 0) > 0
     }
 
+    /// Whether the pension pot's age is asked: once it has an amount, or
+    /// something is paid into it.
+    public var asksForPensionAge: Bool {
+        (pension ?? 0) > 0 || (pensionPerMonth ?? 0) > 0
+    }
+
     /// Whether anything you have today was entered (above 0); a mortgage
-    /// is owed, not had.
+    /// and other debts are owed, not had.
     public var hasStartingAmounts: Bool {
         [cash, investments, pension, home].contains { ($0 ?? 0) > 0 }
     }
@@ -87,11 +101,17 @@ public struct StarterAnswers: Hashable, Sendable {
 ///   value on the day: cash and savings as a savings account, investments
 ///   as equity, the pension pot as a pension fund available from its age,
 ///   the home as property and its mortgage as a debt, both of which plans
-///   leave out, so net worth counts the home's equity. They are what the first
+///   leave out, so net worth counts the home's equity, and other debts as a
+///   loan, which plans leave out too, since its repayments are part of the
+///   spending. A pension pot with nothing in it but money paid in a month
+///   is an estimate of 0, so the plan's contribution has an account to go
+///   into. They are what the first
 ///   answer stands on until imported files replace them; closing an
 ///   estimate with the real account as its successor retires it.
 /// - **The plan.** Pay and spending a month (`setMonthly`), the age to
-///   retire at, the state pension and the tax rate.
+///   retire at, the state pension and the tax rate; what's paid into the
+///   pension a month is a yearly contribution into its estimate, on top of
+///   pay (``addPensionContribution(_:to:in:)``).
 public enum StarterSetup {
     /// The tag that marks an account as a starting estimate
     /// (``Model/Account/startingEstimateTag``).
@@ -107,14 +127,15 @@ public enum StarterSetup {
     static let pensionMix: AssetMix = [.equity: Decimal(string: "0.6") ?? 0, .bonds: Decimal(string: "0.4") ?? 0]
 
     /// The estimate accounts for `answers`, opened on `date`, in `currency`,
-    /// each with its amount (the mortgage's as owed, above 0); `id` makes
-    /// each one's ID from its name. Amounts of 0 or less get none, nor
-    /// does a mortgage without a home (``StarterAnswers/asksForMortgage``).
+    /// each with its amount (debts' as owed, above 0); `id` makes each
+    /// one's ID from its name. Amounts of 0 or less get none, nor does a
+    /// mortgage without a home (``StarterAnswers/asksForMortgage``), but a
+    /// pension pot something is paid into gets one of 0.
     public static func estimateAccounts(for answers: StarterAnswers, currency: CurrencyCode, country: CountryCode?,
                                         on date: CalendarDate, id: (String) -> AccountID) -> [(Account, Decimal)] {
         func estimate(_ name: String, _ kind: AccountKind, _ amount: Decimal?,
                       configure: (inout Account) -> Void = { _ in }) -> (Account, Decimal)? {
-            guard let amount, amount > 0 else { return nil }
+            guard let amount, amount >= 0 else { return nil }
             let fullName = "\(name) (estimate)"
             var account = Account(id: id(fullName), name: fullName, kind: kind, currency: currency, opened: date)
             account.country = country
@@ -124,17 +145,29 @@ public enum StarterSetup {
             return (account, amount)
         }
         return [
-            estimate("Cash and savings", .savings, answers.cash),
-            estimate("Investments", .other, answers.investments) { $0.assetClasses = .single(.equity) },
-            estimate("Pension", .pensionFund, answers.pension) { account in
+            estimate("Cash and savings", .savings, positive(answers.cash)),
+            estimate("Investments", .other, positive(answers.investments)) { $0.assetClasses = .single(.equity) },
+            estimate("Pension", .pensionFund, pensionPot(answers)) { account in
                 account.assetClasses = pensionMix
                 account.availableFromAge = answers.pensionFromAge
             },
-            estimate("Home", .property, answers.home) { $0.includeIn = IncludeIn(plan: false) },
-            estimate("Mortgage", .mortgage, answers.asksForMortgage ? answers.mortgage : nil) {
+            estimate("Home", .property, positive(answers.home)) { $0.includeIn = IncludeIn(plan: false) },
+            estimate("Mortgage", .mortgage, answers.asksForMortgage ? positive(answers.mortgage) : nil) {
                 $0.includeIn = IncludeIn(plan: false)
             },
+            estimate("Other debts", .loan, positive(answers.otherDebts)) { $0.includeIn = IncludeIn(plan: false) },
         ].compactMap { $0 }
+    }
+
+    /// `amount` when it's above 0.
+    private static func positive(_ amount: Decimal?) -> Decimal? {
+        amount.flatMap { $0 > 0 ? $0 : nil }
+    }
+
+    /// The pension pot's estimate: its amount above 0, else 0 when
+    /// something is paid into it a month.
+    private static func pensionPot(_ answers: StarterAnswers) -> Decimal? {
+        positive(answers.pension) ?? (positive(answers.pensionPerMonth) == nil ? nil : 0)
     }
 
     /// Adds the estimate accounts for `answers` to `library`, each with its
@@ -179,6 +212,24 @@ public enum StarterSetup {
         }
     }
 
+    /// `plan` with what ``StarterAnswers/pensionPerMonth`` pays into the
+    /// pension a month as a yearly contribution into the pension pot's
+    /// estimate in `library` until retirement, and each work phase's
+    /// income that much higher, since it's paid before your pay reaches
+    /// you: what pay less spending saves stays where it was, and the
+    /// pension gets the contribution on top. Nothing without an amount
+    /// above 0 or the estimate (``addEstimates(_:to:on:taken:)``).
+    public static func addPensionContribution(_ answers: StarterAnswers, to plan: inout PlanDocument,
+                                              in library: Library) {
+        guard let perMonth = positive(answers.pensionPerMonth),
+              let pot = library.openStartingEstimates.first(where: { $0.kind == .pensionFund }) else { return }
+        let perYear = perMonth * 12
+        plan.contributions.append(PlanContribution(account: pot.id, perYear: perYear))
+        for index in plan.work.indices {
+            plan.work[index].netIncome = (plan.work[index].netIncome ?? 0) + perYear
+        }
+    }
+
     /// The extra saving a month that the first answer's lever tries: a
     /// tenth of pay (else of spending), to two significant figures, at
     /// least 10; `nil` without either, or when spending while working
@@ -213,13 +264,15 @@ extension Account {
     /// The kinds of real accounts that replace this starting estimate:
     /// current and savings accounts replace cash and savings; investment
     /// accounts the investments; pension funds and TFR the pension;
-    /// property the home; a mortgage the mortgage.
+    /// property the home; a mortgage the mortgage; loans and credit cards
+    /// other debts.
     public var kindsReplacingEstimate: Set<AccountKind> {
         switch kind {
         case .savings, .cash: [.cash, .savings]
         case .pensionFund, .tfr: [.pensionFund, .tfr]
         case .property: [.property]
         case .mortgage: [.mortgage]
+        case .loan, .creditCard: [.loan, .creditCard]
         default: [.brokerage, .crypto, .metals, .other]
         }
     }

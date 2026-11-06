@@ -256,9 +256,11 @@ struct OnboardingTests {
         model.answers.payPerMonth = 3_000
         model.answers.spendingPerMonth = 2_500
         model.answers.retiredSpendingPerMonth = 2_000
+        model.answers.pensionPerMonth = 300
         model.hasStoppedWorking = true
         let final = model.finalAnswers
         #expect(final.payPerMonth == nil)
+        #expect(final.pensionPerMonth == nil)
         #expect(final.retiredSpendingPerMonth == nil)
         #expect(final.spendingPerMonth == 2_500)
         #expect(final.retirementAge == model.currentAge)
@@ -279,6 +281,30 @@ struct OnboardingTests {
         let none = RetirementAnswer(confidence: 0.9, targetAge: 70, successAtTarget: 0.04)
         #expect(OnboardingText.retiredLine(none, endAge: 95)
             == "Your money lasts to 95 in fewer than 1 of 10 futures. Your plan aims for 9 of 10.")
+    }
+
+    /// Other debts and what's paid into a pension can't be negative, and
+    /// the quick estimate pays the pension in as the plan will.
+    @MainActor
+    @Test func otherDebtsAndPensionPaidIn() throws {
+        let model = OnboardingModel(locale: english)
+        model.step = .money
+        model.age = 40
+        model.answers.cash = 10_000
+        model.answers.payPerMonth = 3_000
+        model.answers.spendingPerMonth = 2_000
+        model.answers.otherDebts = -1
+        #expect(!model.canContinue)
+        model.answers.otherDebts = 8_000
+        model.answers.pensionPerMonth = -1
+        #expect(!model.canContinue)
+        model.answers.pensionPerMonth = 250
+        #expect(model.canContinue)
+        let request = try #require(model.estimateRequest(today: "2026-10-20"))
+        #expect(request.plan.contributions.map(\.perYear) == [3_000])
+        #expect(request.plan.work.map(\.netIncome) == [39_000])
+        #expect(request.library.accounts.values.map(\.kind).sorted { $0.rawValue < $1.rawValue }
+            == [.loan, .pensionFund, .savings])
     }
 
     /// A hidden field's negative amount doesn't hold the tour up.

@@ -100,7 +100,8 @@ extension LibraryStore {
                 library.settings.taxResidence = settings.taxResidence
             }
             added = StarterSetup.addEstimates(answers, to: &library, on: date, taken: taken)
-            if let plan {
+            if var plan {
+                StarterSetup.addPensionContribution(answers, to: &plan, in: library)
                 library.plans[plan.id] = plan
                 if library.settings.mainPlan == nil { library.settings.mainPlan = plan.id }
             }
