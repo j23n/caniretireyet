@@ -43,8 +43,11 @@ extension GlanceSnapshot {
 
     /// Whether every account open on `date` and counted in net worth takes
     /// typed values, and there is one (``CheckInGlance/typesValues``).
+    /// Starting estimates don't count: they take typed values whichever
+    /// way you chose to keep up, so a library of only estimates doesn't
+    /// type its values until you make them your accounts.
     static func typesValues(in library: Library, on date: CalendarDate) -> Bool {
-        let counted = library.accounts(openOn: date).filter(\.includedInNetWorth)
+        let counted = library.accounts(openOn: date).filter { $0.includedInNetWorth && !$0.isStartingEstimate }
         return !counted.isEmpty && counted.allSatisfy(\.acceptsTypedValues)
     }
 }

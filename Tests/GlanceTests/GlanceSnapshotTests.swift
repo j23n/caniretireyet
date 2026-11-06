@@ -40,6 +40,17 @@ struct ExampleLibraryGlanceTests {
         typed.accounts["fondo"]?.values = .imported
         #expect(GlanceSnapshot(library: typed, valuator: Valuator(library: typed), asOf: date, answer: nil,
                                checkIn: checkIn).checkIn.typesValues == false)
+        // Starting estimates take typed values however you keep up, so they
+        // don't count either way.
+        var estimates = Library(accounts: [
+            Account(id: "cash", name: "Cash (estimate)", kind: .savings, currency: .eur, opened: "2020-01-01",
+                    tags: [Account.startingEstimateTag]),
+        ])
+        #expect(GlanceSnapshot(library: estimates, valuator: Valuator(library: estimates), asOf: date, answer: nil,
+                               checkIn: checkIn).checkIn.typesValues == false)
+        estimates.accounts["casa"] = typed.accounts["casa"]
+        #expect(GlanceSnapshot(library: estimates, valuator: Valuator(library: estimates), asOf: date, answer: nil,
+                               checkIn: checkIn).checkIn.typesValues == true)
     }
 
     @Test func netWorthIsTheOverviews() throws {
