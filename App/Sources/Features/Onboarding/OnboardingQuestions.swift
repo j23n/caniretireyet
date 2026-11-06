@@ -24,7 +24,8 @@ struct OnboardingWelcome: View {
                               detail: "The earliest age you could retire at, and how likely it is to work across "
                                 + "thousands of simulated markets.")
                 OnboardingRow(title: "A monthly check-in", systemImage: AppSymbol.checkIn,
-                              detail: "Import your statements once a month to see how your answer changes.")
+                              detail: "Once a month, type your balances or import your statements. Your answer moves "
+                                + "with them.")
                 OnboardingRow(title: "Your data stays with you", systemImage: "doc.text",
                               detail: "Your library is stored as files in iCloud Drive or on this device. There is "
                                 + "no account and no server.")

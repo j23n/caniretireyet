@@ -18,10 +18,13 @@ import SwiftUI
 /// 5. The answer, calculated here (``OnboardingAnswerStep``). *Back* goes
 ///    to the questions until files are imported, and *See My Answer* then
 ///    replaces what it added.
-/// 6. Import your accounts: which files to import, the starter spreadsheet, the
-///    Mac (``OnboardingFilesStep``); *Import Files…* pushes the import on
+/// 6. What your records show: example tiles of what recording money in
+///    and out adds (``OnboardingRecordsStep``).
+/// 7. Keep your answer up to date: type your balances, import your
+///    statements, or decide later (``OnboardingKeepUpStep``). Typing makes
+///    the estimates your accounts; *Import Files…* pushes the import on
 ///    the tour's own stack.
-/// 7. Reminders: the monthly note, the widget and the disclaimer
+/// 8. Reminders: the monthly note, the widget and the disclaimer
 ///    (``OnboardingNotesStep``); *Start* opens Today.
 ///
 /// On the Mac and iPad the money and pension steps have a quick
@@ -50,6 +53,7 @@ struct OnboardingScreen: View {
     @Environment(\.pageLayout) private var layout
 
     @State private var path: [Destination] = []
+    @State private var isAdopting = false
 
     init() {}
 
@@ -59,7 +63,8 @@ struct OnboardingScreen: View {
                 VStack(alignment: .leading, spacing: Metrics.xl) {
                     stepContent
                     if let error = model.error {
-                        StatusBanner(.error, "Couldn't create the library", message: error, personal: .message)
+                        StatusBanner(.error, model.step == .keepUp ? "Couldn't update your accounts" : "Couldn't create the library",
+                                     message: error, personal: .message)
                     }
                 }
                 .padding(Metrics.xl)
@@ -107,8 +112,10 @@ struct OnboardingScreen: View {
             }
         case .answer:
             OnboardingAnswerStep()
-        case .files:
-            OnboardingFilesStep { path.append(.importFile) }
+        case .records:
+            OnboardingRecordsStep()
+        case .keepUp:
+            OnboardingKeepUpStep()
         case .notes:
             OnboardingNotesStep()
         }
@@ -131,7 +138,7 @@ struct OnboardingScreen: View {
 
     // MARK: Buttons
 
-    /// "Step 4 of 6" over a thin bar, at the top of every step after the
+    /// "Step 4 of 7" over a thin bar, at the top of every step after the
     /// welcome.
     @ViewBuilder
     private var stepCount: some View {
@@ -202,20 +209,70 @@ struct OnboardingScreen: View {
             .buttonStyle(.borderedProminent)
             .keyboardShortcut(.defaultAction)
             .disabled(model.isCreating || !model.canContinue)
-        case .answer:
-            Button(model.openedExistingLibrary ? "Continue" : "Add Your Accounts") { advance() }
+        case .answer, .records:
+            Button("Continue") { advance() }
                 .buttonStyle(.borderedProminent)
                 .keyboardShortcut(.defaultAction)
-        case .files:
+        case .keepUp:
+            keepUpButtons
+        case .notes:
+            OnboardingStartButton()
+        }
+    }
+
+    /// *Keep your answer up to date*'s buttons: *Continue*, which makes
+    /// the estimates your accounts when you chose to type your balances;
+    /// for importing, *Import Files…*, and *Continue* beside it once files
+    /// were imported.
+    @ViewBuilder
+    private var keepUpButtons: some View {
+        switch model.keepUp {
+        case .importFiles:
             HStack(spacing: Metrics.m) {
-                Button(hasImported ? "Continue" : "Later") { advance() }
-                    .buttonStyle(.bordered)
+                if hasImported {
+                    Button("Continue") { advance() }
+                        .buttonStyle(.bordered)
+                }
                 Button("Import Files…") { path.append(.importFile) }
                     .buttonStyle(.borderedProminent)
                     .disabled(!library.canEdit)
             }
-        case .notes:
-            OnboardingStartButton()
+        case .type:
+            Button {
+                Task { await adoptEstimates() }
+            } label: {
+                if isAdopting {
+                    ProgressView()
+                        .controlSize(.small)
+                } else {
+                    Text("Continue")
+                }
+            }
+            .buttonStyle(.borderedProminent)
+            .keyboardShortcut(.defaultAction)
+            .disabled(isAdopting || (!library.canEdit && !library.library.openStartingEstimates.isEmpty))
+        case .later:
+            Button("Continue") { advance() }
+                .buttonStyle(.borderedProminent)
+                .keyboardShortcut(.defaultAction)
+        }
+    }
+
+    /// Makes the starting estimates your accounts, named as typed, then
+    /// goes on; an error stays on the step.
+    private func adoptEstimates() async {
+        guard !library.library.openStartingEstimates.isEmpty else {
+            advance()
+            return
+        }
+        isAdopting = true
+        defer { isAdopting = false }
+        do {
+            try await library.adoptStartingEstimates(names: model.estimateNames)
+            model.error = nil
+            advance()
+        } catch {
+            model.error = LibraryStore.describe(error)
         }
     }
 

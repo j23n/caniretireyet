@@ -34,7 +34,25 @@ final class OnboardingModel {
         var savingPerMonth: Decimal?
     }
 
+    /// How you'll keep the answer up to date (``OnboardingStep/keepUp``).
+    enum KeepUp: Hashable, Sendable {
+        /// Type each account's balance, and what moved, at each check-in:
+        /// the starting estimates become your accounts.
+        case type
+        /// Import statements: the import replaces the estimates.
+        case importFiles
+        /// Keep the rough amounts for now; Today says how to update them.
+        case later
+    }
+
     var step: OnboardingStep = .welcome
+
+    // MARK: Keeping it up to date
+
+    /// The choice on *Keep your answer up to date*.
+    var keepUp: KeepUp = .type
+    /// The names typed for the starting estimates there, by estimate.
+    var estimateNames: [AccountID: String] = [:]
 
     // MARK: About you
 
@@ -112,7 +130,7 @@ final class OnboardingModel {
         case .you: age != nil
         case .money: !moneyHasNegativeAmount
         case .later: !finalAnswers.hasNegativeAmount
-        case .welcome, .answer, .files, .notes: true
+        case .welcome, .answer, .records, .keepUp, .notes: true
         }
     }
 

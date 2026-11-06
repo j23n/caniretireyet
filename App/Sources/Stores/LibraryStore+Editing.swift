@@ -133,6 +133,18 @@ extension LibraryStore {
         }
     }
 
+    /// Makes the open starting estimates accounts of your own whose values
+    /// you type (`Library.adoptStartingEstimates(names:)`), named as in
+    /// `names`, in one edit with a backup.
+    func adoptStartingEstimates(names: [AccountID: String]) async throws {
+        _ = try await commit(backingUpAs: Self.adoptEstimatesBackupLabel) { library in
+            library.adoptStartingEstimates(names: names)
+        }
+    }
+
+    /// The backup label of ``adoptStartingEstimates(names:)``.
+    static let adoptEstimatesBackupLabel = "adopt-estimates"
+
     // MARK: Instruments
 
     /// Adds or replaces an instrument together with prices and FX rates, in
