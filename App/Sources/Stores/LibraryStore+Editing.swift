@@ -113,12 +113,15 @@ extension LibraryStore {
     /// for it (`Library.replacement(of:)`), in one edit with a backup:
     /// closed the day before their values start, continued by its
     /// successor, or removed when their values reach back to its day.
-    /// Estimates nothing replaces stay.
+    /// Plans' contributions into it go to the account that replaces it
+    /// (`Library.handOverContributions(of:replacement:)`). Estimates nothing
+    /// replaces stay.
     func replaceStartingEstimates(_ estimates: [AccountID]) async throws {
         _ = try await commit(backingUpAs: Self.replaceEstimatesBackupLabel) { library in
             for id in estimates {
                 guard let estimate = library.accounts[id], estimate.isStartingEstimate,
                       let replacement = library.replacement(of: estimate) else { continue }
+                library.handOverContributions(of: estimate, replacement: replacement)
                 switch replacement {
                 case .remove:
                     library.accounts[id] = nil

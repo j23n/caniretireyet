@@ -135,6 +135,31 @@ struct StarterSetupTests {
         #expect(StarterAnswers(pensionPerMonth: d("-1")).hasNegativeAmount)
     }
 
+    /// Replacing the pension's estimate hands its contribution to the real
+    /// pension, whether the estimate is closed or removed.
+    @Test func replacingThePensionHandsOverItsContribution() throws {
+        for (opened, expected) in [(CalendarDate("2026-11-30"), "close"), (CalendarDate("2026-01-31"), "remove")] {
+            var answers = answers
+            answers.pensionPerMonth = d("500")
+            var library = emptyLibrary()
+            StarterSetup.addEstimates(answers, to: &library, on: today)
+            var plan = Sample.plan(retire: .earliest, endAge: 90, retired: "0")
+            StarterSetup.addPensionContribution(answers, to: &plan, in: library)
+            library.plans[plan.id] = plan
+            library.accounts["fondo"] = Account(id: "fondo", name: "Fondo", kind: .pensionFund, currency: .eur,
+                                                opened: opened)
+            library.accounts["tfr"] = Account(id: "tfr", name: "A TFR", kind: .tfr, currency: .eur, opened: opened)
+            for id: AccountID in ["fondo", "tfr"] {
+                library.upsert(Valuation(account: id, date: opened, balance: d("40000")))
+            }
+            let pot = try #require(library.openStartingEstimates.first { $0.kind == .pensionFund })
+            let replacement = try #require(library.replacement(of: pot))
+            #expect(expected == (replacement == .remove ? "remove" : "close"))
+            library.handOverContributions(of: pot, replacement: replacement)
+            #expect(library.plans[plan.id]?.contributions.map(\.account) == ["fondo"])
+        }
+    }
+
     @Test func nothingPaidInAddsNoContribution() {
         var library = emptyLibrary()
         StarterSetup.addEstimates(answers, to: &library, on: today)

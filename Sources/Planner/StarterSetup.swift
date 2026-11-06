@@ -324,6 +324,26 @@ extension Library {
         return .close(on: first.adding(days: -1), successor: successor.0.id)
     }
 
+    /// Points the plans' contributions into `estimate` at the account that
+    /// takes its place under `replacement`: a close's successor, else the
+    /// one of its kind (else any) of the accounts replacing it, by name.
+    /// Without this, replacing the pension's estimate would leave its
+    /// contribution outside the plan while the work phase still pays it,
+    /// so it would be saved where you can draw it.
+    public mutating func handOverContributions(of estimate: Account, replacement: EstimateReplacement) {
+        let replacing = accountsReplacing(estimate)
+        let heir: AccountID? = switch replacement {
+        case .close(_, let successor): successor
+        case .remove: (replacing.first { $0.kind == estimate.kind } ?? replacing.first)?.id
+        }
+        guard let heir else { return }
+        for (id, plan) in plans where plan.contributions.contains(where: { $0.account == estimate.id }) {
+            for index in plan.contributions.indices where plan.contributions[index].account == estimate.id {
+                plans[id]?.contributions[index].account = heir
+            }
+        }
+    }
+
     /// Makes the open starting estimates accounts of your own whose values
     /// you type (UI.md, "Empty states and first launch": *Type your
     /// balances*): each loses its tag and its first-launch note, takes the
