@@ -76,8 +76,26 @@ extension Valuator {
     /// The distinct dates with a valuation of an account in `scope` (every
     /// account when `nil`), on or before `end` when given, sorted.
     public func checkInDates(in scope: NetWorthScope? = nil, through end: CalendarDate? = nil) -> [CalendarDate] {
+        valuationDates(of: { scope?.includes($0) ?? true }, through: end)
+    }
+
+    /// The check-ins the check-in list shows (``Library/moneyCheckInDates``):
+    /// the dates with a value of an account with months (a cash or savings
+    /// account, or a tax pot, valued by its balance) in `scope` (every one
+    /// when `nil`), on or before `end` when given, sorted. A value of another account alone, such as a
+    /// pension fund's or a closed account's last, isn't one: on its day the
+    /// other accounts still have their values from before, so money moved
+    /// from them would count twice.
+    public func moneyCheckInDates(in scope: NetWorthScope? = nil, through end: CalendarDate? = nil)
+        -> [CalendarDate] {
+        valuationDates(of: { $0.hasMoneyMonths && scope?.includes($0) ?? true }, through: end)
+    }
+
+    /// The distinct dates with a valuation of an account `included` takes,
+    /// on or before `end` when given, sorted.
+    private func valuationDates(of included: (Account) -> Bool, through end: CalendarDate?) -> [CalendarDate] {
         var dates: Set<CalendarDate> = []
-        for account in accounts.values where scope?.includes(account) ?? true {
+        for account in accounts.values where included(account) {
             for valuation in valuations(for: account.id) where end.map({ valuation.date <= $0 }) ?? true {
                 dates.insert(valuation.date)
             }

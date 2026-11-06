@@ -169,6 +169,31 @@ struct MilestoneTests {
                                           through: "2024-04-14").isEmpty)
     }
 
+    /// A value of an account without months alone in the middle of a month
+    /// isn't on the line: on its day the bank still has the month before's
+    /// value, so 20,000 moved from it to the fund would count twice and
+    /// pass 300,000, which the line never reaches.
+    @Test func aValueOfAnAccountWithoutMonthsReachesNothing() {
+        var library = Library(
+            settings: LibrarySettings(baseCurrency: .eur),
+            accounts: [
+                Account(id: "bank", name: "Bank", kind: .cash, currency: .eur, opened: "2026-01-01"),
+                Account(id: "fund", name: "Fund", kind: .pensionFund, currency: .eur, opened: "2026-01-01"),
+            ])
+        library.upsert(Valuation(account: "bank", date: "2026-08-31", balance: 100_000))
+        library.upsert(Valuation(account: "fund", date: "2026-08-31", balance: 190_000))
+        library.upsert(Valuation(account: "fund", date: "2026-09-15", balance: 210_000))
+        library.upsert(Valuation(account: "bank", date: "2026-09-30", balance: 80_000))
+        library.upsert(Valuation(account: "fund", date: "2026-09-30", balance: 210_000))
+        let valuator = Valuator(library: library)
+        #expect(valuator.total(on: "2026-09-15", in: .planAssets).total == 310_000)
+        let plan = Sample.plan(retire: .age(60), endAge: 90, retired: "30000")
+        let reached = MilestoneLadder().reached(plan: plan, library: library, valuator: valuator,
+                                                through: "2026-09-30")
+        #expect(!reached.contains { $0.milestone.id == "round-300000" })
+        #expect(!reached.contains { $0.date == "2026-09-15" })
+    }
+
     @Test func theCoastPointIsReachedWhenTheCoastAgeComesDownToThePension() {
         let ladder = MilestoneLadder(coastTarget: 67)
         let values = points([("2026-06-30", 280_000), ("2026-07-31", 281_000), ("2026-08-31", 283_000),

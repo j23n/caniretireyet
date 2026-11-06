@@ -117,13 +117,20 @@ public struct MoneyMonth: Hashable, Sendable, Identifiable {
 }
 
 extension Library {
+    /// The check-ins the check-in list shows (``moneyMonths(next:limit:)``):
+    /// the dates with a value of an account with months, sorted. A value of
+    /// another account alone, such as a pension fund's, isn't one.
+    public var moneyCheckInDates: [CalendarDate] {
+        Set(accounts.values.filter(\.hasMoneyMonths).flatMap { valuations(for: $0.id).map(\.date) }).sorted()
+    }
+
     /// The accounts with months (``AccountMonth``): those that record money
     /// in and out, with a balance, open on a day after `from` through
     /// `through`, by name.
     public func moneyMonthAccounts(after from: CalendarDate?, through: CalendarDate) -> [Account] {
         accounts.values
             .filter { account in
-                account.kind.recordsMoneyInOut && account.valuationMode == .balance
+                account.hasMoneyMonths
                     && account.isOpen(onAnyDayFrom: from?.adding(days: 1) ?? account.opened, through: through)
             }
             .sorted { ($0.name, $0.id) < ($1.name, $1.id) }
@@ -134,8 +141,7 @@ extension Library {
     /// still to come on that date comes first, when it's after the last.
     /// With `limit`, only that many of the newest.
     public func moneyMonths(next: CalendarDate? = nil, limit: Int? = nil) -> [MoneyMonth] {
-        let money = accounts.values.filter { $0.kind.recordsMoneyInOut && $0.valuationMode == .balance }
-        let dates = Set(money.flatMap { valuations(for: $0.id).map(\.date) }).sorted()
+        let dates = moneyCheckInDates
         var ends = dates.map { (date: $0, isCheckedIn: true) }
         if let next, dates.last.map({ next > $0 }) ?? true { ends.append((next, false)) }
         let first = limit.map { max(ends.count - $0, 0) } ?? 0
@@ -151,8 +157,7 @@ extension Library {
 
     /// How many check-ins ``moneyMonths(next:limit:)`` lists without a limit.
     public func moneyMonthCount(next: CalendarDate? = nil) -> Int {
-        let money = accounts.values.filter { $0.kind.recordsMoneyInOut && $0.valuationMode == .balance }
-        let dates = Set(money.flatMap { valuations(for: $0.id).map(\.date) })
+        let dates = moneyCheckInDates
         guard let next else { return dates.count }
         return dates.count + (dates.max().map { next > $0 } ?? true ? 1 : 0)
     }
@@ -230,5 +235,14 @@ extension Library {
         value.moneyOut = spent + tax
         value.tax = tax != 0 && accounts[account]?.kind != .taxPot ? tax : nil
         upsert(value)
+    }
+}
+
+extension Account {
+    /// Whether it has months (``AccountMonth``), and its values make the
+    /// check-ins the check-in list shows: it records money in and out, with
+    /// a balance.
+    var hasMoneyMonths: Bool {
+        kind.recordsMoneyInOut && valuationMode == .balance
     }
 }

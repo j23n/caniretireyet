@@ -77,8 +77,7 @@ extension Library {
     /// at their latest value before `date`, and it's checked in when one
     /// has a value on `date`.
     public func moneyMonth(through date: CalendarDate) -> MoneyMonth {
-        let money = accounts.values.filter { $0.kind.recordsMoneyInOut && $0.valuationMode == .balance }
-        let dates = Set(money.flatMap { valuations(for: $0.id).map(\.date) })
+        let dates = moneyCheckInDates
         let previous = dates.filter { $0 < date }.max()
         let months = moneyMonthAccounts(after: previous, through: date).compactMap {
             accountMonth(of: $0.id, through: date)
