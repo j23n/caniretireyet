@@ -134,6 +134,8 @@ struct MonthsDataTests {
     @Test func monthWords() {
         let locale = Locale(identifier: "en_US")
         #expect(MonthText.title("2026-10-31", locale: locale) == "October 2026")
+        #expect(MonthText.typedTotalsWait("2026-11-30", locale: Locale(identifier: "en_GB"))
+            == "Opens on 30 Nov, when the month is over. To type them sooner, start the check-in today.")
         #expect(MonthText.kind(.transfer, other: "Risparmio") == "Moved to Risparmio")
         #expect(MonthText.kind(.ignore, other: nil) == "Not counted")
         #expect(MonthText.classes(recordsInterest: false).contains(.interest) == false)

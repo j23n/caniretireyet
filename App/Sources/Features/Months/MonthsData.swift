@@ -18,6 +18,14 @@ enum MonthText {
         date > today
     }
 
+    /// Why *Type Totals* waits for the month still to come: "Opens on 30
+    /// Nov, when the month is over. To type them sooner, start the
+    /// check-in today."
+    static func typedTotalsWait(_ date: CalendarDate, locale: Locale = .current) -> String {
+        "Opens on \(AmountFormat.shortDate(date, locale: locale)), when the month is over. To type them sooner, "
+            + "start the check-in today."
+    }
+
     /// "October 2026": the month of a check-in's date.
     static func title(_ date: CalendarDate, locale: Locale = .current) -> String {
         date.dateValue.formatted(.dateTime.month(.wide).year().locale(locale))
