@@ -50,6 +50,28 @@ struct PlanProgressBackendTests {
         }
     }
 
+    /// A value of a pension fund alone in the middle of a month, such as
+    /// the last one of an account that closed then, isn't a check-in the
+    /// check-in list shows: the line skips its day, so money moved from the
+    /// bank, whose value is still the month before's, doesn't count twice.
+    @Test func aValueOfAnAccountWithoutMonthsAddsNoDay() throws {
+        var library = self.library
+        library.upsert(Valuation(account: "fondo-pensione", date: "2026-09-15", balance: 1000))
+        let valuator = Valuator(library: library)
+        #expect(valuator.checkInDates(in: .planAssets).contains("2026-09-15"))
+        let progress = PlanProgress(plan: "base", document: library.plans["base"], library: library,
+                                    valuator: valuator, asOf: latest)
+        let thisYear = try #require(progress.charts.last)
+        let days = thisYear.actual.map { CalendarDate($0.date, in: .current) }
+        #expect(!days.contains("2026-09-15"))
+        #expect(days.suffix(2) == ["2026-08-31", "2026-09-30"])
+        #expect(!thisYear.checkIns.contains(CalendarDate("2026-09-15").dateValue))
+        #expect(thisYear.checkIns.contains(CalendarDate("2026-09-30").dateValue))
+        // Without it the line is drawn at the same days.
+        let before = try #require(self.progress().charts.last)
+        #expect(before.actual.map(\.date) == thisYear.actual.map(\.date))
+    }
+
     @Test func aYearWithABaselineHasAnExpectedLine() throws {
         let thisYear = try #require(progress().charts.last)
         #expect(thisYear.year.baseline != nil)

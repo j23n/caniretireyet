@@ -48,7 +48,9 @@ public struct PlanProgress: Sendable {
 public struct PlanYearChart: Identifiable, Sendable {
     public let year: PlanProgressYear
     /// Your money from the last point before the year through its end, at
-    /// each check-in and the end of each month without one: plan assets in
+    /// each check-in (a date the check-in list shows,
+    /// ``Valuator/moneyCheckInDates(through:)``) and the end of each month
+    /// without one: plan assets in
     /// the base currency, as they were, as the milestones and the year's
     /// change count them.
     public let actual: [ChartPoint]
@@ -142,7 +144,11 @@ public struct PlanYearChart: Identifiable, Sendable {
     ///   - milestones: the milestones the plan's assets reached.
     static func charts(of years: [PlanProgressYear], library: Library, valuator: Valuator,
                        history: PlanAnswerHistory, milestones: [ReachedMilestone]) -> [PlanYearChart] {
-        let dates = valuator.checkInDates(in: .planAssets)
+        // The check-ins the check-in list shows: a value of another plan
+        // account alone (a pension fund's, a closed account's last) would
+        // add a day on which the others still had their values from
+        // before, and money moved from them would count twice.
+        let dates = valuator.moneyCheckInDates()
         let changes = zip(dates, dates.dropFirst()).map { before, after in
             CheckInChange(from: before, to: after,
                           change: valuator.change(from: before, to: after, in: .planAssets).total)
