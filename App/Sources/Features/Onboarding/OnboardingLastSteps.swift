@@ -151,7 +151,7 @@ private struct OnboardingImportFiles: View {
                           detail: "A CSV export of your transactions from your broker.")
             OnboardingRow(title: "Home, pension, debts", systemImage: "house",
                           detail: "Fill in the starter spreadsheet with one row per date and one column per "
-                            + "account, or type their balances. Then import it.") {
+                            + "account, then import it. Or type their balances at each check-in.") {
                 StarterSpreadsheetButton()
                     .padding(.top, Metrics.xs)
             }
