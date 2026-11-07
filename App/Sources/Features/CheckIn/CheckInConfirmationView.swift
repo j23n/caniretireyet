@@ -70,7 +70,7 @@ struct CheckInConfirmationView: View {
                 }
                 LibraryStatusBanners()
             }
-            .measuringWidth($pageWidth)
+            .measuringPageWidth($pageWidth)
             .padding(layout.gutter)
             .frame(maxWidth: layout.isWide ? Metrics.wideReadableWidth : Metrics.readableWidth, alignment: .leading)
             .frame(maxWidth: .infinity)

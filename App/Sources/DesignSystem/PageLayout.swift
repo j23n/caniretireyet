@@ -25,3 +25,15 @@ extension EnvironmentValues {
     /// How the page is laid out (``PageLayout``); narrow until the root sets it.
     @Entry var pageLayout = PageLayout()
 }
+
+extension View {
+    /// Measures into `width` the width the page offers this content, which
+    /// sets the slots of its tiles (``TileGrid``). It measures the width
+    /// offered, not the content's own: content laid out for a wider page,
+    /// such as tiles a fixed number of slots wide, would otherwise keep the
+    /// page that wide when the window narrows or the iPad turns upright.
+    func measuringPageWidth(_ width: Binding<CGFloat>) -> some View {
+        frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
+            .measuringWidth(width)
+    }
+}
