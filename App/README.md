@@ -30,7 +30,7 @@ Stores (@Observable, @MainActor)
 | `App/` | `@main`, `AppModel` (creates the stores and keeps them in step: kept results and a missing check-in answer once the library opens, the widgets' snapshot when its inputs change), environment injection, menu commands | app core |
 | `Stores/` | The stores, and the logic they need that isn't UI | app core (PlanStore: Plan engineer fills in the engine) |
 | `Navigation/` | Root view, tabs, sidebar, the check-in accessory (shown while a check-in is due or open; else *Check In* in Today's toolbar, `CheckInToolbarButton`), sheets, `AppNavigation` | app core |
-| `DesignSystem/` | Colours, spacing, number formatting (amounts; quantities and unit prices, `QuantityFormat`), `AmountText`, `DeltaText`, `Card`, tiles (`TileGrid`, `ColorTile`, `TileLabel`, `TileTint`), `SectionHeader`, `StatusBanner`, `OverflowScrollView`, `PageTable`, input parsing, SF Symbol names | app core |
+| `DesignSystem/` | Colours, spacing, number formatting (amounts; quantities and unit prices, `QuantityFormat`), `AmountText`, `DeltaText`, `Card`, tiles (`TileGrid`, `ColorTile`, `TileLabel`, `TileTint`, and `Font.tile`, their text a size larger on the Mac and iPad), `measuringPageWidth` (the width a page offers, which sets its tiles' slots), `SectionHeader`, `StatusBanner`, `OverflowScrollView`, `PageTable`, input parsing, SF Symbol names | app core |
 | `Components/Charts/` | Reusable Swift Charts views and their plain-value inputs | app core |
 | `Features/<Feature>/` | One folder per feature, starting with its screen | feature engineers |
 | `Preview/` | The made-up library, a made-up plan engine, preview helpers | app core |

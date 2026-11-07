@@ -686,7 +686,7 @@ private struct AccountMonthTiles: View {
                     TileLabel("Saved", emoji: "💰")
                     Spacer(minLength: Metrics.s)
                     AmountText(saved, currency: data.currency, signed: true, tabular: false)
-                        .font(.title2.bold())
+                        .font(.tile(.title2).bold())
                         .lineLimit(1)
                         .minimumScaleFactor(0.6)
                     TileCaption {
@@ -706,7 +706,7 @@ private struct AccountMonthTiles: View {
                         TileLabel("Interest", emoji: "🌱")
                         Spacer(minLength: Metrics.s)
                         AmountText(interest, currency: data.currency, signed: true, tabular: false)
-                            .font(.title2.bold())
+                            .font(.tile(.title2).bold())
                             .lineLimit(1)
                             .minimumScaleFactor(0.6)
                         TileCaption(verbatim: "in \(month)")

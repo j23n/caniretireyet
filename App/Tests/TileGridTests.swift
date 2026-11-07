@@ -1,4 +1,5 @@
 import CoreGraphics
+import SwiftUI
 import Testing
 @testable import CanIRetireYet
 
@@ -34,5 +35,26 @@ struct TileGridTests {
         for width in stride(from: CGFloat(332), through: 3000, by: 7) {
             #expect(TileGrid.smallWidth(width: width) >= TileGrid.minimumSmallWidth, "width \(width)")
         }
+    }
+}
+
+/// Tiles' text on the Mac and iPad (UI.md, "Tiles"): a size larger than on
+/// iPhone.
+@MainActor
+struct TileTextTests {
+    @Test func aWidePageShowsTilesATextSizeUp() {
+        #expect(TileText.wideSize(.large) == .xLarge)
+        #expect(TileText.wideSize(.xSmall) == .small)
+        #expect(TileText.wideSize(.accessibility4) == .accessibility5)
+    }
+
+    @Test func theLargestTextSizeStaysTheLargest() {
+        #expect(TileText.wideSize(.accessibility5) == .accessibility5)
+    }
+
+    @Test func theMacSizesAreIPadsAtTheDefaultTextSize() {
+        #expect(TileText.size(of: .caption) == 14)
+        #expect(TileText.size(of: .body) == 19)
+        #expect(TileText.size(of: .title2) == 24)
     }
 }

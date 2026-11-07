@@ -177,7 +177,7 @@ struct PlanResultTiles: View {
             TileLabel("Spending you can afford", emoji: "🛍️")
             Spacer(minLength: Metrics.s)
             AmountText(yearly / 12, currency: session.currency, tabular: false)
-                .font(.title.bold())
+                .font(.tile(.title).bold())
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
             TileCaption(verbatim: "a month\(age.map { " from \($0)" } ?? ""), in "
@@ -194,7 +194,7 @@ struct PlanResultTiles: View {
             TileLabel("Needed to retire today", emoji: "🧮")
             Spacer(minLength: Metrics.s)
             AmountSentenceText(value)
-                .font(.title2.bold())
+                .font(.tile(.title2).bold())
                 .lineLimit(2)
                 .minimumScaleFactor(0.6)
             if let readiness {
@@ -242,7 +242,7 @@ struct PlanStopAgesTile: View {
         ColorTile {
             TileLabel("If you stopped at another age", emoji: "🎯")
             Text("How many of 10 futures keep your money lasting to \(end).")
-                .font(.footnote)
+                .font(.tile(.footnote))
                 .foregroundStyle(Palette.secondaryInk)
                 .fixedSize(horizontal: false, vertical: true)
                 .privacySensitiveInFeedback()
@@ -266,7 +266,7 @@ struct PlanStopAgesTile: View {
             .privacySensitiveInFeedback()
             if let words = words(points, earliest: earliest) {
                 Text(verbatim: words)
-                    .font(.subheadline)
+                    .font(.tile(.subheadline))
                     .foregroundStyle(Palette.ink)
                     .fixedSize(horizontal: false, vertical: true)
                     .privacySensitiveInFeedback()
@@ -292,7 +292,7 @@ struct PlanStopAgesTile: View {
             }
             .frame(height: Self.barsHeight)
             Text(verbatim: "\(point.age)")
-                .font(.caption2.weight(isAnswer ? .bold : .regular))
+                .font(.tile(.caption2).weight(isAnswer ? .bold : .regular))
                 .monospacedDigit()
                 .foregroundStyle(isAnswer ? Palette.accent : Palette.secondaryInk)
                 .lineLimit(1)

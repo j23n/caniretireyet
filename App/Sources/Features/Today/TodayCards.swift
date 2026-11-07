@@ -108,7 +108,7 @@ struct TodayMovedLedger: View {
     }
 
     private func font(_ line: TodayMovedLine) -> Font {
-        .footnote.weight(line.isSum ? .semibold : .regular)
+        .tile(.footnote).weight(line.isSum ? .semibold : .regular)
     }
 }
 
@@ -141,13 +141,13 @@ struct TodayPayRing: View {
             if let share = pay.savedShare {
                 VStack(spacing: 0) {
                     Text(verbatim: AmountFormat.percent(share, digits: 0, locale: locale))
-                        .font(.headline.bold())
+                        .font(.tile(.headline).bold())
                     Text("saved")
-                        .font(.caption2)
+                        .font(.tile(.caption2))
                         .opacity(0.8)
                     if let planRate {
                         Text(verbatim: "plan \(AmountFormat.percent(planRate, digits: 0, locale: locale))")
-                            .font(.caption2)
+                            .font(.tile(.caption2))
                             .foregroundStyle(Palette.accent)
                     }
                 }

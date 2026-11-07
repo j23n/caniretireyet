@@ -123,7 +123,7 @@ struct PlanYearTiles: View {
             TileLabel(year.isLatest ? "Your money now" : "Your money at the year's end", emoji: "📊")
             Spacer(minLength: Metrics.s)
             AmountText(year.change.end, currency: card.currency, tabular: false)
-                .font(.title2.bold())
+                .font(.tile(.title2).bold())
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
             TileCaption {

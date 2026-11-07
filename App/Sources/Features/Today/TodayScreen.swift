@@ -53,7 +53,7 @@ struct TodayScreen: View {
         let today = CalendarDate.today()
         return ScrollView {
             page(today: today)
-                .measuringWidth($pageWidth)
+                .measuringPageWidth($pageWidth)
                 .padding(layout.gutter)
                 .frame(maxWidth: layout.isWide ? Metrics.wideReadableWidth : Metrics.readableWidth, alignment: .leading)
                 .frame(maxWidth: .infinity)
