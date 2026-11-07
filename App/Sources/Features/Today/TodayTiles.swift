@@ -268,7 +268,7 @@ struct AheadMilestoneTile: View {
             TileLabel(PlanMilestoneText.kindName(milestone.milestone.kind), emoji: milestone.milestone.tileEmoji)
             Spacer(minLength: Metrics.s)
             AmountSentenceText(text.name(milestone.milestone))
-                .font(.headline)
+                .font(.tile(.headline))
                 .lineLimit(3)
                 .minimumScaleFactor(0.7)
                 .fixedSize(horizontal: false, vertical: true)
@@ -305,7 +305,7 @@ struct TodayYearTile: View {
                     AmountText(total.change, signed: true, tabular: false)
                 }
             }
-            .font(.title2.bold())
+            .font(.tile(.title2).bold())
             .lineLimit(1)
             .minimumScaleFactor(0.6)
             VStack(alignment: .leading, spacing: 2) {
@@ -318,7 +318,7 @@ struct TodayYearTile: View {
                     AmountText(split.market, signed: true)
                 }
             }
-            .font(.caption)
+            .font(.tile(.caption))
             .opacity(0.8)
             .lineLimit(1)
             .padding(.top, Metrics.xs)
@@ -445,7 +445,7 @@ struct MilestoneTile: View {
                 Spacer(minLength: Metrics.s)
                 Text(verbatim: calculated ? "No more before the plan's end."
                                           : "Your next milestone shows once \(planName) is calculated.")
-                    .font(.subheadline)
+                    .font(.tile(.subheadline))
                     .opacity(0.8)
                     .fixedSize(horizontal: false, vertical: true)
                     .privacySensitiveInFeedback(!calculated)
@@ -474,7 +474,7 @@ struct MilestoneTile: View {
                 if isWide {
                     Spacer(minLength: 0)
                     Text(verbatim: percent)
-                        .font(.title2.bold())
+                        .font(.tile(.title2).bold())
                         .monospacedDigit()
                         .privacySensitiveInFeedback()
                 }
@@ -493,12 +493,12 @@ struct MilestoneTile: View {
                     }
                 } else {
                     let there = Text(verbatim: "\(percent) there")
-                        .font(.footnote.weight(.semibold))
+                        .font(.tile(.footnote).weight(.semibold))
                         .monospacedDigit()
                         .privacySensitiveInFeedback()
                     if let date {
                         LineOrStack(there, Text(verbatim: PlanMilestoneText.when(date))
-                            .font(.caption)
+                            .font(.tile(.caption))
                             .opacity(0.8)
                             .privacySensitiveInFeedback(), spread: true)
                     } else {
@@ -530,7 +530,7 @@ struct MilestoneTile: View {
                 AmountSentenceText("Then: \(after.milestone.tileEmoji) " + text.name(after.milestone))
             }
         }
-        .font(.caption)
+        .font(.tile(.caption))
         .opacity(0.8)
     }
 
@@ -538,9 +538,9 @@ struct MilestoneTile: View {
     /// other names are words and take less.
     private func nameFont(_ milestone: Milestone) -> Font {
         if case .roundAmount = milestone.kind {
-            return size == .wide ? .title.bold() : .title2.bold()
+            return size == .wide ? .tile(.title).bold() : .tile(.title2).bold()
         }
-        return size == .wide ? .title3.bold() : .headline
+        return size == .wide ? .tile(.title3).bold() : .tile(.headline)
     }
 
     // MARK: Passed
@@ -561,13 +561,13 @@ struct MilestoneTile: View {
                 VStack(alignment: .leading, spacing: Metrics.xs) {
                     ForEach([newest] + also.prefix(isWide ? 2 : 1), id: \.id) { reached in
                         AmountSentenceText("\(reached.milestone.tileEmoji) " + text.name(reached.milestone))
-                            .font(.headline)
+                            .font(.tile(.headline))
                             .lineLimit(1)
                             .minimumScaleFactor(0.7)
                     }
                     if also.count > (isWide ? 2 : 1) {
                         Text("and \(also.count - (isWide ? 2 : 1)) more")
-                            .font(.caption)
+                            .font(.tile(.caption))
                             .opacity(0.8)
                             .privacySensitiveInFeedback()
                     }
@@ -576,7 +576,7 @@ struct MilestoneTile: View {
             if let next {
                 let progress = isWide ? AmountSentence(", \(text.progress(next))") : AmountSentence()
                 AmountSentenceText("Next: \(next.milestone.tileEmoji) " + text.name(next.milestone) + progress)
-                    .font(.caption)
+                    .font(.tile(.caption))
                     .opacity(0.8)
                     .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
@@ -596,7 +596,7 @@ struct MilestoneTile: View {
                 .monospacedDigit()
                 .privacySensitiveInFeedback()
             Text("Saving nothing more, you could still retire at \(age).")
-                .font(.caption)
+                .font(.tile(.caption))
                 .opacity(0.85)
                 .lineLimit(2)
                 .fixedSize(horizontal: false, vertical: true)
@@ -609,12 +609,12 @@ struct MilestoneTile: View {
                 .fixedSize(horizontal: false, vertical: true)
             if milestone.tileEmoji == "🏖️" {
                 Text("You could stop now.")
-                    .font(.caption)
+                    .font(.tile(.caption))
                     .opacity(0.85)
                     .privacySensitiveInFeedback()
             } else if size == .wide, let detail = text.detail(milestone) {
                 AmountSentenceText(detail)
-                    .font(.caption)
+                    .font(.tile(.caption))
                     .opacity(0.85)
                     .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
@@ -698,7 +698,7 @@ struct NetWorthTile: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
             Text(verbatim: AmountFormat.shortDate(point.date, relativeTo: today, locale: locale))
-                .font(.subheadline.weight(.semibold))
+                .font(.tile(.subheadline).weight(.semibold))
                 .foregroundStyle(Palette.secondaryInk)
                 .lineLimit(1)
                 .privacySensitiveInFeedback()
@@ -716,7 +716,7 @@ struct NetWorthTile: View {
                     .foregroundStyle(Palette.secondaryInk)
                     .privacySensitiveInFeedback()
                 LineOrStack(amount, since)
-                    .font(.caption)
+                    .font(.tile(.caption))
                     .lineLimit(1)
             }
         }
@@ -754,7 +754,7 @@ struct NetWorthTile: View {
                 .foregroundStyle(Palette.secondaryInk)
                 .privacySensitiveInFeedback()
             LineOrStack(delta, period)
-                .font(.subheadline.weight(.semibold))
+                .font(.tile(.subheadline).weight(.semibold))
                 .lineLimit(1)
         }
     }
@@ -776,7 +776,7 @@ struct NetWorthTile: View {
                                                           locale: locale))
                 .privacySensitiveInFeedback()
             LineOrStack(amount, period)
-                .font(.caption)
+                .font(.tile(.caption))
                 .foregroundStyle(Palette.secondaryInk)
                 .lineLimit(1)
         }

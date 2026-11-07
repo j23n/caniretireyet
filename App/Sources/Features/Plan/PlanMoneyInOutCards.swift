@@ -51,7 +51,7 @@ struct TwelveMonthsTile: View {
             }
             if let change = tile.change {
                 Text(verbatim: change.text(currency: currency, locale: locale))
-                    .font(.caption.weight(.semibold))
+                    .font(.tile(.caption).weight(.semibold))
                     .monospacedDigit()
                     .lineLimit(1)
                     .foregroundStyle(color(of: change))
@@ -80,7 +80,7 @@ struct TwelveMonthsTile: View {
             // Only *Saved* says its sign in its title ("Took out"); what
             // came in and what was spent can be below zero too.
             AmountText(tile.kind == .saved ? abs(amount) : amount, currency: currency, tabular: false)
-                .font(.title2.bold())
+                .font(.tile(.title2).bold())
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
         }

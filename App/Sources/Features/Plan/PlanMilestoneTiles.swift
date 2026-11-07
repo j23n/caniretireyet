@@ -87,14 +87,14 @@ struct CoastAgeTile: View {
                         .monospacedDigit()
                 } else {
                     Text("No age yet")
-                        .font(.title3.bold())
+                        .font(.tile(.title3).bold())
                 }
             }
             .lineLimit(1)
             .minimumScaleFactor(0.6)
             .privacySensitiveInFeedback()
             Text(verbatim: caption)
-                .font(.caption)
+                .font(.tile(.caption))
                 .opacity(0.85)
                 .lineLimit(size == .wide ? 3 : 2)
                 .fixedSize(horizontal: false, vertical: true)
@@ -131,7 +131,7 @@ struct MilestoneKindTile: View {
             TileLabel(PlanMilestoneText.title(kind), emoji: kind.tileEmoji)
                 .accessibilityAddTraits(.isHeader)
             AmountSentenceText(text.meaning(of: kind, in: milestones))
-                .font(.subheadline)
+                .font(.tile(.subheadline))
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.top, Metrics.s)
             Spacer(minLength: Metrics.m)
@@ -141,14 +141,14 @@ struct MilestoneKindTile: View {
                          isReached: true)
                 } else {
                     Text("None yet.")
-                        .font(.subheadline)
+                        .font(.tile(.subheadline))
                         .opacity(0.8)
                 }
                 if let ahead = milestones.soonestAhead(kind) {
                     line(text.name(ahead.milestone), when: PlanMilestoneText.when(ahead.date), isReached: false)
                 } else if hasResults && kind != .coastPoint {
                     Text("No more before the plan's end.")
-                        .font(.subheadline)
+                        .font(.tile(.subheadline))
                         .opacity(0.8)
                 }
             }
@@ -159,16 +159,16 @@ struct MilestoneKindTile: View {
     private func line(_ name: AmountSentence, when: String, isReached: Bool) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
             Image(systemName: isReached ? "flag.fill" : "flag")
-                .font(.caption)
+                .font(.tile(.caption))
                 .foregroundStyle(.tint)
                 .accessibilityLabel(isReached ? "Reached" : "Ahead")
             AmountSentenceText(name)
-                .font(.subheadline.weight(.semibold))
+                .font(.tile(.subheadline).weight(.semibold))
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
             Spacer(minLength: Metrics.s)
             Text(verbatim: isReached ? when : "typically \(when)")
-                .font(.subheadline)
+                .font(.tile(.subheadline))
                 .monospacedDigit()
                 .opacity(0.8)
                 .lineLimit(1)

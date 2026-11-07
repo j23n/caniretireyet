@@ -60,10 +60,58 @@ struct TileTint {
     }
 }
 
+// MARK: - Tile text
+
+extension Font {
+    /// A text style in a tile, a step larger on the Mac and iPad than on
+    /// iPhone (UI.md, "Tiles"): a tile there is about as big as on iPhone,
+    /// on a bigger screen. On iPhone and iPad it's the style itself, which
+    /// a tile on a wide page (``PageLayout/isWide``) shows a Dynamic Type
+    /// size up (``ColorTile``). The Mac's text styles are smaller than
+    /// iOS's and don't follow Dynamic Type, so there it's the size the
+    /// iPad shows at the default text size.
+    static func tile(_ style: TextStyle) -> Font {
+        #if os(macOS)
+        let size = TileText.size(of: style)
+        return style == .headline ? .system(size: size, weight: .semibold) : .system(size: size)
+        #else
+        return .system(style)
+        #endif
+    }
+}
+
+/// How tiles size their text on wider screens (``Font/tile(_:)``).
+enum TileText {
+    /// The point size of `style` in iOS's text size one step up from the
+    /// default (Extra Large), which tiles on iPad show.
+    static func size(of style: Font.TextStyle) -> CGFloat {
+        switch style {
+        case .largeTitle: 36
+        case .title: 30
+        case .title2: 24
+        case .title3: 22
+        case .headline, .body: 19
+        case .callout: 18
+        case .subheadline: 17
+        case .footnote: 15
+        case .caption: 14
+        case .caption2: 13
+        default: 19
+        }
+    }
+
+    /// The Dynamic Type size a tile on a wide page shows: one step up from
+    /// `size`, or `size` at the largest.
+    static func wideSize(_ size: DynamicTypeSize) -> DynamicTypeSize {
+        DynamicTypeSize.allCases.first { $0 > size } ?? size
+    }
+}
+
 /// A tile: content on a tinted surface with the card's corners, filling
 /// the room its ``TileGrid`` gives it. Its text is in the tint's ink; a
 /// secondary line takes `.opacity(0.8)` of it rather than the app's grey,
-/// which doesn't read on every tint.
+/// which doesn't read on every tint. Its text takes ``Font/tile(_:)``, and
+/// on a wide page on iPad a Dynamic Type size up.
 ///
 /// Every tile reads the same way (UI.md, "Tiles"): its heading
 /// (``TileLabel``), which says what the figure is without the screen
@@ -76,11 +124,19 @@ struct ColorTile<Content: View>: View {
     var padding: CGFloat = 14
     @ViewBuilder var content: Content
 
+    #if os(iOS)
+    @Environment(\.pageLayout) private var layout
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    #endif
+
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: Metrics.cardRadius, style: .continuous)
         VStack(alignment: .leading, spacing: 0) {
             content
         }
+        #if os(iOS)
+        .dynamicTypeSize(layout.isWide ? TileText.wideSize(dynamicTypeSize) : dynamicTypeSize)
+        #endif
         .padding(padding)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .foregroundStyle(tint.ink)
@@ -111,11 +167,11 @@ struct TileLabel: View {
         HStack(spacing: 6) {
             if let emoji {
                 Text(verbatim: emoji)
-                    .font(.body)
+                    .font(.tile(.body))
                     .accessibilityHidden(true)
             }
             Text(title)
-                .font(.caption.weight(.semibold))
+                .font(.tile(.caption).weight(.semibold))
                 .opacity(0.8)
                 .lineLimit(2)
                 .fixedSize(horizontal: false, vertical: true)
@@ -134,7 +190,7 @@ struct TileCaption<Content: View>: View {
 
     var body: some View {
         content
-            .font(.caption)
+            .font(.tile(.caption))
             .opacity(0.8)
             .lineLimit(2)
             .fixedSize(horizontal: false, vertical: true)
@@ -174,7 +230,7 @@ struct HalfTile<Figure: View, Caption: View>: View {
             TileLabel(title, emoji: emoji)
             Spacer(minLength: Metrics.xs)
             figure
-                .font(.title3.bold())
+                .font(.tile(.title3).bold())
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
             TileCaption {
@@ -379,7 +435,7 @@ struct TileGrid: Layout {
             ColorTile(tint: .butter) {
                 TileLabel("Next milestone", emoji: "💰")
                 Spacer(minLength: Metrics.s)
-                Text(verbatim: "400.000 €").font(.title2.bold())
+                Text(verbatim: "400.000 €").font(.tile(.title2).bold())
                 TileBar(progress: 0.78).padding(.top, 10)
             }
             .tileSize(.small)

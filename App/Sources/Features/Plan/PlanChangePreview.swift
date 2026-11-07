@@ -277,14 +277,14 @@ struct PlanChangeTile: View {
             switch figure {
             case .text(let text):
                 Text(verbatim: text)
-                    .font(.title2.bold())
+                    .font(.tile(.title2).bold())
                     .monospacedDigit()
                     .lineLimit(1)
                     .minimumScaleFactor(0.6)
                     .privacySensitiveInFeedback()
             case .amount(let amount):
                 AmountText(amount, currency: currency, tabular: false)
-                    .font(.title2.bold())
+                    .font(.tile(.title2).bold())
                     .lineLimit(1)
                     .minimumScaleFactor(0.6)
             }
@@ -304,7 +304,7 @@ struct PlanChangeTile: View {
         let color: Color = direction == 0 || good == nil ? tint.ink
             : (direction > 0) == good ? Palette.positive : Palette.orangeStroke
         Text(verbatim: text)
-            .font(.caption.weight(.semibold))
+            .font(.tile(.caption).weight(.semibold))
             .monospacedDigit()
             .lineLimit(1)
             .minimumScaleFactor(0.8)
