@@ -47,7 +47,7 @@ struct PlanMoveChip: View {
         } icon: {
             Image(systemName: months == 0 ? "equal" : months < 0 ? "arrow.left" : "arrow.right")
         }
-        .font(.footnote.weight(.semibold))
+        .font(.app(.footnote).weight(.semibold))
         .foregroundStyle(color)
         .padding(.horizontal, Metrics.s)
         .padding(.vertical, 3)
@@ -101,7 +101,7 @@ struct PlanChangeSummary: View {
                     .opacity(isUpdating ? Metrics.dimmedOpacity : 1)
             } else if let error {
                 Label(error, systemImage: "exclamationmark.triangle")
-                    .font(.subheadline)
+                    .font(.app(.subheadline))
                     .foregroundStyle(Palette.secondaryInk)
                     .fixedSize(horizontal: false, vertical: true)
                     .privacySensitiveInFeedback()
@@ -110,12 +110,12 @@ struct PlanChangeSummary: View {
                     ProgressView()
                         .controlSize(.small)
                     Text("Working out what it does…")
-                        .font(.subheadline)
+                        .font(.app(.subheadline))
                         .foregroundStyle(Palette.secondaryInk)
                 }
             } else {
                 Text(hint)
-                    .font(.subheadline)
+                    .font(.app(.subheadline))
                     .foregroundStyle(Palette.secondaryInk)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -145,7 +145,7 @@ struct PlanChangeSummary: View {
         return VStack(alignment: .leading, spacing: Metrics.xs) {
             HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
                 Text("Your last Monday")
-                    .font(.subheadline)
+                    .font(.app(.subheadline))
                     .foregroundStyle(Palette.secondaryInk)
                 Spacer(minLength: Metrics.s)
                 if isUpdating {
@@ -158,20 +158,20 @@ struct PlanChangeSummary: View {
                 }
             }
             Text(verbatim: Self.dateAndAge(headline, locale: locale))
-                .font(.title2.weight(.bold))
+                .font(.figure)
                 .foregroundStyle(Palette.ink)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
                 .privacySensitiveInFeedback()
             if let against {
                 Text(verbatim: "Was \(Self.dateAndAge(against.headline, locale: locale)).")
-                    .font(.subheadline)
+                    .font(.app(.subheadline))
                     .foregroundStyle(Palette.secondaryInk)
                     .fixedSize(horizontal: false, vertical: true)
                     .privacySensitiveInFeedback()
             } else {
                 Text(isUpdating ? "Working out what it does…" : hint)
-                    .font(.subheadline)
+                    .font(.app(.subheadline))
                     .foregroundStyle(Palette.secondaryInk)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -277,14 +277,14 @@ struct PlanChangeTile: View {
             switch figure {
             case .text(let text):
                 Text(verbatim: text)
-                    .font(.tile(.title2).bold())
+                    .font(.figure)
                     .monospacedDigit()
                     .lineLimit(1)
                     .minimumScaleFactor(0.6)
                     .privacySensitiveInFeedback()
             case .amount(let amount):
                 AmountText(amount, currency: currency, tabular: false)
-                    .font(.tile(.title2).bold())
+                    .font(.figure)
                     .lineLimit(1)
                     .minimumScaleFactor(0.6)
             }
@@ -304,7 +304,7 @@ struct PlanChangeTile: View {
         let color: Color = direction == 0 || good == nil ? tint.ink
             : (direction > 0) == good ? Palette.positive : Palette.orangeStroke
         Text(verbatim: text)
-            .font(.tile(.caption).weight(.semibold))
+            .font(.app(.footnote).weight(.semibold))
             .monospacedDigit()
             .lineLimit(1)
             .minimumScaleFactor(0.8)

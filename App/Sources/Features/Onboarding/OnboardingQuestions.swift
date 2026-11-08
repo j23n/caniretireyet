@@ -10,11 +10,11 @@ struct OnboardingWelcome: View {
         VStack(alignment: .leading, spacing: Metrics.l) {
             OnboardingCalendarPage(date: nil)
             Text("Last Monday")
-                .font(.largeTitle.bold())
+                .font(.app(.largeTitle).bold())
                 .foregroundStyle(Palette.ink)
                 .accessibilityAddTraits(.isHeader)
             Text("When could your last Monday at work be?")
-                .font(.title3)
+                .font(.app(.title3))
                 .foregroundStyle(Palette.ink)
             Text("Enter rough amounts for what you have, earn and spend. Your first answer takes about three minutes.")
                 .foregroundStyle(Palette.secondaryInk)
@@ -54,7 +54,7 @@ struct OnboardingYouStep: View {
                 VStack(alignment: .leading, spacing: Metrics.xs) {
                     OnboardingAgePicker(age: $model.age)
                     Text("You can set your exact birth date later in Settings.")
-                        .font(.footnote)
+                        .font(.app(.footnote))
                         .foregroundStyle(Palette.secondaryInk)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -78,7 +78,7 @@ struct OnboardingYouStep: View {
                         .labelsHidden()
                     }
                     Text(OnboardingText.countryLine(country: model.country, currency: model.currency, locale: locale))
-                        .font(.footnote)
+                        .font(.app(.footnote))
                         .foregroundStyle(Palette.secondaryInk)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -93,7 +93,7 @@ struct OnboardingYouStep: View {
                      ? "Your iPhone and Mac use the same library. Turn this off to keep it on this device only."
                      : "iCloud Drive is off, so your library stays on this device. You can move it to iCloud Drive "
                         + "later in Settings.")
-                    .font(.footnote)
+                    .font(.app(.footnote))
                     .foregroundStyle(Palette.secondaryInk)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -128,7 +128,7 @@ struct OnboardingMoneyStep: View {
                 OnboardingNumberRow("Pension you can't access yet", value: $model.answers.pension, unit: symbol)
                 if model.answers.asksForPensionAge {
                     Stepper("Available from age \(pensionAge.wrappedValue)", value: pensionAge, in: 50...75)
-                        .font(.subheadline)
+                        .font(.app(.subheadline))
                 }
                 OnboardingNumberRow("Your home's value", value: $model.answers.home, unit: symbol,
                                     prompt: "Optional")
@@ -157,18 +157,18 @@ struct OnboardingMoneyStep: View {
                     PlanIssueLine(message: "Amounts can't be negative.", isError: true)
                 } else if model.hasStoppedWorking {
                     Text("What you live on now, paid from your savings and pensions. Your answer is whether it lasts.")
-                        .font(.footnote)
+                        .font(.app(.footnote))
                         .foregroundStyle(Palette.secondaryInk)
                         .fixedSize(horizontal: false, vertical: true)
                 } else if let line = OnboardingText.savingLine(model.answers, currency: model.currency,
                                                                 locale: locale) {
                     AmountSentenceText(line)
-                        .font(.footnote)
+                        .font(.app(.footnote))
                         .foregroundStyle(Palette.ink)
                         .fixedSize(horizontal: false, vertical: true)
                 } else {
                     Text("If you're not sure what you spend, enter your pay minus what you save.")
-                        .font(.footnote)
+                        .font(.app(.footnote))
                         .foregroundStyle(Palette.secondaryInk)
                 }
             }
@@ -183,7 +183,7 @@ struct OnboardingMoneyStep: View {
 
     private func footnote(_ text: String) -> some View {
         Text(text)
-            .font(.footnote)
+            .font(.app(.footnote))
             .foregroundStyle(Palette.secondaryInk)
             .fixedSize(horizontal: false, vertical: true)
     }
@@ -195,7 +195,7 @@ struct OnboardingMoneyStep: View {
 
     private func groupTitle(_ title: String) -> some View {
         Text(title)
-            .font(.subheadline.weight(.semibold))
+            .font(.app(.subheadline).weight(.semibold))
             .foregroundStyle(Palette.secondaryInk)
             .accessibilityAddTraits(.isHeader)
     }
@@ -219,7 +219,7 @@ struct OnboardingLaterStep: View {
                 OnboardingNumberRow("Amount per month", value: $model.answers.statePensionPerMonth, unit: symbol,
                                     prompt: "None")
                 Text(OnboardingText.statePensionNote(country: model.country))
-                    .font(.footnote)
+                    .font(.app(.footnote))
                     .foregroundStyle(Palette.secondaryInk)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -240,7 +240,7 @@ struct OnboardingLaterStep: View {
                     OnboardingNumberRow("Spending in retirement", value: $model.answers.retiredSpendingPerMonth,
                                         unit: symbol, prompt: sameSpending)
                     Text("A month, after tax, in today's money. Leave it empty to spend what you spend now.")
-                        .font(.footnote)
+                        .font(.app(.footnote))
                         .foregroundStyle(Palette.secondaryInk)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -253,7 +253,7 @@ struct OnboardingLaterStep: View {
                 OnboardingNumberRow("Tax on investment gains", value: taxBinding, kind: .percent, unit: "%",
                                     prompt: "None")
                 Text(OnboardingText.taxNote(country: model.country, isDefault: model.taxIsDefault, locale: locale))
-                    .font(.footnote)
+                    .font(.app(.footnote))
                     .foregroundStyle(Palette.secondaryInk)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -287,7 +287,7 @@ struct OnboardingLaterStep: View {
 
     private func groupTitle(_ title: String) -> some View {
         Text(title)
-            .font(.subheadline.weight(.semibold))
+            .font(.app(.subheadline).weight(.semibold))
             .foregroundStyle(Palette.secondaryInk)
             .accessibilityAddTraits(.isHeader)
     }

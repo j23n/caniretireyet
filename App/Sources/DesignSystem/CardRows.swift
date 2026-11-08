@@ -80,7 +80,7 @@ struct CardRow<Title: View, Value: View, Below: View>: View {
             }
             below
         }
-        .font(.body)
+        .font(.app(.body))
         .padding(.vertical, Metrics.m)
         .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
         .contentShape(Rectangle())
@@ -91,7 +91,7 @@ struct CardRow<Title: View, Value: View, Below: View>: View {
     private var chevron: some View {
         if opens {
             Image(systemName: "chevron.right")
-                .font(.footnote.weight(.semibold))
+                .font(.app(.footnote).weight(.semibold))
                 .foregroundStyle(Palette.mutedInk)
                 .accessibilityHidden(true)
         }

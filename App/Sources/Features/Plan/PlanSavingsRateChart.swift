@@ -270,7 +270,7 @@ struct PlanSavingsRateChart: View {
             AxisValueLabel {
                 if let points = value.as(Double.self) {
                     Text(verbatim: AmountFormat.percent(points / 100, digits: 0, locale: locale))
-                        .font(.caption2)
+                        .font(.app(.caption2))
                         .monospacedDigit()
                         .foregroundStyle(Palette.mutedInk)
                 }
@@ -362,7 +362,7 @@ struct PlanSavingsRateCallout: View {
                 rate("Savings rate", savings, swatch: .bar)
             } else {
                 Text("No money in and out recorded")
-                    .font(.caption2)
+                    .font(.app(.caption2))
                     .foregroundStyle(Palette.secondaryInk)
             }
             if let lastTwelveMonths = period.lastTwelveMonths {
@@ -400,14 +400,14 @@ struct PlanSavingsRateCallout: View {
                 Text(verbatim: savings.rate.map { AmountFormat.percent($0, digits: 0, locale: locale) } ?? "–")
                     .monospacedDigit()
             }
-            .font(.caption2)
+            .font(.app(.caption2))
             if let why = savings.noRate {
                 Text(why.words)
-                    .font(.caption2)
+                    .font(.app(.caption2))
                     .foregroundStyle(Palette.secondaryInk)
             } else if let rate = savings.rate, rate < 0 {
                 Text("Spent more than came in")
-                    .font(.caption2)
+                    .font(.app(.caption2))
                     .foregroundStyle(Palette.secondaryInk)
             }
             ChartCalloutRow("Came in", amount: savings.income.doubleValue, currency: money.currency)

@@ -154,7 +154,7 @@ struct InstrumentsScreen: View {
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             Text(Self.footer)
-                .font(.footnote)
+                .font(.app(.footnote))
                 .foregroundStyle(Palette.secondaryInk)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, Metrics.l)
@@ -283,7 +283,7 @@ private struct InstrumentListRow: View {
                 .lineLimit(2)
                 .privacySensitiveInFeedback()
             Text("\(InstrumentForm.name(of: instrument.kind)) · \(InstrumentText.identifiers(of: instrument))")
-                .font(.caption)
+                .font(.app(.caption))
                 .foregroundStyle(Palette.secondaryInk)
                 .privacySensitiveInFeedback()
             HStack(spacing: Metrics.xs) {
@@ -293,7 +293,7 @@ private struct InstrumentListRow: View {
                     .privacySensitiveInFeedback()
                 InstrumentUpdateIndicator(line: update)
             }
-            .font(.caption)
+            .font(.app(.caption))
             .foregroundStyle(Palette.secondaryInk)
         }
         .padding(.vertical, 2)
@@ -579,7 +579,7 @@ struct InstrumentEditor: View {
             .disabled(isTesting || form.wrappedValue.provider == nil)
             if let testQuote {
                 Text(testQuote.describe(canFetch: prices.canFetch, locale: locale))
-                    .font(.footnote)
+                    .font(.app(.footnote))
                     .foregroundStyle(Palette.secondaryInk)
                     .fixedSize(horizontal: false, vertical: true)
                     .privacySensitiveInFeedback()
@@ -614,19 +614,19 @@ struct InstrumentEditor: View {
             if quote.isSaved {
                 let date = AmountFormat.shortDate(price.date, locale: locale)
                 Label("Saved for \(date)", systemImage: "checkmark.circle")
-                    .font(.footnote)
+                    .font(.app(.footnote))
                     .foregroundStyle(Palette.good)
                     .privacySensitiveInFeedback()
             } else if !quote.fits(form.testInstrument(id: instrumentID ?? "test")) {
                 Text("The currency, unit or symbol changed since the test. Test again to keep a price.")
-                    .font(.footnote)
+                    .font(.app(.footnote))
                     .foregroundStyle(Palette.secondaryInk)
             } else if let existing, quote.fits(existing) {
                 Button("Save Price") { saveTestPrice(replacingTyped: false) }
                     .disabled(!library.canEdit)
             } else {
                 Text("The price is saved with the instrument.")
-                    .font(.footnote)
+                    .font(.app(.footnote))
                     .foregroundStyle(Palette.secondaryInk)
             }
         }

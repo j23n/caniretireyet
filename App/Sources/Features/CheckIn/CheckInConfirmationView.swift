@@ -47,7 +47,7 @@ struct CheckInConfirmationView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: Metrics.l) {
                 Text(verbatim: CheckInWording.savedLine(on: result.date, groups: groups, locale: locale))
-                    .font(.subheadline)
+                    .font(.app(.subheadline))
                     .foregroundStyle(Palette.secondaryInk)
                     .fixedSize(horizontal: false, vertical: true)
                     .privacySensitiveInFeedback()
@@ -127,7 +127,7 @@ struct CheckInConfirmationView: View {
     private var answerCard: some View {
         VStack(spacing: Metrics.s) {
             Text("Your last Monday at work")
-                .font(.subheadline)
+                .font(.app(.subheadline))
                 .foregroundStyle(Palette.secondaryInk)
             answer
         }
@@ -166,7 +166,7 @@ struct CheckInConfirmationView: View {
                 PlanRunProgressView(progress: plans.progress(of: run.plan, .checkIn) ?? .starting(.full),
                                     isCheckIn: true)
                 Text("You can close this now: the answer is recorded when it's ready.")
-                    .font(.footnote)
+                    .font(.app(.footnote))
                     .foregroundStyle(Palette.secondaryInk)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -185,7 +185,7 @@ struct CheckInConfirmationView: View {
                         .privacySensitiveInFeedback()
                 }
                 Text(verbatim: unavailableReason)
-                    .font(.subheadline)
+                    .font(.app(.subheadline))
                     .foregroundStyle(Palette.secondaryInk)
                     .fixedSize(horizontal: false, vertical: true)
                     .privacySensitiveInFeedback()
@@ -204,12 +204,12 @@ struct CheckInConfirmationView: View {
         VStack(spacing: Metrics.s) {
             if let before, let now, before.date != now.date {
                 Text(verbatim: GlanceText.lastMonday(before.date, locale: locale))
-                    .font(.title3)
+                    .font(.app(.title3))
                     .strikethrough()
                     .foregroundStyle(Palette.mutedInk)
                     .lineLimit(1)
                 Image(systemName: "arrow.down")
-                    .font(.title3)
+                    .font(.app(.title3))
                     .foregroundStyle(Palette.mutedInk)
                     .accessibilityHidden(true)
             }
@@ -226,7 +226,7 @@ struct CheckInConfirmationView: View {
                 CheckInMoveChip(move: move)
             }
             Text(verbatim: CheckInAnswer.line(headline, previousAge: previousHeadline?.earliestAge))
-                .font(.subheadline)
+                .font(.app(.subheadline))
                 .foregroundStyle(Palette.secondaryInk)
                 .fixedSize(horizontal: false, vertical: true)
         }

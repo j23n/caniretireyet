@@ -186,15 +186,15 @@ private struct CheckInTitle: View {
             Button(action: changeDate) {
                 VStack(spacing: 0) {
                     Text(verbatim: "\(AmountFormat.monthName(date, locale: locale)) check-in")
-                        .font(.headline)
+                        .font(.app(.headline))
                         .foregroundStyle(Palette.ink)
                     HStack(spacing: 2) {
                         Text(verbatim: AmountFormat.mediumDate(date, locale: locale))
                         Image(systemName: "chevron.down")
-                            .font(.caption2.weight(.semibold))
+                            .font(.app(.caption2).weight(.semibold))
                             .accessibilityHidden(true)
                     }
-                    .font(.caption)
+                    .font(.app(.caption))
                     .foregroundStyle(Palette.secondaryInk)
                 }
                 .lineLimit(1)
@@ -376,7 +376,7 @@ struct CheckInPage: View {
         return VStack(alignment: .leading, spacing: Metrics.xs) {
             AmountSentenceText(CheckInWording.progress(groups, saved: soFar.saved, currency: library.baseCurrency,
                                                        locale: locale))
-                .font(.body.weight(.semibold))
+                .font(.app(.body).weight(.semibold))
                 .foregroundStyle(groups.count > 0 && groups.doneCount == groups.count ? Palette.good : Palette.ink)
             HStack(spacing: Metrics.xs) {
                 if let status {
@@ -402,7 +402,7 @@ struct CheckInPage: View {
                     .disabled(!library.canEdit)
                     .accessibilityHint("Imports this month's statements and exports, each with a backup")
             }
-            .font(.subheadline)
+            .font(.app(.subheadline))
             .lineLimit(1)
         }
     }
@@ -416,7 +416,7 @@ struct CheckInPage: View {
         VStack(alignment: .leading, spacing: Metrics.l) {
             if groups.count > 0, layout.isWide {
                 Text(verbatim: CheckInWording.doneCount(groups))
-                    .font(.subheadline.weight(.semibold))
+                    .font(.app(.subheadline).weight(.semibold))
                     .foregroundStyle(groups.doneCount == groups.count ? Palette.good : Palette.secondaryInk)
             }
             if !groups.money.isEmpty {
@@ -486,20 +486,20 @@ struct CheckInPage: View {
                     .lineLimit(1)
                 Spacer(minLength: Metrics.s)
                 AmountText(summary.netWorth.total, tabular: false)
-                    .font(.headline)
+                    .font(.app(.headline))
                     .foregroundStyle(Palette.ink)
                     .lineLimit(1)
                     .fixedSize()
                 if let change = summary.change {
                     DeltaText(change.total.change)
-                        .font(.subheadline)
+                        .font(.app(.subheadline))
                         .lineLimit(1)
                         .fixedSize()
                 }
             }
             if summary.change != nil, layout.isWide {
                 AmountSentenceText(soFar.split(currency: library.baseCurrency, locale: locale))
-                    .font(.footnote)
+                    .font(.app(.footnote))
                     .foregroundStyle(Palette.secondaryInk)
                     .multilineTextAlignment(.trailing)
                     .fixedSize(horizontal: false, vertical: true)
@@ -551,7 +551,7 @@ private struct CheckInSection<Rows: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(verbatim: title)
-                .font(.footnote)
+                .font(.app(.footnote))
                 .textCase(.uppercase)
                 .foregroundStyle(Palette.secondaryInk)
                 .lineLimit(1)
@@ -562,7 +562,7 @@ private struct CheckInSection<Rows: View>: View {
             }
             if let footer {
                 Text(verbatim: footer)
-                    .font(.footnote)
+                    .font(.app(.footnote))
                     .foregroundStyle(Palette.secondaryInk)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.horizontal, Metrics.xs)
@@ -590,7 +590,7 @@ private struct CheckInAccountRow: View {
                     .privacySensitiveInFeedback()
                 if let lastValue {
                     Text(verbatim: lastValue)
-                        .font(.subheadline)
+                        .font(.app(.subheadline))
                         .foregroundStyle(isStale ? Palette.warning : Palette.secondaryInk)
                         .fixedSize(horizontal: false, vertical: true)
                         .privacySensitiveInFeedback()
@@ -662,7 +662,7 @@ struct CheckInStartView: View {
                         .foregroundStyle(Palette.accent)
                         .accessibilityHidden(true)
                     Text(verbatim: title)
-                        .font(.title2.bold())
+                        .font(.app(.title2).bold())
                         .multilineTextAlignment(.center)
                         .privacySensitiveInFeedback()
                     Text(verbatim: message)

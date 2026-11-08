@@ -24,15 +24,16 @@ struct AccountsHeader: View {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
                     Text("Net worth")
-                        .font(.subheadline)
-                        .foregroundStyle(Palette.secondaryInk)
+                        .font(.cardTitle)
+                        .foregroundStyle(Palette.ink)
+                        .accessibilityAddTraits(.isHeader)
                         .lineLimit(1)
                     Spacer(minLength: Metrics.s)
                     rangePicker
                 }
                 VStack(alignment: .leading, spacing: 2) {
                     AmountText(netWorth.total, tabular: false, animatesChanges: true)
-                        .font(.title.bold())
+                        .font(.figure)
                         .foregroundStyle(Palette.ink)
                         .lineLimit(1)
                         .minimumScaleFactor(0.6)
@@ -41,7 +42,7 @@ struct AccountsHeader: View {
                         HStack(spacing: Metrics.m) { changes(netWorth, today: today) }
                         VStack(alignment: .leading, spacing: 2) { changes(netWorth, today: today) }
                     }
-                    .font(.subheadline)
+                    .font(.app(.subheadline))
                 }
                 .accessibilityElement(children: .combine)
             }
@@ -61,7 +62,7 @@ struct AccountsHeader: View {
                 .padding(.top, Metrics.s)
             } label: {
                 Text("Allocation")
-                    .font(.subheadline)
+                    .font(.app(.subheadline))
                     .foregroundStyle(Palette.ink)
             }
         }
@@ -77,7 +78,7 @@ struct AccountsHeader: View {
         }
         .pickerStyle(.menu)
         .labelsHidden()
-        .font(.subheadline)
+        .font(.app(.subheadline))
         .fixedSize()
     }
 

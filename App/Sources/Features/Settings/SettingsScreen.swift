@@ -125,7 +125,7 @@ private struct YouSection: View {
                     .personalControl()
                 if birthDate == nil {
                     Text("Not set yet: pick the date to save it.")
-                        .font(.footnote)
+                        .font(.app(.footnote))
                         .foregroundStyle(Palette.secondaryInk)
                 }
             }
@@ -149,7 +149,7 @@ private struct YouSection: View {
                 }
             }
             if let error {
-                Text(error).font(.footnote).foregroundStyle(Palette.critical)
+                Text(error).font(.app(.footnote)).foregroundStyle(Palette.critical)
                     .privacySensitiveInFeedback()
             }
         } header: {
@@ -376,7 +376,7 @@ private struct LibraryFilesHelp: View {
     var body: some View {
         ScrollView {
             Text(LibraryFolder.readme)
-                .font(.callout.monospaced())
+                .font(.app(.callout).monospaced())
                 .textSelection(.enabled)
                 .padding()
                 .frame(maxWidth: .infinity, alignment: .leading)

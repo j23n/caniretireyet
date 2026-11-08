@@ -108,7 +108,7 @@ struct CheckInSoFarCard: View {
                             .privacySensitiveInFeedback()
                     }
                     Text("Counts only the accounts done so far.")
-                        .font(.footnote)
+                        .font(.app(.footnote))
                         .foregroundStyle(Palette.secondaryInk)
                 }
             } header: {
@@ -120,7 +120,7 @@ struct CheckInSoFarCard: View {
                     VStack(alignment: .leading, spacing: Metrics.xs) {
                         row("Lost value", soFar.lost, signed: true)
                         Text("Not spent and not saved: it lowers net worth only.")
-                            .font(.footnote)
+                            .font(.app(.footnote))
                             .foregroundStyle(Palette.secondaryInk)
                             .fixedSize(horizontal: false, vertical: true)
                     }
@@ -174,7 +174,7 @@ struct CheckInSavedTiles: View {
                         TileLabel("Lost value", emoji: "🚗")
                         Spacer(minLength: Metrics.s)
                         AmountText(soFar.lost, signed: true, tabular: false)
-                            .font(.tile(.title2).bold())
+                            .font(.figure)
                             .lineLimit(1)
                             .minimumScaleFactor(0.6)
                         TileCaption("Not spent, not saved: it lowers net worth only.")
@@ -203,7 +203,7 @@ private struct CheckInWentToTile: View {
     var body: some View {
         ColorTile {
             AmountSentenceText(title)
-                .font(.tile(.caption).weight(.semibold))
+                .font(.app(.footnote).weight(.semibold))
                 .opacity(0.8)
                 .lineLimit(1)
             LazyVGrid(columns: [GridItem(.flexible(), spacing: Metrics.l), GridItem(.flexible())],
@@ -219,7 +219,7 @@ private struct CheckInWentToTile: View {
                             .lineLimit(1)
                             .fixedSize()
                     }
-                    .font(.tile(.subheadline))
+                    .font(.app(.subheadline))
                 }
             }
             .padding(.top, Metrics.s)

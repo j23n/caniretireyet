@@ -105,7 +105,7 @@ struct AccountDetailScreen: View {
                 chartNotes(data)
             } header: {
                 Text(data.subtitle)
-                    .font(.subheadline)
+                    .font(.app(.subheadline))
                     .foregroundStyle(Palette.secondaryInk)
                     .textCase(nil)
                     .lineLimit(1)
@@ -357,7 +357,7 @@ struct AccountDetailScreen: View {
             Card("Income & gains") {
                 TradeIncomeColumns(years: data.incomeYears, currency: currency)
                 Text(Self.incomeNote)
-                    .font(.caption)
+                    .font(.app(.caption))
                     .foregroundStyle(Palette.mutedInk)
             }
         case .statements:
@@ -365,7 +365,7 @@ struct AccountDetailScreen: View {
                 AccountStatementsTable(rows: data.statements, currency: currency,
                                        delete: { pendingDeletion = .valuation($0) })
                 Text(Self.statementsNote)
-                    .font(.caption)
+                    .font(.app(.caption))
                     .foregroundStyle(Palette.mutedInk)
             } header: {
                 SectionHeader("Statements")
@@ -386,14 +386,14 @@ struct AccountDetailScreen: View {
                 }
                 if let note = data.movedNote {
                     Text(note)
-                        .font(.caption)
+                        .font(.app(.caption))
                         .foregroundStyle(Palette.mutedInk)
                 }
             } header: {
                 SectionHeader("Values") {
                     Text(data.account.acceptsTypedValues
                         ? data.valuesSource + " Double-click a typed value to edit it." : data.valuesSource)
-                        .font(.caption)
+                        .font(.app(.caption))
                         .foregroundStyle(Palette.mutedInk)
                 }
             }
@@ -416,7 +416,7 @@ struct AccountDetailScreen: View {
             SectionHeader("Trades") {
                 HStack(spacing: Metrics.m) {
                     Text(tradeCountText(trades))
-                        .font(.caption)
+                        .font(.app(.caption))
                         .foregroundStyle(Palette.mutedInk)
                     if !trades.isEmpty {
                         TradeFilterMenu(list: trades, filter: $tradeFilter)
@@ -439,12 +439,12 @@ struct AccountDetailScreen: View {
             if !trades.isEmpty {
                 HStack {
                     Text(tradeCountText(trades))
-                        .font(.footnote)
+                        .font(.app(.footnote))
                         .foregroundStyle(Palette.secondaryInk)
                     Spacer(minLength: Metrics.s)
                     TradeFilterMenu(list: trades, filter: $tradeFilter)
                         .labelStyle(.titleAndIcon)
-                        .font(.footnote)
+                        .font(.app(.footnote))
                 }
             } else {
                 Text(Self.noTrades)
@@ -686,7 +686,7 @@ private struct AccountMonthTiles: View {
                     TileLabel("Saved", emoji: "💰")
                     Spacer(minLength: Metrics.s)
                     AmountText(saved, currency: data.currency, signed: true, tabular: false)
-                        .font(.tile(.title2).bold())
+                        .font(.figure)
                         .lineLimit(1)
                         .minimumScaleFactor(0.6)
                     TileCaption {
@@ -706,7 +706,7 @@ private struct AccountMonthTiles: View {
                         TileLabel("Interest", emoji: "🌱")
                         Spacer(minLength: Metrics.s)
                         AmountText(interest, currency: data.currency, signed: true, tabular: false)
-                            .font(.tile(.title2).bold())
+                            .font(.figure)
                             .lineLimit(1)
                             .minimumScaleFactor(0.6)
                         TileCaption(verbatim: "in \(month)")
@@ -741,7 +741,7 @@ private struct AccountDetailHeader: View {
         VStack(alignment: .leading, spacing: Metrics.xs) {
             AmountText(data.amount, currency: data.currency, precision: .cents, tabular: false,
                        animatesChanges: true)
-                .font(.title.bold())
+                .font(.figure)
                 .foregroundStyle(Palette.ink)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
@@ -749,7 +749,7 @@ private struct AccountDetailHeader: View {
             baseValueLine
             if !data.amountIsComplete {
                 Text("A price or exchange rate is missing, so part of the value is left out.")
-                    .font(.footnote)
+                    .font(.app(.footnote))
                     .foregroundStyle(Palette.secondaryInk)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -760,7 +760,7 @@ private struct AccountDetailHeader: View {
                         .foregroundStyle(Palette.secondaryInk)
                         .privacySensitiveInFeedback()
                 }
-                .font(.subheadline)
+                .font(.app(.subheadline))
                 let parts = self.parts(of: change)
                 // One part alone repeats the change, unless it says it was saved (or other).
                 if parts.count > 1 || parts.first.map({ $0.name != "Markets" }) == true {
@@ -768,12 +768,12 @@ private struct AccountDetailHeader: View {
                         HStack(spacing: Metrics.m) { partViews(parts) }
                         VStack(alignment: .leading, spacing: 2) { partViews(parts) }
                     }
-                    .font(.footnote)
+                    .font(.app(.footnote))
                 }
             }
             HStack(spacing: Metrics.s) {
                 Text(statusLine)
-                    .font(.caption)
+                    .font(.app(.caption))
                     .foregroundStyle(Palette.mutedInk)
                     .lineLimit(1)
                     .privacySensitiveInFeedback()
@@ -793,11 +793,11 @@ private struct AccountDetailHeader: View {
         switch data.baseValue {
         case .known(let value):
             AmountText(value, precision: .cents)
-                .font(.subheadline)
+                .font(.app(.subheadline))
                 .foregroundStyle(Palette.secondaryInk)
         case .rateMissing:
             Text("Value in \(data.baseCurrency.rawValue): rate missing")
-                .font(.subheadline)
+                .font(.app(.subheadline))
                 .foregroundStyle(Palette.secondaryInk)
         case nil:
             EmptyView()
@@ -882,7 +882,7 @@ private struct AccountValuationListRow: View {
                     .privacySensitiveInFeedback()
                 if let note = row.valuation.note {
                     Text(note)
-                        .font(.caption)
+                        .font(.app(.caption))
                         .foregroundStyle(Palette.secondaryInk)
                         .lineLimit(2)
                         .privacySensitiveInFeedback()
@@ -914,14 +914,14 @@ private struct AccountValuationListRow: View {
                 .foregroundStyle(Palette.secondaryInk)
             AmountText(row.valuation.moneyOut ?? 0, currency: currency, precision: .cents)
         }
-        .font(.caption)
+        .font(.app(.caption))
         if let interest = row.valuation.interest, interest != 0 {
             HStack(spacing: 4) {
                 Text("interest")
                     .foregroundStyle(Palette.secondaryInk)
                 DeltaText(interest, currency: currency, precision: .automatic, showsArrow: false)
             }
-            .font(.caption)
+            .font(.app(.caption))
         }
         if let moved = row.moved {
             HStack(spacing: 4) {
@@ -929,7 +929,7 @@ private struct AccountValuationListRow: View {
                     .foregroundStyle(Palette.secondaryInk)
                 DeltaText(moved, currency: currency, precision: .automatic, showsArrow: false)
             }
-            .font(.caption)
+            .font(.app(.caption))
         }
     }
 
@@ -942,11 +942,11 @@ private struct AccountValuationListRow: View {
                         .foregroundStyle(Palette.secondaryInk)
                     DeltaText(saved, currency: currency, precision: .automatic, showsArrow: false)
                 }
-                .font(.caption)
+                .font(.app(.caption))
             }
         } else {
             Text("saved unknown")
-                .font(.caption)
+                .font(.app(.caption))
                 .foregroundStyle(Palette.mutedInk)
         }
     }
@@ -981,10 +981,10 @@ private struct AccountStatementListRow: View {
                     .foregroundStyle(Palette.ink)
                     .privacySensitiveInFeedback()
                 AccountStatementPositions(row: row)
-                    .font(.caption)
+                    .font(.app(.caption))
                 if let note = row.valuation.note {
                     Text(note)
-                        .font(.caption)
+                        .font(.app(.caption))
                         .foregroundStyle(Palette.secondaryInk)
                         .lineLimit(2)
                         .privacySensitiveInFeedback()
@@ -1006,7 +1006,7 @@ private struct AccountStatementListRow: View {
                             .foregroundStyle(Palette.secondaryInk)
                         DeltaText(difference, currency: currency, precision: .automatic, showsArrow: false)
                     }
-                    .font(.caption)
+                    .font(.app(.caption))
                 }
             }
         }
@@ -1279,12 +1279,12 @@ private struct AccountMoneyInOutRows: View {
             let months = summary.months.count
             Text(verbatim: "\(Wording.count(months, "month")) recorded, in "
                 + "\(summary.currency.rawValue).")
-                .font(.footnote)
+                .font(.app(.footnote))
                 .foregroundStyle(Palette.secondaryInk)
         }
         if !summary.isComplete {
             Text(verbatim: "Values without an exchange rate to \(summary.currency.rawValue) are left out.")
-                .font(.footnote)
+                .font(.app(.footnote))
                 .foregroundStyle(Palette.secondaryInk)
         }
     }

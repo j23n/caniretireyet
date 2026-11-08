@@ -250,7 +250,7 @@ struct ImportSampleCells: View {
     var body: some View {
         LabeledContent(title) {
             Text(cells.prefix(8).map { $0.isEmpty ? "·" : $0 }.joined(separator: "  │  "))
-                .font(.callout.monospaced())
+                .font(.app(.callout).monospaced())
                 .foregroundStyle(Palette.secondaryInk)
                 .lineLimit(2)
                 .multilineTextAlignment(.trailing)
@@ -267,16 +267,16 @@ struct ImportSampleList: View {
     var body: some View {
         if samples.isEmpty {
             Text(emptyText)
-                .font(.callout)
+                .font(.app(.body))
                 .foregroundStyle(Palette.secondaryInk)
         } else {
             ForEach(samples) { sample in
                 HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
                     Text(sample.raw)
-                        .font(.callout.monospaced())
+                        .font(.app(.callout).monospaced())
                         .foregroundStyle(Palette.secondaryInk)
                     Image(systemName: "arrow.right")
-                        .font(.caption)
+                        .font(.app(.caption))
                         .foregroundStyle(Palette.mutedInk)
                         .accessibilityHidden(true)
                     if sample.isProblem {
@@ -289,7 +289,7 @@ struct ImportSampleList: View {
                     }
                     Spacer(minLength: 0)
                 }
-                .font(.callout)
+                .font(.app(.body))
                 .privacySensitiveInFeedback()
                 .accessibilityElement(children: .combine)
             }

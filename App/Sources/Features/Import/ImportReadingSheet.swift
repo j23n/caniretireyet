@@ -71,7 +71,7 @@ struct ImportReadingSheet: View {
         return VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: Metrics.xs) {
                 Text(flow.readingTitle)
-                    .font(.title3.bold())
+                    .font(.app(.title3).bold())
                     .privacySensitiveInFeedback()
                 Text(flow.readingSubtitle)
                     .foregroundStyle(Palette.secondaryInk)
@@ -143,10 +143,10 @@ struct ImportReadingSheet: View {
                     VStack(alignment: .leading, spacing: Metrics.xs) {
                         Label(flow.recognizedTitle, systemImage: needsChanges ? "exclamationmark.triangle.fill"
                             : "checkmark.circle.fill")
-                            .font(.body.weight(.semibold))
+                            .font(.app(.body).weight(.semibold))
                             .foregroundStyle(needsChanges ? Palette.warning : Palette.positive)
                         Text(flow.recognizedSummary)
-                            .font(.subheadline)
+                            .font(.app(.subheadline))
                             .foregroundStyle(Palette.secondaryInk)
                             .fixedSize(horizontal: false, vertical: true)
                     }
@@ -231,7 +231,7 @@ struct ImportReadingSheet: View {
                     VStack(alignment: .leading, spacing: 2) {
                         ImportColumnTitle(row: row)
                         Text(row.samples.prefix(3).joined(separator: " · "))
-                            .font(.caption)
+                            .font(.app(.caption))
                             .foregroundStyle(Palette.secondaryInk)
                             .lineLimit(1)
                             .privacySensitiveInFeedback()
@@ -314,7 +314,7 @@ private struct ImportReadingGrid: View {
                     ForEach(columns) { column in
                         VStack(alignment: .leading, spacing: 6) {
                             ImportColumnTitle(row: column)
-                                .font(.caption)
+                                .font(.app(.caption))
                                 .foregroundStyle(Palette.secondaryInk)
                             ImportColumnUseMenu(model: model, row: column)
                         }

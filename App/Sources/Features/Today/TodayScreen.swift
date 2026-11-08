@@ -236,7 +236,7 @@ struct TodayAnswerCard: View {
         let shape = RoundedRectangle(cornerRadius: 28, style: .continuous)
         return VStack(alignment: .leading, spacing: Metrics.xs) {
             Text(lastMonday == nil ? "Can I retire yet?" : "Your last Monday at work")
-                .font(.subheadline.weight(.semibold))
+                .font(.app(.subheadline).weight(.semibold))
                 .opacity(0.85)
                 .lineLimit(1)
             Group {
@@ -255,11 +255,11 @@ struct TodayAnswerCard: View {
                     .dynamicTypeSize(...DynamicTypeSize.accessibility2)
                     .padding(.top, Metrics.xs)
                     Text(verbatim: TodayText.ageAndFutures(lastMonday))
-                        .font(.headline)
+                        .font(.app(.headline))
                         .padding(.top, Metrics.s)
                     if let away = TodayText.away(lastMonday, today: today) {
                         Text(verbatim: away.capitalizedFirst + ".")
-                            .font(.subheadline)
+                            .font(.app(.subheadline))
                             .opacity(0.85)
                     }
                 } else {
@@ -268,7 +268,7 @@ struct TodayAnswerCard: View {
                         .lineLimit(1)
                         .minimumScaleFactor(0.5)
                     Text(verbatim: line)
-                        .font(.callout)
+                        .font(.app(.body))
                         .opacity(0.85)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -323,12 +323,12 @@ struct TodayAnswerCard: View {
                 Text(verbatim: "Updating \(PlanRunText.overall(progress, locale: locale))")
                     .monospacedDigit()
             }
-            .font(.footnote)
+            .font(.app(.footnote))
             .foregroundStyle(ink)
             .padding(.top, Metrics.xs)
         } else if let error = plans.errors[plan.id] {
             Label("Can't be calculated: \(error)", systemImage: "exclamationmark.triangle")
-                .font(.footnote)
+                .font(.app(.footnote))
                 .foregroundStyle(ink)
                 .fixedSize(horizontal: false, vertical: true)
                 .privacySensitiveInFeedback()
@@ -361,7 +361,7 @@ struct TodayMoveChip: View {
         } icon: {
             Image(systemName: move.years == 0 ? "equal" : move.isSooner ? "arrow.left" : "arrow.right")
         }
-        .font(.subheadline.weight(.semibold))
+        .font(.app(.subheadline).weight(.semibold))
         .foregroundStyle(color)
         .padding(.horizontal, Metrics.m)
         .padding(.vertical, 6)
@@ -388,12 +388,12 @@ struct RoughAmountsCard: View {
             VStack(alignment: .leading, spacing: Metrics.m) {
                 Text("The amounts you entered at the start are still estimates. Type your real balances, or import "
                      + "your statements, and your answer is calculated again.")
-                    .font(.callout)
+                    .font(.app(.body))
                     .foregroundStyle(Palette.secondaryInk)
                     .fixedSize(horizontal: false, vertical: true)
                 if let errorMessage {
                     Text(verbatim: errorMessage)
-                        .font(.footnote)
+                        .font(.app(.footnote))
                         .foregroundStyle(Palette.critical)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -435,7 +435,7 @@ struct FirstCheckInCard: View {
             VStack(alignment: .leading, spacing: Metrics.m) {
                 Text("Your accounts get their values from the files you import: bank statements, broker exports or "
                      + "a spreadsheet. Your history starts with them.")
-                    .font(.callout)
+                    .font(.app(.body))
                     .foregroundStyle(Palette.secondaryInk)
                     .fixedSize(horizontal: false, vertical: true)
                 Button("Import Files…") { navigation.startImport() }

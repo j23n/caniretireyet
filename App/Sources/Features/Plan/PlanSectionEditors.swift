@@ -95,7 +95,7 @@ struct PlanBirthDateEditor: View {
                 PlanIssueLine(message: "Add your birth date: plans need it for ages.", isError: true)
             }
         }
-        .font(.subheadline)
+        .font(.app(.subheadline))
     }
 
     /// The picker's date: the birth date, or where the picker starts
@@ -138,7 +138,7 @@ struct PlanAssumptionsEditor: View {
         VStack(alignment: .leading, spacing: Metrics.s) {
             PlanNumberRow("Inflation", value: $plan.assumptions.inflation, kind: .percent, unit: "%", prompt: "2")
             Text("Real return: mean · median · volatility")
-                .font(.caption)
+                .font(.app(.caption))
                 .foregroundStyle(Palette.secondaryInk)
             ForEach(Self.classes, id: \.self) { assetClass in
                 let name = PlanIssueText.assetClassName(assetClass.rawValue)
@@ -163,11 +163,11 @@ struct PlanAssumptionsEditor: View {
                 }
             }
             Text(PlanEditing.returnsExplanation)
-                .font(.caption)
+                .font(.app(.caption))
                 .foregroundStyle(Palette.mutedInk)
                 .fixedSize(horizontal: false, vertical: true)
             Text("Income yield")
-                .font(.caption)
+                .font(.app(.caption))
                 .foregroundStyle(Palette.secondaryInk)
             ForEach(incomeClasses, id: \.self) { assetClass in
                 let name = PlanIssueText.assetClassName(assetClass.rawValue)
@@ -182,19 +182,19 @@ struct PlanAssumptionsEditor: View {
                 }
             }
             Text(PlanEditing.incomeYieldExplanation)
-                .font(.caption)
+                .font(.app(.caption))
                 .foregroundStyle(Palette.mutedInk)
                 .fixedSize(horizontal: false, vertical: true)
             Divider()
             PlanNumberRow("Unrealized gains, estimate", value: $plan.portfolio.unrealizedGainShare, kind: .percent,
                           unit: "%", prompt: "–")
             Text("For holdings with no purchase cost recorded: the share of their value that's gain.")
-                .font(.caption)
+                .font(.app(.caption))
                 .foregroundStyle(Palette.mutedInk)
                 .fixedSize(horizontal: false, vertical: true)
             if !accounts.isEmpty {
                 Text("Accounts in this plan")
-                    .font(.caption)
+                    .font(.app(.caption))
                     .foregroundStyle(Palette.secondaryInk)
                 ForEach(accounts) { account in
                     Toggle(account.name, isOn: $plan.portfolio[planIncludes: account.id])
@@ -202,7 +202,7 @@ struct PlanAssumptionsEditor: View {
                 }
             }
         }
-        .font(.subheadline)
+        .font(.app(.subheadline))
     }
 }
 
@@ -236,15 +236,15 @@ struct PlanSimulationEditor: View {
             }
             .personalControl()
             Text("A “yes” needs success \(GlanceText.inSimulatedFutures(plan.simulation.effectiveConfidence.doubleValue)).")
-                .font(.caption)
+                .font(.app(.caption))
                 .foregroundStyle(Palette.mutedInk)
                 .privacySensitiveInFeedback()
             PlanNumberRow("Random seed", value: $plan.simulation.planSeed, kind: .integer)
             Text("Every run of this plan uses the same random draws, so differences come from your changes.")
-                .font(.caption)
+                .font(.app(.caption))
                 .foregroundStyle(Palette.mutedInk)
                 .fixedSize(horizontal: false, vertical: true)
         }
-        .font(.subheadline)
+        .font(.app(.subheadline))
     }
 }

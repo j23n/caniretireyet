@@ -22,7 +22,7 @@ struct MonthStartView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: Metrics.m) {
                 AmountSentenceText(question)
-                    .font(.title3)
+                    .font(.app(.title3))
                     .fixedSize(horizontal: false, vertical: true)
                     .privacySensitiveInFeedback()
                 choice("Import CSV",
@@ -54,16 +54,16 @@ struct MonthStartView: View {
             HStack(spacing: Metrics.m) {
                 VStack(alignment: .leading, spacing: Metrics.xs) {
                     Text(title)
-                        .font(.headline)
+                        .font(.app(.headline))
                         .foregroundStyle(Palette.accent)
                     Text(detail)
-                        .font(.subheadline)
+                        .font(.app(.subheadline))
                         .foregroundStyle(Palette.secondaryInk)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer(minLength: Metrics.s)
                 Image(systemName: "chevron.right")
-                    .font(.footnote.weight(.semibold))
+                    .font(.app(.footnote).weight(.semibold))
                     .foregroundStyle(Palette.mutedInk)
                     .accessibilityHidden(true)
             }

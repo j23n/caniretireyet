@@ -240,7 +240,7 @@ struct ImportDoneStep: View {
             #endif
             if let problem {
                 Label(problem, systemImage: "exclamationmark.triangle")
-                    .font(.footnote)
+                    .font(.app(.footnote))
                     .foregroundStyle(Palette.warning)
                     .privacySensitiveInFeedback()
             }

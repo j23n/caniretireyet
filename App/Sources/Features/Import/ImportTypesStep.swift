@@ -42,7 +42,7 @@ struct ImportTypesStep: View {
                 .pickerStyle(.menu)
                 ForEach(flow.tradeSignNotes, id: \.self) { note in
                     Label(note, systemImage: "info.circle")
-                        .font(.footnote)
+                        .font(.app(.footnote))
                         .foregroundStyle(Palette.secondaryInk)
                         .privacySensitiveInFeedback()
                 }
@@ -81,13 +81,13 @@ private struct ImportTypeRowView: View {
                     : "arrow.right.circle")
                     .privacySensitiveInFeedback()
                 Text(detail)
-                    .font(.caption)
+                    .font(.app(.caption))
                     .foregroundStyle(row.type == nil ? Palette.warning : Palette.secondaryInk)
                 if row.canReset, let suggestion = row.suggestion {
                     Button("Use \(TradeTypeDisplay.name(suggestion)), the usual meaning") {
                         model.flow.setTradeType(nil, for: row.value)
                     }
-                    .font(.caption)
+                    .font(.app(.caption))
                     .buttonStyle(.borderless)
                 }
             }

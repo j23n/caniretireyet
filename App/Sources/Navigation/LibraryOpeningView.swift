@@ -50,14 +50,14 @@ struct LibraryOpeningContent: View {
         VStack(spacing: Metrics.m) {
             if let fraction = opening.fractionCompleted {
                 Text(opening.title)
-                    .font(.headline)
+                    .font(.app(.headline))
                     .multilineTextAlignment(.center)
                 ProgressView(value: fraction)
                     .progressViewStyle(.linear)
                     .accessibilityLabel(opening.title)
                 if let detail = opening.detail {
                     Text(detail)
-                        .font(.subheadline)
+                        .font(.app(.subheadline))
                         .monospacedDigit()
                         .foregroundStyle(Palette.secondaryInk)
                 }
@@ -65,12 +65,12 @@ struct LibraryOpeningContent: View {
                 ProgressView()
                     .controlSize(.large)
                 Text(opening.title)
-                    .font(.headline)
+                    .font(.app(.headline))
                     .multilineTextAlignment(.center)
             }
             if let failure = opening.failureNote {
                 Text(failure)
-                    .font(.subheadline)
+                    .font(.app(.subheadline))
                     .foregroundStyle(Palette.secondaryInk)
                     .multilineTextAlignment(.center)
                     .privacySensitiveInFeedback()
@@ -83,7 +83,7 @@ struct LibraryOpeningContent: View {
     private var stalled: some View {
         VStack(alignment: .leading, spacing: Metrics.l) {
             Label(opening.stalledTitle, systemImage: opening.isICloud ? "icloud.slash" : "hourglass")
-                .font(.title2.weight(.semibold))
+                .font(.app(.title2).weight(.semibold))
             Text(opening.stalledMessage)
             if opening.fractionCompleted != nil || opening.failureNote != nil {
                 progress

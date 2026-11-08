@@ -234,7 +234,7 @@ struct SoFarView: View {
     /// The year a card's months are of, beside its title: "2026".
     private func yearLabel(_ year: Int) -> some View {
         Text(verbatim: String(year))
-            .font(.footnote)
+            .font(.app(.footnote))
             .monospacedDigit()
             .foregroundStyle(Palette.secondaryInk)
             .privacySensitiveInFeedback()
@@ -246,7 +246,7 @@ struct SoFarView: View {
     private func whereItStarts(_ money: PlanMoneyInOut) -> some View {
         if let line = money.whereItStarts(locale: locale) {
             Text(line)
-                .font(PlanProgressFont.caption)
+                .font(Font.app(.footnote))
                 .foregroundStyle(Palette.secondaryInk)
                 .fixedSize(horizontal: false, vertical: true)
                 .privacySensitiveInFeedback()
@@ -263,7 +263,7 @@ struct SoFarView: View {
         } header: {
             SectionHeader("Year by year") {
                 Text("in and out")
-                    .font(.footnote)
+                    .font(.app(.footnote))
                     .foregroundStyle(Palette.secondaryInk)
             }
         }
@@ -272,7 +272,7 @@ struct SoFarView: View {
     /// What a card needs before it can show anything, in a line.
     private func notYet(_ text: String) -> some View {
         Text(text)
-            .font(PlanProgressFont.text)
+            .font(Font.app(.subheadline))
             .foregroundStyle(Palette.secondaryInk)
             .fixedSize(horizontal: false, vertical: true)
     }
@@ -303,7 +303,7 @@ struct SoFarYearByYear: View {
         }
         ChartLegendRow(items: PlanMoneyInOutLegend.parts)
         Text("The percentage is what you saved of your pay after tax. Tap a year to see it at the top.")
-            .font(PlanProgressFont.caption)
+            .font(Font.app(.footnote))
             .foregroundStyle(Palette.secondaryInk)
             .fixedSize(horizontal: false, vertical: true)
     }
@@ -316,7 +316,7 @@ struct SoFarYearByYear: View {
         } label: {
             HStack(alignment: .center, spacing: Metrics.m) {
                 Text(verbatim: money.isSoFar(period) ? "\(String(year)) so far" : String(year))
-                    .font(PlanProgressFont.text.weight(.semibold))
+                    .font(Font.app(.subheadline).weight(.semibold))
                     .monospacedDigit()
                     .foregroundStyle(Palette.ink)
                     .lineLimit(1)
@@ -325,14 +325,14 @@ struct SoFarYearByYear: View {
                     .privacySensitiveInFeedback()
                 bar(period, largest: largest)
                 Text(verbatim: period.rate.map { AmountFormat.percent($0, digits: 0, locale: locale) } ?? "—")
-                    .font(PlanProgressFont.text.weight(.semibold))
+                    .font(Font.app(.subheadline).weight(.semibold))
                     .monospacedDigit()
                     .foregroundStyle(Palette.ink)
                     .lineLimit(1)
                     .frame(minWidth: 40, alignment: .trailing)
                     .privacySensitiveInFeedback()
                 Image(systemName: "chevron.right")
-                    .font(.footnote.weight(.semibold))
+                    .font(.app(.footnote).weight(.semibold))
                     .foregroundStyle(Palette.mutedInk)
                     .opacity(opens ? 1 : 0)
                     .accessibilityHidden(true)
@@ -385,35 +385,6 @@ struct SoFarYearByYear: View {
         let year = String(period.from.year)
         guard let rate = period.rate else { return "\(year): no savings rate" }
         return "\(year): saved \(AmountFormat.percent(rate, digits: 0, locale: locale)) of what came in after tax"
-    }
-}
-
-/// Text in So far's cards: 15 points on iPhone and iPad, 13 on the Mac;
-/// captions 13 and 11.
-enum PlanProgressFont {
-    static var text: Font {
-        #if os(macOS)
-        Font.body
-        #else
-        Font.subheadline
-        #endif
-    }
-
-    static var caption: Font {
-        #if os(macOS)
-        Font.subheadline
-        #else
-        Font.footnote
-        #endif
-    }
-
-    /// The year in a line, above its words.
-    static var summary: Font {
-        #if os(macOS)
-        Font.title3.weight(.semibold)
-        #else
-        Font.headline
-        #endif
     }
 }
 

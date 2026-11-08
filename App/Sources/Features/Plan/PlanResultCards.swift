@@ -59,7 +59,7 @@ struct PlanResultWarnings: View {
                         .foregroundStyle(Palette.secondaryInk)
                 }
             }
-            .font(.footnote)
+            .font(.app(.footnote))
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, Metrics.xs)
             // "Set one…" opens the account the warning is about.
@@ -177,7 +177,7 @@ struct PlanResultTiles: View {
             TileLabel("Spending you can afford", emoji: "🛍️")
             Spacer(minLength: Metrics.s)
             AmountText(yearly / 12, currency: session.currency, tabular: false)
-                .font(.tile(.title).bold())
+                .font(.figure)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
             TileCaption(verbatim: "a month\(age.map { " from \($0)" } ?? ""), in "
@@ -194,7 +194,7 @@ struct PlanResultTiles: View {
             TileLabel("Needed to retire today", emoji: "🧮")
             Spacer(minLength: Metrics.s)
             AmountSentenceText(value)
-                .font(.tile(.title2).bold())
+                .font(.figure)
                 .lineLimit(2)
                 .minimumScaleFactor(0.6)
             if let readiness {
@@ -242,7 +242,7 @@ struct PlanStopAgesTile: View {
         ColorTile {
             TileLabel("If you stopped at another age", emoji: "🎯")
             Text("How many of 10 futures keep your money lasting to \(end).")
-                .font(.tile(.footnote))
+                .font(.app(.footnote))
                 .foregroundStyle(Palette.secondaryInk)
                 .fixedSize(horizontal: false, vertical: true)
                 .privacySensitiveInFeedback()
@@ -266,7 +266,7 @@ struct PlanStopAgesTile: View {
             .privacySensitiveInFeedback()
             if let words = words(points, earliest: earliest) {
                 Text(verbatim: words)
-                    .font(.tile(.subheadline))
+                    .font(.app(.subheadline))
                     .foregroundStyle(Palette.ink)
                     .fixedSize(horizontal: false, vertical: true)
                     .privacySensitiveInFeedback()
@@ -292,7 +292,7 @@ struct PlanStopAgesTile: View {
             }
             .frame(height: Self.barsHeight)
             Text(verbatim: "\(point.age)")
-                .font(.tile(.caption2).weight(isAnswer ? .bold : .regular))
+                .font(.app(.caption2).weight(isAnswer ? .bold : .regular))
                 .monospacedDigit()
                 .foregroundStyle(isAnswer ? Palette.accent : Palette.secondaryInk)
                 .lineLimit(1)

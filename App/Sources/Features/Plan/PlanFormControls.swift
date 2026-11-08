@@ -163,7 +163,7 @@ struct PlanIssueLine: View {
     var body: some View {
         Label {
             Text(message)
-                .font(.footnote)
+                .font(.app(.footnote))
                 .foregroundStyle(Palette.ink)
                 .fixedSize(horizontal: false, vertical: true)
                 .privacySensitiveInFeedback()
@@ -186,7 +186,7 @@ struct PlanIssueBadge: View {
         if !issues.isEmpty {
             Label(String(issues.count), systemImage: errors > 0 ? "xmark.octagon.fill" : "exclamationmark.triangle.fill")
                 .labelStyle(.titleAndIcon)
-                .font(.caption.weight(.semibold))
+                .font(.app(.caption).weight(.semibold))
                 .monospacedDigit()
                 .foregroundStyle(errors > 0 ? Palette.critical : Palette.warning)
                 .accessibilityLabel(Text(spoken))
@@ -252,11 +252,11 @@ struct PlanSectionCard<Content: View>: View {
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
                 Text(section.title)
-                    .font(.subheadline.weight(.semibold))
+                    .font(.app(.subheadline).weight(.semibold))
                     .foregroundStyle(Palette.ink)
                 if !isExpanded {
                     AmountSentenceText(summary)
-                        .font(.footnote)
+                        .font(.app(.footnote))
                         .foregroundStyle(Palette.secondaryInk)
                         .lineLimit(2)
                 }
@@ -264,7 +264,7 @@ struct PlanSectionCard<Content: View>: View {
             Spacer(minLength: Metrics.s)
             PlanIssueBadge(issues: issues)
             Image(systemName: "chevron.right")
-                .font(.footnote.weight(.semibold))
+                .font(.app(.footnote).weight(.semibold))
                 .foregroundStyle(Palette.mutedInk)
                 .rotationEffect(.degrees(isExpanded ? 90 : 0))
                 .accessibilityHidden(true)

@@ -164,14 +164,14 @@ struct AccountHistoryChart: View {
     private func callout(for point: ChartPoint) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(point.date, format: .dateTime.day().month(.abbreviated).year())
-                .font(.caption2)
+                .font(.app(.caption2))
                 .foregroundStyle(Palette.secondaryInk)
             if point.isComplete {
                 AmountText(Decimal(wholeNumber: point.value), currency: currency)
-                    .font(.caption.weight(.semibold))
+                    .font(.app(.caption).weight(.semibold))
             } else {
                 Text("Can't be valued: see below")
-                    .font(.caption.weight(.semibold))
+                    .font(.app(.caption).weight(.semibold))
                     .foregroundStyle(Palette.secondaryInk)
             }
             if let saved = self.saved(upTo: point) {
@@ -180,7 +180,7 @@ struct AccountHistoryChart: View {
                         .foregroundStyle(Palette.secondaryInk)
                     DeltaText(saved, currency: currency, precision: .automatic, showsArrow: false)
                 }
-                .font(.caption2)
+                .font(.app(.caption2))
             }
         }
         .padding(Metrics.s)

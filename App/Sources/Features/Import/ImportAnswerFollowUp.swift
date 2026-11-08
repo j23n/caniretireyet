@@ -46,7 +46,7 @@ struct ImportAnswerFollowUp: View {
                 case .card:
                     VStack(alignment: .leading, spacing: Metrics.m) {
                         Text(header)
-                            .font(.subheadline.weight(.semibold))
+                            .font(.app(.subheadline).weight(.semibold))
                             .foregroundStyle(Palette.secondaryInk)
                             .accessibilityAddTraits(.isHeader)
                         content
@@ -102,7 +102,7 @@ struct ImportAnswerFollowUp: View {
     private var estimates: some View {
         Text("These accounts started as round amounts. Replace them with the accounts this import brought in, "
             + "and your answer is calculated again.")
-            .font(.callout)
+            .font(.app(.body))
             .foregroundStyle(Palette.secondaryInk)
             .fixedSize(horizontal: false, vertical: true)
         ForEach(replaceable) { estimate in
@@ -113,7 +113,7 @@ struct ImportAnswerFollowUp: View {
                     Text(estimate.name)
                         .foregroundStyle(Palette.ink)
                     Text(Self.replacedBy(library.library.accountsReplacing(estimate)))
-                        .font(.footnote)
+                        .font(.app(.footnote))
                         .foregroundStyle(Palette.secondaryInk)
                 }
                 .privacySensitiveInFeedback()
@@ -121,7 +121,7 @@ struct ImportAnswerFollowUp: View {
         }
         if let error {
             Label(error, systemImage: "exclamationmark.triangle")
-                .font(.footnote)
+                .font(.app(.footnote))
                 .foregroundStyle(Palette.warning)
         }
         Button {
@@ -189,14 +189,14 @@ struct ImportAnswerFollowUp: View {
             VStack(alignment: .leading, spacing: Metrics.xs) {
                 Text(verbatim: OnboardingText.revealLead(headline) + " "
                      + OnboardingText.revealTitle(headline, locale: locale))
-                    .font(.headline)
+                    .font(.app(.headline))
                     .foregroundStyle(Palette.ink)
                 Text(OnboardingText.revealLine(headline))
-                    .font(.callout)
+                    .font(.app(.body))
                     .foregroundStyle(Palette.ink)
                 if let change = Self.change(from: before, to: headline) {
                     Text(change)
-                        .font(.callout)
+                        .font(.app(.body))
                         .foregroundStyle(Palette.secondaryInk)
                 }
             }
@@ -212,12 +212,12 @@ struct ImportAnswerFollowUp: View {
                 ProgressView()
                     .controlSize(.small)
                 Text("Calculating your plan with the new values…")
-                    .font(.callout)
+                    .font(.app(.body))
                     .foregroundStyle(Palette.secondaryInk)
             }
         } else {
             Text(plans.checkInAnswer?.error ?? "Your plan couldn't be calculated.")
-                .font(.callout)
+                .font(.app(.body))
                 .foregroundStyle(Palette.secondaryInk)
                 .fixedSize(horizontal: false, vertical: true)
         }

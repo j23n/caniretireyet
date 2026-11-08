@@ -169,7 +169,7 @@ struct PillLabel: View {
                 .lineLimit(1)
                 .privacySensitiveInFeedback(isPersonal)
             Image(systemName: "chevron.down")
-                .font(.caption.weight(.semibold))
+                .font(.app(.caption).weight(.semibold))
                 .accessibilityHidden(true)
         }
         .fontWeight(.semibold)

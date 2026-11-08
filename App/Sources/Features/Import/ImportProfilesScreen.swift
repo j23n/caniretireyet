@@ -29,7 +29,7 @@ struct ImportProfilesScreen: View {
                     Text(profile.name)
                         .foregroundStyle(Palette.ink)
                     Text(profile.importSummary)
-                        .font(.caption)
+                        .font(.app(.caption))
                         .foregroundStyle(Palette.secondaryInk)
                 }
                 .privacySensitiveInFeedback()

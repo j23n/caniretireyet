@@ -157,12 +157,12 @@ struct TestProfileBanner: ViewModifier {
             HStack(spacing: Metrics.s) {
                 Image(systemName: "person.crop.circle.badge.questionmark")
                 Text("Test profile “\(profile.name)”")
-                    .font(.footnote.weight(.semibold))
+                    .font(.app(.footnote).weight(.semibold))
                 Spacer(minLength: Metrics.s)
                 Button("Leave") {
                     Task { await session.switchTo(nil) }
                 }
-                .font(.footnote.weight(.semibold))
+                .font(.app(.footnote).weight(.semibold))
                 .disabled(session.isSwitching)
             }
             .padding(.horizontal, Metrics.l)

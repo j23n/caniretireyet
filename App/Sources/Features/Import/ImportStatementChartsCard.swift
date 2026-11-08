@@ -72,7 +72,7 @@ private struct ImportChartCard<Key: View, Chart: View>: View {
         VStack(alignment: .leading, spacing: Metrics.s) {
             HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
                 Text(title)
-                    .font(isCompact ? .subheadline.weight(.semibold) : .headline)
+                    .font(isCompact ? .app(.subheadline).weight(.semibold) : .app(.headline))
                     .foregroundStyle(Palette.ink)
                     .lineLimit(1)
                     .privacySensitiveInFeedback()
@@ -81,7 +81,7 @@ private struct ImportChartCard<Key: View, Chart: View>: View {
                 HStack(spacing: Metrics.m) {
                     key()
                 }
-                .font(.caption2)
+                .font(.app(.caption2))
                 .foregroundStyle(Palette.secondaryInk)
                 .fixedSize()
                 .accessibilityElement(children: .combine)

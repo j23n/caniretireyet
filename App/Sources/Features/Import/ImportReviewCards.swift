@@ -65,12 +65,12 @@ struct ImportStatementReview: View {
         VStack(alignment: .leading, spacing: Metrics.xs) {
             if !isCompact {
                 Text("Does this look right?")
-                    .font(.title2.bold())
+                    .font(.app(.title2).bold())
                     .foregroundStyle(Palette.ink)
                     .accessibilityAddTraits(.isHeader)
             }
             Text(flow.reviewSubtitle(compact: isCompact))
-                .font(isCompact ? .subheadline : .callout)
+                .font(isCompact ? .app(.subheadline) : .app(.body))
                 .foregroundStyle(Palette.secondaryInk)
                 .fixedSize(horizontal: false, vertical: true)
                 .privacySensitiveInFeedback()
@@ -90,7 +90,7 @@ private struct ImportReviewOpeningBalanceCard: View {
     var body: some View {
         Card("Balance before the first line", systemImage: asked.isNeeded ? "exclamationmark.triangle" : "banknote") {
             Text(asked.explanation)
-                .font(.footnote)
+                .font(.app(.footnote))
                 .foregroundStyle(Palette.secondaryInk)
                 .fixedSize(horizontal: false, vertical: true)
                 .privacySensitiveInFeedback()
@@ -169,7 +169,7 @@ private struct ImportReviewConflicts: View {
     @ViewBuilder
     private func more(_ count: Int) -> some View {
         Text(count == 1 ? "And 1 more value differs." : "And \(count) more values differ.")
-            .font(.footnote)
+            .font(.app(.footnote))
             .foregroundStyle(Palette.secondaryInk)
         Button("Show All") { showsAll = true }
             .buttonStyle(.borderless)
@@ -199,11 +199,11 @@ private struct ImportConflictBanner: View {
                         icon
                         VStack(alignment: .leading, spacing: 2) {
                             Text(conflict.title)
-                                .font(.subheadline.weight(.semibold))
+                                .font(.app(.subheadline).weight(.semibold))
                                 .foregroundStyle(Palette.ink)
                                 .privacySensitiveInFeedback()
                             AmountSentenceText(conflict.compactSentence(locale: locale))
-                                .font(.footnote)
+                                .font(.app(.footnote))
                                 .foregroundStyle(Palette.ink)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
@@ -216,12 +216,12 @@ private struct ImportConflictBanner: View {
                     icon
                     VStack(alignment: .leading, spacing: 2) {
                         AmountSentenceText(conflict.headline(locale: locale))
-                            .font(.callout.weight(.semibold))
+                            .font(.app(.body).weight(.semibold))
                             .foregroundStyle(Palette.ink)
                             .fixedSize(horizontal: false, vertical: true)
                         if let detail = conflict.detail(locale: locale) {
                             AmountSentenceText(detail)
-                                .font(.footnote)
+                                .font(.app(.footnote))
                                 .foregroundStyle(Palette.secondaryInk)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
@@ -298,7 +298,7 @@ private struct ImportReviewAccounts: View {
                     .gridColumnAlignment(.trailing)
                     .privacySensitiveInFeedback()
             }
-            .font(.caption.weight(.semibold))
+            .font(.app(.caption).weight(.semibold))
             .foregroundStyle(Palette.secondaryInk)
             .padding(.vertical, Metrics.s)
             ForEach(accounts) { account in
@@ -321,7 +321,7 @@ private struct ImportReviewAccounts: View {
                     amount(account.balance, account.currency)
                     change(account.change, account.currency)
                 }
-                .font(.callout)
+                .font(.app(.body))
                 .padding(.vertical, Metrics.s)
             }
         }
@@ -333,7 +333,7 @@ private struct ImportReviewAccounts: View {
     private func compact(_ accounts: [ImportReviewAccount]) -> some View {
         VStack(alignment: .leading, spacing: Metrics.s) {
             Text(flow.reviewAccountsHeader().uppercased())
-                .font(.footnote)
+                .font(.app(.footnote))
                 .foregroundStyle(Palette.secondaryInk)
                 .padding(.horizontal, Metrics.l)
                 .padding(.top, Metrics.s)
@@ -358,7 +358,7 @@ private struct ImportReviewAccounts: View {
                         VStack(alignment: .trailing, spacing: 2) {
                             amount(account.balance, account.currency)
                             change(account.change, account.currency)
-                                .font(.caption)
+                                .font(.app(.caption))
                         }
                     }
                     .padding(.horizontal, Metrics.l)
@@ -400,11 +400,11 @@ private struct ImportNewBadge: View {
     var body: some View {
         if isCompact {
             Text("New")
-                .font(.caption)
+                .font(.app(.caption))
                 .foregroundStyle(Palette.accent)
         } else {
             Text("New")
-                .font(.caption)
+                .font(.app(.caption))
                 .foregroundStyle(Palette.accent)
                 .padding(.horizontal, 6)
                 .padding(.vertical, 1)

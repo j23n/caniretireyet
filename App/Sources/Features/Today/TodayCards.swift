@@ -108,7 +108,7 @@ struct TodayMovedLedger: View {
     }
 
     private func font(_ line: TodayMovedLine) -> Font {
-        .tile(.footnote).weight(line.isSum ? .semibold : .regular)
+        .app(.subheadline).weight(line.isSum ? .semibold : .regular)
     }
 }
 
@@ -141,13 +141,13 @@ struct TodayPayRing: View {
             if let share = pay.savedShare {
                 VStack(spacing: 0) {
                     Text(verbatim: AmountFormat.percent(share, digits: 0, locale: locale))
-                        .font(.tile(.headline).bold())
+                        .font(.app(.headline).bold())
                     Text("saved")
-                        .font(.tile(.caption2))
+                        .font(.app(.caption2))
                         .opacity(0.8)
                     if let planRate {
                         Text(verbatim: "plan \(AmountFormat.percent(planRate, digits: 0, locale: locale))")
-                            .font(.tile(.caption2))
+                            .font(.app(.caption2))
                             .foregroundStyle(Palette.accent)
                     }
                 }
@@ -248,12 +248,12 @@ struct TodayPlanCard: View {
     private var noPlan: some View {
         VStack(alignment: .leading, spacing: Metrics.m) {
             Text(noPlanText)
-                .font(.callout)
+                .font(.app(.body))
                 .foregroundStyle(Palette.ink)
                 .fixedSize(horizontal: false, vertical: true)
             if let error {
                 Label(error, systemImage: "exclamationmark.triangle")
-                    .font(.caption)
+                    .font(.app(.caption))
                     .foregroundStyle(Palette.secondaryInk)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -288,7 +288,7 @@ struct TodayPlanCard: View {
     private func cantCalculate(_ plan: PlanDocument, error: String) -> some View {
         VStack(alignment: .leading, spacing: Metrics.s) {
             Label("\(plan.name) can't be calculated: \(error)", systemImage: "exclamationmark.triangle")
-                .font(.callout)
+                .font(.app(.body))
                 .foregroundStyle(Palette.secondaryInk)
                 .fixedSize(horizontal: false, vertical: true)
                 .privacySensitiveInFeedback()
@@ -324,7 +324,7 @@ struct TodayPlanCard: View {
         } else {
             VStack(alignment: .leading, spacing: Metrics.m) {
                 Text("Calculate \(plan.name) to see when you could retire. Each check-in then records its answer.")
-                    .font(.callout)
+                    .font(.app(.body))
                     .foregroundStyle(Palette.secondaryInk)
                     .fixedSize(horizontal: false, vertical: true)
                     .privacySensitiveInFeedback()
@@ -409,7 +409,7 @@ struct TodayAttentionCard: View {
                         showsAll.toggle()
                     }
                     .buttonStyle(.plain)
-                    .font(.subheadline)
+                    .font(.app(.subheadline))
                     .foregroundStyle(Palette.accent)
                     .padding(.vertical, Metrics.m)
                 }
@@ -520,7 +520,7 @@ private struct TodayAttentionRow: View {
             } else {
                 HStack(spacing: Metrics.m) {
                     Image(systemName: item.systemImage)
-                        .font(.title3)
+                        .font(.app(.title3))
                         .foregroundStyle(Palette.warning)
                         .accessibilityHidden(true)
                     words(detail: Palette.secondaryInk)
@@ -542,7 +542,7 @@ private struct TodayAttentionRow: View {
                 .lineLimit(1)
                 .privacySensitiveInFeedback()
             Text(item.detail)
-                .font(.footnote)
+                .font(.app(.footnote))
                 .foregroundStyle(detail)
                 .lineLimit(2)
                 .fixedSize(horizontal: false, vertical: true)
@@ -553,7 +553,7 @@ private struct TodayAttentionRow: View {
     /// The action, drawn as a small button: the whole row is the button.
     private var action: some View {
         Text(item.action)
-            .font(layout.isWide ? .caption : .subheadline)
+            .font(layout.isWide ? .app(.caption) : .app(.subheadline))
             .foregroundStyle(layout.isWide ? Palette.ink : Palette.accent)
             .lineLimit(1)
             .fixedSize()

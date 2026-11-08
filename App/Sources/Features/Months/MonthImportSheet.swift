@@ -153,7 +153,7 @@ struct MonthImportSheet: View {
     private var done: some View {
         VStack(spacing: Metrics.l) {
             Image(systemName: "checkmark.circle.fill")
-                .font(.largeTitle)
+                .font(.app(.largeTitle))
                 .foregroundStyle(Palette.good)
                 .accessibilityHidden(true)
             Text("The statement's lines are in \(monthName). Check what each one is, and the month is done.")

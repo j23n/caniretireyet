@@ -108,16 +108,16 @@ struct PlanMenu: View {
         HStack(spacing: Metrics.xs) {
             if isMain {
                 Image(systemName: "star.fill")
-                    .font(.caption2)
+                    .font(.app(.caption2))
                     .foregroundStyle(Palette.accent)
                     .accessibilityLabel("Main plan")
             }
             Text(name)
-                .font(inToolbar ? .body : .subheadline)
+                .font(inToolbar ? .app(.body) : .app(.subheadline))
                 .foregroundStyle(inToolbar ? Palette.ink : Palette.secondaryInk)
                 .lineLimit(1)
             Image(systemName: "chevron.down")
-                .font(.caption2.weight(.semibold))
+                .font(.app(.caption2).weight(.semibold))
                 .foregroundStyle(inToolbar ? Palette.ink : Palette.secondaryInk)
                 .accessibilityHidden(true)
         }

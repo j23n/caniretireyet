@@ -33,7 +33,7 @@ struct PlanCalculationsSheet: View {
                     fileRow
                     if let message {
                         Text(message)
-                            .font(.footnote)
+                            .font(.app(.footnote))
                             .foregroundStyle(Palette.secondaryInk)
                             .privacySensitiveInFeedback()
                     }

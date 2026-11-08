@@ -17,18 +17,18 @@ struct OnboardingEstimatePanel: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Metrics.m) {
             Text("Estimate")
-                .font(.footnote.weight(.semibold))
+                .font(.app(.footnote).weight(.semibold))
                 .foregroundStyle(Palette.secondaryInk)
             if let estimate = model.estimate, model.estimateRequest() != nil {
                 Text(Self.title(estimate.headline, hasStoppedWorking: model.hasStoppedWorking))
-                    .font(.title2.bold())
+                    .font(.app(.title2).bold())
                     .foregroundStyle(Palette.ink)
                     .fixedSize(horizontal: false, vertical: true)
                     .privacySensitiveInFeedback()
                 if !model.hasStoppedWorking,
                    let change = Self.change(from: model.previousEstimate?.headline, to: estimate.headline) {
                     Text(change.text)
-                        .font(.callout)
+                        .font(.app(.body))
                         .foregroundStyle(change.isSooner ? Palette.positive : Palette.secondaryInk)
                         .privacySensitiveInFeedback()
                 }
@@ -41,13 +41,13 @@ struct OnboardingEstimatePanel: View {
                 }
             } else {
                 Text(waitingText)
-                    .font(.callout)
+                    .font(.app(.body))
                     .foregroundStyle(Palette.secondaryInk)
                     .fixedSize(horizontal: false, vertical: true)
             }
             Text("The estimate updates as you type and uses a few hundred simulated futures. Your answer at the end "
                  + "uses thousands.")
-                .font(.footnote)
+                .font(.app(.footnote))
                 .foregroundStyle(Palette.secondaryInk)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -60,7 +60,7 @@ struct OnboardingEstimatePanel: View {
             AmountText(amount, currency: model.currency)
                 .monospacedDigit()
         }
-        .font(.subheadline)
+        .font(.app(.subheadline))
     }
 
     /// What the estimate still needs.

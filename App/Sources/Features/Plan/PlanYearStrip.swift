@@ -64,21 +64,21 @@ struct PlanYearChartCard: View {
     /// year to year ("Ended ahead of what you planned in January" is longer).
     private func titles(alignment: HorizontalAlignment) -> some View {
         VStack(alignment: alignment, spacing: 2) {
-            steadyLine(font: .title3.weight(.bold), alignment: alignment) {
+            steadyLine(font: .app(.title3).weight(.bold), alignment: alignment) {
                 Text(card.year.title)
                     .foregroundStyle(Palette.ink)
                     .privacySensitiveInFeedback()
                     .accessibilityAddTraits(.isHeader)
             }
             if let verdict = PlanProgressText.verdict(card.year, locale: locale) {
-                steadyLine(font: .subheadline.weight(.semibold), alignment: alignment) {
+                steadyLine(font: .app(.subheadline).weight(.semibold), alignment: alignment) {
                     Text(verdict)
                         .foregroundStyle(PlanBaselineComparison.Standing.color(of: card.year.position))
                         // It names the plan's month or year: "…in January".
                         .privacySensitiveInFeedback()
                 }
             } else {
-                steadyLine(font: .subheadline, alignment: alignment) {
+                steadyLine(font: .app(.subheadline), alignment: alignment) {
                     Text(PlanProgressText.unmeasured(card.year))
                         .foregroundStyle(Palette.mutedInk)
                         .privacySensitiveInFeedback()
@@ -110,7 +110,7 @@ struct PlanYearChartCard: View {
             select(target)
         } label: {
             Image(systemName: later ? "chevron.right" : "chevron.left")
-                .font(.body.weight(.semibold))
+                .font(.app(.body).weight(.semibold))
                 .foregroundStyle(enabled ? Palette.accent : Palette.mutedInk.opacity(0.5))
                 .frame(width: 36, height: 36)
                 .background(Palette.page, in: Circle())
@@ -245,7 +245,7 @@ struct PlanYearCardView: View {
             let fitsAbove = at.y - 22 >= plot.top
             let below = actual >= middle.value ? fitsBelow || !fitsAbove : !fitsAbove
             Text("planned in \(card.year.plannedIn(locale: locale))")
-                .font(.caption)
+                .font(.app(.caption))
                 .foregroundStyle(Palette.accent)
                 .planGraphLabel()
                 .offset(x: max(Self.pad, min(at.x - 40, width - 150)), y: below ? at.y + 6 : at.y - 22)
@@ -256,7 +256,7 @@ struct PlanYearCardView: View {
     private var months: some View {
         ForEach(1...12, id: \.self) { month in
             Text(Self.initial(month, locale: locale))
-                .font(.caption2)
+                .font(.app(.caption2))
                 .foregroundStyle(Palette.mutedInk)
                 .frame(width: pointsPerMonth)
                 .offset(x: Self.pad + CGFloat(month - 1) * pointsPerMonth, y: plot.bottom + 6)
@@ -324,7 +324,7 @@ struct PlanYearCardView: View {
         ChartCalloutTotal(found.point.value, currency: card.currency)
         if !found.point.isComplete {
             Text("Not every price is known")
-                .font(.caption2)
+                .font(.app(.caption2))
                 .foregroundStyle(Palette.secondaryInk)
         }
         if let expected = found.expected {
@@ -341,7 +341,7 @@ struct PlanYearCardView: View {
         }
         ForEach(Array(found.notes.prefix(2))) { note in
             AmountSentenceText(note.text)
-                .font(.caption2)
+                .font(.app(.caption2))
                 .foregroundStyle(Palette.secondaryInk)
                 .lineLimit(2)
                 .fixedSize(horizontal: false, vertical: true)

@@ -22,7 +22,7 @@ import SwiftUI
 ///     AmountText(netWorth.total)
 ///     AmountText(balance, currency: account.currency, precision: .cents)
 ///     AmountText(trade.amount, currency: account.currency, precision: .cents, signed: true)
-///     AmountText(total, tabular: false, animatesChanges: true).font(.largeTitle.bold())
+///     AmountText(total, tabular: false, animatesChanges: true).font(.app(.largeTitle).bold())
 ///     AmountText(median, short: true)
 struct AmountText: View {
     let amount: Decimal
@@ -163,7 +163,7 @@ struct DeltaText: View {
 
 #Preview("Amounts") {
     VStack(alignment: .leading, spacing: 8) {
-        AmountText(Decimal(string: "312480.55")!, tabular: false).font(.largeTitle.bold())
+        AmountText(Decimal(string: "312480.55")!, tabular: false).font(.app(.largeTitle).bold())
         AmountText(Decimal(string: "4210.55")!, precision: .cents)
         AmountText(Decimal(string: "-1025.95")!, precision: .cents, signed: true)
         AmountText(Decimal(12_345_678), short: true)
@@ -177,7 +177,7 @@ struct DeltaText: View {
 
 #Preview("Amounts hidden") {
     VStack(alignment: .leading, spacing: 8) {
-        AmountText(Decimal(312_480), tabular: false).font(.largeTitle.bold())
+        AmountText(Decimal(312_480), tabular: false).font(.app(.largeTitle).bold())
         DeltaText(Decimal(4210))
         DeltaText(percent: 0.142)
         AmountSentenceText("You saved \(amount: "4.210 €") and markets added \(amount: "1.200 €").")

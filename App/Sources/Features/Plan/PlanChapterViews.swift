@@ -93,11 +93,11 @@ struct PlanChapterSheet: View {
                     if let model, let index {
                         VStack(spacing: 0) {
                             Text(model.title(of: model.chapters.chapters[index]))
-                                .font(.headline)
+                                .font(.app(.headline))
                                 .foregroundStyle(Palette.ink)
                                 .lineLimit(1)
                             Text(model.agesAndYears(ofChapterAt: index))
-                                .font(.footnote)
+                                .font(.app(.footnote))
                                 .monospacedDigit()
                                 .foregroundStyle(Palette.secondaryInk)
                                 .lineLimit(1)
@@ -190,7 +190,7 @@ struct PlanChapterDetail: View {
         VStack(alignment: .leading, spacing: Metrics.l) {
             VStack(alignment: .leading, spacing: Metrics.m) {
                 PlanStoryText(runs: story.story)
-                    .font(.body)
+                    .font(.app(.body))
                     .foregroundStyle(Palette.ink)
                 if let bar = story.bar {
                     PlanMonthBarView(bar: bar)
@@ -216,7 +216,7 @@ struct PlanChapterDetail: View {
                     }
                     if milestones.count > Self.shownMilestones {
                         Text("And \(milestones.count - Self.shownMilestones) more ahead.")
-                            .font(.footnote)
+                            .font(.app(.footnote))
                             .foregroundStyle(Palette.secondaryInk)
                             .padding(.horizontal, Metrics.xs)
                     }
@@ -235,7 +235,7 @@ struct PlanChapterDetail: View {
                                 Image(systemName: "exclamationmark.triangle.fill")
                                     .foregroundStyle(Palette.orangeStroke)
                             }
-                            .font(.subheadline)
+                            .font(.app(.subheadline))
                             .foregroundStyle(Palette.ink)
                         }
                     }
@@ -255,14 +255,14 @@ struct PlanChapterDetail: View {
                 PlanPartLabel("In this chapter")
                 Spacer(minLength: Metrics.s)
                 Text("A month, in \(PlanMoney.todaysMoney(words.currency))")
-                    .font(.caption)
+                    .font(.app(.caption))
                     .foregroundStyle(Palette.mutedInk)
                     .lineLimit(1)
             }
             let rows = PlanChapterSettings.rows(for: chapter.items, model: model, issues: issues, words: words)
             if rows.isEmpty {
                 Text("Nothing starts in this chapter.")
-                    .font(.subheadline)
+                    .font(.app(.subheadline))
                     .foregroundStyle(Palette.secondaryInk)
                     .padding(Metrics.l)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -273,7 +273,7 @@ struct PlanChapterDetail: View {
             }
             if let continuing = model.continuing(in: chapter) {
                 Text(continuing)
-                    .font(.footnote)
+                    .font(.app(.footnote))
                     .foregroundStyle(Palette.secondaryInk)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.horizontal, Metrics.xs)

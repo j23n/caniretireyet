@@ -128,14 +128,14 @@ struct FanChart: View {
     private func callout(for point: FanPoint, layout: ProjectionLayout) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(point.date, format: .dateTime.year())
-                .font(.caption2)
+                .font(.app(.caption2))
                 .foregroundStyle(Palette.secondaryInk)
             row("9 in 10 above", point.p10)
             row("Median", point.p50)
             row("1 in 10 above", point.p90)
             ForEach(layout.markers.iconOnly(near: point.date)) { marker in
                 Label(marker.label, systemImage: marker.symbol)
-                    .font(.caption2)
+                    .font(.app(.caption2))
                     .foregroundStyle(Palette.secondaryInk)
             }
         }
@@ -145,9 +145,9 @@ struct FanChart: View {
 
     private func row(_ label: String, _ value: Double) -> some View {
         HStack(spacing: Metrics.s) {
-            Text(label).font(.caption2).foregroundStyle(Palette.secondaryInk)
+            Text(label).font(.app(.caption2)).foregroundStyle(Palette.secondaryInk)
             Spacer(minLength: Metrics.s)
-            AmountText(Decimal(wholeNumber: value), currency: currency).font(.caption2.weight(.semibold))
+            AmountText(Decimal(wholeNumber: value), currency: currency).font(.app(.caption2).weight(.semibold))
         }
         .frame(width: 180)
     }

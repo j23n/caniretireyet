@@ -30,22 +30,22 @@ struct BreakdownBars: View {
     var body: some View {
         if rows.isEmpty {
             Text("Nothing to break down yet.")
-                .font(.callout)
+                .font(.app(.body))
                 .foregroundStyle(Palette.secondaryInk)
         } else {
             Grid(alignment: .leading, horizontalSpacing: Metrics.s, verticalSpacing: Metrics.s) {
                 ForEach(shownRows) { row in
                     GridRow {
                         Text(row.label)
-                            .font(.subheadline)
+                            .font(.app(.subheadline))
                             .foregroundStyle(Palette.ink)
                             .lineLimit(1)
                         bar(for: row)
                         AmountText(row.value)
-                            .font(.subheadline)
+                            .font(.app(.subheadline))
                             .gridColumnAlignment(.trailing)
                         Text(row.share.map { AmountFormat.percent($0, digits: 0) } ?? "")
-                            .font(.subheadline)
+                            .font(.app(.subheadline))
                             .monospacedDigit()
                             .foregroundStyle(Palette.secondaryInk)
                             .gridColumnAlignment(.trailing)

@@ -23,7 +23,7 @@ struct OnboardingRecordsStep: View {
             yearTile
             Text("You get these whether you type your numbers or import your statements. The next step lets you "
                 + "choose.")
-                .font(.footnote)
+                .font(.app(.footnote))
                 .foregroundStyle(Palette.secondaryInk)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -85,7 +85,7 @@ struct OnboardingRecordsStep: View {
                     caption: "Each year against the plan you had in January: ahead, on track or behind.") {
             VStack(alignment: .leading, spacing: Metrics.s) {
                 Text("Ahead of what you planned in January")
-                    .font(.subheadline.weight(.semibold))
+                    .font(.app(.subheadline).weight(.semibold))
                     .foregroundStyle(Palette.accent)
                 ExampleYearLine(values: OnboardingRecordsExample.yearValues)
                     .frame(height: 110)
@@ -106,7 +106,7 @@ struct OnboardingRecordsStep: View {
                  : AmountFormat.signedAmount(line.amount, currency: model.currency, locale: locale))
                 .monospacedDigit()
         }
-        .font(line.isSum ? .subheadline.weight(.semibold) : .subheadline)
+        .font(line.isSum ? .app(.subheadline).weight(.semibold) : .app(.subheadline))
         .foregroundStyle(Palette.ink)
         .accessibilityElement(children: .combine)
     }
@@ -174,11 +174,11 @@ private struct ExampleTile<Content: View>: View {
         VStack(alignment: .leading, spacing: Metrics.m) {
             HStack {
                 Text(title)
-                    .font(.subheadline.weight(.semibold))
+                    .font(.app(.subheadline).weight(.semibold))
                     .foregroundStyle(Palette.ink)
                 Spacer()
                 Text("EXAMPLE")
-                    .font(.caption2.weight(.bold))
+                    .font(.app(.caption2).weight(.bold))
                     .foregroundStyle(Palette.secondaryInk)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 3)
@@ -187,7 +187,7 @@ private struct ExampleTile<Content: View>: View {
             }
             content
             Text(caption)
-                .font(.footnote)
+                .font(.app(.footnote))
                 .foregroundStyle(Palette.secondaryInk)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -212,10 +212,10 @@ private struct ExampleRing: View {
             ring(from: saved + spent, to: saved + spent + tax, color: TodayMovedLine.Kind.tax.color)
             VStack(spacing: 0) {
                 Text(AmountFormat.percent(saved, digits: 0, locale: locale))
-                    .font(.headline)
+                    .font(.app(.headline))
                     .monospacedDigit()
                 Text("saved")
-                    .font(.caption2)
+                    .font(.app(.caption2))
                     .foregroundStyle(Palette.secondaryInk)
             }
         }
@@ -252,7 +252,7 @@ private struct ExampleBars: View {
                         .frame(width: step * 0.66, height: barHeight)
                         .offset(x: step * CGFloat(index) + step * 0.17, y: height - barHeight)
                     Text(Self.monthLetter(index, locale: locale))
-                        .font(.caption2)
+                        .font(.app(.caption2))
                         .foregroundStyle(Palette.secondaryInk)
                         .frame(width: step)
                         .offset(x: step * CGFloat(index), y: height + 1)
@@ -264,7 +264,7 @@ private struct ExampleBars: View {
                 }
                 .stroke(Palette.accent, style: StrokeStyle(lineWidth: 2, dash: [5, 4]))
                 Text("your plan's \(AmountFormat.percent(planned, digits: 0, locale: locale))")
-                    .font(.caption2)
+                    .font(.app(.caption2))
                     .foregroundStyle(Palette.accentDeep)
                     .frame(width: proxy.size.width, alignment: .trailing)
                     .offset(y: planY - 16)

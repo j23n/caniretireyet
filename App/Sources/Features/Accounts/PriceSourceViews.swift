@@ -19,25 +19,25 @@ struct SymbolCandidateRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
                     Text(verbatim: candidate.symbol)
-                        .font(.body.weight(.semibold))
+                        .font(.app(.body).weight(.semibold))
                         .foregroundStyle(Palette.ink)
                         .privacySensitiveInFeedback()
                     if isPreferred {
                         Text("Best match")
-                            .font(.caption)
+                            .font(.app(.caption))
                             .foregroundStyle(Palette.good)
                     }
                 }
                 if let name = candidate.name {
                     Text(verbatim: name)
-                        .font(.footnote)
+                        .font(.app(.footnote))
                         .foregroundStyle(Palette.secondaryInk)
                         .privacySensitiveInFeedback()
                 }
                 let details = PriceSourceSearch.details(of: candidate)
                 if !details.isEmpty {
                     Text(verbatim: details)
-                        .font(.footnote)
+                        .font(.app(.footnote))
                         .foregroundStyle(Palette.secondaryInk)
                         .privacySensitiveInFeedback()
                 }
@@ -126,7 +126,7 @@ struct SymbolSearchSheet: View {
                     }
                     if let note = search.note {
                         Text(note)
-                            .font(.footnote)
+                            .font(.app(.footnote))
                             .foregroundStyle(Palette.secondaryInk)
                             .fixedSize(horizontal: false, vertical: true)
                             .privacySensitiveInFeedback()
@@ -281,7 +281,7 @@ struct PriceSourceFinderSheet: View {
             }
             if let note = search.note {
                 Text(note)
-                    .font(.footnote)
+                    .font(.app(.footnote))
                     .foregroundStyle(Palette.secondaryInk)
                     .fixedSize(horizontal: false, vertical: true)
                     .privacySensitiveInFeedback()

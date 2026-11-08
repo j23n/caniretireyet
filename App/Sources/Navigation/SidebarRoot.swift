@@ -75,7 +75,10 @@ struct SidebarRoot: View {
             .navigationTitle("Last Monday")
             .navigationSplitViewColumnWidth(min: 220, ideal: 270)
         } detail: {
+            // Text without a style of its own takes the app's body size
+            // (UI.md, "Type"); the sidebar keeps the system's.
             SidebarDetail(navigation: navigation, item: navigation.sidebarSelection ?? .today)
+                .font(.app(.body))
         }
         .onChange(of: navigation.sidebarSelection, initial: true) { selectPlanRow() }
         .onChange(of: library.sortedPlans.map(\.id)) { selectPlanRow() }
@@ -228,7 +231,7 @@ private struct SidebarGroupRow: View {
             Spacer(minLength: Metrics.xs)
             if section.isStale {
                 Image(systemName: "clock")
-                    .font(.caption)
+                    .font(.app(.caption))
                     .foregroundStyle(Palette.warning)
                     .help("Stale: an account's latest value is too old")
                     .accessibilityLabel("Stale")

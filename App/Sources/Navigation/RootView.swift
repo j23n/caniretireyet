@@ -266,7 +266,7 @@ private struct PrivacyCover: View {
         ZStack {
             Palette.page.ignoresSafeArea()
             Image(systemName: "lock.fill")
-                .font(.largeTitle)
+                .font(.app(.largeTitle))
                 .foregroundStyle(Palette.mutedInk)
                 .accessibilityLabel("Hidden")
         }

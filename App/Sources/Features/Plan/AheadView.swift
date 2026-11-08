@@ -199,14 +199,14 @@ struct AheadView: View {
         HStack(alignment: .center, spacing: Metrics.s) {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Ahead")
-                    .font(.title2.weight(.bold))
+                    .font(.app(.title2).weight(.bold))
                     .foregroundStyle(Palette.ink)
                     .accessibilityAddTraits(.isHeader)
                 HStack(spacing: Metrics.s) {
                     PlanMenu(session: session, actions: menuActions)
                     Text(session.shownResults.map { PlanRunText.calculated($0, locale: locale) }
                          ?? "Not calculated yet")
-                        .font(.caption)
+                        .font(.app(.caption))
                         .foregroundStyle(Palette.secondaryInk)
                         .lineLimit(1)
                 }
@@ -245,7 +245,7 @@ struct AheadView: View {
 
     private func chartTitle(_ endAge: Int) -> some View {
         Text(verbatim: "Your money to \(endAge)")
-            .font(.title3.weight(.bold))
+            .font(.cardTitle)
             .foregroundStyle(Palette.ink)
             .lineLimit(1)
             .minimumScaleFactor(0.8)
@@ -297,7 +297,7 @@ struct AheadView: View {
 
     private var disclaimer: some View {
         Text(AboutText.disclaimer)
-            .font(.footnote)
+            .font(.app(.footnote))
             .foregroundStyle(Palette.mutedInk)
             .fixedSize(horizontal: false, vertical: true)
             .padding(.horizontal, Metrics.xs)
@@ -342,7 +342,7 @@ struct AheadAnswerCard: View {
             VStack(alignment: .leading, spacing: Metrics.xs) {
                 HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
                     Text(session.hasWhatIf ? "Your last Monday, with the levers" : "Your last Monday")
-                        .font(.subheadline)
+                        .font(.app(.subheadline))
                         .foregroundStyle(session.hasWhatIf ? Palette.accent : Palette.secondaryInk)
                         .lineLimit(1)
                     Spacer(minLength: Metrics.s)
@@ -357,7 +357,7 @@ struct AheadAnswerCard: View {
                 }
                 if let date = words.dateAndAge {
                     Text(verbatim: date)
-                        .font(.title.weight(.bold))
+                        .font(.app(.title).weight(.bold))
                         .foregroundStyle(Palette.ink)
                         .lineLimit(1)
                         .minimumScaleFactor(0.6)
@@ -366,20 +366,20 @@ struct AheadAnswerCard: View {
                         .accessibilityLabel(Text(verbatim: "\(date), in \(words.futures) futures"))
                     if let sentence = sentence(state.results) {
                         Text(verbatim: sentence)
-                            .font(.subheadline)
+                            .font(.app(.subheadline))
                             .foregroundStyle(Palette.secondaryInk)
                             .fixedSize(horizontal: false, vertical: true)
                             .privacySensitiveInFeedback()
                     }
                 } else {
                     Text(words.placeholder)
-                        .font(.title3.weight(.semibold))
+                        .font(.app(.title3).weight(.semibold))
                         .foregroundStyle(Palette.secondaryInk)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 if let note = words.note {
                     Text(note)
-                        .font(.footnote)
+                        .font(.app(.footnote))
                         .foregroundStyle(Palette.secondaryInk)
                         .fixedSize(horizontal: false, vertical: true)
                         .privacySensitiveInFeedback()
@@ -419,7 +419,7 @@ struct AheadAnswerCard: View {
                 if let onWhatIf {
                     Button(action: onWhatIf) {
                         Text("What if…")
-                            .font(.subheadline.weight(.semibold))
+                            .font(.app(.subheadline).weight(.semibold))
                             .padding(.horizontal, Metrics.xs)
                     }
                     .buttonStyle(.borderedProminent)
@@ -469,7 +469,7 @@ struct AheadGapLabel: View {
         let words = PlanWords(currency: currency, locale: locale)
         let side = gap >= 0 ? "ahead" : "behind"
         AmountSentenceText(Self.sentence(gap: gap, side: side, against: against, words: words))
-            .font(.subheadline.weight(.semibold))
+            .font(.app(.subheadline).weight(.semibold))
             .monospacedDigit()
             .lineLimit(1)
             .foregroundStyle(gap >= 0 ? Palette.positive : Palette.orangeStroke)

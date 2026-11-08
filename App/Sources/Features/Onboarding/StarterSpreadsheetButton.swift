@@ -35,7 +35,7 @@ struct StarterSpreadsheetButton: View {
             }
             if let message {
                 Text(message)
-                    .font(.footnote)
+                    .font(.app(.footnote))
                     .foregroundStyle(Palette.secondaryInk)
             }
         }

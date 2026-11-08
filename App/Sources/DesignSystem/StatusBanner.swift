@@ -71,19 +71,19 @@ struct StatusBanner: View {
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: Metrics.xs) {
                 Text(title)
-                    .font(.subheadline.weight(.semibold))
+                    .font(.app(.subheadline).weight(.semibold))
                     .foregroundStyle(Palette.ink)
                     .privacySensitiveInFeedback(personal.contains(.title))
                 if let message {
                     Text(message)
-                        .font(.footnote)
+                        .font(.app(.footnote))
                         .foregroundStyle(Palette.secondaryInk)
                         .fixedSize(horizontal: false, vertical: true)
                         .privacySensitiveInFeedback(personal.contains(.message))
                 }
                 if let actionTitle, let action {
                     Button(actionTitle, action: action)
-                        .font(.footnote.weight(.semibold))
+                        .font(.app(.footnote).weight(.semibold))
                         .buttonStyle(.borderless)
                 }
             }

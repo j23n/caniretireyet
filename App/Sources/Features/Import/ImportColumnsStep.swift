@@ -73,7 +73,7 @@ struct ImportColumnsStep: View {
                     }
                     ForEach(row.problems, id: \.self) { problem in
                         Label(problem, systemImage: "exclamationmark.triangle")
-                            .font(.footnote)
+                            .font(.app(.footnote))
                             .foregroundStyle(Palette.warning)
                             .privacySensitiveInFeedback()
                     }
@@ -115,7 +115,7 @@ private struct ImportColumnsTable: View {
             .width(min: 110, ideal: 160)
             TableColumn("Samples") { row in
                 Text(row.samples.prefix(3).joined(separator: " · "))
-                    .font(.callout.monospaced())
+                    .font(.app(.callout).monospaced())
                     .foregroundStyle(Palette.secondaryInk)
                     .lineLimit(1)
                     .privacySensitiveInFeedback()
@@ -154,7 +154,7 @@ private struct ImportColumnsSettings: View {
                 Spacer(minLength: 0)
             }
             Text(ImportColumnsStep.layoutFooter(flow.layout))
-                .font(.footnote)
+                .font(.app(.footnote))
                 .foregroundStyle(Palette.secondaryInk)
             if flow.layout.rowIsRecord {
                 HStack(spacing: Metrics.xl) {

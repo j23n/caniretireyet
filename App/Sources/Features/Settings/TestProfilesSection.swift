@@ -33,7 +33,7 @@ struct TestProfilesSection: View {
                 Button("Hide This Section") { profiles.isRevealed = false }
             }
             if let error {
-                Text(error).font(.footnote).foregroundStyle(Palette.critical)
+                Text(error).font(.app(.footnote)).foregroundStyle(Palette.critical)
             }
         } header: {
             Text("Test profiles")

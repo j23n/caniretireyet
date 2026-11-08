@@ -49,7 +49,7 @@ struct CheckInMoveChip: View {
         } icon: {
             Image(systemName: move.years == 0 ? "equal" : move.isSooner ? "arrow.left" : "arrow.right")
         }
-        .font(.subheadline.weight(.semibold))
+        .font(.app(.subheadline).weight(.semibold))
         .foregroundStyle(color)
         .lineLimit(1)
         .padding(.horizontal, Metrics.m)
@@ -169,22 +169,22 @@ struct CheckInDatePanel: View {
         HStack(spacing: Metrics.s) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(verbatim: AmountFormat.mediumDate(option.date, locale: locale))
-                    .font(.body.weight(.semibold))
+                    .font(.app(.body).weight(.semibold))
                     .foregroundStyle(Palette.ink)
                 AmountSentenceText(CheckInDateMenu.hint(option, locale: locale))
-                    .font(.subheadline)
+                    .font(.app(.subheadline))
                     .foregroundStyle(option.isOff ? Palette.warning : Palette.secondaryInk)
             }
             .privacySensitiveInFeedback()
             Spacer(minLength: Metrics.s)
             if picked == option.date {
                 Image(systemName: "checkmark")
-                    .font(.body.weight(.semibold))
+                    .font(.app(.body).weight(.semibold))
                     .foregroundStyle(Palette.accent)
                     .accessibilityLabel("Picked")
             } else if option.isSaved {
                 Text(option.isOff ? "Fix" : "Edit")
-                    .font(.subheadline.weight(.semibold))
+                    .font(.app(.subheadline).weight(.semibold))
                     .foregroundStyle(option.isOff ? Palette.warning : Palette.accent)
             }
         }
