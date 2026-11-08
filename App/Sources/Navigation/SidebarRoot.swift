@@ -231,7 +231,7 @@ private struct SidebarGroupRow: View {
             Spacer(minLength: Metrics.xs)
             if section.isStale {
                 Image(systemName: "clock")
-                    .font(.app(.caption))
+                    .font(.caption)
                     .foregroundStyle(Palette.warning)
                     .help("Stale: an account's latest value is too old")
                     .accessibilityLabel("Stale")
