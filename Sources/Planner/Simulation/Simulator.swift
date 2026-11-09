@@ -18,6 +18,20 @@ struct RunOutcome: Sendable {
     var yearsBelowPlan = 0
 }
 
+/// What moved in the year a run failed in, before its money ran short:
+/// the failing year's detail shows it next to the spending it set out to pay.
+struct FailedYearMoney: Sendable {
+    var windfalls: [IncomeItem] = []
+    var expenses = 0.0
+    var sold = 0.0
+    /// The tax on the gains sold and last year's tax on investment income.
+    var investmentTax = 0.0
+    var wealthTax = 0.0
+    var withdrawalTax = 0.0
+    /// What went into accounts: the year's contributions.
+    var contributed = 0.0
+}
+
 /// Simulates the paths of one retirement age, following PLANNER.md, "The
 /// yearly step". It keeps its buffers between runs, so a worker makes one
 /// and reuses it for all its runs.
@@ -212,9 +226,13 @@ struct PathSimulator: Sendable {
             if shortfall > Self.tolerance || !shortfall.isFinite {
                 let reason = shortfall.isFinite
                     ? failureReason(year: t, shortfall: shortfall, spending: planSpending, level: level) : .depleted
+                let money = FailedYearMoney(windfalls: windfalls, expenses: expenses, sold: sold,
+                                            investmentTax: gainTax + incomeTax, wealthTax: wealthTax,
+                                            withdrawalTax: withdrawalTax, contributed: contributed)
                 return fail(t, reason: reason, spending: spending,
                             paid: spending - shortfall, level: level, retiredSpending: retiredSpending,
-                            yearsBelowPlan: yearsBelowPlan, recordValues: recordValues, details: &details)
+                            yearsBelowPlan: yearsBelowPlan, recordValues: recordValues, money: money,
+                            details: &details)
             }
 
             // Rebalancing, income on investments (taxed next year), then the markets.
@@ -276,10 +294,13 @@ struct PathSimulator: Sendable {
                           yearsBelowPlan: yearsBelowPlan)
     }
 
-    /// Ends the run as failed in year `t`.
+    /// Ends the run as failed in year `t`. With `money`, the year's detail
+    /// has what moved before the money ran short: what came in, what was
+    /// sold and the taxes. Its spending is what the year set out to pay, so
+    /// its cash is short by what couldn't be paid.
     private mutating func fail(_ t: Int, reason: FailureReason, spending: Double, paid: Double,
                                level: Double, retiredSpending: Double, yearsBelowPlan: Int, recordValues: Bool,
-                               details: inout [YearDetail]?) -> RunOutcome {
+                               money: FailedYearMoney? = nil, details: inout [YearDetail]?) -> RunOutcome {
         let frame = model.frames[t]
         let failure = RunFailure(year: frame.year, age: frame.age, reason: reason)
         let left = total()
@@ -294,10 +315,21 @@ struct PathSimulator: Sendable {
         }
         if details != nil {
             let debtTax = t == 0 ? start.debtWithdrawalTax : 0
+            var income = schedule.income[t]
+            if let money {
+                income += money.windfalls
+                if money.sold > 0 {
+                    income.append(IncomeItem(kind: .withdrawal, id: "withdrawal", label: "Investments sold",
+                                             amount: money.sold))
+                }
+            }
             details!.append(YearDetail(
                 year: frame.year, age: frame.age, fraction: frame.fraction, workingShare: schedule.workingShare[t],
                 endAssets: remaining, spending: spending,
-                income: schedule.income[t], withdrawalTax: debtTax, debtWithdrawalTax: debtTax,
+                expenses: money?.expenses ?? 0, income: income,
+                investmentTax: money?.investmentTax ?? 0, wealthTax: money?.wealthTax ?? 0,
+                withdrawalTax: (money?.withdrawalTax ?? 0) + debtTax, debtWithdrawalTax: debtTax,
+                savings: (money?.contributed ?? 0) - (money?.sold ?? 0),
                 plannedSpending: flexible == nil ? nil : schedule.workingSpending[t] + retiredSpending,
                 spendingLevel: flexible != nil && retiredSpending > 0 ? level : nil))
         }

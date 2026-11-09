@@ -58,7 +58,7 @@ struct CalculationsTests {
         #expect(rows.count == result.expectedPath.years.count)
         #expect(rows.first?.hasPrefix("| 2026 | 46 | 52,345 |") == true)
         if let failure = result.expectedPath.failure {
-            #expect(text.contains("The money runs out in \(failure.year), at \(failure.age)."))
+            #expect(text.contains("runs out in \(failure.year), at \(failure.age)"))
         }
     }
 
@@ -97,6 +97,34 @@ struct CalculationsTests {
         let start = try #require(lines.firstIndex { $0.hasPrefix("## The deterministic run") })
         let first = try #require(lines[(start + 4)...].first)
         #expect(first.hasPrefix("| 2026 | 60 | 0 | 0 | 10,000 | 0 | 1,000 | 0 | 800 |"), "\(first)")
+    }
+
+    /// The year the money you can draw runs out shows what it still sold
+    /// and the tax on that, and the report says how far the year is short
+    /// and what's left in the accounts that aren't open yet.
+    @Test func theFailingYearShowsWhatItSoldAndHowFarItIsShort() async throws {
+        let library = Sample.library(birth: "1980-01-01", on: "2025-12-31", [
+            SampleAccount(id: "secret-broker", balance: 25_000),
+            SampleAccount(id: "secret-fund", kind: .pensionFund, balance: 200_000, availableFromAge: 60),
+        ])
+        let plan = Sample.plan(retire: .age(46), endAge: 85, retired: "10000", equityReturn: "0",
+                               investmentRate: "0.25", unrealizedGainShare: "0.5")
+        let text = try await Planner.calculations(plan: plan, library: library,
+                                                  options: CalculationsOptions(today: "2026-01-02"))
+        let last = try #require(try rows(text, table: "The deterministic run").last)
+        // The third year sells what's left, less than the year needs, and pays the tax on its gains.
+        #expect(last[0] == 2028 && last[4] == 10_000)
+        #expect(last[9] > 0 && last[9] < 10_000 && last[6] > 0, "\(last)")
+        #expect(last[11] == 200_000)
+        let short = last[4] + last[6] - last[9]
+        let line = try #require(text.components(separatedBy: "\n").first {
+            $0.hasPrefix("The money you can draw runs out in 2028, at 48: the year is ")
+        })
+        let said = try #require(line.split(separator: " ").dropFirst(14).first.flatMap {
+            Double($0.replacingOccurrences(of: ",", with: ""))
+        }, "\(line)")
+        #expect(abs(said - short) <= 2, "\(line)")
+        #expect(line.hasSuffix(" short of what it set out to pay; 200,000 is left in accounts you can't draw yet."))
     }
 
     // MARK: The rows add up

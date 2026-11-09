@@ -238,9 +238,21 @@ struct CalculationsReport {
                 + "\(money(max(0, year.savings + sold))) | "
                 + "\(money(year.endAssets)) |")
         }
-        if let failure = path.failure {
+        if let failure = path.failure, let last = path.years.last {
+            // The last row: what the year set out to pay, and what the
+            // money you can draw still paid of it.
+            let sold = last.income.filter { $0.kind == .withdrawal }.reduce(0) { $0 + $1.amount }
+            let came = last.income.reduce(0) { $0 + $1.amount }
+            let short = last.spending + last.expenses + last.totalTax - last.debtWithdrawalTax
+                + max(0, last.savings + sold) - came
+            var line = "The money \(last.endAssets >= 1 ? "you can draw " : "")runs out in \(failure.year), at "
+                + "\(failure.age)"
+            if short >= 1 { line += ": the year is \(money(short)) short of what it set out to pay" }
+            if last.endAssets >= 1 {
+                line += "; \(money(last.endAssets)) is left in accounts you can't draw yet"
+            }
             lines.append("")
-            lines.append("The money runs out in \(failure.year), at \(failure.age).")
+            lines.append(line + ".")
         }
         return lines
     }

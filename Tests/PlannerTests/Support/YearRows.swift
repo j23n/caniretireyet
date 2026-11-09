@@ -60,8 +60,8 @@ enum YearGrowth {
 /// within the 1 unit a run may leave unpaid (`PathSimulator.tolerance`);
 /// each year starting from the end of the one before, from `start` in the
 /// first; and its end value as what was there after the year's money moved
-/// times the year's `growth`. The year a run fails isn't checked: the run
-/// stops before its money moves.
+/// times the year's `growth`. The year a run fails isn't checked: its
+/// cash is short of the spending it set out to pay.
 func expectYearsAddUp(_ path: PathDetail, start: Double, growth: YearGrowth, _ label: String,
                       sourceLocation: SourceLocation = #_sourceLocation) {
     let years = path.failure == nil ? path.years : Array(path.years.dropLast())

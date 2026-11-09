@@ -394,7 +394,8 @@ public struct YearDetail: Hashable, Sendable {
     public var endAssets: Double
     /// Spending (while working and in retirement, with phase factors): the
     /// plan's, or with flexible spending what the run paid (see
-    /// ``spendingLevel``); in the year a run fails, what it set out to pay.
+    /// ``spendingLevel``); in the year a run fails, what it set out to pay,
+    /// next to what the year still sold and paid in taxes.
     public var spending: Double
     /// One-off expenses.
     public var expenses: Double
