@@ -2883,7 +2883,8 @@
         "to" : "2025-12-31",
         "year" : 2025,
         "youSaved" : "3206.35",
-        "youSavedFrom" : "2025-10-31"
+        "youSavedFrom" : "2025-10-31",
+        "youSavedInPlan" : "3206.35"
       },
       {
         "answerFrom" : 55,
@@ -2916,12 +2917,14 @@
         "saved" : "20486.3",
         "savedGrade" : "less",
         "soFar" : true,
-        "spentGrade" : "asPlanned",
+        "spentGrade" : "more",
+        "spentInPlanPerYear" : "45700.18",
         "spentPerYear" : "37963.77",
         "to" : "2026-09-30",
         "year" : 2026,
         "youSaved" : "1956.05",
-        "youSavedFrom" : "2026-06-30"
+        "youSavedFrom" : "2026-06-30",
+        "youSavedInPlan" : "6.05"
       }
     ]
   },

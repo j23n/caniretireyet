@@ -137,7 +137,32 @@ struct PlanProgressYearTests {
         let planned = try #require(index.convert(Decimal(18_000) * 92 / 365, from: "2025-12-31", to: latest))
         #expect(thisYear.plannedYouSaved == planned)
         #expect(thisYear.plannedPaySaving == planned)
-        #expect(thisYear.savedGrade == PlanComparison(thisYear.youSaved, planned: planned))
+        #expect(thisYear.savedGrade == PlanComparison(thisYear.youSavedInPlan, planned: planned))
+    }
+
+    /// The plan's planned saving and spending count only the plan's
+    /// accounts, so the year is graded on what they did. The example
+    /// library's mortgage is left out of the plan: the 1,950 of principal
+    /// repaid from 30 June is in *You saved*, and to the plan it's spending.
+    @Test func theYearIsGradedOnWhatThePlansAccountsDid() throws {
+        let thisYear = try #require(years().last)
+        let pay = try #require(thisYear.pay)
+        #expect(pay.savedOutsidePlan == 1950)
+        #expect(thisYear.youSaved == d("1956.05"))
+        #expect(thisYear.youSavedInPlan == d("6.05"))
+        #expect(thisYear.savedGrade == .less)
+        #expect(thisYear.spentPerYear == d("37963.77"))
+        #expect(thisYear.spentInPlanPerYear == d("45700.18"))
+        // 37,963.77 is within 5% of the plan's 36,000 in the year's money; 45,700.18 is a quarter more.
+        let planned = try #require(thisYear.plannedSpending)
+        #expect(PlanComparison(d("37963.77"), planned: planned) == .asPlanned)
+        #expect(thisYear.spent == .more)
+    }
+
+    @Test func withoutPayWhatPlanAssetsSavedIsGraded() throws {
+        let lastYear = try #require(years().first { $0.year == 2025 })
+        #expect(lastYear.pay == nil)
+        #expect(lastYear.youSavedInPlan == lastYear.saved)
     }
 
     /// An inheritance of 20.000 € into the current account in September is
@@ -181,7 +206,7 @@ struct PlanProgressYearTests {
         let planned = try #require(thisYear.plannedSaving)
         let paySaving = try #require(thisYear.plannedPaySaving)
         #expect(abs(paySaving - planned * 92 / 283) < d("0.000001"))
-        #expect(thisYear.savedGrade == PlanComparison(thisYear.youSaved, planned: paySaving))
+        #expect(thisYear.savedGrade == PlanComparison(thisYear.youSavedInPlan, planned: paySaving))
     }
 
     /// A baseline that starts after the pay does: *You saved*, its pay and
@@ -200,7 +225,7 @@ struct PlanProgressYearTests {
         let planned = try #require(index.convert(Decimal(18_000) * 30 / 122, from: "2026-08-31", to: latest))
         #expect(thisYear.plannedSaving == planned)
         #expect(thisYear.plannedYouSaved == planned)
-        #expect(thisYear.savedGrade == PlanComparison(rate.saved, planned: planned))
+        #expect(thisYear.savedGrade == PlanComparison(rate.savedInPlan, planned: planned))
     }
 
     /// A baseline saved on the latest check-in, such as the first check-in
@@ -266,6 +291,7 @@ struct PlanProgressYearTests {
         year.saved = saved
         year.plannedSaving = plannedSaving
         year.spentPerYear = spent
+        year.spentInPlanPerYear = spent
         year.plannedSpending = plannedSpending
         return year
     }

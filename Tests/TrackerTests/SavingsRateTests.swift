@@ -37,6 +37,34 @@ struct SavingsRateTests {
         #expect(savings.isPriced)
     }
 
+    /// The example library's home and mortgage are left out of plans: the
+    /// mortgage's 1,950 of principal is saved in net worth, and to a plan
+    /// it's spending, as the rest of the mortgage's payments.
+    @Test func whatAccountsOutsideThePlanSavedIsSpentAsAPlanCountsIt() throws {
+        let valuator = Valuator(library: try Fixtures.exampleLibrary())
+        let savings = try #require(valuator.savingsRate(overYearEndingOn: "2026-09-30"))
+        #expect(savings.accountsOutsidePlan == ["casa", "mutuo-casa"])
+        #expect(savings.savedByAccount["casa"] == 0)
+        #expect(savings.savedOutsidePlan == 1950)
+        // 1,956.05 − 1,950.
+        #expect(savings.savedInPlan == d("6.05"))
+        // 9,568.95 + 1,950.
+        #expect(savings.spentInPlan == d("11518.95"))
+        // 11,518.95 × 365 / 92 days.
+        #expect(savings.spentInPlanPerYear == d("45700.18"))
+        // What came in still splits into what the plan's accounts saved and what a plan counts as spent.
+        #expect(savings.income == savings.savedInPlan - savings.oneOffs + savings.spentInPlan)
+    }
+
+    @Test func aLibraryWhoseAccountsAreAllInThePlanSpendsTheSameEitherWay() throws {
+        var library = try Fixtures.exampleLibrary()
+        for id in Array(library.accounts.keys) { library.accounts[id]?.includeIn = nil }
+        let savings = try #require(Valuator(library: library).savingsRate(overYearEndingOn: "2026-09-30"))
+        #expect(savings.accountsOutsidePlan.isEmpty)
+        #expect(savings.savedInPlan == savings.saved)
+        #expect(savings.spentInPlanPerYear == savings.spentPerYear)
+    }
+
     @Test func countsOverTheDaysMoneyInCovers() throws {
         let valuator = Valuator(library: try Fixtures.exampleLibrary())
         let august = try #require(valuator.savingsRate(from: "2026-08-01", through: "2026-08-31"))
