@@ -36,6 +36,18 @@ struct CalculationsTests {
                                        options: CalculationsOptions(anonymize: anonymize, today: "2026-01-02"))
     }
 
+    /// Crypto at a 0% median and 70% volatility averages 16.6% a year,
+    /// which a mix collects part of: the report says so under the returns.
+    @Test func aClassWhoseAverageIsFarAboveItsTypicalYearIsExplained() async throws {
+        #expect(!(try await report()).contains("far above its typical year"))
+        var plan = Self.plan()
+        plan.assumptions.returns[.crypto] = ReturnAssumption(medianReal: 0, volatility: d("0.7"))
+        plan.portfolio.targetMix = [.equity: d("0.8"), .crypto: d("0.2")]
+        let text = try await report(plan)
+        #expect(text.contains("Crypto's average year (16.6%) is far above its typical year (0%), because of its "
+            + "volatility."))
+    }
+
     @Test func theYearTablesHaveARowPerYear() async throws {
         let text = try await report()
         let lines = text.components(separatedBy: "\n")

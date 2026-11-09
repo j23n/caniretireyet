@@ -167,8 +167,21 @@ struct CalculationsReport {
             lines.append("| \(assetClass.rawValue) | \(percent(returns.expected[c])) | \(percent(median)) | "
                 + "\(percent(returns.volatility[c])) | \(percent(model.incomeYields[c])) |")
         }
+        // A class whose average year is far above its typical one adds to a mix through its average.
+        for (c, assetClass) in model.portfolio.classes.enumerated() {
+            let median = exp(returns.logMean[c]) - 1
+            guard returns.expected[c] - median >= Self.wideMeanGap else { continue }
+            let name = ReturnModel.name(assetClass)
+            lines += ["", "\(name)'s average year (\(percent(returns.expected[c]))) is far above its typical year "
+                + "(\(percent(median))), because of its volatility. A mix rebalanced every year collects part of "
+                + "the difference as growth, in the deterministic run and in the others."]
+        }
         return lines
     }
+
+    /// How far a class's mean is above its median for the report to say
+    /// what that does to a mix: 5 points a year.
+    static let wideMeanGap = 0.05
 
     private func startingPortfolio() -> [String] {
         var lines = ["", "## The starting portfolio", "",
