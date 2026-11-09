@@ -131,7 +131,8 @@ struct PathSimulator: Sendable {
         }
         let mask = run.map { scenarios.eventMasks[$0] } ?? scenarios.expectedEvents
         let taxes = model.taxes
-        var carriedTax = 0.0
+        // The tax on the gains realised paying off debts at the start is due with the first year's taxes.
+        var carriedTax = start.debtGainsTax
         var level = 1.0
         var initialRate: Double?
         var lowestLevel = 1.0

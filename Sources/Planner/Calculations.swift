@@ -205,6 +205,10 @@ struct CalculationsReport {
             if portfolio.debtUnpaid > 0.5 {
                 line += "; the \(money(portfolio.debtUnpaid)) it can't cover is left out, of the plan assets too"
             }
+            if portfolio.debtGainsTax > 0.5 {
+                line += "; the \(money(portfolio.debtGainsTax)) of tax on the gains of the investments sold for them "
+                    + "is in the first year's tax on investments"
+            }
             lines.append("")
             lines.append(line + ".")
         }
