@@ -341,10 +341,12 @@ enum PlanInterpreter {
             if contribution.isPaidOnTopOfPay {
                 let until = contribution.effectiveUntil.date
                 let worked = work.contains { phase in
+                    // The plan's years start after the start date.
+                    guard phase.until.map({ $0 > startDate }) ?? true else { return false }
                     if let oneOff {
                         return phase.from.year <= oneOff.year && (phase.until?.year ?? .max) >= oneOff.year
                     }
-                    return (phase.until.map { $0 > startDate } ?? true) && (until.map { phase.from <= $0 } ?? true)
+                    return until.map { phase.from <= $0 } ?? true
                 }
                 if !worked {
                     warning("planner.contributionWithoutWork",

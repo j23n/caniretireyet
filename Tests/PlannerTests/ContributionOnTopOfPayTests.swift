@@ -115,6 +115,13 @@ struct ContributionOnTopOfPayTests {
         #expect(warning.message == "A contribution into fund is paid on top of your pay, but the plan has no work "
             + "in 2029, so it's left out.")
 
+        // Work that ended before the plan starts isn't work in its first year.
+        plan.work = [Sample.work(from: "2020-01-01", until: .date("2025-11-30"), net: "60000")]
+        plan.contributions = [PlanContribution(account: "fund", amount: 8_000, year: 2025, onTopOfPay: true)]
+        let before = try await Sample.run(plan, library)
+        #expect(!before.expectedPath.years.contains { $0.income.contains { $0.id == "contribution-0" } })
+        #expect(before.issues.contains { $0.code == "planner.contributionWithoutWork" })
+
         plan.work = []
         plan.contributions = [PlanContribution(account: "fund", perYear: 5_000, onTopOfPay: true)]
         let yearly = try await Sample.run(plan, library)
