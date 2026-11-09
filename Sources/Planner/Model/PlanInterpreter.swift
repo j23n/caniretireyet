@@ -311,7 +311,7 @@ enum PlanInterpreter {
         // Contributions, into an account's bucket.
         var contributions: [ContributionSpec] = []
         for (index, contribution) in plan.contributions.enumerated() {
-            guard library.accounts[contribution.account] != nil else {
+            guard let account = library.accounts[contribution.account] else {
                 error("planner.unknownAccount", "A contribution goes into \(contribution.account), which doesn't exist.",
                       .contributions, index: index, account: contribution.account)
                 continue
@@ -329,8 +329,10 @@ enum PlanInterpreter {
                       index: index)
             }
             let oneOff: (year: Int, amount: Double)? = amount.map { (contribution.year ?? startDate.year, $0) }
-            contributions.append(ContributionSpec(bucket: bucket, perYear: contribution.perYear.doubleValue,
-                                                  until: contribution.effectiveUntil.date, oneOff: oneOff))
+            contributions.append(ContributionSpec(
+                bucket: bucket, perYear: contribution.perYear.doubleValue, until: contribution.effectiveUntil.date,
+                oneOff: oneOff, onTopOfPay: contribution.isPaidOnTopOfPay, id: "contribution-\(index)",
+                label: "Into \(account.name), on top of pay"))
         }
 
         guard !issues.contains(where: \.isError) else { return (nil, issues) }

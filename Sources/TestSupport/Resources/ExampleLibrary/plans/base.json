@@ -11,7 +11,7 @@
     }
   },
   "contributions": [
-    { "account": "fondo-pensione", "perYear": "5000", "until": "retirement" }
+    { "account": "fondo-pensione", "onTopOfPay": true, "perYear": "5000", "until": "retirement" }
   ],
   "endAge": 95,
   "events": [

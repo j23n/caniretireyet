@@ -16,7 +16,12 @@ struct PlanFormatTests {
     @Test func contributionsGoIntoAccountsYearlyOrOnce() throws {
         let yearly = #"{ "account": "pension-fund", "perYear": "5000", "until": "retirement" }"#
         let oneOff = #"{ "account": "pillar-3a", "amount": "7000", "year": 2027 }"#
-        for text in [yearly, oneOff] { try roundTrips(PlanContribution.self, text) }
+        let onTop = #"{ "account": "pension-fund", "onTopOfPay": true, "perYear": "3000" }"#
+        for text in [yearly, oneOff, onTop] { try roundTrips(PlanContribution.self, text) }
+        // Paid out of take-home pay unless the file says it's on top of it.
+        #expect(try decode(PlanContribution.self, onTop).isPaidOnTopOfPay)
+        #expect(!(try decode(PlanContribution.self, yearly)).isPaidOnTopOfPay)
+        #expect(try decode(PlanContribution.self, yearly).onTopOfPay == nil)
         #expect(try decode(PlanContribution.self, oneOff) == PlanContribution(account: "pillar-3a", amount: 7_000, year: 2027))
         #expect(try decode(PlanContribution.self, oneOff).isOneOff)
         #expect(!(try decode(PlanContribution.self, yearly)).isOneOff)

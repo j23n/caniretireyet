@@ -27,7 +27,9 @@ struct RunOutcome: Sendable {
 ///    (pre-tax money as a group of its own, keeping its rate).
 /// 2. Income from work and pensions and the year's windfalls come in;
 ///    spending, one-off expenses, contributions into accounts, the wealth
-///    tax and last year's tax on investment income go out.
+///    tax and last year's tax on investment income go out. A contribution
+///    paid on top of take-home pay goes into its account without coming
+///    out of the year's money.
 /// 3. What's left is invested in the taxable money you can draw, at its
 ///    target mix; a shortfall is sold from the money you can draw, the same
 ///    share of each group, more by the tax on what's sold: on the gain part
@@ -164,14 +166,18 @@ struct PathSimulator: Sendable {
                     expenses -= event.amount
                 }
             }
+            // What's paid on top of take-home pay goes into its account
+            // without passing through the year's cash.
             var contributed = 0.0
+            var fromPay = 0.0
             for contribution in schedule.contributions[t] {
                 deposit(contribution.amount, into: contribution.bucket, mix: schedule.accessibleMix[t])
                 contributed += contribution.amount
+                if !contribution.onTopOfPay { fromPay += contribution.amount }
             }
             let spending = schedule.workingSpending[t] + retiredSpending * level
             let cash = schedule.regularIncome[t] + windfalls.reduce(0) { $0 + $1.amount } - expenses - spending
-                - contributed - wealthTax - incomeTax
+                - fromPay - wealthTax - incomeTax
             guard cash.isFinite else {
                 return fail(t, reason: .depleted, spending: spending, paid: 0,
                             level: level, retiredSpending: retiredSpending, yearsBelowPlan: yearsBelowPlan,

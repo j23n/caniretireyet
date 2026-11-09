@@ -379,8 +379,8 @@ struct PlanProgressYearTests {
         #expect(reference.spendingWhileWorking == 36_000)
         #expect(reference.spending(per: .months) == 3_000)
         #expect(reference.spending(per: .years) == 36_000)
-        // 40.000 € of pay, 36.000 € spent: 10%.
-        #expect(reference.savingsRate == Decimal(string: "0.1"))
+        // 40.000 € of take-home pay and 5.000 € into the pension on top of it, 36.000 € spent: 20%.
+        #expect(reference.savingsRate == Decimal(string: "0.2"))
 
         // Before any work phase: no rate, though it still works later.
         let before = PlanMoneyReference(plan: plan, on: "2025-12-31", earliestAge: nil, birthDate: birth)

@@ -302,7 +302,8 @@ struct OnboardingTests {
         #expect(model.canContinue)
         let request = try #require(model.estimateRequest(today: "2026-10-20"))
         #expect(request.plan.contributions.map(\.perYear) == [3_000])
-        #expect(request.plan.work.map(\.netIncome) == [39_000])
+        #expect(request.plan.contributions.map(\.isPaidOnTopOfPay) == [true])
+        #expect(request.plan.work.map(\.netIncome) == [36_000])
         #expect(request.library.accounts.values.map(\.kind).sorted { $0.rawValue < $1.rawValue }
             == [.loan, .pensionFund, .savings])
     }

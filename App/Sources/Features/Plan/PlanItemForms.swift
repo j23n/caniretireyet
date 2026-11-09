@@ -278,6 +278,12 @@ struct PlanContributionForm: View {
         } footer: {
             Text("In \(PlanMoney.todaysMoney(currency)).")
         }
+        Section {
+            Toggle("Paid on top of your pay", isOn: $contribution.planOnTopOfPay)
+        } footer: {
+            Text("On for money that never reaches your bank account, such as what your employer pays into a "
+                + "pension. Off, it comes out of your take-home pay.")
+        }
         PlanIssuesSection(issues: issues)
     }
 }

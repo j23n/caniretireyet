@@ -39,8 +39,9 @@ for each year from the start to the end age:
   with flexible spending: level ← the guardrails rule (this year's withdrawal rate against the first year's)
   cash = income from work, pensions and other income (after tax) + windfalls
        − spending (while working, or in retirement × phase factor × level) − one-off expenses
-       − contributions into accounts − wealth tax − income tax
+       − contributions into accounts out of the pay − wealth tax − income tax
   contributions go into their account: the money you can draw at its target mix, a locked account at its own mix
+       (one paid on top of the pay too, without coming out of the cash: it's income of the year)
   if cash ≥ 0: invest it in the taxable money you can draw, at the target mix of this year's age
   if cash < 0: sell the same share s of each group of the money you can draw, every class alike:
        taxable money: tax tᵢ = investmentRate × g, with gain share g = 1 − what was paid / value
@@ -95,7 +96,7 @@ Without pre-tax accounts there's one group, and the sale is the familiar sold = 
     { "name": "Part-time", "from": "retirement", "untilAge": 60, "perYear": "18000" }
   ],
   "contributions": [
-    { "account": "fondo-pensione", "perYear": "5000", "until": "retirement" }
+    { "account": "fondo-pensione", "perYear": "5000", "until": "retirement", "onTopOfPay": true }
   ],
   "events": [
     { "name": "Inheritance", "age": 62, "amount": "150000", "probability": "0.8" },
@@ -127,6 +128,7 @@ Every field, its default and allowed range, and the error or warning a value out
 - **Work** (`work`) is what the plan's search moves: every phase stops the day work stops, whatever its `until`, and retirement spending starts then. Phases don't overlap: one that starts while another still runs is an error (`planner.workOverlap`), and a phase until retirement runs until work stops. A phase added in the app ends the one running on its first day the day before, unless that one runs on past the new phase's end; then the two overlap until you change one.
 - **Pensions** (`pensions`) pay from the birthday at their age to the plan's end, retired or not. The first one paid ends the bridge.
 - **Other income** (`income`) is everything else that pays after tax: rent, a side business, an annuity, or part-time work once the main job stops (coast or barista FIRE). It pays from the birthday at `from`, or from the day work stops when `from` is `"retirement"`, to the day before the birthday at `untilAge` (the plan's end without one), retired or not, and keeps its value in real terms. Unlike work, retiring doesn't stop it, and "from retirement" moves with each retirement age the search tries: part-time work from retirement until 60 starts whenever the main job stops. Unlike a pension, it ends no bridge and starts no chapter, and the coast point doesn't wait for it. Results show it as `IncomeKind.other`.
+- **Contributions** (`contributions`) go into an account every year until `until` (the day work stops, by default and at the latest) or once, in a year. One comes out of the year's money, as spending does: right for money you pay in yourself from your take-home pay. One with `onTopOfPay: true` is pay that never reaches your bank account, such as what an employer pays into a pension, or TFR: the plan counts it as income from work in the year it's paid (`IncomeKind.work`, `contribution-<index>`), so it's saved on top of what take-home pay less spending saves, as the tracker's savings rate counts what's paid into pensions ([PROGRESS.md](PROGRESS.md#money-in-and-out)). The plan's own saving and savings rate while working count it in the pay and in the saving (`PlanDocument.workingSaving(on:)`).
 
 ### The portfolio
 

@@ -186,7 +186,7 @@ import TestSupport
                 }
               },
               "contributions": [
-                { "account": "fondo-pensione", "perYear": "5000", "until": "2040-12-31" },
+                { "account": "fondo-pensione", "onTopOfPay": true, "perYear": "5000", "until": "2040-12-31" },
                 { "account": "fondo-pensione", "amount": "20000", "year": 2030 }
               ],
               "endAge": 95,
