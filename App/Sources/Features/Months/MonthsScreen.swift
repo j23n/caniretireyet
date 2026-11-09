@@ -133,12 +133,12 @@ private struct MoneyMonthSection: View {
             HStack(alignment: .firstTextBaseline) {
                 if showsTitle {
                     Text(MonthText.title(month.through, locale: locale))
-                        .font(.title3.bold())
+                        .font(.cardTitle)
                         .privacySensitiveInFeedback()
                 }
                 Spacer(minLength: Metrics.s)
                 Text(MonthText.progress(month, brokerage: brokerage))
-                    .font(.subheadline.weight(.semibold))
+                    .font(.app(.subheadline).weight(.semibold))
                     .foregroundStyle(allDone ? Palette.good : Palette.secondaryInk)
             }
             if month.isCheckedIn, let totals {
@@ -177,7 +177,7 @@ private struct EarlierMonths: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Metrics.s) {
             Text("Earlier")
-                .font(.title3.bold())
+                .font(.pageHeading)
             CardRows {
                 ForEach(months) { month in
                     EarlierMonthRow(month: month)
@@ -206,19 +206,19 @@ private struct EarlierMonthRow: View {
             HStack(spacing: Metrics.s) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(MonthText.title(month.through, locale: locale))
-                        .font(.body.weight(.semibold))
+                        .font(.app(.body).weight(.semibold))
                         .foregroundStyle(Palette.ink)
                         .privacySensitiveInFeedback()
                     AmountSentenceText(status(toDo: toDo, brokerage: brokerage))
-                        .font(.subheadline)
+                        .font(.app(.subheadline))
                         .foregroundStyle(toDo == 0 ? Palette.good : hasOff ? Palette.warning : Palette.secondaryInk)
                 }
                 Spacer(minLength: Metrics.s)
                 Text(toDo == 0 ? "Open" : hasOff ? "Fix" : "Check")
-                    .font(.subheadline.weight(.semibold))
+                    .font(.app(.subheadline).weight(.semibold))
                     .foregroundStyle(toDo > 0 && hasOff ? Palette.warning : Palette.accent)
                 Image(systemName: "chevron.right")
-                    .font(.footnote.weight(.semibold))
+                    .font(.app(.footnote).weight(.semibold))
                     .foregroundStyle(Palette.mutedInk)
                     .accessibilityHidden(true)
             }
@@ -297,10 +297,10 @@ struct MonthTotalsStrip: View {
     private func figure(_ title: String, _ amount: Decimal) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(title)
-                .font(.caption)
+                .font(.app(.caption))
                 .foregroundStyle(Palette.secondaryInk)
             AmountText(amount, currency: currency, precision: .cents)
-                .font(.body.weight(.semibold))
+                .font(.app(.body).weight(.semibold))
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
@@ -345,10 +345,10 @@ struct MonthAccountRow: View {
                     label
                     Spacer(minLength: Metrics.s)
                     Text(action)
-                        .font(.subheadline.weight(.semibold))
+                        .font(.app(.subheadline).weight(.semibold))
                         .foregroundStyle(isOff ? Palette.warning : Palette.accent)
                     Image(systemName: "chevron.right")
-                        .font(.footnote.weight(.semibold))
+                        .font(.app(.footnote).weight(.semibold))
                         .foregroundStyle(Palette.mutedInk)
                         .accessibilityHidden(true)
                 }
@@ -384,11 +384,11 @@ struct MonthAccountRow: View {
         let account = library.library.accounts[month.account]
         return VStack(alignment: .leading, spacing: 2) {
             Text(account?.name ?? month.account.rawValue)
-                .font(.body.weight(.semibold))
+                .font(.app(.body).weight(.semibold))
                 .foregroundStyle(Palette.ink)
                 .privacySensitiveInFeedback()
             AmountSentenceText(MonthText.status(month, currency: account?.currency ?? .eur, locale: locale))
-                .font(.subheadline)
+                .font(.app(.subheadline))
                 .foregroundStyle(isOff ? Palette.warning : month.status.isDone ? Palette.good : Palette.secondaryInk)
         }
     }
@@ -409,21 +409,21 @@ struct BrokerageMonthRow: View {
             HStack(spacing: Metrics.s) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(account?.name ?? month.account.rawValue)
-                        .font(.body.weight(.semibold))
+                        .font(.app(.body).weight(.semibold))
                         .foregroundStyle(Palette.ink)
                         .privacySensitiveInFeedback()
                     AmountSentenceText(BrokerageText.status(month, currency: account?.currency ?? .eur,
                                                             locale: locale))
-                        .font(.subheadline)
+                        .font(.app(.subheadline))
                         .foregroundStyle(isOff ? Palette.warning
                             : month.status.isDone ? Palette.good : Palette.secondaryInk)
                 }
                 Spacer(minLength: Metrics.s)
                 Text(month.status.isDone ? "Open" : "Check")
-                    .font(.subheadline.weight(.semibold))
+                    .font(.app(.subheadline).weight(.semibold))
                     .foregroundStyle(isOff ? Palette.warning : Palette.accent)
                 Image(systemName: "chevron.right")
-                    .font(.footnote.weight(.semibold))
+                    .font(.app(.footnote).weight(.semibold))
                     .foregroundStyle(Palette.mutedInk)
                     .accessibilityHidden(true)
             }

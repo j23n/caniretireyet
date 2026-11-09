@@ -25,7 +25,7 @@ struct AccountsAssetMixFields: View {
         }
         if let problem = mix.problem(required: false, locale: locale) {
             Label(problem, systemImage: "exclamationmark.triangle")
-                .font(.footnote)
+                .font(.app(.footnote))
                 .foregroundStyle(Palette.secondaryInk)
                 .privacySensitiveInFeedback()
         }
@@ -66,7 +66,7 @@ struct AccountsProblemsSection: View {
             Section {
                 ForEach(problems, id: \.self) { problem in
                     Label(problem, systemImage: "exclamationmark.triangle")
-                        .font(.footnote)
+                        .font(.app(.footnote))
                         .foregroundStyle(Palette.secondaryInk)
                 }
             }
@@ -117,7 +117,7 @@ struct AccountsFootnote: View {
             Image(systemName: systemImage)
                 .foregroundStyle(Palette.accent)
         }
-        .font(.footnote)
+        .font(.app(.footnote))
         .foregroundStyle(Palette.secondaryInk)
     }
 }

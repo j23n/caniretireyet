@@ -112,7 +112,7 @@ private struct ImportNameRowView: View {
                 Label(row.name, systemImage: row.kind == .account ? AppSymbol.accounts : AppSymbol.instruments)
                     .privacySensitiveInFeedback()
                 Text(row.methodTitle)
-                    .font(.caption)
+                    .font(.app(.caption))
                     .foregroundStyle(Palette.secondaryInk)
             }
         }
@@ -134,7 +134,7 @@ struct ImportNewAccountRow: View {
                     Label(proposal.account.name, systemImage: proposal.account.kind.systemImage)
                     Text("For “\(proposal.names.joined(separator: "”, “"))” · opened "
                         + AmountFormat.mediumDate(proposal.account.opened))
-                        .font(.caption)
+                        .font(.app(.caption))
                         .foregroundStyle(Palette.secondaryInk)
                 }
                 .privacySensitiveInFeedback()
@@ -161,7 +161,7 @@ struct ImportNewAccountRow: View {
                 .pickerStyle(.menu)
                 if proposal.account.kind.isLiability {
                     Text("A debt: positive amounts in the file are stored as negative balances.")
-                        .font(.caption)
+                        .font(.app(.caption))
                         .foregroundStyle(Palette.secondaryInk)
                 }
             }
@@ -184,7 +184,7 @@ struct ImportNewInstrumentRow: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Label(proposal.instrument.name, systemImage: AppSymbol.instruments)
                     Text("For “\(proposal.names.joined(separator: "”, “"))”")
-                        .font(.caption)
+                        .font(.app(.caption))
                         .foregroundStyle(Palette.secondaryInk)
                 }
                 .privacySensitiveInFeedback()
@@ -229,7 +229,7 @@ struct ImportAccountChangeToggles: View {
                     Text(model.flow.title(of: change))
                         .privacySensitiveInFeedback()
                     Text(model.flow.reason(for: change))
-                        .font(.caption)
+                        .font(.app(.caption))
                         .foregroundStyle(Palette.secondaryInk)
                 }
             }

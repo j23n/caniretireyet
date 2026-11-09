@@ -48,7 +48,7 @@ struct MonthLineEditor: View {
                 .typedFieldOutline(isFocused: isEditingNote)
             if let errorMessage {
                 Text(errorMessage)
-                    .font(.caption)
+                    .font(.app(.caption))
                     .foregroundStyle(Palette.critical)
             }
             HStack(spacing: Metrics.s) {
@@ -76,19 +76,19 @@ struct MonthLineEditor: View {
         VStack(alignment: .leading, spacing: Metrics.xs) {
             HStack(alignment: .firstTextBaseline) {
                 Text(line.text.isEmpty ? "No text" : line.text)
-                    .font(.headline)
+                    .font(.app(.headline))
                     .privacySensitiveInFeedback()
                 Spacer(minLength: Metrics.s)
                 AmountText(line.amount, currency: account.currency, precision: .cents, signed: true)
-                    .font(.title3.bold())
+                    .font(.app(.title3).bold())
             }
             Text("\(AmountFormat.mediumDate(line.date, locale: locale)) · \(account.name)")
-                .font(.subheadline)
+                .font(.app(.subheadline))
                 .foregroundStyle(Palette.secondaryInk)
                 .privacySensitiveInFeedback()
             if !line.isConfirmed, !line.isRemoved {
                 Text("Suggested by the import: check it, or choose what it is.")
-                    .font(.caption)
+                    .font(.app(.caption))
                     .foregroundStyle(Palette.secondaryInk)
             }
         }
@@ -97,7 +97,7 @@ struct MonthLineEditor: View {
     private var classButtons: some View {
         VStack(alignment: .leading, spacing: Metrics.s) {
             Text("What is it?")
-                .font(.subheadline.weight(.semibold))
+                .font(.app(.subheadline).weight(.semibold))
                 .foregroundStyle(Palette.secondaryInk)
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: Metrics.s), count: 3),
                       spacing: Metrics.s) {
@@ -114,7 +114,7 @@ struct MonthLineEditor: View {
             edit.statementClass = kind
         } label: {
             Text(MonthText.kind(kind, other: nil))
-                .font(.subheadline.weight(.semibold))
+                .font(.app(.subheadline).weight(.semibold))
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
                 .frame(maxWidth: .infinity, minHeight: 36)
@@ -140,7 +140,7 @@ struct MonthLineEditor: View {
             }
             .personalControl()
             Text(movedNote)
-                .font(.caption)
+                .font(.app(.caption))
                 .foregroundStyle(Palette.secondaryInk)
                 .fixedSize(horizontal: false, vertical: true)
         }

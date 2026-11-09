@@ -66,20 +66,20 @@ struct ImportStatementDone: View {
                     .accessibilityHidden(true)
                 VStack(spacing: Metrics.s) {
                     Text(title)
-                        .font(.title.bold())
+                        .font(.app(.title).bold())
                         .foregroundStyle(Palette.ink)
                         .multilineTextAlignment(.center)
                         .accessibilityAddTraits(.isHeader)
                     if receipt.isUndone {
                         Text(receipt.undoNotes.joined(separator: "\n"))
-                            .font(.callout)
+                            .font(.app(.body))
                             .foregroundStyle(Palette.secondaryInk)
                             .multilineTextAlignment(.center)
                             .fixedSize(horizontal: false, vertical: true)
                             .privacySensitiveInFeedback()
                     } else if let savings = receipt.savings {
                         AmountSentenceText(savings.sentence(locale: locale))
-                            .font(isCompact ? .callout : .title3)
+                            .font(isCompact ? .app(.body) : .app(.title3))
                             .foregroundStyle(Palette.secondaryInk)
                             .multilineTextAlignment(.center)
                             .fixedSize(horizontal: false, vertical: true)
@@ -128,7 +128,7 @@ struct ImportStatementDone: View {
                     Button("Open So Far", action: openSoFar)
                 }
                 .buttonStyle(.borderless)
-                .font(.callout)
+                .font(.app(.body))
             }
             .padding(.top, Metrics.s)
         } else {
@@ -178,7 +178,7 @@ private struct ImportRememberedCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             Text("Remembered for next time")
-                .font(.subheadline.weight(.semibold))
+                .font(.app(.subheadline).weight(.semibold))
                 .foregroundStyle(Palette.secondaryInk)
                 .padding(.horizontal, Metrics.l)
                 .padding(.top, Metrics.m)
@@ -191,16 +191,16 @@ private struct ImportRememberedCard: View {
                 }
                 HStack(alignment: .firstTextBaseline, spacing: Metrics.m) {
                     Image(systemName: "checkmark")
-                        .font(.caption.weight(.semibold))
+                        .font(.app(.caption).weight(.semibold))
                         .foregroundStyle(Palette.good)
                         .accessibilityHidden(true)
                     Text(item.title)
-                        .font(.callout)
+                        .font(.app(.body))
                         .foregroundStyle(Palette.ink)
                         .frame(maxWidth: .infinity, alignment: .leading)
                     if !isCompact {
                         Text(item.scope)
-                            .font(.footnote)
+                            .font(.app(.footnote))
                             .foregroundStyle(Palette.secondaryInk)
                     }
                 }

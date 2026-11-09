@@ -75,7 +75,10 @@ struct SidebarRoot: View {
             .navigationTitle("Last Monday")
             .navigationSplitViewColumnWidth(min: 220, ideal: 270)
         } detail: {
+            // Text without a style of its own takes the app's body size
+            // (UI.md, "Type"); the sidebar keeps the system's.
             SidebarDetail(navigation: navigation, item: navigation.sidebarSelection ?? .today)
+                .font(.app(.body))
         }
         .onChange(of: navigation.sidebarSelection, initial: true) { selectPlanRow() }
         .onChange(of: library.sortedPlans.map(\.id)) { selectPlanRow() }

@@ -191,7 +191,7 @@ struct PlanMoneyInOutChart: View {
                 .lineStyle(style)
                 .annotation(position: .top, spacing: 2) {
                     Text("so far")
-                        .font(.caption2)
+                        .font(.app(.caption2))
                         .foregroundStyle(Palette.secondaryInk)
                 }
                 .accessibilityHidden(true)
@@ -332,7 +332,7 @@ struct PlanMoneyInOutCallout: View {
                 }
             } else {
                 Text("No money in and out recorded")
-                    .font(.caption2)
+                    .font(.app(.caption2))
                     .foregroundStyle(Palette.secondaryInk)
             }
         }
@@ -347,7 +347,7 @@ struct PlanMoneyInOutCallout: View {
             Text(verbatim: AmountFormat.percent(rate, digits: 0, locale: locale))
                 .monospacedDigit()
         }
-        .font(.caption2)
+        .font(.app(.caption2))
     }
 }
 

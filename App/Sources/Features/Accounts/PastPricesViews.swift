@@ -121,7 +121,7 @@ struct PastPricesSheet: View {
             Text(verbatim: filler.statusText ?? "")
             if !prices.canFetch {
                 Text("Prices aren't fetched here.")
-                    .font(.footnote)
+                    .font(.app(.footnote))
                     .foregroundStyle(Palette.secondaryInk)
             }
         case .fetching(let progress):
@@ -179,7 +179,7 @@ struct PastPricesSheet: View {
                     }
                 }
                 .buttonStyle(.borderless)
-                .font(.footnote.weight(.semibold))
+                .font(.app(.footnote).weight(.semibold))
                 .disabled(!library.canEdit)
                 .padding(.leading, 28)
             }
@@ -216,18 +216,18 @@ private struct PastPriceLineRow: View {
                     .fontWeight(.medium)
                     .privacySensitiveInFeedback(line.instrument != nil)
                 Text(verbatim: PastPriceText.dates(line.dates, locale: locale))
-                    .font(.footnote)
+                    .font(.app(.footnote))
                     .foregroundStyle(Palette.secondaryInk)
                     .privacySensitiveInFeedback()
                 if let source = sourceText {
                     Text(verbatim: source)
-                        .font(.footnote)
+                        .font(.app(.footnote))
                         .foregroundStyle(Palette.secondaryInk)
                         .privacySensitiveInFeedback()
                 }
                 if missingCount > 0, let reason = line.result?.reason {
                     Text(verbatim: reason)
-                        .font(.footnote)
+                        .font(.app(.footnote))
                         .foregroundStyle(isFailure ? Palette.critical : Palette.secondaryInk)
                         .fixedSize(horizontal: false, vertical: true)
                         .privacySensitiveInFeedback()
@@ -297,12 +297,12 @@ struct OldPriceNoteView: View {
             } icon: {
                 Image(systemName: systemImage)
             }
-            .font(.footnote)
+            .font(.app(.footnote))
             .foregroundStyle(Palette.secondaryInk)
             if let fill {
                 Button("Fill In Past Prices…", action: fill)
                     .buttonStyle(.borderless)
-                    .font(.footnote.weight(.semibold))
+                    .font(.app(.footnote).weight(.semibold))
             }
         }
     }

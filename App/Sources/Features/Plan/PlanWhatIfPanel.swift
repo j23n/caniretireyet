@@ -47,13 +47,13 @@ struct PlanLeverRows: View {
         VStack(alignment: .leading, spacing: 2) {
             HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
                 Text(slider.title)
-                    .font(.subheadline.weight(.semibold))
+                    .font(.app(.subheadline).weight(.semibold))
                     .foregroundStyle(Palette.ink)
                     .lineLimit(1)
                     .minimumScaleFactor(0.85)
                 Spacer(minLength: Metrics.s)
                 value(slider, model: model)
-                    .font(.subheadline.weight(.semibold))
+                    .font(.app(.subheadline).weight(.semibold))
                     .foregroundStyle(model.isChanged(slider) ? Palette.accent : Palette.ink)
                     .lineLimit(1)
                     .fixedSize()
@@ -62,7 +62,7 @@ struct PlanLeverRows: View {
                 .disabled(!model.isAvailable(slider) || !session.canEdit || !plus.hasPlus)
                 .accessibilityLabel(Text(slider.title))
             AmountSentenceText(planned(slider, model: model))
-                .font(.footnote)
+                .font(.app(.footnote))
                 .foregroundStyle(Palette.secondaryInk)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -152,7 +152,7 @@ struct PlanLeverButtons: View {
                 .disabled(!session.canEdit)
                 Text("Apply writes the levers into the chapters: the pay into each working chapter, the "
                      + "spending into each retired one.")
-                    .font(.footnote)
+                    .font(.app(.footnote))
                     .foregroundStyle(Palette.secondaryInk)
                     .fixedSize(horizontal: false, vertical: true)
             } else if !plus.hasPlus {
@@ -175,11 +175,11 @@ struct PlanLeversCard: View {
             HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("What if")
-                        .font(.headline)
+                        .font(.app(.headline))
                         .foregroundStyle(Palette.ink)
                         .accessibilityAddTraits(.isHeader)
                     Text("Move a lever and the chart follows.")
-                        .font(.footnote)
+                        .font(.app(.footnote))
                         .foregroundStyle(Palette.secondaryInk)
                 }
                 if session.isRunningWhatIf {
@@ -191,7 +191,7 @@ struct PlanLeversCard: View {
                 if session.hasWhatIf {
                     Button("Reset") { session.reset() }
                         .buttonStyle(.borderless)
-                        .font(.subheadline)
+                        .font(.app(.subheadline))
                 }
             }
             PlanLeverRows(session: session)

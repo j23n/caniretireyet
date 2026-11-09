@@ -29,7 +29,7 @@ struct CheckInJourneyCards: View {
                            marketsShare: (split.market / split.start).doubleValue,
                            confidence: plans.mainHeadline?.confidence) {
                         Text(verbatim: perspective)
-                            .font(.subheadline)
+                            .font(.app(.subheadline))
                             .foregroundStyle(Palette.ink)
                             .fixedSize(horizontal: false, vertical: true)
                     }
@@ -41,7 +41,7 @@ struct CheckInJourneyCards: View {
         if !result.isPast, let next = nextMilestone {
             HStack(alignment: .firstTextBaseline, spacing: Metrics.m) {
                 Image(systemName: "flag")
-                    .font(.title3)
+                    .font(.app(.title3))
                     .foregroundStyle(Palette.accent)
                     .accessibilityHidden(true)
                 AmountSentenceText(next)
@@ -67,7 +67,7 @@ struct CheckInJourneyCards: View {
                 .fixedSize()
             if let change = result.change {
                 DeltaText(change.change)
-                    .font(.subheadline)
+                    .font(.app(.subheadline))
                     .lineLimit(1)
                     .fixedSize()
             }

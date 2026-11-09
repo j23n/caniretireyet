@@ -127,9 +127,9 @@ private struct AccountKindGrid: View {
     private func tile(for kind: AccountKind, isSelected: Bool) -> some View {
         VStack(spacing: Metrics.xs) {
             Image(systemName: kind.systemImage)
-                .font(.title3)
+                .font(.app(.title3))
             Text(kind.displayName)
-                .font(.caption)
+                .font(.app(.caption))
                 .multilineTextAlignment(.center)
                 .lineLimit(2)
                 .minimumScaleFactor(0.8)

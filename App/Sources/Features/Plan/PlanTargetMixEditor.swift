@@ -145,7 +145,7 @@ private struct PlanTargetMixClassRow: View {
                     today
                     median
                 }
-                .font(.footnote)
+                .font(.app(.footnote))
                 .monospacedDigit()
                 .foregroundStyle(Palette.secondaryInk)
                 .privacySensitiveInFeedback()
@@ -180,7 +180,7 @@ private struct PlanTargetMixTotal: View {
             PlanIssueLine(message: PlanTargetMixModel.totalText(mix, locale: locale) + ". " + problem, isError: true)
         } else {
             Label(PlanTargetMixModel.totalText(mix, locale: locale), systemImage: "checkmark.circle")
-                .font(.footnote)
+                .font(.app(.footnote))
                 .foregroundStyle(Palette.secondaryInk)
                 .privacySensitiveInFeedback()
         }
@@ -211,7 +211,7 @@ private struct PlanTargetMixStepSection: View {
             if step?.fromAge == .retirement {
                 Text("The year you stop working, whatever age the plan finds"
                     + (plan.retirement.age.age.map { ": \($0) in this plan." } ?? "."))
-                    .font(.footnote)
+                    .font(.app(.footnote))
                     .foregroundStyle(Palette.secondaryInk)
                     .privacySensitiveInFeedback()
             } else {
@@ -221,7 +221,7 @@ private struct PlanTargetMixStepSection: View {
             }
             if let note = model.startedNote(step: index), let age = model.currentAge {
                 Text(note)
-                    .font(.footnote)
+                    .font(.app(.footnote))
                     .foregroundStyle(Palette.secondaryInk)
                     .privacySensitiveInFeedback()
                 Button("Make it the target mix") { plan.portfolio.foldTargetMixSteps(passedBy: age) }
@@ -268,7 +268,7 @@ struct PlanTargetMixOverview: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Metrics.s) {
             Text(PlanTargetMixModel.explanation)
-                .font(.caption)
+                .font(.app(.caption))
                 .foregroundStyle(Palette.mutedInk)
                 .fixedSize(horizontal: false, vertical: true)
             line("Rebalance to", PlanTargetMixModel.mixSummary(portfolio.targetMix, locale: locale))
@@ -281,7 +281,7 @@ struct PlanTargetMixOverview: View {
             Button("Edit Target Mix…", action: onEdit)
                 .buttonStyle(.borderless)
         }
-        .font(.subheadline)
+        .font(.app(.subheadline))
     }
 
     private func line(_ title: String, _ mix: String) -> some View {

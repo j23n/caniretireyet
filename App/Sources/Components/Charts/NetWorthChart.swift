@@ -270,7 +270,7 @@ struct NetWorthChart: View {
                 ChartCalloutTotal(point.value)
                 if !point.isComplete {
                     Text("Partial: some values are missing")
-                        .font(.caption2)
+                        .font(.app(.caption2))
                         .foregroundStyle(Palette.secondaryInk)
                 }
                 ForEach(stacked) { series in
@@ -324,7 +324,7 @@ struct ChartPlaceholder: View {
 
     var body: some View {
         Text(text)
-            .font(.callout)
+            .font(.app(.body))
             .foregroundStyle(Palette.secondaryInk)
             .multilineTextAlignment(.center)
             .frame(maxWidth: .infinity, minHeight: height)

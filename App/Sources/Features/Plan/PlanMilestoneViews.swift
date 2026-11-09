@@ -80,7 +80,7 @@ struct PlanAllMilestones: View {
         return VStack(alignment: .leading, spacing: Metrics.s) {
             if reached.isEmpty {
                 Text("None yet since your first check-in. The next one shows above.")
-                    .font(.subheadline)
+                    .font(.app(.subheadline))
                     .foregroundStyle(Palette.secondaryInk)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -92,7 +92,7 @@ struct PlanAllMilestones: View {
             if reached.count > Self.shown {
                 Button(more) { showsAllReached.toggle() }
                     .buttonStyle(.borderless)
-                    .font(.subheadline)
+                    .font(.app(.subheadline))
             }
         }
     }
@@ -105,7 +105,7 @@ struct PlanAllMilestones: View {
             if ahead.isEmpty {
                 Text(hasResults ? "No more before the plan's end in its median future."
                                 : "Calculate the plan to see when the rest typically come.")
-                    .font(.subheadline)
+                    .font(.app(.subheadline))
                     .foregroundStyle(Palette.secondaryInk)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -116,7 +116,7 @@ struct PlanAllMilestones: View {
             if ahead.count > Self.shown {
                 Button(more) { showsAllAhead.toggle() }
                     .buttonStyle(.borderless)
-                    .font(.subheadline)
+                    .font(.app(.subheadline))
             }
         }
     }
@@ -139,21 +139,21 @@ struct PlanMilestoneRow: View {
             Group {
                 if let emoji {
                     Text(verbatim: emoji)
-                        .font(.subheadline)
+                        .font(.app(.subheadline))
                 } else {
                     Image(systemName: isReached ? "flag.fill" : "flag")
-                        .font(.caption)
+                        .font(.app(.caption))
                         .foregroundStyle(isReached ? Palette.accent : Palette.secondaryInk)
                 }
             }
             .accessibilityHidden(true)
             AmountSentenceText(title)
-                .font(.subheadline)
+                .font(.app(.subheadline))
                 .foregroundStyle(Palette.ink)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: Metrics.s)
             Text(when)
-                .font(.subheadline)
+                .font(.app(.subheadline))
                 .monospacedDigit()
                 .foregroundStyle(Palette.secondaryInk)
                 .privacySensitiveInFeedback()

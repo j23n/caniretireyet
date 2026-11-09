@@ -332,7 +332,7 @@ private struct AccountCardHeader: View {
                     .fixedSize()
             }
         }
-        .font(.footnote)
+        .font(.app(.footnote))
         .foregroundStyle(Palette.secondaryInk)
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
@@ -368,7 +368,7 @@ struct AccountListRow: View {
     private var subtitleText: some View {
         if let subtitle {
             Text(subtitle)
-                .font(.subheadline)
+                .font(.app(.subheadline))
                 .foregroundStyle(Palette.secondaryInk)
                 .fixedSize(horizontal: false, vertical: true)
                 .privacySensitiveInFeedback()
@@ -396,7 +396,7 @@ struct AccountListRow: View {
                 .layoutPriority(2)
             if showsChevron {
                 Image(systemName: "chevron.right")
-                    .font(.footnote.weight(.semibold))
+                    .font(.app(.footnote).weight(.semibold))
                     .foregroundStyle(Palette.mutedInk)
                     .accessibilityHidden(true)
             }
@@ -417,7 +417,7 @@ struct AccountListRow: View {
 struct AccountStaleClock: View {
     var body: some View {
         Image(systemName: "clock")
-            .font(.footnote)
+            .font(.app(.footnote))
             .foregroundStyle(Palette.warning)
             .help("Stale: the latest value is too old")
             .accessibilityLabel("Stale")
@@ -432,7 +432,7 @@ struct AccountStaleBadge: View {
                 .accessibilityHidden(true)
             Text("Stale")
         }
-        .font(.caption2.weight(.semibold))
+        .font(.app(.caption2).weight(.semibold))
         .foregroundStyle(Palette.warning)
         .padding(.horizontal, 6)
         .padding(.vertical, 1)

@@ -107,7 +107,7 @@ struct TradeHoldingsRows: View {
                     gain(row)
                 }
             }
-            .font(.footnote)
+            .font(.app(.footnote))
             .foregroundStyle(Palette.secondaryInk)
         }
         .padding(.vertical, 2)
@@ -150,7 +150,7 @@ struct TradeHoldingsGrid: View {
                 Text("Unrealized gain")
                 Text("Share")
             }
-            .font(.caption.weight(.semibold))
+            .font(.app(.caption).weight(.semibold))
             .foregroundStyle(Palette.secondaryInk)
             Divider()
             ForEach(holdings.rows) { row in
@@ -224,7 +224,7 @@ struct TradeHoldingsGrid: View {
                 DeltaText(gain, currency: currency)
                 if let fraction = row.gainFraction {
                     DeltaText(percent: fraction, showsArrow: false)
-                        .font(.caption)
+                        .font(.app(.caption))
                 }
             }
         } else {
@@ -271,7 +271,7 @@ struct TradeListRowView: View {
             AmountSentenceText(item.title)
                 .foregroundStyle(Palette.ink)
             Text(verbatim: item.subtitle)
-                .font(.caption)
+                .font(.app(.caption))
                 .foregroundStyle(Palette.secondaryInk)
                 .lineLimit(3)
                 .privacySensitiveInFeedback()
@@ -286,12 +286,12 @@ struct TradeListRowView: View {
                     .foregroundStyle(Palette.ink)
             } else {
                 Text("Amount unknown")
-                    .font(.footnote)
+                    .font(.app(.footnote))
                     .foregroundStyle(Palette.secondaryInk)
             }
             if let label = item.settlementLabel {
                 Text(verbatim: label)
-                    .font(.caption)
+                    .font(.app(.caption))
                     .foregroundStyle(Palette.secondaryInk)
             }
             if let gain = item.realizedGain {
@@ -300,11 +300,11 @@ struct TradeListRowView: View {
                         .foregroundStyle(Palette.secondaryInk)
                     DeltaText(gain, currency: currency, precision: .automatic, showsArrow: false)
                 }
-                .font(.caption)
+                .font(.app(.caption))
             }
             if item.hasIssue {
                 Label("Needs a look", systemImage: "exclamationmark.triangle")
-                    .font(.caption)
+                    .font(.app(.caption))
                     .foregroundStyle(Palette.warning)
             }
         }
@@ -468,7 +468,7 @@ struct TradeIncomeYearView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Metrics.xs) {
             Text(verbatim: String(year.year))
-                .font(.subheadline.weight(.semibold))
+                .font(.app(.subheadline).weight(.semibold))
                 .foregroundStyle(Palette.ink)
                 .privacySensitiveInFeedback()
             ForEach(year.lines) { line in
@@ -482,7 +482,7 @@ struct TradeIncomeYearView: View {
                         DeltaText(line.amount, currency: currency, precision: .cents, showsArrow: false)
                     }
                 }
-                .font(.footnote)
+                .font(.app(.footnote))
             }
             HStack {
                 Text("Net")
@@ -491,10 +491,10 @@ struct TradeIncomeYearView: View {
                 DeltaText(year.net, currency: currency, precision: .cents, showsArrow: false)
                     .fontWeight(.semibold)
             }
-            .font(.footnote)
+            .font(.app(.footnote))
             if let note = year.unknownGainNote {
                 Text(verbatim: note)
-                    .font(.caption)
+                    .font(.app(.caption))
                     .foregroundStyle(Palette.secondaryInk)
                     .fixedSize(horizontal: false, vertical: true)
             }

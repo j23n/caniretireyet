@@ -37,7 +37,6 @@ struct TwelveMonthsTile: View {
     var period: String?
 
     @Environment(\.locale) private var locale
-    @ScaledMetric(relativeTo: .largeTitle) private var rateSize: CGFloat = 48
 
     var body: some View {
         ColorTile(tint: tile.kind.tint) {
@@ -51,7 +50,7 @@ struct TwelveMonthsTile: View {
             }
             if let change = tile.change {
                 Text(verbatim: change.text(currency: currency, locale: locale))
-                    .font(.tile(.caption).weight(.semibold))
+                    .font(.app(.footnote).weight(.semibold))
                     .monospacedDigit()
                     .lineLimit(1)
                     .foregroundStyle(color(of: change))
@@ -71,7 +70,7 @@ struct TwelveMonthsTile: View {
         switch tile.figure {
         case .rate(let rate):
             Text(verbatim: rate.map { AmountFormat.percent($0, digits: 0, locale: locale) } ?? "—")
-                .font(.system(size: rateSize, weight: .bold))
+                .font(.figure)
                 .monospacedDigit()
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
@@ -80,7 +79,7 @@ struct TwelveMonthsTile: View {
             // Only *Saved* says its sign in its title ("Took out"); what
             // came in and what was spent can be below zero too.
             AmountText(tile.kind == .saved ? abs(amount) : amount, currency: currency, tabular: false)
-                .font(.tile(.title2).bold())
+                .font(.figure)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
         }
@@ -108,7 +107,7 @@ struct PlanMoneyInOutEmptyCard: View {
         Card {
             Text("Each check-in records the money that came into and went out of your cash and savings accounts, "
                 + "from their second value on. Your savings rate and your money in and out show here from then.")
-                .font(PlanProgressFont.text)
+                .font(Font.app(.subheadline))
                 .foregroundStyle(Palette.secondaryInk)
                 .fixedSize(horizontal: false, vertical: true)
             if navigation.layout == .tabs || firstMoneyAccount != nil {
@@ -118,7 +117,7 @@ struct PlanMoneyInOutEmptyCard: View {
                     Label("Open Accounts", systemImage: AppSymbol.accounts)
                 }
                 .buttonStyle(.borderless)
-                .font(PlanProgressFont.caption)
+                .font(Font.app(.footnote))
             }
         } header: {
             SectionHeader("Money in and out")
@@ -155,7 +154,7 @@ struct PlanTrendsOffCard: View {
             Text("Your savings rate and your money in and out are built on what came in, what went out and what "
                 + "you added. Some values typed for these accounts don't say what moved since the one before, "
                 + "so they're off.")
-                .font(PlanProgressFont.text)
+                .font(Font.app(.subheadline))
                 .foregroundStyle(Palette.secondaryInk)
                 .fixedSize(horizontal: false, vertical: true)
             ForEach(accounts) { account in
@@ -166,11 +165,11 @@ struct PlanTrendsOffCard: View {
                         .privacySensitiveInFeedback()
                 }
                 .buttonStyle(.borderless)
-                .font(PlanProgressFont.text)
+                .font(Font.app(.subheadline))
             }
             Text("To turn it on, open each account and tap its typed values to add what moved, or set its Values "
                 + "to From imported files and import its statements.")
-                .font(PlanProgressFont.caption)
+                .font(Font.app(.footnote))
                 .foregroundStyle(Palette.secondaryInk)
                 .fixedSize(horizontal: false, vertical: true)
         } header: {

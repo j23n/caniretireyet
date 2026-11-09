@@ -40,7 +40,7 @@ private struct ImportFilesHeader: View {
         HStack(alignment: .bottom, spacing: Metrics.xl) {
             VStack(alignment: .leading, spacing: Metrics.xs) {
                 Text("Your statements")
-                    .font(.title2.bold())
+                    .font(.app(.title2).bold())
                 Text("Every account's CSV at once: a month's or ten years' worth. "
                     + "Each file's account is found for you.")
                     .foregroundStyle(Palette.secondaryInk)
@@ -94,7 +94,7 @@ private struct ImportFilesTable: View {
                 Text("Balance")
                 Text("Account")
             }
-            .font(.caption.weight(.semibold))
+            .font(.app(.caption).weight(.semibold))
             .foregroundStyle(Palette.secondaryInk)
             .padding(.horizontal, 18)
             .padding(.vertical, Metrics.s)
@@ -163,7 +163,7 @@ private struct ImportFileTableRow: View {
                     .truncationMode(.middle)
                     .privacySensitiveInFeedback()
                 Text(row.detail)
-                    .font(.caption)
+                    .font(.app(.caption))
                     .foregroundStyle(Palette.secondaryInk)
                     .lineLimit(1)
                     .privacySensitiveInFeedback()
@@ -203,11 +203,11 @@ private struct ImportFileTableRow: View {
                 .personalControl()
                 if row.needsAccount {
                     Text("Which account is this a statement of?")
-                        .font(.caption.weight(.semibold))
+                        .font(.app(.caption).weight(.semibold))
                         .foregroundStyle(Palette.warning)
                 } else if let source = row.accountSource {
                     Text(source)
-                        .font(.caption)
+                        .font(.app(.caption))
                         .foregroundStyle(Palette.secondaryInk)
                         .privacySensitiveInFeedback()
                 }
@@ -242,7 +242,7 @@ private struct ImportUnreadableFileRow: View {
                     .lineLimit(1)
                     .truncationMode(.middle)
                 Label("Can't be read: \(reason)", systemImage: "exclamationmark.triangle.fill")
-                    .font(.caption)
+                    .font(.app(.caption))
                     .foregroundStyle(Palette.warning)
                     .lineLimit(2)
             }
@@ -359,7 +359,7 @@ private struct ImportBetweenFiles: View {
         if !notes.isEmpty {
             VStack(alignment: .leading, spacing: Metrics.s) {
                 Text("Between these files")
-                    .font(.caption.weight(.semibold))
+                    .font(.app(.caption).weight(.semibold))
                     .textCase(.uppercase)
                     .foregroundStyle(Palette.secondaryInk)
                     .accessibilityAddTraits(.isHeader)
@@ -427,7 +427,7 @@ private struct ImportPairedTransfersList: View {
                     Spacer(minLength: Metrics.s)
                     AmountText(transfer.amount, currency: transfer.currency, precision: .cents)
                 }
-                .font(.callout)
+                .font(.app(.body))
                 .foregroundStyle(Palette.secondaryInk)
             }
         }
@@ -566,7 +566,7 @@ struct ImportFirstCheckInCard: View {
                 HStack(alignment: .center, spacing: Metrics.l) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(Self.title(first))
-                            .font(.headline)
+                            .font(.app(.headline))
                             .privacySensitiveInFeedback()
                         Text("How often should past check-ins be added?")
                             .foregroundStyle(Palette.secondaryInk)
@@ -585,7 +585,7 @@ struct ImportFirstCheckInCard: View {
                     Divider()
                         .padding(.vertical, Metrics.xs)
                     Text("After your first check-in")
-                        .font(.headline)
+                        .font(.app(.headline))
                     ImportAfterFirstCheckIn(first: first)
                 }
             }
@@ -629,12 +629,12 @@ private struct ImportCheckInChecks: View {
                         .foregroundStyle(check.off == nil ? Palette.secondaryInk : Palette.warning)
                     Spacer(minLength: 0)
                 }
-                .font(.subheadline)
+                .font(.app(.subheadline))
                 .accessibilityElement(children: .combine)
             }
             if let summary = ImportCheckInCheck.summary(checks, locale: locale) {
                 AmountSentenceText(summary)
-                    .font(.subheadline.weight(.semibold))
+                    .font(.app(.subheadline).weight(.semibold))
                     .padding(.top, Metrics.xs)
             }
         }
@@ -739,7 +739,7 @@ private struct ImportFileCompactRow: View {
                         HStack(spacing: Metrics.xs) {
                             Text("Choose Account")
                             Image(systemName: "chevron.right")
-                                .font(.footnote.weight(.semibold))
+                                .font(.app(.footnote).weight(.semibold))
                         }
                         .foregroundStyle(Palette.warning)
                     } else {
@@ -755,7 +755,7 @@ private struct ImportFileCompactRow: View {
             .personalControl()
             .accessibilityLabel(row.needsAccount ? "Choose the account of \(row.name)" : "Account of \(row.name)")
             Text(row.compactDetail)
-                .font(.footnote)
+                .font(.app(.footnote))
                 .foregroundStyle(Palette.secondaryInk)
                 .privacySensitiveInFeedback()
             if row.showsReadingLink {
@@ -763,7 +763,7 @@ private struct ImportFileCompactRow: View {
                     showReading(row.id)
                 }
                 .buttonStyle(.borderless)
-                .font(.subheadline)
+                .font(.app(.subheadline))
                 .padding(.top, Metrics.xs)
             }
         }

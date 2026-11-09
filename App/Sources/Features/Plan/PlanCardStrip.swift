@@ -313,7 +313,7 @@ struct PlanStripAmountLabels: View {
         ForEach(scale.ticks.filter { $0 > scale.domain.lowerBound }, id: \.self) { tick in
             let y = plot.y(tick, scale)
             Text(scale.label(tick, currency: currency, locale: locale))
-                .font(.caption2)
+                .font(.app(.caption2))
                 .foregroundStyle(Palette.mutedInk)
                 .privacySensitive()
                 .planGraphLabel()

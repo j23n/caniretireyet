@@ -63,7 +63,7 @@ struct ChartCalloutDate: View {
 
     var body: some View {
         Text(verbatim: text)
-            .font(.caption2)
+            .font(.app(.caption2))
             .foregroundStyle(Palette.secondaryInk)
             .privacySensitiveInFeedback()
     }
@@ -96,10 +96,10 @@ struct ChartCalloutTotal: View {
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 4) {
             if let label {
-                Text(label).font(.caption2).foregroundStyle(Palette.secondaryInk)
+                Text(label).font(.app(.caption2)).foregroundStyle(Palette.secondaryInk)
             }
             AmountText(Decimal(wholeNumber: amount), currency: currency, short: true)
-                .font(.caption.weight(.semibold))
+                .font(.app(.caption).weight(.semibold))
         }
     }
 }
@@ -136,7 +136,7 @@ struct ChartCalloutRow: View {
                     .minimumScaleFactor(0.75)
             }
         }
-        .font(.caption2)
+        .font(.app(.caption2))
     }
 
     private var label: some View {
@@ -202,7 +202,7 @@ struct ChartCalloutMarker<Icon: View>: View {
         } icon: {
             icon
         }
-        .font(.caption2)
+        .font(.app(.caption2))
         .foregroundStyle(Palette.secondaryInk)
     }
 }

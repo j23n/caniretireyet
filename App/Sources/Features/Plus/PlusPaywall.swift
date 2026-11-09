@@ -24,7 +24,7 @@ struct PlusPaywall: View {
                 VStack(alignment: .leading, spacing: Metrics.xl) {
                     VStack(alignment: .leading, spacing: Metrics.s) {
                         Text(feature?.title ?? "Plus")
-                            .font(.title2.bold())
+                            .font(.app(.title2).bold())
                             .foregroundStyle(Palette.ink)
                         Text("Tracking, check-ins, import, widgets and one plan with its answer are free. "
                             + "Plus adds what you need to plan more than one future.")
@@ -50,7 +50,7 @@ struct PlusPaywall: View {
                             .buttonStyle(.borderless)
                             .disabled(isRestoring || buying != nil)
                     }
-                    .font(.footnote)
+                    .font(.app(.footnote))
                     .fixedSize(horizontal: false, vertical: true)
                 }
                 .padding(Metrics.l)
@@ -106,7 +106,7 @@ struct PlusPaywall: View {
                 Text("Asking the App Store for prices…")
                     .foregroundStyle(Palette.secondaryInk)
             }
-            .font(.footnote)
+            .font(.app(.footnote))
         }
     }
 
@@ -181,7 +181,7 @@ private struct PlusFeatureRow: View {
                     .fontWeight(.semibold)
                     .foregroundStyle(Palette.ink)
                 Text(line.detail)
-                    .font(.subheadline)
+                    .font(.app(.subheadline))
                     .foregroundStyle(Palette.secondaryInk)
             }
             .fixedSize(horizontal: false, vertical: true)
@@ -205,7 +205,7 @@ private struct PlusPriceLabel: View {
                 Text(title)
                     .fontWeight(.semibold)
                 Text(detail)
-                    .font(.footnote)
+                    .font(.app(.footnote))
             }
         }
         .frame(maxWidth: .infinity)

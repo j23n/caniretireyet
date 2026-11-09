@@ -53,20 +53,20 @@ struct OnboardingKeepUpStep: View {
         } label: {
             HStack(alignment: .top, spacing: Metrics.m) {
                 Image(systemName: isChosen ? "largecircle.fill.circle" : "circle")
-                    .font(.title3)
+                    .font(.app(.title3))
                     .foregroundStyle(isChosen ? Palette.accent : Palette.mutedInk)
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: Metrics.xs) {
                     Text(title)
-                        .font(.headline)
+                        .font(.app(.headline))
                         .foregroundStyle(Palette.ink)
                     Text(detail)
-                        .font(.subheadline)
+                        .font(.app(.subheadline))
                         .foregroundStyle(Palette.secondaryInk)
                         .fixedSize(horizontal: false, vertical: true)
                     if let gives {
                         Text(gives)
-                            .font(.footnote)
+                            .font(.app(.footnote))
                             .foregroundStyle(Palette.accentDeep)
                             .fixedSize(horizontal: false, vertical: true)
                     }
@@ -94,10 +94,10 @@ private struct OnboardingEstimateNames: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Metrics.s) {
             Text("Your accounts")
-                .font(.subheadline.weight(.semibold))
+                .font(.app(.subheadline).weight(.semibold))
                 .foregroundStyle(Palette.secondaryInk)
             Text("Your rough amounts become these accounts. Rename them to match yours.")
-                .font(.footnote)
+                .font(.app(.footnote))
                 .foregroundStyle(Palette.secondaryInk)
                 .fixedSize(horizontal: false, vertical: true)
             ForEach(library.library.openStartingEstimates) { estimate in
@@ -108,11 +108,11 @@ private struct OnboardingEstimateNames: View {
                         .accessibilityLabel(Text("Name of \(OnboardingKeepUpText.kindName(estimate))"))
                     VStack(alignment: .trailing, spacing: 0) {
                         Text(OnboardingKeepUpText.kindName(estimate))
-                            .font(.caption)
+                            .font(.app(.caption))
                             .foregroundStyle(Palette.secondaryInk)
                         if let balance = library.library.valuations(for: estimate.id).last?.balance {
                             AmountText(abs(balance), currency: estimate.currency)
-                                .font(.caption)
+                                .font(.app(.caption))
                                 .foregroundStyle(Palette.secondaryInk)
                         }
                     }
@@ -122,7 +122,7 @@ private struct OnboardingEstimateNames: View {
             Text("At each check-in you type each account's balance and what moved: what came in, what went out "
                 + "and the interest for your savings, what you added for your investments and pension. Type 0 when "
                 + "nothing moved. It takes about a minute a month.")
-                .font(.footnote)
+                .font(.app(.footnote))
                 .foregroundStyle(Palette.secondaryInk)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -161,13 +161,13 @@ private struct OnboardingImportFiles: View {
                     + "Drive."
                   : "Importing is easier on a Mac, where your files usually are.",
                   systemImage: "macbook.and.iphone")
-                .font(.callout)
+                .font(.app(.body))
                 .foregroundStyle(Palette.secondaryInk)
                 .fixedSize(horizontal: false, vertical: true)
             #endif
             if !library.library.openStartingEstimates.isEmpty {
                 Text("After each import, you can replace your rough amounts with the accounts it added.")
-                    .font(.footnote)
+                    .font(.app(.footnote))
                     .foregroundStyle(Palette.secondaryInk)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -216,15 +216,15 @@ struct OnboardingNotesStep: View {
             widgetHint
             HStack(spacing: Metrics.s) {
                 Text(AboutText.disclaimer)
-                    .font(.footnote)
+                    .font(.app(.footnote))
                     .foregroundStyle(Palette.secondaryInk)
                 Button("Read More") { readsMore = true }
-                    .font(.footnote)
+                    .font(.app(.footnote))
                     .buttonStyle(.borderless)
                     .popover(isPresented: $readsMore) {
                         ScrollView {
                             Text(AboutText.about)
-                                .font(.callout)
+                                .font(.app(.body))
                                 .foregroundStyle(Palette.ink)
                                 .fixedSize(horizontal: false, vertical: true)
                                 .padding(Metrics.l)
@@ -246,7 +246,7 @@ struct OnboardingNotesStep: View {
     private func notePreview(_ note: EngagementNote) -> some View {
         HStack(alignment: .top, spacing: Metrics.m) {
             Image(systemName: AppSymbol.today)
-                .font(.title3)
+                .font(.app(.title3))
                 .foregroundStyle(.white)
                 .frame(width: 36, height: 36)
                 .background(Palette.accent, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
@@ -254,14 +254,14 @@ struct OnboardingNotesStep: View {
             VStack(alignment: .leading, spacing: 2) {
                 HStack {
                     Text(note.title)
-                        .font(.subheadline.weight(.semibold))
+                        .font(.app(.subheadline).weight(.semibold))
                     Spacer()
                     Text(AmountFormat.shortDate(note.time.date, locale: locale))
-                        .font(.caption)
+                        .font(.app(.caption))
                         .foregroundStyle(Palette.secondaryInk)
                 }
                 Text(note.body)
-                    .font(.subheadline)
+                    .font(.app(.subheadline))
                     .fixedSize(horizontal: false, vertical: true)
             }
             .foregroundStyle(Palette.ink)
@@ -277,16 +277,16 @@ struct OnboardingNotesStep: View {
     private var widgetHint: some View {
         HStack(alignment: .top, spacing: Metrics.m) {
             Image(systemName: "rectangle.on.rectangle")
-                .font(.title2)
+                .font(.app(.title2))
                 .foregroundStyle(Palette.accent)
                 .frame(width: 32)
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: Metrics.xs) {
                 Text(Self.widgetTitle)
-                    .font(.headline)
+                    .font(.app(.headline))
                     .foregroundStyle(Palette.ink)
                 Text(Self.widgetHow)
-                    .font(.subheadline)
+                    .font(.app(.subheadline))
                     .foregroundStyle(Palette.secondaryInk)
                     .fixedSize(horizontal: false, vertical: true)
             }

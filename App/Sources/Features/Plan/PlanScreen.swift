@@ -116,7 +116,7 @@ struct PlanContentView: View {
             .overlay(alignment: .bottom) {
                 if let message {
                     Text(message)
-                        .font(.footnote.weight(.semibold))
+                        .font(.app(.footnote).weight(.semibold))
                         .padding(.horizontal, Metrics.l)
                         .padding(.vertical, Metrics.s)
                         .background(.regularMaterial, in: Capsule())

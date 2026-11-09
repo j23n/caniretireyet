@@ -177,7 +177,7 @@ struct AmountAxisLabel: View {
 
     var body: some View {
         let label = Text(verbatim: text)
-            .font(.caption2)
+            .font(.app(.caption2))
             .monospacedDigit()
             .foregroundStyle(Palette.mutedInk)
         if isRelative && !hidesPersonalData {
@@ -202,7 +202,7 @@ func tickAxis<Value: Plottable & Sendable>(_ values: [Value],
                 // Whole even at the chart's edge, where the last label would
                 // otherwise be cut short ("2…").
                 Text(verbatim: label(typed))
-                    .font(.caption2)
+                    .font(.app(.caption2))
                     .monospacedDigit()
                     .foregroundStyle(Palette.mutedInk)
                     .fixedSize()
@@ -294,7 +294,7 @@ struct ChartMarkerLabel: View {
                     .accessibilityLabel(placement.marker.label)
             }
         }
-        .font(.caption2)
+        .font(.app(.caption2))
         .foregroundStyle(Palette.secondaryInk)
         .privacySensitiveInFeedback()
     }
@@ -423,7 +423,7 @@ struct ChartLegendRow: View {
                 }
             }
         }
-        .font(.caption)
+        .font(.app(.caption))
         .foregroundStyle(Palette.secondaryInk)
         .privacySensitiveInFeedback()
         .accessibilityElement(children: .combine)
@@ -528,20 +528,20 @@ struct ChartCaption: View {
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: Metrics.xs) {
             Text(text)
-                .font(.footnote)
+                .font(.app(.footnote))
                 .foregroundStyle(Palette.secondaryInk)
                 .fixedSize(horizontal: false, vertical: true)
             Button {
                 showsDetail = true
             } label: {
                 Image(systemName: "info.circle")
-                    .font(.footnote)
+                    .font(.app(.footnote))
             }
             .buttonStyle(.borderless)
             .accessibilityLabel("About this chart")
             .popover(isPresented: $showsDetail) {
                 Text(detail)
-                    .font(.callout)
+                    .font(.app(.body))
                     .foregroundStyle(Palette.ink)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(Metrics.l)
@@ -593,7 +593,7 @@ struct TimeSpanMenu: View {
             Label(timeSpanTitle(range: range, horizon: horizon?.wrappedValue, fromRetirement: fromRetirement,
                                 compact: compact),
                   systemImage: "calendar")
-                .font(.subheadline)
+                .font(.app(.subheadline))
                 .monospacedDigit()
         }
         .fixedSize()

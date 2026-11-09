@@ -29,7 +29,7 @@ struct SavingAsTimeText: View {
     var body: some View {
         if let time = SavingAsTime(saved: saved, markets: markets, yearlySpending: yearlySpending) {
             AmountSentenceText(time.sentence(saved: saved, currency: currency, locale: locale))
-                .font(.subheadline)
+                .font(.app(.subheadline))
                 .foregroundStyle(Palette.ink)
                 .fixedSize(horizontal: false, vertical: true)
         }

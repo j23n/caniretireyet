@@ -458,7 +458,7 @@ struct DecadesPlot: View {
     private func timeLabels(_ geometry: DecadesGeometry) -> some View {
         ForEach(geometry.timeTicks) { tick in
             Text(verbatim: tick.label)
-                .font(.caption2)
+                .font(.app(.caption2))
                 .monospacedDigit()
                 .foregroundStyle(Palette.mutedInk)
                 .fixedSize()
@@ -471,7 +471,7 @@ struct DecadesPlot: View {
         ForEach(data.chapters) { chapter in
             if let rect = geometry.band(of: chapter), rect.width >= CGFloat(chapter.name.count) * 6 + 12 {
                 Text(chapter.name)
-                    .font(.caption2)
+                    .font(.app(.caption2))
                     .foregroundStyle(Palette.ink.opacity(0.75))
                     .lineLimit(1)
                     .fixedSize()
@@ -489,7 +489,7 @@ struct DecadesPlot: View {
         let nowEnd = nowX + 6 + CGFloat(data.nowLabel.count) * 6.5
         if !data.fan.isEmpty || data.retirement != nil {
             Text(data.nowLabel)
-                .font(.caption2.weight(.semibold))
+                .font(.app(.caption2).weight(.semibold))
                 .foregroundStyle(Palette.ink)
                 .lineLimit(1)
                 .fixedSize()
@@ -503,7 +503,7 @@ struct DecadesPlot: View {
             let clear = retirement > data.now && !flipsNow ? max(at, nowEnd + 6 + pill / 2) : at
             let centre = min(max(clear, pill / 2), max(pill / 2, geometry.right - pill / 2))
             Text(label)
-                .font(.caption2.weight(.semibold))
+                .font(.app(.caption2).weight(.semibold))
                 .foregroundStyle(Color.white)
                 .lineLimit(1)
                 .fixedSize()
@@ -546,7 +546,7 @@ struct DecadesPlot: View {
             ChartCalloutTotal(point.value, currency: data.currency)
             if !point.isComplete {
                 Text("Partial: some values are missing")
-                    .font(.caption2)
+                    .font(.app(.caption2))
                     .foregroundStyle(Palette.secondaryInk)
             }
         }

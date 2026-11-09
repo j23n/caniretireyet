@@ -18,10 +18,10 @@ struct NoteChartView: View {
             if points.contains(where: { $0.earliestAge != nil }) {
                 HStack(alignment: .firstTextBaseline) {
                     Text("The age you could retire at")
-                        .font(.subheadline.weight(.semibold))
+                        .font(.app(.subheadline).weight(.semibold))
                     Spacer(minLength: Metrics.s)
                     Text("last 12 check-ins")
-                        .font(.caption)
+                        .font(.app(.caption))
                         .foregroundStyle(Palette.secondaryInk)
                 }
                 AgeStepChart(points: points)

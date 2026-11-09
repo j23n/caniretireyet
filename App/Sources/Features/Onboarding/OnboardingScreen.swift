@@ -145,7 +145,7 @@ struct OnboardingScreen: View {
         if let number = model.step.number {
             VStack(alignment: .leading, spacing: Metrics.xs) {
                 Text("Step \(number) of \(OnboardingStep.count)")
-                    .font(.footnote)
+                    .font(.app(.footnote))
                     .foregroundStyle(Palette.secondaryInk)
                     .monospacedDigit()
                 ProgressView(value: Double(number), total: Double(OnboardingStep.count))
@@ -311,7 +311,7 @@ struct OnboardingTitle: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Metrics.s) {
             Text(title)
-                .font(.title2.bold())
+                .font(.app(.title2).bold())
                 .foregroundStyle(Palette.ink)
                 .accessibilityAddTraits(.isHeader)
             if let detail {
@@ -341,13 +341,13 @@ struct OnboardingRow<Accessory: View>: View {
     var body: some View {
         HStack(alignment: .top, spacing: Metrics.m) {
             Image(systemName: systemImage)
-                .font(.title2)
+                .font(.app(.title2))
                 .foregroundStyle(Palette.accent)
                 .frame(width: 32)
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: Metrics.xs) {
-                Text(title).font(.headline).foregroundStyle(Palette.ink)
-                Text(detail).font(.subheadline).foregroundStyle(Palette.secondaryInk)
+                Text(title).font(.app(.headline)).foregroundStyle(Palette.ink)
+                Text(detail).font(.app(.subheadline)).foregroundStyle(Palette.secondaryInk)
                     .fixedSize(horizontal: false, vertical: true)
                 accessory
             }

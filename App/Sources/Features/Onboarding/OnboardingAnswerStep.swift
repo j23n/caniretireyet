@@ -60,13 +60,13 @@ struct OnboardingAnswerStep: View {
         VStack(alignment: .leading, spacing: Metrics.l) {
             OnboardingCalendarPage(date: nil)
             Text("Calculating thousands of simulated futures…")
-                .font(.title2.bold())
+                .font(.app(.title2).bold())
                 .foregroundStyle(Palette.ink)
             if let progress = plans.progress(of: plan, .checkIn) {
                 ProgressView(value: min(1, max(0, progress.fraction)), total: 1)
                     .tint(Palette.accent)
                 Text(PlanRunText.overall(progress, locale: locale))
-                    .font(.footnote)
+                    .font(.app(.footnote))
                     .monospacedDigit()
                     .foregroundStyle(Palette.secondaryInk)
             } else {
@@ -81,7 +81,7 @@ struct OnboardingAnswerStep: View {
             Button("Try Again") { model.retryAnswer(library: library, plans: plans) }
                 .buttonStyle(.bordered)
             Text("You can continue: Today calculates your plan once it can.")
-                .font(.footnote)
+                .font(.app(.footnote))
                 .foregroundStyle(Palette.secondaryInk)
         }
     }
@@ -154,7 +154,7 @@ struct OnboardingAnswerStep: View {
             VStack(alignment: .leading, spacing: Metrics.s) {
                 Text(retired ? (model.openedExistingLibrary ? "Your answer" : "Your first answer")
                      : OnboardingText.revealLead(headline, openedExistingLibrary: model.openedExistingLibrary))
-                    .font(.title3)
+                    .font(.app(.title3))
                     .foregroundStyle(Palette.secondaryInk)
                 Text(verbatim: retired ? OnboardingText.retiredTitle(headline)
                      : OnboardingText.revealTitle(headline, locale: locale))
@@ -164,7 +164,7 @@ struct OnboardingAnswerStep: View {
                     .minimumScaleFactor(0.5)
                     .privacySensitiveInFeedback()
                 Text(verbatim: model.openedExistingLibrary ? line : line + " " + OnboardingText.sketch)
-                    .font(.title3)
+                    .font(.app(.title3))
                     .foregroundStyle(Palette.ink)
                     .fixedSize(horizontal: false, vertical: true)
                     .privacySensitiveInFeedback()
@@ -174,7 +174,7 @@ struct OnboardingAnswerStep: View {
             if retired, let spending = OnboardingText.retiredSpendingLine(headline, currency: library.baseCurrency,
                                                                          locale: locale) {
                 AmountSentenceText(spending)
-                    .font(.callout)
+                    .font(.app(.body))
                     .foregroundStyle(Palette.ink)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -226,13 +226,13 @@ struct OnboardingSketchInfo: View {
             explains = true
         } label: {
             Label("What the answer stands on", systemImage: "info.circle")
-                .font(.footnote)
+                .font(.app(.footnote))
                 .foregroundStyle(Palette.accent)
         }
         .buttonStyle(.plain)
         .popover(isPresented: $explains) {
             Text(explanation)
-                .font(.callout)
+                .font(.app(.body))
                 .foregroundStyle(Palette.ink)
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(Metrics.l)
@@ -255,7 +255,7 @@ struct OnboardingCalendarPage: View {
     var body: some View {
         VStack(spacing: 0) {
             Text(weekday)
-                .font(.caption.weight(.bold))
+                .font(.app(.caption).weight(.bold))
                 .foregroundStyle(.white)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, Metrics.xs)
@@ -266,7 +266,7 @@ struct OnboardingCalendarPage: View {
                 .foregroundStyle(Palette.ink)
                 .padding(.top, Metrics.xs)
             Text(verbatim: date.map { GlanceText.monthAndYear($0, locale: locale) } ?? "····")
-                .font(.caption)
+                .font(.app(.caption))
                 .foregroundStyle(Palette.secondaryInk)
                 .padding(.bottom, Metrics.s)
         }

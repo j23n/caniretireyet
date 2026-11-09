@@ -120,10 +120,10 @@ struct BrokerageMonthScreen: View {
                 BrokerageCashCard(month: month, account: account)
                 VStack(alignment: .leading, spacing: Metrics.s) {
                     Text("Trades")
-                        .font(.headline)
+                        .font(.app(.headline))
                     if month.trades.isEmpty {
                         Text("No trades this month yet. Import the broker's CSV, or add them by hand.")
-                            .font(.subheadline)
+                            .font(.app(.subheadline))
                             .foregroundStyle(Palette.secondaryInk)
                     } else {
                         CardRows {
@@ -168,7 +168,7 @@ struct BrokerageMonthScreen: View {
                         .foregroundStyle(Palette.secondaryInk)
                 }
                 Image(systemName: "chevron.right")
-                    .font(.footnote.weight(.semibold))
+                    .font(.app(.footnote).weight(.semibold))
                     .foregroundStyle(Palette.mutedInk)
                     .accessibilityHidden(true)
             }
@@ -230,7 +230,7 @@ struct BrokerageMonthScreen: View {
             }
             if month.trades.isEmpty {
                 Text("No trades this month yet. Import the broker's CSV, or add them by hand.")
-                    .font(.subheadline)
+                    .font(.app(.subheadline))
                     .foregroundStyle(Palette.secondaryInk)
             }
         }
@@ -282,7 +282,7 @@ private struct BrokerageSummaryCard: View {
             Spacer(minLength: Metrics.s)
             AmountText(amount, currency: account.currency, precision: .cents, signed: signed)
         }
-        .font(bold ? .body.weight(.semibold) : .body)
+        .font(bold ? .app(.body).weight(.semibold) : .app(.body))
     }
 }
 
@@ -301,16 +301,16 @@ private struct BrokerageDepositCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Metrics.s) {
             AmountSentenceText(sentence)
-                .font(.body.weight(.semibold))
+                .font(.app(.body).weight(.semibold))
             if layout.isWide {
                 Text(line.amount < 0 ? "Add it here as a deposit, so both accounts show the same move."
                     : "Add it here as a withdrawal, so both accounts show the same move.")
-                    .font(.subheadline)
+                    .font(.app(.subheadline))
                     .foregroundStyle(Palette.secondaryInk)
             }
             if let errorMessage {
                 Text(errorMessage)
-                    .font(.caption)
+                    .font(.app(.caption))
                     .foregroundStyle(Palette.critical)
             }
             Button(line.amount < 0 ? "Add as Deposit" : "Add as Withdrawal") { add() }
@@ -380,7 +380,7 @@ private struct BrokerageCashCard: View {
             if MonthText.isStillToCome(month.through) {
                 Text("The broker's cash goes in at the check-in, on "
                     + "\(AmountFormat.mediumDate(month.through, locale: locale)).")
-                    .font(.subheadline)
+                    .font(.app(.subheadline))
                     .foregroundStyle(Palette.secondaryInk)
             } else {
                 HStack(spacing: Metrics.s) {
@@ -388,7 +388,7 @@ private struct BrokerageCashCard: View {
                         Text("\(account.name) says on \(AmountFormat.shortDate(month.through, locale: locale))")
                             .privacySensitiveInFeedback()
                         status
-                            .font(.subheadline.weight(.semibold))
+                            .font(.app(.subheadline).weight(.semibold))
                     }
                     Spacer(minLength: Metrics.s)
                     OutlinedAmountField(title: "Cash", text: $statedText, currency: account.currency,
@@ -399,7 +399,7 @@ private struct BrokerageCashCard: View {
             }
             if let errorMessage {
                 Text(errorMessage)
-                    .font(.caption)
+                    .font(.app(.caption))
                     .foregroundStyle(Palette.critical)
             }
         }
@@ -417,7 +417,7 @@ private struct BrokerageCashCard: View {
                 if MonthText.isStillToCome(month.through) {
                     Text("The broker's cash goes in at the check-in, on "
                         + "\(AmountFormat.mediumDate(month.through, locale: locale)).")
-                        .font(.subheadline)
+                        .font(.app(.subheadline))
                         .foregroundStyle(Palette.secondaryInk)
                 } else {
                     HStack {
@@ -434,7 +434,7 @@ private struct BrokerageCashCard: View {
                 status
                 if let errorMessage {
                     Text(errorMessage)
-                        .font(.caption)
+                        .font(.app(.caption))
                         .foregroundStyle(Palette.critical)
                 }
             }
@@ -467,7 +467,7 @@ private struct BrokerageCashCard: View {
             Spacer(minLength: Metrics.s)
             AmountText(amount, currency: account.currency, precision: .cents, signed: signed)
         }
-        .font(bold ? .body.weight(.semibold) : .body)
+        .font(bold ? .app(.body).weight(.semibold) : .app(.body))
     }
 
     /// Saves the broker's cash typed, when it's a number that changed.
@@ -523,10 +523,10 @@ private struct BrokerageHoldingsCard: View {
         return HStack(alignment: .firstTextBaseline) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(instrument?.name ?? holding.instrument.rawValue)
-                    .font(.body.weight(.semibold))
+                    .font(.app(.body).weight(.semibold))
                     .privacySensitiveInFeedback()
                 AmountSentenceText(quantity(holding, unit: QuantityFormat.unit(of: instrument)))
-                    .font(.subheadline)
+                    .font(.app(.subheadline))
                     .foregroundStyle(Palette.secondaryInk)
             }
             Spacer(minLength: Metrics.s)

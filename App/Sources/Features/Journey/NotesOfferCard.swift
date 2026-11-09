@@ -46,7 +46,7 @@ struct NotesOfferCard: View {
                             .buttonStyle(.bordered)
                     }
                     Text("Shown once. Settings › Notifications changes them later.")
-                        .font(.footnote)
+                        .font(.app(.footnote))
                         .foregroundStyle(Palette.secondaryInk)
                 }
             } header: {
@@ -60,7 +60,7 @@ struct NotesOfferCard: View {
             VStack(alignment: .leading, spacing: 0) {
                 Text(title)
                 Text(detail)
-                    .font(.footnote)
+                    .font(.app(.footnote))
                     .foregroundStyle(Palette.secondaryInk)
             }
         }

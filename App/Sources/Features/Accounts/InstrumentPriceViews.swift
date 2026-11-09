@@ -69,13 +69,13 @@ struct InstrumentPriceUpdateBanner: View {
                 .frame(width: 22)
             VStack(alignment: .leading, spacing: Metrics.xs) {
                 Text(verbatim: run.summary)
-                    .font(.subheadline.weight(.medium))
+                    .font(.app(.subheadline).weight(.medium))
                 if isRunning {
                     let progress = run.progress
                     ProgressView(value: Double(progress.done), total: Double(max(progress.total, 1)))
                 } else if let finishedAt = run.finishedAt {
                     Text(verbatim: "Saved at " + CheckInPriceList.time(finishedAt, locale: locale))
-                        .font(.caption)
+                        .font(.app(.caption))
                         .foregroundStyle(Palette.secondaryInk)
                         .privacySensitiveInFeedback()
                 }
@@ -221,12 +221,12 @@ private struct InstrumentPriceUpdateRow: View {
                     .privacySensitiveInFeedback(line.isInstrument)
                 if let source = line.source {
                     Text(verbatim: source)
-                        .font(.footnote)
+                        .font(.app(.footnote))
                         .foregroundStyle(Palette.secondaryInk)
                         .privacySensitiveInFeedback(line.isInstrument)
                 }
                 Text(verbatim: line.detail(locale: locale))
-                    .font(.footnote)
+                    .font(.app(.footnote))
                     .foregroundStyle(line.failure == nil ? Palette.secondaryInk : Palette.critical)
                     .fixedSize(horizontal: false, vertical: true)
                     .privacySensitiveInFeedback()
@@ -234,11 +234,11 @@ private struct InstrumentPriceUpdateRow: View {
                     if line.status == .keptTyped {
                         Button("Update") { update(true) }
                             .buttonStyle(.borderless)
-                            .font(.footnote.weight(.semibold))
+                            .font(.app(.footnote).weight(.semibold))
                     } else if line.failure != nil {
                         Button("Try Again") { update(false) }
                             .buttonStyle(.borderless)
-                            .font(.footnote.weight(.semibold))
+                            .font(.app(.footnote).weight(.semibold))
                     }
                 }
             }
@@ -338,7 +338,7 @@ struct InstrumentSetPriceSheet: View {
             if let note = replacementNote {
                 Section {
                     Label(note, systemImage: "info.circle")
-                        .font(.footnote)
+                        .font(.app(.footnote))
                         .foregroundStyle(Palette.secondaryInk)
                         .privacySensitiveInFeedback()
                 }

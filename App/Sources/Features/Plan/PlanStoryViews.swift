@@ -55,7 +55,7 @@ struct PlanPartLabel: View {
 
     var body: some View {
         Text(title)
-            .font(.footnote)
+            .font(.app(.footnote))
             .foregroundStyle(Palette.secondaryInk)
             .textCase(.uppercase)
             .lineLimit(1)
@@ -160,7 +160,7 @@ struct PlanMonthBarView: View {
                     .lineLimit(1)
                     .layoutPriority(1)
             }
-            .font(.footnote)
+            .font(.app(.footnote))
             .foregroundStyle(Palette.secondaryInk)
         }
         .accessibilityElement(children: .ignore)
@@ -210,7 +210,7 @@ struct PlanChapterBadge: View {
 
     var body: some View {
         Text(verbatim: "\(number)")
-            .font(.footnote.weight(.semibold))
+            .font(.app(.footnote).weight(.semibold))
             .monospacedDigit()
             .foregroundStyle(Color.white)
             .frame(width: 24, height: 24)
@@ -237,7 +237,7 @@ struct PlanValueEditor: View {
         VStack(alignment: .leading, spacing: Metrics.m) {
             editor
         }
-        .font(.subheadline)
+        .font(.app(.subheadline))
         .padding(Metrics.l)
         .frame(minWidth: 300, idealWidth: 340, maxWidth: 420, alignment: .leading)
         .presentationDetents([.medium])
@@ -271,13 +271,13 @@ struct PlanValueEditor: View {
 
     private func title(_ text: String) -> some View {
         Text(text)
-            .font(.headline)
+            .font(.app(.headline))
             .foregroundStyle(Palette.ink)
     }
 
     private func note(_ text: String) -> some View {
         Text(text)
-            .font(.footnote)
+            .font(.app(.footnote))
             .foregroundStyle(Palette.secondaryInk)
             .fixedSize(horizontal: false, vertical: true)
     }

@@ -156,7 +156,7 @@ struct ImportScreen: View {
                 if let text = flow.stepText(beforeFiles: kindBeforeFiles) {
                     ToolbarItem(placement: .principal) {
                         Text(text)
-                            .font(.footnote)
+                            .font(.app(.footnote))
                             .foregroundStyle(Palette.secondaryInk)
                     }
                 }
@@ -424,7 +424,7 @@ private struct ImportStepLabel: View {
             }
             .frame(width: 16, height: 16)
             Text(title)
-                .font(Self.titleFont.weight(progress == .current ? .semibold : .regular))
+                .font(Font.app(.subheadline).weight(progress == .current ? .semibold : .regular))
                 .foregroundStyle(progress == .upcoming ? Palette.secondaryInk : Palette.ink)
         }
         .padding(.horizontal, 14)
@@ -440,15 +440,6 @@ private struct ImportStepLabel: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text(verbatim: "Step \(number), \(title)"))
         .accessibilityValue(Text(progress == .current ? "Current" : progress == .done ? "Done" : ""))
-    }
-
-    /// 13 pt on the Mac, as its toolbar's text.
-    private static var titleFont: Font {
-        #if os(macOS)
-        .body
-        #else
-        .subheadline
-        #endif
     }
 }
 

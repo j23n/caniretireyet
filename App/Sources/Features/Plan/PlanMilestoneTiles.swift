@@ -55,8 +55,6 @@ struct CoastAgeTile: View {
     var target: Int?
     var size: TileSize = .small
 
-    @ScaledMetric(relativeTo: .largeTitle) private var ageSize: CGFloat = 44
-
     private var isPastCoastPoint: Bool {
         guard let age, let target else { return false }
         return age <= target
@@ -83,18 +81,18 @@ struct CoastAgeTile: View {
             Group {
                 if let age {
                     Text(verbatim: "\(age)")
-                        .font(.system(size: ageSize, weight: .bold))
+                        .font(.figure)
                         .monospacedDigit()
                 } else {
                     Text("No age yet")
-                        .font(.tile(.title3).bold())
+                        .font(.figure)
                 }
             }
             .lineLimit(1)
             .minimumScaleFactor(0.6)
             .privacySensitiveInFeedback()
             Text(verbatim: caption)
-                .font(.tile(.caption))
+                .font(.app(.footnote))
                 .opacity(0.85)
                 .lineLimit(size == .wide ? 3 : 2)
                 .fixedSize(horizontal: false, vertical: true)
@@ -131,7 +129,7 @@ struct MilestoneKindTile: View {
             TileLabel(PlanMilestoneText.title(kind), emoji: kind.tileEmoji)
                 .accessibilityAddTraits(.isHeader)
             AmountSentenceText(text.meaning(of: kind, in: milestones))
-                .font(.tile(.subheadline))
+                .font(.app(.subheadline))
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.top, Metrics.s)
             Spacer(minLength: Metrics.m)
@@ -141,14 +139,14 @@ struct MilestoneKindTile: View {
                          isReached: true)
                 } else {
                     Text("None yet.")
-                        .font(.tile(.subheadline))
+                        .font(.app(.subheadline))
                         .opacity(0.8)
                 }
                 if let ahead = milestones.soonestAhead(kind) {
                     line(text.name(ahead.milestone), when: PlanMilestoneText.when(ahead.date), isReached: false)
                 } else if hasResults && kind != .coastPoint {
                     Text("No more before the plan's end.")
-                        .font(.tile(.subheadline))
+                        .font(.app(.subheadline))
                         .opacity(0.8)
                 }
             }
@@ -159,16 +157,16 @@ struct MilestoneKindTile: View {
     private func line(_ name: AmountSentence, when: String, isReached: Bool) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
             Image(systemName: isReached ? "flag.fill" : "flag")
-                .font(.tile(.caption))
+                .font(.app(.footnote))
                 .foregroundStyle(.tint)
                 .accessibilityLabel(isReached ? "Reached" : "Ahead")
             AmountSentenceText(name)
-                .font(.tile(.subheadline).weight(.semibold))
+                .font(.app(.subheadline).weight(.semibold))
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
             Spacer(minLength: Metrics.s)
             Text(verbatim: isReached ? when : "typically \(when)")
-                .font(.tile(.subheadline))
+                .font(.app(.subheadline))
                 .monospacedDigit()
                 .opacity(0.8)
                 .lineLimit(1)

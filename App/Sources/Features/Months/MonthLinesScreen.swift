@@ -352,10 +352,10 @@ private struct MonthLinesList: View {
         HStack(alignment: .firstTextBaseline) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(.body.weight(.semibold))
+                    .font(.app(.body).weight(.semibold))
                 if let detail {
                     Text(detail)
-                        .font(.caption)
+                        .font(.app(.caption))
                         .foregroundStyle(Palette.secondaryInk)
                         .privacySensitiveInFeedback()
                 }
@@ -363,7 +363,7 @@ private struct MonthLinesList: View {
             Spacer(minLength: Metrics.s)
             if let amount {
                 AmountText(amount, currency: account.currency, precision: .cents)
-                    .font(.body.weight(.semibold))
+                    .font(.app(.body).weight(.semibold))
             } else {
                 Text("—")
                     .foregroundStyle(Palette.secondaryInk)
@@ -393,13 +393,13 @@ private struct MonthLineRow: View {
                     .privacySensitiveInFeedback()
                 HStack(spacing: Metrics.s) {
                     Text(AmountFormat.shortDate(line.date, locale: locale))
-                        .font(.caption)
+                        .font(.app(.caption))
                         .foregroundStyle(Palette.secondaryInk)
                         .privacySensitiveInFeedback()
                     MonthLineChip(line: line, otherName: otherName)
                     if layout.isWide, let note = line.note {
                         Text(note)
-                            .font(.caption)
+                            .font(.app(.caption))
                             .foregroundStyle(Palette.secondaryInk)
                             .lineLimit(1)
                             .privacySensitiveInFeedback()
@@ -427,7 +427,7 @@ struct MonthLineChip: View {
         let name = line.isRemoved ? "Removed" : MonthText.kind(line.statementClass, other: otherName)
         let shape = Capsule(style: .continuous)
         Text(isSuggestion ? "\(name)?" : name)
-            .font(.caption.weight(.semibold))
+            .font(.app(.caption).weight(.semibold))
             .foregroundStyle(color)
             .padding(.horizontal, Metrics.s)
             .padding(.vertical, 2)
@@ -483,7 +483,7 @@ private struct MonthAddsUpBanner: View {
                 .foregroundStyle(color)
                 .accessibilityHidden(true)
             AmountSentenceText(sentence)
-                .font(.subheadline.weight(.semibold))
+                .font(.app(.subheadline).weight(.semibold))
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(Metrics.m)
@@ -515,7 +515,7 @@ private struct MonthAddsUpCard: View {
                 if MonthText.isStillToCome(month.through) {
                     Text("The bank's balance goes in at the check-in, on "
                         + "\(AmountFormat.mediumDate(month.through, locale: locale)).")
-                        .font(.subheadline)
+                        .font(.app(.subheadline))
                         .foregroundStyle(Palette.secondaryInk)
                 } else {
                     HStack {
@@ -530,7 +530,7 @@ private struct MonthAddsUpCard: View {
                 status
                 if let errorMessage {
                     Text(errorMessage)
-                        .font(.caption)
+                        .font(.app(.caption))
                         .foregroundStyle(Palette.critical)
                 }
             }
@@ -575,7 +575,7 @@ private struct MonthAddsUpCard: View {
                     .foregroundStyle(Palette.secondaryInk)
             }
         }
-        .font(bold ? .body.weight(.semibold) : .body)
+        .font(bold ? .app(.body).weight(.semibold) : .app(.body))
     }
 
     /// Saves the bank's balance typed, when it's a number that changed.
@@ -652,7 +652,7 @@ private struct MonthTotalsCard: View {
                 row("Saved", totals.saved, bold: true)
                 if let rate = rate(totals) {
                     Text("Savings rate \(AmountFormat.percent(rate, digits: 0, locale: locale))")
-                        .font(.caption)
+                        .font(.app(.caption))
                         .foregroundStyle(Palette.secondaryInk)
                 }
             }
@@ -672,7 +672,7 @@ private struct MonthTotalsCard: View {
             Spacer(minLength: Metrics.s)
             AmountText(amount, currency: account.currency, precision: .cents)
         }
-        .font(bold ? .headline : .body)
+        .font(bold ? .app(.headline) : .app(.body))
     }
 }
 
@@ -693,17 +693,17 @@ private struct MonthsAfterCard: View {
                 VStack(alignment: .leading, spacing: Metrics.s) {
                     Text("Each month opens at the bank's balance at the end of the month before, so a change here "
                         + "shows whether the next still adds up.")
-                        .font(.caption)
+                        .font(.app(.caption))
                         .foregroundStyle(Palette.secondaryInk)
                         .fixedSize(horizontal: false, vertical: true)
                     ForEach(after) { later in
                         HStack(alignment: .firstTextBaseline) {
                             Text(MonthText.title(later.through, locale: locale))
-                                .font(.body.weight(.semibold))
+                                .font(.app(.body).weight(.semibold))
                                 .privacySensitiveInFeedback()
                             Spacer(minLength: Metrics.s)
                             AmountSentenceText(MonthText.status(later, currency: currency, locale: locale))
-                                .font(.subheadline)
+                                .font(.app(.subheadline))
                                 .foregroundStyle(later.status.isDone ? Palette.good : Palette.secondaryInk)
                         }
                     }

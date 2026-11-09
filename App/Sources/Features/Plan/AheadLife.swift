@@ -104,7 +104,7 @@ struct AheadLifeSection: View {
         VStack(alignment: .leading, spacing: Metrics.s) {
             HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
                 Text("Your life ahead")
-                    .font(.title2.weight(.bold))
+                    .font(.pageHeading)
                     .foregroundStyle(Palette.ink)
                     .lineLimit(1)
                     .accessibilityAddTraits(.isHeader)
@@ -114,7 +114,7 @@ struct AheadLifeSection: View {
             .padding(.horizontal, Metrics.xs)
             .padding(.top, 6)
             Text("The chapters and what changes along the way, in order. Tap one to change it; the chart redraws.")
-                .font(.footnote)
+                .font(.app(.footnote))
                 .foregroundStyle(Palette.secondaryInk)
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.horizontal, Metrics.xs)
@@ -136,7 +136,7 @@ struct AheadLifeSection: View {
     private var addMenu: some View {
         PlanAddMenu(model: model, plan: session.editablePlan, editing: $editing, onTargetMix: onTargetMix) {
             Text("Add")
-                .font(.body)
+                .font(.app(.body))
                 .foregroundStyle(Palette.accent)
                 .padding(.vertical, Metrics.s)
                 .contentShape(Rectangle())
@@ -275,44 +275,44 @@ struct AheadChapterCard: View {
                 HStack(alignment: .center, spacing: 10) {
                     PlanChapterBadge(number: line.index + 1, style: line.style)
                     Text(line.title)
-                        .font(.body.weight(.semibold))
+                        .font(.app(.body).weight(.semibold))
                         .foregroundStyle(Palette.ink)
                         .lineLimit(1)
                         .privacySensitiveInFeedback()
                     Spacer(minLength: Metrics.s)
                     Text(line.ages)
-                        .font(.footnote)
+                        .font(.app(.footnote))
                         .monospacedDigit()
                         .foregroundStyle(Palette.secondaryInk)
                         .lineLimit(1)
                         .fixedSize()
                         .privacySensitiveInFeedback()
                     Image(systemName: "chevron.right")
-                        .font(.footnote.weight(.semibold))
+                        .font(.app(.footnote).weight(.semibold))
                         .foregroundStyle(Palette.mutedInk)
                         .accessibilityHidden(true)
                 }
                 if !line.summary.isEmpty {
                     AmountSentenceText(line.summary)
-                        .font(.subheadline)
+                        .font(.app(.subheadline))
                         .foregroundStyle(Palette.secondaryInk)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 ForEach(Array(line.oneOffs.enumerated()), id: \.offset) { _, oneOff in
                     AmountSentenceText("🗓️ " + oneOff)
-                        .font(.subheadline)
+                        .font(.app(.subheadline))
                         .foregroundStyle(Palette.ink)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 if let money {
                     HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
                         Text(verbatim: money.label)
-                            .font(.footnote)
+                            .font(.app(.footnote))
                             .foregroundStyle(Palette.secondaryInk)
                             .privacySensitiveInFeedback()
                         Spacer(minLength: Metrics.s)
                         AmountText(Decimal(wholeNumber: money.value), currency: currency)
-                            .font(.subheadline.weight(.semibold))
+                            .font(.app(.subheadline).weight(.semibold))
                             .foregroundStyle(Palette.ink)
                             .lineLimit(1)
                             .fixedSize()
@@ -363,28 +363,28 @@ struct AheadStopCard: View {
                 VStack(alignment: .leading, spacing: Metrics.xs) {
                     HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
                         Text("You stop working")
-                            .font(.headline)
+                            .font(.app(.headline))
                             .foregroundStyle(Palette.accent)
                         Spacer(minLength: Metrics.s)
                         Image(systemName: "chevron.right")
-                            .font(.footnote.weight(.semibold))
+                            .font(.app(.footnote).weight(.semibold))
                             .foregroundStyle(Palette.mutedInk)
                             .accessibilityHidden(true)
                     }
                     Text(verbatim: when)
-                        .font(.subheadline.weight(.semibold))
+                        .font(.app(.subheadline).weight(.semibold))
                         .foregroundStyle(Palette.ink)
                         .privacySensitiveInFeedback()
                     if let median = focus?.medianAtRetirement {
                         AmountSentenceText("\(words.amount(Decimal(wholeNumber: median))) when you stop, typically.")
-                            .font(.subheadline)
+                            .font(.app(.subheadline))
                             .foregroundStyle(Palette.secondaryInk)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     if let range {
                         AmountSentenceText("8 in 10 futures: \(words.amount(Decimal(wholeNumber: range.lowerBound))) "
                                            + "to \(words.amount(Decimal(wholeNumber: range.upperBound)))")
-                            .font(.footnote)
+                            .font(.app(.footnote))
                             .foregroundStyle(Palette.secondaryInk)
                             .lineLimit(1)
                             .minimumScaleFactor(0.8)
@@ -440,7 +440,7 @@ struct AheadStopCard: View {
             Spacer(minLength: Metrics.s)
             stepButton(later, age: age + 1, label: { "\($0) ›" })
         }
-        .font(.subheadline.weight(.semibold))
+        .font(.app(.subheadline).weight(.semibold))
         .privacySensitiveInFeedback()
     }
 
@@ -502,18 +502,18 @@ struct AheadEndCard: View {
             VStack(alignment: .leading, spacing: Metrics.xs) {
                 HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
                     Text(verbatim: "\(endAge) · The plan's end")
-                        .font(.body.weight(.semibold))
+                        .font(.app(.body).weight(.semibold))
                         .foregroundStyle(Palette.ink)
                         .privacySensitiveInFeedback()
                     Spacer(minLength: Metrics.s)
                     Image(systemName: "chevron.right")
-                        .font(.footnote.weight(.semibold))
+                        .font(.app(.footnote).weight(.semibold))
                         .foregroundStyle(Palette.mutedInk)
                         .accessibilityHidden(true)
                 }
                 if let sentence = sentence {
                     AmountSentenceText(sentence)
-                        .font(.subheadline)
+                        .font(.app(.subheadline))
                         .foregroundStyle(Palette.secondaryInk)
                         .fixedSize(horizontal: false, vertical: true)
                 }

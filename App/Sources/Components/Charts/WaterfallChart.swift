@@ -47,7 +47,7 @@ struct WaterfallChart: View {
                     // No modifiers on the row itself: they'd turn it into one cell.
                     GridRow {
                         Text(bar.label)
-                            .font(.subheadline)
+                            .font(.app(.subheadline))
                             .foregroundStyle(Palette.secondaryInk)
                             .lineLimit(1)
                             .fixedSize()
@@ -56,7 +56,7 @@ struct WaterfallChart: View {
                             .frame(height: Self.barHeight)
                             .frame(maxWidth: .infinity)
                         Text(verbatim: signed(bar.value))
-                            .font(.subheadline)
+                            .font(.app(.subheadline))
                             .monospacedDigit()
                             .foregroundStyle(Palette.ink)
                             .privacySensitive()
@@ -82,7 +82,7 @@ struct WaterfallChart: View {
                     .accessibilityLabel("to")
                 AmountText(Decimal(wholeNumber: bars.end))
             }
-            .font(.subheadline)
+            .font(.app(.subheadline))
             .foregroundStyle(Palette.secondaryInk)
         }
     }
@@ -98,7 +98,7 @@ struct WaterfallChart: View {
             Text("since \(from)")
                 .foregroundStyle(Palette.secondaryInk)
         }
-        .font(.title3.weight(.semibold))
+        .font(.app(.title3).weight(.semibold))
     }
 
     private func spokenAmount(_ value: Double) -> String {

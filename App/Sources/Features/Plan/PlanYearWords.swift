@@ -123,7 +123,7 @@ struct PlanYearTiles: View {
             TileLabel(year.isLatest ? "Your money now" : "Your money at the year's end", emoji: "📊")
             Spacer(minLength: Metrics.s)
             AmountText(year.change.end, currency: card.currency, tabular: false)
-                .font(.tile(.title2).bold())
+                .font(.figure)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
             TileCaption {
@@ -412,7 +412,7 @@ struct PlanYearLine: View {
         let ink: Color = isEnd ? Palette.card : entry.kind == .milestone ? TileTint.butter.ink : Palette.ink
         return HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
             Text(verbatim: entry.month)
-                .font(.caption.weight(.bold))
+                .font(.app(.caption).weight(.bold))
                 .textCase(.uppercase)
                 .foregroundStyle(isEnd ? Palette.card.opacity(0.75) : Palette.secondaryInk)
                 .frame(minWidth: 34, alignment: .leading)
@@ -428,7 +428,7 @@ struct PlanYearLine: View {
                     .lineLimit(2)
                     .privacySensitiveInFeedback(entry.personalTitle)
             }
-            .font(PlanProgressFont.text)
+            .font(Font.app(.subheadline))
             .foregroundStyle(ink)
             Spacer(minLength: Metrics.s)
             figure(entry, ink: ink)
@@ -452,12 +452,12 @@ struct PlanYearLine: View {
         switch entry.kind {
         case .milestone:
             Text("reached")
-                .font(.caption.weight(.semibold))
+                .font(.app(.caption).weight(.semibold))
                 .foregroundStyle(ink)
         case .start, .end:
             if let figure = entry.figure {
                 AmountSentenceText(figure)
-                    .font(PlanProgressFont.text.weight(entry.kind == .end ? .semibold : .regular))
+                    .font(Font.app(.subheadline).weight(entry.kind == .end ? .semibold : .regular))
                     .monospacedDigit()
                     .foregroundStyle(entry.kind == .end ? ink : Palette.secondaryInk)
                     .lineLimit(1)
@@ -466,7 +466,7 @@ struct PlanYearLine: View {
         case .event:
             if let figure = entry.figure {
                 AmountSentenceText(figure)
-                    .font(.footnote.weight(.bold))
+                    .font(.app(.footnote).weight(.bold))
                     .monospacedDigit()
                     .foregroundStyle(entry.tone.ink)
                     .lineLimit(1)
@@ -484,7 +484,7 @@ struct PlanYearLine: View {
     private var notes: some View {
         if let note = PlanProgressText.pricesNote(year, locale: locale) {
             Text(note)
-                .font(.footnote)
+                .font(.app(.footnote))
                 .foregroundStyle(Palette.secondaryInk)
                 .fixedSize(horizontal: false, vertical: true)
                 .privacySensitiveInFeedback()
@@ -564,7 +564,7 @@ struct PlanYearCheckIns: View {
         let rows = self.rows
         VStack(alignment: .leading, spacing: Metrics.s) {
             Text("Check-ins")
-                .font(.headline)
+                .font(.app(.headline))
                 .foregroundStyle(Palette.ink)
                 .accessibilityAddTraits(.isHeader)
             if rows.isEmpty {
@@ -612,7 +612,7 @@ struct PlanYearCheckIns: View {
     /// A column's header: small and grey.
     private func header(_ title: LocalizedStringKey) -> some View {
         Text(title)
-            .font(.subheadline)
+            .font(.app(.subheadline))
             .foregroundStyle(Palette.mutedInk)
     }
 

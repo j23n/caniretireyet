@@ -20,7 +20,7 @@ struct PlanTaxesEditor: View {
             PlanNumberRow("Tax on investments", value: $plan.tax.investmentRate, kind: .percent, unit: "%",
                           prompt: "–")
             Text(PlanEditing.investmentRateExplanation)
-                .font(.caption)
+                .font(.app(.caption))
                 .foregroundStyle(Palette.mutedInk)
                 .fixedSize(horizontal: false, vertical: true)
             Divider()
@@ -31,11 +31,11 @@ struct PlanTaxesEditor: View {
                               prompt: "0")
             }
             Text(PlanEditing.wealthTaxExplanation)
-                .font(.caption)
+                .font(.app(.caption))
                 .foregroundStyle(Palette.mutedInk)
                 .fixedSize(horizontal: false, vertical: true)
         }
-        .font(.subheadline)
+        .font(.app(.subheadline))
     }
 }
 

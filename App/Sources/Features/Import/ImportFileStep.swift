@@ -204,7 +204,7 @@ struct ImportChoiceRow: View {
                     Text(title)
                         .foregroundStyle(Palette.ink)
                     Text(detail)
-                        .font(.footnote)
+                        .font(.app(.footnote))
                         .foregroundStyle(Palette.secondaryInk)
                 }
                 Spacer(minLength: 0)
@@ -230,7 +230,7 @@ private struct ImportDropZone: View {
                 .foregroundStyle(Palette.accent)
                 .accessibilityHidden(true)
             Text(fileName ?? (kind == .brokerage ? "Drop brokerage transactions here" : "Drop statements here"))
-                .font(.headline)
+                .font(.app(.headline))
                 .foregroundStyle(Palette.ink)
                 .multilineTextAlignment(.center)
                 .privacySensitiveInFeedback(fileName != nil)

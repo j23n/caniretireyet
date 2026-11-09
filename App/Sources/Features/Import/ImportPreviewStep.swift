@@ -92,12 +92,12 @@ private struct ImportSummaryCard: View {
                 }
             }
             Text(flow.plannedSummary)
-                .font(.callout)
+                .font(.app(.body))
                 .foregroundStyle(Palette.ink)
                 .fixedSize(horizontal: false, vertical: true)
             Text("Updated records get values the library lacks; nothing in them changes. Skipped: title and "
                 + "total rows, and records of accounts or instruments you chose not to create.")
-                .font(.footnote)
+                .font(.app(.footnote))
                 .foregroundStyle(Palette.secondaryInk)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -115,17 +115,17 @@ private struct ImportCountTile: View {
             HStack(spacing: Metrics.xs) {
                 if isProblem {
                     Image(systemName: "exclamationmark.triangle.fill")
-                        .font(.caption)
+                        .font(.app(.caption))
                         .foregroundStyle(Palette.critical)
                         .accessibilityHidden(true)
                 }
                 Text(verbatim: "\(count)")
-                    .font(.title2.weight(.semibold))
+                    .font(.app(.title2).weight(.semibold))
                     .monospacedDigit()
                     .foregroundStyle(Palette.ink)
             }
             Text(title)
-                .font(.footnote)
+                .font(.app(.footnote))
                 .foregroundStyle(Palette.secondaryInk)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -148,7 +148,7 @@ private struct ImportConflictsCard: View {
             Card("Conflicts", systemImage: "arrow.triangle.branch") {
                 Text(rows.count == 1 ? "1 record differs from the library."
                     : "\(rows.count) records differ from the library.")
-                    .font(.callout)
+                    .font(.app(.body))
                 Picker("When a record differs", selection: Binding(get: { model.flow.conflictPolicy },
                                                                    set: { model.flow.setConflictPolicy($0) })) {
                     ForEach([ConflictPolicy.keep, .overwrite, .ask], id: \.self) { policy in
@@ -163,11 +163,11 @@ private struct ImportConflictsCard: View {
                     }
                     if rows.count > Self.limit {
                         Text("And \(rows.count - Self.limit) more.")
-                            .font(.footnote)
+                            .font(.app(.footnote))
                             .foregroundStyle(Palette.secondaryInk)
                     }
                     Text("Conflicts left undecided keep the library's values.")
-                        .font(.footnote)
+                        .font(.app(.footnote))
                         .foregroundStyle(Palette.secondaryInk)
                 }
             }
@@ -184,7 +184,7 @@ private struct ImportConflictRowView: View {
         VStack(alignment: .leading, spacing: Metrics.s) {
             Divider()
             Text(row.title)
-                .font(.subheadline.weight(.semibold))
+                .font(.app(.subheadline).weight(.semibold))
                 .privacySensitiveInFeedback()
             Grid(alignment: .leading, horizontalSpacing: Metrics.m, verticalSpacing: 2) {
                 GridRow {
@@ -202,7 +202,7 @@ private struct ImportConflictRowView: View {
                         .privacySensitiveInFeedback()
                 }
             }
-            .font(.callout)
+            .font(.app(.body))
             Picker("Decision", selection: Binding(get: { row.resolution }, set: { resolution in
                 model.flow.setResolution(resolution, for: row.key)
             })) {
@@ -231,7 +231,7 @@ struct ImportGridView: View {
                     Grid(alignment: .leading, horizontalSpacing: 0, verticalSpacing: 0) {
                         GridRow {
                             Text("Row")
-                                .font(.caption.weight(.semibold))
+                                .font(.app(.caption).weight(.semibold))
                                 .foregroundStyle(Palette.mutedInk)
                                 .padding(.horizontal, Metrics.s)
                             ForEach(Array(grid.headers.enumerated()), id: \.offset) { index, header in
@@ -243,7 +243,7 @@ struct ImportGridView: View {
                         ForEach(grid.rows) { row in
                             GridRow {
                                 Text(verbatim: "\(row.number)")
-                                    .font(.caption)
+                                    .font(.app(.caption))
                                     .monospacedDigit()
                                     .foregroundStyle(Palette.mutedInk)
                                     .padding(.horizontal, Metrics.s)
@@ -258,7 +258,7 @@ struct ImportGridView: View {
             }
             if grid.rows.count < grid.totalRows {
                 Text("Showing the first \(grid.rows.count) of \(grid.totalRows) rows.")
-                    .font(.footnote)
+                    .font(.app(.footnote))
                     .foregroundStyle(Palette.secondaryInk)
             }
         }
@@ -273,10 +273,10 @@ private struct ImportGridHeader: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(header)
-                .font(.caption.weight(.semibold))
+                .font(.app(.caption).weight(.semibold))
                 .foregroundStyle(isImported ? Palette.ink : Palette.mutedInk)
             Text(use)
-                .font(.caption2)
+                .font(.app(.caption2))
                 .foregroundStyle(isImported ? Palette.accent : Palette.mutedInk)
         }
         .lineLimit(1)
@@ -294,11 +294,11 @@ private struct ImportGridCell: View {
         HStack(spacing: Metrics.xs) {
             if cell.problem != nil {
                 Image(systemName: "exclamationmark.triangle.fill")
-                    .font(.caption2)
+                    .font(.app(.caption2))
                     .foregroundStyle(Palette.critical)
             }
             Text(cell.text.isEmpty ? " " : cell.text)
-                .font(.callout)
+                .font(.app(.body))
                 .monospacedDigit()
                 .foregroundStyle(cell.isImported ? Palette.ink : Palette.mutedInk)
                 .lineLimit(1)
@@ -341,13 +341,13 @@ struct ImportCellErrorsCard: View {
                 ForEach(Array(errors.prefix(Self.limit).enumerated()), id: \.offset) { _, error in
                     VStack(alignment: .leading, spacing: 2) {
                         Text(verbatim: "Row \(error.row) · " + Self.columnName(of: error))
-                            .font(.caption)
+                            .font(.app(.caption))
                             .foregroundStyle(Palette.secondaryInk)
                         HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
                             Text(error.raw.isEmpty ? "(empty)" : "“\(error.raw)”")
-                                .font(.callout.monospaced())
+                                .font(.app(.callout).monospaced())
                             Label(error.problem.description, systemImage: "exclamationmark.triangle.fill")
-                                .font(.callout)
+                                .font(.app(.body))
                                 .foregroundStyle(Palette.critical)
                         }
                     }
@@ -355,7 +355,7 @@ struct ImportCellErrorsCard: View {
                 }
                 if errors.count > Self.limit {
                     Text("And \(errors.count - Self.limit) more.")
-                        .font(.footnote)
+                        .font(.app(.footnote))
                         .foregroundStyle(Palette.secondaryInk)
                 }
                 Text(isStatement
@@ -363,7 +363,7 @@ struct ImportCellErrorsCard: View {
                         + "It's Read… on the File step to read them."
                      : "These cells are left out; the rest of their rows is imported. Change the formats in Format "
                         + "or Columns to read them.")
-                    .font(.footnote)
+                    .font(.app(.footnote))
                     .foregroundStyle(Palette.secondaryInk)
                     .fixedSize(horizontal: false, vertical: true)
             }

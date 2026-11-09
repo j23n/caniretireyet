@@ -41,7 +41,7 @@ struct AgeStepChart: View {
                 AxisValueLabel {
                     if let age = value.as(Double.self) {
                         Text(verbatim: "\(Int(age))")
-                            .font(.caption2)
+                            .font(.app(.caption2))
                             .monospacedDigit()
                             .foregroundStyle(Palette.mutedInk)
                     }
@@ -53,7 +53,7 @@ struct AgeStepChart: View {
                 AxisValueLabel {
                     if let date = value.as(Date.self) {
                         Text(date, format: .dateTime.month(.abbreviated))
-                            .font(.caption2)
+                            .font(.app(.caption2))
                             .foregroundStyle(Palette.mutedInk)
                     }
                 }
@@ -119,7 +119,7 @@ struct ShareBar: View {
                     .monospacedDigit()
                     .privacySensitiveInFeedback()
             }
-            .font(.footnote)
+            .font(.app(.footnote))
             ShareBarTrack(share: share)
         }
         .accessibilityElement(children: .combine)

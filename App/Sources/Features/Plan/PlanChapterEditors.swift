@@ -39,11 +39,11 @@ struct PlanNoChapters: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Metrics.s) {
             Text("The plan ends at \(plan.planEndAge), before its first year.")
-                .font(.subheadline)
+                .font(.app(.subheadline))
                 .foregroundStyle(Palette.ink)
                 .privacySensitiveInFeedback()
             Stepper("Plan to age \(plan.planEndAge)", value: $plan.planEndAge, in: 70...110)
-                .font(.subheadline)
+                .font(.app(.subheadline))
                 .personalControl()
         }
         .padding(Metrics.l)
@@ -57,10 +57,10 @@ struct PlanChaptersNeedBirthDate: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Metrics.s) {
             Text("Add your birth date")
-                .font(.headline)
+                .font(.app(.headline))
                 .foregroundStyle(Palette.ink)
             Text("A plan's chapters start and end at ages: when work stops, when a pension starts.")
-                .font(.footnote)
+                .font(.app(.footnote))
                 .foregroundStyle(Palette.secondaryInk)
                 .fixedSize(horizontal: false, vertical: true)
             PlanBirthDateEditor()
@@ -139,7 +139,7 @@ struct PlanChapterAddMenu: View {
             }
         } label: {
             Text("Add to This Chapter")
-                .font(.body)
+                .font(.app(.body))
                 .foregroundStyle(Palette.accent)
                 .lineLimit(1)
                 .frame(maxWidth: .infinity, minHeight: 44)

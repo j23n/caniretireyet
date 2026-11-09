@@ -159,7 +159,7 @@ private struct PriceListRow: View {
                         .privacySensitiveInFeedback()
                     if let subtitle = line.subtitle {
                         Text(verbatim: subtitle)
-                            .font(.footnote)
+                            .font(.app(.footnote))
                             .foregroundStyle(Palette.secondaryInk)
                             .privacySensitiveInFeedback()
                     }
@@ -171,7 +171,7 @@ private struct PriceListRow: View {
                         .privacySensitiveInFeedback()
                     if let per = line.per {
                         Text(verbatim: per)
-                            .font(.caption)
+                            .font(.app(.caption))
                             .foregroundStyle(Palette.secondaryInk)
                     }
                 }
@@ -222,7 +222,7 @@ private struct PriceListRow: View {
                 Text("No price source: set its price on the Instruments screen.")
             }
         }
-        .font(.footnote)
+        .font(.app(.footnote))
         .foregroundStyle(Palette.secondaryInk)
         if let failure = line.failure {
             Label {
@@ -233,7 +233,7 @@ private struct PriceListRow: View {
                 Image(systemName: "exclamationmark.triangle")
                     .foregroundStyle(Palette.warning)
             }
-            .font(.footnote)
+            .font(.app(.footnote))
         }
     }
 

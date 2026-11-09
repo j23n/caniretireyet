@@ -80,12 +80,12 @@ struct SectionHeader<Accessory: View>: View {
                     Text(title)
                 }
             }
-            .font(.headline)
+            .font(.cardTitle)
             .foregroundStyle(Palette.ink)
             .accessibilityAddTraits(.isHeader)
             Spacer(minLength: Metrics.s)
             accessory
-                .font(.subheadline)
+                .font(.app(.subheadline))
         }
     }
 }

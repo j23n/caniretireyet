@@ -119,7 +119,7 @@ struct AddTradeSheet: View {
                     Spacer(minLength: Metrics.s)
                     if let cash = draft.cashEffect(sameCurrency: sameCurrency) {
                         AmountText(cash, currency: account?.currency, precision: .cents, signed: true)
-                            .font(.body.weight(.semibold))
+                            .font(.app(.body).weight(.semibold))
                     } else {
                         Text("—")
                             .foregroundStyle(Palette.secondaryInk)

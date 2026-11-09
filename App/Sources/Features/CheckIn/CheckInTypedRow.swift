@@ -47,7 +47,7 @@ struct CheckInTypedRow: View {
             }
             if problem == nil, let note = CheckInTypedText.lostNote(typed, account: account, locale: locale) {
                 AmountSentenceText(note)
-                    .font(.footnote)
+                    .font(.app(.footnote))
                     .foregroundStyle(Palette.secondaryInk)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.bottom, Metrics.xs)
@@ -64,17 +64,17 @@ struct CheckInTypedRow: View {
                     .privacySensitiveInFeedback()
                 if let problem {
                     Text(verbatim: problem)
-                        .font(.subheadline)
+                        .font(.app(.subheadline))
                         .foregroundStyle(Palette.critical)
                         .fixedSize(horizontal: false, vertical: true)
                 } else if let loses = CheckInTypedText.loses(typed, account: account, locale: locale) {
                     AmountSentenceText(loses)
-                        .font(.subheadline)
+                        .font(.app(.subheadline))
                         .foregroundStyle(Palette.secondaryInk)
                         .fixedSize(horizontal: false, vertical: true)
                 } else if let lastValue {
                     Text(verbatim: lastValue)
-                        .font(.subheadline)
+                        .font(.app(.subheadline))
                         .foregroundStyle(isStale ? Palette.warning : Palette.secondaryInk)
                         .fixedSize(horizontal: false, vertical: true)
                         .privacySensitiveInFeedback()
@@ -314,7 +314,7 @@ private struct CheckInWhatMovedField: View {
     var body: some View {
         HStack(spacing: Metrics.s) {
             Text(verbatim: title)
-                .font(.subheadline)
+                .font(.app(.subheadline))
                 .foregroundStyle(Palette.secondaryInk)
             Spacer(minLength: Metrics.s)
             OutlinedAmountField(title: title, text: $text, currency: account.currency, isFocused: $isFocused)

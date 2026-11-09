@@ -62,7 +62,7 @@ struct PageTable<Item: Identifiable, Header: View, Row: View, Menu: View>: View 
             HStack(spacing: PageTableColumn.spacing) {
                 header
             }
-            .font(.caption.weight(.semibold))
+            .font(.app(.caption).weight(.semibold))
             .foregroundStyle(Palette.secondaryInk)
             .lineLimit(1)
             .padding(.horizontal, PageTableColumn.inset)

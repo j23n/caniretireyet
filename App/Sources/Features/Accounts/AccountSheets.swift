@@ -252,7 +252,7 @@ struct CloseAccountSheet: View {
                 Label {
                     Text("Closing keeps the account's history: it stays in every chart up to its closing date, "
                         + "and leaves check-ins and today's totals. You can reopen it any time.")
-                        .font(.callout)
+                        .font(.app(.body))
                         .foregroundStyle(Palette.secondaryInk)
                         .fixedSize(horizontal: false, vertical: true)
                 } icon: {

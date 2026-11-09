@@ -22,7 +22,7 @@ struct PlanRunProgressView: View {
         VStack(alignment: .leading, spacing: Metrics.s) {
             HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
                 Text(PlanRunText.title(progress, isCheckIn: isCheckIn))
-                    .font(.headline)
+                    .font(.app(.headline))
                     .foregroundStyle(Palette.ink)
                 Spacer(minLength: Metrics.s)
                 if let onCancel {
@@ -33,7 +33,7 @@ struct PlanRunProgressView: View {
             }
             VStack(alignment: .leading, spacing: Metrics.xs) {
                 Text(PlanRunText.phase(progress, locale: locale))
-                    .font(.subheadline)
+                    .font(.app(.subheadline))
                     .monospacedDigit()
                     .foregroundStyle(Palette.ink)
                     .privacySensitiveInFeedback()
@@ -47,7 +47,7 @@ struct PlanRunProgressView: View {
                     Text(PlanRunText.overall(progress, locale: locale))
                         .monospacedDigit()
                 }
-                .font(.caption)
+                .font(.app(.caption))
                 .foregroundStyle(Palette.secondaryInk)
                 ProgressView(value: min(1, max(0, progress.fraction)), total: 1)
                     .tint(Palette.secondaryInk)

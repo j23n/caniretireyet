@@ -47,7 +47,7 @@ struct SyncScreen: View {
                 }
                 if let reason = library.readOnlyReason {
                     Text(LibraryStoreError.readOnly(reason).message)
-                        .font(.footnote)
+                        .font(.app(.footnote))
                         .foregroundStyle(Palette.secondaryInk)
                 }
             }
@@ -60,10 +60,10 @@ struct SyncScreen: View {
                 ForEach(library.saveNotices) { notice in
                     Label {
                         VStack(alignment: .leading, spacing: Metrics.xs) {
-                            Text(notice.path).font(.callout.monospaced())
-                            Text(notice.summary).font(.footnote).foregroundStyle(Palette.secondaryInk)
+                            Text(notice.path).font(.app(.callout).monospaced())
+                            Text(notice.summary).font(.app(.footnote)).foregroundStyle(Palette.secondaryInk)
                             Text(notice.date, format: .dateTime.day().month().hour().minute())
-                                .font(.caption)
+                                .font(.app(.caption))
                                 .foregroundStyle(Palette.mutedInk)
                         }
                         .privacySensitiveInFeedback()
@@ -73,10 +73,10 @@ struct SyncScreen: View {
                 }
                 ForEach(library.mergedConflicts) { conflict in
                     VStack(alignment: .leading, spacing: Metrics.xs) {
-                        Text(conflict.path).font(.callout.monospaced())
-                        Text(conflict.summary).font(.footnote).foregroundStyle(Palette.secondaryInk)
+                        Text(conflict.path).font(.app(.callout).monospaced())
+                        Text(conflict.summary).font(.app(.footnote)).foregroundStyle(Palette.secondaryInk)
                         Text(conflict.resolvedAt, format: .dateTime.day().month().hour().minute())
-                            .font(.caption)
+                            .font(.app(.caption))
                             .foregroundStyle(Palette.mutedInk)
                     }
                     .privacySensitiveInFeedback()
@@ -84,8 +84,8 @@ struct SyncScreen: View {
                 ForEach(library.conflictFailures) { failure in
                     Label {
                         VStack(alignment: .leading) {
-                            Text(failure.path).font(.callout.monospaced())
-                            Text(failure.message).font(.footnote).foregroundStyle(Palette.secondaryInk)
+                            Text(failure.path).font(.app(.callout).monospaced())
+                            Text(failure.message).font(.app(.footnote)).foregroundStyle(Palette.secondaryInk)
                         }
                         .privacySensitiveInFeedback()
                     } icon: {
@@ -113,8 +113,8 @@ struct SyncScreen: View {
                 ForEach(Array(issues.enumerated()), id: \.offset) { _, issue in
                     Label {
                         VStack(alignment: .leading) {
-                            Text(issue.path).font(.callout.monospaced())
-                            Text(issue.message).font(.footnote).foregroundStyle(Palette.secondaryInk)
+                            Text(issue.path).font(.app(.callout).monospaced())
+                            Text(issue.message).font(.app(.footnote)).foregroundStyle(Palette.secondaryInk)
                         }
                         .privacySensitiveInFeedback()
                     } icon: {
@@ -150,7 +150,7 @@ struct SyncScreen: View {
                 }
                 if let restoreNote {
                     Text(restoreNote)
-                        .font(.footnote)
+                        .font(.app(.footnote))
                         .foregroundStyle(restoreFailed ? Palette.critical : Palette.secondaryInk)
                         .privacySensitiveInFeedback()
                 }
@@ -255,12 +255,12 @@ struct LibraryLocationRows: View {
             }
             if let whereText = Self.whereText(location) {
                 Text(whereText)
-                    .font(.footnote)
+                    .font(.app(.footnote))
                     .foregroundStyle(Palette.secondaryInk)
             }
         }
         if let showError {
-            Text(showError).font(.footnote).foregroundStyle(Palette.critical)
+            Text(showError).font(.app(.footnote)).foregroundStyle(Palette.critical)
         }
         if library.location?.kind == .local && library.isICloudAvailable {
             Button {
@@ -302,11 +302,11 @@ struct LibraryLocationRows: View {
             .disabled(isMoving || isSwitching)
             Text("Moving puts this library in iCloud Drive. If iCloud Drive already has one, use that instead: "
                 + "this one then stays on this device.")
-                .font(.footnote)
+                .font(.app(.footnote))
                 .foregroundStyle(Palette.secondaryInk)
         }
         if let moveError {
-            Text(moveError).font(.footnote).foregroundStyle(Palette.critical)
+            Text(moveError).font(.app(.footnote)).foregroundStyle(Palette.critical)
                 .privacySensitiveInFeedback()
         }
     }
