@@ -61,8 +61,11 @@ public enum AccountGroup: String, Hashable, Sendable, CaseIterable, Comparable, 
         }
     }
 
+    /// Its place in ``allCases``, the order groups are listed in.
+    var order: Int { Self.allCases.firstIndex(of: self) ?? Self.allCases.count }
+
     public static func < (lhs: AccountGroup, rhs: AccountGroup) -> Bool {
-        allCases.firstIndex(of: lhs)! < allCases.firstIndex(of: rhs)!
+        lhs.order < rhs.order
     }
 }
 

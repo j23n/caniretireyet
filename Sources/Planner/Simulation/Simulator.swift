@@ -281,7 +281,7 @@ struct PathSimulator: Sendable {
                 }
                 // The tax on what paying off debts took from pre-tax money, paid at the start.
                 let debtTax = t == 0 ? start.debtWithdrawalTax : 0
-                details!.append(YearDetail(
+                details?.append(YearDetail(
                     year: frame.year, age: frame.age, fraction: frame.fraction,
                     workingShare: schedule.workingShare[t], endAssets: endAssets,
                     spending: paid, expenses: expenses, income: income,
@@ -324,7 +324,7 @@ struct PathSimulator: Sendable {
                                              amount: money.sold))
                 }
             }
-            details!.append(YearDetail(
+            details?.append(YearDetail(
                 year: frame.year, age: frame.age, fraction: frame.fraction, workingShare: schedule.workingShare[t],
                 endAssets: remaining, spending: spending,
                 expenses: money?.expenses ?? 0, income: income,

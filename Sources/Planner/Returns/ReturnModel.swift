@@ -41,7 +41,8 @@ struct ReturnModel: Sendable {
         let drawClasses = AssetClass.knownValues + extra.sorted()
         self.drawClasses = drawClasses
         classes = heldClasses
-        drawIndex = heldClasses.map { held in drawClasses.firstIndex(of: held)! }
+        // Every held class is a draw class: a known one, or one of the extras.
+        drawIndex = heldClasses.map { held in drawClasses.firstIndex(of: held) ?? 0 }
 
         var expected: [Double] = []
         var volatility: [Double] = []

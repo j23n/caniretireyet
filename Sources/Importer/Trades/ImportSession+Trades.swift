@@ -145,7 +145,8 @@ extension ImportSession {
         var winners: [ImportField: Int] = [:]
         for candidate in candidates where candidate.field != .ignore && candidate.field != .instrument {
             if let current = winners[candidate.field],
-               candidates.first(where: { $0.column == current })!.priority >= candidate.priority { continue }
+               let winner = candidates.first(where: { $0.column == current }),
+               winner.priority >= candidate.priority { continue }
             winners[candidate.field] = candidate.column
         }
         var instruments = 0

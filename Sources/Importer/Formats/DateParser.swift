@@ -63,7 +63,7 @@ public struct DateParser: Sendable {
         guard (1...2).contains(parts.count), parts.allSatisfy({ !$0.isEmpty && $0.allSatisfy(TextTools.isDigit) }),
               let serial = Int(parts[0]), (61...2_958_465).contains(serial)
         else { return .failure(.notADate(pattern: pattern)) }
-        return .success(CalendarDate(year: 1899, month: 12, day: 30)!.adding(days: serial))
+        return .success(CalendarDate("1899-12-30").adding(days: serial))
     }
 
     /// Splits `2024-01-31T18:30` or `31/01/2024 18:30:00` into date and time.

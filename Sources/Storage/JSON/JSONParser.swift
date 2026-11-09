@@ -211,8 +211,10 @@ private struct Parser {
                 index += 2
                 let low = try parseHex4()
                 guard (0xDC00...0xDFFF).contains(low) else { throw error("Unpaired surrogate in a \\u escape") }
-                let scalar = 0x10000 + ((high - 0xD800) << 10) + (low - 0xDC00)
-                result.unicodeScalars.append(Unicode.Scalar(scalar)!)
+                guard let scalar = Unicode.Scalar(0x10000 + ((high - 0xD800) << 10) + (low - 0xDC00)) else {
+                    throw error("Unpaired surrogate in a \\u escape")
+                }
+                result.unicodeScalars.append(scalar)
             } else {
                 guard let scalar = Unicode.Scalar(high) else { throw error("Unpaired surrogate in a \\u escape") }
                 result.unicodeScalars.append(scalar)

@@ -239,8 +239,8 @@ extension Portfolio {
         let order = groups.keys.sorted {
             ($0.opensAt ?? .min, $0.withdrawalRate ?? -1) < ($1.opensAt ?? .min, $1.withdrawalRate ?? -1)
         }
-        var buckets = order.map { key -> Bucket in
-            let group = groups[key]!
+        var buckets = order.compactMap { key -> Bucket? in
+            guard let group = groups[key] else { return nil }
             return Bucket(name: key == drawable ? "Money you can draw" : group.name.joined(separator: ", "),
                           opensAtAge: key.opensAt, withdrawalRate: key.withdrawalRate,
                           values: classes.map { max(0, group.values[$0] ?? 0) },

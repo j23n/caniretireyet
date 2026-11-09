@@ -4,7 +4,7 @@ extension URL {
     /// This URL with percent-encoded path segments and query items appended,
     /// e.g. a symbol such as `^GSPC` or `EURUSD=X`.
     func appending(segments: [String], query: [(String, String)] = []) -> URL {
-        var components = URLComponents(url: self, resolvingAgainstBaseURL: false)!
+        guard var components = URLComponents(url: self, resolvingAgainstBaseURL: false) else { return self }
         var path = components.percentEncodedPath
         for segment in segments {
             if !path.hasSuffix("/") { path += "/" }
