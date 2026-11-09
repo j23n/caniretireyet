@@ -131,7 +131,7 @@ The years measured against it are then measured as above among the baselines lef
 {
   "accounts": ["conto-fineco", "directa", "fondo-pensione", "gold-coins", "ledger-wallet"],
   "created": "2026-01-05",
-  "engine": "2.0.0",
+  "engine": "2.1.0",
   "headline": { "confidence": "0.9", "earliestAge": 54, "successAtTarget": "0.83" },
   "kind": "yearly",
   "label": "Start of 2026",
@@ -152,7 +152,7 @@ The years measured against it are then measured as above among the baselines lef
 ```json
 {
   "headlines": [
-    { "date": "2026-09-30", "earliestAge": 54, "engine": "2.0.0", "planHash": "5c1f…", "readiness": "0.07",
+    { "date": "2026-09-30", "earliestAge": 54, "engine": "2.1.0", "planHash": "5c1f…", "readiness": "0.07",
       "successAtTarget": "0.86" }
   ]
 }
