@@ -25,10 +25,16 @@ extension PlanDocument {
     /// What's paid a year on top of take-home pay into accounts on `date`:
     /// the yearly contributions marked so
     /// (``Model/PlanContribution/isPaidOnTopOfPay``) that haven't stopped
-    /// before it; one until retirement hasn't stopped.
+    /// before it; one until retirement hasn't stopped. One into an account
+    /// the plan excludes (`portfolio.exclude`) isn't the plan's, as a run
+    /// leaves it out.
     public func contributionsOnTopOfPay(on date: CalendarDate) -> Decimal {
-        contributions
-            .filter { $0.isPaidOnTopOfPay && !$0.isOneOff && ($0.effectiveUntil.date.map { $0 >= date } ?? true) }
+        let excluded = Set(portfolio.exclude)
+        return contributions
+            .filter { contribution in
+                contribution.isPaidOnTopOfPay && !contribution.isOneOff && !excluded.contains(contribution.account)
+                    && (contribution.effectiveUntil.date.map { $0 >= date } ?? true)
+            }
             .reduce(Decimal(0)) { $0 + $1.perYear }
     }
 

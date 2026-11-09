@@ -123,4 +123,15 @@ struct ContributionOnTopOfPayTests {
             == "A contribution into fund is paid on top of your pay, but the plan has no work while it's paid, so "
             + "it's left out.")
     }
+
+    /// The plan's own saving while working leaves out one into an account
+    /// the plan excludes, as a run does.
+    @Test func thePlansSavingLeavesOutOneIntoAnExcludedAccount() {
+        var plan = plan(pay: "60000", onTopOfPay: true)
+        #expect(plan.contributionsOnTopOfPay(on: "2026-06-30") == 5_000)
+        #expect(plan.workingSaving(on: "2026-06-30")?.saving == 25_000)
+        plan.portfolio.exclude = ["fund"]
+        #expect(plan.contributionsOnTopOfPay(on: "2026-06-30") == 0)
+        #expect(plan.workingSaving(on: "2026-06-30")?.saving == 20_000)
+    }
 }
