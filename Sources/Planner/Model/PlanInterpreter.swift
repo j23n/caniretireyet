@@ -337,6 +337,22 @@ enum PlanInterpreter {
                       index: index)
             }
             let oneOff: (year: Int, amount: Double)? = amount.map { (contribution.year ?? startDate.year, $0) }
+            // One on top of pay is paid with the pay: without a work phase in its years, it never is.
+            if contribution.isPaidOnTopOfPay {
+                let until = contribution.effectiveUntil.date
+                let worked = work.contains { phase in
+                    if let oneOff {
+                        return phase.from.year <= oneOff.year && (phase.until?.year ?? .max) >= oneOff.year
+                    }
+                    return (phase.until.map { $0 > startDate } ?? true) && (until.map { phase.from <= $0 } ?? true)
+                }
+                if !worked {
+                    warning("planner.contributionWithoutWork",
+                            "A contribution into \(contribution.account) is paid on top of your pay, but the plan "
+                                + "has no work \(oneOff.map { "in \($0.year)" } ?? "while it's paid"), so it's left "
+                                + "out.", .contributions, index: index)
+                }
+            }
             contributions.append(ContributionSpec(
                 bucket: bucket, perYear: contribution.perYear.doubleValue, until: contribution.effectiveUntil.date,
                 oneOff: oneOff, onTopOfPay: contribution.isPaidOnTopOfPay, id: "contribution-\(index)",

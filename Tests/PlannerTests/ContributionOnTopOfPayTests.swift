@@ -80,4 +80,47 @@ struct ContributionOnTopOfPayTests {
                                                amount: 8_000))
         #expect(result.expectedPath.years.filter { $0.income.contains { $0.id == "contribution-0" } }.count == 1)
     }
+
+    /// It's paid with the pay: over the days a work phase is in force, so
+    /// not in the years between the last work phase and retirement. One
+    /// out of the pay is paid in those years too, from the money you can draw.
+    @Test func itIsPaidOnlyWhileAWorkPhaseIsInForce() async throws {
+        var plan = plan(pay: "60000", onTopOfPay: true)
+        plan.work = [Sample.work(from: "2026-01-01", until: .date("2027-06-30"), net: "60000")]
+        let result = try await Sample.run(plan, library)
+        func onTop(_ year: Int) -> Double? {
+            result.expectedPath.years.first { $0.year == year }?.income.first { $0.id == "contribution-0" }?.amount
+        }
+        #expect(close(onTop(2026), 5_000))
+        // Half of 2027: 181 of its 365 days.
+        #expect(close(onTop(2027), 5_000 * 181 / 365))
+        #expect(onTop(2028) == nil && onTop(2030) == nil)
+        #expect(!result.issues.contains { $0.code == "planner.contributionWithoutWork" })
+
+        plan.contributions = [PlanContribution(account: "fund", perYear: 5_000)]
+        let fromPay = try await Sample.run(plan, library)
+        let gap = try #require(fromPay.expectedPath.years.first { $0.year == 2029 })
+        #expect(YearRow(detail: gap).sold > 5_000)
+    }
+
+    /// Without a work phase in its years it's never paid, and the plan says so.
+    @Test func withoutWorkInItsYearsItIsLeftOutWithAWarning() async throws {
+        var plan = plan(pay: "60000", onTopOfPay: true)
+        plan.work = [Sample.work(from: "2026-01-01", until: .date("2027-06-30"), net: "60000")]
+        plan.contributions = [PlanContribution(account: "fund", amount: 8_000, year: 2029, onTopOfPay: true)]
+        let oneOff = try await Sample.run(plan, library)
+        #expect(!oneOff.expectedPath.years.contains { $0.income.contains { $0.id == "contribution-0" } })
+        let warning = try #require(oneOff.issues.first { $0.code == "planner.contributionWithoutWork" })
+        #expect(warning.severity == .warning && warning.index == 0)
+        #expect(warning.message == "A contribution into fund is paid on top of your pay, but the plan has no work "
+            + "in 2029, so it's left out.")
+
+        plan.work = []
+        plan.contributions = [PlanContribution(account: "fund", perYear: 5_000, onTopOfPay: true)]
+        let yearly = try await Sample.run(plan, library)
+        #expect(!yearly.expectedPath.years.contains { $0.income.contains { $0.id == "contribution-0" } })
+        #expect(yearly.issues.first { $0.code == "planner.contributionWithoutWork" }?.message
+            == "A contribution into fund is paid on top of your pay, but the plan has no work while it's paid, so "
+            + "it's left out.")
+    }
 }

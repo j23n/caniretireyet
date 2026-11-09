@@ -216,7 +216,7 @@
         },
         "year": { "description": "The calendar year of a one-off amount. Default: the plan's first year.", "type": "integer" },
         "onTopOfPay": {
-          "description": "Whether it's paid on top of the work phases' take-home pay: money that never reaches a bank account, such as an employer's pension contribution or TFR. The plan counts it as income of the year it's paid in, so it doesn't lower what the pay saves. Default false: it comes out of the pay.",
+          "description": "Whether it's paid on top of the work phases' take-home pay: money that never reaches a bank account, such as an employer's pension contribution or TFR. The plan counts it as income of the year it's paid in, so it doesn't lower what the pay saves, and pays it only on the days a work phase is in force (warning planner.contributionWithoutWork when there's none). Default false: it comes out of the pay.",
           "type": "boolean"
         }
       }

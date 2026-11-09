@@ -64,6 +64,13 @@ struct AgeSchedule: Sendable {
         var mixes: [[Double]] = []
         var events: [[Int]] = []
         let dayBefore = retiring.adding(days: -1)
+        /// The days of `frame`'s simulated part, through `until`, on which
+        /// a work phase is in force. Phases don't overlap.
+        func workDays(in frame: YearFrame, until: CalendarDate) -> Int {
+            model.work.reduce(0) { days, phase in
+                days + frame.simulatedDays(from: phase.from, until: min(phase.lastDay(retiring: retiring), until))
+            }
+        }
 
         for frame in model.frames {
             var items: [IncomeItem] = []
@@ -97,11 +104,17 @@ struct AgeSchedule: Sendable {
             var paid: [Contribution] = []
             for contribution in model.contributions {
                 var amount = 0.0
+                // One on top of pay is paid with the pay: on the days a work phase is in force.
                 if let oneOff = contribution.oneOff {
-                    if oneOff.year == frame.year { amount = oneOff.amount }
+                    if oneOff.year == frame.year,
+                       !contribution.onTopOfPay || workDays(in: frame, until: dayBefore) > 0 {
+                        amount = oneOff.amount
+                    }
                 } else {
                     let until = min(contribution.until ?? dayBefore, dayBefore)
-                    amount = contribution.perYear * frame.share(from: frame.simulatedFrom, until: until)
+                    amount = contribution.onTopOfPay
+                        ? contribution.perYear * Double(workDays(in: frame, until: until)) / Double(frame.daysInYear)
+                        : contribution.perYear * frame.share(from: frame.simulatedFrom, until: until)
                 }
                 guard amount > 0 else { continue }
                 paid.append(Contribution(bucket: contribution.bucket, amount: amount,
