@@ -58,6 +58,11 @@ public struct PlanProgressYear: Hashable, Sendable, Identifiable {
     /// baseline's start when it starts later in the year, as ``pay``, scaled
     /// to a year; `nil` without money in and out recorded in it.
     public var spentPerYear: Decimal?
+    /// ``spentPerYear`` as a plan counts it
+    /// (``Tracker/SavingsRate/spentInPlanPerYear``): with what was saved
+    /// into the accounts the plan leaves out, such as a mortgage's principal,
+    /// which the plan's spending pays for. What ``spent`` grades.
+    public var spentInPlanPerYear: Decimal?
     /// The baseline plan's spending while working, a year, in money of the
     /// year's end where the inflation index allows (else as recorded);
     /// `nil` without a baseline, or when its plan was past working.
@@ -87,6 +92,14 @@ public struct PlanProgressYear: Hashable, Sendable, Identifiable {
     /// one-offs with it, so it's the number *Your pay* adds up to; else what
     /// plan assets saved in the year (``saved``).
     public var youSaved: Decimal { pay?.saved ?? saved }
+
+    /// What the plan's accounts saved of ``youSaved``: the year's pay's
+    /// saved less what the accounts the plan leaves out saved
+    /// (``Tracker/SavingsRate/savedOutsidePlan``), such as a mortgage's
+    /// principal repaid; ``youSaved`` itself without ``pay``, which counts
+    /// plan assets alone. What the baseline's planned saving, which counts
+    /// only the plan's accounts, is graded against (``savedGrade``).
+    public var youSavedInPlan: Decimal { pay?.savedInPlan ?? saved }
 
     /// The day ``youSaved`` counts from (exclusive): where ``pay`` is
     /// measured from when it starts later than the year, such as a year
@@ -126,19 +139,21 @@ public struct PlanProgressYear: Hashable, Sendable, Identifiable {
         from == to ? nil : MarketYear(markets: change.market, start: change.start)
     }
 
-    /// You saved (``youSaved``), graded against what the baseline planned
-    /// over the same days; `nil` without a baseline, or when it planned no
+    /// You saved, graded in the plan's own scope: what the plan's accounts
+    /// saved (``youSavedInPlan``) against what the baseline planned over
+    /// the same days; `nil` without a baseline, or when it planned no
     /// saving.
     public var savedGrade: PlanComparison? {
-        plannedYouSaved.flatMap { PlanComparison(youSaved, planned: $0) }
+        plannedYouSaved.flatMap { PlanComparison(youSavedInPlan, planned: $0) }
     }
 
-    /// You spent: what was spent a year against the baseline plan's
-    /// spending while working; `nil` without money in and out recorded, or
-    /// when its plan was past working.
+    /// You spent, graded in the plan's own scope: what was spent a year as
+    /// a plan counts it (``spentInPlanPerYear``) against the baseline
+    /// plan's spending while working; `nil` without money in and out
+    /// recorded, or when its plan was past working.
     public var spent: PlanComparison? {
-        guard let spentPerYear, let plannedSpending else { return nil }
-        return PlanComparison(spentPerYear, planned: plannedSpending)
+        guard let spentInPlanPerYear, let plannedSpending else { return nil }
+        return PlanComparison(spentInPlanPerYear, planned: plannedSpending)
     }
 
     /// The plan's progress in each calendar year from the first record of
@@ -211,6 +226,7 @@ public struct PlanProgressYear: Hashable, Sendable, Identifiable {
                     Self.plannedSaving(in: baseline, from: saving, to: last).map { atYearEnd($0, of: baseline) }
                 },
                 spentPerYear: savings?.spentPerYear,
+                spentInPlanPerYear: savings?.spentInPlanPerYear,
                 plannedSpending: baseline.flatMap { baseline in
                     Self.plannedSpending(of: baseline, in: year, birthDate: birthDate)
                         .map { atYearEnd($0, of: baseline) }

@@ -21,7 +21,7 @@ import Tracker
 /// Everything is `Sendable`, and `run` does its work off the main actor.
 public enum Planner {
     /// The engine's version, recorded in headlines and baselines.
-    public static let engineVersion = "2.0.0"
+    public static let engineVersion = "2.1.0"
 
     /// The plan's problems without running it. Errors would stop a run.
     public static func validate(plan: PlanDocument, library: Library,
@@ -285,8 +285,9 @@ public enum Planner {
     /// (PLANNER.md, "Continue as you have"): work phases from the start to
     /// retirement paying the spending while working plus the pace, without
     /// growth, so each working year saves the pace. What went into an
-    /// account that opens at a later age (`availableFromAge`), as a share of
-    /// the pace (`SavingPace.byAccountInPace`), is paid into it as a yearly
+    /// account that opens at a later age (`availableFromAge`) or is pre-tax
+    /// (`withdrawalTaxRate`), as a share of the pace
+    /// (`SavingPace.byAccountInPace`), is paid into it as a yearly
     /// contribution, and the rest is saved where the plan saves cash; what
     /// went into accounts the plan excludes isn't saved. The plan's yearly
     /// contributions are replaced by the pace; one-off contributions and
@@ -300,9 +301,14 @@ public enum Planner {
         var plan = plan
         let excluded = Set(plan.portfolio.exclude)
         let kept = plan.contributions.filter(\.isOneOff)
+        // Accounts apart from the taxable money you can draw: locked until
+        // an age, or pre-tax, which pays its own rate when it's drawn.
         let locked = pace.byAccountInPace
             .filter { account, amount in
-                amount > 0 && !excluded.contains(account) && library.accounts[account]?.availableFromAge != nil
+                guard amount > 0, !excluded.contains(account), let account = library.accounts[account] else {
+                    return false
+                }
+                return account.availableFromAge != nil || account.withdrawalTaxRate != nil
             }
             .sorted { $0.key < $1.key }
             .map { PlanContribution(account: $0.key, perYear: $0.value.rounded(scale: 0)) }

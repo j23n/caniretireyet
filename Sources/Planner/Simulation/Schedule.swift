@@ -10,14 +10,20 @@ struct AgeSchedule: Sendable {
     struct Contribution: Sendable {
         let bucket: Int
         let amount: Double
+        /// Whether it's paid on top of take-home pay: it goes into its
+        /// account without passing through the year's cash.
+        var onTopOfPay = false
     }
 
     let retirementAge: Int
     /// The day work stops.
     let retirementDate: CalendarDate
-    /// Per year: income from work, pensions and other income, by item.
+    /// Per year: income from work, pensions and other income, by item, and
+    /// the contributions paid on top of take-home pay, as work income.
     let income: [[IncomeItem]]
-    /// Per year: their total.
+    /// Per year: the total of work, pensions and other income, the money
+    /// that reaches the year's cash: without the contributions paid on top
+    /// of pay, which go straight into their accounts.
     let regularIncome: [Double]
     /// Per year: spending while working (the plan's, for the working days).
     let workingSpending: [Double]
@@ -58,6 +64,13 @@ struct AgeSchedule: Sendable {
         var mixes: [[Double]] = []
         var events: [[Int]] = []
         let dayBefore = retiring.adding(days: -1)
+        /// The days of `frame`'s simulated part, through `until`, on which
+        /// a work phase is in force. Phases don't overlap.
+        func workDays(in frame: YearFrame, until: CalendarDate) -> Int {
+            model.work.reduce(0) { days, phase in
+                days + frame.simulatedDays(from: phase.from, until: min(phase.lastDay(retiring: retiring), until))
+            }
+        }
 
         for frame in model.frames {
             var items: [IncomeItem] = []
@@ -79,7 +92,6 @@ struct AgeSchedule: Sendable {
                 guard share > 0, other.perYear > 0 else { continue }
                 items.append(IncomeItem(kind: .other, id: other.id, label: other.name, amount: other.perYear * share))
             }
-            income.append(items)
             regular.append(items.reduce(0) { $0 + $1.amount })
 
             let workShare = frame.share(from: frame.simulatedFrom, until: dayBefore)
@@ -91,19 +103,30 @@ struct AgeSchedule: Sendable {
 
             var paid: [Contribution] = []
             for contribution in model.contributions {
+                var amount = 0.0
+                // One on top of pay is paid with the pay: on the days a work phase is in force.
                 if let oneOff = contribution.oneOff {
-                    if oneOff.year == frame.year, oneOff.amount > 0 {
-                        paid.append(Contribution(bucket: contribution.bucket, amount: oneOff.amount))
+                    if oneOff.year == frame.year,
+                       !contribution.onTopOfPay || workDays(in: frame, until: dayBefore) > 0 {
+                        amount = oneOff.amount
                     }
-                    continue
+                } else {
+                    let until = min(contribution.until ?? dayBefore, dayBefore)
+                    amount = contribution.onTopOfPay
+                        ? contribution.perYear * Double(workDays(in: frame, until: until)) / Double(frame.daysInYear)
+                        : contribution.perYear * frame.share(from: frame.simulatedFrom, until: until)
                 }
-                let until = min(contribution.until ?? dayBefore, dayBefore)
-                let share = frame.share(from: frame.simulatedFrom, until: until)
-                if share > 0, contribution.perYear > 0 {
-                    paid.append(Contribution(bucket: contribution.bucket, amount: contribution.perYear * share))
+                guard amount > 0 else { continue }
+                paid.append(Contribution(bucket: contribution.bucket, amount: amount,
+                                         onTopOfPay: contribution.onTopOfPay))
+                // Pay that never reaches the bank account is income all the same.
+                if contribution.onTopOfPay {
+                    items.append(IncomeItem(kind: .work, id: contribution.id, label: contribution.label,
+                                            amount: amount))
                 }
             }
             contributions.append(paid)
+            income.append(items)
 
             opens.append(model.portfolio.buckets.indices.dropFirst().filter { b in
                 guard let age = model.portfolio.buckets[b].opensAtAge else { return false }

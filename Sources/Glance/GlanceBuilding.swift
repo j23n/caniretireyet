@@ -70,7 +70,9 @@ extension NetWorthGlance {
         }
         self.init(
             date: now.date, total: now.total, isComplete: now.isComplete,
-            sinceLastCheckIn: valuator.changeSinceLastCheckIn(asOf: now.date, in: .netWorth).map(NetWorthChange.init),
+            sinceLastCheckIn: valuator.changeSinceLastCheckIn(asOf: now.date, in: .netWorth).map { report in
+                NetWorthChange(report, split: valuator.savedSplit(of: report))
+            },
             thisYear: Self.relativeChangeThisYear(valuator: valuator, now: now), history: history ?? [])
     }
 
@@ -85,11 +87,12 @@ extension NetWorthGlance {
 }
 
 extension NetWorthChange {
-    /// The change between two check-ins, from Tracker's report, with lost
-    /// value under other.
-    public init(_ report: ChangeReport) {
-        self.init(from: report.from, to: report.to, start: report.total.start, markets: report.total.market,
-                  saved: report.total.saved, other: report.total.other + report.total.lost, end: report.total.end)
+    /// The change between two check-ins, from Tracker's report and its
+    /// split with saved as the app's screens count it
+    /// (``Tracker/Valuator/savedSplit(of:)``), with lost value under other.
+    public init(_ report: ChangeReport, split: ValueChange) {
+        self.init(from: report.from, to: report.to, start: split.start, markets: split.market,
+                  saved: split.saved, other: split.other + split.lost, end: split.end)
     }
 }
 

@@ -74,6 +74,21 @@ struct ExampleLibraryGlanceTests {
         #expect(netWorth.sinceLastCheckIn == snapshot.netWorth?.sinceLastCheckIn)
     }
 
+    /// The change at the last check-in splits saved as the app's screens
+    /// do (`savedSplit(of:)`). The reference ledger with two new accounts
+    /// (c3) saves 2,000 in February; the 11,000 the accounts already held
+    /// is other, not saved.
+    @Test func theChangeAtTheLastCheckInSplitsSavedAsTheScreensDo() throws {
+        let valuator = Valuator(library: try ReferenceLedger.newAccounts.library())
+        let report = try #require(valuator.changeSinceLastCheckIn(asOf: "2025-02-28", in: .netWorth))
+        #expect(report.total.saved != 2000)
+        let change = try #require(NetWorthGlance(valuator: valuator, asOf: "2025-02-28").sinceLastCheckIn)
+        #expect(change.saved == 2000)
+        #expect(change.markets == 274)
+        #expect(change.other == 11000)
+        #expect(change.start + change.markets + change.saved + change.other == change.end)
+    }
+
     /// The Overview's hero: the snapshot's net worth, without its line.
     @Test func theOverviewsHeroIsTheSnapshotsNetWorth() throws {
         let later = GlanceSnapshot(library: library, valuator: valuator, asOf: "2026-10-08", answer: recorded,

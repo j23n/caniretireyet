@@ -214,20 +214,17 @@ public enum StarterSetup {
 
     /// `plan` with what ``StarterAnswers/pensionPerMonth`` pays into the
     /// pension a month as a yearly contribution into the pension pot's
-    /// estimate in `library` until retirement, and each work phase's
-    /// income that much higher, since it's paid before your pay reaches
-    /// you: what pay less spending saves stays where it was, and the
-    /// pension gets the contribution on top. Nothing without an amount
-    /// above 0 or the estimate (``addEstimates(_:to:on:taken:)``).
+    /// estimate in `library` until retirement, paid on top of take-home pay
+    /// (``Model/PlanContribution/isPaidOnTopOfPay``), since it's paid
+    /// before your pay reaches you: what pay less spending saves stays
+    /// where it was, and the pension gets the contribution on top. Nothing
+    /// without an amount above 0 or the estimate
+    /// (``addEstimates(_:to:on:taken:)``).
     public static func addPensionContribution(_ answers: StarterAnswers, to plan: inout PlanDocument,
                                               in library: Library) {
         guard let perMonth = positive(answers.pensionPerMonth),
               let pot = library.openStartingEstimates.first(where: { $0.kind == .pensionFund }) else { return }
-        let perYear = perMonth * 12
-        plan.contributions.append(PlanContribution(account: pot.id, perYear: perYear))
-        for index in plan.work.indices {
-            plan.work[index].netIncome = (plan.work[index].netIncome ?? 0) + perYear
-        }
+        plan.contributions.append(PlanContribution(account: pot.id, perYear: perMonth * 12, onTopOfPay: true))
     }
 
     /// The extra saving a month that the first answer's lever tries: a

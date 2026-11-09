@@ -157,7 +157,9 @@ extension HTTPResponse {
                 if let string = dictionary[key] as? String, !string.isEmpty { return string }
             }
             for key in dictionary.keys.sorted() {
-                if let found = findMessage(in: dictionary[key]!, depth: depth + 1) { return found }
+                if let member = dictionary[key], let found = findMessage(in: member, depth: depth + 1) {
+                    return found
+                }
             }
         } else if let array = value as? [Any] {
             for element in array {

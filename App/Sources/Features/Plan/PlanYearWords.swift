@@ -60,7 +60,7 @@ struct PlanYearTiles: View {
                 HalfTile(tint: .peach, title: "Spent", emoji: "🛒") {
                     AmountText(spentAMonth(money), currency: card.currency, tabular: false)
                 } caption: {
-                    AmountSentenceText(spentDetail)
+                    AmountSentenceText(spentDetail(money))
                 }
                 .tileSize(.half)
                 if let taxShare = Self.taxShare(money) {
@@ -179,15 +179,50 @@ struct PlanYearTiles: View {
         ((money.savings?.spentPerYear ?? 0) / 12).rounded(scale: 0)
     }
 
+    /// What the year spent a month as a plan counts it
+    /// (``Tracker/SavingsRate/spentInPlanPerYear``), when that isn't what
+    /// the tile shows: the year saved into accounts the plan leaves out,
+    /// such as a mortgage's principal, or took money out of them.
+    private func spentInPlanAMonth(_ money: MoneyInOutPeriod) -> Decimal? {
+        guard let savings = money.savings else { return nil }
+        let inPlan = (savings.spentInPlanPerYear / 12).rounded(scale: 0)
+        return inPlan == spentAMonth(money) ? nil : inPlan
+    }
+
     /// "a month, plan 2.700 €", or "a month" without the plan's spending.
-    private var spentDetail: AmountSentence {
+    /// When accounts the plan leaves out saved too, what the plan's
+    /// spending compares with comes first: "a month, 3.808 € as your plan
+    /// counts it, plan 3.050 €". Short, since a caption has two lines.
+    private func spentDetail(_ money: MoneyInOutPeriod) -> AmountSentence {
         guard let plannedSpending, plannedSpending > 0 else { return "a month" }
-        return "a month, plan \(amount: amount((plannedSpending / 12).rounded(scale: 0)))"
+        let plan = amount((plannedSpending / 12).rounded(scale: 0))
+        guard let inPlan = spentInPlanAMonth(money) else { return "a month, plan \(amount: plan)" }
+        var detail = AmountSentence("a month, ")
+        detail.append(amount: amount(inPlan))
+        detail.append(words: " as your plan counts it, plan ")
+        detail.append(amount: plan)
+        return detail
+    }
+
+    /// "6 € in your plan", what the plan's accounts saved of *You saved*
+    /// (``PlanProgressYear/youSavedInPlan``), which is what the planned
+    /// figure next to it counts; "500 € out of your plan" when they lost
+    /// money. `nil` when the accounts the plan leaves out saved nothing.
+    private var savedInPlan: AmountSentence? {
+        guard let outside = year.pay?.savedOutsidePlan, outside.rounded(scale: 0) != 0 else { return nil }
+        let inPlan = year.youSavedInPlan
+        let words: AmountSentence = inPlan >= 0
+            ? "\(amount: amount(inPlan)) in your plan"
+            : "\(amount: amount(inPlan)) out of your plan"
+        return words
     }
 
     /// "planned 13.463 € by now", "planned 12.000 €", over the days *You
     /// saved* counts: "since 1 Jul, planned 4.500 €" when money in and out
-    /// start later in the year; `nil` without a plan.
+    /// start later in the year; `nil` without a plan. When accounts the
+    /// plan leaves out saved too, what the plan's accounts saved comes
+    /// before what was planned (``savedInPlan``): "6 € in your plan,
+    /// planned 4.613 € by now".
     private var savedDetail: AmountSentence? {
         // *Why*'s figure, in the baseline's money, when the pay covers the
         // days the plan's saving does; none while the baseline has planned
@@ -196,14 +231,19 @@ struct PlanYearTiles: View {
             : year.pay == nil || year.plannedYouSaved == year.plannedSaving
             ? year.explanation?.inWholeUnits.plannedSaving ?? year.plannedSaving
             : year.plannedYouSaved
+        let inPlan = savedInPlan
+        let plannedWords: AmountSentence? = planned.map { planned -> AmountSentence in
+            let words: AmountSentence = "planned \(amount: amount(planned))"
+            guard let inPlan else { return words }
+            return inPlan + AmountSentence(", ") + words
+        }
         if let payStart {
             let since = "since \(AmountFormat.shortDate(payStart, relativeTo: year.to, locale: locale))"
-            guard let planned else { return AmountSentence(since) }
-            return "\(since), planned \(amount: amount(planned))"
+            guard let plannedWords else { return AmountSentence(since) }
+            return AmountSentence(since + ", ") + plannedWords
         }
-        guard let planned else { return nil }
-        let byNow = year.isLatest ? " by now" : ""
-        return "planned \(amount: amount(planned))\(byNow)"
+        guard let plannedWords else { return nil }
+        return year.isLatest ? plannedWords + AmountSentence(" by now") : plannedWords
     }
 
     /// "expected 1.982 €", or what kind of year it was for markets.

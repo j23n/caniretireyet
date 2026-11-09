@@ -116,13 +116,18 @@ struct StarterSetupTests {
         StarterSetup.complete(&plan, with: answers, asOf: today)
         StarterSetup.addPensionContribution(answers, to: &plan, in: library)
         let pot = try #require(library.openStartingEstimates.first { $0.kind == .pensionFund })
-        #expect(plan.contributions == [PlanContribution(account: pot.id, perYear: d("3600"))])
-        #expect(plan.work.map(\.netIncome) == [d("44400")])
+        #expect(plan.contributions == [PlanContribution(account: pot.id, perYear: d("3600"), onTopOfPay: true)])
+        // The pay stays what reaches the bank account: 3,400 a month.
+        #expect(plan.work.map(\.netIncome) == [d("40800")])
         #expect(plan.spending.working == d("31200"))
         let result = try await Planner.run(plan: plan, library: library,
                                            options: PlannerOptions(maxRetirementAge: 70,
                                                                    solveSustainableSpending: false))
         #expect(!result.issues.contains { $0.code == "planner.contributionOutsidePlan" })
+        // A whole working year saves the pay less spending, and the pension's 3,600 on top.
+        let year = try #require(result.expectedPath.years.first { $0.fraction == 1 && $0.workingShare == 1 })
+        #expect(close(year.savings, 40_800 - 31_200 + 3_600))
+        #expect(year.income.map(\.amount).reduce(0, +) == 44_400)
 
         var empty = emptyLibrary()
         let ids = StarterSetup.addEstimates(StarterAnswers(cash: d("5000"), pensionFromAge: 60, pensionPerMonth: d("200")),

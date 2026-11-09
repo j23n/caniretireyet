@@ -106,6 +106,40 @@ struct DeterministicTests {
         #expect(close(first.savings, -10_000 / 0.875))
     }
 
+    /// A debt the plan counts is paid off at the start. The investments
+    /// sold for it realise their share of the gains, and the tax on them is
+    /// paid with the first year's taxes.
+    @Test func payingOffADebtFromInvestmentsPaysTaxOnTheirGains() async throws {
+        let library = Sample.library(birth: "1966-01-01", on: "2025-12-31", [
+            SampleAccount(id: "broker", balance: 100_000),
+            SampleAccount(id: "loan", kind: .loan, mix: nil, balance: -20_000),
+        ])
+        let plan = Sample.plan(retire: .age(59), endAge: 64, retired: "0", equityReturn: "0", inflation: "0",
+                               investmentRate: "0.25", unrealizedGainShare: "0.5")
+        let result = try await Sample.run(plan, library)
+
+        // 20,000 sold, half of it gain: 2,500 of tax, due in 2026. Paying it
+        // sells 2,500 / (1 − 0.25 × 0.5) = 2,857.14, with its own tax.
+        #expect(result.start.planAssets == 80_000)
+        let first = try #require(result.expectedPath.years.first)
+        #expect(close(first.investmentTax, 2_500 / 0.875))
+        #expect(close(first.income.first { $0.kind == .withdrawal }?.amount, 2_500 / 0.875))
+        #expect(close(result.expectedValue(in: 2026), 80_000 - 2_500 / 0.875))
+        #expect(result.expectedYear(2027)?.totalTax == 0)
+        let warning = try #require(result.issues.first { $0.code == "planner.debtIncluded" })
+        #expect(warning.message.contains("the 2500 of tax on those is paid with the first year's taxes"))
+
+        // Cash pays a debt first, without tax.
+        let withCash = Sample.library(birth: "1966-01-01", on: "2025-12-31", [
+            SampleAccount(id: "broker", balance: 100_000),
+            SampleAccount(id: "cash", kind: .cash, mix: nil, balance: 20_000),
+            SampleAccount(id: "loan", kind: .loan, mix: nil, balance: -20_000),
+        ])
+        let untaxed = try await Sample.run(plan, withCash)
+        #expect(untaxed.expectedPath.years.first?.totalTax == 0)
+        #expect(close(untaxed.expectedValue(in: 2026), 100_000))
+    }
+
     /// A year that sells taxable and pre-tax money together sells the same
     /// share s of both: the taxable money pays the investment rate on its
     /// gain share, the pre-tax money its own rate on the whole amount.

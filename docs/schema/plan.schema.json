@@ -56,7 +56,7 @@
       "items": { "$ref": "#/$defs/income" }
     },
     "contributions": {
-      "description": "Payments into specific accounts, such as a pension fund. They come out of the year's savings; the rest goes to the money you can draw.",
+      "description": "Payments into specific accounts, such as a pension fund. They come out of the year's savings, or are paid on top of the pay (onTopOfPay); the rest goes to the money you can draw.",
       "type": "array",
       "items": { "$ref": "#/$defs/contribution" }
     },
@@ -199,7 +199,7 @@
       }
     },
     "contribution": {
-      "description": "Every year while working (perYear, until until), or once (amount in year). One into an account the plan doesn't count is left out (warning planner.contributionOutsidePlan). Not negative.",
+      "description": "Every year while working (perYear, until until), or once (amount in year). It comes out of take-home pay, unless onTopOfPay says the money never reaches it. One into an account the plan doesn't count is left out (warning planner.contributionOutsidePlan). Not negative.",
       "type": "object",
       "required": ["account"],
       "anyOf": [{ "required": ["perYear"] }, { "required": ["amount"] }],
@@ -214,7 +214,11 @@
           "description": "A one-off amount, paid in year, instead of perYear.",
           "$ref": "common.schema.json#/$defs/decimal"
         },
-        "year": { "description": "The calendar year of a one-off amount. Default: the plan's first year.", "type": "integer" }
+        "year": { "description": "The calendar year of a one-off amount. Default: the plan's first year.", "type": "integer" },
+        "onTopOfPay": {
+          "description": "Whether it's paid on top of the work phases' take-home pay: money that never reaches a bank account, such as an employer's pension contribution or TFR. The plan counts it as income of the year it's paid in, so it doesn't lower what the pay saves, and pays it only on the days a work phase is in force (warning planner.contributionWithoutWork when there's none). Default false: it comes out of the pay.",
+          "type": "boolean"
+        }
       }
     },
     "event": {

@@ -291,6 +291,12 @@ extension PlanContribution {
         }
     }
 
+    /// Paid on top of take-home pay (`onTopOfPay`), written only when it is.
+    var planOnTopOfPay: Bool {
+        get { isPaidOnTopOfPay }
+        set { onTopOfPay = newValue ? true : nil }
+    }
+
     /// A one-off amount.
     var planAmount: Decimal {
         get { amount ?? 0 }

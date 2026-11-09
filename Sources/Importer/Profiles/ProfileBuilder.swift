@@ -30,7 +30,8 @@ extension ImportSession {
             defaults.date = date
         }
         let valueColumns = bindings.columns.keys.sorted().filter { column in
-            let mapping = self.profile.columns[bindings.columns[column]!]
+            guard let index = bindings.columns[column] else { return false }
+            let mapping = self.profile.columns[index]
             return Self.isUsed(mapping) && (mapping.field?.holdsNumbers ?? true)
         }
         let numberFormats = valueColumns.compactMap { effectiveFormat(forColumn: $0).number }

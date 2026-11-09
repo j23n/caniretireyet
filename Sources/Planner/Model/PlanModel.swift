@@ -194,6 +194,13 @@ struct ContributionSpec: Sendable {
     let until: CalendarDate?
     /// A one-off payment instead of `perYear`.
     let oneOff: (year: Int, amount: Double)?
+    /// Whether it's paid on top of take-home pay
+    /// (``Model/PlanContribution/isPaidOnTopOfPay``): income of the year
+    /// it's paid in, which never reaches the year's cash.
+    var onTopOfPay = false
+    /// Its income item's ID and label, when it's paid on top of pay.
+    var id = ""
+    var label = ""
 }
 
 /// A one-off event, resolved to a calendar year.

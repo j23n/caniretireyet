@@ -380,12 +380,16 @@ struct Audit: Encodable {
         var plannedSaving: String?
         /// So far's *You saved*: the year's pay's saved, or ``saved`` without money in and out.
         var youSaved: String
+        /// What the plan's accounts saved of it: what ``savedGrade`` grades.
+        var youSavedInPlan: String
         var youSavedFrom: String
         var plannedYouSaved: String?
         var savedGrade: String?
         /// What markets did, as context: `strong`, `average` or `hard`.
         var marketYear: String?
         var spentPerYear: String?
+        /// What was spent a year as a plan counts it: what ``spentGrade`` grades.
+        var spentInPlanPerYear: String?
         var plannedSpending: String?
         var spentGrade: String?
         var baseline: String?
@@ -406,11 +410,13 @@ struct Audit: Encodable {
             saved = AuditNumber.exact(year.saved)
             plannedSaving = year.plannedSaving.map(AuditNumber.exact)
             youSaved = AuditNumber.exact(year.youSaved)
+            youSavedInPlan = AuditNumber.exact(year.youSavedInPlan)
             youSavedFrom = year.youSavedFrom.description
             plannedYouSaved = year.plannedYouSaved.map(AuditNumber.exact)
             savedGrade = year.savedGrade.map(Self.grade)
             marketYear = year.marketYear.map { "\($0)" }
             spentPerYear = year.spentPerYear.map(AuditNumber.exact)
+            spentInPlanPerYear = year.spentInPlanPerYear.map(AuditNumber.exact)
             plannedSpending = year.plannedSpending.map(AuditNumber.exact)
             spentGrade = year.spent.map(Self.grade)
             baseline = year.baseline?.id.rawValue

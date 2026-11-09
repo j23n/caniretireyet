@@ -55,6 +55,10 @@ struct Portfolio: Sendable {
     /// The part of the debts the money you can draw couldn't pay off, which
     /// the plan leaves out, of ``startAssets`` too.
     var debtUnpaid = 0.0
+    /// The tax on the gains of the taxable investments sold to pay off the
+    /// debts, at the plan's rate on investments: due with the first year's
+    /// taxes, as the tax on a year's investment income is paid the year after.
+    var debtGainsTax = 0.0
 
     var totalValue: Double { buckets.reduce(0) { $0 + $1.value } }
     /// What can be drawn on the start date: bucket 0 and the pre-tax buckets
@@ -235,8 +239,8 @@ extension Portfolio {
         let order = groups.keys.sorted {
             ($0.opensAt ?? .min, $0.withdrawalRate ?? -1) < ($1.opensAt ?? .min, $1.withdrawalRate ?? -1)
         }
-        var buckets = order.map { key -> Bucket in
-            let group = groups[key]!
+        var buckets = order.compactMap { key -> Bucket? in
+            guard let group = groups[key] else { return nil }
             return Bucket(name: key == drawable ? "Money you can draw" : group.name.joined(separator: ", "),
                           opensAtAge: key.opensAt, withdrawalRate: key.withdrawalRate,
                           values: classes.map { max(0, group.values[$0] ?? 0) },
@@ -247,6 +251,10 @@ extension Portfolio {
         // cash first, then the rest of it proportionally, then the open
         // pre-tax money, the same share of each group, after its tax.
         var debtTax = 0.0
+        var gainsTax = 0.0
+        // The plan's rate on investments, as the engine reads it: none when it isn't a rate.
+        let investmentRate = plan.tax.investmentRate.map(\.doubleValue).flatMap { $0 >= 0 && $0 <= 0.9 ? $0 : nil }
+            ?? 0
         var rest = debt
         if debt > 0 {
             if let cash = classes.firstIndex(of: .cash) {
@@ -259,6 +267,8 @@ extension Portfolio {
             if rest > 0, value > 0 {
                 let take = min(rest, value)
                 let keep = max(0, 1 - take / value)
+                // What's sold realises its share of the gains.
+                gainsTax = investmentRate * min(1, max(0, 1 - buckets[0].basis / value)) * take
                 for c in classes.indices { buckets[0].values[c] *= keep }
                 buckets[0].basis *= keep
                 rest -= take
@@ -284,13 +294,18 @@ extension Portfolio {
                 message += ". The money you can draw covers \(Int((debt - rest).rounded())) of them; the plan leaves "
                     + "the rest out, of the plan assets too"
             }
+            if gainsTax > 0.5 {
+                message += ". The investments it sells for them realise gains: the \(Int(gainsTax.rounded())) of "
+                    + "tax on those is paid with the first year's taxes"
+            }
             message += ". Leave debts out of the plan if their payments are in your spending."
             issues.append(.warning("planner.debtIncluded", message, section: .portfolio))
         }
         // What the buckets hold: the debts left unpaid are left out.
         let startAssets = total - Decimal.rounded(debtTax, scale: 2) + Decimal.rounded(rest, scale: 2)
         return Portfolio(buckets: buckets, classes: classes, startAssets: startAssets, trackedAssets: total,
-                         accounts: included.sorted(), debtPaidOff: debt, debtWithdrawalTax: debtTax, debtUnpaid: rest)
+                         accounts: included.sorted(), debtPaidOff: debt, debtWithdrawalTax: debtTax, debtUnpaid: rest,
+                         debtGainsTax: gainsTax)
     }
 
     /// A mix as `Double` shares summing to 1, or `nil` if it's empty.

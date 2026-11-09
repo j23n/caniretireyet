@@ -46,10 +46,10 @@ public enum BreakdownKey: Hashable, Sendable, Comparable, CustomStringConvertibl
         case .assetClass(let assetClass):
             (0, Self.assetClassOrder.firstIndex(of: assetClass) ?? Self.assetClassOrder.count, assetClass.rawValue)
         case .debts: (1, 0, "")
-        case .accountGroup(let group): (2, AccountGroup.allCases.firstIndex(of: group)!, "")
+        case .accountGroup(let group): (2, group.order, "")
         case .currency(let code): (3, 0, code.rawValue)
         case .institution(let name): (4, name == nil ? 1 : 0, name ?? "")
-        case .liquidity(let liquidity): (5, Liquidity.allCases.firstIndex(of: liquidity)!, "")
+        case .liquidity(let liquidity): (5, Liquidity.allCases.firstIndex(of: liquidity) ?? Liquidity.allCases.count, "")
         }
     }
 

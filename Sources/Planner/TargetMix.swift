@@ -82,27 +82,9 @@ extension Planner {
         guard total > 0 else { return 0 }
         var issues: [PlanIssue] = []
         let model = ReturnModel(assumptions: assumptions, heldClasses: classes, issues: &issues)
-        let correlations = model.drawIndex.map { i in
-            model.drawIndex.map { j in zip(model.cholesky[i], model.cholesky[j]).reduce(0) { $0 + $1.0 * $1.1 } }
-        }
-        let weights = classes.map { (mix[$0] ?? 0) / total }
-        var mean = 0.0
-        var variance = 0.0
-        for i in weights.indices {
-            mean += weights[i] * model.expected[i]
-            for j in weights.indices {
-                variance += weights[i] * weights[j] * model.volatility[i] * model.volatility[j] * correlations[i][j]
-            }
-        }
-        variance = max(0, variance)
-        return median(expected: mean, variance: variance)
-    }
-
-    /// The median of a log-normal yearly return with this expected (mean)
-    /// return and variance: (1 + μ) / √(1 + σ² / (1 + μ)²) − 1.
-    static func median(expected: Double, variance: Double) -> Double {
-        let mean = 1 + expected
-        guard mean > 0 else { return -1 }
-        return mean / (1 + variance / (mean * mean)).squareRoot() - 1
+        let values = classes.map { mix[$0] ?? 0 }
+        // Without volatility, the mix's mean.
+        return ReturnModel.medianGrowth(of: values, expected: model.expected, covariances: model.covariances)
+            ?? zip(values, model.expected).reduce(0) { $0 + $1.0 / total * $1.1 }
     }
 }

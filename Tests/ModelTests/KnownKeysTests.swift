@@ -31,6 +31,7 @@ struct KnownKeysTests {
         var contribution = PlanContribution(account: "fondo-pensione", perYear: 5000, until: .date("2040-12-31"))
         contribution.amount = 20_000
         contribution.year = 2030
+        contribution.onTopOfPay = true
         return contribution
     }
 

@@ -18,6 +18,20 @@ struct RunOutcome: Sendable {
     var yearsBelowPlan = 0
 }
 
+/// What moved in the year a run failed in, before its money ran short:
+/// the failing year's detail shows it next to the spending it set out to pay.
+struct FailedYearMoney: Sendable {
+    var windfalls: [IncomeItem] = []
+    var expenses = 0.0
+    var sold = 0.0
+    /// The tax on the gains sold and last year's tax on investment income.
+    var investmentTax = 0.0
+    var wealthTax = 0.0
+    var withdrawalTax = 0.0
+    /// What went into accounts: the year's contributions.
+    var contributed = 0.0
+}
+
 /// Simulates the paths of one retirement age, following PLANNER.md, "The
 /// yearly step". It keeps its buffers between runs, so a worker makes one
 /// and reuses it for all its runs.
@@ -27,7 +41,9 @@ struct RunOutcome: Sendable {
 ///    (pre-tax money as a group of its own, keeping its rate).
 /// 2. Income from work and pensions and the year's windfalls come in;
 ///    spending, one-off expenses, contributions into accounts, the wealth
-///    tax and last year's tax on investment income go out.
+///    tax and last year's tax on investment income go out. A contribution
+///    paid on top of take-home pay goes into its account without coming
+///    out of the year's money.
 /// 3. What's left is invested in the taxable money you can draw, at its
 ///    target mix; a shortfall is sold from the money you can draw, the same
 ///    share of each group, more by the tax on what's sold: on the gain part
@@ -36,7 +52,8 @@ struct RunOutcome: Sendable {
 ///    can't be covered, the run fails.
 /// 4. Every bucket is rebalanced to its mix (the money you can draw to the
 ///    target mix at this year's age, without tax); the year's income on
-///    taxable investments is taxed next year; the markets move every class;
+///    taxable investments is taxed next year; the markets move every class
+///    (in the deterministic run, every bucket by its mix's median growth);
 ///    purchase costs lose the year's inflation (gains are taxed in money of
 ///    the day).
 struct PathSimulator: Sendable {
@@ -114,7 +131,8 @@ struct PathSimulator: Sendable {
         }
         let mask = run.map { scenarios.eventMasks[$0] } ?? scenarios.expectedEvents
         let taxes = model.taxes
-        var carriedTax = 0.0
+        // The tax on the gains realised paying off debts at the start is due with the first year's taxes.
+        var carriedTax = start.debtGainsTax
         var level = 1.0
         var initialRate: Double?
         var lowestLevel = 1.0
@@ -163,14 +181,18 @@ struct PathSimulator: Sendable {
                     expenses -= event.amount
                 }
             }
+            // What's paid on top of take-home pay goes into its account
+            // without passing through the year's cash.
             var contributed = 0.0
+            var fromPay = 0.0
             for contribution in schedule.contributions[t] {
                 deposit(contribution.amount, into: contribution.bucket, mix: schedule.accessibleMix[t])
                 contributed += contribution.amount
+                if !contribution.onTopOfPay { fromPay += contribution.amount }
             }
             let spending = schedule.workingSpending[t] + retiredSpending * level
             let cash = schedule.regularIncome[t] + windfalls.reduce(0) { $0 + $1.amount } - expenses - spending
-                - contributed - wealthTax - incomeTax
+                - fromPay - wealthTax - incomeTax
             guard cash.isFinite else {
                 return fail(t, reason: .depleted, spending: spending, paid: 0,
                             level: level, retiredSpending: retiredSpending, yearsBelowPlan: yearsBelowPlan,
@@ -205,9 +227,13 @@ struct PathSimulator: Sendable {
             if shortfall > Self.tolerance || !shortfall.isFinite {
                 let reason = shortfall.isFinite
                     ? failureReason(year: t, shortfall: shortfall, spending: planSpending, level: level) : .depleted
+                let money = FailedYearMoney(windfalls: windfalls, expenses: expenses, sold: sold,
+                                            investmentTax: gainTax + incomeTax, wealthTax: wealthTax,
+                                            withdrawalTax: withdrawalTax, contributed: contributed)
                 return fail(t, reason: reason, spending: spending,
                             paid: spending - shortfall, level: level, retiredSpending: retiredSpending,
-                            yearsBelowPlan: yearsBelowPlan, recordValues: recordValues, details: &details)
+                            yearsBelowPlan: yearsBelowPlan, recordValues: recordValues, money: money,
+                            details: &details)
             }
 
             // Rebalancing, income on investments (taxed next year), then the markets.
@@ -224,10 +250,14 @@ struct PathSimulator: Sendable {
             carriedTax = taxes.investmentRate * investmentIncome
             basis[0] += investmentIncome
             for b in values.indices {
-                for c in 0..<classCount {
-                    let factor = run.map { scenarios.factors[($0 * scenarios.years + t) * classCount + c] }
-                        ?? scenarios.expectedFactors[t * classCount + c]
-                    values[b][c] *= factor
+                if let run {
+                    let base = (run * scenarios.years + t) * classCount
+                    for c in 0..<classCount { values[b][c] *= scenarios.factors[base + c] }
+                } else if let growth = scenarios.expectedGrowth(of: values[b], year: t) {
+                    // The deterministic run: the group's mix at its median growth.
+                    for c in 0..<classCount { values[b][c] *= growth }
+                } else {
+                    for c in 0..<classCount { values[b][c] *= scenarios.expectedFactors[t * classCount + c] }
                 }
                 basis[b] /= frame.inflationStep
             }
@@ -251,7 +281,7 @@ struct PathSimulator: Sendable {
                 }
                 // The tax on what paying off debts took from pre-tax money, paid at the start.
                 let debtTax = t == 0 ? start.debtWithdrawalTax : 0
-                details!.append(YearDetail(
+                details?.append(YearDetail(
                     year: frame.year, age: frame.age, fraction: frame.fraction,
                     workingShare: schedule.workingShare[t], endAssets: endAssets,
                     spending: paid, expenses: expenses, income: income,
@@ -265,10 +295,13 @@ struct PathSimulator: Sendable {
                           yearsBelowPlan: yearsBelowPlan)
     }
 
-    /// Ends the run as failed in year `t`.
+    /// Ends the run as failed in year `t`. With `money`, the year's detail
+    /// has what moved before the money ran short: what came in, what was
+    /// sold and the taxes. Its spending is what the year set out to pay, so
+    /// its cash is short by what couldn't be paid.
     private mutating func fail(_ t: Int, reason: FailureReason, spending: Double, paid: Double,
                                level: Double, retiredSpending: Double, yearsBelowPlan: Int, recordValues: Bool,
-                               details: inout [YearDetail]?) -> RunOutcome {
+                               money: FailedYearMoney? = nil, details: inout [YearDetail]?) -> RunOutcome {
         let frame = model.frames[t]
         let failure = RunFailure(year: frame.year, age: frame.age, reason: reason)
         let left = total()
@@ -283,10 +316,21 @@ struct PathSimulator: Sendable {
         }
         if details != nil {
             let debtTax = t == 0 ? start.debtWithdrawalTax : 0
-            details!.append(YearDetail(
+            var income = schedule.income[t]
+            if let money {
+                income += money.windfalls
+                if money.sold > 0 {
+                    income.append(IncomeItem(kind: .withdrawal, id: "withdrawal", label: "Investments sold",
+                                             amount: money.sold))
+                }
+            }
+            details?.append(YearDetail(
                 year: frame.year, age: frame.age, fraction: frame.fraction, workingShare: schedule.workingShare[t],
                 endAssets: remaining, spending: spending,
-                income: schedule.income[t], withdrawalTax: debtTax, debtWithdrawalTax: debtTax,
+                expenses: money?.expenses ?? 0, income: income,
+                investmentTax: money?.investmentTax ?? 0, wealthTax: money?.wealthTax ?? 0,
+                withdrawalTax: (money?.withdrawalTax ?? 0) + debtTax, debtWithdrawalTax: debtTax,
+                savings: (money?.contributed ?? 0) - (money?.sold ?? 0),
                 plannedSpending: flexible == nil ? nil : schedule.workingSpending[t] + retiredSpending,
                 spendingLevel: flexible != nil && retiredSpending > 0 ? level : nil))
         }

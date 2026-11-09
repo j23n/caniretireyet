@@ -52,8 +52,9 @@ struct CalculationsReport {
             + (options.anonymize ? "in \(model.startDate.year)" : "the day after \(model.startDate)")
             + ", in \(model.currency.rawValue), in today's money. Estimates, not financial or tax advice.")
         lines += answer() + planAsRead() + startingPortfolio() + successCurve()
-        lines += yearByYear("The deterministic run (expected returns), retiring at \(result.focusAge)",
-                            result.expectedPath)
+        lines += yearByYear(
+            "The deterministic run (each group at its mix's median return), retiring at \(result.focusAge)",
+            result.expectedPath)
         lines += yearByYear("The median run, retiring at \(result.focusAge)", result.medianPath)
         lines += flexibleSpending() + failures() + warnings()
         return lines.joined(separator: "\n") + "\n"
@@ -166,8 +167,21 @@ struct CalculationsReport {
             lines.append("| \(assetClass.rawValue) | \(percent(returns.expected[c])) | \(percent(median)) | "
                 + "\(percent(returns.volatility[c])) | \(percent(model.incomeYields[c])) |")
         }
+        // A class whose average year is far above its typical one adds to a mix through its average.
+        for (c, assetClass) in model.portfolio.classes.enumerated() {
+            let median = exp(returns.logMean[c]) - 1
+            guard returns.expected[c] - median >= Self.wideMeanGap else { continue }
+            let name = ReturnModel.name(assetClass)
+            lines += ["", "\(name)'s average year (\(percent(returns.expected[c]))) is far above its typical year "
+                + "(\(percent(median))), because of its volatility. A mix rebalanced every year collects part of "
+                + "the difference as growth, in the deterministic run and in the others."]
+        }
         return lines
     }
+
+    /// How far a class's mean is above its median for the report to say
+    /// what that does to a mix: 5 points a year.
+    static let wideMeanGap = 0.05
 
     private func startingPortfolio() -> [String] {
         var lines = ["", "## The starting portfolio", "",
@@ -190,6 +204,10 @@ struct CalculationsReport {
             }
             if portfolio.debtUnpaid > 0.5 {
                 line += "; the \(money(portfolio.debtUnpaid)) it can't cover is left out, of the plan assets too"
+            }
+            if portfolio.debtGainsTax > 0.5 {
+                line += "; the \(money(portfolio.debtGainsTax)) of tax on the gains of the investments sold for them "
+                    + "is in the first year's tax on investments"
             }
             lines.append("")
             lines.append(line + ".")
@@ -224,9 +242,21 @@ struct CalculationsReport {
                 + "\(money(max(0, year.savings + sold))) | "
                 + "\(money(year.endAssets)) |")
         }
-        if let failure = path.failure {
+        if let failure = path.failure, let last = path.years.last {
+            // The last row: what the year set out to pay, and what the
+            // money you can draw still paid of it.
+            let sold = last.income.filter { $0.kind == .withdrawal }.reduce(0) { $0 + $1.amount }
+            let came = last.income.reduce(0) { $0 + $1.amount }
+            let short = last.spending + last.expenses + last.totalTax - last.debtWithdrawalTax
+                + max(0, last.savings + sold) - came
+            var line = "The money \(last.endAssets >= 1 ? "you can draw " : "")runs out in \(failure.year), at "
+                + "\(failure.age)"
+            if short >= 1 { line += ": the year is \(money(short)) short of what it set out to pay" }
+            if last.endAssets >= 1 {
+                line += "; \(money(last.endAssets)) is left in accounts you can't draw yet"
+            }
             lines.append("")
-            lines.append("The money runs out in \(failure.year), at \(failure.age).")
+            lines.append(line + ".")
         }
         return lines
     }

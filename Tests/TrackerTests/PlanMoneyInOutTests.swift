@@ -403,6 +403,16 @@ struct PlanMoneyInOutTests {
         #expect(year.spendingDifference(planned: nil) == nil)
     }
 
+    /// The example library's mortgage is left out of plans, so its
+    /// principal repaid counts as spent against a plan's spending.
+    @Test func spendingAgainstThePlanCountsWhatWentIntoAccountsOutsideIt() throws {
+        let year = try #require(PlanLastTwelveMonths(valuator: valuator, through: latest,
+                                                     recordedSince: "2026-06-30"))
+        // 45,700.18 a year against 36,000, not the 37,963.77 net worth counts as spent.
+        #expect(year.current.spentInPlanPerYear == Decimal(string: "45700.18"))
+        #expect(year.spendingDifference(planned: 36_000)?.rounded(4) == Decimal(string: "0.2694"))
+    }
+
     // MARK: Markets
 
     @Test func marketsAreStrongFromEightPercentAndHardFromMinusFive() {

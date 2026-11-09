@@ -90,7 +90,8 @@ private struct Writer {
             appendLine(indent: indent, prefix + "{")
             let keys = Self.sortedKeys(members)
             for (offset, key) in keys.enumerated() {
-                write(members[key]!, indent: indent + 2, prefix: Self.quoted(key) + ": ",
+                guard let member = members[key] else { continue }
+                write(member, indent: indent + 2, prefix: Self.quoted(key) + ": ",
                       suffix: offset < keys.count - 1 ? "," : "", depth: depth + 1)
             }
             appendLine(indent: indent, "}" + suffix)
@@ -129,8 +130,8 @@ private struct Writer {
         case .object(let members) where !members.isEmpty:
             guard append("{ ") else { return false }
             for (offset, key) in sortedKeys(members).enumerated() {
-                guard append((offset > 0 ? ", " : "") + quoted(key) + ": "),
-                      appendInline(members[key]!, to: &text, width: &width, budget: budget)
+                guard let member = members[key], append((offset > 0 ? ", " : "") + quoted(key) + ": "),
+                      appendInline(member, to: &text, width: &width, budget: budget)
                 else { return false }
             }
             return append(" }")

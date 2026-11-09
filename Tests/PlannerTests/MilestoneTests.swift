@@ -624,16 +624,32 @@ struct MilestoneTests {
     @Test func thePlansSavingsRateIsAYearsSavingOverThePay() throws {
         let library = try Fixtures.exampleLibrary()
         let plan = try #require(library.plans["base"])
-        // Employee until 2028: 40.000 of pay, 36.000 of spending while working.
-        #expect(plan.workingSaving(on: "2026-09-30")?.saving == 4_000)
-        #expect(plan.workingSavingsRate(on: "2026-09-30") == d("0.1"))
-        // Self-employed from 2029, until retirement: 48.000.
-        #expect(plan.workingSavingsRate(on: "2040-06-30") == d("0.25"))
+        // Employee until 2028: 40.000 of take-home pay and 5.000 into the pension on top of it, 36.000 of
+        // spending while working.
+        #expect(plan.contributionsOnTopOfPay(on: "2026-09-30") == 5_000)
+        #expect(plan.workingSaving(on: "2026-09-30")?.pay == 45_000)
+        #expect(plan.workingSaving(on: "2026-09-30")?.saving == 9_000)
+        #expect(plan.workingSavingsRate(on: "2026-09-30") == d("0.2"))
+        // Self-employed from 2029, until retirement: 48.000, and the 5.000.
+        #expect(plan.workingSavingsRate(on: "2040-06-30") == Decimal(17_000) / 53_000)
         // Before work starts: no work phase in force.
         #expect(plan.workingSavingsRate(on: "2025-12-31") == nil)
 
+        // A contribution out of the pay isn't more pay: 4.000 of 40.000. One that has stopped, or a one-off,
+        // doesn't count either.
+        var fromPay = plan
+        fromPay.contributions[0].onTopOfPay = nil
+        #expect(fromPay.contributionsOnTopOfPay(on: "2026-09-30") == 0)
+        #expect(fromPay.workingSaving(on: "2026-09-30")?.saving == 4_000)
+        #expect(fromPay.workingSavingsRate(on: "2026-09-30") == d("0.1"))
+        var stopped = plan
+        stopped.contributions[0].until = .date("2026-06-30")
+        stopped.contributions.append(PlanContribution(account: "fondo-pensione", amount: 20_000, year: 2026,
+                                                      onTopOfPay: true))
+        #expect(stopped.contributionsOnTopOfPay(on: "2026-09-30") == 0)
+
         // Spending more than the pay: a negative rate, and no crossover.
-        var spender = plan
+        var spender = fromPay
         spender.spending.working = 50_000
         #expect(spender.workingSavingsRate(on: "2026-09-30") == d("-0.25"))
         #expect(MilestoneLadder.crossover(plan: spender, library: library, valuator: Valuator(library: library),

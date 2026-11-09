@@ -512,7 +512,7 @@ struct PreviewBuilder {
         let converted = convertQuantitiesToTrades(&accumulators)
         var records: [ImportRecordPreview] = []
         for key in accumulators.keys.sorted() {
-            var accumulator = accumulators[key]!
+            guard var accumulator = accumulators[key] else { continue }
             let existing = library.record(for: key)
             // A purchase cost needs a quantity, from the file or the library.
             let held: Set<InstrumentID> = if case .valuation(let valuation)? = existing {

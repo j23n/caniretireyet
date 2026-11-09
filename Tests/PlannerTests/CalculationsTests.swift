@@ -36,6 +36,18 @@ struct CalculationsTests {
                                        options: CalculationsOptions(anonymize: anonymize, today: "2026-01-02"))
     }
 
+    /// Crypto at a 0% median and 70% volatility averages 16.6% a year,
+    /// which a mix collects part of: the report says so under the returns.
+    @Test func aClassWhoseAverageIsFarAboveItsTypicalYearIsExplained() async throws {
+        #expect(!(try await report()).contains("far above its typical year"))
+        var plan = Self.plan()
+        plan.assumptions.returns[.crypto] = ReturnAssumption(medianReal: 0, volatility: d("0.7"))
+        plan.portfolio.targetMix = [.equity: d("0.8"), .crypto: d("0.2")]
+        let text = try await report(plan)
+        #expect(text.contains("Crypto's average year (16.6%) is far above its typical year (0%), because of its "
+            + "volatility."))
+    }
+
     @Test func theYearTablesHaveARowPerYear() async throws {
         let text = try await report()
         let lines = text.components(separatedBy: "\n")
@@ -46,7 +58,7 @@ struct CalculationsTests {
         #expect(rows.count == result.expectedPath.years.count)
         #expect(rows.first?.hasPrefix("| 2026 | 46 | 52,345 |") == true)
         if let failure = result.expectedPath.failure {
-            #expect(text.contains("The money runs out in \(failure.year), at \(failure.age)."))
+            #expect(text.contains("runs out in \(failure.year), at \(failure.age)"))
         }
     }
 
@@ -87,6 +99,34 @@ struct CalculationsTests {
         #expect(first.hasPrefix("| 2026 | 60 | 0 | 0 | 10,000 | 0 | 1,000 | 0 | 800 |"), "\(first)")
     }
 
+    /// The year the money you can draw runs out shows what it still sold
+    /// and the tax on that, and the report says how far the year is short
+    /// and what's left in the accounts that aren't open yet.
+    @Test func theFailingYearShowsWhatItSoldAndHowFarItIsShort() async throws {
+        let library = Sample.library(birth: "1980-01-01", on: "2025-12-31", [
+            SampleAccount(id: "secret-broker", balance: 25_000),
+            SampleAccount(id: "secret-fund", kind: .pensionFund, balance: 200_000, availableFromAge: 60),
+        ])
+        let plan = Sample.plan(retire: .age(46), endAge: 85, retired: "10000", equityReturn: "0",
+                               investmentRate: "0.25", unrealizedGainShare: "0.5")
+        let text = try await Planner.calculations(plan: plan, library: library,
+                                                  options: CalculationsOptions(today: "2026-01-02"))
+        let last = try #require(try rows(text, table: "The deterministic run").last)
+        // The third year sells what's left, less than the year needs, and pays the tax on its gains.
+        #expect(last[0] == 2028 && last[4] == 10_000)
+        #expect(last[9] > 0 && last[9] < 10_000 && last[6] > 0, "\(last)")
+        #expect(last[11] == 200_000)
+        let short = last[4] + last[6] - last[9]
+        let line = try #require(text.components(separatedBy: "\n").first {
+            $0.hasPrefix("The money you can draw runs out in 2028, at 48: the year is ")
+        })
+        let said = try #require(line.split(separator: " ").dropFirst(14).first.flatMap {
+            Double($0.replacingOccurrences(of: ",", with: ""))
+        }, "\(line)")
+        #expect(abs(said - short) <= 2, "\(line)")
+        #expect(line.hasSuffix(" short of what it set out to pay; 200,000 is left in accounts you can't draw yet."))
+    }
+
     // MARK: The rows add up
 
     /// A year table's rows as numbers: Year, Age, Income, Windfalls,
@@ -110,15 +150,15 @@ struct CalculationsTests {
     /// expenses and the taxes paid from the year's money, is what was
     /// saved into accounts; the first year's tax on withdrawals holds the
     /// tax paying off debts took from pre-tax money at the start, which the
-    /// year's money didn't pay. With every class at one median, the value
-    /// at the end is what was there after the year's money moved, grown by
-    /// it. Amounts are rounded to whole units, so a row is checked to 6.
+    /// year's money didn't pay. With every class at one return and no
+    /// volatility, the value at the end is what was there after the year's
+    /// money moved, grown by it. Amounts are rounded to whole units, so a row is checked to 6.
     @Test(arguments: [false, true])
     func everyRowAddsUp(debtFromPreTaxMoney: Bool) async throws {
         var plan = Self.plan()
         // A car while working: a year that sells and pays into the fund.
         plan.events.append(PlanEvent(name: "Car", timing: .year(2028), amount: d("-60000")))
-        plan.assumptions = YearRowTests.oneMedian(plan.assumptions, "0.03")
+        plan.assumptions = YearRowTests.oneReturn(plan.assumptions, "0.03")
         var library = Self.library
         if debtFromPreTaxMoney {
             library = Sample.library(birth: "1980-01-01", on: "2025-12-31", [

@@ -230,6 +230,14 @@ enum PlanInterpreter {
                         .events, index: index)
                 continue
             }
+            // An event has a year, not a day: in a start year under way it
+            // may have happened already, and then the accounts' values hold it.
+            if let first = frames.first, first.year == year, first.fraction < 1, event.amount != 0 {
+                warning("planner.eventInStartYear",
+                        "\(event.name) is in \(year), the year the plan starts in, so the plan counts it in full "
+                            + "after \(startDate). Remove it once it has happened: your accounts' values include "
+                            + "it then.", .events, index: index)
+            }
             var bit: Int?
             if probability < 1 {
                 guard probabilities.count < 64 else {
@@ -311,7 +319,7 @@ enum PlanInterpreter {
         // Contributions, into an account's bucket.
         var contributions: [ContributionSpec] = []
         for (index, contribution) in plan.contributions.enumerated() {
-            guard library.accounts[contribution.account] != nil else {
+            guard let account = library.accounts[contribution.account] else {
                 error("planner.unknownAccount", "A contribution goes into \(contribution.account), which doesn't exist.",
                       .contributions, index: index, account: contribution.account)
                 continue
@@ -329,8 +337,28 @@ enum PlanInterpreter {
                       index: index)
             }
             let oneOff: (year: Int, amount: Double)? = amount.map { (contribution.year ?? startDate.year, $0) }
-            contributions.append(ContributionSpec(bucket: bucket, perYear: contribution.perYear.doubleValue,
-                                                  until: contribution.effectiveUntil.date, oneOff: oneOff))
+            // One on top of pay is paid with the pay: without a work phase in its years, it never is.
+            if contribution.isPaidOnTopOfPay {
+                let until = contribution.effectiveUntil.date
+                let worked = work.contains { phase in
+                    // The plan's years start after the start date.
+                    guard phase.until.map({ $0 > startDate }) ?? true else { return false }
+                    if let oneOff {
+                        return phase.from.year <= oneOff.year && (phase.until?.year ?? .max) >= oneOff.year
+                    }
+                    return until.map { phase.from <= $0 } ?? true
+                }
+                if !worked {
+                    warning("planner.contributionWithoutWork",
+                            "A contribution into \(contribution.account) is paid on top of your pay, but the plan "
+                                + "has no work \(oneOff.map { "in \($0.year)" } ?? "while it's paid"), so it's left "
+                                + "out.", .contributions, index: index)
+                }
+            }
+            contributions.append(ContributionSpec(
+                bucket: bucket, perYear: contribution.perYear.doubleValue, until: contribution.effectiveUntil.date,
+                oneOff: oneOff, onTopOfPay: contribution.isPaidOnTopOfPay, id: "contribution-\(index)",
+                label: "Into \(account.name), on top of pay"))
         }
 
         guard !issues.contains(where: \.isError) else { return (nil, issues) }

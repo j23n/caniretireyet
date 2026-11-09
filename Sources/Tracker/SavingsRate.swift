@@ -42,6 +42,9 @@ public struct SavingsRate: Hashable, Sendable {
     /// (``Valuator/saved(after:through:)``): what it saved, less what a new
     /// account's first value already held.
     public var savedByAccount: [AccountID: Decimal]
+    /// The accounts in net worth that a plan leaves out
+    /// (``Model/Account/includedInPlan``), such as a home and its mortgage.
+    public var accountsOutsidePlan: Set<AccountID>
     /// Whether every price and exchange rate needed for what was saved was known.
     public var isPriced: Bool
 
@@ -52,6 +55,7 @@ public struct SavingsRate: Hashable, Sendable {
                 payThrough: CalendarDate? = nil,
                 pensionContributions: Decimal = 0, taxSetAside: Decimal = 0,
                 savedByAccount: [AccountID: Decimal] = [:],
+                accountsOutsidePlan: Set<AccountID> = [],
                 isPriced: Bool = true) {
         self.moneyInOut = moneyInOut
         self.from = from
@@ -60,6 +64,7 @@ public struct SavingsRate: Hashable, Sendable {
         self.pensionContributions = pensionContributions
         self.taxSetAside = taxSetAside
         self.savedByAccount = savedByAccount
+        self.accountsOutsidePlan = accountsOutsidePlan
         self.isPriced = isPriced
     }
 
@@ -82,6 +87,17 @@ public struct SavingsRate: Hashable, Sendable {
     public var saved: Decimal {
         savedByAccount.keys.sorted().reduce(Decimal(0)) { $0 + (savedByAccount[$1] ?? 0) }
     }
+
+    /// What the accounts a plan leaves out saved of ``saved``
+    /// (``accountsOutsidePlan``), such as a mortgage's principal repaid. A
+    /// plan counts none of it as saved: its spending pays for it.
+    public var savedOutsidePlan: Decimal {
+        accountsOutsidePlan.sorted().reduce(Decimal(0)) { $0 + (savedByAccount[$1] ?? 0) }
+    }
+
+    /// What the accounts a plan counts saved: ``saved`` less
+    /// ``savedOutsidePlan``. What a plan's planned saving compares with.
+    public var savedInPlan: Decimal { saved - savedOutsidePlan }
 
     /// Money from outside that was neither income nor spending, such as an
     /// inheritance (``MoneyInOutSummary/oneOffs``): in what was saved, but
@@ -114,12 +130,25 @@ public struct SavingsRate: Hashable, Sendable {
     /// counted instead (``MoneyInOutSummary/measuredFrom`` to
     /// ``MoneyInOutSummary/lastCounted``), so what came in to another
     /// account isn't scaled as if spent in a day.
-    public var spentPerYear: Decimal {
+    public var spentPerYear: Decimal { perYear(spent) }
+
+    /// What was spent as a plan counts it: ``spent`` plus what was saved
+    /// into the accounts it leaves out (``savedOutsidePlan``), which leaves
+    /// the plan's accounts as spending does. What a plan's spending
+    /// compares with.
+    public var spentInPlan: Decimal { spent + savedOutsidePlan }
+
+    /// ``spentInPlan`` scaled to a year, as ``spentPerYear``.
+    public var spentInPlanPerYear: Decimal { perYear(spentInPlan) }
+
+    /// `amount` over the days the pay covers scaled to a year, rounded to
+    /// cents (``spentPerYear``).
+    private func perYear(_ amount: Decimal) -> Decimal {
         var days = from.days(to: payThrough)
         if days == 0, let start = moneyInOut.measuredFrom, let end = moneyInOut.lastCounted {
             days = start.days(to: end)
         }
-        return (spent * 365 / Decimal(max(1, days))).rounded(scale: 2)
+        return (amount * 365 / Decimal(max(1, days))).rounded(scale: 2)
     }
 
     /// ``savedFromPay`` over ``income``; negative when more was spent than
@@ -187,10 +216,13 @@ extension Valuator {
             return total + max(saved.byAccount[id] ?? 0, 0)
         }
         let tax = taxSetAside(after: days.after, through: days.through)
+        let outsidePlan = saved.byAccount.keys.filter { accounts[$0]?.includedInPlan == false }
         return SavingsRate(moneyInOut: money, from: days.after, through: through, payThrough: days.through,
                            pensionContributions: contributions,
                            taxSetAside: tax.amount,
-                           savedByAccount: saved.byAccount, isPriced: saved.isPriced && tax.isPriced)
+                           savedByAccount: saved.byAccount,
+                           accountsOutsidePlan: Set(outsidePlan),
+                           isPriced: saved.isPriced && tax.isPriced)
     }
 
     /// The days the pay of the values dated from `from` through `through`

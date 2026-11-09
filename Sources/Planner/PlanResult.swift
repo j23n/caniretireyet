@@ -24,7 +24,8 @@ public struct PlanResult: Hashable, Sendable {
     /// Plan assets at each year-end for `focusAge`: percentiles across runs
     /// and the deterministic value.
     public var fan: [FanYear]
-    /// The deterministic run at `focusAge`: expected returns, no volatility.
+    /// The deterministic run at `focusAge`: every group of accounts at its
+    /// mix's median return, no volatility.
     public var expectedPath: PathDetail
     /// The median Monte Carlo run at `focusAge` (ranked by how long its money
     /// lasts, then by what's left at the end).
@@ -393,7 +394,8 @@ public struct YearDetail: Hashable, Sendable {
     public var endAssets: Double
     /// Spending (while working and in retirement, with phase factors): the
     /// plan's, or with flexible spending what the run paid (see
-    /// ``spendingLevel``); in the year a run fails, what it set out to pay.
+    /// ``spendingLevel``); in the year a run fails, what it set out to pay,
+    /// next to what the year still sold and paid in taxes.
     public var spending: Double
     /// One-off expenses.
     public var expenses: Double

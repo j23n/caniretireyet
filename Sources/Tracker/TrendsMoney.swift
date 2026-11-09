@@ -418,12 +418,13 @@ public struct PlanLastTwelveMonths: Hashable, Sendable {
     /// How close counts as spending "about the same" as planned: within 2%.
     public static let sameSpendingTolerance = Decimal(2) / 100
 
-    /// What was spent a year against `planned` spending a year, as a
-    /// fraction of it: −0.12 is 12% less; 0 within
+    /// What was spent a year as a plan counts it
+    /// (``SavingsRate/spentInPlanPerYear``) against `planned` spending a
+    /// year, as a fraction of it: −0.12 is 12% less; 0 within
     /// ``sameSpendingTolerance``. `nil` when nothing was planned or spent.
     public func spendingDifference(planned: Decimal?) -> Decimal? {
-        guard let planned, planned > 0, current.spent > 0 else { return nil }
-        let difference = (current.spentPerYear - planned) / planned
+        guard let planned, planned > 0, current.spentInPlan > 0 else { return nil }
+        let difference = (current.spentInPlanPerYear - planned) / planned
         return abs(difference) <= Self.sameSpendingTolerance ? 0 : difference
     }
 }
