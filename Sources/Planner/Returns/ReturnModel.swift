@@ -147,16 +147,62 @@ struct ReturnModel: Sendable {
         exp(logMean[index] * fraction + logSD[index] * fraction.squareRoot() * draw)
     }
 
-    /// The deterministic factor: the median return (the typical year, a
-    /// draw of zero), compounded over `fraction` of a year. Not the mean:
-    /// compounding a volatile class's average year every year runs far
-    /// ahead of what any typical future does (crypto at a 0% median and 70%
-    /// volatility averages +16.6% a year). With no volatility the median is
-    /// the mean, and this is computed exactly as such a draw is, so Monte
-    /// Carlo with zero volatility reproduces the deterministic run bit for
-    /// bit.
+    /// The deterministic factor of a class held alone: the median return
+    /// (the typical year, a draw of zero), compounded over `fraction` of a
+    /// year. Not the mean: compounding a volatile class's average year
+    /// every year runs far ahead of what any typical future does (crypto at
+    /// a 0% median and 70% volatility averages +16.6% a year). With no
+    /// volatility the median is the mean, and this is computed exactly as
+    /// such a draw is, so Monte Carlo with zero volatility reproduces the
+    /// deterministic run bit for bit. A mix of classes grows at its own
+    /// median instead (``MarketScenarios/expectedGrowth(of:year:)``).
     func expectedFactor(index: Int, fraction: Double) -> Double {
         exp(logMean[index] * fraction)
+    }
+
+    /// The covariances of the held classes' yearly returns, indexed
+    /// `i * classes.count + j`: σᵢ σⱼ ρᵢⱼ.
+    var covariances: [Double] {
+        let count = classes.count
+        var covariances = [Double](repeating: 0, count: count * count)
+        for i in 0..<count {
+            for j in 0..<count {
+                let correlation = zip(cholesky[drawIndex[i]], cholesky[drawIndex[j]]).reduce(0) { $0 + $1.0 * $1.1 }
+                covariances[i * count + j] = volatility[i] * volatility[j] * correlation
+            }
+        }
+        return covariances
+    }
+
+    /// The median yearly real return of holdings worth `values` by held
+    /// class, rebalanced every year: a log-normal approximation from the
+    /// mix's expected return and variance (``median(expected:variance:)``).
+    /// `nil` when they're worth nothing, or the mix has no volatility: then
+    /// each class grows at its own return.
+    static func medianGrowth(of values: [Double], expected: [Double], covariances: [Double]) -> Double? {
+        let count = values.count
+        var total = 0.0
+        for value in values { total += value }
+        guard total > 0 else { return nil }
+        var mean = 0.0
+        var variance = 0.0
+        for i in 0..<count where values[i] != 0 {
+            let weight = values[i] / total
+            mean += weight * expected[i]
+            for j in 0..<count where values[j] != 0 {
+                variance += weight * (values[j] / total) * covariances[i * count + j]
+            }
+        }
+        guard variance > 0 else { return nil }
+        return median(expected: mean, variance: variance)
+    }
+
+    /// The median of a log-normal yearly return with this expected (mean)
+    /// return and variance: (1 + μ) / √(1 + σ² / (1 + μ)²) − 1.
+    static func median(expected: Double, variance: Double) -> Double {
+        let mean = 1 + expected
+        guard mean > 0 else { return -1 }
+        return mean / (1 + variance / (mean * mean)).squareRoot() - 1
     }
 }
 
@@ -172,8 +218,17 @@ struct MarketScenarios: Sendable {
     let classes: Int
     /// Gross real return factors, indexed `(run * years + year) * classes + class`.
     let factors: [Double]
-    /// The deterministic run's factors, indexed `year * classes + class`.
+    /// The deterministic run's factors of a class held alone (its median
+    /// return), indexed `year * classes + class`.
     let expectedFactors: [Double]
+    /// Each held class's expected (arithmetic) yearly real return, the
+    /// covariances of their returns (`i * classes + j`) and the part of a
+    /// year each year covers: what the deterministic run grows a mix by
+    /// (``expectedGrowth(of:year:)``). Empty when the factors were given by
+    /// hand: then every class grows at its own.
+    let expected: [Double]
+    let covariances: [Double]
+    let fractions: [Double]
     /// Per run, a bit per uncertain event, set when it happens.
     let eventMasks: [UInt64]
     /// The deterministic run's events: those with a probability of at least 50%.
@@ -209,6 +264,9 @@ struct MarketScenarios: Sendable {
             }
         }
         self.expectedFactors = expectedFactors
+        expected = model.expected
+        covariances = model.covariances
+        self.fractions = fractions
 
         var masks = [UInt64](repeating: 0, count: runs)
         if !eventProbabilities.isEmpty {
@@ -240,7 +298,27 @@ struct MarketScenarios: Sendable {
         self.classes = classes
         self.factors = factors
         self.expectedFactors = expectedFactors
+        expected = []
+        covariances = []
+        fractions = []
         eventMasks = Array(repeating: 0, count: runs)
         expectedEvents = 0
+    }
+
+    /// What the deterministic run multiplies a group of accounts worth
+    /// `values` by held class by in year `year`: the median growth of its
+    /// mix, rebalanced every year, over the year's part
+    /// (``ReturnModel/medianGrowth(of:expected:covariances:)``). The typical
+    /// year of a mix is better than its classes' typical years weighted:
+    /// classes that don't move together even out, and rebalancing between
+    /// them turns part of their volatility into growth, as the Monte Carlo
+    /// runs do. `nil` when the mix has no volatility, the group is empty or
+    /// the factors were given by hand: then each class grows at its own
+    /// (``expectedFactors``).
+    func expectedGrowth(of values: [Double], year: Int) -> Double? {
+        guard !covariances.isEmpty,
+              let growth = ReturnModel.medianGrowth(of: values, expected: expected, covariances: covariances)
+        else { return nil }
+        return pow(1 + growth, fractions[year])
     }
 }

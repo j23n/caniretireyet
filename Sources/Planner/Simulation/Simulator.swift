@@ -36,7 +36,8 @@ struct RunOutcome: Sendable {
 ///    can't be covered, the run fails.
 /// 4. Every bucket is rebalanced to its mix (the money you can draw to the
 ///    target mix at this year's age, without tax); the year's income on
-///    taxable investments is taxed next year; the markets move every class;
+///    taxable investments is taxed next year; the markets move every class
+///    (in the deterministic run, every bucket by its mix's median growth);
 ///    purchase costs lose the year's inflation (gains are taxed in money of
 ///    the day).
 struct PathSimulator: Sendable {
@@ -224,10 +225,14 @@ struct PathSimulator: Sendable {
             carriedTax = taxes.investmentRate * investmentIncome
             basis[0] += investmentIncome
             for b in values.indices {
-                for c in 0..<classCount {
-                    let factor = run.map { scenarios.factors[($0 * scenarios.years + t) * classCount + c] }
-                        ?? scenarios.expectedFactors[t * classCount + c]
-                    values[b][c] *= factor
+                if let run {
+                    let base = (run * scenarios.years + t) * classCount
+                    for c in 0..<classCount { values[b][c] *= scenarios.factors[base + c] }
+                } else if let growth = scenarios.expectedGrowth(of: values[b], year: t) {
+                    // The deterministic run: the group's mix at its median growth.
+                    for c in 0..<classCount { values[b][c] *= growth }
+                } else {
+                    for c in 0..<classCount { values[b][c] *= scenarios.expectedFactors[t * classCount + c] }
                 }
                 basis[b] /= frame.inflationStep
             }

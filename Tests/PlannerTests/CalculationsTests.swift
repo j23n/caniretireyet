@@ -110,15 +110,15 @@ struct CalculationsTests {
     /// expenses and the taxes paid from the year's money, is what was
     /// saved into accounts; the first year's tax on withdrawals holds the
     /// tax paying off debts took from pre-tax money at the start, which the
-    /// year's money didn't pay. With every class at one median, the value
-    /// at the end is what was there after the year's money moved, grown by
-    /// it. Amounts are rounded to whole units, so a row is checked to 6.
+    /// year's money didn't pay. With every class at one return and no
+    /// volatility, the value at the end is what was there after the year's
+    /// money moved, grown by it. Amounts are rounded to whole units, so a row is checked to 6.
     @Test(arguments: [false, true])
     func everyRowAddsUp(debtFromPreTaxMoney: Bool) async throws {
         var plan = Self.plan()
         // A car while working: a year that sells and pays into the fund.
         plan.events.append(PlanEvent(name: "Car", timing: .year(2028), amount: d("-60000")))
-        plan.assumptions = YearRowTests.oneMedian(plan.assumptions, "0.03")
+        plan.assumptions = YearRowTests.oneReturn(plan.assumptions, "0.03")
         var library = Self.library
         if debtFromPreTaxMoney {
             library = Sample.library(birth: "1980-01-01", on: "2025-12-31", [

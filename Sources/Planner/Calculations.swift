@@ -52,8 +52,9 @@ struct CalculationsReport {
             + (options.anonymize ? "in \(model.startDate.year)" : "the day after \(model.startDate)")
             + ", in \(model.currency.rawValue), in today's money. Estimates, not financial or tax advice.")
         lines += answer() + planAsRead() + startingPortfolio() + successCurve()
-        lines += yearByYear("The deterministic run (expected returns), retiring at \(result.focusAge)",
-                            result.expectedPath)
+        lines += yearByYear(
+            "The deterministic run (each group at its mix's median return), retiring at \(result.focusAge)",
+            result.expectedPath)
         lines += yearByYear("The median run, retiring at \(result.focusAge)", result.medianPath)
         lines += flexibleSpending() + failures() + warnings()
         return lines.joined(separator: "\n") + "\n"

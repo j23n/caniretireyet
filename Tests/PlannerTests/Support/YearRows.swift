@@ -95,13 +95,15 @@ func expectYearsAddUp(_ path: PathDetail, start: Double, growth: YearGrowth, _ l
     }
 }
 
-/// The deterministic growth of the classes `held` in a year simulated for
-/// `fraction` of it: each class's median, compounded over the part.
+/// Where the deterministic growth of a mix of the classes `held` lies in a
+/// year simulated for `fraction` of it: a mix grows at its own median,
+/// which is at least its classes' lowest median and at most their highest
+/// mean, each compounded over the part.
 func medianGrowth(of held: [AssetClass], assumptions: PlanAssumptions, fraction: Double) -> ClosedRange<Double> {
-    let factors = held.map { assetClass in
-        pow(1 + (assumptions.returnAssumption(for: assetClass)?.medianReturn ?? 0), fraction)
-    }
-    return (factors.min() ?? 1)...(factors.max() ?? 1)
+    let returns = held.map { assumptions.returnAssumption(for: $0) }
+    let medians = returns.map { pow(1 + ($0?.medianReturn ?? 0), fraction) }
+    let means = returns.map { pow(1 + ($0?.meanReturn ?? 0), fraction) }
+    return (medians.min() ?? 1)...(means.max() ?? 1)
 }
 
 /// The engine's random futures for `plan` run with `options`, as

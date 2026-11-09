@@ -9,12 +9,14 @@ import TestSupport
 /// before through what went in and out to the year's returns.
 ///
 /// The returns are worked out apart from the engine. Where every class has
-/// the same median, the deterministic run grows every account alike, by
-/// that median over the part of the year simulated. Where every account
-/// holds equity alone, a run grows every account by that run's equity draw
-/// (`MarketScenarios`), so the median path's years must be one run's
-/// draws. Elsewhere a year's growth must lie between its classes' lowest
-/// and highest.
+/// the same return and no volatility, the deterministic run grows every
+/// account alike, by that return over the part of the year simulated.
+/// Where every account holds equity alone, a run grows every account by
+/// that run's equity draw (`MarketScenarios`), so the median path's years
+/// must be one run's draws. Elsewhere a year's growth must lie between its
+/// classes' lowest and highest: in the deterministic run, between their
+/// lowest median and their highest mean, since a mix grows at its own
+/// median.
 struct YearRowTests {
     /// 200 runs, and only the ages the headline needs: the paths are what's checked.
     let options = PlannerOptions(mode: .fast(runs: 200), ageScan: .headline, solveSustainableSpending: false,
@@ -47,14 +49,14 @@ struct YearRowTests {
         #expect(result.expectedPath.years.contains { $0.savings > 0 })
     }
 
-    /// The example library's plans with every class at a 4% median: the
-    /// deterministic run grows every account by 4% a year, compounded over
-    /// the part of the first year simulated.
+    /// The example library's plans with every class at 4% and no
+    /// volatility: the deterministic run grows every account by 4% a year,
+    /// compounded over the part of the first year simulated.
     @Test(arguments: ["base", "part-time-from-50"])
-    func theExampleLibrarysDeterministicRunAtOneMedian(_ id: String) async throws {
+    func theExampleLibrarysDeterministicRunAtOneReturn(_ id: String) async throws {
         let library = try Fixtures.exampleLibrary()
         var plan = try #require(library.plans[PlanID(rawValue: id)])
-        plan.assumptions = Self.oneMedian(plan.assumptions, "0.04")
+        plan.assumptions = Self.oneReturn(plan.assumptions, "0.04")
         let result = try await Planner.run(plan: plan, library: library, options: options)
         let path = result.expectedPath
         #expect(path.years.first.map { $0.fraction < 1 } == true)
@@ -112,13 +114,13 @@ struct YearRowTests {
         return plan
     }
 
-    /// Every class at one median, so the deterministic run grows every
-    /// account alike: the cash, the taxes, the debt and every account's
-    /// money are then checked to the cent.
+    /// Every class at one return with no volatility, so the deterministic
+    /// run grows every account alike: the cash, the taxes, the debt and
+    /// every account's money are then checked to the cent.
     @Test(arguments: [true, false])
     func aPlanWithEverythingAddsUp(flexible: Bool) async throws {
         var plan = Self.plan(flexible: flexible)
-        plan.assumptions = Self.oneMedian(plan.assumptions, "0.03")
+        plan.assumptions = Self.oneReturn(plan.assumptions, "0.03")
         let library = Self.library()
         let result = try await Planner.run(plan: plan, library: library, options: options)
         let path = result.expectedPath
@@ -187,7 +189,7 @@ struct YearRowTests {
         var plan = Sample.plan(retire: .age(60), endAge: 95, retired: "26000", volatility: "0.17",
                                pensions: [PlanPension(name: "State pension", fromAge: 67, perYear: d("10000"))],
                                investmentRate: "0.26", runs: 300)
-        plan.assumptions = Self.oneMedian(plan.assumptions, "0.02")
+        plan.assumptions = Self.oneReturn(plan.assumptions, "0.02")
         let result = try await Planner.run(plan: plan, library: library, options: options)
         let first = try #require(result.expectedPath.years.first)
         // 30,000 of the loan after the cash, from money taxed at 25%: 40,000 out, 10,000 of it tax.
@@ -200,12 +202,12 @@ struct YearRowTests {
 
     // MARK: Helpers
 
-    /// `assumptions` with every class at `median`, each keeping its volatility.
-    static func oneMedian(_ assumptions: PlanAssumptions, _ median: String) -> PlanAssumptions {
+    /// `assumptions` with every class at `rate` a year and no volatility:
+    /// a mix of them grows at `rate` too, whatever it holds.
+    static func oneReturn(_ assumptions: PlanAssumptions, _ rate: String) -> PlanAssumptions {
         var changed = assumptions
         for assetClass in AssetClass.knownValues + Array(assumptions.returns.keys) {
-            let volatility = assumptions.returnAssumption(for: assetClass)?.volatility ?? 0
-            changed.returns[assetClass] = ReturnAssumption(medianReal: d(median), volatility: volatility)
+            changed.returns[assetClass] = ReturnAssumption(real: d(rate), volatility: 0)
         }
         return changed
     }
