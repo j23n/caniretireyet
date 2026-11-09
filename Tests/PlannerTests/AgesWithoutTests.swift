@@ -126,6 +126,23 @@ struct AgesWithoutTests {
         #expect(atPace.events == planned.events && atPace.pensions == planned.pensions)
     }
 
+    /// What the pace saved into a pre-tax account you can draw today stays
+    /// in it, where its withdrawals pay its rate: it isn't saved as taxable
+    /// money.
+    @Test func atThePaceSavingIntoAPreTaxAccountStaysPreTax() {
+        let library = Sample.library(birth: "1986-01-01", on: "2025-12-31", [
+            SampleAccount(id: "broker", balance: 150_000),
+            SampleAccount(id: "ira", balance: 20_000, withdrawalTaxRate: d("0.2")),
+        ])
+        let pace = SavingPace(
+            asOf: "2025-12-31", currency: .eur, months: [], usualMonth: 1_000, perYear: 12_000, range: nil,
+            byAccount: ["broker": 8_000, "ira": 4_000], carriedForward: [],
+            isInTodaysMoney: false, isComplete: true)
+        let atPace = Planner.plan(plan(), atPace: pace, library: library)
+        #expect(atPace.contributions == [PlanContribution(account: "ira", perYear: 4_000)])
+        #expect(atPace.work == [WorkPhase(from: "2025-12-31", until: .retirement, netIncome: 42_000)])
+    }
+
     /// A pension fund's share of the pace counts an unusual lump sum as a
     /// usual month (952, not 20,000), and the 2,000 saved into an account
     /// the plan excludes isn't the plan's.
