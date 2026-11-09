@@ -219,6 +219,26 @@ struct ValidationTests {
         #expect(await errors(plan, library) == ["planner.unknownAccount"])
     }
 
+    /// An event has a year, not a day: one in a start year under way may
+    /// have happened already, so the plan warns; not for a later year, or
+    /// when the plan starts with the year.
+    @Test func anEventInTheStartYearUnderWayIsAWarning() {
+        let midYear = Sample.library(birth: "1976-01-01", on: "2026-06-30",
+                                     [SampleAccount(id: "broker", balance: 100_000)])
+        var plan = plan
+        plan.events = [PlanEvent(name: "Roof", timing: .year(2026), amount: d("-15000")),
+                       PlanEvent(name: "Gift", timing: .age(51), amount: d("5000"))]
+        let issues = Planner.validate(plan: plan, library: midYear, options: PlannerOptions(today: "2026-07-01"))
+            .filter { $0.code == "planner.eventInStartYear" }
+        #expect(issues.map(\.index) == [0])
+        #expect(issues.first?.severity == .warning)
+        #expect(issues.first?.message == "Roof is in 2026, the year the plan starts in, so the plan counts it in "
+            + "full after 2026-06-30. Remove it once it has happened: your accounts' values include it then.")
+
+        #expect(!Planner.validate(plan: plan, library: library, options: PlannerOptions(today: "2026-01-02"))
+            .contains { $0.code == "planner.eventInStartYear" })
+    }
+
     @Test func portfolioProblemsAreWarnings() async throws {
         let library = Sample.library(birth: "1976-01-01", on: "2025-12-31", [
             SampleAccount(id: "broker", balance: 100_000),

@@ -230,6 +230,14 @@ enum PlanInterpreter {
                         .events, index: index)
                 continue
             }
+            // An event has a year, not a day: in a start year under way it
+            // may have happened already, and then the accounts' values hold it.
+            if let first = frames.first, first.year == year, first.fraction < 1, event.amount != 0 {
+                warning("planner.eventInStartYear",
+                        "\(event.name) is in \(year), the year the plan starts in, so the plan counts it in full "
+                            + "after \(startDate). Remove it once it has happened: your accounts' values include "
+                            + "it then.", .events, index: index)
+            }
             var bit: Int?
             if probability < 1 {
                 guard probabilities.count < 64 else {
