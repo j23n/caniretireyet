@@ -21,7 +21,7 @@ import Tracker
 /// Everything is `Sendable`, and `run` does its work off the main actor.
 public enum Planner {
     /// The engine's version, recorded in headlines and baselines.
-    public static let engineVersion = "2.2.0"
+    public static let engineVersion = "2.3.0"
 
     /// The plan's problems without running it. Errors would stop a run.
     public static func validate(plan: PlanDocument, library: Library,
