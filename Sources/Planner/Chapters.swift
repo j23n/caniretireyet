@@ -183,8 +183,8 @@ private struct ChapterBuilder {
 
     let plan: PlanDocument
     let birthYear: Int
-    /// The check-in's year.
-    let startYear: Int
+    /// The check-in the plan starts from.
+    let start: CalendarDate
     /// The first and the last calendar year simulated.
     let first: Int
     let last: Int
@@ -196,7 +196,7 @@ private struct ChapterBuilder {
     init(plan: PlanDocument, birthYear: Int, start: CalendarDate, retirementAge: Int) {
         self.plan = plan
         self.birthYear = birthYear
-        startYear = start.year
+        self.start = start
         first = start.adding(days: 1).year
         last = birthYear + plan.effectiveEndAge
         self.retirementAge = retirementAge
@@ -309,7 +309,10 @@ private struct ChapterBuilder {
             case .age(let age): birthYear + age
             case .year(let year): year
             }
-            placed.append((item: Item.event(index), years: span(happens, happens)))
+            // One in a month that ended by the start has happened: the plan leaves it out.
+            let passed = event.month.flatMap { YearMonth(year: happens, month: $0) }.map { $0.lastDay <= start }
+                ?? false
+            placed.append((item: Item.event(index), years: passed ? nil : span(happens, happens)))
         }
         let base = range(from: first, to: last, where: { mixStep(in: $0) == nil }) ?? span(first, first)
         placed.append((item: Item.targetMix, years: base))
@@ -347,7 +350,7 @@ private struct ChapterBuilder {
     /// start until it stops, at the latest when work does.
     func contributionYears(_ contribution: PlanContribution) -> ClosedRange<Int>? {
         if contribution.isOneOff {
-            let year = contribution.year ?? startYear
+            let year = contribution.year ?? first
             return span(year, year)
         }
         let until = contribution.effectiveUntil.date?.year ?? retirementYear - 1

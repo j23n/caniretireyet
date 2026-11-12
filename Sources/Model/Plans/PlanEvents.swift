@@ -15,12 +15,18 @@ public struct PlanEvent: Hashable, Sendable, KnownKeysProviding {
     public var amount: Decimal
     /// As written. See ``effectiveProbability``.
     public var probability: Decimal?
+    /// The calendar month of its year it happens in, 1...12, when it's
+    /// known: a plan that starts during that year then tells an event
+    /// still ahead from one that has happened.
+    public var month: Int?
 
-    public init(name: String, timing: EventTiming, amount: Decimal, probability: Decimal? = nil) {
+    public init(name: String, timing: EventTiming, amount: Decimal, probability: Decimal? = nil,
+                month: Int? = nil) {
         self.name = name
         self.timing = timing
         self.amount = amount
         self.probability = probability
+        self.month = month
     }
 
     /// The chance the event happens (default 1).
@@ -36,7 +42,7 @@ public struct PlanEvent: Hashable, Sendable, KnownKeysProviding {
 
 extension PlanEvent: Codable {
     enum CodingKeys: String, CodingKey, CaseIterable {
-        case name, age, year, amount, probability
+        case name, age, year, month, amount, probability
     }
 
     public static var knownKeys: Set<String> { Set(CodingKeys.allCases.map(\.stringValue)) }
@@ -51,6 +57,7 @@ extension PlanEvent: Codable {
             throw DecodingError.dataCorruptedError(
                 forKey: .age, in: c, debugDescription: "An event needs exactly one of \"age\" and \"year\".")
         }
+        month = try c.decodeIfPresent(Int.self, forKey: .month)
         amount = try c.decodeDecimal(forKey: .amount)
         probability = try c.decodeDecimalIfPresent(forKey: .probability)
     }
@@ -62,6 +69,7 @@ extension PlanEvent: Codable {
         case .age(let age): try c.encode(age, forKey: .age)
         case .year(let year): try c.encode(year, forKey: .year)
         }
+        try c.encodeIfPresent(month, forKey: .month)
         try c.encodeDecimal(amount, forKey: .amount)
         try c.encodeDecimalIfPresent(probability, forKey: .probability)
     }

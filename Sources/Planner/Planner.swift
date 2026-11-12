@@ -21,7 +21,7 @@ import Tracker
 /// Everything is `Sendable`, and `run` does its work off the main actor.
 public enum Planner {
     /// The engine's version, recorded in headlines and baselines.
-    public static let engineVersion = "2.1.0"
+    public static let engineVersion = "2.2.0"
 
     /// The plan's problems without running it. Errors would stop a run.
     public static func validate(plan: PlanDocument, library: Library,
@@ -439,7 +439,7 @@ public enum Planner {
             }.sorted { ($1.count, $0.name) < ($0.count, $1.name) })
     }
 
-    private static func bucketSummaries(_ portfolio: Portfolio) -> [BucketSummary] {
+    static func bucketSummaries(_ portfolio: Portfolio) -> [BucketSummary] {
         portfolio.buckets.map { bucket in
             let value = bucket.value
             var mix: [AssetClass: Double] = [:]
@@ -470,7 +470,7 @@ public enum Planner {
         }
         for bucket in model.portfolio.buckets {
             guard let age = bucket.opensAtAge, bucket.value > 0 else { continue }
-            let year = model.firstYear(atAge: age)
+            let year = model.birthYear + age
             guard year <= model.lastYear else { continue }
             markers.append(TimelineMarker(kind: .accessible, year: year, age: age, label: bucket.name))
         }

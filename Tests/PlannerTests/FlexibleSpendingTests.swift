@@ -133,6 +133,34 @@ struct FlexibleSpendingTests {
         #expect(fixed.outcome.failure?.year == 2029)
     }
 
+    /// In a year locked money opens, each part of the year can force down
+    /// its days' share of the spending above the floor (PLANNER.md, "The
+    /// year locked money opens").
+    @Test func theDaysBeforeMoneyOpensHaveTheirShareOfTheRoom() async throws {
+        // Born on 2 July 1976: 60 on 2 July 2036, half of 2036 before it. Of 10,000 a
+        // year, 5,000 is spent before the birthday, 1,000 of it above the floor of 80%.
+        func run(broker: Decimal) async throws -> PlanResult {
+            let library = Sample.library(birth: "1976-07-02", on: "2035-12-31", [
+                SampleAccount(id: "broker", balance: broker),
+                SampleAccount(id: "fund", kind: .pensionFund, balance: 50_000, availableFromAge: 60),
+            ])
+            var plan = Sample.plan(retire: .age(59), endAge: 70, retired: "10000", equityReturn: "0")
+            plan.spending.flexible = FlexibleSpending(enabled: true)
+            return try await Sample.run(plan, library)
+        }
+        // 4,500 at the broker is 500 short before the birthday: spending is forced down to 9,500.
+        let forced = try await run(broker: 4_500)
+        let year = try #require(forced.expectedYear(2036))
+        #expect(close(year.spending, 9_500))
+        #expect(close(year.spendingLevel, 0.95))
+        #expect(close(year.endAssets, 45_000))
+        // 3,500 is 1,500 short, more than those days can give up, though less than
+        // the year can: the fund is still locked.
+        let short = try await run(broker: 3_500)
+        #expect(short.expectedPath.failure
+            == RunFailure(year: 2036, age: 60, reason: .locked(LockedMoney(name: "fund", accessibleFromAge: 60))))
+    }
+
     @Test func aRunFailsWhenEvenTheFloorCantBePaid() async throws {
         // 20,000 at 0%, 4,000 a year: cuts to 3,600 and 3,200, then the floor
         // runs out in 2031 with 2,800 left.

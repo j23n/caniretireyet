@@ -48,7 +48,7 @@
       "$ref": "common.schema.json#/$defs/assetMix"
     },
     "availableFromAge": {
-      "description": "The age from which plans can draw on the account, e.g. 67 for a pension fund. Until 1 January of the first year you're that age, plans keep it apart: locked, at its own mix, not wealth-taxed (PLANNER.md). Left out, it can be drawn at any age. The app suggests 65 for a new pension fund.",
+      "description": "The age from which plans can draw on the account, e.g. 67 for a pension fund. Until the birthday at that age, plans keep it apart: locked, at its own mix, not wealth-taxed (PLANNER.md). Left out, it can be drawn at any age. The app suggests 65 for a new pension fund.",
       "$ref": "common.schema.json#/$defs/age"
     },
     "withdrawalTaxRate": {

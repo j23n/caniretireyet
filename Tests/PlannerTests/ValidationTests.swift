@@ -233,10 +233,52 @@ struct ValidationTests {
         #expect(issues.map(\.index) == [0])
         #expect(issues.first?.severity == .warning)
         #expect(issues.first?.message == "Roof is in 2026, the year the plan starts in, so the plan counts it in "
-            + "full after 2026-06-30. Remove it once it has happened: your accounts' values include it then.")
+            + "full after 2026-06-30. Remove it once it has happened: your accounts' values include it then. "
+            + "With a month, the plan knows when it's still ahead.")
 
         #expect(!Planner.validate(plan: plan, library: library, options: PlannerOptions(today: "2026-01-02"))
             .contains { $0.code == "planner.eventInStartYear" })
+    }
+
+    /// With a month, the plan tells an event still ahead from one that has
+    /// happened: one in a month that ended by the start is left out, one in
+    /// a later month counts without a warning, and only one in the month
+    /// the plan starts in, under way, keeps the warning.
+    @Test func anEventsMonthSaysWhetherItIsStillAhead() async throws {
+        let options = PlannerOptions(today: "2026-07-01")
+        func library(on date: CalendarDate) -> Library {
+            Sample.library(birth: "1976-01-01", on: date, [SampleAccount(id: "broker", balance: 100_000)])
+        }
+        var plan = Sample.plan(retire: .age(50), endAge: 60, retired: "0", equityReturn: "0")
+        plan.events = [PlanEvent(name: "Roof", timing: .year(2026), amount: d("-15000"), month: 3),
+                       PlanEvent(name: "Car", timing: .year(2026), amount: d("-20000"), month: 6),
+                       PlanEvent(name: "Gift", timing: .age(50), amount: d("5000"), month: 11)]
+
+        // From 30 June: March and June have ended, November is ahead.
+        let issues = Planner.validate(plan: plan, library: library(on: "2026-06-30"), options: options)
+        #expect(issues.filter { $0.code == "planner.eventBeforeStart" }.map(\.index) == [0, 1])
+        #expect(issues.first { $0.code == "planner.eventBeforeStart" }?.message
+            == "Roof (March 2026) is before the plan's start on 2026-06-30, so the plan leaves it out: it has "
+            + "happened, and your accounts' values include it.")
+        #expect(!issues.contains { $0.code == "planner.eventInStartYear" })
+        let result = try await Sample.run(plan, library(on: "2026-06-30"))
+        #expect(close(result.expectedValue(in: 2026), 105_000))
+        #expect(result.markers.filter { $0.kind == .expense }.isEmpty)
+
+        // From 15 June, June is under way: the car counts, with the warning.
+        let underWay = Planner.validate(plan: plan, library: library(on: "2026-06-15"), options: options)
+        #expect(underWay.filter { $0.code == "planner.eventBeforeStart" }.map(\.index) == [0])
+        let warning = try #require(underWay.first { $0.code == "planner.eventInStartYear" })
+        #expect(warning.index == 1)
+        #expect(warning.message == "Car is in June 2026, the month the plan starts in, so the plan counts it in "
+            + "full after 2026-06-15. Remove it once it has happened: your accounts' values include it then.")
+
+        // A month in a later year changes nothing; one that isn't a month is an error.
+        plan.events = [PlanEvent(name: "Roof", timing: .year(2027), amount: d("-15000"), month: 1)]
+        #expect(Planner.validate(plan: plan, library: library(on: "2026-06-30"), options: options)
+            .allSatisfy { !$0.code.hasPrefix("planner.event") })
+        plan.events[0].month = 13
+        #expect(await errors(plan, library(on: "2026-06-30")) == ["planner.eventMonth"])
     }
 
     @Test func portfolioProblemsAreWarnings() async throws {

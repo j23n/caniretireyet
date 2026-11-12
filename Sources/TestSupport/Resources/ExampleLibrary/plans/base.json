@@ -16,7 +16,7 @@
   "endAge": 95,
   "events": [
     { "age": 62, "amount": "150000", "name": "Inheritance", "probability": "0.8" },
-    { "amount": "-25000", "name": "New car", "year": 2031 }
+    { "amount": "-25000", "month": 4, "name": "New car", "year": 2031 }
   ],
   "id": "base",
   "name": "Base case",
