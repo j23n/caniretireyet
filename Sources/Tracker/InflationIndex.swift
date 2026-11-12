@@ -40,6 +40,20 @@ public struct InflationIndex: Sendable {
         records.lastIndex(onOrBefore: date, date: \.date).map { records[$0] }
     }
 
+    /// Of `dates`, those whose money can't be turned exactly: before the
+    /// index's first value, or using the value of a month the index has
+    /// none for although a later month has one (a gap). Dates after the
+    /// latest value use it, since an index is published with a delay.
+    public func missingValues(on dates: [CalendarDate]) -> [CalendarDate] {
+        let months = Set(records.map(\.date.yearMonth))
+        guard let last = records.last?.date.yearMonth else { return dates }
+        return dates.filter { date in
+            guard value(on: date) != nil else { return true }
+            let month = date.isEndOfMonth ? date.yearMonth : date.yearMonth.previous
+            return month <= last && !months.contains(month)
+        }
+    }
+
     /// How much prices grew from `from` to `to`: the index on `to` divided by
     /// the index on `from` (1.02 for 2% inflation). `nil` without both values.
     public func factor(from: CalendarDate, to: CalendarDate) -> Decimal? {

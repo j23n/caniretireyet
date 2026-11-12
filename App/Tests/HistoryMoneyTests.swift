@@ -15,11 +15,17 @@ struct HistoryMoneyTests {
         #expect(PlanMoney.historyIndex(PreviewLibrary.empty) == nil)
     }
 
-    @Test func theNoteNamesTheMonthsLeftAsRecorded() {
-        #expect(PlanMoney.unadjustedNote([], locale: english) == nil)
-        #expect(PlanMoney.unadjustedNote(["2024-03-31"], locale: english)
-            == "Mar 2024 isn't adjusted for inflation: its value is missing from the inflation index.")
-        #expect(PlanMoney.unadjustedNote(["2024-03-31", "2024-04-30", "2024-05-31"], locale: english)
-            == "Mar – May 2024 aren't adjusted for inflation: their values are missing from the inflation index.")
+    @Test func theNotesNameTheMonthsWithoutAnInflationValue() {
+        #expect(PlanMoney.missingInflationNote([], locale: english) == nil)
+        #expect(PlanMoney.missingInflationNote(["2024-03-31"], locale: english)
+            == "Shown as recorded: Mar 2024 has no inflation value yet.")
+        #expect(PlanMoney.missingInflationNote(["2024-03-31", "2024-04-30", "2024-05-31"], locale: english)
+            == "Shown as recorded: Mar – May 2024 have no inflation values yet.")
+        #expect(PlanMoney.missingInflationNote(["2024-03-31", "2025-08-31"], locale: english)
+            == "Shown as recorded: 2 months from Mar 2024 to Aug 2025 have no inflation values yet.")
+        #expect(PlanMoney.pastAsRecordedNote([], locale: english) == nil)
+        #expect(PlanMoney.pastAsRecordedNote(["2024-03-31", "2024-04-30"], locale: english)
+            == "Your past is as recorded, not in today's money like the futures: "
+            + "Mar – Apr 2024 have no inflation values yet.")
     }
 }

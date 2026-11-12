@@ -41,16 +41,38 @@ enum PlanMoney {
         PlanInflationIndex.baseCurrencyIndex(library: library).flatMap { $0.records.isEmpty ? nil : $0 }
     }
 
-    /// The note under a chart in today's money whose oldest months stay as
-    /// recorded, e.g. "Mar – May 2024 aren't adjusted for inflation: their
-    /// values are missing from the inflation index."; `nil` when every
-    /// month is adjusted.
-    static func unadjustedNote(_ dates: [CalendarDate], locale: Locale = .current) -> String? {
+    /// The note under the accounts list's chart when today's money is
+    /// chosen but the inflation index misses some of its months: "Shown as
+    /// recorded: Mar – May 2024 have no inflation values yet."; `nil` when
+    /// none is missing.
+    static func missingInflationNote(_ dates: [CalendarDate], locale: Locale = .current) -> String? {
         guard !dates.isEmpty else { return nil }
-        let months = Set(dates.map(\.yearMonth)).count
-        let verb = months == 1 ? "isn't" : "aren't"
-        return "\(span(dates, locale: locale)) \(verb) adjusted for inflation: "
-            + "\(months == 1 ? "its value is" : "their values are") missing from the inflation index."
+        return "Shown as recorded: \(missingMonths(dates, locale: locale))."
+    }
+
+    /// The note under Ahead's chart when the inflation index misses some of
+    /// the past's months, so the past is as recorded while the futures are
+    /// in today's money; `nil` when none is missing.
+    static func pastAsRecordedNote(_ dates: [CalendarDate], locale: Locale = .current) -> String? {
+        guard !dates.isEmpty else { return nil }
+        return "Your past is as recorded, not in today's money like the futures: "
+            + "\(missingMonths(dates, locale: locale))."
+    }
+
+    /// "Mar 2024 has no inflation value yet", "Mar – May 2024 have no
+    /// inflation values yet", or for months apart "2 months from Mar 2024
+    /// to Aug 2025 have no inflation values yet".
+    private static func missingMonths(_ dates: [CalendarDate], locale: Locale) -> String {
+        let months = Set(dates.map(\.yearMonth)).sorted()
+        guard let first = months.first, let last = months.last else { return "" }
+        if months.count == 1 { return "\(span(dates, locale: locale)) has no inflation value yet" }
+        if first.months(to: last) + 1 == months.count {
+            return "\(span(dates, locale: locale)) have no inflation values yet"
+        }
+        let sorted = dates.sorted()
+        let from = sorted.first.map { GlanceText.shortMonthAndYear($0, locale: locale) } ?? ""
+        let to = sorted.last.map { GlanceText.shortMonthAndYear($0, locale: locale) } ?? ""
+        return "\(months.count) months from \(from) to \(to) have no inflation values yet"
     }
 
     /// The note under a chart whose actual values leave out check-ins

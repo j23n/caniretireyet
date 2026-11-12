@@ -7,8 +7,9 @@ import Tracker
 /// today with its changes and the span of its chart, the chart of net
 /// worth over that span, and a strip of what you own by asset class. Under
 /// *Allocation*, collapsed at first, the bars with values by the chosen
-/// dimension. With an inflation index the chart is in today's money until
-/// you choose *As recorded*; the amounts over it are as recorded.
+/// dimension. With an inflation index that has a value for every month
+/// shown, the chart is in today's money until you choose *As recorded*;
+/// the amounts over it are as recorded.
 struct AccountsHeader: View {
     @Environment(LibraryStore.self) private var library
     @Environment(\.locale) private var locale
@@ -23,19 +24,19 @@ struct AccountsHeader: View {
         let valuator = library.valuator
         let netWorth = NetWorthGlance(valuator: valuator, asOf: today)
         let index = PlanMoney.historyIndex(library.library)
-        let history = HistoryChartData(valuator: valuator, through: today, range: range,
-                                       inflation: inTodaysMoney ? index : nil)
+        let history = HistoryChartData(valuator: valuator, through: today, range: range, inflation: index,
+                                       adjustsForInflation: inTodaysMoney)
         VStack(alignment: .leading, spacing: Metrics.m) {
             VStack(alignment: .leading, spacing: 2) {
                 ViewThatFits(in: .horizontal) {
                     HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
                         title
                         Spacer(minLength: Metrics.s)
-                        pickers(adjustable: index != nil)
+                        pickers(history, hasIndex: index != nil)
                     }
                     VStack(alignment: .leading, spacing: 2) {
                         title
-                        HStack(spacing: Metrics.s) { pickers(adjustable: index != nil) }
+                        HStack(spacing: Metrics.s) { pickers(history, hasIndex: index != nil) }
                     }
                 }
                 VStack(alignment: .leading, spacing: 2) {
@@ -57,7 +58,7 @@ struct AccountsHeader: View {
                           title: history.isInflationAdjusted
                               ? "Net worth in today's \(library.baseCurrency.rawValue)" : "Net worth",
                           height: 120)
-            if let note = PlanMoney.unadjustedNote(history.unadjustedDates, locale: locale) {
+            if inTodaysMoney, let note = PlanMoney.missingInflationNote(history.missingInflationDates, locale: locale) {
                 OldPriceNoteView(text: note, systemImage: "info.circle") { fillsPastPrices = true }
             }
             AllocationStrip(rows: valuator.breakdown(by: .assetClass, on: today).rows)
@@ -91,19 +92,21 @@ struct AccountsHeader: View {
             .lineLimit(1)
     }
 
-    /// The chart's money, when there's an inflation index to adjust it
-    /// with, and its span.
+    /// The chart's money, when there's an inflation index, and its span.
     @ViewBuilder
-    private func pickers(adjustable: Bool) -> some View {
-        if adjustable {
-            moneyPicker
+    private func pickers(_ history: HistoryChartData, hasIndex: Bool) -> some View {
+        if hasIndex {
+            moneyPicker(history)
         }
         rangePicker
     }
 
-    /// The chart's money, "Today's EUR" or "As recorded", as a menu in the accent.
-    private var moneyPicker: some View {
-        Picker("Money", selection: $inTodaysMoney) {
+    /// The chart's money, "Today's EUR" or "As recorded", as a menu in the
+    /// accent; showing *As recorded*, and off, while the index misses a
+    /// month shown.
+    private func moneyPicker(_ history: HistoryChartData) -> some View {
+        let shown = Binding(get: { history.isInflationAdjusted }, set: { inTodaysMoney = $0 })
+        return Picker("Money", selection: shown) {
             Text(verbatim: "Today's \(library.baseCurrency.rawValue)").tag(true)
             Text("As recorded").tag(false)
         }
@@ -111,6 +114,7 @@ struct AccountsHeader: View {
         .labelsHidden()
         .font(.app(.subheadline))
         .fixedSize()
+        .disabled(!history.canAdjustForInflation)
     }
 
     /// The span of the chart, "Last 3 years", as a menu in the accent.

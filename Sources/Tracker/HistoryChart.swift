@@ -153,11 +153,13 @@ public struct ProjectionWindow: Hashable, Sendable {
 /// the projection is of plan assets, so the past's total meets its start at
 /// today instead of dropping onto it.
 ///
-/// With an inflation index the past is in the money of the date it runs
-/// through: each date's total and asset classes are turned by how much
-/// prices grew since then, so it reads in the same money as the
-/// projection, which is in today's money. Dates before the index's first
-/// value stay as recorded (``unadjustedDates``).
+/// With an inflation index the past can be in the money of the date it
+/// runs through: each date's total and asset classes are turned by how
+/// much prices grew since then, so it reads in the same money as the
+/// projection, which is in today's money. Only when the index has a value
+/// for every date shown: otherwise the whole past stays as recorded and
+/// ``missingInflationDates`` lists the dates without one, since a line
+/// half in today's money would step where the values start.
 public struct HistoryChartData: Hashable, Sendable {
     /// What the past covers: net worth, or plan assets with a projection.
     public var scope: NetWorthScope
@@ -179,9 +181,12 @@ public struct HistoryChartData: Hashable, Sendable {
     /// Whether the past is turned into the money of the date it runs
     /// through, with an inflation index.
     public var isInflationAdjusted: Bool
-    /// The dates shown as recorded although the past is adjusted: the
-    /// index has no value on or before them. Empty when nothing is adjusted.
-    public var unadjustedDates: [CalendarDate]
+    /// Whether it could be: there's an index, with a value for every date
+    /// shown (``InflationIndex/missingValues(on:)``).
+    public var canAdjustForInflation: Bool
+    /// The dates shown that the index has no value for, which keep the past
+    /// as recorded; empty without an index.
+    public var missingInflationDates: [CalendarDate]
 
     /// - Parameters:
     ///   - projection: the main plan's portfolio fan, starting at `end`.
@@ -189,12 +194,15 @@ public struct HistoryChartData: Hashable, Sendable {
     ///   - markers: retirement, pension starts and the like.
     ///   - horizon: where the projection stops (``FutureHorizon``); all of
     ///     it when `nil`.
-    ///   - inflation: turns the past into the money of `end`; as recorded
-    ///     when `nil`.
+    ///   - inflation: the index that can turn the past into the money of
+    ///     `end` when it has a value for every date; as recorded when `nil`.
+    ///   - adjustsForInflation: whether to turn it, when it can; `false`
+    ///     keeps it as recorded but still finds the missing dates.
     ///
     /// Markers outside what's shown are left out.
     public init(valuator: Valuator, through end: CalendarDate, range: HistoryRange, projection: [FanPoint] = [],
-         markers: [ChartMarker] = [], horizon: Date? = nil, inflation: InflationIndex? = nil) {
+         markers: [ChartMarker] = [], horizon: Date? = nil, inflation: InflationIndex? = nil,
+         adjustsForInflation: Bool = true) {
         let scope: NetWorthScope = projection.isEmpty ? .netWorth : .planAssets
         self.scope = scope
         let start = range.years.map { end.adding(years: -$0) }
@@ -202,11 +210,16 @@ public struct HistoryChartData: Hashable, Sendable {
             .filter { date in start.map { date >= $0 } ?? true }
         // One total per date makes the line, the stacked areas and the missing values.
         let totals = dates.map { valuator.total(on: $0, in: scope) }
+        // All or nothing: a date without an index value keeps every date as recorded.
+        let missingDates = inflation?.missingValues(on: dates) ?? []
+        let adjusts = inflation != nil && missingDates.isEmpty && adjustsForInflation
+        missingInflationDates = missingDates
+        canAdjustForInflation = inflation != nil && missingDates.isEmpty
+        isInflationAdjusted = adjusts
         // How much each date's money is worth in money of `end`: 1 as recorded.
-        let factors = dates.map { date in inflation.flatMap { $0.convert(1, from: date, to: end) } }
-        isInflationAdjusted = inflation != nil
-        unadjustedDates = inflation == nil ? [] : zip(dates, factors).filter { $0.1 == nil }.map(\.0)
-        let scales = factors.map { $0?.doubleValue ?? 1 }
+        let scales = dates.map { date in
+            adjusts ? (inflation?.convert(1, from: date, to: end)?.doubleValue ?? 1) : 1
+        }
         points = zip(totals, scales).map { total, scale in
             ChartPoint(date: total.date.dateValue, value: total.total.doubleValue * scale,
                        isComplete: total.isComplete)
