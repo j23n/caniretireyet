@@ -35,8 +35,12 @@ struct AgeSchedule: Sendable {
     /// Per year: the share of the simulated part spent working.
     let workingShare: [Double]
     let contributions: [[Contribution]]
-    /// Per year: the buckets that join the money you can draw at its start.
+    /// Per year: the buckets that join the money you can draw during it, on
+    /// the birthday at their age.
     let opens: [[Int]]
+    /// Per year: the share of its simulated part from that birthday on, 1
+    /// when it's the first simulated day: what ``opens`` can pay for.
+    let openShare: [Double]
     /// Per year: the target mix of the money you can draw, as shares by class.
     let accessibleMix: [[Double]]
     /// Per year: the indices into ``PlanModel/events`` of the year's events.
@@ -61,6 +65,7 @@ struct AgeSchedule: Sendable {
         var workingShare: [Double] = []
         var contributions: [[Contribution]] = []
         var opens: [[Int]] = []
+        var openShare: [Double] = []
         var mixes: [[Double]] = []
         var events: [[Int]] = []
         let dayBefore = retiring.adding(days: -1)
@@ -97,7 +102,11 @@ struct AgeSchedule: Sendable {
             let workShare = frame.share(from: frame.simulatedFrom, until: dayBefore)
             let retiredShare = frame.share(from: retiring, until: frame.lastDay)
             working.append(model.spending.working * workShare)
-            retired.append(retiredShare * model.spending.factor(atAge: frame.age))
+            // A spending phase starts on the birthday at its age.
+            let birthday = model.birthDate.adding(years: frame.age)
+            let younger = frame.share(from: retiring, until: birthday.adding(days: -1))
+            retired.append(younger * model.spending.factor(atAge: frame.age - 1)
+                + (retiredShare - younger) * model.spending.factor(atAge: frame.age))
             fully.append(retiring <= frame.simulatedFrom)
             workingShare.append(frame.fraction > 0 ? min(1, workShare / frame.fraction) : 0)
 
@@ -128,11 +137,13 @@ struct AgeSchedule: Sendable {
             contributions.append(paid)
             income.append(items)
 
+            // Locked money opens on the birthday at its age, which this year's is or isn't.
             opens.append(model.portfolio.buckets.indices.dropFirst().filter { b in
                 guard let age = model.portfolio.buckets[b].opensAtAge else { return false }
-                let first = model.firstYear(atAge: age)
-                return first == frame.year || (frame.index == 0 && first < frame.year)
+                return age == frame.age || (frame.index == 0 && age < frame.age)
             })
+            openShare.append(frame.fraction > 0
+                ? min(1, frame.share(from: birthday, until: frame.lastDay) / frame.fraction) : 1)
 
             let target = model.plan.portfolio.targetMix(atAge: frame.age, retiringAt: age)
                 .flatMap { Portfolio.shares($0) }
@@ -148,6 +159,7 @@ struct AgeSchedule: Sendable {
         self.workingShare = workingShare
         self.contributions = contributions
         self.opens = opens
+        self.openShare = openShare
         accessibleMix = mixes
         self.events = events
     }

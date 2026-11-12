@@ -470,7 +470,7 @@ public enum Planner {
         }
         for bucket in model.portfolio.buckets {
             guard let age = bucket.opensAtAge, bucket.value > 0 else { continue }
-            let year = model.firstYear(atAge: age)
+            let year = model.birthYear + age
             guard year <= model.lastYear else { continue }
             markers.append(TimelineMarker(kind: .accessible, year: year, age: age, label: bucket.name))
         }

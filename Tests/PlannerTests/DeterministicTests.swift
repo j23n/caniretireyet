@@ -325,15 +325,59 @@ struct DeterministicTests {
         #expect(bridged.reason == .locked(LockedMoney(name: "fund", accessibleFromAge: 60)))
     }
 
-    @Test func lockedMoneyOpensInTheFirstYearAtThatAge() async throws {
-        // Born mid-June 1976: 60 on 1 January 2037.
-        let library = Sample.library(birth: "1976-06-15", on: "2025-12-31", [
+    /// Locked money opens on the birthday at its age, as a pension starts
+    /// on one: what the year needs before it, by its days, has to come
+    /// from the money open until then.
+    @Test func lockedMoneyOpensOnTheBirthdayAtItsAge() async throws {
+        // Born on 2 July 1976: 60 on 2 July 2036, with half of 2036 (183 of 366 days) still to come.
+        let library = Sample.library(birth: "1976-07-02", on: "2025-12-31", [
             SampleAccount(id: "broker", balance: 100_000),
             SampleAccount(id: "fund", kind: .pensionFund, balance: 50_000, availableFromAge: 60),
         ])
-        let plan = Sample.plan(retire: .age(49), endAge: 70, retired: "1000", equityReturn: "0")
+        func run(spending: String) async throws -> PlanResult {
+            try await Sample.run(Sample.plan(retire: .age(49), endAge: 70, retired: spending, equityReturn: "0"),
+                                 library)
+        }
+        // 9,500 a year leaves 5,000 after 2035: the 4,750 before the birthday comes from it, the 4,750
+        // after it from the 250 left and the fund.
+        let bridged = try await run(spending: "9500")
+        #expect(bridged.markers.first { $0.kind == .accessible }?.year == 2036)
+        #expect(close(bridged.expectedValue(in: 2035), 5_000 + 50_000))
+        #expect(close(bridged.expectedValue(in: 2036), 45_500))
+        #expect(bridged.expectedPath.failure == RunFailure(year: 2041, age: 65, reason: .depleted))
+
+        // 9,600 a year leaves 4,000, 800 short of the 4,800 before the birthday: the fund is still locked.
+        let short = try await run(spending: "9600")
+        #expect(short.expectedPath.failure
+            == RunFailure(year: 2036, age: 60, reason: .locked(LockedMoney(name: "fund", accessibleFromAge: 60))))
+    }
+
+    /// The wealth tax counts money that opens during a year for the part
+    /// of the year after its birthday.
+    @Test func moneyOpeningDuringAYearIsWealthTaxedForItsPart() async throws {
+        let library = Sample.library(birth: "1976-07-02", on: "2035-12-31", [
+            SampleAccount(id: "broker", balance: 100_000),
+            SampleAccount(id: "fund", kind: .pensionFund, balance: 50_000, availableFromAge: 60),
+        ])
+        let plan = Sample.plan(retire: .age(59), endAge: 70, retired: "0", equityReturn: "0", wealthRate: "0.01")
         let result = try await Sample.run(plan, library)
-        #expect(result.markers.first { $0.kind == .accessible }?.year == 2037)
+        // 2036: 1% of 100,000 and of half the fund. 2037: 1% of all that's left.
+        #expect(close(result.expectedYear(2036)?.wealthTax, 1_250))
+        #expect(close(result.expectedYear(2037)?.wealthTax, 1_487.5))
+    }
+
+    /// A spending phase starts on the birthday at its age: the year it
+    /// starts in spends at the old factor before it and the new one after.
+    @Test func aSpendingPhaseStartsOnTheBirthday() async throws {
+        let library = Sample.library(birth: "1976-07-02", on: "2034-12-31",
+                                     [SampleAccount(id: "broker", balance: 100_000)])
+        var plan = Sample.plan(retire: .age(58), endAge: 70, retired: "10000", equityReturn: "0")
+        plan.spending.phases = [SpendingPhase(fromAge: 60, factor: d("0.5"))]
+        let result = try await Sample.run(plan, library)
+        #expect(close(result.expectedYear(2035)?.spending, 10_000))
+        // 2036: 183 of its 366 days at 10,000 a year, 183 at 5,000.
+        #expect(close(result.expectedYear(2036)?.spending, 7_500))
+        #expect(close(result.expectedYear(2037)?.spending, 5_000))
     }
 
     @Test func pensionsReplaceWithdrawals() async throws {

@@ -46,12 +46,6 @@ struct PlanModel: Sendable {
     func retirementDate(forAge age: Int) -> CalendarDate {
         max(startDate, birthDate.adding(years: age))
     }
-
-    /// The first calendar year that starts at `age` or older: from it on,
-    /// money that's available from that age can be drawn.
-    func firstYear(atAge age: Int) -> Int {
-        birthDate.year + age + (birthDate.month == 1 && birthDate.day == 1 ? 0 : 1)
-    }
 }
 
 /// One simulated calendar year.

@@ -38,7 +38,9 @@ struct FailedYearMoney: Sendable {
 ///
 /// Each year:
 /// 1. Money that becomes available at this age joins the money you can draw
-///    (pre-tax money as a group of its own, keeping its rate).
+///    (pre-tax money as a group of its own, keeping its rate) on the
+///    birthday: what the year needs before it, by its days, is sold from
+///    the money open until then.
 /// 2. Income from work and pensions and the year's windfalls come in;
 ///    spending, one-off expenses, contributions into accounts, the wealth
 ///    tax and last year's tax on investment income go out. A contribution
@@ -140,12 +142,22 @@ struct PathSimulator: Sendable {
 
         for t in schedule.income.indices {
             let frame = model.frames[t]
-            for b in schedule.opens[t] { open(b) }
+            // Money that opens on a birthday during the year can't pay for
+            // the days before it; on the first simulated day, it opens now.
+            let opensLater = schedule.openShare[t] < 1 && !schedule.opens[t].isEmpty
+            if !opensLater {
+                for b in schedule.opens[t] { open(b) }
+            }
             let startAssets = total()
 
-            // Taxes due: the wealth tax on the money you can draw, and last
-            // year's tax on investment income.
-            let wealthTax = taxes.wealthRate * max(0, drawable() - taxes.wealthAllowance) * frame.fraction
+            // Taxes due: the wealth tax on the money you can draw (what opens
+            // during the year for its part of it), and last year's tax on
+            // investment income.
+            var wealth = drawable()
+            if opensLater {
+                for b in schedule.opens[t] { wealth += value(b) * schedule.openShare[t] }
+            }
+            let wealthTax = taxes.wealthRate * max(0, wealth - taxes.wealthAllowance) * frame.fraction
             let incomeTax = carriedTax
             carriedTax = 0
 
@@ -202,24 +214,47 @@ struct PathSimulator: Sendable {
             var gainTax = 0.0
             var withdrawalTax = 0.0
             var shortfall = 0.0
+            var paid = spending
+            var paidLevel = level
             if cash >= 0 {
                 deposit(cash, into: 0, mix: schedule.accessibleMix[t])
             } else {
-                (sold, gainTax, withdrawalTax, shortfall) = withdraw(-cash, rate: taxes.investmentRate)
-            }
-
-            // With flexible spending, money that runs short is spending forced
-            // down, as far as the floor; only below it does the run fail.
-            var paid = spending
-            var paidLevel = level
-            if let flexible, shortfall > Self.tolerance, retiredSpending > 0 {
-                let room = retiredSpending * max(0, level - flexible.floor)
-                if shortfall <= room + Self.tolerance {
-                    paid = spending - min(shortfall, room)
-                    paidLevel = level - (spending - paid) / retiredSpending
-                    shortfall = 0
+                // In a year money opens during, what the year needs before
+                // that birthday, by its days, is sold from the money open
+                // until then, and the rest from all of it.
+                let parts = opensLater ? 2 : 1
+                for part in 0..<parts {
+                    var need = -cash
+                    if opensLater {
+                        need *= part == 0 ? 1 - schedule.openShare[t] : schedule.openShare[t]
+                        if part == 1 {
+                            for b in schedule.opens[t] { open(b) }
+                        }
+                    }
+                    let taken = withdraw(need, rate: taxes.investmentRate)
+                    sold += taken.sold
+                    gainTax += taken.gainTax
+                    withdrawalTax += taken.withdrawalTax
+                    shortfall = taken.shortfall
+                    // With flexible spending, money that runs short is spending
+                    // forced down, as far as the floor; only below it does the run fail.
+                    if let flexible, shortfall > Self.tolerance, retiredSpending > 0 {
+                        let room = retiredSpending * max(0, paidLevel - flexible.floor)
+                        if shortfall <= room + Self.tolerance {
+                            let cut = min(shortfall, room)
+                            paid -= cut
+                            paidLevel -= cut / retiredSpending
+                            shortfall = 0
+                        }
+                    }
+                    // Short before the birthday: the money that opens on it is still locked.
+                    if shortfall > Self.tolerance || !shortfall.isFinite { break }
                 }
             }
+            if opensLater, shortfall <= Self.tolerance {
+                for b in schedule.opens[t] where !isOpen[b] { open(b) }
+            }
+
             if flexible != nil, retiredSpending > 0, shortfall <= Self.tolerance {
                 lowestLevel = min(lowestLevel, paidLevel)
                 if paidLevel < 1 - Self.levelEpsilon { yearsBelowPlan += 1 }
@@ -351,10 +386,11 @@ struct PathSimulator: Sendable {
     private func failureReason(year t: Int, shortfall: Double, spending: Double, level: Double) -> FailureReason {
         var bridge: (bucket: Int, opens: Int)?
         for b in values.indices.dropFirst() where !isOpen[b] && value(b) > Self.tolerance {
-            guard let opens = schedule.opens.indices.dropFirst(t + 1).first(where: { schedule.opens[$0].contains(b) })
+            // One that opens later this year is still locked when the year runs short before then.
+            guard let opens = schedule.opens.indices.dropFirst(t).first(where: { schedule.opens[$0].contains(b) })
             else { continue }
             var need = shortfall
-            for later in (t + 1)..<opens {
+            for later in schedule.opens.indices where later > t && later < opens {
                 need += max(0, schedule.workingSpending[later] + schedule.retiredUnit[later] * spending * level
                     - schedule.regularIncome[later])
             }
