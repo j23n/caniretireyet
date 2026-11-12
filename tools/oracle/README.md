@@ -2,6 +2,8 @@
 
 A second implementation of the numbers Last Monday works out, in Python, written from the docs and not from the Swift code: [schema/README.md](../../docs/schema/README.md) ("How values are computed", "CSV export"), [PROGRESS.md](../../docs/PROGRESS.md) ("Data this needs from day one", "Money in and out", "Saved"), [ACCOUNTS.md](../../docs/ACCOUNTS.md), [TRADES.md](../../docs/TRADES.md) and the JSON Schemas. It reads a folder `retire export` wrote, works the numbers out again, and compares them with the app's. A difference is a bug on one side, or a rule the docs leave open. Standard library only, `Decimal` throughout. It isn't part of the Swift package; CI's Linux job runs its tests (`make oracle`).
 
+`planner.py` does the same for the planner's deterministic run, from [PLANNER.md](../../docs/PLANNER.md) and the plan's schema: see [The planner](#the-planner).
+
 ## What it checks
 
 - **Net worth and plan assets** on every row of `net-worth.csv`, and **each account's value** on every row of `account-values.csv`, in its currency and the base currency, with `complete`: the latest valuation carried forward, positions at the latest price on or before the date, rates direct, inverse or crossed, the account counted between `opened` and `closed`.
@@ -16,7 +18,7 @@ With `--library`, it compares all of that with what `retire` prints: the export,
 ## What it doesn't
 
 - **Started with**: what an account whose records start in a stretch held then ([PROGRESS.md](../../docs/PROGRESS.md#saved)) is a heuristic. Such an account's saved, and the totals and savings rates of a stretch it starts in, are skipped and listed.
-- **The saving pace**, *Where your money came from*, Progress and the planner.
+- **The saving pace**, *Where your money came from* and Progress. Of the planner, only the deterministic run is worked out again ([The planner](#the-planner)).
 - **Belongings with a `depreciation`**: the oracle doesn't work out their lost value from `accounts.csv`'s `depreciation` yet. `--skip-account <id>` leaves such an account out; totals that count it then aren't compared.
 - **Average cost and realised gains**, staleness, bank lines and how they're classified, inflation (today's money), and the checks `retire validate` makes.
 
@@ -33,6 +35,30 @@ What the oracle does, and whether the app (on the example library and the librar
 - **Your pay** on a check-in is the savings rate over the days since the check-in before (from the day after it).
 - **Money in and out** counts cash and savings accounts in net worth, not tax pots.
 - **A kind this version doesn't know** has no rule for what it saved: unknown.
+
+## The planner
+
+`planner.py` works a plan's deterministic run out again: every year's income from work, pensions and other income, windfalls and one-off expenses, spending (with its phases and flexible spending), contributions, the taxes on investments, on wealth and on withdrawals, what was sold, what was saved, and the plan assets at the end, and the year and reason a run fails. It reads the plan's file and what `retire plan debug --json` prints, and compares its years with the ones printed there.
+
+```sh
+swift build
+python3 tools/oracle/planner.py --library Sources/TestSupport/Resources/ExampleLibrary --retire .build/debug/retire --age 45 --age 67
+```
+
+It checks every plan of the library (or `--plan <id>`) at the plan's retirement age and at each `--age`, prints each value that differs, and exits with 1 when there's any; `--quiet` prints only the counts. Amounts are floats, as the planner's are, compared to a cent.
+
+**What it takes from `retire`:** the groups of accounts the run starts from (their values by class, what was paid, the age they open at and their tax on withdrawals), the start date, the birth date, and the tax paying off debts at the start left to pay. So how a library becomes those groups ([PLANNER.md](../../docs/PLANNER.md#the-portfolio)) isn't worked out again.
+
+**What it doesn't check:** the Monte Carlo runs and everything found from them (the chance of success, the earliest age, the sustainable spending, what retiring today needs), a correlation table that had to be repaired, and the saving pace.
+
+**Where PLANNER.md leaves a choice open**, the oracle does what the app does:
+
+- A year is short, and the portfolio "pays something", from 1 unit of the base currency.
+- Flexible spending's draw takes off other income too, with the income from work and pensions.
+- Without a target mix, and with nothing in the money you can draw at the start, what's saved goes in at the mix of everything the plan holds.
+- A birthday on 29 February is on 28 February in a year without one.
+
+Its author had read the Swift engine before writing it, so it is less independent than the rest of the oracle: it shows that the docs and the engine say the same, and guards the engine against changes that the docs don't make too.
 
 ## Known issues
 
@@ -66,3 +92,5 @@ make oracle    # the same, after swift build, with the package's retire
 ```
 
 `test_oracle.py` checks the oracle on small export folders worked out by hand, then runs `retire` (`RETIRE`, or the package's `.build/debug/retire`; skipped when there's none) on the example library and on the made-up libraries in `scenarios.py`, and compares.
+
+`test_planner.py` checks `planner.py` on runs worked out by hand, then compares it with `retire plan debug --json` on the example library's two plans and on changed copies of the base plan (flexible spending, income yields, events with and without a month, contributions, other income, a target mix by age, no tax, an earlier start, a debt the plan counts, and other groups of accounts), each at eight retirement ages: runs that last, that run out, and that run out while the pension fund is still locked.

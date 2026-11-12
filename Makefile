@@ -46,9 +46,10 @@ build-package:
 
 test: swift-test
 
-# The oracle (tools/oracle/README.md): the export's numbers, saved, money in and out and the savings
-# rate worked out again in Python from the docs, and compared with what the package's retire prints
-# for the example library and the made-up libraries in tools/oracle/scenarios.py.
+# The oracle (tools/oracle/README.md): the export's numbers, saved, money in and out, the savings
+# rate and the planner's deterministic run worked out again in Python from the docs, and compared
+# with what the package's retire prints for the example library, the made-up libraries in
+# tools/oracle/scenarios.py and changed copies of the example library's plans.
 oracle: build-package
 	cd tools/oracle && RETIRE="$$($(SWIFT) build --show-bin-path)/retire" $(PYTHON) -m unittest
 
