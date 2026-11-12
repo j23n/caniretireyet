@@ -45,6 +45,30 @@ struct PlanDebugCommandTests {
         #expect(rounded.output.contains("| Pension 2 | 67 | 5,000 |"))
     }
 
+    /// `--json` prints the deterministic run alone, unrounded, at the plan's
+    /// age or at `--age`, without running the simulation.
+    @Test func jsonIsTheDeterministicRun() async throws {
+        let library = try TemporaryFolder.exampleLibrary()
+        let run = await retire(["plan", "debug", "--library", library.path, "--json"])
+        #expect(run.status == 0, "\(run.all)")
+        let json = try #require(try JSONSerialization.jsonObject(with: Data(run.output.utf8)) as? [String: Any])
+        #expect(json["plan"] as? String == "base")
+        #expect(json["retirementAge"] as? Int == 55)
+        #expect(json["startDate"] as? String == "2026-09-30")
+        let groups = try #require(json["groups"] as? [[String: Any]])
+        #expect(groups.map { $0["name"] as? String } == ["Money you can draw", "Fondo pensione"])
+        #expect(groups[1]["availableFromAge"] as? Int == 67)
+        let years = try #require(json["years"] as? [[String: Any]])
+        #expect(years.first?["year"] as? Int == 2026)
+        #expect(years.last?["year"] as? Int == 2083)
+        #expect((years.first?["fraction"] as? Double).map { abs($0 - 92.0 / 365) < 1e-12 } == true)
+
+        let early = await retire(["plan", "debug", "--library", library.path, "--json", "--age", "45"])
+        let earlyJSON = try #require(try JSONSerialization.jsonObject(with: Data(early.output.utf8)) as? [String: Any])
+        #expect(earlyJSON["retirementAge"] as? Int == 45)
+        #expect((earlyJSON["failure"] as? [String: Any])?["reason"] as? String == "depleted")
+    }
+
     @Test func badOptionsAreRefused() async throws {
         let library = try library()
         let round = await retire(["plan", "debug", "--library", library.path, "--round", "100"])
@@ -53,6 +77,10 @@ struct PlanDebugCommandTests {
         #expect(zero.status != 0)
         let old = await retire(["plan", "debug", "--library", library.path, "--format", "json"])
         #expect(old.status == 64)
+        let anonymized = await retire(["plan", "debug", "--library", library.path, "--json", "--anonymize"])
+        #expect(anonymized.status != 0)
+        let age = await retire(["plan", "debug", "--library", library.path, "--age", "50"])
+        #expect(age.status != 0)
     }
 
     /// Whether `word` appears in `text` as a whole word, ignoring case: not

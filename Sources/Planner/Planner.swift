@@ -439,7 +439,7 @@ public enum Planner {
             }.sorted { ($1.count, $0.name) < ($0.count, $1.name) })
     }
 
-    private static func bucketSummaries(_ portfolio: Portfolio) -> [BucketSummary] {
+    static func bucketSummaries(_ portfolio: Portfolio) -> [BucketSummary] {
         portfolio.buckets.map { bucket in
             let value = bucket.value
             var mix: [AssetClass: Double] = [:]
