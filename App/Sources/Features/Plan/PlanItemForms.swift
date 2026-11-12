@@ -308,7 +308,7 @@ struct PlanEventForm: View {
             }
             PlanNumberRow("Amount", value: $event.planSize)
         }
-        Section("When") {
+        Section {
             Picker("Set by", selection: $event.planByAge) {
                 Text("Age").tag(true)
                 Text("Year").tag(false)
@@ -316,6 +316,17 @@ struct PlanEventForm: View {
             .pickerStyle(.segmented)
             Stepper(whenLabel, value: $event.planWhen, in: event.planByAge ? 18...110 : 2_000...2_150)
                 .personalControl()
+            Picker("Month", selection: $event.month) {
+                Text("Any").tag(Int?.none)
+                ForEach(1...12, id: \.self) { month in
+                    Text(Calendar.current.standaloneMonthSymbols[month - 1]).tag(Int?.some(month))
+                }
+            }
+            .personalControl()
+        } header: {
+            Text("When")
+        } footer: {
+            Text("With a month, a plan that starts during the event's year knows whether it's still ahead.")
         }
         if event.planType != .expense {
             Section {
