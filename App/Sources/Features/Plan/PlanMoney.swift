@@ -60,8 +60,8 @@ enum PlanMoney {
     }
 
     /// "Mar 2024 has no inflation value yet", "Mar – May 2024 have no
-    /// inflation values yet", or for months apart "2 months between Mar
-    /// 2024 and Aug 2025 have no inflation values yet".
+    /// inflation values yet", or for months apart "2 months from Mar 2024
+    /// to Aug 2025 have no inflation values yet".
     private static func missingMonths(_ dates: [CalendarDate], locale: Locale) -> String {
         let months = Set(dates.map(\.yearMonth)).sorted()
         guard let first = months.first, let last = months.last else { return "" }
@@ -72,7 +72,7 @@ enum PlanMoney {
         let sorted = dates.sorted()
         let from = sorted.first.map { GlanceText.shortMonthAndYear($0, locale: locale) } ?? ""
         let to = sorted.last.map { GlanceText.shortMonthAndYear($0, locale: locale) } ?? ""
-        return "\(months.count) months between \(from) and \(to) have no inflation values yet"
+        return "\(months.count) months from \(from) to \(to) have no inflation values yet"
     }
 
     /// The note under a chart whose actual values leave out check-ins

@@ -45,7 +45,8 @@ struct DecadesChart: View {
                                        projection: projection, inflation: PlanMoney.historyIndex(library.library))
         VStack(alignment: .leading, spacing: Metrics.m) {
             DecadesPlot(data: plotData(history, future: future), height: chartHeight)
-            if let note = PlanMoney.pastAsRecordedNote(history.missingInflationDates, locale: locale) {
+            if let note = future ? PlanMoney.pastAsRecordedNote(history.missingInflationDates, locale: locale)
+                : PlanMoney.missingInflationNote(history.missingInflationDates, locale: locale) {
                 OldPriceNoteView(text: note, systemImage: "info.circle") { fillsPastPrices = true }
             }
             if let missing = history.missing {

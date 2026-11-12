@@ -22,7 +22,7 @@ struct HistoryMoneyTests {
         #expect(PlanMoney.missingInflationNote(["2024-03-31", "2024-04-30", "2024-05-31"], locale: english)
             == "Shown as recorded: Mar – May 2024 have no inflation values yet.")
         #expect(PlanMoney.missingInflationNote(["2024-03-31", "2025-08-31"], locale: english)
-            == "Shown as recorded: 2 months between Mar 2024 and Aug 2025 have no inflation values yet.")
+            == "Shown as recorded: 2 months from Mar 2024 to Aug 2025 have no inflation values yet.")
         #expect(PlanMoney.pastAsRecordedNote([], locale: english) == nil)
         #expect(PlanMoney.pastAsRecordedNote(["2024-03-31", "2024-04-30"], locale: english)
             == "Your past is as recorded, not in today's money like the futures: "
