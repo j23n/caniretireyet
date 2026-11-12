@@ -12,7 +12,7 @@
       "enum": ["yearly", "manual", "past"]
     },
     "label": { "description": "A name given when saved by hand, e.g. \"Before part-time\".", "type": "string" },
-    "engine": { "description": "The planner's version that made it, e.g. 2.1.0.", "type": "string" },
+    "engine": { "description": "The planner's version that made it, e.g. 2.2.0.", "type": "string" },
     "accounts": {
       "description": "The accounts the plan counted, so your actual line can be drawn over the same accounts.",
       "type": "array",
