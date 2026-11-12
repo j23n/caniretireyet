@@ -53,7 +53,10 @@ struct AccountsHeader: View {
                 }
                 .accessibilityElement(children: .combine)
             }
-            NetWorthChart(history: history.points, title: "Net worth", height: 120)
+            NetWorthChart(history: history.points,
+                          title: history.isInflationAdjusted
+                              ? "Net worth in today's \(library.baseCurrency.rawValue)" : "Net worth",
+                          height: 120)
             if let note = PlanMoney.unadjustedNote(history.unadjustedDates, locale: locale) {
                 OldPriceNoteView(text: note, systemImage: "info.circle") { fillsPastPrices = true }
             }
