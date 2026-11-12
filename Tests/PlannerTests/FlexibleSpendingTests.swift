@@ -166,6 +166,23 @@ struct FlexibleSpendingTests {
             == RunFailure(year: 2036, age: 60, reason: .locked(LockedMoney(name: "fund", accessibleFromAge: 60))))
     }
 
+    /// A year that fails after the birthday counts what it paid: the
+    /// spending forced down before the birthday isn't part of it.
+    @Test func aYearThatFailsAfterACutCountsWhatItPaid() async throws {
+        // Born on 2 July 1976, 10,000 a year. 4,500 at the broker is 500 short before the
+        // birthday, which those days give up. The 2,000 that opens on it is 3,000 short of
+        // the 5,000 after it, more than their 1,000 of room: 4,500 and 2,000 were paid.
+        let library = Sample.library(birth: "1976-07-02", on: "2035-12-31", [
+            SampleAccount(id: "broker", balance: 4_500),
+            SampleAccount(id: "fund", kind: .pensionFund, balance: 2_000, availableFromAge: 60),
+        ])
+        var plan = Sample.plan(retire: .age(59), endAge: 70, retired: "10000", equityReturn: "0")
+        plan.spending.flexible = FlexibleSpending(enabled: true)
+        let result = try await Sample.run(plan, library)
+        #expect(result.expectedPath.failure == RunFailure(year: 2036, age: 60, reason: .depleted))
+        #expect(close(result.fan.first?.spending?.p50, 6_500))
+    }
+
     @Test func aRunFailsWhenEvenTheFloorCantBePaid() async throws {
         // 20,000 at 0%, 4,000 a year: cuts to 3,600 and 3,200, then the floor
         // runs out in 2031 with 2,800 left.

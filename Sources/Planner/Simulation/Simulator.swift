@@ -289,7 +289,7 @@ struct PathSimulator: Sendable {
                                             investmentTax: gainTax + incomeTax, wealthTax: wealthTax,
                                             withdrawalTax: withdrawalTax, contributed: contributed)
                 return fail(t, reason: reason, spending: spending,
-                            paid: spending - shortfall, level: level, retiredSpending: retiredSpending,
+                            paid: paid - shortfall, level: level, retiredSpending: retiredSpending,
                             yearsBelowPlan: yearsBelowPlan, recordValues: recordValues, money: money,
                             details: &details)
             }
