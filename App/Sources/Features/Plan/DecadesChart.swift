@@ -15,7 +15,9 @@ import Tracker
 ///
 /// The past is plan assets through the latest check-in, where the
 /// projection starts: the projection is of what the plan counts, so the
-/// past meets it there. It reaches back as far as the accounts' time span
+/// past meets it there. It's in the same money as the projection, the money
+/// of that check-in, adjusted with the base currency's inflation index
+/// where there is one. It reaches back as far as the accounts' time span
 /// (`overview.range`). Without results yet, the past is your whole net
 /// worth, through today. The chart never runs the plan: Ahead does
 /// (``PlanSession/calculateIfNeeded()``).
@@ -39,9 +41,12 @@ struct DecadesChart: View {
         let projection = results?.portfolio ?? []
         let future = !projection.isEmpty
         let history = HistoryChartData(valuator: valuator, through: future ? library.asOfDate : today, range: range,
-                                       projection: projection)
+                                       projection: projection, inflation: PlanMoney.historyIndex(library.library))
         VStack(alignment: .leading, spacing: Metrics.m) {
             DecadesPlot(data: plotData(history, future: future), height: chartHeight)
+            if let note = PlanMoney.unadjustedNote(history.unadjustedDates, locale: locale) {
+                OldPriceNoteView(text: note, systemImage: "info.circle") { fillsPastPrices = true }
+            }
             if let missing = history.missing {
                 missingNoteView(missing)
             }

@@ -7,29 +7,36 @@ import Tracker
 /// today with its changes and the span of its chart, the chart of net
 /// worth over that span, and a strip of what you own by asset class. Under
 /// *Allocation*, collapsed at first, the bars with values by the chosen
-/// dimension.
+/// dimension. With an inflation index the chart is in today's money until
+/// you choose *As recorded*; the amounts over it are as recorded.
 struct AccountsHeader: View {
     @Environment(LibraryStore.self) private var library
     @Environment(\.locale) private var locale
     @AppStorage("overview.range") private var range: HistoryRange = .threeYears
     @AppStorage("overview.allocation") private var allocation: BreakdownDimension = .assetClass
     @AppStorage("accounts.showsAllocation") private var showsAllocation = false
+    @AppStorage("overview.inTodaysMoney") private var inTodaysMoney = true
+    @State private var fillsPastPrices = false
 
     var body: some View {
         let today = CalendarDate.today()
         let valuator = library.valuator
         let netWorth = NetWorthGlance(valuator: valuator, asOf: today)
-        let history = HistoryChartData(valuator: valuator, through: today, range: range)
+        let index = PlanMoney.historyIndex(library.library)
+        let history = HistoryChartData(valuator: valuator, through: today, range: range,
+                                       inflation: inTodaysMoney ? index : nil)
         VStack(alignment: .leading, spacing: Metrics.m) {
             VStack(alignment: .leading, spacing: 2) {
-                HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
-                    Text("Net worth")
-                        .font(.cardTitle)
-                        .foregroundStyle(Palette.ink)
-                        .accessibilityAddTraits(.isHeader)
-                        .lineLimit(1)
-                    Spacer(minLength: Metrics.s)
-                    rangePicker
+                ViewThatFits(in: .horizontal) {
+                    HStack(alignment: .firstTextBaseline, spacing: Metrics.s) {
+                        title
+                        Spacer(minLength: Metrics.s)
+                        pickers(adjustable: index != nil)
+                    }
+                    VStack(alignment: .leading, spacing: 2) {
+                        title
+                        HStack(spacing: Metrics.s) { pickers(adjustable: index != nil) }
+                    }
                 }
                 VStack(alignment: .leading, spacing: 2) {
                     AmountText(netWorth.total, tabular: false, animatesChanges: true)
@@ -46,7 +53,13 @@ struct AccountsHeader: View {
                 }
                 .accessibilityElement(children: .combine)
             }
-            NetWorthChart(history: history.points, title: "Net worth", height: 120)
+            NetWorthChart(history: history.points,
+                          title: history.isInflationAdjusted
+                              ? "Net worth in today's \(library.baseCurrency.rawValue)" : "Net worth",
+                          height: 120)
+            if let note = PlanMoney.unadjustedNote(history.unadjustedDates, locale: locale) {
+                OldPriceNoteView(text: note, systemImage: "info.circle") { fillsPastPrices = true }
+            }
             AllocationStrip(rows: valuator.breakdown(by: .assetClass, on: today).rows)
             DisclosureGroup(isExpanded: $showsAllocation) {
                 VStack(alignment: .leading, spacing: Metrics.s) {
@@ -67,6 +80,37 @@ struct AccountsHeader: View {
             }
         }
         .padding(.vertical, Metrics.xs)
+        .pastPricesSheet(isPresented: $fillsPastPrices)
+    }
+
+    private var title: some View {
+        Text("Net worth")
+            .font(.cardTitle)
+            .foregroundStyle(Palette.ink)
+            .accessibilityAddTraits(.isHeader)
+            .lineLimit(1)
+    }
+
+    /// The chart's money, when there's an inflation index to adjust it
+    /// with, and its span.
+    @ViewBuilder
+    private func pickers(adjustable: Bool) -> some View {
+        if adjustable {
+            moneyPicker
+        }
+        rangePicker
+    }
+
+    /// The chart's money, "Today's EUR" or "As recorded", as a menu in the accent.
+    private var moneyPicker: some View {
+        Picker("Money", selection: $inTodaysMoney) {
+            Text(verbatim: "Today's \(library.baseCurrency.rawValue)").tag(true)
+            Text("As recorded").tag(false)
+        }
+        .pickerStyle(.menu)
+        .labelsHidden()
+        .font(.app(.subheadline))
+        .fixedSize()
     }
 
     /// The span of the chart, "Last 3 years", as a menu in the accent.

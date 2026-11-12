@@ -127,4 +127,41 @@ struct ChartScaleTests {
         #expect(planAssets.projection.last?.date == horizon)
         #expect(planAssets.points.allSatisfy { $0.date >= CalendarDate("2025-09-30").dateValue })
     }
+
+    @Test func anInflationIndexTurnsThePastIntoMoneyOfItsEnd() throws {
+        let library = try Fixtures.exampleLibrary()
+        let valuator = Valuator(library: library)
+        let end: CalendarDate = "2026-08-31"
+        let index = try #require(InflationIndex(library: library))
+        let recorded = HistoryChartData(valuator: valuator, through: end, range: .all)
+        let real = HistoryChartData(valuator: valuator, through: end, range: .all, inflation: index)
+        #expect(!recorded.isInflationAdjusted && recorded.unadjustedDates.isEmpty)
+        #expect(real.isInflationAdjusted)
+        #expect(real.points.map(\.date) == recorded.points.map(\.date))
+        #expect(real.unadjustedDates.isEmpty)
+        for (adjusted, point) in zip(real.points, recorded.points) {
+            let date = CalendarDate(point.date, in: .current)
+            let factor = index.convert(1, from: date, to: end)?.doubleValue ?? 1
+            #expect(abs(adjusted.value - point.value * factor) < 0.01)
+        }
+        // The last date is in its own money, and an earlier one moved by the prices since.
+        #expect(real.points.last?.value == recorded.points.last?.value)
+        let since = try #require(index.factor(from: "2025-12-31", to: end))
+        #expect(since > 1)
+        // The asset classes still add up to the total.
+        for (offset, point) in real.points.enumerated() {
+            let sum = real.stacked.reduce(0) { $0 + $1.points[offset].value }
+            #expect(abs(sum - point.value) < 0.01)
+        }
+        // Dates before the index's first value stay as recorded, and only those.
+        let later = InflationIndex(index.records.dropFirst(2), index: index.index)
+        let first = try #require(later.records.first?.date)
+        let partly = HistoryChartData(valuator: valuator, through: end, range: .all, inflation: later)
+        #expect(!partly.unadjustedDates.isEmpty)
+        #expect(partly.unadjustedDates.allSatisfy { $0 < first })
+        for (adjusted, point) in zip(partly.points, recorded.points)
+        where partly.unadjustedDates.contains(CalendarDate(point.date, in: .current)) {
+            #expect(adjusted.value == point.value)
+        }
+    }
 }

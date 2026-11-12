@@ -3,6 +3,7 @@ import Glance
 import Model
 import Planner
 import Prices
+import Tracker
 
 // The words the captions use for a plan's currency and your actual numbers
 // in it (the Planner's `PlanActualSeries` and `PlanInflationIndex`).
@@ -31,6 +32,25 @@ enum PlanMoney {
         let end = GlanceText.shortMonthAndYear(last, locale: locale)
         if first.year == last.year && first.month == last.month { return end }
         return "\(GlanceText.shortMonth(first, relativeTo: last, locale: locale)) – \(end)"
+    }
+
+    /// The base currency's inflation index (``PlanInflationIndex``) for a
+    /// chart of the past in today's money; `nil` when the library has no
+    /// values for one.
+    static func historyIndex(_ library: Library) -> InflationIndex? {
+        PlanInflationIndex.baseCurrencyIndex(library: library).flatMap { $0.records.isEmpty ? nil : $0 }
+    }
+
+    /// The note under a chart in today's money whose oldest months stay as
+    /// recorded, e.g. "Mar – May 2024 aren't adjusted for inflation: their
+    /// values are missing from the inflation index."; `nil` when every
+    /// month is adjusted.
+    static func unadjustedNote(_ dates: [CalendarDate], locale: Locale = .current) -> String? {
+        guard !dates.isEmpty else { return nil }
+        let months = Set(dates.map(\.yearMonth)).count
+        let verb = months == 1 ? "isn't" : "aren't"
+        return "\(span(dates, locale: locale)) \(verb) adjusted for inflation: "
+            + "\(months == 1 ? "its value is" : "their values are") missing from the inflation index."
     }
 
     /// The note under a chart whose actual values leave out check-ins
