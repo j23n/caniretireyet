@@ -224,22 +224,26 @@ struct PathSimulator: Sendable {
                 // until then, and the rest from all of it.
                 let parts = opensLater ? 2 : 1
                 for part in 0..<parts {
-                    var need = -cash
+                    // The part of the year this sale pays for.
+                    var share = 1.0
                     if opensLater {
-                        need *= part == 0 ? 1 - schedule.openShare[t] : schedule.openShare[t]
+                        share = part == 0 ? 1 - schedule.openShare[t] : schedule.openShare[t]
                         if part == 1 {
                             for b in schedule.opens[t] { open(b) }
                         }
                     }
-                    let taken = withdraw(need, rate: taxes.investmentRate)
+                    let taken = withdraw(-cash * share, rate: taxes.investmentRate)
                     sold += taken.sold
                     gainTax += taken.gainTax
                     withdrawalTax += taken.withdrawalTax
                     shortfall = taken.shortfall
                     // With flexible spending, money that runs short is spending
-                    // forced down, as far as the floor; only below it does the run fail.
+                    // forced down, as far as the floor; only below it does the run
+                    // fail. Each part of the year has its days' share of the room,
+                    // so the days before a birthday can't spend below the floor
+                    // on what the days after it give up.
                     if let flexible, shortfall > Self.tolerance, retiredSpending > 0 {
-                        let room = retiredSpending * max(0, paidLevel - flexible.floor)
+                        let room = retiredSpending * share * max(0, level - flexible.floor)
                         if shortfall <= room + Self.tolerance {
                             let cut = min(shortfall, room)
                             paid -= cut

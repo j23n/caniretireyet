@@ -526,18 +526,19 @@ class Simulation:
                 self.deposit(cash, 0, mix)
             else:
                 # What the year needs before the birthday is sold from the money open until then.
-                needs = [-cash * (1 - after), -cash * after] if opens_later else [-cash]
-                for part, need in enumerate(needs):
+                shares = [1 - after, after] if opens_later else [1.0]
+                for part, share in enumerate(shares):
                     if part == 1:
                         for group in opening:
                             self.open_group(group)
-                    taken = self.sell(need)
+                    taken = self.sell(-cash * share)
                     sold += taken[0]
                     gain_tax += taken[1]
                     withdrawal_tax += taken[2]
                     shortfall = taken[3]
                     if self.flexible and shortfall > TOLERANCE and retired_spending > 0:
-                        room = retired_spending * max(0.0, paid_level - self.flexible["floor"])
+                        # Each part of the year has its days' share of the room down to the floor.
+                        room = retired_spending * share * max(0.0, level - self.flexible["floor"])
                         if shortfall <= room + TOLERANCE:
                             cut = min(shortfall, room)
                             paid -= cut

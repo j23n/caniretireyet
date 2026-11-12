@@ -98,6 +98,19 @@ class HandWorkedTests(unittest.TestCase):
         short = run(4_000)
         self.assertEqual((short.failure.year, short.failure.reason, short.failure.locked), (2036, "locked", "fund"))
 
+    def test_the_days_before_money_opens_have_their_share_of_the_room(self):
+        # Half of 2036 is before the birthday: 5,000 of the 10,000, 1,000 of it above the floor.
+        def run(broker: float) -> planner.Run:
+            document = plan(retired="10000", end=70)
+            document["spending"]["flexible"] = {"enabled": True}
+            groups = [group(broker), group(50_000, name="fund", accounts=("fund",), availableFromAge=60)]
+            return self.run_plan(document, start(groups, birth="1976-07-02", on="2035-12-31", age=59))
+        forced = run(4_500)
+        self.assertAlmostEqual(forced.years[0].spending, 9_500)
+        self.assertAlmostEqual(forced.years[0].spendingLevel, 0.95)
+        short = run(3_500)
+        self.assertEqual((short.failure.year, short.failure.reason, short.failure.locked), (2036, "locked", "fund"))
+
     def test_a_pension_and_a_spending_phase_start_on_the_birthday(self):
         document = plan(retired="10000", end=70, pensions=[{"fromAge": 60, "perYear": "6000"}])
         document["spending"]["phases"] = [{"fromAge": 60, "factor": "0.5"}]
