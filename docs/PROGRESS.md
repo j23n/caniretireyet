@@ -26,7 +26,7 @@ One chart from your first check-in to the end of the plan:
 - **Projection:** from today, the median as a dashed line with the 10th–90th percentile band.
 - **Markers:** the retirement age, pension starts, and when locked money (such as the pension fund) becomes accessible.
 - **Scope:** next to the projection, the history is *plan assets* (only the accounts the plan counts; your home, for example, is excluded), so it meets the projection at today. Without the projection, the Overview's chart is *net worth* (everything) ([UI.md](UI.md#today)).
-- **Units:** the projection is in today's money, so the history is shown in today's money too, adjusted with actual inflation (the base currency's index: [library.schema.json](schema/library.schema.json), `inflationIndex`), on Ahead always. The accounts list's net worth chart has no projection; it's in today's money until *As recorded* is chosen ([UI.md](UI.md#accounts)).
+- **Units:** the projection is in today's money, so the history is shown in today's money too, adjusted with actual inflation (the base currency's index: [library.schema.json](schema/library.schema.json), `inflationIndex`), on Ahead always, when the index has a value for every month shown (otherwise all of it stays as recorded, with a note). The accounts list's net worth chart has no projection; it's in today's money until *As recorded* is chosen ([UI.md](UI.md#accounts)).
 
 ### The answer over time (M2)
 
