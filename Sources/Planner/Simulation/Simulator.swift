@@ -235,6 +235,8 @@ struct PathSimulator: Sendable {
             var shortfall = 0.0
             var paid = spending
             var paidLevel = level
+            // What a year that ran short before a birthday never tried to pay: the days after it.
+            var unpaid = 0.0
             if cash >= 0 {
                 deposit(cash, into: 0, mix: schedule.accessibleMix[t])
             } else {
@@ -271,7 +273,10 @@ struct PathSimulator: Sendable {
                         }
                     }
                     // Short before the birthday: the money that opens on it is still locked.
-                    if shortfall > Self.tolerance || !shortfall.isFinite { break }
+                    if shortfall > Self.tolerance || !shortfall.isFinite {
+                        if opensLater, part == 0 { unpaid = -cash * schedule.openShare[t] }
+                        break
+                    }
                 }
             }
             if opensLater, shortfall <= Self.tolerance {
@@ -289,7 +294,7 @@ struct PathSimulator: Sendable {
                                             investmentTax: gainTax + incomeTax, wealthTax: wealthTax,
                                             withdrawalTax: withdrawalTax, contributed: contributed)
                 return fail(t, reason: reason, spending: spending,
-                            paid: paid - shortfall, level: level, retiredSpending: retiredSpending,
+                            paid: paid - shortfall - unpaid, level: level, retiredSpending: retiredSpending,
                             yearsBelowPlan: yearsBelowPlan, recordValues: recordValues, money: money,
                             details: &details)
             }

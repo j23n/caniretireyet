@@ -160,10 +160,12 @@ struct FlexibleSpendingTests {
         #expect(close(year.spendingLevel, 0.95))
         #expect(close(year.endAssets, 45_000))
         // 3,500 is 1,500 short, more than those days can give up, though less than
-        // the year can: the fund is still locked.
+        // the year can: the fund is still locked. The year paid the 3,500 it had,
+        // and nothing for the days after the birthday.
         let short = try await run(broker: 3_500)
         #expect(short.expectedPath.failure
             == RunFailure(year: 2036, age: 60, reason: .locked(LockedMoney(name: "fund", accessibleFromAge: 60))))
+        #expect(close(short.fan.first?.spending?.p50, 3_500))
     }
 
     /// A year that fails after the birthday counts what it paid: the
