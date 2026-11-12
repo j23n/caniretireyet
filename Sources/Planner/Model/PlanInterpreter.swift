@@ -354,7 +354,9 @@ enum PlanInterpreter {
                 error("planner.negativeContribution", "A contribution can't be negative.", .contributions,
                       index: index)
             }
-            let oneOff: (year: Int, amount: Double)? = amount.map { (contribution.year ?? startDate.year, $0) }
+            // Without a year, a one-off is paid in the plan's first year: the first one simulated.
+            let firstYear = frames.first?.year ?? startDate.year
+            let oneOff: (year: Int, amount: Double)? = amount.map { (contribution.year ?? firstYear, $0) }
             // One on top of pay is paid with the pay: without a work phase in its years, it never is.
             if contribution.isPaidOnTopOfPay {
                 let until = contribution.effectiveUntil.date

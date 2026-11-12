@@ -494,5 +494,11 @@ struct DeterministicTests {
         // The total doesn't change: 20,000 moves from the broker into the fund in 2027.
         #expect(close(result.expectedValue(in: 2027), 100_000))
         #expect(close(result.expectedYear(2027)?.savings, 0))
+
+        // Without a year, it's paid in the plan's first year: 2026, after a check-in on 31 December.
+        var first = plan
+        first.contributions[0].year = nil
+        let sold = try await Sample.run(first, library).expectedYear(2026)?.income.first { $0.kind == .withdrawal }
+        #expect(close(sold?.amount, 20_000))
     }
 }

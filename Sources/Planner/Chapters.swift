@@ -185,8 +185,6 @@ private struct ChapterBuilder {
     let birthYear: Int
     /// The check-in the plan starts from.
     let start: CalendarDate
-    /// The check-in's year.
-    let startYear: Int
     /// The first and the last calendar year simulated.
     let first: Int
     let last: Int
@@ -199,7 +197,6 @@ private struct ChapterBuilder {
         self.plan = plan
         self.birthYear = birthYear
         self.start = start
-        startYear = start.year
         first = start.adding(days: 1).year
         last = birthYear + plan.effectiveEndAge
         self.retirementAge = retirementAge
@@ -353,7 +350,7 @@ private struct ChapterBuilder {
     /// start until it stops, at the latest when work does.
     func contributionYears(_ contribution: PlanContribution) -> ClosedRange<Int>? {
         if contribution.isOneOff {
-            let year = contribution.year ?? startYear
+            let year = contribution.year ?? first
             return span(year, year)
         }
         let until = contribution.effectiveUntil.date?.year ?? retirementYear - 1
