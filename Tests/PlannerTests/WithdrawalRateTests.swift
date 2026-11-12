@@ -7,15 +7,16 @@ import TestSupport
 /// PLANNER.md, "Safe withdrawal rates implied by the defaults": the share
 /// of the starting money that can be spent every year, fixed in real terms,
 /// in 90% of futures, with no tax, no pensions and nothing else, from a
-/// script that isn't the engine (200,000 runs, spending at the start of each
-/// year, then the year's return, mixes rebalanced every year). The engine's
-/// sustainable spending over its starting assets should land on that table.
+/// script that isn't the engine (`tools/oracle/withdrawal_rates.py`:
+/// 200,000 runs, mixes rebalanced every year, the year's spending between
+/// two halves of its return). The engine's sustainable spending over its
+/// starting assets should land on that table.
 ///
 /// The plans match the script's setup: one account at the mix, rebalanced
 /// to it every year, the current default returns and correlations, no tax,
 /// retiring today, and a check-in on 31 December, so every simulated year is
-/// whole and spending comes out on 1 January before the year's return. The
-/// horizon is set by the birth year: 30, 40 or 57 years to 95.
+/// whole and spending comes out in the middle of it. The horizon is set by
+/// the birth year: 30, 40 or 57 years to 95.
 ///
 /// The table is rounded to 0.1 percentage points, so a cell is up to 0.05
 /// from the script's own value. 2,000 runs are a sample: in 100 blocks of
@@ -61,18 +62,18 @@ struct WithdrawalRateTests {
     /// PLANNER.md's table for the current defaults, then the rates with
     /// flexible spending from the paragraph under it.
     static let table: [Cell] = [
-        Cell(equity: 1, years: 30, flexible: false, percent: 3.4),
+        Cell(equity: 1, years: 30, flexible: false, percent: 3.5),
         Cell(equity: 1, years: 40, flexible: false, percent: 2.9),
-        Cell(equity: 1, years: 57, flexible: false, percent: 2.4),
-        Cell(equity: d("0.7"), years: 30, flexible: false, percent: 3.7),
-        Cell(equity: d("0.7"), years: 40, flexible: false, percent: 3.1),
-        Cell(equity: d("0.7"), years: 57, flexible: false, percent: 2.6),
-        Cell(equity: 1, years: 30, flexible: true, percent: 4.1),
+        Cell(equity: 1, years: 57, flexible: false, percent: 2.5),
+        Cell(equity: d("0.7"), years: 30, flexible: false, percent: 3.8),
+        Cell(equity: d("0.7"), years: 40, flexible: false, percent: 3.2),
+        Cell(equity: d("0.7"), years: 57, flexible: false, percent: 2.7),
+        Cell(equity: 1, years: 30, flexible: true, percent: 4.2),
         Cell(equity: 1, years: 40, flexible: true, percent: 3.5),
-        Cell(equity: 1, years: 57, flexible: true, percent: 2.9),
+        Cell(equity: 1, years: 57, flexible: true, percent: 3.0),
         Cell(equity: d("0.7"), years: 30, flexible: true, percent: 4.5),
-        Cell(equity: d("0.7"), years: 40, flexible: true, percent: 3.7),
-        Cell(equity: d("0.7"), years: 57, flexible: true, percent: 3.1),
+        Cell(equity: d("0.7"), years: 40, flexible: true, percent: 3.8),
+        Cell(equity: d("0.7"), years: 57, flexible: true, percent: 3.2),
     ]
 
     /// The starting money: large, so the engine's tolerance of 1 unit and
@@ -120,10 +121,10 @@ struct WithdrawalRateTests {
     // MARK: The setup
 
     /// Without volatility every run is the median year after year, so the
-    /// sustainable spending has a closed form for spending taken at the
-    /// start of each year: W = P / Σ g⁻ʲ over j = 0 … N − 1, with P the
-    /// starting money and g the gross median return of the mix. It's what
-    /// the script's timing gives, so it shows the engine's year is the
+    /// sustainable spending has a closed form for spending taken in the
+    /// middle of each year: W = P / Σ g^(−j − ½) over j = 0 … N − 1, with P
+    /// the starting money and g the gross median return of the mix. It's
+    /// what the script's timing gives, so it shows the engine's year is the
     /// script's year.
     @Test(arguments: [30, 57])
     func withoutVolatilityTheRateIsTheClosedForm(years: Int) async throws {
@@ -134,7 +135,7 @@ struct WithdrawalRateTests {
             plan: Self.plan(age: age, flexible: false, runs: 20, seed: 1, assumptions: assumptions),
             library: Self.library(equity: 1, years: years),
             options: PlannerOptions(maxRetirementAge: age, solveAssetsNeeded: false))
-        let annuity = (0..<years).reduce(0.0) { $0 + pow(1.05, -Double($1)) }
+        let annuity = (0..<years).reduce(0.0) { $0 + pow(1.05, -Double($1) - 0.5) }
         let closedForm = Self.start.doubleValue / annuity
         let spending = try #require(result.answer.sustainableSpending)
         // The solver brackets to 0.05% and rounds down to 10.
@@ -147,8 +148,8 @@ struct WithdrawalRateTests {
     /// spending and its return are scaled to the days left. The script has
     /// no part year, so the table is for a check-in on 31 December; on
     /// 30 June the plan is half a year shorter and spends half as much in
-    /// its first half year, which the closed form with a first year of
-    /// spending W/2 and growth √g gives.
+    /// its first half year, in the middle of it, which the closed form with
+    /// a first year of spending W/2 and growth √g gives.
     @Test func aPartFirstYearIsShorter() async throws {
         var assumptions = PlanAssumptions()
         assumptions.returns[.equity] = ReturnAssumption(medianReal: d("0.05"), volatility: 0)
@@ -159,10 +160,10 @@ struct WithdrawalRateTests {
             library: library, options: PlannerOptions(maxRetirementAge: 65, solveAssetsNeeded: false))
         let first = try #require(result.expectedPath.years.first)
         #expect(first.year == 2026 && abs(first.fraction - 184.0 / 365.0) < 1e-12)
-        // P = W f + W Σ g^(−f − j) over j = 0 … 29, with f the first year's share.
+        // P = W f g^(−f / 2) + W Σ g^(−f − j − ½) over j = 0 … 29, with f the first year's share.
         let f = first.fraction
-        let later = (0..<30).reduce(0.0) { $0 + pow(1.05, -f - Double($1)) }
-        let closedForm = Self.start.doubleValue / (f + later)
+        let later = (0..<30).reduce(0.0) { $0 + pow(1.05, -f - Double($1) - 0.5) }
+        let closedForm = Self.start.doubleValue / (f * pow(1.05, -f / 2) + later)
         let spending = try #require(result.answer.sustainableSpending)
         #expect(spending.perYear <= closedForm)
         #expect(spending.perYear >= closedForm * (1 - 0.0005) - 10)

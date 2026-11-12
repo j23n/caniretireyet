@@ -151,8 +151,8 @@ struct CalculationsTests {
     /// saved into accounts; the first year's tax on withdrawals holds the
     /// tax paying off debts took from pre-tax money at the start, which the
     /// year's money didn't pay. With every class at one return and no
-    /// volatility, the value at the end is what was there after the year's
-    /// money moved, grown by it. Amounts are rounded to whole units, so a row is checked to 6.
+    /// volatility, the value at the end is the start grown by half of it,
+    /// with the year's money moved, grown by the other half. Amounts are rounded to whole units, so a row is checked to 6.
     @Test(arguments: [false, true])
     func everyRowAddsUp(debtFromPreTaxMoney: Bool) async throws {
         var plan = Self.plan()
@@ -185,7 +185,8 @@ struct CalculationsTests {
                 let cash = row[2] + row[3] + row[9] - paid - row[10]
                 #expect(abs(cash) <= 6, "\(table), \(Int(row[0])): the money in and out is \(cash) more than saved")
                 if table == "The deterministic run" {
-                    let grown = (before + row[10] - row[9]) * pow(1.03, path.years[index].fraction)
+                    let half = pow(1.03, path.years[index].fraction / 2)
+                    let grown = (before * half + row[10] - row[9]) * half
                     #expect(abs(row[11] - grown) <= 6, "\(table), \(Int(row[0])): ends at \(row[11]), not \(grown)")
                 }
                 before = row[11]

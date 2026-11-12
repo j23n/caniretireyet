@@ -6,7 +6,8 @@ import TestSupport
 
 /// Every year of the deterministic and the median path adds up (``YearRow``,
 /// PLANNER.md, "The yearly step"): its cash, and its value from the year
-/// before through what went in and out to the year's returns.
+/// before through half the year's returns, what went in and out in the
+/// middle of the year, and the other half.
 ///
 /// The returns are worked out apart from the engine. Where every class has
 /// the same return and no volatility, the deterministic run grows every
@@ -166,8 +167,11 @@ struct YearRowTests {
         func draw(_ run: Int, _ t: Int) -> Double { scenarios.factors[run * scenarios.years + t] }
         let path = result.medianPath
         let first = try #require(path.years.first)
-        let growth = first.endAssets / (start + first.savings)
-        let runs = (0..<scenarios.runs).filter { abs(draw($0, 0) - growth) <= 1e-12 * growth }
+        // The first year ends at start × F + saved × √F: solved for √F.
+        let half = (-first.savings + (first.savings * first.savings + 4 * start * first.endAssets).squareRoot())
+            / (2 * start)
+        let growth = half * half
+        let runs = (0..<scenarios.runs).filter { abs(draw($0, 0) - growth) <= 1e-9 * growth }
         let engine = try await Engine.make(model: model, ages: [56], maxAge: 56)
         let medianRun = Planner.medianRun(try await engine.evaluateInDetail(age: 56, spending: 40_000).outcomes)
         #expect(runs == [medianRun])

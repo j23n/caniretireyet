@@ -41,23 +41,28 @@ struct FailedYearMoney: Sendable {
 ///    (pre-tax money as a group of its own, keeping its rate) on the
 ///    birthday: what the year needs before it, by its days, is sold from
 ///    the money open until then.
-/// 2. Income from work and pensions and the year's windfalls come in;
-///    spending, one-off expenses, contributions into accounts, the wealth
-///    tax and last year's tax on investment income go out. A contribution
-///    paid on top of take-home pay goes into its account without coming
-///    out of the year's money.
-/// 3. What's left is invested in the taxable money you can draw, at its
+/// 2. The wealth tax and, with flexible spending, the spending level are
+///    set from the money at the start of the year. Every bucket is
+///    rebalanced to its mix (the money you can draw to the target mix at
+///    this year's age, without tax), and the markets move every class by
+///    half the year's return (in the deterministic run, every bucket by
+///    half its mix's median growth).
+/// 3. The year's cash moves in the middle of it. Income from work and
+///    pensions and the year's windfalls come in; spending, one-off
+///    expenses, contributions into accounts, the wealth tax and last year's
+///    tax on investment income go out. A contribution paid on top of
+///    take-home pay goes into its account without coming out of the year's
+///    money.
+/// 4. What's left is invested in the taxable money you can draw, at its
 ///    target mix; a shortfall is sold from the money you can draw, the same
 ///    share of each group, more by the tax on what's sold: on the gain part
 ///    of taxable money, on all of pre-tax money at its rate. With flexible
 ///    spending, a shortfall first cuts spending, as far as the floor. When it
 ///    can't be covered, the run fails.
-/// 4. Every bucket is rebalanced to its mix (the money you can draw to the
-///    target mix at this year's age, without tax); the year's income on
-///    taxable investments is taxed next year; the markets move every class
-///    (in the deterministic run, every bucket by its mix's median growth);
-///    purchase costs lose the year's inflation (gains are taxed in money of
-///    the day).
+/// 5. The year's income on taxable investments is taxed next year; the
+///    markets move by the other half of the year's return. Purchase costs
+///    lose half the year's inflation before the cash moves and half after
+///    (gains are taxed in money of the day).
 struct PathSimulator: Sendable {
     let model: PlanModel
     let schedule: AgeSchedule
@@ -180,6 +185,20 @@ struct PathSimulator: Sendable {
                 }
             }
 
+            // Rebalancing, then the first half of the year's return: the
+            // year's cash moves in the middle of it.
+            rebalance(0, to: schedule.accessibleMix[t])
+            for b in values.indices.dropFirst() {
+                if withdrawalRates[b] != nil, isOpen[b] {
+                    rebalance(b, to: schedule.accessibleMix[t])
+                } else if let mix = ownMix[b] {
+                    rebalance(b, to: mix)
+                }
+            }
+            let halfInflation = frame.inflationStep.squareRoot()
+            grow(run, year: t)
+            for b in basis.indices { basis[b] /= halfInflation }
+
             // The year's cash flow.
             var windfalls: [IncomeItem] = []
             var expenses = 0.0
@@ -275,31 +294,13 @@ struct PathSimulator: Sendable {
                             details: &details)
             }
 
-            // Rebalancing, income on investments (taxed next year), then the markets.
-            rebalance(0, to: schedule.accessibleMix[t])
-            for b in values.indices.dropFirst() {
-                if withdrawalRates[b] != nil, isOpen[b] {
-                    rebalance(b, to: schedule.accessibleMix[t])
-                } else if let mix = ownMix[b] {
-                    rebalance(b, to: mix)
-                }
-            }
+            // Income on investments (taxed next year), then the second half of the year's return.
             var investmentIncome = 0.0
             for c in 0..<classCount { investmentIncome += values[0][c] * model.incomeYields[c] * frame.fraction }
             carriedTax = taxes.investmentRate * investmentIncome
             basis[0] += investmentIncome
-            for b in values.indices {
-                if let run {
-                    let base = (run * scenarios.years + t) * classCount
-                    for c in 0..<classCount { values[b][c] *= scenarios.factors[base + c] }
-                } else if let growth = scenarios.expectedGrowth(of: values[b], year: t) {
-                    // The deterministic run: the group's mix at its median growth.
-                    for c in 0..<classCount { values[b][c] *= growth }
-                } else {
-                    for c in 0..<classCount { values[b][c] *= scenarios.expectedFactors[t * classCount + c] }
-                }
-                basis[b] /= frame.inflationStep
-            }
+            grow(run, year: t)
+            for b in basis.indices { basis[b] /= halfInflation }
 
             let endAssets = total()
             guard endAssets.isFinite else {
@@ -497,6 +498,29 @@ struct PathSimulator: Sendable {
         }
         let sold = share * gross
         return (sold, gainTax, withdrawalTax, max(0, need - (sold - gainTax - withdrawalTax)))
+    }
+
+    /// Half of year `t`'s return. A Monte Carlo run (`run`) moves each class
+    /// by the square root of its factor for the year; the deterministic run
+    /// (`nil`) moves each bucket by the square root of its mix's median
+    /// growth, as it's held now. Twice in a year is the year's return.
+    private mutating func grow(_ run: Int?, year t: Int) {
+        if let run {
+            let base = (run * scenarios.years + t) * classCount
+            for c in 0..<classCount {
+                let half = scenarios.factors[base + c].squareRoot()
+                for b in values.indices { values[b][c] *= half }
+            }
+            return
+        }
+        for b in values.indices {
+            if let growth = scenarios.expectedGrowth(of: values[b], year: t) {
+                let half = growth.squareRoot()
+                for c in 0..<classCount { values[b][c] *= half }
+            } else {
+                for c in 0..<classCount { values[b][c] *= scenarios.expectedFactors[t * classCount + c].squareRoot() }
+            }
+        }
     }
 
     /// Rebalances bucket `b` to `mix`, without tax.

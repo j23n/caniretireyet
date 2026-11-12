@@ -24,7 +24,7 @@ Alongside the headline, it shows:
 The planner is deliberately simple: every number it uses is one you can see and check, and every year can be worked out by hand ([Calculations](#calculations)). It doesn't model tax law. You enter income from work, pensions and other income **after tax**, two tax rates for your investments, and optionally a rate of its own for each pre-tax account; the research behind the earlier, detailed tax systems is kept in [research/tax](research/tax/).
 
 - **Today's money.** Amounts are in today's money (real terms), in the library's base currency. Returns are real. Inflation matters only for one thing: what you paid for your investments stays in the money of the day you paid it, so the part of a value that's only inflation counts as gain when sold.
-- **Yearly steps**, from the day after the check-in the plan starts from to the end of the calendar year its end age (95 by default) is reached in. The first year is the part of the year after the check-in: its income, spending, contributions, wealth tax and returns are scaled to the days left.
+- **Yearly steps**, from the day after the check-in the plan starts from to the end of the calendar year its end age (95 by default) is reached in. The first year is the part of the year after the check-in: its income, spending, contributions, wealth tax and returns are scaled to the days left. A year's cash moves in the middle of it, between two halves of the year's return.
 - **Money grouped by when it can be drawn.** *The money you can draw* holds every account available at any age. An account available only from a later age (`availableFromAge` in the account file: a pension fund from 67, say) is locked until the birthday at that age, then joins the money you can draw. Locked money keeps its own mix and isn't wealth-taxed until it opens.
 - **Two taxes, and pre-tax accounts.** One rate on investments (`tax.investmentRate`) taxes the gain part of what's sold and, every year, the income your investments pay (their income yield). A plan without it runs as if investments weren't taxed (0%), with a warning (`planner.noInvestmentRate`), so a new plan gives an answer before you've looked up your rate. An optional wealth tax (`tax.wealthRate`) taxes the money you can draw above an allowance. An account with a tax on withdrawals (`withdrawalTaxRate` in the account file: 0.2 for a traditional 401(k), say, or 0 for a Roth IRA) is pre-tax money: every amount taken from it pays that rate, in place of the rate on investments, which taxes neither its gains nor its income yield. Every plan taxes the same account alike.
 - **Deterministic and Monte Carlo runs.** The deterministic run grows each group of accounts by its mix's median return every year: the typical year, not the average one, which for a volatile class compounds far ahead of any typical future (crypto at a 0% median and 70% volatility averages +16.6% a year). The Monte Carlo simulation repeats the same steps 2,000 times with random returns.
@@ -39,6 +39,10 @@ for each year from the start to the end age:
                           (accounts that open during the year count for the part of it after the birthday)
              income tax = last year's investment income × investmentRate
   with flexible spending: level ← the guardrails rule (this year's withdrawal rate against the first year's)
+  rebalance: each group of the money you can draw to the target mix of this year's age, locked accounts
+             to their own (no tax)
+  returns: every class earns half this year's return; what was paid shrinks by half this year's inflation
+  in the middle of the year:
   cash = income from work, pensions and other income (after tax) + windfalls
        − spending (while working, or in retirement × phase factor × level) − one-off expenses
        − contributions into accounts out of the pay − wealth tax − income tax
@@ -55,19 +59,18 @@ for each year from the start to the end age:
        in a year accounts open during: the need × the part of the year before the birthday is sold this way
        from the money open until then; then they open, and the rest of the need is sold from all of it
        (with flexible spending, each part can force down its days' share of the spending above the floor)
-  rebalance: each group of the money you can draw to the target mix of this year's age, locked accounts
-             to their own (no tax)
   investment income = the taxable money you can draw × each class's income yield; taxed next year;
                       it adds to what was paid
-  returns: every class earns this year's return
-  what was paid shrinks by this year's inflation (gains are taxed in money of the day)
+  returns: every class earns the other half of this year's return; what was paid shrinks by the other half
+           of this year's inflation (gains are taxed in money of the day)
 ```
 
 Without pre-tax accounts there's one group, and the sale is the familiar sold = need / (1 − investmentRate × g).
 
+- **The middle of the year.** A year's pay, spending and taxes are spread over it, so the plan moves all of a year's cash at its middle: half the year's return comes before it and half after. Half a year's return is the square root of the year's: of each class's in a Monte Carlo run, of the mix's median growth in the deterministic run (the mix as it's held then, so money that opened during the year grows on with what it joined). The wealth tax and the flexible-spending rule look at the money at the start of the year. A part first year moves its cash at the middle of the days left.
 - **Sales** take every class of the money you can draw in proportion, so the mix stays as it was; what was paid shrinks in proportion too. The gain share is that of the taxable money you can draw as a whole, so holding cash can't dodge the tax on equity's gains. With pre-tax accounts, each group gives up the same share, so a sale never favours one kind of money: the net from a sale is s × Σ valueᵢ × (1 − tᵢ), and each year can still be checked by hand.
 - **Pre-tax money** (an account with `withdrawalTaxRate`) pays its rate on every amount taken from it and no investment tax: its gains and its income yield grow inside it, as a locked account's do. Accounts with the same rate and the same opening age are one group; once open, a group is part of the money you can draw (for the wealth tax, the target mix and sales) but keeps its rate. A locked pre-tax account keeps its rate after it opens, and counts at its value after that rate when a failure is checked for [locked money](#the-portfolio).
-- **The year locked money opens.** It opens on the birthday, so it can't pay for the days before it: the year's need (the cash below zero) is split by days. The part before the birthday is sold from the money open until then, and a shortfall there fails the run as a bridging problem, or with flexible spending forces spending down, as far as the floor for those days: each part of the year can give up its days' share of the year's spending above the floor, so the days before the birthday aren't paid for by cutting the days after it. The part from the birthday on is sold from all the money you can draw, the opened accounts included. A year with cash to invest just opens them. The wealth tax counts them for the part of the year after the birthday. Born on 2 July, with 5,000 left at the start of the year you turn 60, a fund that opens at 60 and 9,500 a year to pay: the 4,750 before the birthday comes from the 5,000, the 4,750 after it from the 250 left and the fund. With 4,000 left the run fails that year, 750 short while the fund was still locked.
+- **The year locked money opens.** It opens on the birthday, so it can't pay for the days before it: the year's need (the cash below zero) is split by days. The part before the birthday is sold from the money open until then, and a shortfall there fails the run as a bridging problem, or with flexible spending forces spending down, as far as the floor for those days: each part of the year can give up its days' share of the year's spending above the floor, so the days before the birthday aren't paid for by cutting the days after it. The part from the birthday on is sold from all the money you can draw, the opened accounts included. A year with cash to invest just opens them. The wealth tax counts them for the part of the year after the birthday. Born on 2 July, with 5,000 to draw in the middle of the year you turn 60, a fund that opens at 60 and 9,500 a year to pay: the 4,750 before the birthday comes from the 5,000, the 4,750 after it from the 250 left and the fund. With 4,000 left the run fails that year, 750 short while the fund was still locked.
 - **New money**, from savings or a contribution, costs what it's worth: it raises what was paid by its amount.
 - **Rebalancing isn't taxed.** It's a simplification: in a taxable account a rebalancing sale realises gains. Since what was paid is tracked for the money you can draw as a whole, rebalancing doesn't change the share of gain in later sales either.
 - **Investment income** (dividends and interest) is part of each class's return, not on top of it: a class with a 5% return and a 2% income yield grows 5%, of which 2% is paid out and reinvested. It's taxed every year at the investment rate, paid the following year, and, reinvested, it adds to what was paid, so it isn't taxed again when sold. A class without an income yield is taxed only when sold: an accumulating fund. Locked and pre-tax accounts' income isn't taxed: it grows with them.
@@ -159,16 +162,16 @@ The plan starts from the check-in it names, valued by the tracker in the base cu
 
 ### Safe withdrawal rates implied by the defaults
 
-The share of the starting money that can be spent every year, fixed in real terms, in 90% of futures, with no tax, no pensions and nothing else: 200,000 runs of yearly log-normal returns as the planner draws them, spending at the start of each year, then the year's return (a script, not the engine; mixes rebalanced every year, equity–bonds correlation 0.1).
+The share of the starting money that can be spent every year, fixed in real terms, in 90% of futures, with no tax, no pensions and nothing else: 200,000 runs of yearly log-normal returns as the planner draws them, the year's spending between two halves of its return (a script, not the engine: `tools/oracle/withdrawal_rates.py`; mixes rebalanced every year, equity–bonds correlation 0.1).
 
 | Portfolio | Defaults | 30 years | 40 years | 57 years |
 | --- | --- | --- | --- | --- |
-| 100% equity | earlier (mean 4.5%, median 3.1%) | 2.6% | 2.1% | 1.6% |
-| 100% equity | current (median 5.0%) | 3.4% | 2.9% | 2.4% |
-| 70% equity, 30% bonds | earlier | 3.0% | 2.4% | 1.9% |
-| 70% equity, 30% bonds | current | 3.7% | 3.1% | 2.6% |
+| 100% equity | earlier (mean 4.5%, median 3.1%) | 2.7% | 2.1% | 1.6% |
+| 100% equity | current (median 5.0%) | 3.5% | 2.9% | 2.5% |
+| 70% equity, 30% bonds | earlier | 3.1% | 2.4% | 1.9% |
+| 70% equity, 30% bonds | current | 3.8% | 3.2% | 2.7% |
 
-The engine's sustainable spending gives the same rates (`WithdrawalRateTests`) for a plan whose check-in is on 31 December, so every year it simulates is a whole one; a check-in during the year makes the first year a part year, and the plan that much shorter. The familiar 4% rule comes from US history over 30 years at about 95% success; world history and longer retirements sustain less. With flexible spending (the defaults), the initial rate 90% of futures sustain without spending ever forced below the floor is about a fifth higher: 4.1%, 3.5% and 2.9% for 100% equity, 4.5%, 3.7% and 3.1% for 70/30.
+The engine's sustainable spending gives the same rates (`WithdrawalRateTests`) for a plan whose check-in is on 31 December, so every year it simulates is a whole one; a check-in during the year makes the first year a part year, and the plan that much shorter. The familiar 4% rule comes from US history over 30 years at about 95% success; world history and longer retirements sustain less. With flexible spending (the defaults), the initial rate 90% of futures sustain without spending ever forced below the floor is about a fifth higher: 4.2%, 3.5% and 3.0% for 100% equity, 4.5%, 3.8% and 3.2% for 70/30.
 
 ## Target mix
 
@@ -203,17 +206,17 @@ The settings, `enabled`, `cut`, `floor`, `upperGuardrail` and `lowerGuardrail`, 
 - **When the money that can be drawn runs short** (say before a pension fund opens), that year's spending is forced down as far as the floor: what can be paid is paid, and the run goes on.
 - **Success** is that the money lasts to the plan's end with spending never forced below the floor.
 
-**A worked example** (`FlexibleSpendingTests`, no tax, no pensions): 100,000 in equity, retiring today with 4,000 a year, the defaults. The guardrails are 4% × 0.8 = 3.2% and 4% × 1.2 = 4.8%.
+**A worked example** (`FlexibleSpendingTests`, no tax, no pensions): 100,000 in equity, retiring today with 4,000 a year, the defaults. The guardrails are 4% × 0.8 = 3.2% and 4% × 1.2 = 4.8%. The year's spending comes out in the middle of it: in year 1 the market's −36% is two halves of −20%, so 80,000 is left by the middle, 76,000 after spending and 60,800 at the end; in year 4, +125% is two halves of +50%: (54,000 × 1.5 − 3,200) × 1.5 = 116,700.
 
 | Year | Plan assets at the start | Draw at the level so far | Rate | The rule | Level | Spending | The market that year |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| 1 | 100,000 | 4,000 | 4.0% | first rate | 100% | 4,000 | −40% |
-| 2 | 57,600 | 4,000 | 6.9% | above 4.8%: cut | 90% | 3,600 | 0% |
-| 3 | 54,000 | 3,600 | 6.7% | above: cut | 80% | 3,200 | 0% |
-| 4 | 50,800 | 3,200 | 6.3% | above, at the floor | 80% | 3,200 | +150% |
-| 5 | 119,000 | 3,200 | 2.7% | below 3.2%: raise | 90% | 3,600 | 0% |
-| 6 | 115,400 | 3,600 | 3.1% | below: raise | 100% | 4,000 | 0% |
-| 7 | 111,400 | 4,000 | 3.6% | within: holds | 100% | 4,000 | 0% |
+| 1 | 100,000 | 4,000 | 4.00% | first rate | 100% | 4,000 | −36% |
+| 2 | 60,800 | 4,000 | 6.58% | above 4.8%: cut | 90% | 3,600 | 0% |
+| 3 | 57,200 | 3,600 | 6.29% | above: cut | 80% | 3,200 | 0% |
+| 4 | 54,000 | 3,200 | 5.93% | above, at the floor | 80% | 3,200 | +125% |
+| 5 | 116,700 | 3,200 | 2.74% | below 3.2%: raise | 90% | 3,600 | 0% |
+| 6 | 113,100 | 3,600 | 3.18% | below: raise | 100% | 4,000 | 0% |
+| 7 | 109,100 | 4,000 | 3.67% | within: holds | 100% | 4,000 | 0% |
 
 **The searches use it.** Every run applies the rule, so the success by age, the earliest age, the sustainable spending (the plan's spending at 100% that reaches the confidence with the rule) and the assets needed to retire today all count a run as a success when it never falls below the floor.
 
@@ -290,7 +293,7 @@ How much you've actually been saving, for a plan that goes on at that pace. The 
 - **Rebalancing** (`RebalancingTests`): yearly rebalancing to the target or the starting mix, holding cash doesn't lower the tax on sales, locked accounts keep their own mix, open pre-tax accounts go to the target mix.
 - **A mix's growth** (`MixGrowthTests`): the deterministic run grows a mix of equity and crypto at the mix's median worked out by hand, a part of a year by its part, one class alone at its own median, and ends within a fifth of the Monte Carlo runs' median after 25 years.
 - **Invariants** (`InvariantTests`): Monte Carlo with zero volatility equals the deterministic run; more savings and working longer never lower the chance of success; more spending never gives an earlier age, and a higher tax on investments never a higher chance, with and without flexible spending; readiness reaches 100% exactly when retiring today reaches the confidence level, on made-up plans and the example library's; the same seed gives the same results; fast runs are the first runs of the full set; percentiles are ordered.
-- **The years add up** (`YearRowTests`): every year of the deterministic and the median path, on the example library's plans and on plans with pre-tax accounts, locked money, contributions, events, flexible spending and debts: income, windfalls and what was sold, less spending, expenses and the taxes the year paid (not the tax on paying off debts at the start), is what went into accounts; and the plan assets at the start of the year, plus what went in, less what was sold, grow by the year's returns to its end, worked out apart from the engine: with every class at one median, the deterministic run grows by it; with equity alone, the median path is one run's draws, the median run's. The calculations report's year tables add up the same way (`CalculationsTests`).
+- **The years add up** (`YearRowTests`): every year of the deterministic and the median path, on the example library's plans and on plans with pre-tax accounts, locked money, contributions, events, flexible spending and debts: income, windfalls and what was sold, less spending, expenses and the taxes the year paid (not the tax on paying off debts at the start), is what went into accounts; and the plan assets at the start of the year grow by half the year's returns, take what went in and give what was sold, and grow by the other half to its end, worked out apart from the engine: with every class at one median, the deterministic run grows by it; with equity alone, the median path is one run's draws, the median run's. The calculations report's year tables add up the same way (`CalculationsTests`).
 - **Withdrawal rates** (`WithdrawalRateTests`): the table in [Safe withdrawal rates implied by the defaults](#safe-withdrawal-rates-implied-by-the-defaults) from the engine's sustainable spending, retiring today with no tax: without volatility the closed form, for a whole first year and a part one; the 30-year column at 2,000 runs to ±0.25 percentage points; and, in release builds or with `PLANNER_REFERENCE_TESTS=1`, the whole table at 30,000 runs to ±0.1.
 - **The searches** (`SolverTests`, `AssetsNeededTests`, `AssetsNeededAccessTests`): the earliest age and the sustainable spending on plans worked out by hand; the assets needed against a closed form, reaching the confidence while 2% less doesn't, the extra going only into the taxable money you can draw, money taken out of open pre-tax groups too (all of it in an open Roth IRA isn't locked away), and the search's limits.
 - **Chapters** (`ChapterTests`): the example library's plans by hand, a second pension, other income, a gap between work phases, spending phases before retirement, retiring at an age already passed, and inputs outside the plan's years.

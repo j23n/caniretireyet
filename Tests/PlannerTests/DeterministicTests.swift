@@ -16,16 +16,19 @@ struct DeterministicTests {
         let plan = Sample.plan(retire: .age(59), endAge: 64, retired: "10000")
         let result = try await Sample.run(plan, retiree)
 
-        // Spending is withdrawn at the start of each year, then the rest earns 5%:
-        // V_k = (V_{k-1} − S) × 1.05, so V_n = 1.05^n V_0 − S × 1.05 × (1.05^n − 1) / 0.05.
+        // Spending is withdrawn in the middle of each year, between two halves of
+        // its 5%, h = √1.05 each: V_k = (V_{k-1} × h − S) × h, so
+        // V_n = 1.05^n V_0 − S × h × (1.05^n − 1) / 0.05.
+        let half = 1.05.squareRoot()
         #expect(result.expectedPath.years.map(\.year) == Array(2026...2030))
-        #expect(close(result.expectedValue(in: 2026), 94_500))
-        #expect(close(result.expectedValue(in: 2027), 88_725))
-        #expect(close(result.expectedValue(in: 2028), 82_661.25))
+        #expect(close(result.expectedValue(in: 2026), 105_000 - 10_000 * half))
+        #expect(close(result.expectedValue(in: 2026), 94_753.049234))
+        #expect(close(result.expectedValue(in: 2027), 89_243.750930))
+        #expect(close(result.expectedValue(in: 2028), 83_458.987710))
         let growth: Double = pow(1.05, 5)
-        let closedForm: Double = growth * 100_000 - 10_000 * 1.05 * (growth - 1) / 0.05
+        let closedForm: Double = growth * 100_000 - 10_000 * half * (growth - 1) / 0.05
         #expect(close(result.expectedValue(in: 2030), closedForm))
-        #expect(close(result.expectedValue(in: 2030), 69_609.028125))
+        #expect(close(result.expectedValue(in: 2030), 71_007.284880))
 
         #expect(result.answer.currentAge == 59)
         #expect(result.answer.canRetireNow)
@@ -64,11 +67,13 @@ struct DeterministicTests {
                                work: [Sample.work(from: "2026-01-01", net: "60000")])
         let result = try await Sample.run(plan, library)
 
-        // Savings of 20,000 go in at the start of each working year.
+        // Savings of 20,000 go in in the middle of each working year, and earn
+        // half its 5%, h = √1.05, by its end.
+        let half = 1.05.squareRoot()
         let growth: Double = pow(1.05, 5)
-        let saved: Double = growth * 50_000 + 20_000 * 1.05 * (growth - 1) / 0.05
+        let saved: Double = growth * 50_000 + 20_000 * half * (growth - 1) / 0.05
         #expect(close(result.expectedValue(in: 2030), saved))
-        #expect(close(result.expectedValue(in: 2031), (saved - 30_000) * 1.05))
+        #expect(close(result.expectedValue(in: 2031), (saved * half - 30_000) * half))
         let first = try #require(result.expectedPath.years.first)
         #expect(first.workingShare == 1)
         #expect(close(first.savings, 20_000))
@@ -92,18 +97,22 @@ struct DeterministicTests {
     }
 
     @Test func salesPayTaxOnTheirGainShare() async throws {
-        let plan = Sample.plan(retire: .age(59), endAge: 64, retired: "10000", investmentRate: "0.25",
-                               unrealizedGainShare: "0.5")
+        let plan = Sample.plan(retire: .age(59), endAge: 64, retired: "10000", equityReturn: "0.21",
+                               inflation: "0", investmentRate: "0.25", unrealizedGainShare: "0.5")
         let result = try await Sample.run(plan, retiree)
 
-        // Half of each sale is gain: sell 10,000 / (1 − 0.25 × 0.5) = 11,428.57,
-        // leaving 88,571.43, which grows to 93,000. The tax is paid out of the sale.
-        #expect(close(result.expectedValue(in: 2026), 93_000))
+        // A year of 21% is two halves of 10%. By the middle of 2026 the 100,000,
+        // bought for 50,000, is worth 110,000: 6/11 of a sale is gain. Sell
+        // 10,000 / (1 − 0.25 × 6/11) = 11,578.95; the tax is paid out of the sale.
+        // The 98,421.05 left grows by the other 10%.
+        let sold = 10_000 / (1 - 0.25 * 6 / 11)
+        #expect(close(sold, 11_578.947368))
+        #expect(close(result.expectedValue(in: 2026), (110_000 - sold) * 1.1))
         let first = try #require(result.expectedPath.years.first)
         #expect(first.wealthTax == 0)
-        #expect(close(first.investmentTax, 10_000 / 0.875 * 0.5 * 0.25))
-        #expect(close(first.income.first { $0.kind == .withdrawal }?.amount, 10_000 / 0.875))
-        #expect(close(first.savings, -10_000 / 0.875))
+        #expect(close(first.investmentTax, sold * 0.25 * 6 / 11))
+        #expect(close(first.income.first { $0.kind == .withdrawal }?.amount, sold))
+        #expect(close(first.savings, -sold))
     }
 
     /// A debt the plan counts is paid off at the start. The investments
@@ -149,7 +158,7 @@ struct DeterministicTests {
             SampleAccount(id: "ira", kind: .pensionFund, balance: 50_000, withdrawalTaxRate: d("0.25")),
         ])
         let plan = Sample.plan(retire: .age(59), endAge: 64, retired: "10000", equityReturn: "0",
-                               investmentRate: "0.25", unrealizedGainShare: "0.5")
+                               inflation: "0", investmentRate: "0.25", unrealizedGainShare: "0.5")
         let result = try await Sample.run(plan, library)
 
         // Taxable: t = 0.25 × 0.5 = 0.125; pre-tax: t = 0.25. A sale of the share s
@@ -166,11 +175,10 @@ struct DeterministicTests {
         #expect(close(first.savings, -12_000))
         #expect(close(first.endAssets, 92_000 + 46_000))
 
-        // 2027: the broker's gain share is 1 − 46,000 / 1.02 / 92,000.
-        let gain = 1 - 46_000 / 1.02 / 92_000
-        let share = 10_000 / (92_000 * (1 - 0.25 * gain) + 46_000 * 0.75)
+        // 2027: the same of what's left, s = 10,000 / (92,000 × 0.875 + 46,000 × 0.75).
+        let share = 10_000 / (92_000 * 0.875 + 46_000 * 0.75)
         let second = try #require(result.expectedYear(2027))
-        #expect(close(second.investmentTax, share * 92_000 * 0.25 * gain))
+        #expect(close(second.investmentTax, share * 92_000 * 0.125))
         #expect(close(second.withdrawalTax, share * 46_000 * 0.25))
         #expect(close(second.endAssets, (1 - share) * 138_000))
     }
@@ -179,16 +187,19 @@ struct DeterministicTests {
     /// part of a value that's only inflation counts as gain.
     @Test func inflationCountsAsGain() async throws {
         let plan = Sample.plan(retire: .age(59), endAge: 64, retired: "10000", equityReturn: "0",
-                               investmentRate: "0.5", unrealizedGainShare: "0")
+                               inflation: "0.21", investmentRate: "0.5", unrealizedGainShare: "0")
         let result = try await Sample.run(plan, retiree)
 
-        // 2026 sells at cost: no tax, 90,000 left, its cost now 90,000 / 1.02 in
-        // today's money. 2027's sale is 1/51 gain: 10,000 / (1 − 0.5 / 51).
-        #expect(close(result.expectedValue(in: 2026), 90_000))
-        #expect(result.expectedYear(2026)?.totalTax == 0)
-        let sold = 10_000 / (1 - 0.5 / 51)
+        // Inflation of 21% a year is 10% each half. By the middle of 2026 the cost
+        // of 100,000 is 100,000 / 1.1 in today's money: 1/11 of the sale is gain,
+        // so 10,000 / (1 − 0.5 / 11) is sold. By the middle of 2027 the cost of
+        // what's left has lost 10% three times: its gain share is 1 − 1 / 1.1³.
+        let first = 10_000 / (1 - 0.5 / 11)
+        #expect(close(result.expectedValue(in: 2026), 100_000 - first))
+        #expect(close(result.expectedYear(2026)?.totalTax, first - 10_000))
+        let sold = 10_000 / (1 - 0.5 * (1 - 1 / 1.331))
         #expect(close(result.expectedYear(2027)?.income.first { $0.kind == .withdrawal }?.amount, sold))
-        #expect(close(result.expectedValue(in: 2027), 90_000 - sold))
+        #expect(close(result.expectedValue(in: 2027), 100_000 - first - sold))
         #expect(close(result.expectedYear(2027)?.totalTax, sold - 10_000))
     }
 
