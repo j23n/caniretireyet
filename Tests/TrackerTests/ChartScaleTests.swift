@@ -135,10 +135,11 @@ struct ChartScaleTests {
         let index = try #require(InflationIndex(library: library))
         let recorded = HistoryChartData(valuator: valuator, through: end, range: .all)
         let real = HistoryChartData(valuator: valuator, through: end, range: .all, inflation: index)
-        #expect(!recorded.isInflationAdjusted && recorded.unadjustedDates.isEmpty)
+        #expect(!recorded.isInflationAdjusted && !recorded.canAdjustForInflation)
+        #expect(recorded.missingInflationDates.isEmpty)
         #expect(real.isInflationAdjusted)
         #expect(real.points.map(\.date) == recorded.points.map(\.date))
-        #expect(real.unadjustedDates.isEmpty)
+        #expect(real.missingInflationDates.isEmpty)
         for (adjusted, point) in zip(real.points, recorded.points) {
             let date = CalendarDate(point.date, in: .current)
             let factor = index.convert(1, from: date, to: end)?.doubleValue ?? 1
@@ -153,15 +154,44 @@ struct ChartScaleTests {
             let sum = real.stacked.reduce(0) { $0 + $1.points[offset].value }
             #expect(abs(sum - point.value) < 0.01)
         }
-        // Dates before the index's first value stay as recorded, and only those.
+        // Asked not to, it stays as recorded, and still could.
+        let asRecorded = HistoryChartData(valuator: valuator, through: end, range: .all, inflation: index,
+                                          adjustsForInflation: false)
+        #expect(asRecorded.points == recorded.points)
+        #expect(!asRecorded.isInflationAdjusted && asRecorded.canAdjustForInflation)
+    }
+
+    @Test func aPastWithoutEveryInflationValueStaysAsRecorded() throws {
+        let library = try Fixtures.exampleLibrary()
+        let valuator = Valuator(library: library)
+        let end: CalendarDate = "2026-08-31"
+        let index = try #require(InflationIndex(library: library))
+        let recorded = HistoryChartData(valuator: valuator, through: end, range: .all)
+        // Values starting later: the dates before them are missing, and nothing is adjusted.
         let later = InflationIndex(index.records.dropFirst(2), index: index.index)
         let first = try #require(later.records.first?.date)
         let partly = HistoryChartData(valuator: valuator, through: end, range: .all, inflation: later)
-        #expect(!partly.unadjustedDates.isEmpty)
-        #expect(partly.unadjustedDates.allSatisfy { $0 < first })
-        for (adjusted, point) in zip(partly.points, recorded.points)
-        where partly.unadjustedDates.contains(CalendarDate(point.date, in: .current)) {
-            #expect(adjusted.value == point.value)
-        }
+        #expect(!partly.missingInflationDates.isEmpty)
+        #expect(partly.missingInflationDates.allSatisfy { $0 < first })
+        #expect(!partly.canAdjustForInflation && !partly.isInflationAdjusted)
+        #expect(partly.points == recorded.points)
+        // A month missing between two values counts too.
+        var gapped = index.records
+        gapped.remove(at: 3)
+        let gap = HistoryChartData(valuator: valuator, through: end, range: .all,
+                                   inflation: InflationIndex(gapped, index: index.index))
+        #expect(gap.missingInflationDates.map(\.yearMonth) == [index.records[3].date.yearMonth])
+        #expect(gap.points == recorded.points)
+    }
+
+    @Test func monthsAfterTheLatestInflationValueUseIt() {
+        let records = [
+            IndexRecord(index: "hicp-it", date: "2026-06-30", value: 100),
+            IndexRecord(index: "hicp-it", date: "2026-07-31", value: 101),
+            IndexRecord(index: "hicp-it", date: "2026-08-31", value: 102),
+        ]
+        let index = InflationIndex(records, index: "hicp-it")
+        #expect(index.missingValues(on: ["2026-07-31", "2026-09-30", "2026-11-12"]).isEmpty)
+        #expect(index.missingValues(on: ["2026-05-31", "2026-08-15"]) == ["2026-05-31"])
     }
 }
