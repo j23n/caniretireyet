@@ -172,6 +172,19 @@ struct ChapterTests {
         #expect(chapters.outside == [.pension(0), .event(0), .event(2)])
     }
 
+    /// An event in a month that ended by the start has happened: it's
+    /// listed apart, as the plan leaves it out. One in a later month of the
+    /// start's year is in the first chapter.
+    @Test func anEventInAMonthBeforeTheStartIsListedApart() {
+        let plan = Self.plan(events: [
+            PlanEvent(name: "Roof", timing: .year(2026), amount: -15_000, month: 3),
+            PlanEvent(name: "Car", timing: .year(2026), amount: -20_000, month: 9),
+        ])
+        let chapters = PlanChapters(plan: plan, birthYear: 1970, start: "2026-06-30", retirementAge: 60)
+        #expect(chapters.outside == [.event(0)])
+        #expect(chapters.chapterIndex(of: .event(1)) == 0)
+    }
+
     /// A point on a chapter's time axis reads the age reached during its
     /// year, whatever the birthday: its start, 31 December of the year
     /// before, is its first year and age, and the round ages fall on their

@@ -202,6 +202,11 @@ struct PlanDefaultsTests {
         let byYear = try decoder.decode(PlanEvent.self, from: Data(#"{"amount":"-25000","name":"Car","year":2031}"#.utf8))
         #expect(byYear.timing == .year(2031))
         #expect(byYear.effectiveProbability == 1)
+        #expect(byYear.month == nil)
+        let inMarch = try decoder.decode(PlanEvent.self,
+                                         from: Data(#"{"amount":"-25000","month":3,"name":"Car","year":2031}"#.utf8))
+        #expect(inMarch.month == 3)
+        #expect(try JSONValue(encoding: inMarch)["month"] == 3)
         #expect(throws: DecodingError.self) {
             try decoder.decode(PlanEvent.self, from: Data(#"{"age":1,"amount":"1","name":"x","year":2030}"#.utf8))
         }

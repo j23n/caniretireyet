@@ -222,7 +222,7 @@
       }
     },
     "event": {
-      "description": "A one-off amount, at an age or in a year (exactly one of the two).",
+      "description": "A one-off amount, at an age or in a year (exactly one of the two), optionally in a month of that year.",
       "type": "object",
       "required": ["name", "amount"],
       "oneOf": [{ "required": ["age"] }, { "required": ["year"] }],
@@ -230,6 +230,12 @@
         "name": { "type": "string" },
         "age": { "$ref": "common.schema.json#/$defs/age" },
         "year": { "type": "integer" },
+        "month": {
+          "description": "The calendar month of its year it happens in, 1 to 12 (error planner.eventMonth). Only the year the plan starts in uses it: an event in a month that ended by the start date has happened, so the plan leaves it out (warning planner.eventBeforeStart). Without a month, an event in that year counts in full, with a warning once the year is under way (planner.eventInStartYear).",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 12
+        },
         "amount": {
           "description": "Positive for a windfall, negative for an expense; after any tax on it.",
           "$ref": "common.schema.json#/$defs/decimal"

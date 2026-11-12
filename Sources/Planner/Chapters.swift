@@ -183,6 +183,8 @@ private struct ChapterBuilder {
 
     let plan: PlanDocument
     let birthYear: Int
+    /// The check-in the plan starts from.
+    let start: CalendarDate
     /// The check-in's year.
     let startYear: Int
     /// The first and the last calendar year simulated.
@@ -196,6 +198,7 @@ private struct ChapterBuilder {
     init(plan: PlanDocument, birthYear: Int, start: CalendarDate, retirementAge: Int) {
         self.plan = plan
         self.birthYear = birthYear
+        self.start = start
         startYear = start.year
         first = start.adding(days: 1).year
         last = birthYear + plan.effectiveEndAge
@@ -309,7 +312,10 @@ private struct ChapterBuilder {
             case .age(let age): birthYear + age
             case .year(let year): year
             }
-            placed.append((item: Item.event(index), years: span(happens, happens)))
+            // One in a month that ended by the start has happened: the plan leaves it out.
+            let passed = event.month.flatMap { YearMonth(year: happens, month: $0) }.map { $0.lastDay <= start }
+                ?? false
+            placed.append((item: Item.event(index), years: passed ? nil : span(happens, happens)))
         }
         let base = range(from: first, to: last, where: { mixStep(in: $0) == nil }) ?? span(first, first)
         placed.append((item: Item.targetMix, years: base))

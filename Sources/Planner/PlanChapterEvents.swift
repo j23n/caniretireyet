@@ -54,9 +54,18 @@ extension PlanChaptersModel {
         for item in chapter.items {
             switch item {
             case .event(let index) where plan.events.indices.contains(index):
-                let date = switch plan.events[index].timing {
+                let event = plan.events[index]
+                var date = switch event.timing {
                 case .year(let year): Self.midYear(year)
                 case .age(let age): Self.birthday(birthDate, age: age)
+                }
+                // With a month, the middle of it.
+                let year = switch event.timing {
+                case .year(let year): year
+                case .age(let age): birthYear + age
+                }
+                if let month = event.month, let day = CalendarDate(year: year, month: month, day: 15) {
+                    date = day.dateValue
                 }
                 events.append(PlanChapterEvent(date: inside(date), kind: .event(index)))
             case .pension(let index) where plan.pensions.indices.contains(index):

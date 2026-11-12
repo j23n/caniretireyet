@@ -230,13 +230,31 @@ enum PlanInterpreter {
                         .events, index: index)
                 continue
             }
-            // An event has a year, not a day: in a start year under way it
-            // may have happened already, and then the accounts' values hold it.
+            if let month = event.month, !(1...12).contains(month) {
+                error("planner.eventMonth", "\(event.name): the month has to be from 1 to 12.", .events,
+                      index: index, option: "month")
+                continue
+            }
+            // An event has a year and maybe a month, not a day: in a start
+            // year under way it may have happened already, and then the
+            // accounts' values hold it. Its month says which.
             if let first = frames.first, first.year == year, first.fraction < 1, event.amount != 0 {
-                warning("planner.eventInStartYear",
-                        "\(event.name) is in \(year), the year the plan starts in, so the plan counts it in full "
-                            + "after \(startDate). Remove it once it has happened: your accounts' values include "
-                            + "it then.", .events, index: index)
+                let month = event.month.flatMap { YearMonth(year: year, month: $0) }
+                if let month, month.lastDay <= startDate {
+                    warning("planner.eventBeforeStart",
+                            "\(event.name) (\(Self.name(of: month))) is before the plan's start on \(startDate), "
+                                + "so the plan leaves it out: it has happened, and your accounts' values include it.",
+                            .events, index: index)
+                    continue
+                }
+                if month.map({ $0.contains(startDate) }) ?? true {
+                    let when = month.map { "\(Self.name(of: $0)), the month" } ?? "\(year), the year"
+                    warning("planner.eventInStartYear",
+                            "\(event.name) is in \(when) the plan starts in, so the plan counts it in full "
+                                + "after \(startDate). Remove it once it has happened: your accounts' values include "
+                                + "it then." + (month == nil ? " With a month, the plan knows when it's still ahead." : ""),
+                            .events, index: index)
+                }
             }
             var bit: Int?
             if probability < 1 {
@@ -373,5 +391,12 @@ enum PlanInterpreter {
             runs: options.runs(planRuns: requestedRuns), seed: plan.simulation.effectiveSeed,
             confidence: confidence)
         return (model, issues)
+    }
+
+    /// "March 2026": a month in words, for messages.
+    static func name(of month: YearMonth) -> String {
+        let names = ["January", "February", "March", "April", "May", "June", "July", "August", "September",
+                     "October", "November", "December"]
+        return "\(names[(month.month - 1) % 12]) \(month.year)"
     }
 }

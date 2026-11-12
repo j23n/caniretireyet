@@ -134,7 +134,7 @@ struct KnownKeysTests {
 
     @Test func eventKeysCoverBothTimings() throws {
         let byAge = try JSONValue(encoding: PlanEvent(name: "a", timing: .age(1), amount: 1, probability: 1))
-        let byYear = try JSONValue(encoding: PlanEvent(name: "a", timing: .year(2030), amount: 1))
+        let byYear = try JSONValue(encoding: PlanEvent(name: "a", timing: .year(2030), amount: 1, month: 3))
         let keys = Set(byAge.objectValue!.keys).union(byYear.objectValue!.keys)
         #expect(keys == PlanEvent.knownKeys)
     }
