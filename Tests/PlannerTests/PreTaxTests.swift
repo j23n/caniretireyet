@@ -43,10 +43,13 @@ struct PreTaxTests {
             return try await Sample.run(plan, library)
         }
         let roth = try await run(0)
-        // 10,000 a year, untaxed, then 5%: V_k = (V_{k−1} − 10,000) × 1.05.
+        // 10,000 a year, untaxed, between two halves of 5%, h = √1.05 each:
+        // V_k = (V_{k−1} × h − 10,000) × h.
+        let half = 1.05.squareRoot()
+        let first = (100_000 * half - 10_000) * half
         #expect(roth.expectedPath.years.allSatisfy { $0.totalTax == 0 })
-        #expect(close(roth.expectedValue(in: 2026), 94_500))
-        #expect(close(roth.expectedValue(in: 2027), 88_725))
+        #expect(close(roth.expectedValue(in: 2026), first))
+        #expect(close(roth.expectedValue(in: 2027), (first * half - 10_000) * half))
         // The same account as taxable money pays on its gains and its income yield.
         let taxable = try await run(nil)
         #expect(taxable.expectedPath.years.allSatisfy { $0.withdrawalTax == 0 })

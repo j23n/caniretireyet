@@ -14,10 +14,12 @@ import Testing
 ///   year's tax on withdrawals, but it was paid at the start, from those
 ///   accounts, so it isn't paid from the year's money.
 /// - **Its value**: the plan assets at the start of the year (the end of the
-///   year before; the plan assets on the start date in the first year),
-///   plus what went in, less what was sold, grow by the year's returns to
-///   the end. Rebalancing moves money between classes without tax, so it
-///   changes nothing here.
+///   year before; the plan assets on the start date in the first year)
+///   grow by half the year's returns, the square root of the year's
+///   factor; what went in is added and what was sold taken off in the
+///   middle of the year; the rest grows by the other half to the end.
+///   Rebalancing moves money between classes without tax, so it changes
+///   nothing here.
 ///
 /// Every amount is for the part of the year simulated, so a part first year
 /// adds up the same way.
@@ -49,8 +51,9 @@ struct YearRow {
 
 /// How a year's returns are known, for ``expectYearsAddUp(_:start:growth:_:sourceLocation:)``.
 enum YearGrowth {
-    /// Exactly: the plan assets after the year's money moved grow by this
-    /// factor in year `t` (every class and every account alike).
+    /// Exactly: the plan assets grow by this factor over year `t` (every
+    /// class and every account alike), half before the year's money moves
+    /// and half after.
     case exactly((Int) -> Double)
     /// Between the lowest and the highest factor of the classes held in year `t`.
     case between((Int) -> ClosedRange<Double>)
@@ -59,9 +62,10 @@ enum YearGrowth {
 /// Checks that every year of `path` adds up (``YearRow``): its cash, to
 /// within the 1 unit a run may leave unpaid (`PathSimulator.tolerance`);
 /// each year starting from the end of the one before, from `start` in the
-/// first; and its end value as what was there after the year's money moved
-/// times the year's `growth`. The year a run fails isn't checked: its
-/// cash is short of the spending it set out to pay.
+/// first; and its end value as the start grown by half the year's
+/// `growth`, plus what went in and less what was sold, grown by the other
+/// half. The year a run fails isn't checked: its cash is short of the
+/// spending it set out to pay.
 func expectYearsAddUp(_ path: PathDetail, start: Double, growth: YearGrowth, _ label: String,
                       sourceLocation: SourceLocation = #_sourceLocation) {
     let years = path.failure == nil ? path.years : Array(path.years.dropLast())
@@ -76,17 +80,22 @@ func expectYearsAddUp(_ path: PathDetail, start: Double, growth: YearGrowth, _ l
                 "\(label), \(detail.year): sold \(row.sold), put in \(row.putIn)", sourceLocation: sourceLocation)
         #expect(t == 0 || detail.debtWithdrawalTax == 0, sourceLocation: sourceLocation)
         #expect(detail.debtWithdrawalTax <= detail.withdrawalTax + 1e-9, sourceLocation: sourceLocation)
-        let invested = before + detail.savings
+        // The year's end at a year's factor: half of it, the money moved, the other half.
+        func end(at factor: Double) -> Double {
+            let half = factor.squareRoot()
+            return (before * half + detail.savings) * half
+        }
         switch growth {
         case .exactly(let factor):
-            let expected = invested * factor(t)
+            let expected = end(at: factor(t))
             #expect(abs(detail.endAssets - expected) <= 1e-9 * scale,
                     "\(label), \(detail.year): ends at \(detail.endAssets), not \(expected)",
                     sourceLocation: sourceLocation)
         case .between(let range):
             let factors = range(t)
-            let low = invested * factors.lowerBound - 1e-9 * scale
-            let high = invested * factors.upperBound + 1e-9 * scale
+            let ends = [end(at: factors.lowerBound), end(at: factors.upperBound)]
+            let low = (ends.min() ?? 0) - 1e-9 * scale
+            let high = (ends.max() ?? 0) + 1e-9 * scale
             #expect(detail.endAssets >= low && detail.endAssets <= high,
                     "\(label), \(detail.year): ends at \(detail.endAssets), outside \(low)…\(high)",
                     sourceLocation: sourceLocation)

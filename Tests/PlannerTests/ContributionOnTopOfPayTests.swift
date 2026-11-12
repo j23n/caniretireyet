@@ -27,9 +27,10 @@ struct ContributionOnTopOfPayTests {
     @Test func itIsSavedOnTopOfWhatThePaySaves() async throws {
         let result = try await Sample.run(plan(pay: "60000", onTopOfPay: true), library)
         let first = try #require(result.expectedPath.years.first)
-        // The pay saves 20,000, and the fund gets its 5,000 on top.
+        // The pay saves 20,000, and the fund gets its 5,000 on top, in the
+        // middle of the year: they earn half its 5%.
         #expect(close(first.savings, 25_000))
-        #expect(close(result.expectedValue(in: 2026), (50_000 + 20_000 + 10_000 + 5_000) * 1.05))
+        #expect(close(result.expectedValue(in: 2026), 60_000 * 1.05 + 25_000 * 1.05.squareRoot()))
         // It's income from work, under its own name.
         #expect(first.income == [
             IncomeItem(kind: .work, id: "work-0", label: "Work", amount: 60_000),
@@ -44,7 +45,7 @@ struct ContributionOnTopOfPayTests {
             let first = try #require(result.expectedPath.years.first)
             // 5,000 of the 20,000 the pay saves goes into the fund.
             #expect(close(first.savings, 20_000))
-            #expect(close(result.expectedValue(in: 2026), (50_000 + 15_000 + 10_000 + 5_000) * 1.05))
+            #expect(close(result.expectedValue(in: 2026), 60_000 * 1.05 + 20_000 * 1.05.squareRoot()))
             #expect(first.income.map(\.id) == ["work-0"])
         }
     }

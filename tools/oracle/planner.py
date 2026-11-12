@@ -505,6 +505,15 @@ class Simulation:
                 elif draw * frame.fraction > TOLERANCE and assets > 0:
                     first_rate = draw / assets
 
+            # Rebalancing, then half the year's growth and inflation: the year's cash moves
+            # in the middle of it.
+            for group in self.groups:
+                if group is self.groups[0] or (group.rate is not None and group.open):
+                    self.rebalance(group, mix)
+                else:
+                    self.rebalance(group, group.own_mix)
+            self.half_year(frame)
+
             windfalls, expenses = self.events(frame)
             contributed = 0.0
             from_pay = 0.0
@@ -567,22 +576,13 @@ class Simulation:
                 result.failure = self.failure(frame, shortfall, retired_plan, working_plan, level)
                 return result
 
-            # Rebalancing, income on investments (taxed next year), the year's growth, inflation.
-            for group in self.groups:
-                if group is self.groups[0] or (group.rate is not None and group.open):
-                    self.rebalance(group, mix)
-                else:
-                    self.rebalance(group, group.own_mix)
+            # Income on investments (taxed next year), then the other half of the year.
             first = self.groups[0]
             investment_income = sum(first.values[name] * self.returns.income_yield(name) for name in self.classes) \
                 * frame.fraction
             carried_tax = self.investment_rate * investment_income
             first.paid += investment_income
-            for group in self.groups:
-                growth = self.returns.growth(group.values, frame.fraction)
-                for name in self.classes:
-                    group.values[name] *= growth[name]
-                group.paid /= (1 + self.inflation) ** frame.fraction
+            self.half_year(frame)
 
             row.spending = paid
             row.savings = contributed + max(0.0, cash) - sold
@@ -591,6 +591,15 @@ class Simulation:
                 row.spendingLevel = paid_level
             result.years.append(row)
         return result
+
+    def half_year(self, frame: Frame) -> None:
+        """Half the year's growth, each group at the median of its mix as it's held now, and
+        half its inflation off what was paid."""
+        for group in self.groups:
+            growth = self.returns.growth(group.values, frame.fraction / 2)
+            for name in self.classes:
+                group.values[name] *= growth[name]
+            group.paid /= (1 + self.inflation) ** (frame.fraction / 2)
 
     def failure(self, frame: Frame, shortfall: float, retired_plan: float, working_plan: float,
                 level: float) -> Failure:

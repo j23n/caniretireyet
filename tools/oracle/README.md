@@ -47,6 +47,12 @@ python3 tools/oracle/planner.py --library Sources/TestSupport/Resources/ExampleL
 
 It checks every plan of the library (or `--plan <id>`) at the plan's retirement age and at each `--age`, prints each value that differs, and exits with 1 when there's any; `--quiet` prints only the counts. Amounts are floats, as the planner's are, compared to a cent.
 
+`withdrawal_rates.py` works out PLANNER.md's table of [safe withdrawal rates](../../docs/PLANNER.md#safe-withdrawal-rates-implied-by-the-defaults): the share of the starting money 90% of 200,000 random futures sustain, with spending fixed and with flexible spending, for the current and the earlier default returns. It needs numpy and takes most of a minute, so it's run by hand and isn't one of the tests; `WithdrawalRateTests` checks the engine against the table it prints.
+
+```sh
+python3 tools/oracle/withdrawal_rates.py
+```
+
 **What it takes from `retire`:** the groups of accounts the run starts from (their values by class, what was paid, the age they open at and their tax on withdrawals), the start date, the birth date, and the tax paying off debts at the start left to pay. So how a library becomes those groups ([PLANNER.md](../../docs/PLANNER.md#the-portfolio)) isn't worked out again.
 
 **What it doesn't check:** the Monte Carlo runs and everything found from them (the chance of success, the earliest age, the sustainable spending, what retiring today needs), a correlation table that had to be repaired, and the saving pace.

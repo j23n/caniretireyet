@@ -48,12 +48,22 @@ class HandWorkedTests(unittest.TestCase):
         return planner.Simulation(document, begin).run()
 
     def test_spending_is_sold_and_the_rest_grows(self):
-        run = self.run_plan(plan(equity="0.05"), start([group(100_000)]))
-        # 2026: 10,000 sold, the 90,000 left grows 5%.
+        run = self.run_plan(plan(equity="0.21"), start([group(100_000)]))
+        # A year of 21% is two halves of 10%. 2026: 100,000 grows to 110,000 by the middle of
+        # the year, 10,000 is sold, and the 100,000 left grows to 110,000.
         self.assertAlmostEqual(run.years[0].sold, 10_000)
-        self.assertAlmostEqual(run.years[0].endAssets, 94_500)
-        self.assertAlmostEqual(run.years[1].endAssets, (94_500 - 10_000) * 1.05)
+        self.assertAlmostEqual(run.years[0].endAssets, 110_000)
+        self.assertAlmostEqual(run.years[1].endAssets, (110_000 * 1.1 - 10_000) * 1.1)
         self.assertIsNone(run.failure)
+
+    def test_what_was_paid_loses_half_the_years_inflation_before_a_sale(self):
+        # 100,000 paid for at par, no return, 21% inflation: by the middle of the year what was
+        # paid is worth 100,000 / 1.1, so 1/11 of what's sold is gain, taxed at 22%.
+        document = plan(tax={"investmentRate": "0.22"})
+        document["assumptions"]["inflation"] = "0.21"
+        run = self.run_plan(document, start([group(100_000)]))
+        self.assertAlmostEqual(run.years[0].sold, 10_000 / (1 - 0.22 / 11))
+        self.assertAlmostEqual(run.years[0].investmentTax, 10_000 / (1 - 0.22 / 11) * 0.22 / 11)
 
     def test_a_sale_pays_the_tax_on_its_share_of_gain(self):
         # Half of the value is gain, taxed at 26%: sold = need / (1 - 0.26 × 0.5).

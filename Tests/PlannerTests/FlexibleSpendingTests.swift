@@ -56,8 +56,9 @@ struct FlexibleSpendingTests {
         return (outcome, years)
     }
 
-    /// A crash in the first year, two flat years, a recovery, then flat.
-    static let crash: [Double] = [0.6, 1, 1, 2.5, 1, 1, 1, 1, 1, 1, 1]
+    /// A crash of 36% in the first year (two halves of −20%), two flat
+    /// years, a recovery of 125% (two halves of +50%), then flat.
+    static let crash: [Double] = [0.64, 1, 1, 2.25, 1, 1, 1, 1, 1, 1, 1]
 
     static func same(_ values: [Double], _ expected: [Double]) -> Bool {
         values.count == expected.count && zip(values, expected).allSatisfy { abs($0 - $1) < 1e-6 }
@@ -67,18 +68,20 @@ struct FlexibleSpendingTests {
 
     @Test func aCrashCutsToTheFloorAndARecoveryRestoresIt() async throws {
         let (outcome, years) = try await Self.trace(Self.plan(), equity: Self.crash)
-        // 2026: 4,000 of 100,000 is the first rate, 4%; the crash leaves 57,600.
-        // 2027: 4,000 / 57,600 = 6.9% > 4.8%: cut to 90%. 2028: 3,600 / 54,000 = 6.7%: cut to 80%, the floor.
-        // 2029: 3,200 / 50,800 = 6.3%: a cut is due at the floor. ×2.5 → 119,000.
-        // 2030: 3,200 / 119,000 = 2.7% < 3.2%: raised to 90%. 2031: 3,600 / 115,400 = 3.1%: back to 100%.
-        // Then 4,000 / 111,400 = 3.6% and later rates stay between the guardrails: no raise above 100%.
+        // 2026: 4,000 of 100,000 is the first rate, 4%. The 80,000 left by the middle
+        // of the year pay it, and the 76,000 after it fall to 60,800.
+        // 2027: 4,000 / 60,800 = 6.58% > 4.8%: cut to 90%. 2028: 3,600 / 57,200 = 6.29%: cut to 80%, the floor.
+        // 2029: 3,200 / 54,000 = 5.93%: a cut is due at the floor. (54,000 × 1.5 − 3,200) × 1.5 = 116,700.
+        // 2030: 3,200 / 116,700 = 2.74% < 3.2%: raised to 90%. 2031: 3,600 / 113,100 = 3.18%: back to 100%.
+        // Then 4,000 / 109,100 = 3.67% and later rates stay between the guardrails: no raise above 100%.
         #expect(Self.same(years.map(\.spending), [4000, 3600, 3200, 3200, 3600, 4000, 4000, 4000, 4000, 4000, 4000]))
         #expect(Self.same(years.compactMap(\.spendingLevel), [1, 0.9, 0.8, 0.8, 0.9, 1, 1, 1, 1, 1, 1]))
         #expect(Self.same(years.compactMap(\.plannedSpending), Array(repeating: 4000, count: 11)))
-        #expect(close(years[3].endAssets, 119_000))
+        #expect(close(years[0].endAssets, 60_800))
+        #expect(close(years[3].endAssets, 116_700))
         #expect(outcome.failure == nil)
         #expect(outcome.lowestLevel == 0.8 && outcome.yearsBelowPlan == 4)
-        #expect(close(outcome.finalValue, 111_400 - 5 * 4000))
+        #expect(close(outcome.finalValue, 109_100 - 5 * 4000))
     }
 
     @Test func withoutTheRuleTheSameCrashSpendsThePlansAmount() async throws {
@@ -93,21 +96,23 @@ struct FlexibleSpendingTests {
     }
 
     @Test func phasesScaleWithTheLevel() async throws {
-        // 75% of the spending from 62 (2028): the level and the phase multiply.
-        let plan = Self.plan(phases: [SpendingPhase(fromAge: 62, factor: d("0.75"))])
+        // 90% of the spending from 62 (2028): the level and the phase multiply.
+        let plan = Self.plan(phases: [SpendingPhase(fromAge: 62, factor: d("0.9"))])
         let (_, years) = try await Self.trace(plan, equity: Self.crash)
-        // 2028: 0.9 × 0.75 × 4,000 = 2,700 of 54,000 is 5% > 4.8%: cut to 80%, so 0.8 × 0.75 × 4,000 = 2,400.
-        // 2029: 2,400 / 51,600 = 4.65%: holds. ×2.5 → 123,000. 2030: 2,400 / 123,000 = 2.0%: raised to 90%.
-        #expect(Self.same(Array(years.map(\.spending).prefix(5)), [4000, 3600, 2400, 2400, 2700]))
+        // 2028: 0.9 × 0.9 × 4,000 = 3,240 of 57,200 is 5.66% > 4.8%: cut to 80%, so 0.8 × 0.9 × 4,000 = 2,880.
+        // 2029: 2,880 / 54,320 = 5.30%: a cut is due at the floor. (54,320 × 1.5 − 2,880) × 1.5 = 117,900.
+        // 2030: 2,880 / 117,900 = 2.44%: raised to 90%.
+        #expect(Self.same(Array(years.map(\.spending).prefix(5)), [4000, 3600, 2880, 2880, 3240]))
         #expect(Self.same(Array(years.compactMap(\.spendingLevel).prefix(5)), [1, 0.9, 0.8, 0.8, 0.9]))
-        #expect(Self.same(Array(years.compactMap(\.plannedSpending).prefix(3)), [4000, 4000, 3000]))
+        #expect(Self.same(Array(years.compactMap(\.plannedSpending).prefix(3)), [4000, 4000, 3600]))
+        #expect(close(years[3].endAssets, 117_900))
     }
 
     @Test func customStepsAndGuardrails() async throws {
         // Cuts of 25% down to 50%, with guardrails of 50% above and 10% below.
         let rule = FlexibleSpending(cut: d("0.25"), floor: d("0.5"), upperGuardrail: d("0.5"), lowerGuardrail: d("0.1"))
         let (_, years) = try await Self.trace(Self.plan(flexible: rule), equity: Self.crash)
-        // 2027: 6.9% > 6%: cut to 75% (3,000). 2028: 3,000 / 54,600 = 5.5%: holds.
+        // 2027: 6.58% > 6%: cut to 75% (3,000). 2028: 3,000 / 57,800 = 5.19%: holds.
         #expect(Self.same(Array(years.map(\.spending).prefix(3)), [4000, 3000, 3000]))
         #expect(Self.same(Array(years.compactMap(\.spendingLevel).prefix(3)), [1, 0.75, 0.75]))
     }
@@ -159,6 +164,23 @@ struct FlexibleSpendingTests {
         let short = try await run(broker: 3_500)
         #expect(short.expectedPath.failure
             == RunFailure(year: 2036, age: 60, reason: .locked(LockedMoney(name: "fund", accessibleFromAge: 60))))
+    }
+
+    /// A year that fails after the birthday counts what it paid: the
+    /// spending forced down before the birthday isn't part of it.
+    @Test func aYearThatFailsAfterACutCountsWhatItPaid() async throws {
+        // Born on 2 July 1976, 10,000 a year. 4,500 at the broker is 500 short before the
+        // birthday, which those days give up. The 2,000 that opens on it is 3,000 short of
+        // the 5,000 after it, more than their 1,000 of room: 4,500 and 2,000 were paid.
+        let library = Sample.library(birth: "1976-07-02", on: "2035-12-31", [
+            SampleAccount(id: "broker", balance: 4_500),
+            SampleAccount(id: "fund", kind: .pensionFund, balance: 2_000, availableFromAge: 60),
+        ])
+        var plan = Sample.plan(retire: .age(59), endAge: 70, retired: "10000", equityReturn: "0")
+        plan.spending.flexible = FlexibleSpending(enabled: true)
+        let result = try await Sample.run(plan, library)
+        #expect(result.expectedPath.failure == RunFailure(year: 2036, age: 60, reason: .depleted))
+        #expect(close(result.fan.first?.spending?.p50, 6_500))
     }
 
     @Test func aRunFailsWhenEvenTheFloorCantBePaid() async throws {
