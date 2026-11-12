@@ -152,6 +152,12 @@ public struct ProjectionWindow: Hashable, Sendable {
 /// accounts the plan counts, e.g. without your home), still by asset class:
 /// the projection is of plan assets, so the past's total meets its start at
 /// today instead of dropping onto it.
+///
+/// With an inflation index the past is in the money of the date it runs
+/// through: each date's total and asset classes are turned by how much
+/// prices grew since then, so it reads in the same money as the
+/// projection, which is in today's money. Dates before the index's first
+/// value stay as recorded (``unadjustedDates``).
 public struct HistoryChartData: Hashable, Sendable {
     /// What the past covers: net worth, or plan assets with a projection.
     public var scope: NetWorthScope
@@ -170,6 +176,12 @@ public struct HistoryChartData: Hashable, Sendable {
     /// What the history's partial totals (drawn dashed) are missing: prices,
     /// rates, accounts without a value yet; `nil` when it's complete.
     public var missing: MissingValues?
+    /// Whether the past is turned into the money of the date it runs
+    /// through, with an inflation index.
+    public var isInflationAdjusted: Bool
+    /// The dates shown as recorded although the past is adjusted: the
+    /// index has no value on or before them. Empty when nothing is adjusted.
+    public var unadjustedDates: [CalendarDate]
 
     /// - Parameters:
     ///   - projection: the main plan's portfolio fan, starting at `end`.
@@ -177,10 +189,12 @@ public struct HistoryChartData: Hashable, Sendable {
     ///   - markers: retirement, pension starts and the like.
     ///   - horizon: where the projection stops (``FutureHorizon``); all of
     ///     it when `nil`.
+    ///   - inflation: turns the past into the money of `end`; as recorded
+    ///     when `nil`.
     ///
     /// Markers outside what's shown are left out.
     public init(valuator: Valuator, through end: CalendarDate, range: HistoryRange, projection: [FanPoint] = [],
-         markers: [ChartMarker] = [], horizon: Date? = nil) {
+         markers: [ChartMarker] = [], horizon: Date? = nil, inflation: InflationIndex? = nil) {
         let scope: NetWorthScope = projection.isEmpty ? .netWorth : .planAssets
         self.scope = scope
         let start = range.years.map { end.adding(years: -$0) }
@@ -188,15 +202,24 @@ public struct HistoryChartData: Hashable, Sendable {
             .filter { date in start.map { date >= $0 } ?? true }
         // One total per date makes the line, the stacked areas and the missing values.
         let totals = dates.map { valuator.total(on: $0, in: scope) }
-        points = totals.map { total in
-            ChartPoint(date: total.date.dateValue, value: total.total.doubleValue, isComplete: total.isComplete)
+        // How much each date's money is worth in money of `end`: 1 as recorded.
+        let factors = dates.map { date in inflation.flatMap { $0.convert(1, from: date, to: end) } }
+        isInflationAdjusted = inflation != nil
+        unadjustedDates = inflation == nil ? [] : zip(dates, factors).filter { $0.1 == nil }.map(\.0)
+        let scales = factors.map { $0?.doubleValue ?? 1 }
+        points = zip(totals, scales).map { total, scale in
+            ChartPoint(date: total.date.dateValue, value: total.total.doubleValue * scale,
+                       isComplete: total.isComplete)
         }
         let byAssetClass = StackedSeries(dimension: .assetClass,
                                          breakdowns: totals.map { valuator.breakdown(of: $0, by: .assetClass) })
         // A group that's zero on every date is left out.
         stacked = byAssetClass.keys.compactMap { key in
-            let values = byAssetClass.series(for: key).chartPoints
-            guard values.contains(where: { $0.value != 0 }) else { return nil }
+            let recorded = byAssetClass.series(for: key).chartPoints
+            guard recorded.contains(where: { $0.value != 0 }) else { return nil }
+            let values = zip(recorded, scales).map { point, scale in
+                ChartPoint(date: point.date, value: point.value * scale, isComplete: point.isComplete)
+            }
             return ChartSeries(id: key.chartID, name: key.description, color: key.chartColor, points: values)
         }
         oldPrices = OldPriceSummary(valuator.oldPrices(in: scope, on: dates))
